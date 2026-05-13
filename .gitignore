@@ -1,0 +1,57 @@
+# === IDE ===
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-*
+
+# === OS ===
+.DS_Store
+Thumbs.db
+desktop.ini
+ehthumbs.db
+
+# === Backend (Python) ===
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.env
+.venv
+venv/
+ENV/
+build/
+dist/
+*.egg-info/
+.pytest_cache/
+htmlcov/
+.coverage
+
+# === Frontend (Node) ===
+node_modules/
+.svelte-kit/
+build/
+.env
+.env.*
+!.env.example
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# === Docker ===
+.docker_data/
+postgres_data/
+
+# === Reference Projects (local dev only) ===
+reference-projects/
+
+# === Data (SQLite DB — user data, passwords) ===
+data/
+backend/data/
+
+# === User uploads (game images uploaded by admin) ===
+backend/static/uploads/
+
+# === Gemini/AI agent workspace ===
+.gemini/

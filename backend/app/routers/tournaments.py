@@ -1,0 +1,1182 @@
+from fastapi import APIRouter, Depends, HTTPException, UploadFile
+from sqlalchemy.orm import Session
+from typing import List, Optional
+from pydantic import BaseModel
+from .. import models, schemas, auth, database
+from ..websockets import manager
+from ..tournament_engine import Duel, RoundRobin, FFA, MatchId
+
+router = APIRouter(prefix="/tournaments", tags=["Tournaments"])
+
+# --- Helper: download external images locally ---
+def _localize_image_url(url: str) -> str:
+    """If url is external (http), download it to static/uploads/games/ and return local path."""
+    if not url or not url.startswith(("http://", "https://")):
+        return url  # already local
+    import os, uuid, httpx
+    upload_dir = os.path.join("static", "uploads", "games")
+    os.makedirs(upload_dir, exist_ok=True)
+    try:
+        resp = httpx.get(url, timeout=10.0, follow_redirects=True)
+        if resp.status_code != 200:
+            return url  # keep external if download fails
+        ct = resp.headers.get("content-type", "")
+        ext = "png"
+        if "jpeg" in ct or "jpg" in ct:
+            ext = "jpg"
+        elif "webp" in ct:
+            ext = "webp"
+        elif "gif" in ct:
+            ext = "gif"
+        filename = f"{uuid.uuid4().hex[:12]}.{ext}"
+        filepath = os.path.join(upload_dir, filename)
+        with open(filepath, "wb") as f:
+            f.write(resp.content)
+        return f"/static/uploads/games/{filename}"
+    except Exception:
+        return url  # keep external on error
+
+# --- GAMES ---
+
+@router.get("/games", response_model=List[schemas.Game])
+def list_games(db: Session = Depends(database.get_db)):
+    """Public endpoint — no auth required."""
+    return db.query(models.Game).all()
+
+@router.post("/games", response_model=schemas.Game)
+def create_game(game: schemas.GameCreate, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
+    data = game.model_dump()
+    if data.get("image_url"):
+        data["image_url"] = _localize_image_url(data["image_url"])
+    db_game = models.Game(**data)
+    db.add(db_game)
+    db.commit()
+    db.refresh(db_game)
+    return db_game
+
+@router.put("/games/{game_id}", response_model=schemas.Game)
+def update_game(game_id: int, game_update: schemas.GameUpdate, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
+    db_game = db.query(models.Game).filter(models.Game.id == game_id).first()
+    if not db_game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    
+    update_data = game_update.model_dump(exclude_unset=True)
+    if "image_url" in update_data and update_data["image_url"]:
+        update_data["image_url"] = _localize_image_url(update_data["image_url"])
+    for key, value in update_data.items():
+        setattr(db_game, key, value)
+        
+    db.commit()
+    db.refresh(db_game)
+    return db_game
+
+@router.delete("/games/{game_id}")
+def delete_game(game_id: int, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
+    game = db.query(models.Game).filter(models.Game.id == game_id).first()
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    db.delete(game)
+    db.commit()
+    return {"status": "deleted"}
+
+@router.post("/games/localize-images")
+def localize_all_images(db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
+    """Download all external game images to local storage."""
+    games = db.query(models.Game).all()
+    count = 0
+    for g in games:
+        if g.image_url and g.image_url.startswith(("http://", "https://")):
+            new_url = _localize_image_url(g.image_url)
+            if new_url != g.image_url:
+                g.image_url = new_url
+                count += 1
+    db.commit()
+    return {"status": "ok", "localized": count}
+
+@router.post("/games/upload-image")
+async def upload_game_image(
+    file: UploadFile,
+    admin: models.User = Depends(auth.get_current_admin)
+):
+    """Upload a game cover image to local storage."""
+    import os, uuid
+    upload_dir = os.path.join("static", "uploads", "games")
+    os.makedirs(upload_dir, exist_ok=True)
+    
+    ext = file.filename.rsplit(".", 1)[-1] if "." in file.filename else "png"
+    filename = f"{uuid.uuid4().hex[:12]}.{ext}"
+    filepath = os.path.join(upload_dir, filename)
+    
+    content = await file.read()
+    with open(filepath, "wb") as f:
+        f.write(content)
+    
+    return {"url": f"/static/uploads/games/{filename}"}
+
+@router.get("/games/search-covers")
+async def search_game_covers(q: str):
+    """Search game covers via self-hosted SearXNG image search."""
+    import httpx
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                "https://search.amify-studio.fr/search",
+                params={
+                    "q": f"{q} game cover",
+                    "format": "json",
+                    "categories": "images",
+                    "language": "en",
+                },
+                timeout=8.0
+            )
+            if resp.status_code != 200:
+                return {"results": []}
+            data = resp.json()
+            seen = set()
+            results = []
+            for g in data.get("results", []):
+                img = g.get("img_src", "")
+                if not img or img in seen:
+                    continue
+                seen.add(img)
+                results.append({
+                    "name": g.get("title", ""),
+                    "image": img,
+                    "thumbnail": g.get("thumbnail_src", img),
+                })
+                if len(results) >= 12:
+                    break
+            return {"results": results}
+    except:
+        return {"results": []}
+
+# --- TOURNAMENTS ---
+
+@router.get("", response_model=List[schemas.Tournament])
+def list_tournaments(db: Session = Depends(database.get_db)):
+    """Public endpoint — no auth required (for spectator mode)."""
+    return db.query(models.Tournament).all()
+
+@router.post("", response_model=schemas.Tournament)
+async def create_tournament(
+    tournament: schemas.TournamentCreate, 
+    db: Session = Depends(database.get_db),
+    admin: models.User = Depends(auth.get_current_admin)
+):
+    game = db.query(models.Game).filter(models.Game.id == tournament.game_id).first()
+    # Fallback name to game name if empty
+    if not tournament.name:
+        tournament.name = game.name if game else f"Tournoi #{tournament.game_id}"
+    if tournament.config is None:
+        if game and game.default_config:
+            tournament.config = game.default_config
+            
+    db_tournament = models.Tournament(**tournament.model_dump())
+    db.add(db_tournament)
+    db.commit()
+    db.refresh(db_tournament)
+    
+    await manager.broadcast({"type": "tournament_created", "data": schemas.Tournament.from_orm(db_tournament).dict()})
+    return db_tournament
+
+@router.get("/{tournament_id}", response_model=schemas.Tournament)
+def get_tournament(tournament_id: int, db: Session = Depends(database.get_db)):
+    """Public endpoint — no auth required (for spectator mode)."""
+    t = db.query(models.Tournament).filter(models.Tournament.id == tournament_id).first()
+    if not t:
+        raise HTTPException(status_code=404, detail="Tournament not found")
+    return t
+
+@router.put("/{tournament_id}", response_model=schemas.Tournament)
+async def update_tournament(
+    tournament_id: int,
+    tournament_update: schemas.TournamentUpdate,
+    db: Session = Depends(database.get_db),
+    admin: models.User = Depends(auth.get_current_admin)
+):
+    db_tournament = db.query(models.Tournament).filter(models.Tournament.id == tournament_id).first()
+    if not db_tournament:
+        raise HTTPException(status_code=404, detail="Tournament not found")
+        
+    update_data = tournament_update.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(db_tournament, key, value)
+    
+    # Ensure JSON column mutations are detected by SQLAlchemy
+    from sqlalchemy.orm.attributes import flag_modified
+    for json_col in ("bracket", "config", "results"):
+        if json_col in update_data:
+            flag_modified(db_tournament, json_col)
+    
+    # If resetting to OPEN, also clear results
+    if update_data.get("status") == "OPEN":
+        db_tournament.bracket = None
+        db_tournament.results = None
+        flag_modified(db_tournament, "bracket")
+        flag_modified(db_tournament, "results")
+    
+    db.commit()
+    db.refresh(db_tournament)
+    
+    await manager.broadcast({"type": "tournament_updated", "data": schemas.Tournament.from_orm(db_tournament).dict()})
+    return db_tournament
+
+@router.delete("/{tournament_id}")
+def delete_tournament(tournament_id: int, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
+    t = db.query(models.Tournament).filter(models.Tournament.id == tournament_id).first()
+    if not t:
+        raise HTTPException(status_code=404, detail="Tournament not found")
+    db.delete(t)
+    db.commit()
+    return {"status": "deleted"}
+
+class JoinRequest(BaseModel):
+    user_id: Optional[int] = None
+
+@router.post("/{tournament_id}/join")
+def join_tournament(
+    tournament_id: int,
+    body: JoinRequest = JoinRequest(),
+    db: Session = Depends(database.get_db),
+    user: models.User = Depends(auth.get_current_user)
+):
+    tournament = db.query(models.Tournament).filter(models.Tournament.id == tournament_id).first()
+    if not tournament:
+        raise HTTPException(status_code=404, detail="Tournament not found")
+    
+    # Admin force-add: use body.user_id if provided and caller is admin
+    target_id = user.id
+    if body.user_id and user.is_admin:
+        target_id = body.user_id
+    
+    existing = db.query(models.TournamentParticipant).filter(
+        models.TournamentParticipant.tournament_id == tournament_id,
+        models.TournamentParticipant.user_id == target_id
+    ).first()
+    
+    if existing:
+        raise HTTPException(status_code=400, detail="Already joined")
+    
+    participant = models.TournamentParticipant(tournament_id=tournament_id, user_id=target_id)
+    db.add(participant)
+    db.commit()
+    return {"status": "joined"}
+
+@router.get("/{tournament_id}/participants")
+def get_tournament_participants(
+    tournament_id: int,
+    db: Session = Depends(database.get_db)
+):
+    participants = db.query(models.TournamentParticipant).filter(models.TournamentParticipant.tournament_id == tournament_id).all()
+    users = db.query(models.User).filter(models.User.id.in_([p.user_id for p in participants])).all()
+    user_map = {u.id: {"username": u.username, "team_name": u.team_name} for u in users}
+    
+    return [
+        {"id": p.id, "user_id": p.user_id, "username": user_map.get(p.user_id, {}).get("username", "Unknown"), "team_name": user_map.get(p.user_id, {}).get("team_name")} 
+        for p in participants
+    ]
+
+@router.delete("/{tournament_id}/participants/{user_id}")
+def delete_tournament_participant(
+    tournament_id: int,
+    user_id: int,
+    db: Session = Depends(database.get_db),
+    admin: models.User = Depends(auth.get_current_admin)
+):
+    participant = db.query(models.TournamentParticipant).filter(
+        models.TournamentParticipant.tournament_id == tournament_id,
+        models.TournamentParticipant.user_id == user_id
+    ).first()
+    if not participant:
+        raise HTTPException(status_code=404, detail="Participant not found")
+    
+    db.delete(participant)
+    db.commit()
+    return {"status": "deleted"}
+
+@router.post("/{tournament_id}/start")
+async def start_tournament(
+    tournament_id: int,
+    db: Session = Depends(database.get_db),
+    admin: models.User = Depends(auth.get_current_admin)
+):
+    import random
+    tournament = db.query(models.Tournament).filter(models.Tournament.id == tournament_id).first()
+    if not tournament:
+        raise HTTPException(status_code=404, detail="Tournament not found")
+    
+    config = tournament.config or {}
+    bracket_type = config.get("bracket_type", "single_elim")
+    use_teams = config.get("use_teams", False)
+    
+    if use_teams:
+        teams = db.query(models.TournamentTeam).filter(models.TournamentTeam.tournament_id == tournament_id).all()
+        teams_with_members = [t for t in teams if len(t.members) > 0]
+        if len(teams_with_members) < 2:
+            raise HTTPException(status_code=400, detail="Need at least 2 teams with members")
+        random.shuffle(teams_with_members)
+        opponents = [{"id": -t.id, "label": t.name} for t in teams_with_members]
+    else:
+        participants = list(tournament.participants)
+        if len(participants) < 2:
+            raise HTTPException(status_code=400, detail="Need at least 2 participants")
+        random.shuffle(participants)
+        opponents = [{"id": p.user_id, "label": None} for p in participants]
+    
+    num = len(opponents)
+    
+    if bracket_type == "round_robin":
+        engine = RoundRobin(num)
+    elif bracket_type == "double_elim":
+        engine = Duel(num, double_elim=True)
+    elif bracket_type == "ffa":
+        engine = FFA(num)
+    else:
+        engine = Duel(num, double_elim=False)
+    
+    if bracket_type == "ffa":
+        # FFA: single match with all players
+        engine.matches[0].p = [o["id"] for o in opponents]
+    else:
+        # Seed R1
+        seed_idx = 0
+        for match in engine.matches:
+            if match.id.r == 1 and match.id.s == 1:
+                if match.p[0] == 0 and seed_idx < len(opponents):
+                    match.p[0] = opponents[seed_idx]["id"]
+                    seed_idx += 1
+                if match.p[1] == 0 and seed_idx < len(opponents):
+                    match.p[1] = opponents[seed_idx]["id"]
+                    seed_idx += 1
+    
+    if bracket_type == "round_robin":
+        for match in engine.matches:
+            for slot in range(2):
+                seed = match.p[slot]
+                if 1 <= seed <= len(opponents):
+                    match.p[slot] = opponents[seed - 1]["id"]
+                else:
+                    match.p[slot] = 0
+    
+    bracket_data = []
+    for m in engine.matches:
+        bracket_data.append({"id": {"s": m.id.s, "r": m.id.r, "m": m.id.m}, "p": list(m.p), "score": [0] * len(m.p)})
+    
+    if bracket_type not in ("round_robin", "ffa"):
+        # Multi-pass BYE resolution using feeder-aware check
+        changed = True
+        while changed:
+            changed = False
+            for match in bracket_data:
+                p0, p1 = match["p"][0], match["p"][1]
+                s0, s1 = match["score"][0], match["score"][1]
+                if (s0 != 0 or s1 != 0):
+                    continue
+                if p0 != 0 and p1 == 0 and _is_genuine_bye(bracket_data, match):
+                    match["score"] = [1, 0]
+                    _advance_bracket(bracket_data, match, bracket_type)
+                    changed = True
+                elif p1 != 0 and p0 == 0 and _is_genuine_bye(bracket_data, match):
+                    match["score"] = [0, 1]
+                    _advance_bracket(bracket_data, match, bracket_type)
+                    changed = True
+    
+    if use_teams:
+        config["_team_map"] = {str(-t.id): t.name for t in teams_with_members}
+        tournament.config = config
+    
+    tournament.bracket = bracket_data
+    tournament.status = "RUNNING"
+    from sqlalchemy.orm.attributes import flag_modified
+    flag_modified(tournament, "config")
+    db.commit()
+    
+    await manager.broadcast({"type": "tournament_started", "id": tournament_id})
+    return {"status": "started", "matches_count": len(bracket_data)}
+
+# --- TEAMS ---
+
+class TeamCreate(BaseModel):
+    name: str
+
+class TeamMemberAdd(BaseModel):
+    user_id: int
+
+@router.get("/{tournament_id}/teams")
+def get_teams(tournament_id: int, db: Session = Depends(database.get_db)):
+    teams = db.query(models.TournamentTeam).filter(models.TournamentTeam.tournament_id == tournament_id).all()
+    result = []
+    for t in teams:
+        members = db.query(models.TournamentTeamMember).filter(models.TournamentTeamMember.team_id == t.id).all()
+        users = db.query(models.User).filter(models.User.id.in_([m.user_id for m in members])).all()
+        user_map = {u.id: u.username for u in users}
+        result.append({
+            "id": t.id, "name": t.name, "created_by": t.created_by,
+            "members": [{"user_id": m.user_id, "username": user_map.get(m.user_id, "?")} for m in members]
+        })
+    return result
+
+@router.post("/{tournament_id}/teams")
+async def create_team(tournament_id: int, body: TeamCreate, db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
+    team = models.TournamentTeam(tournament_id=tournament_id, name=body.name, created_by=user.id)
+    db.add(team)
+    db.commit()
+    db.refresh(team)
+    await manager.broadcast({"type": "teams_updated", "tournament_id": tournament_id})
+    return {"id": team.id, "name": team.name, "created_by": user.id, "members": []}
+
+@router.delete("/{tournament_id}/teams/{team_id}")
+async def delete_team(tournament_id: int, team_id: int, db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
+    team = db.query(models.TournamentTeam).filter(models.TournamentTeam.id == team_id, models.TournamentTeam.tournament_id == tournament_id).first()
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+    # Only creator or admin can delete
+    if not user.is_admin and team.created_by != user.id:
+        raise HTTPException(status_code=403, detail="Only the team creator or an admin can delete this team")
+    db.delete(team)
+    db.commit()
+    await manager.broadcast({"type": "teams_updated", "tournament_id": tournament_id})
+    return {"status": "deleted"}
+
+@router.post("/{tournament_id}/teams/{team_id}/members")
+async def add_team_member(tournament_id: int, team_id: int, body: TeamMemberAdd, db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
+    # Non-admin can only add themselves
+    if not user.is_admin and body.user_id != user.id:
+        raise HTTPException(status_code=403, detail="You can only add yourself to a team")
+    # Must be a participant to join a team
+    if not user.is_admin:
+        is_participant = db.query(models.TournamentParticipant).filter(
+            models.TournamentParticipant.tournament_id == tournament_id,
+            models.TournamentParticipant.user_id == body.user_id
+        ).first()
+        if not is_participant:
+            raise HTTPException(status_code=400, detail="You must join the tournament first")
+    all_teams = db.query(models.TournamentTeam).filter(models.TournamentTeam.tournament_id == tournament_id).all()
+    for t in all_teams:
+        existing = db.query(models.TournamentTeamMember).filter(models.TournamentTeamMember.team_id == t.id, models.TournamentTeamMember.user_id == body.user_id).first()
+        if existing:
+            db.delete(existing)
+    # AXE-05: Enforce team_size constraint
+    tournament = db.query(models.Tournament).filter(models.Tournament.id == tournament_id).first()
+    max_size = (tournament.config or {}).get("team_size", 99) if tournament else 99
+    current_count = db.query(models.TournamentTeamMember).filter(models.TournamentTeamMember.team_id == team_id).count()
+    if current_count >= max_size:
+        raise HTTPException(status_code=400, detail=f"Team is full ({max_size} max)")
+    member = models.TournamentTeamMember(team_id=team_id, user_id=body.user_id)
+    db.add(member)
+    db.commit()
+    await manager.broadcast({"type": "teams_updated", "tournament_id": tournament_id})
+    return {"status": "added"}
+
+@router.delete("/{tournament_id}/teams/{team_id}/members/{user_id}")
+async def remove_team_member(tournament_id: int, team_id: int, user_id: int, db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
+    # Non-admin can only remove themselves
+    if not user.is_admin and user_id != user.id:
+        raise HTTPException(status_code=403, detail="You can only remove yourself from a team")
+    member = db.query(models.TournamentTeamMember).filter(models.TournamentTeamMember.team_id == team_id, models.TournamentTeamMember.user_id == user_id).first()
+    if not member:
+        raise HTTPException(status_code=404, detail="Member not found")
+    db.delete(member)
+    db.commit()
+    await manager.broadcast({"type": "teams_updated", "tournament_id": tournament_id})
+    return {"status": "removed"}
+
+@router.post("/{tournament_id}/teams/randomize")
+def randomize_teams(tournament_id: int, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
+    import random
+    teams = db.query(models.TournamentTeam).filter(models.TournamentTeam.tournament_id == tournament_id).all()
+    if not teams:
+        raise HTTPException(status_code=400, detail="No teams created")
+    for t in teams:
+        db.query(models.TournamentTeamMember).filter(models.TournamentTeamMember.team_id == t.id).delete()
+    tournament = db.query(models.Tournament).filter(models.Tournament.id == tournament_id).first()
+    max_size = (tournament.config or {}).get("team_size", 99)
+    participants = db.query(models.TournamentParticipant).filter(models.TournamentParticipant.tournament_id == tournament_id).all()
+    user_ids = [p.user_id for p in participants]
+    random.shuffle(user_ids)
+    team_idx = 0
+    for uid in user_ids:
+        team = teams[team_idx % len(teams)]
+        db.add(models.TournamentTeamMember(team_id=team.id, user_id=uid))
+        team_idx += 1
+    db.commit()
+    return {"status": "randomized"}
+
+# --- SCORE ---
+
+class ScoreUpdate(BaseModel):
+    match_s: int
+    match_r: int
+    match_m: int
+    score: List[int]
+
+def _find_match(bracket, s, r, m):
+    for match in bracket:
+        mid = match["id"]
+        if mid["s"] == s and mid["r"] == r and mid["m"] == m:
+            return match
+    return None
+
+def _get_max_round(bracket, section=None):
+    matches = bracket if section is None else [m for m in bracket if m["id"]["s"] == section]
+    return max((m["id"]["r"] for m in matches), default=0)
+
+def _get_feeder(bd, s, r, m, slot):
+    """Get the match that feeds into the given slot."""
+    if s == 1:  # WB
+        # Special case: GF (last WB round) slot 1 comes from LB Final
+        max_wb = _get_max_round(bd, section=1)
+        if r == max_wb and slot == 1:
+            max_lb = _get_max_round(bd, section=2)
+            return _find_match(bd, 2, max_lb, 1) if max_lb > 0 else None
+        return _find_match(bd, 1, r - 1, 2 * m - 1 + slot)
+    if s == 2:  # LB
+        if r % 2 == 0:  # Even LB: slot0 from LB prev, slot1 from WB
+            if slot == 0:
+                return _find_match(bd, 2, r - 1, m)
+            else:
+                wb_r = r // 2 + 1
+                return _find_match(bd, 1, wb_r, m)
+        else:  # Odd LB (>1): halving from prev even
+            return _find_match(bd, 2, r - 1, 2 * m - 1 + slot)
+    return None
+
+def _is_match_dead(bd, match):
+    """Recursively check if a [0,0] match will NEVER produce any real players."""
+    if match["p"][0] != 0 or match["p"][1] != 0:
+        return False  # Has at least one real player → alive
+    mid = match["id"]
+    if mid["r"] == 1:
+        return True  # R1 [0,0] = genuine double-BYE (seed slots)
+    # Check both feeders recursively
+    for slot in [0, 1]:
+        feeder = _get_feeder(bd, mid["s"], mid["r"], mid["m"], slot)
+        if feeder is None:
+            continue
+        # Special: LB even round slot 1 = WB dropout (need the LOSER, not winner)
+        if mid["s"] == 2 and mid["r"] % 2 == 0 and slot == 1:
+            # WB match [player, 0] → loser is 0 → this slot is dead
+            if feeder["p"][0] != 0 and feeder["p"][1] != 0:
+                return False  # Two real players → real loser → alive
+            # [player, 0] or [0, player] → loser is 0 → dead from this slot
+            # [0, 0] → check recursively
+            if feeder["p"][0] == 0 and feeder["p"][1] == 0:
+                if not _is_match_dead(bd, feeder):
+                    return False
+            continue  # This slot is dead (BYE has no real loser)
+        # Normal case: need WINNER from feeder
+        if not _is_match_dead(bd, feeder):
+            return False  # Feeder is alive → this match will get a player
+    return True
+
+def _is_genuine_bye(bd, match):
+    """Check if a [player,0] or [0,player] match is a true BYE."""
+    mid = match["id"]
+    empty_slot = 0 if match["p"][0] == 0 else 1
+    
+    if mid["r"] == 1 and mid["s"] == 1:
+        return True  # WB R1: any 0 is a seed BYE
+    
+    if mid["r"] == 1 and mid["s"] == 2:
+        # LB R1: feeder is the LOSER of WB R1 M(2*m - 1 + slot)
+        wb_feeder_m = 2 * mid["m"] - 1 + empty_slot
+        feeder = _find_match(bd, 1, 1, wb_feeder_m)
+        if feeder is None:
+            return True
+        if feeder["p"][0] == 0 and feeder["p"][1] == 0:
+            return True
+        if feeder["p"][0] == 0 or feeder["p"][1] == 0:
+            return True
+        return False
+    
+    # R2+: check feeder match for the empty slot
+    feeder = _get_feeder(bd, mid["s"], mid["r"], mid["m"], empty_slot)
+    if feeder is None:
+        return True  # No feeder → genuine BYE
+    # If feeder has two real players → someone will come → NOT a BYE
+    if feeder["p"][0] != 0 and feeder["p"][1] != 0:
+        return False
+    # If feeder is [0,0], use recursive dead-check
+    if feeder["p"][0] == 0 and feeder["p"][1] == 0:
+        return _is_match_dead(bd, feeder)
+    # Feeder has [player, 0] — one real, one empty
+    # For LB even rounds slot 1: feeder is WB match, we need its LOSER
+    if mid["s"] == 2 and mid["r"] % 2 == 0 and empty_slot == 1:
+        return True  # WB match [player, 0] → loser is 0
+    # For WB: [player, 0] feeder means the BYE winner is real → someone WILL come
+    if mid["s"] == 1:
+        return False
+    # For LB: check if scored
+    if mid["s"] == 2:
+        fs = feeder["score"]
+        if fs[0] == 0 and fs[1] == 0:
+            return False  # Not scored yet → wait
+    return False
+
+def _advance_bracket(bracket, scored_match, bracket_type="single_elim", lower_is_better=False):
+    if bracket_type == "round_robin":
+        return False
+    score = scored_match.get("score", [0, 0])
+    if score[0] == score[1]:
+        return False
+    # Require both scores > 0 for real matches (not byes)
+    p0_id = scored_match["p"][0]
+    p1_id = scored_match["p"][1]
+    is_bye = (p0_id == 0 or p1_id == 0)
+    if not is_bye and (score[0] == 0 or score[1] == 0):
+        return False
+    mid = scored_match["id"]
+    winner_idx = (0 if score[0] < score[1] else 1) if lower_is_better else (0 if score[0] > score[1] else 1)
+    loser_idx = 1 - winner_idx
+    winner_id = scored_match["p"][winner_idx]
+    loser_id = scored_match["p"][loser_idx]
+    p0 = scored_match["p"][0]
+    p1 = scored_match["p"][1]
+
+    max_wb = _get_max_round(bracket, section=1)
+    # In double_elim, GF is the last WB round (p+1)
+    wb_final_r = max_wb - 1 if bracket_type == "double_elim" else max_wb
+
+    if mid["s"] == 1:  # Winners Bracket match scored
+        if mid["r"] < wb_final_r:
+            # Winner advances in WB
+            next_r = mid["r"] + 1
+            next_m = (mid["m"] + 1) // 2
+            slot = (mid["m"] - 1) % 2
+            nm = _find_match(bracket, 1, next_r, next_m)
+            if nm:
+                _clear_player(nm, p0)
+                _clear_player(nm, p1)
+                nm["p"][slot] = winner_id
+        elif mid["r"] == wb_final_r and bracket_type == "double_elim":
+            # WB final winner → Grand Final slot 0
+            gf = _find_match(bracket, 1, max_wb, 1)
+            if gf:
+                _clear_player(gf, p0)
+                _clear_player(gf, p1)
+                gf["p"][0] = winner_id
+        
+        if bracket_type == "double_elim" and loser_id and loser_id != 0:
+            # Standard DE: WB R1 losers pair in LB R1, WB R(k>=2) losers drop to LB R(2*(k-1))
+            if mid["r"] < wb_final_r:
+                if mid["r"] == 1:
+                    # WB R1 losers pair up in LB R1 (odd round)
+                    lb_r = 1
+                    lb_m = (mid["m"] + 1) // 2
+                    slot = (mid["m"] - 1) % 2
+                else:
+                    # WB R(k) losers → LB R(2*(k-1)) as slot 1 (WB dropdown opponents)
+                    lb_r = 2 * (mid["r"] - 1)
+                    lb_m = mid["m"]  # direct 1:1 mapping
+                    slot = 1  # WB dropdown always fills slot 1
+                lm = _find_match(bracket, 2, lb_r, lb_m)
+                if lm:
+                    _clear_player(lm, p0)
+                    _clear_player(lm, p1)
+                    if lm["p"][slot] == 0:
+                        lm["p"][slot] = loser_id
+                    elif lm["p"][0] == 0:
+                        lm["p"][0] = loser_id
+                    elif lm["p"][1] == 0:
+                        lm["p"][1] = loser_id
+            elif mid["r"] == wb_final_r:
+                # WB Final loser → last LB round (even) as opponent
+                max_lb = _get_max_round(bracket, section=2)
+                lm = _find_match(bracket, 2, max_lb, 1)
+                if lm:
+                    _clear_player(lm, p0)
+                    _clear_player(lm, p1)
+                    if lm["p"][1] == 0:
+                        lm["p"][1] = loser_id
+                    elif lm["p"][0] == 0:
+                        lm["p"][0] = loser_id
+    
+    if mid["s"] == 2:  # Losers Bracket match scored
+        max_lb = _get_max_round(bracket, section=2)
+        if mid["r"] < max_lb:
+            # LB winner advances to next LB round
+            next_r = mid["r"] + 1
+            if mid["r"] % 2 == 1:
+                # Odd → Even: same match count, winner stays in same position
+                next_m = mid["m"]
+                slot = 0  # LB internal: winner goes to slot 0, WB dropdown fills slot 1
+            else:
+                # Even → Odd: halving (like WB)
+                next_m = (mid["m"] + 1) // 2
+                slot = (mid["m"] - 1) % 2
+            nm = _find_match(bracket, 2, next_r, next_m)
+            if nm:
+                _clear_player(nm, p0)
+                _clear_player(nm, p1)
+                if nm["p"][slot] == 0:
+                    nm["p"][slot] = winner_id
+                elif nm["p"][0] == 0:
+                    nm["p"][0] = winner_id
+                elif nm["p"][1] == 0:
+                    nm["p"][1] = winner_id
+        elif mid["r"] == max_lb and bracket_type == "double_elim":
+            # LB Final winner → Grand Final slot 1
+            gf = _find_match(bracket, 1, max_wb, 1)
+            if gf:
+                _clear_player(gf, p0)
+                _clear_player(gf, p1)
+                gf["p"][1] = winner_id
+    return True
+
+
+def _clear_player(match, player_id):
+    """Remove a player from a match's slots (for score correction)."""
+    if not player_id or player_id == 0:
+        return
+    for i in range(len(match["p"])):
+        if match["p"][i] == player_id:
+            match["p"][i] = 0
+            # Also reset score if clearing
+            if all(p == 0 for p in match["p"]):
+                match["score"] = [0] * len(match["score"])
+
+
+def _rollback_advancement(bracket, match, bracket_type, lower_is_better=False):
+    """Recursively undo all downstream effects of a previously scored match."""
+    old_score = match.get("score", [0, 0])
+    if old_score[0] == 0 and old_score[1] == 0:
+        return  # Never scored, nothing to rollback
+    if old_score[0] == old_score[1]:
+        return  # Tie, no advancement happened
+    # If not a bye and one score is 0, no advancement happened
+    is_bye = (match["p"][0] == 0 or match["p"][1] == 0)
+    if not is_bye and (old_score[0] == 0 or old_score[1] == 0):
+        return
+
+    mid = match["id"]
+    p0, p1 = match["p"][0], match["p"][1]
+    old_winner_idx = (0 if old_score[0] < old_score[1] else 1) if lower_is_better else (0 if old_score[0] > old_score[1] else 1)
+    old_loser_idx = 1 - old_winner_idx
+    old_winner = match["p"][old_winner_idx]
+    old_loser = match["p"][old_loser_idx]
+
+    max_wb = _get_max_round(bracket, section=1)
+    wb_final_r = max_wb - 1 if bracket_type == "double_elim" else max_wb
+
+    downstream = []  # list of (downstream_match, player_to_clear)
+
+    if mid["s"] == 1:  # WB match
+        # Winner went to next WB round
+        if mid["r"] < wb_final_r:
+            next_r = mid["r"] + 1
+            next_m = (mid["m"] + 1) // 2
+            nm = _find_match(bracket, 1, next_r, next_m)
+            if nm:
+                downstream.append((nm, old_winner))
+        elif mid["r"] == wb_final_r and bracket_type == "double_elim":
+            gf = _find_match(bracket, 1, max_wb, 1)
+            if gf:
+                downstream.append((gf, old_winner))
+
+        # In DE, loser was sent to LB
+        if bracket_type == "double_elim" and old_loser and old_loser != 0:
+            if mid["r"] < wb_final_r:
+                if mid["r"] == 1:
+                    lb_r = 1
+                    lb_m = (mid["m"] + 1) // 2
+                else:
+                    lb_r = 2 * (mid["r"] - 1)
+                    lb_m = mid["m"]
+                lm = _find_match(bracket, 2, lb_r, lb_m)
+                if lm:
+                    downstream.append((lm, old_loser))
+            elif mid["r"] == wb_final_r:
+                max_lb = _get_max_round(bracket, section=2)
+                lm = _find_match(bracket, 2, max_lb, 1)
+                if lm:
+                    downstream.append((lm, old_loser))
+
+    elif mid["s"] == 2:  # LB match
+        max_lb = _get_max_round(bracket, section=2)
+        if mid["r"] < max_lb:
+            next_r = mid["r"] + 1
+            if mid["r"] % 2 == 1:
+                next_m = mid["m"]
+            else:
+                next_m = (mid["m"] + 1) // 2
+            nm = _find_match(bracket, 2, next_r, next_m)
+            if nm:
+                downstream.append((nm, old_winner))
+        elif mid["r"] == max_lb and bracket_type == "double_elim":
+            gf = _find_match(bracket, 1, max_wb, 1)
+            if gf:
+                downstream.append((gf, old_winner))
+
+    # Recursively rollback each downstream match, then clear the player
+    for nm, player_id in downstream:
+        if player_id and player_id != 0 and player_id in nm["p"]:
+            # First rollback any advancement FROM the downstream match
+            _rollback_advancement(bracket, nm, bracket_type, lower_is_better)
+            # Then clear the player and reset the match score
+            _clear_player(nm, player_id)
+            nm["score"] = [0] * len(nm["score"])
+
+@router.put("/{tournament_id}/score")
+async def update_match_score(
+    tournament_id: int,
+    body: ScoreUpdate,
+    db: Session = Depends(database.get_db),
+    user: models.User = Depends(auth.get_current_user)
+):
+    tournament = db.query(models.Tournament).filter(models.Tournament.id == tournament_id).first()
+    if not tournament or not tournament.bracket:
+        raise HTTPException(status_code=404, detail="Tournament or bracket not found")
+    # Allow admin or match participant in this tournament
+    if not user.is_admin:
+        participant = db.query(models.TournamentParticipant).filter(
+            models.TournamentParticipant.tournament_id == tournament_id,
+            models.TournamentParticipant.user_id == user.id
+        ).first()
+        if not participant:
+            raise HTTPException(status_code=403, detail="Only participants or admins can update scores")
+    
+    config = tournament.config or {}
+    bracket_type = config.get("bracket_type", "single_elim")
+    bracket = list(tournament.bracket)
+    scored_match = _find_match(bracket, body.match_s, body.match_r, body.match_m)
+    if not scored_match:
+        raise HTTPException(status_code=404, detail="Match not found")
+    
+    # Non-admin: verify player is in this specific match
+    if not user.is_admin:
+        user_in_match = user.id in scored_match["p"]
+        # Team mode: check if user is a member of a team in this match
+        if not user_in_match and config.get("use_teams"):
+            for pid in scored_match["p"]:
+                if pid < 0:
+                    # pid is -team_id, so team_id = abs(pid)
+                    team_id = abs(pid)
+                    member = db.query(models.TournamentTeamMember).filter(
+                        models.TournamentTeamMember.team_id == team_id,
+                        models.TournamentTeamMember.user_id == user.id
+                    ).first()
+                    if member:
+                        user_in_match = True
+                        break
+        if not user_in_match:
+            raise HTTPException(status_code=403, detail="You can only update scores for matches you are playing in")
+    # Rollback previous advancement if match was already scored (score correction)
+    lower_is_better = config.get("lower_score_is_better", False)
+    if bracket_type not in ("round_robin", "ffa"):
+        _rollback_advancement(bracket, scored_match, bracket_type, lower_is_better)
+    
+    scored_match["score"] = body.score
+    if bracket_type not in ("round_robin", "ffa"):
+        _advance_bracket(bracket, scored_match, bracket_type, lower_is_better)
+        # Post-advance BYE resolution: auto-advance any newly created BYE matches
+        bye_changed = True
+        while bye_changed:
+            bye_changed = False
+            for m in bracket:
+                p0, p1 = m["p"][0], m["p"][1]
+                s0, s1 = m["score"][0], m["score"][1]
+                already_scored = (s0 != 0 or s1 != 0)
+                if already_scored:
+                    continue
+                if p0 != 0 and p1 == 0 and _is_genuine_bye(bracket, m):
+                    m["score"] = [1, 0]
+                    _advance_bracket(bracket, m, bracket_type, lower_is_better)
+                    bye_changed = True
+                elif p1 != 0 and p0 == 0 and _is_genuine_bye(bracket, m):
+                    m["score"] = [0, 1]
+                    _advance_bracket(bracket, m, bracket_type, lower_is_better)
+                    bye_changed = True
+    
+    tournament_done = False
+    if bracket_type == "round_robin":
+        all_scored = all((m["score"][0] != 0 or m["score"][1] != 0) for m in bracket)
+        if all_scored:
+            tournament_done = True
+    elif bracket_type == "ffa":
+        # FFA: never auto-done from scoring — admin explicitly ends or advances
+        pass
+    else:
+        # Both single_elim and double_elim: GF is the last WB round
+        max_round = _get_max_round(bracket, section=1)
+        final = _find_match(bracket, 1, max_round, 1)
+        if final and final.get("score") and final["score"][0] != final["score"][1]:
+            tournament_done = True
+    
+    if tournament_done:
+        tournament.status = "DONE"
+    
+    tournament.bracket = bracket
+    from sqlalchemy.orm.attributes import flag_modified
+    flag_modified(tournament, "bracket")
+    db.commit()
+    
+    await manager.broadcast({"type": "score_updated", "tournament_id": tournament_id, "done": tournament_done, "match": {"r": body.match_r, "m": body.match_m, "p1": scored_match["p"][0], "p2": scored_match["p"][1], "score": body.score}})
+    return {"status": "updated", "advanced": True, "done": tournament_done}
+
+
+class FFAAdvance(BaseModel):
+    keep_count: int  # Number of top players to advance
+
+@router.post("/{tournament_id}/ffa-advance")
+async def ffa_advance_round(
+    tournament_id: int,
+    body: FFAAdvance,
+    db: Session = Depends(database.get_db),
+    admin: models.User = Depends(auth.get_current_admin)
+):
+    """Create the next FFA round with the top N players from the current round."""
+    tournament = db.query(models.Tournament).filter(models.Tournament.id == tournament_id).first()
+    if not tournament or not tournament.bracket:
+        raise HTTPException(status_code=404, detail="Tournament not found")
+    
+    config = tournament.config or {}
+    if config.get("bracket_type") != "ffa":
+        raise HTTPException(status_code=400, detail="Not an FFA tournament")
+    
+    bracket = list(tournament.bracket)
+    # Find latest round
+    max_r = max(m["id"]["r"] for m in bracket)
+    current = _find_match(bracket, 1, max_r, 1)
+    if not current:
+        raise HTTPException(status_code=404, detail="Current round not found")
+    
+    # Validate scores exist
+    scores = current.get("score", [])
+    players = current.get("p", [])
+    if not all(s > 0 for s in scores):
+        raise HTTPException(status_code=400, detail="All placements must be entered before advancing")
+    
+    if body.keep_count < 2:
+        raise HTTPException(status_code=400, detail="Must keep at least 2 players")
+    if body.keep_count >= len(players):
+        raise HTTPException(status_code=400, detail="Must eliminate at least 1 player")
+    
+    # Sort by placement (score = ranking position, lower = better)
+    paired = list(zip(players, scores))
+    paired.sort(key=lambda x: x[1])
+    advancing = [p for p, s in paired[:body.keep_count]]
+    
+    # Create next round
+    next_r = max_r + 1
+    new_match = {"id": {"s": 1, "r": next_r, "m": 1}, "p": advancing, "score": [0] * len(advancing)}
+    bracket.append(new_match)
+    
+    tournament.bracket = bracket
+    from sqlalchemy.orm.attributes import flag_modified
+    flag_modified(tournament, "bracket")
+    db.commit()
+    
+    await manager.broadcast({"type": "ffa_advanced", "tournament_id": tournament_id, "round": next_r})
+    return {"status": "advanced", "round": next_r, "players": len(advancing)}
+
+
+@router.post("/{tournament_id}/ffa-finish")
+async def ffa_finish(
+    tournament_id: int,
+    db: Session = Depends(database.get_db),
+    admin: models.User = Depends(auth.get_current_admin)
+):
+    """Mark an FFA tournament as DONE (admin declares final results)."""
+    tournament = db.query(models.Tournament).filter(models.Tournament.id == tournament_id).first()
+    if not tournament:
+        raise HTTPException(status_code=404, detail="Tournament not found")
+    tournament.status = "DONE"
+    db.commit()
+    await manager.broadcast({"type": "score_updated", "tournament_id": tournament_id, "done": True})
+    return {"status": "done"}
+
+
+@router.post("/{tournament_id}/close")
+async def close_tournament(
+    tournament_id: int,
+    db: Session = Depends(database.get_db),
+    admin: models.User = Depends(auth.get_current_admin)
+):
+    """Close a tournament: calculate standings, distribute points, set CLOSED."""
+    tournament = db.query(models.Tournament).filter(models.Tournament.id == tournament_id).first()
+    if not tournament:
+        raise HTTPException(status_code=404, detail="Tournament not found")
+    if tournament.status not in ("DONE", "RUNNING"):
+        raise HTTPException(status_code=400, detail="Tournament must be DONE or RUNNING to close")
+    
+    config = tournament.config or {}
+    bracket_type = config.get("bracket_type", "single_elim")
+    use_teams = config.get("use_teams", False)
+    
+    # Points config (from tournament config, with defaults)
+    pts_winner = config.get("pts_winner", 10)
+    pts_second = config.get("pts_second", 6)
+    pts_third = config.get("pts_third", 4)
+    pts_participation = config.get("pts_participation", 1)
+    pts_per_goal = config.get("pts_per_goal", 0.5)
+    
+    bracket = tournament.bracket or []
+    
+    # --- Calculate standings ---
+    standings = _compute_standings(bracket, bracket_type, config.get("lower_score_is_better", False))
+    
+    # --- Calculate score points per player/team ---
+    lower_is_better = config.get("lower_score_is_better", False)
+    score_totals = {}  # player_id -> total score points
+    for match in bracket:
+        players = match.get("p", [])
+        scores = match.get("score", [])
+        if lower_is_better:
+            max_score = max((s for s in scores if s > 0), default=0)
+        for i, pid in enumerate(players):
+            if pid and pid != 0 and i < len(scores):
+                raw = max(0, scores[i])
+                if lower_is_better and raw > 0:
+                    score_totals[pid] = score_totals.get(pid, 0) + (max_score + 1 - raw)
+                else:
+                    score_totals[pid] = score_totals.get(pid, 0) + raw
+    
+    # --- Build results & distribute points ---
+    results = []
+    placement_pts_map = {1: pts_winner, 2: pts_second, 3: pts_third}
+    
+    # Map team IDs to user IDs for team mode
+    team_members_map = {}
+    if use_teams:
+        teams = db.query(models.TournamentTeam).filter(
+            models.TournamentTeam.tournament_id == tournament_id
+        ).all()
+        for team in teams:
+            members = db.query(models.TournamentTeamMember).filter(
+                models.TournamentTeamMember.team_id == team.id
+            ).all()
+            team_members_map[-team.id] = [m.user_id for m in members]
+    
+    participants = db.query(models.TournamentParticipant).filter(
+        models.TournamentParticipant.tournament_id == tournament_id
+    ).all()
+    participant_uids = {p.user_id for p in participants}
+    
+    # Track who got placement points
+    placed_uids = set()
+    
+    for rank, entity_id in standings:
+        placement = placement_pts_map.get(rank, 0)
+        score_pts = round(score_totals.get(entity_id, 0) * pts_per_goal, 1)
+        total = placement + pts_participation + score_pts
+        
+        if use_teams and entity_id < 0:
+            # Team: give points to all members
+            member_uids = team_members_map.get(entity_id, [])
+            team_name = config.get("_team_map", {}).get(str(entity_id), f"Team {abs(entity_id)}")
+            results.append({
+                "rank": rank, "entity_id": entity_id, "name": team_name,
+                "placement_pts": placement, "score_pts": score_pts,
+                "participation_pts": pts_participation, "total": total
+            })
+            for uid in member_uids:
+                user = db.query(models.User).filter(models.User.id == uid).first()
+                if user:
+                    user.points = (user.points or 0) + int(total)
+                    placed_uids.add(uid)
+        else:
+            # Solo player
+            user = db.query(models.User).filter(models.User.id == entity_id).first()
+            uname = user.username if user else f"#{entity_id}"
+            results.append({
+                "rank": rank, "entity_id": entity_id, "name": uname,
+                "placement_pts": placement, "score_pts": score_pts,
+                "participation_pts": pts_participation, "total": total
+            })
+            if user:
+                user.points = (user.points or 0) + int(total)
+                placed_uids.add(entity_id)
+    
+    # Give participation points to remaining participants not in standings
+    for uid in participant_uids:
+        if uid not in placed_uids:
+            score_pts = round(score_totals.get(uid, 0) * pts_per_goal, 1)
+            total = pts_participation + score_pts
+            user = db.query(models.User).filter(models.User.id == uid).first()
+            if user:
+                user.points = (user.points or 0) + int(total)
+    
+    tournament.results = results
+    tournament.status = "CLOSED"
+    from sqlalchemy.orm.attributes import flag_modified
+    flag_modified(tournament, "results")
+    db.commit()
+    
+    await manager.broadcast({"type": "tournament_closed", "tournament_id": tournament_id})
+    return {"status": "closed", "results": results}
+
+
+def _compute_standings(bracket, bracket_type, lower_is_better=False):
+    """Return list of (rank, player_id) from the bracket data."""
+    standings = []
+    
+    if bracket_type == "ffa":
+        # FFA: use the last round's placements (lower placement = better)
+        max_r = max((m["id"]["r"] for m in bracket), default=0)
+        last_match = next((m for m in bracket if m["id"]["r"] == max_r and m["id"]["m"] == 1), None)
+        if last_match:
+            paired = list(zip(last_match["p"], last_match.get("score", [])))
+            paired.sort(key=lambda x: x[1] if x[1] > 0 else 999)
+            for i, (pid, _) in enumerate(paired):
+                if pid and pid != 0:
+                    standings.append((i + 1, pid))
+        return standings
+    
+    if bracket_type == "round_robin":
+        # Round robin: compute win totals
+        win_counts = {}
+        for m in bracket:
+            p0, p1 = m["p"][0], m["p"][1]
+            s0, s1 = m.get("score", [0, 0])[0], m.get("score", [0, 0])[1]
+            if p0: win_counts.setdefault(p0, 0)
+            if p1: win_counts.setdefault(p1, 0)
+            if lower_is_better:
+                if s0 < s1 and s0 > 0 and p0:
+                    win_counts[p0] = win_counts.get(p0, 0) + 1
+                elif s1 < s0 and s1 > 0 and p1:
+                    win_counts[p1] = win_counts.get(p1, 0) + 1
+            else:
+                if s0 > s1 and p0:
+                    win_counts[p0] = win_counts.get(p0, 0) + 1
+                elif s1 > s0 and p1:
+                    win_counts[p1] = win_counts.get(p1, 0) + 1
+        sorted_players = sorted(win_counts.items(), key=lambda x: x[1], reverse=True)
+        for i, (pid, _) in enumerate(sorted_players):
+            standings.append((i + 1, pid))
+        return standings
+    
+    # Single/Double elim: find final match winner
+    max_wb = max((m["id"]["r"] for m in bracket if m["id"]["s"] == 1), default=0)
+    final = next((m for m in bracket if m["id"]["s"] == 1 and m["id"]["r"] == max_wb and m["id"]["m"] == 1), None)
+    
+    if final:
+        s = final.get("score", [0, 0])
+        if s[0] != s[1]:
+            w_idx = 0 if s[0] > s[1] else 1
+            l_idx = 1 - w_idx
+            standings.append((1, final["p"][w_idx]))  # 1st
+            standings.append((2, final["p"][l_idx]))  # 2nd
+    
+    # 3rd place: loser of WB semi-final or LB semi-final
+    if bracket_type == "double_elim":
+        max_lb = max((m["id"]["r"] for m in bracket if m["id"]["s"] == 2), default=0)
+        lb_final = next((m for m in bracket if m["id"]["s"] == 2 and m["id"]["r"] == max_lb and m["id"]["m"] == 1), None)
+        if lb_final:
+            s = lb_final.get("score", [0, 0])
+            if s[0] != s[1]:
+                l_idx = 1 if s[0] > s[1] else 0
+                loser_id = lb_final["p"][l_idx]
+                if loser_id and loser_id != 0 and loser_id not in [x[1] for x in standings]:
+                    standings.append((3, loser_id))
+    elif bracket_type == "single_elim" and max_wb >= 2:
+        # Semi-final losers get 3rd
+        semis = [m for m in bracket if m["id"]["s"] == 1 and m["id"]["r"] == max_wb - 1]
+        for semi in semis:
+            s = semi.get("score", [0, 0])
+            if s[0] != s[1]:
+                l_idx = 1 if s[0] > s[1] else 0
+                loser_id = semi["p"][l_idx]
+                if loser_id and loser_id != 0 and loser_id not in [x[1] for x in standings]:
+                    standings.append((3, loser_id))
+    
+    return standings

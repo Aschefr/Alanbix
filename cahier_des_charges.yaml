@@ -1,0 +1,460 @@
+project:
+  name: Alanbix (A-LAN-bix)
+  role: Organisateur & Responsable IT
+  description: >
+    Système de gestion de LAN de nouvelle génération avec support technique IA local. 
+    Clin d'œil à Alambix (personnage du Bouclier Arverne) et à l'alambic : une machinerie complexe qui distille la base de connaissances (RAG) aux joueurs via un pipeline technique ultra-léger et optimisé.
+
+architecture_decisions:
+  database:
+    choice: "SQLite avec mode WAL"
+    justification: "Le volume de données d'une LAN est faible. SQLite supprime le besoin d'un conteneur dédié, offrant une portabilité totale (un simple fichier database.db)."
+    pitfalls: 
+      - "Verrouillage de base de données (Database is locked) lors de requêtes asynchrones multiples. Solution : Activer le mode WAL (Write-Ahead Logging) et forcer la sérialisation des écritures si nécessaire via SQLAlchemy."
+  
+  ai_queue:
+    choice: "asyncio.Queue (Mémoire Python native)"
+    justification: "Remplacer Redis par la mémoire Python réduit l'infrastructure. FastAPI gérant nativement l'asynchrone, un Worker en tâche de fond consommant la queue est suffisant pour protéger le GPU local."
+    pitfalls:
+      - "Perte de la file d'attente en cas de crash du backend (acceptable pour une LAN, mais nécessite un message UX clair 'Erreur réseau, veuillez ré-essayer' côté frontend)."
+  
+  vector_search:
+    choice: "Calcul Numpy In-Memory (Cosine Similarity)"
+    justification: "pgvector nécessite PostgreSQL. Pour une petite base de connaissances (quelques centaines de documents max), un calcul matriciel direct via Numpy est largement plus rapide et plus léger."
+    pitfalls:
+      - "Synchronisation : Il faut charger les vecteurs en mémoire au démarrage de l'app ou lors de l'ajout d'un nouveau document via le panel d'admin."
+
+core_features_deep_dive:
+  tournaments_management:
+    - mechanism: "Wizard de Création (State Machine)"
+      details: "Processus en 3 étapes (Général, Format, Bracket). Le frontend stocke le state temporaire avant soumission."
+      pitfalls: "Ne pas valider les champs trop tôt. Permettre le retour en arrière sans perte de données saisies (Bind des variables Svelte)."
+    - mechanism: "Moteur de Bracket Multi-Mode (Implémenté)"
+      details: >
+        3 modes de tournoi supportés via tournament_engine.py :
+        - single_elim : Duel simple élimination (arbre binaire classique).
+        - double_elim : Duel double élimination (Winners Bracket + Losers Bracket). Les perdants du WB tombent dans le LB.
+        - round_robin : Championnat (tous contre tous). Algorithme de rotation (circle method) pour le planning des journées.
+        - ffa : Free For All — tous les joueurs dans un seul match par manche. Score = classement (placement).
+          L'admin saisit les placements, puis choisit combien de joueurs avancent à la manche suivante.
+          Idéal pour les jeux type Trackmania, Mario Kart, etc.
+        Le champ config.bracket_type détermine le mode. Le bracket est stocké en JSON dans la colonne `bracket` (séparée de `config`).
+      pitfalls: "Le seeding en round_robin utilise des indices 1-N puis les remplace par les vrais IDs. Attention à ne pas mélanger seeds et IDs."
+    - mechanism: "Avancement Automatique du Bracket (Implémenté)"
+      details: >
+        Quand un score est saisi (PUT /tournaments/{id}/score), le backend :
+        1. Détermine le gagnant (score le plus élevé).
+        2. Propage le gagnant au match suivant (round+1, match=ceil(m/2), slot=(m-1)%2).
+        3. En double_elim, le perdant est envoyé dans le Losers Bracket.
+        4. Auto-détecte la fin du tournoi (finale scorée) et passe le status à DONE.
+        Les byes (joueur sans adversaire en R1) sont auto-avancés au lancement.
+      pitfalls: "Les scores à égalité ne provoquent pas d'avancement — l'admin doit re-saisir."
+    - mechanism: "Gestion des Équipes — Self-Service & Ownership (Implémenté)"
+      details: >
+        Quand config.use_teams = true :
+        - Tout joueur inscrit peut créer une équipe (POST /tournaments/{id}/teams).
+        - La colonne created_by trace l'ownership (migration safe ALTER TABLE).
+        - Le joueur peut rejoindre une équipe existante (bouton '⭐ Rejoindre') s'il est inscrit ET pas déjà dans une équipe.
+        - Seul le créateur ou un admin peut supprimer une équipe.
+        - Le bouton 'Rejoindre' n'apparaît que si isParticipant && !myTeam.
+        - L'admin conserve le '🎲 Répartir' et le dropdown d'ajout de joueurs.
+        - Au lancement, les équipes (pas les joueurs) deviennent les unités du bracket.
+        - Les IDs d'équipes sont négatifs (-team_id) pour les distinguer des user IDs.
+        - Un _team_map est stocké dans config pour la résolution nom ↔ ID côté frontend.
+        - Les modifications d'équipes émettent un WebSocket teams_updated pour sync temps réel.
+        Tables : tournament_teams (id, tournament_id, name, created_by), tournament_team_members (id, team_id, user_id).
+      pitfalls: "config.team_size est contraint côté backend (HTTP 400 si dépassé). Un joueur non-inscrit au tournoi ne peut pas rejoindre une équipe (guard backend + frontend)."
+    - mechanism: "Bracket Pan & Zoom (Viewport 2D, Cursor-Centered)"
+      details: "Surface HTML interactive avec zoom centré sur la position du curseur. Pas de librairie externe. Gestion des événements onPointerDown/Move."
+      pitfalls: "Les événements tactiles (mobile) peuvent interférer avec le scroll natif. Nécessite 'touch-action: none' sur le conteneur."
+    - mechanism: "Suppressions Inline & Sécurité"
+      details: "Pas de window.confirm. État 'delete_pending' local sur l'objet de la liste pour transformer le bouton en 'Êtes-vous sûr ?'."
+    - mechanism: "Clôture de Tournoi & Distribution de Points (Implémenté)"
+      details: >
+        POST /tournaments/{id}/close calcule les standings puis distribue les points :
+        - pts_winner (1er, défaut 10), pts_second (2ème, défaut 6), pts_third (3ème, défaut 4)
+        - pts_participation (tous, défaut 1), pts_per_goal (par point marqué, défaut 0.5)
+        - Les points sont cumulés dans User.points et les résultats stockés dans tournament.results (JSON).
+        - En mode équipes, les points sont distribués à tous les membres.
+      pitfalls: "La clôture est irréversible — pas de mécanisme de rollback des points distribués."
+    - mechanism: "Édition Inline des Tournois (Implémenté)"
+      details: >
+        L'édition d'un tournoi se fait directement dans la carte admin (pas de modale).
+        Le panneau dépliable inclut : nom, statut, pts/victoire, format bracket,
+        et une grille détaillée de répartition des points (1er/2ème/3ème/participation/score).
+        Les valeurs sont persistées dans config JSON du tournoi.
+      pitfalls: "Un seul tournoi peut être en mode édition à la fois (inlineEditId singleton)."
+    - mechanism: "Classement Live (Frontend-only, Implémenté)"
+      details: >
+        Pendant un tournoi RUNNING, computeLiveStandings() projette un classement provisoire
+        basé sur les données du bracket (wins × points_per_win + goals × pts_per_goal).
+        Ce calcul est purement frontend — aucune mutation de User.points en DB.
+        Affiché comme mini-leaderboard avec badge LIVE sous le bracket.
+      pitfalls: "Le classement live ne tient pas compte des placements (1er/2ème/3ème) qui ne sont calculés qu'à la clôture."
+
+  leaderboard_system:
+    - mechanism: "Leaderboard Global Joueurs — Indicateurs de Progression (Implémenté)"
+      details: >
+        GET /dashboard/stats retourne le top 10 joueurs par User.points (accumulés via clôtures).
+        Chaque entrée inclut username, points, team_name et nombre de participations.
+        Indicateurs de mouvement ↑↓ : à chaque refresh, la position N est comparée au snapshot N-1
+        (previousLeaderboard). Affiche ↑2 (vert), ↓1 (rouge), ou NEW (orange) si nouveau dans le classement.
+    - mechanism: "Leaderboard Équipes — Détail Expandable (Implémenté)"
+      details: >
+        GET /dashboard/team-leaderboard groupe les User par team_name (champ sur User, pas lié aux tournament_teams).
+        Deux modes de scoring sélectionnables par l'admin via SystemConfig(key='team_scoring_mode') :
+        - 'weighted' : score = somme des points / nombre de membres (équité taille d'équipe)
+        - 'raw' : score = somme brute des points de tous les membres
+        Le toggle est dans l'onglet Settings de l'admin.
+        Clic sur une équipe déploie un panneau expandable avec la liste des membres triés par points
+        et leur contribution individuelle (username + points). L'API retourne déjà members[] dans chaque team.
+      pitfalls: "Les team_name vides ou null sont ignorés. Le groupement est case-sensitive."
+    - mechanism: "Dashboard Joueurs/Équipes (Implémenté)"
+      details: >
+        Le panel Leaderboard du dashboard principal possède un toggle Joueurs | Équipes.
+        Les deux vues partagent le même design (lb-row) avec adaptation couleur (violet pour équipes).
+
+  spectator_mode:
+    - mechanism: "Vue Projecteur 4 Slides — Skip Vues Vides (Implémenté)"
+      details: >
+        Route /spectator — affichage plein écran pour vidéoprojecteur avec cycle automatique de 4 vues :
+        1. 🏆 Classement Personnel (podium coloré, team badges)
+        2. 👥 Classement Équipes (score pondéré/brut selon config)
+        3. 🗺️ Plan de Salle (SVG interactif avec statut d'occupation)
+        4. 📊 Bracket en cours (matches avec scores, winner highlight)
+        Cycle auto 12s par slide. Navigation clavier : ← → (slide), Espace (pause/resume).
+        Dots de navigation cliquables. WebSocket auto-refresh sur événements score/tournament.
+        Animation CSS slide-in (cubic-bezier) entre transitions.
+        viewHasData() vérifie si une slide a du contenu (leaderboard vide, pas d'équipes, pas de sièges,
+        pas de tournoi RUNNING) et skip automatiquement les vues sans données. Boucle max VIEWS.length
+        pour éviter boucle infinie si toutes les vues sont vides.
+      pitfalls: "Pas d'authentification sur /spectator (public endpoint)."
+
+  ai_chat_pipeline:
+    - mechanism: "Streaming SSE (Server-Sent Events)"
+      details: "Le backend Python envoie les chunks de réponse d'Ollama au fur et à mesure (yield). Le SvelteKit lit le flux via un TextDecoder."
+      pitfalls: "Les proxies (Nginx/Docker) peuvent bufferiser le SSE et casser l'effet 'temps réel'. Il faut forcer les headers 'Cache-Control: no-cache' et 'X-Accel-Buffering: no'."
+    - mechanism: "Compression de Contexte (Mémoire LLM)"
+      details: >
+        Le token limit (ex: 4096) est vital. 3 stratégies implémentées :
+        1. Truncate : Coupe bêtement les X premiers messages de l'array. Rapide mais perte d'informations.
+        2. Compact : Fusionne les messages 'user' consécutifs, retire les salutations. Gain modéré.
+        3. Summary : Lance un mini-prompt LLM en tâche de fond pour écraser tout l'historique en un paragraphe de 3 phrases. Gain massif (70%).
+      pitfalls: "La méthode 'Summary' consomme le GPU. Il faut l'insérer dans la même file d'attente asyncio que les requêtes classiques pour ne pas bloquer le système."
+    - mechanism: "Multi-Instance Ollama (Implémenté)"
+      details: >
+        Support de multiples serveurs Ollama (différentes machines/GPU pendant la LAN) :
+        - Config ia_settings.ollama_instances : liste [{url, label, model, enabled}].
+        - Rétro-compatible : si absent, fallback vers le champ legacy ollama_host.
+        - pick_instance(db, model) : round-robin parmi les instances enabled avec health check.
+        - Affinité modèle : chaque instance peut être dédiée à un modèle spécifique.
+        - Failover silencieux : si une instance est down, elle est skip sans erreur visible.
+        - GET /ia/instances/status : statut live de chaque instance (online, latency, modèles).
+        - GET /ia/models : fusionne les modèles de toutes les instances (dédupliqué par nom).
+        - UI Admin : liste dynamique d'instances avec URL, label, modèle, toggle ON/OFF, pastille 🟢/🔴,
+          bouton Tester individuel, bouton + Ajouter / ✕ Supprimer.
+      pitfalls: "Le health check ajoute ~2s de latence au premier appel si l'instance est down. Le round-robin est en mémoire (reset au restart du backend)."
+    - mechanism: "Chat IA — Édition & Retry Inline (Implémenté)"
+      details: >
+        Les messages utilisateur sont éditables inline (bouton ✏️ au hover) :
+        - PUT /ia/message/{id} met à jour le contenu en DB.
+        - Le mode édition affiche un textarea + 3 actions : Sauvegarder, Réenvoyer (↻), Annuler.
+        - '↻ Réenvoyer' : sauvegarde l'édition, supprime tous les messages suivants,
+          puis re-soumet le message modifié (même flux que send()).
+        - Bouton Retry (🔄) sur les messages user pour re-envoyer le même prompt.
+        - Bouton Retry (🔄) sur le dernier message bot pour régénérer la réponse.
+      pitfalls: "Le retry supprime tous les messages après le point d'édition, y compris les réponses bot ultérieures."
+    - mechanism: "Contexte Compressé — Affichage & Édition Inline (Implémenté)"
+      details: >
+        Le contexte compressé (conv.compressed_context) apparaît en tête de la conversation
+        dans un bloc dédié avec icône 🗄️ et label 'Contexte Compressé (mode)'.
+        Le texte est éditable inline via un bouton ✏️ qui ouvre un textarea.
+        PUT /ia/compress/{conv_id}/edit persiste la modification.
+      pitfalls: "L'édition du contexte compressé n'affecte pas les messages existants, seulement le prompt système injecté dans les futures requêtes."
+    - mechanism: "Prompt Système Configurable (Implémenté)"
+      details: >
+        Le prompt système injecté dans chaque conversation est configurable par l'admin
+        dans Administration > Settings > Prompt Système IA. Stocké dans SystemConfig(key='system_prompt').
+        Le backend lit d'abord SystemConfig, puis fallback vers fr.json system_prompt, puis défaut hardcodé.
+        Textarea dédié dans l'admin avec bouton 'Sauvegarder le prompt'.
+      pitfalls: "Le changement de prompt n'affecte que les nouvelles requêtes, pas les conversations déjà en cours."
+
+development_phases_detailed:
+  phase_1_infrastructure:
+    name: "Phase 1 - Fondations Ultra-Légères"
+    sub_tasks:
+      1. "Configuration de SQLAlchemy avec SQLite (Mode WAL, Timeout 10s)."
+      2. "Création du script init_db.py pour gérer les migrations basiques manuellement."
+      3. "Mise en place de FastAPI avec CORS ouvert pour SvelteKit."
+      4. "Implémentation du design system (app.css) avec tokens Premium (Glassmorphism, Mesh Gradients, Custom Scrollbars)."
+    critical_pitfall: "Oublier l'encodage utf-8-sig pour les fichiers i18n JSON, ce qui causera des crashs de parsing sous Windows/PowerShell."
+
+  phase_2_core:
+    name: "Phase 2 - Moteur de Tournoi & UI"
+    sub_tasks:
+      1. "Création des schémas Pydantic (Attention: utiliser typing.Any pour le champ 'config' des brackets pour éviter des erreurs de validation récursives)."
+      2. "Intégration du Wizard de création de tournoi en Svelte avec graphiques SVG."
+      3. "Développement du moteur de Bracket Pan/Zoom (Variables CSS translate/scale dynamiques, zoom cursor-centered)."
+      4. "Système de Websocket unifié : Un seul canal pour envoyer les triggers de rechargement ('INVALIDATE_TOURNAMENTS', etc.) afin de faire de l'auto-refresh sans F5."
+      5. "Vue tournois avec sidebar persistante (localStorage) + détail avec bracket intégré, score inline admin, badges winner/loser."
+      6. "Dashboard : onglets pour naviguer entre les tournois RUNNING, avec vrai bracket (pas placeholder SVG)."
+      7. "Moteur Double-Élimination (DE) : WB-to-LB dropdown mapping corrigé (WB R1 losers → LB R1, WB R(k≥2) losers → LB R(2*(k-1)))."
+      8. "Résolution BYE intelligente : fonction récursive _is_match_dead() et _is_genuine_bye() qui distingue vrais BYEs de slots TBD en attente d'un match réel."
+      9. "Cascade BYE post-score : boucle multi-pass après chaque saisie de score pour auto-avancer les matchs devenus BYE suite à une progression."
+      10. "Grand Final (GF) : _get_feeder() redirige le slot 1 du GF vers le LB Final au lieu d'un match WB inexistant."
+      11. "Persistance JSON SQLAlchemy : flag_modified obligatoire sur les colonnes JSON (bracket, config, results) pour garantir les UPDATE en base, notamment lors du reset (null)."
+      12. "Reset tournoi : le endpoint PUT force bracket=None et results=None avec flag_modified quand status repasse à OPEN."
+      13. "Highlight joueur au survol : hover sur un nom illumine tous les matchs du joueur (WB+LB) avec bordure cyan animée."
+      14. "Masquage des rounds LB vides : les rounds sans match visible (full BYE/auto-win) sont cachés, avec renommage du dernier round visible en 'LB Finale'."
+      15. "Espacement FINALE : la colonne GF a un margin-left supplémentaire et un en-tête doré pour la distinguer du bracket."
+    critical_pitfall: "Cascade Delete dans la BDD. Si un tournoi est supprimé, il FAUT que SQLAlchemy supprime les participants, les équipes et les matchs associés pour éviter des Foreign Key constraints errors."
+
+  phase_3_ia:
+    name: "Phase 3 - Moteur IA & File d'attente Asynchrone"
+    sub_tasks:
+      1. "Création d'un Background Task Worker dans FastAPI qui écoute la asyncio.Queue."
+      2. "Panel Admin pour ping Ollama via son endpoint /api/tags et peupler la liste déroulante des modèles."
+      3. "Implémentation de l'interface Svelte de Chat : Bulles asymétriques, jauge de tokens calculée approximativement (1 mot = ~1.3 tokens)."
+      4. "Création de la Modale de Compression de contexte et appel aux endpoints correspondants."
+    critical_pitfall: "Gérer l'annulation d'une requête IA si l'utilisateur quitte la page. Implémenter un signal (Request.is_disconnected()) dans FastAPI pour stopper le générateur d'Ollama."
+
+  phase_4_rag_et_salle:
+    name: "Phase 4 - Plan de salle & Finitions RAG"
+    sub_tasks:
+      1. "Module ia_utils.py avec cosine_similarity numpy — charge tous les embeddings depuis SQLite au moment de la recherche."
+      2. "Création d'un module d'upload Admin pour injecter de nouveaux documents. L'embedding est sérialisé en JSON dans la colonne embedding_json."
+      3. "Création d'un Canvas 2D en Svelte pour placer les postes physiques (Drag & Drop admin)."
+      4. "Assignation (Seat Mapping) : Lier un ID utilisateur à une coordonnée (X,Y) sur la carte."
+    critical_pitfall: "L'upload de documents volumineux peut bloquer l'Event Loop de Python. Le parsing et l'embedding des documents doivent absolument se faire de manière asynchrone."
+
+  phase_5_scoring_spectator:
+    name: "Phase 5 - Système de Points Avancé & Vue Projecteur"
+    sub_tasks:
+      1. "Endpoint POST /tournaments/{id}/close avec calcul des standings et distribution des points (placement + score)."
+      2. "Grille de répartition des points configurable par tournoi (pts_winner, pts_second, pts_third, pts_participation, pts_per_goal) dans config JSON."
+      3. "Édition inline des tournois dans l'admin (panneau dépliable, remplacement du modal)."
+      4. "Classement live frontend-only pendant les phases RUNNING (computeLiveStandings)."
+      5. "Endpoint GET /dashboard/team-leaderboard avec groupement par User.team_name et double mode scoring (weighted/raw)."
+      6. "Endpoint PUT /admin/config/{key} pour persister les préférences système dans SystemConfig."
+      7. "Toggle Joueurs/Équipes dans le leaderboard du dashboard principal."
+      8. "Refonte complète de la vue Spectateur (/spectator) : 4 slides, cycle auto, clavier, WebSocket."
+    critical_pitfall: "Le classement équipes est basé sur User.team_name (profil utilisateur) et non sur les TournamentTeam (équipes par tournoi). Les deux concepts coexistent mais ne sont pas liés."
+
+global_rules:
+  - id: G-01
+    rule: Système i18n
+    description: Utiliser static/i18n/*.json. Vérifier les doublons avant ajout.
+  - id: G-02
+    rule: Icônes & Emojis
+    description: Emojis hardcodés pour le décoratif. Texte uniquement dans les JSON.
+  - id: G-03
+    rule: Debug System
+    description: Intégration avec le système de logs frontend/backend.
+  - id: G-04
+    rule: Logs de Debug
+    description: Console de débug accessible via un bouton dédié dans la configuration.
+  - id: G-05
+    rule: Esthétisme et Cohérence UI (Cockpit Sombre)
+    description: "Le design dicte l'expérience. Utiliser le 'Mesh Gradient' pour la profondeur. Pas de scrollbar système, et uniformiser toutes les durées de transitions CSS à 0.2s."
+  - id: G-06
+    rule: Auto-refresh
+    description: Mise à jour DOM sans F5 via API calls ou WebSockets.
+  - id: G-07
+    rule: Sécurité JSON
+    description: Modif via Python (utf-8-sig) UNIQUEMENT. Pas de PowerShell.
+  - id: G-08
+    rule: Modales Non-Intrusives
+    description: "Les modales de type 'Êtes-vous sûr ?' doivent s'intégrer directement sous l'élément cliqué (Inline) ou via une modale 'Glass' personnalisée centrée, jamais de window.confirm."
+  - id: G-09
+    rule: Migrations DB
+    description: ALTER TABLE manuel dans init_db() pour toute nouvelle colonne.
+  - id: G-10
+    rule: Emojis
+    description: Un champs de saisie d'emoji doit être auto-complété avec les emojis pertinents.
+  - id: G-11
+    rule: Prompts Système LLM
+    description: Les prompts système pour Ollama doivent être définissables par l'utilisateur via l'UI/fichiers de config.
+  - id: G-12
+    rule: Ollama configuration
+    description: Récupérer la liste des modèles disponibles via l'API pour l'afficher dans une liste déroulante.
+  - id: G-13
+    rule: Authentification Joueurs
+    description: Création de compte simplifiée depuis l'accueil. Username/Password sans contraintes de complexité.
+  - id: G-14
+    rule: Isolation du Contexte RAG
+    description: Le RAG doit basculer entre contexte spécifique (jeux) et général pour optimiser la pertinence.
+  - id: G-15
+    rule: Gestion des Jeux (Héritage oozturn) — Implémenté
+    description: >
+      Un tournoi hérite des règles (markdown) et de l'image d'un 'Jeu' sélectionné.
+      3 sources d'images : recherche RAWG API (proxy backend), URL externe, upload local (static/uploads/games/).
+      Les jeux sont éditables (nom, règles, image) via le panel admin.
+  - id: G-16
+    rule: Leaderboard Global
+    description: Implémenter un système de points global (inspiré de oozturn) où chaque tournoi rapporte des points au classement général.
+  - id: G-17
+    rule: Résilience Offline (Self-hosted)
+    description: Aucune dépendance externe. Toutes les ressources (polices, icônes, scripts) sont servies localement.
+  - id: G-18
+    rule: Plan de salle interactif
+    description: L'Admin peut placer des postes sur un plan chargé en image de fond.
+  - id: G-19
+    rule: Schéma DB — Séparation config/bracket
+    description: >
+      La table tournaments sépare `config` (paramètres : bracket_type, use_teams, team_size)
+      et `bracket` (données de match : [{id:{s,r,m}, p:[id1,id2], score:[s1,s2]}]).
+      Colonne `bracket` ajoutée via migration safe ALTER TABLE dans init_db().
+  - id: G-20
+    rule: Zoom centré sur le curseur
+    description: Toutes les vues zoomables (carte de salle, bracket dashboard, bracket tournoi) orientent le zoom sur la position du pointeur de la souris.
+  - id: G-21
+    rule: Moteur BYE — Résolution récursive
+    description: >
+      Un match [joueur, 0] n'est un vrai BYE que si le slot vide ne sera JAMAIS rempli.
+      La fonction _is_match_dead() remonte récursivement l'arbre des feeders jusqu'au R1.
+      Cas spécial LB even-round slot 1 (WB dropout) : vérifie si le match WB produira un VRAI perdant
+      (les deux joueurs sont réels) vs un BYE [joueur, 0] dont le perdant est 0.
+      Le GF slot 1 pointe vers le LB Final via _get_feeder(), pas vers un match WB inexistant.
+  - id: G-22
+    rule: Persistance SQLAlchemy JSON
+    description: >
+      Toute mutation d'une colonne JSON (bracket, config, results) nécessite un appel explicite
+      à flag_modified(tournament, 'column') avant le commit. Sans cela, SQLAlchemy ne détecte pas
+      les changements (surtout la mise à None) et ne génère pas de UPDATE.
+  - id: G-23
+    rule: Bracket UI — Filtrage visuel
+    description: >
+      Les matchs double-BYE [0,0] et auto-win [joueur,0 scoré] sont masqués du rendu.
+      Les rounds LB entièrement vides sont retirés de l'affichage.
+      Le dernier round LB visible est labellé 'LB Finale'.
+      Le round GF est labellé '🏆 FINALE' avec espacement et style doré distinct.
+  - id: G-24
+    rule: Édition Inline Admin
+    description: >
+      Les formulaires d'édition d'entités (tournois) s'affichent directement dans la carte
+      de l'élément (panneau dépliable), pas dans une modale overlay. Un seul élément éditable
+      à la fois (singleton inlineEditId). Animation slideDown 0.2s à l'ouverture.
+  - id: G-25
+    rule: SystemConfig — Paramètres Globaux
+    description: >
+      Les préférences système (team_scoring_mode, event_name, etc.) sont stockées dans la
+      table system_config (key/value). Endpoint générique PUT /admin/config/{key} pour l'écriture.
+      Les valeurs sont lues dans les endpoints publics (GET /dashboard/stats) pour le frontend.
+  - id: G-26
+    rule: Classement Temps Réel — Frontend Only
+    description: >
+      Le classement live pendant un tournoi RUNNING est une projection frontend calculée
+      à partir des données bracket. Aucune mutation de User.points en DB tant que le tournoi
+      n'est pas clôturé (POST /close). Cela garantit l'intégrité du leaderboard global.
+  - id: G-27
+    rule: Vue Spectateur — Design Projecteur
+    description: >
+      La route /spectator est conçue pour affichage sur vidéoprojecteur :
+      texte large (1.5-3rem), fond radial gradient sombre, pas de scrollbar,
+      animations fluides (slide-in 0.6s cubic-bezier). Contrôle clavier uniquement
+      (← → Espace). Pas d'authentification requise (endpoint public).
+  - id: G-28
+    rule: Dual Team Concept
+    description: >
+      Deux notions d'équipe coexistent et ne doivent pas être confondues :
+      1. TournamentTeam (tournament_teams) : équipes créées PAR tournoi pour le bracket.
+      2. User.team_name : affiliation globale du joueur (pour le leaderboard équipes).
+      Le leaderboard équipes utilise User.team_name. Le bracket utilise TournamentTeam.
+  - id: G-29
+    rule: Points Distribution — Configuration Granulaire
+    description: >
+      Chaque tournoi peut configurer sa propre grille de points dans config JSON :
+      pts_winner (1er), pts_second (2ème), pts_third (3ème), pts_participation (tous),
+      pts_per_goal (multiplicateur par point marqué). Defaults : 10/6/4/1/0.5.
+      Le wizard de création et l'édition inline exposent tous ces champs.
+
+  - id: G-30
+    rule: WebSocket Push — Score Events Détaillés (Implémenté)
+    description: >
+      Les messages WebSocket score_updated incluent les données de match (r, m, p1, p2, s1, s2)
+      pour permettre une mise à jour locale sans re-fetch complet. Les événements teams_updated
+      transportent le tournament_id pour cibler le refresh.
+  - id: G-31
+    rule: Team Self-Service — Ownership & Guards
+    description: >
+      Tout joueur inscrit peut créer une équipe (created_by tracé). Un joueur non-inscrit
+      au tournoi ne voit pas le bouton 'Rejoindre' (guard isParticipant + backend HTTP 400).
+      Un joueur déjà dans une équipe ne voit pas le bouton (guard myTeam).
+      Le hero 'Rejoindre' affiche '✅ Inscrit' si le joueur est déjà participant.
+  - id: G-32
+    rule: Multi-Instance Ollama — Load Balancing avec Priorité
+    description: >
+      La config ia_settings.ollama_instances stocke N URLs de serveurs Ollama.
+      Chaque instance possède un champ 'priority' (0 = max, défaut 10).
+      pick_instance() trie par priorité puis effectue un round-robin avec affinité modèle
+      et failover silencieux. Les instances haute priorité sont tentées en premier.
+      L'UI Admin affiche des boutons ▲/▼ pour réordonner et un badge de priorité.
+      La suppression re-numérote automatiquement les priorités.
+  - id: G-33
+    rule: Contrainte team_size Backend
+    description: >
+      L'endpoint add_team_member vérifie le nombre de membres actuel vs config.team_size
+      avant l'ajout. Retourne HTTP 400 si l'équipe est pleine.
+  - id: G-34
+    rule: Plan de salle — Bulk Unassign & Navigation
+    description: >
+      Bouton 'Libérer tout' (admin) pour désassigner toutes les places d'un coup
+      (POST /room/admin-unassign-all). En mode visualisation, le clic gauche permet
+      le pan (drag-threshold guard pour distinguer clic de drag).
+  - id: G-35
+    rule: Renommage de la LAN
+    description: >
+      Le champ 'Nom de la LAN' dans Administration > Settings sauvegarde via
+      PUT /admin/config/event_name. Le nom apparaît dans le Dashboard et la vue Projecteur.
+  - id: G-36
+    rule: Chat IA — Édition & Retry Messages
+    description: >
+      Les messages utilisateur sont éditables inline (PUT /ia/message/{id}).
+      Le retry (user ou bot) supprime les messages suivants et re-soumet.
+      Le mode édition offre 3 actions : Sauvegarder seul, Réenvoyer après édition, Annuler.
+  - id: G-37
+    rule: Contexte Compressé — Visible & Éditable
+    description: >
+      Le contexte compressé (conv.compressed_context) apparaît dans la conversation
+      comme un bloc système éditable. PUT /ia/compress/{conv_id}/edit pour modifier le texte.
+  - id: G-38
+    rule: Prompt Système — Configuration Admin
+    description: >
+      Le prompt système est stocké dans SystemConfig(key='system_prompt').
+      L'admin le configure dans Settings > Prompt Système IA.
+      Chaîne de lecture : SystemConfig → fr.json → défaut hardcodé.
+  - id: G-39
+    rule: Chat IA — Auto-Titre par l'IA
+    description: >
+      Lors du premier échange d'une conversation (titre = 'Nouvelle discussion'),
+      le backend génère automatiquement un titre court (max 5 mots) via Ollama
+      après la réponse du bot. Le titre est envoyé via SSE (data.title) et mis à jour
+      en temps réel dans la sidebar sans rechargement.
+  - id: G-40
+    rule: Chat IA — Auto-Compression du Contexte
+    description: >
+      Avant chaque envoi à Ollama, si les tokens estimés dépassent 90% de context_window,
+      le backend exécute automatiquement un truncate sur 50% de la fenêtre.
+      Les messages tronqués sont ajoutés au compressed_context avec le tag [Auto-compressé].
+      Le contexte compressé apparaît en tête de la conversation et est éditable.
+
+  - id: G-41
+    rule: Versioning — Fichier VERSION
+    description: >
+      Le fichier VERSION à la racine du projet contient le numéro de version SemVer (MAJOR.MINOR.PATCH).
+      Il doit être mis à jour MANUELLEMENT à chaque release significative.
+      Rappel : mettre à jour VERSION avant chaque push GitHub.
+  - id: G-42
+    rule: Premier Utilisateur = Admin
+    description: >
+      Le premier compte enregistré via /register obtient automatiquement is_admin=true.
+      Les suivants sont des utilisateurs standards. Un admin peut promouvoir/révoquer
+      d'autres admins via Administration > Gestion Joueurs.
+
+future_axes:
+  - id: AXE-01
+    title: "Rollback Points (Annulation de Clôture)"
+    description: >
+      Permettre de ré-ouvrir un tournoi CLOSED en soustrayant les points distribués.
+      Complexe car nécessite de stocker les deltas de points par utilisateur dans results.
+    priority: low
