@@ -1,7 +1,25 @@
 <script>
 	import { api } from '$lib/api';
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import Modal from '$lib/components/Modal.svelte';
+	import { marked } from 'marked';
+	import { wsMessageStore } from '$lib/ws';
+
+	// Configure marked for safe rendering
+	marked.setOptions({ breaks: true, gfm: true });
+
+	function parseMd(text) {
+		if (!text) return '';
+		return marked.parse(text);
+	}
+	function escapeHtml(text) {
+		if (!text) return '';
+		return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+	}
+	function estimateTokens(text) {
+		if (!text) return 0;
+		return Math.ceil(text.length / 3.5);
+	}
 
 	let conversations = [];
 	let activeId = null;
@@ -11,11 +29,73 @@
 	let iaConfig = { context_window: 4096 };
 	let query = '';
 	let loading = false;
+
+	// Live token counting
+	$: liveTokens = (() => {
+		let total = messages.reduce((sum, m) => sum + (m.content ? m.content.length : 0), 0);
+		total += query.length;
+		return Math.ceil(total / 3.5);
+	})();
+	$: contextWindow = iaConfig.context_window || 4096;
+	$: tokenPct = Math.min(100, (liveTokens / contextWindow) * 100);
+
+	// Admin notification
+	let adminNotification = null;
+	let unsub = null;
+
+	function dismissNotification() { adminNotification = null; }
+	function goToNotifiedConv() {
+		if (adminNotification) {
+			selectConversation(adminNotification.conversation_id);
+			adminNotification = null;
+		}
+	}
 	let showCompressionModal = false;
 	let editingMsgId = null;
 	let editingMsgContent = '';
 	let editingContext = false;
 	let editContextText = '';
+	let chatContainer = null;
+
+	// Image attachment
+	let pendingImage = null;      // File object
+	let pendingImagePreview = ''; // data URL for preview
+	let fileInput = null;         // hidden file input ref
+
+	function handlePaste(e) {
+		const items = e.clipboardData?.items;
+		if (!items) return;
+		for (const item of items) {
+			if (item.type.startsWith('image/')) {
+				e.preventDefault();
+				const file = item.getAsFile();
+				attachImage(file);
+				break;
+			}
+		}
+	}
+
+	function handleFileSelect(e) {
+		const file = e.target.files?.[0];
+		if (file) attachImage(file);
+		if (fileInput) fileInput.value = '';
+	}
+
+	function attachImage(file) {
+		if (file.size > 8 * 1024 * 1024) { alert('Image trop volumineuse (max 8 Mo)'); return; }
+		pendingImage = file;
+		const reader = new FileReader();
+		reader.onload = (e) => { pendingImagePreview = e.target.result; };
+		reader.readAsDataURL(file);
+	}
+
+	function clearPendingImage() { pendingImage = null; pendingImagePreview = ''; }
+
+	import { tick } from 'svelte';
+	async function scrollToBottom() {
+		await tick();
+		if (chatContainer) chatContainer.scrollTop = chatContainer.scrollHeight;
+	}
 
 	let showModal = false;
 	let modalTitle = '';
@@ -34,7 +114,23 @@
 	onMount(async () => {
 		await loadConversations();
 		iaConfig = await api.get('/ia/config');
+
+		// Listen for admin intervention via WebSocket
+		unsub = wsMessageStore.subscribe(msg => {
+			if (msg && msg.type === 'admin_message') {
+				// If the user is viewing this conversation, refresh messages live
+				if (activeId === msg.conversation_id) {
+					selectConversation(activeId);
+				}
+				// Show notification
+				adminNotification = msg;
+				// Auto-dismiss after 10s
+				setTimeout(() => { if (adminNotification && adminNotification.message_id === msg.message_id) adminNotification = null; }, 10000);
+			}
+		});
 	});
+
+	onDestroy(() => { if (unsub) unsub(); });
 
 	async function loadConversations() {
 		conversations = await api.get('/ia/conversations');
@@ -49,6 +145,7 @@
 		messages = res.messages;
 		usage = res.usage || { estimated_tokens: 0 };
 		compression = res.compression || { mode: null };
+		scrollToBottom();
 	}
 
 	async function newConversation() {
@@ -167,14 +264,30 @@
 	}
 
 	async function send() {
-		if (!query || loading || !activeId) return;
-		const userMsg = query;
+		if ((!query && !pendingImage) || loading || !activeId) return;
+		const userMsg = query || '(image)';
+		const attachedPreview = pendingImagePreview;
 		query = '';
-		messages = [...messages, { id: Date.now(), role: 'user', content: userMsg }];
+		
+		// Upload image if present
+		let imagePath = null;
+		if (pendingImage) {
+			try {
+				const fd = new FormData();
+				fd.append('conversation_id', activeId);
+				fd.append('file', pendingImage);
+				const uploadRes = await api.upload('/ia/upload-image', fd);
+				imagePath = uploadRes.image_path;
+			} catch (e) { alert('Erreur upload image: ' + e.message); loading = false; return; }
+			clearPendingImage();
+		}
+
+		messages = [...messages, { id: Date.now(), role: 'user', content: userMsg, image_path: imagePath }];
 		loading = true;
 
 		let botMsgIdx = messages.length;
 		messages = [...messages, { id: Date.now()+1, role: 'bot', content: '' }];
+		scrollToBottom();
 
 		try {
 			const token = localStorage.getItem('alanbix_token');
@@ -186,7 +299,8 @@
 				},
 				body: JSON.stringify({
 					prompt: userMsg,
-					conversation_id: activeId
+					conversation_id: activeId,
+					image_path: imagePath
 				})
 			});
 
@@ -206,11 +320,25 @@
 							const data = JSON.parse(dataStr);
 							if (data.text) {
 								messages[botMsgIdx].content += data.text;
+								messages = messages; // trigger Svelte reactivity for markdown re-render
+								scrollToBottom();
 							}
-							if (data.title) {
-								const conv = conversations.find(c => c.id === activeId);
-								if (conv) conv.title = data.title;
-								conversations = conversations;
+							if (data.done) {
+								// Update token estimate from server
+								if (data.estimated_tokens) {
+									usage = { estimated_tokens: data.estimated_tokens };
+								}
+								// Auto-title: if this was the first exchange
+								if (messages.length <= 2) {
+									try {
+										const titleRes = await api.post(`/ia/auto-title/${activeId}`, {});
+										if (titleRes.title) {
+											const conv = conversations.find(c => c.id === activeId);
+											if (conv) conv.title = titleRes.title;
+											conversations = conversations;
+										}
+									} catch {}
+								}
 							}
 						} catch (e) {}
 					}
@@ -226,6 +354,17 @@
 </script>
 
 <div class="ai-page flex-row">
+	<!-- Admin Notification Banner -->
+	{#if adminNotification}
+		<div class="admin-notif" on:click={goToNotifiedConv}>
+			<span class="admin-notif-icon">🛡️</span>
+			<span class="admin-notif-text">
+				<strong>{adminNotification.admin_name}</strong> a envoyé un message dans votre conversation
+			</span>
+			<button class="admin-notif-btn">Voir →</button>
+			<button class="admin-notif-close" on:click|stopPropagation={dismissNotification}>✕</button>
+		</div>
+	{/if}
 	<!-- Sidebar: Conversation History -->
 	<aside class="chat-sidebar glass">
 		<button class="btn-primary w-full" on:click={newConversation}>+ Nouvelle Discussion</button>
@@ -261,13 +400,13 @@
 					</div>
 					<div class="usage-bar mt-1">
 						<div class="flex-row justify-between">
-							<span class="text-xs text-dim">Contexte: {usage.estimated_tokens || 0} / {iaConfig.context_window || 4096} tokens</span>
-							{#if usage.estimated_tokens > (iaConfig.context_window || 4096) * 0.8}
+							<span class="text-xs text-dim">Contexte: {liveTokens} / {contextWindow} tokens</span>
+							{#if tokenPct > 80}
 								<span class="text-xs text-danger warning-text">⚠️ Proche de la limite</span>
 							{/if}
 						</div>
 						<div class="progress-bg">
-							<div class="progress-fill {(usage.estimated_tokens > (iaConfig.context_window || 4096) * 0.8) ? 'danger-fill' : ''}" style="width: {Math.min(100, ((usage.estimated_tokens || 0) / (iaConfig.context_window || 4096)) * 100)}%"></div>
+							<div class="progress-fill {tokenPct > 90 ? 'danger-fill' : tokenPct > 75 ? 'warning-fill' : ''}" style="width: {tokenPct}%"></div>
 						</div>
 					</div>
 				</div>
@@ -309,7 +448,7 @@
 				</div>
 			{/if}
 
-			<div class="messages-container">
+			<div class="messages-container" bind:this={chatContainer}>
 				{#if compression.context}
 					<div class="msg-wrapper system">
 						<div class="msg-row system">
@@ -336,8 +475,11 @@
 				{#each messages as msg, idx}
 					<div class="msg-wrapper {msg.role}">
 						<div class="msg-row {msg.role}">
-							<div class="avatar">{msg.role === 'bot' ? '🤖' : '👤'}</div>
-							<div class="msg-content glass">
+							<div class="avatar">{msg.role === 'bot' ? '🤖' : msg.role === 'admin' ? '🛡️' : '👤'}</div>
+							<div class="msg-content glass {msg.role === 'admin' ? 'admin-msg' : ''}">
+								{#if msg.role === 'admin'}
+									<div class="admin-badge">Admin</div>
+								{/if}
 								{#if editingMsgId === msg.id}
 									<textarea class="edit-textarea" bind:value={editingMsgContent} rows="3"></textarea>
 									<div class="edit-actions">
@@ -346,7 +488,16 @@
 										<button class="btn-xs-cancel" on:click={cancelEdit}>✕</button>
 									</div>
 								{:else}
-									{msg.content}
+									{#if msg.role === 'bot' || msg.role === 'admin'}
+										<div class="markdown-body">{@html parseMd(msg.content)}</div>
+									{:else}
+										<div class="markdown-body user-text">{@html escapeHtml(msg.content).replace(/\n/g, '<br>')}</div>
+									{/if}
+									{#if msg.image_path}
+										<div class="msg-image">
+											<img src="http://localhost:8000/data/{msg.image_path}" alt="Image jointe" on:click={() => window.open('http://localhost:8000/data/' + msg.image_path, '_blank')} />
+										</div>
+									{/if}
 									{#if msg.content === '' && loading && msg.role === 'bot' && msg.id === messages[messages.length-1].id}
 										<span class="typing-indicator">Alanbix rédige...</span>
 									{/if}
@@ -368,8 +519,18 @@
 			</div>
 
 			<form class="input-area" on:submit|preventDefault={send}>
-				<input type="text" bind:value={query} placeholder="Posez une question sur la LAN, les règles, le planning..." disabled={loading} />
-				<button class="btn-primary" type="submit" disabled={loading}>Envoyer</button>
+				{#if pendingImagePreview}
+					<div class="pending-image-preview">
+						<img src={pendingImagePreview} alt="Preview" />
+						<button type="button" class="preview-clear" on:click={clearPendingImage}>✕</button>
+					</div>
+				{/if}
+				<div class="input-row">
+					<input type="file" accept="image/*" bind:this={fileInput} on:change={handleFileSelect} style="display:none" />
+					<button type="button" class="btn-attach" on:click={() => fileInput?.click()} title="Joindre une image">📎</button>
+					<input type="text" bind:value={query} placeholder="Posez une question sur la LAN, les règles, le planning..." disabled={loading} on:paste={handlePaste} />
+					<button class="btn-primary" type="submit" disabled={loading}>Envoyer</button>
+				</div>
 			</form>
 		{:else}
 			<div class="empty-chat flex-col center">
@@ -405,11 +566,11 @@
 	
 	.conv-btn { 
 		display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem; 
-		background: none; border: none; color: inherit; cursor: pointer; flex-grow: 1; text-align: left;
+		background: none; border: none; color: inherit; cursor: pointer; flex: 1; min-width: 0; text-align: left; overflow: hidden;
 	}
-	.conv-btn .title { font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
+	.conv-btn .title { font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 	
-	.delete-btn { opacity: 0; padding: 0.5rem; font-size: 0.8rem; }
+	.delete-btn { opacity: 0; padding: 0.5rem; font-size: 0.8rem; flex-shrink: 0; }
 	.conv-item:hover .delete-btn { opacity: 1; }
 
 	.chat-main { flex-grow: 1; display: flex; flex-direction: column; position: relative; overflow: hidden; }
@@ -507,4 +668,73 @@
 	.context-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem; }
 	.context-label { font-size: 0.7rem; font-weight: 700; color: #10b981; text-transform: uppercase; letter-spacing: 0.5px; }
 	.context-text { font-size: 0.8rem; color: var(--text-dim); white-space: pre-wrap; line-height: 1.4; }
+
+	/* Warning fill for token bar */
+	.warning-fill { background: linear-gradient(90deg, #f59e0b, #f97316); }
+
+	/* Admin message styling */
+	.msg-wrapper.admin { align-self: center; max-width: 90%; }
+	.msg-row.admin { flex-direction: row; }
+	.admin-msg { background: rgba(168,85,247,0.12) !important; border-color: rgba(168,85,247,0.3) !important; border-radius: 12px !important; }
+	.admin-badge { font-size: 0.65rem; font-weight: 700; color: #a855f7; text-transform: uppercase; letter-spacing: 0.5px; background: rgba(168,85,247,0.15); border: 1px solid rgba(168,85,247,0.3); border-radius: 0.5rem; padding: 0.1rem 0.5rem; display: inline-block; margin-bottom: 0.3rem; }
+
+	/* Markdown body styles */
+	.markdown-body { line-height: 1.6; word-break: break-word; }
+	.markdown-body :global(p) { margin: 0.4em 0; }
+	.markdown-body :global(p:first-child) { margin-top: 0; }
+	.markdown-body :global(p:last-child) { margin-bottom: 0; }
+	.markdown-body :global(h1), .markdown-body :global(h2), .markdown-body :global(h3) { margin: 0.6em 0 0.3em; font-weight: 600; }
+	.markdown-body :global(h1) { font-size: 1.3em; }
+	.markdown-body :global(h2) { font-size: 1.15em; }
+	.markdown-body :global(h3) { font-size: 1.05em; }
+	.markdown-body :global(ul), .markdown-body :global(ol) { margin: 0.4em 0; padding-left: 1.5em; }
+	.markdown-body :global(li) { margin: 0.15em 0; }
+	.markdown-body :global(code) { background: rgba(0,0,0,0.3); padding: 0.15em 0.35em; border-radius: 4px; font-size: 0.88em; font-family: 'Consolas', 'Monaco', monospace; }
+	.markdown-body :global(pre) { background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 0.8em 1em; overflow-x: auto; margin: 0.5em 0; }
+	.markdown-body :global(pre code) { background: none; padding: 0; font-size: 0.85em; }
+	.markdown-body :global(blockquote) { border-left: 3px solid var(--accent); margin: 0.5em 0; padding: 0.3em 0.8em; opacity: 0.85; }
+	.markdown-body :global(table) { border-collapse: collapse; width: 100%; margin: 0.5em 0; font-size: 0.88em; }
+	.markdown-body :global(th), .markdown-body :global(td) { border: 1px solid rgba(255,255,255,0.12); padding: 0.35em 0.6em; text-align: left; }
+	.markdown-body :global(th) { background: rgba(255,255,255,0.05); font-weight: 600; }
+	.markdown-body :global(a) { color: var(--accent); text-decoration: underline; }
+	.markdown-body :global(strong) { font-weight: 600; }
+	.markdown-body :global(hr) { border: none; border-top: 1px solid rgba(255,255,255,0.1); margin: 0.6em 0; }
+	.user-text { white-space: pre-wrap; }
+	.msg-content { white-space: normal; }
+
+	/* Admin notification banner */
+	.admin-notif {
+		position: absolute; top: 0; left: 0; right: 0; z-index: 100;
+		display: flex; align-items: center; gap: 0.75rem;
+		padding: 0.75rem 1.2rem;
+		background: rgba(168,85,247,0.15); border-bottom: 2px solid rgba(168,85,247,0.4);
+		backdrop-filter: blur(12px);
+		cursor: pointer; transition: background 0.2s;
+		animation: slideDown 0.35s cubic-bezier(0.16,1,0.3,1);
+	}
+	.admin-notif:hover { background: rgba(168,85,247,0.25); }
+	.admin-notif-icon { font-size: 1.2rem; }
+	.admin-notif-text { flex: 1; font-size: 0.85rem; color: #c4b5fd; }
+	.admin-notif-text strong { color: #a855f7; }
+	.admin-notif-btn { background: rgba(168,85,247,0.2); border: 1px solid rgba(168,85,247,0.4); color: #a855f7; padding: 0.3rem 0.7rem; border-radius: 6px; font-size: 0.75rem; font-weight: 700; cursor: pointer; transition: all 0.15s; }
+	.admin-notif-btn:hover { background: rgba(168,85,247,0.4); }
+	.admin-notif-close { background: none; border: none; color: rgba(255,255,255,0.4); font-size: 1rem; cursor: pointer; padding: 0.2rem; }
+	.admin-notif-close:hover { color: white; }
+	@keyframes slideDown { from { opacity:0; transform:translateY(-100%); } to { opacity:1; transform:translateY(0); } }
+
+	/* Image in message bubbles */
+	.msg-image { margin-top: 0.5rem; }
+	.msg-image img { max-width: 300px; max-height: 250px; border-radius: 8px; border: 1px solid var(--glass-border); cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; object-fit: cover; }
+	.msg-image img:hover { transform: scale(1.03); box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
+
+	/* Pending image preview */
+	.pending-image-preview { position: relative; display: inline-block; margin-bottom: 0.5rem; }
+	.pending-image-preview img { max-width: 200px; max-height: 120px; border-radius: 8px; border: 2px solid var(--accent); object-fit: cover; }
+	.preview-clear { position: absolute; top: -6px; right: -6px; width: 22px; height: 22px; border-radius: 50%; background: rgba(239,68,68,0.9); color: white; border: none; cursor: pointer; font-size: 0.7rem; display: flex; align-items: center; justify-content: center; }
+
+	/* Input row with attach button */
+	.input-row { display: flex; gap: 0.5rem; align-items: center; width: 100%; }
+	.input-row input[type="text"] { flex: 1; }
+	.btn-attach { background: var(--hover-tint); border: 1px solid var(--glass-border); color: var(--text-dim); width: 40px; height: 40px; border-radius: 8px; cursor: pointer; font-size: 1.1rem; display: flex; align-items: center; justify-content: center; transition: all 0.2s; flex-shrink: 0; }
+	.btn-attach:hover { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 </style>

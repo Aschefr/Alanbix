@@ -45,6 +45,11 @@ export const api = {
 	delete: (path: string) => request(path, {
 		method: 'DELETE'
 	}),
+	upload: (path: string, formData: FormData) => request(path, {
+		method: 'POST',
+		body: formData
+		// No Content-Type header — browser sets multipart boundary automatically
+	}),
 	login: async (username: string, password: string) => {
 		const formData = new URLSearchParams();
 		formData.append('username', username);

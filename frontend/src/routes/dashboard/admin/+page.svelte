@@ -1,6 +1,12 @@
 <script>
 	import { api } from '$lib/api';
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
+	import { marked } from 'marked';
+	import { wsMessageStore } from '$lib/ws';
+	let wsUnsub = null;
+
+	marked.setOptions({ breaks: true, gfm: true });
+	function parseMd(text) { return text ? marked.parse(text) : ''; }
 
 	let games = [];
 	let tournaments = [];
@@ -126,7 +132,15 @@
 
 	onMount(async () => {
 		loadData();
+		// Listen for user messages during admin override to auto-refresh conv view
+		wsUnsub = wsMessageStore.subscribe(msg => {
+			if (msg && msg.type === 'user_message_during_override' && adminActiveConvId === msg.conversation_id) {
+				selectAdminConv(adminActiveConvId);
+			}
+		});
 	});
+
+	onDestroy(() => { if (wsUnsub) wsUnsub(); });
 
 	async function loadData() {
 		games = await api.get('/tournaments/games');
@@ -225,8 +239,8 @@
 	let creatingTournament = false;
 
 	// Nuke state
-	let nukeConfirm = { tournaments: false, players: false, games: false };
-	let nuking = { tournaments: false, players: false, games: false };
+	let nukeConfirm = { tournaments: false, players: false, games: false, images: false };
+	let nuking = { tournaments: false, players: false, games: false, images: false };
 
 	async function nukeTournaments() {
 		nuking.tournaments = true;
@@ -259,6 +273,16 @@
 		} catch (e) { toast(e.message, 'error'); }
 		nuking.games = false;
 		nukeConfirm.games = false;
+	}
+
+	async function nukeImages() {
+		nuking.images = true;
+		try {
+			await api.delete('/ia/admin/nuke-images');
+			toast('Toutes les images du chat ont été supprimées', 'success');
+		} catch (e) { toast(e.message, 'error'); }
+		nuking.images = false;
+		nukeConfirm.images = false;
 	}
 
 	async function saveTournament() {
@@ -428,6 +452,94 @@
 			await loadPlayers();
 		} catch (e) { toast(e.message, 'error'); }
 	}
+
+	// --- Admin Conversation Monitoring ---
+	let adminConversations = [];
+	let adminActiveConvId = null;
+	let adminConvMessages = [];
+	let adminConvInfo = null;
+	let adminInterveneText = '';
+	let adminChatContainer = null;
+	let adminPendingImage = null;
+	let adminImagePreview = '';
+	let adminFileInput = null;
+
+	function handleAdminFileSelect(e) {
+		const file = e.target.files?.[0];
+		if (!file) return;
+		if (file.size > 8 * 1024 * 1024) { toast('Image trop volumineuse (max 8 Mo)', 'error'); return; }
+		adminPendingImage = file;
+		const reader = new FileReader();
+		reader.onload = (ev) => { adminImagePreview = ev.target.result; };
+		reader.readAsDataURL(file);
+		if (adminFileInput) adminFileInput.value = '';
+	}
+
+	function handleAdminPaste(e) {
+		const items = e.clipboardData?.items;
+		if (!items) return;
+		for (const item of items) {
+			if (item.type.startsWith('image/')) {
+				e.preventDefault();
+				const file = item.getAsFile();
+				if (file.size > 8 * 1024 * 1024) { toast('Image trop volumineuse (max 8 Mo)', 'error'); return; }
+				adminPendingImage = file;
+				const reader = new FileReader();
+				reader.onload = (ev) => { adminImagePreview = ev.target.result; };
+				reader.readAsDataURL(file);
+				break;
+			}
+		}
+	}
+
+	import { tick } from 'svelte';
+	async function adminScrollToBottom() {
+		await tick();
+		if (adminChatContainer) adminChatContainer.scrollTop = adminChatContainer.scrollHeight;
+	}
+
+	async function loadAdminConversations() {
+		try { adminConversations = await api.get('/ia/admin/conversations'); } catch (e) { toast('Erreur chargement conversations', 'error'); }
+	}
+
+	async function selectAdminConv(id) {
+		adminActiveConvId = id;
+		try {
+			const res = await api.get(`/ia/admin/conversations/${id}/messages`);
+			adminConvMessages = res.messages;
+			adminConvInfo = res.conversation;
+			adminScrollToBottom();
+		} catch (e) { toast(e.message, 'error'); }
+	}
+
+	async function adminSendIntervention() {
+		if ((!adminInterveneText.trim() && !adminPendingImage) || !adminActiveConvId) return;
+		try {
+			let imagePath = null;
+			if (adminPendingImage) {
+				const fd = new FormData();
+				fd.append('conversation_id', adminActiveConvId);
+				fd.append('file', adminPendingImage);
+				const uploadRes = await api.upload('/ia/upload-image', fd);
+				imagePath = uploadRes.image_path;
+				adminPendingImage = null;
+				adminImagePreview = '';
+			}
+			await api.post(`/ia/admin/conversations/${adminActiveConvId}/intervene`, { content: adminInterveneText || '(image)', image_path: imagePath });
+			adminInterveneText = '';
+			toast('Message admin envoyé', 'success');
+			await selectAdminConv(adminActiveConvId);
+		} catch (e) { toast(e.message, 'error'); }
+	}
+
+	async function toggleAdminOverride(convId, value) {
+		try {
+			await api.put(`/ia/admin/conversations/${convId}/override`, { admin_override: value });
+			toast(value ? 'Admin prend la main' : 'IA reprend la main', 'success');
+			if (adminConvInfo) adminConvInfo.admin_override = value;
+			await loadAdminConversations();
+		} catch (e) { toast(e.message, 'error'); }
+	}
 </script>
 
 <div class="admin-view">
@@ -438,6 +550,7 @@
 			<button class={activeTab === 'games' ? 'active' : ''} on:click={() => activeTab = 'games'}>Bibliothèque Jeux</button>
 			<button class={activeTab === 'players' ? 'active' : ''} on:click={() => { activeTab = 'players'; loadPlayers(); }}>Gestion Joueurs</button>
 			<button class={activeTab === 'settings' ? 'active' : ''} on:click={() => activeTab = 'settings'}>IA & Paramètres</button>
+			<button class={activeTab === 'conversations' ? 'active' : ''} on:click={() => { activeTab = 'conversations'; loadAdminConversations(); }}>Conversations IA</button>
 		</div>
 	</header>
 
@@ -1285,9 +1398,134 @@
 							<textarea bind:value={newDocContent} placeholder="Copiez-collez ici vos tutoriels, patchnotes ou règles spécifiques..." class="prompt-textarea"></textarea>
 							<button class="btn-primary btn-xs" on:click={() => { api.post('/ia/upload-document', { content: newDocContent }); newDocContent = ''; toast('Document envoyé pour vectorisation.', 'success'); }} style="align-self:flex-end;margin-top:0.5rem;">🚀 Lancer la Vectorisation</button>
 						</div>
+						</div>
+
+					<!-- Nuke Chat Images -->
+					<div class="sc danger-zone">
+						<div class="sc-head">
+							<div class="sc-icon">🗑️</div>
+							<div>
+								<h3>Purger les images du chat</h3>
+								<p class="sc-sub">Supprime toutes les images jointes aux conversations IA</p>
+							</div>
+						</div>
+						<div class="sc-body">
+							{#if nukeConfirm.images}
+								<div class="nuke-confirm">
+									<span class="text-danger text-xs font-bold">⚠️ Toutes les images seront supprimées !</span>
+									<button class="btn-danger-sm" on:click={nukeImages} disabled={nuking.images}>
+										{nuking.images ? '⏳...' : '☢️ Tout supprimer'}
+									</button>
+									<button class="btn-secondary btn-xs" on:click={() => nukeConfirm.images = false}>Annuler</button>
+								</div>
+							{:else}
+								<button class="btn-outline-danger" on:click={() => nukeConfirm.images = true}>Purger les images</button>
+							{/if}
+						</div>
 					</div>
 				</div>
 				{/if}
+			</div>
+		{:else if activeTab === 'conversations'}
+			<div class="admin-grid">
+				<!-- Conversation list -->
+				<section class="list glass" style="max-height:80vh;overflow-y:auto">
+					<div class="list-header">
+						<div class="flex-row items-center gap-3">
+							<div class="list-icon">💬</div>
+							<div>
+								<h2 style="margin:0">Conversations Joueurs</h2>
+								<span class="text-xs text-dim">Surveiller et intervenir</span>
+							</div>
+						</div>
+						<span class="badge-count">{adminConversations.length}</span>
+					</div>
+					<div class="item-list">
+						{#each adminConversations as c}
+							<div class="admin-item-card glass-hover {adminActiveConvId === c.id ? 'editing-expanded' : ''}" style="cursor:pointer;flex-direction:column;align-items:stretch" on:click={() => selectAdminConv(c.id)}>
+								<div class="card-top-row" style="display:flex;justify-content:space-between;align-items:center">
+									<div class="item-info">
+										<div class="flex-row items-center gap-2">
+											<span class="item-name">{c.title}</span>
+											{#if c.admin_override}
+												<span class="status-pill-sm" style="background:rgba(168,85,247,0.2);color:#a855f7;border:1px solid #a855f7">🛡️ Admin</span>
+											{/if}
+										</div>
+										<div class="item-meta">👤 {c.username} • {c.message_count} msg • {c.created_at ? new Date(c.created_at).toLocaleDateString('fr-FR') : ''}</div>
+									</div>
+								</div>
+							</div>
+						{:else}
+							<div class="empty-list">
+								<span class="empty-icon">💬</span>
+								<p>Aucune conversation</p>
+							</div>
+						{/each}
+					</div>
+				</section>
+
+				<!-- Conversation detail -->
+				<section class="list glass" style="max-height:80vh;display:flex;flex-direction:column">
+					{#if adminActiveConvId && adminConvInfo}
+						<div class="list-header">
+							<div class="flex-row items-center gap-3">
+								<div class="list-icon">🔍</div>
+								<div>
+									<h2 style="margin:0">{adminConvInfo.title}</h2>
+									<span class="text-xs text-dim">Joueur : {adminConvInfo.username}</span>
+								</div>
+							</div>
+							<div class="flex-row gap-2 items-center">
+								{#if adminConvInfo.admin_override}
+									<button class="btn-primary btn-xs" on:click={() => toggleAdminOverride(adminActiveConvId, false)}>🤖 Rendre la main à l'IA</button>
+								{:else}
+									<button class="btn-sentinel" on:click={() => toggleAdminOverride(adminActiveConvId, true)}>🛡️ Prendre la main</button>
+								{/if}
+							</div>
+						</div>
+						<div bind:this={adminChatContainer} style="flex:1;overflow-y:auto;padding:1rem;display:flex;flex-direction:column;gap:0.75rem">
+							{#each adminConvMessages as m}
+								<div style="display:flex;gap:0.5rem;{m.role === 'user' ? 'flex-direction:row-reverse' : ''}">
+									<div style="font-size:1.1rem">{m.role === 'bot' ? '🤖' : m.role === 'admin' ? '🛡️' : '👤'}</div>
+									<div style="padding:0.6rem 0.8rem;border-radius:12px;max-width:80%;font-size:0.85rem;line-height:1.4;{m.role === 'user' ? 'background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.3)' : m.role === 'admin' ? 'background:rgba(168,85,247,0.12);border:1px solid rgba(168,85,247,0.3)' : 'background:var(--hover-tint);border:1px solid var(--glass-border)'}">
+										{#if m.role === 'admin'}<span style="font-size:0.65rem;font-weight:700;color:#a855f7;text-transform:uppercase;margin-bottom:0.2rem;display:block">Admin</span>{/if}
+										<div class="admin-conv-md">{@html parseMd(m.content)}</div>
+										{#if m.image_path}
+											<div style="margin-top:0.4rem">
+												<img src="http://localhost:8000/data/{m.image_path}" alt="" style="max-width:250px;max-height:180px;border-radius:8px;border:1px solid var(--glass-border);cursor:pointer;object-fit:cover" on:click={() => window.open('http://localhost:8000/data/' + m.image_path, '_blank')} />
+											</div>
+										{/if}
+									</div>
+								</div>
+							{/each}
+						</div>
+						{#if adminConvInfo.admin_override}
+							<div style="padding:0.75rem 1rem;border-top:1px solid var(--glass-border);display:flex;flex-direction:column;gap:0.5rem">
+								{#if adminImagePreview}
+									<div style="position:relative;display:inline-block">
+										<img src={adminImagePreview} alt="Preview" style="max-width:150px;max-height:80px;border-radius:6px;border:2px solid #a855f7;object-fit:cover" />
+										<button style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:rgba(239,68,68,0.9);color:white;border:none;cursor:pointer;font-size:0.65rem;display:flex;align-items:center;justify-content:center" on:click={() => { adminPendingImage = null; adminImagePreview = ''; }}>✕</button>
+									</div>
+								{/if}
+								<div style="display:flex;gap:0.5rem;align-items:center">
+									<input type="file" accept="image/*" bind:this={adminFileInput} on:change={handleAdminFileSelect} style="display:none" />
+									<button class="btn-attach" style="width:36px;height:36px;font-size:1rem;border-radius:6px" on:click={() => adminFileInput?.click()} title="Joindre une image">📎</button>
+									<input type="text" bind:value={adminInterveneText} placeholder="Écrire en tant qu'admin..." style="flex:1" on:keydown={(e) => { if (e.key === 'Enter') adminSendIntervention(); }} on:paste={handleAdminPaste} />
+									<button class="btn-primary" on:click={adminSendIntervention}>Envoyer</button>
+								</div>
+							</div>
+						{:else}
+							<div style="padding:0.75rem 1rem;border-top:1px solid var(--glass-border);text-align:center;font-size:0.8rem;color:var(--text-dim)">
+								🤖 L'IA gère cette conversation — Cliquez "Prendre la main" pour intervenir
+							</div>
+						{/if}
+					{:else}
+						<div class="empty-list" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center">
+							<span class="empty-icon">🔍</span>
+							<p>Sélectionnez une conversation</p>
+						</div>
+					{/if}
+				</section>
 			</div>
 		{/if}
 	</div>
@@ -1513,7 +1751,7 @@
 	.preview-clear { position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; border-radius: 50%; background: rgba(239,68,68,0.8); color: white; border: none; cursor: pointer; font-size: 0.7rem; display: flex; align-items: center; justify-content: center; }
 
 	/* Toast System */
-	.toast-container { position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 10000; display: flex; flex-direction: column-reverse; gap: 0.75rem; pointer-events: none; }
+	.toast-container { position: fixed; top: 1.5rem; right: 1.5rem; z-index: 10000; display: flex; flex-direction: column; gap: 0.75rem; pointer-events: none; }
 	.toast { display: flex; align-items: center; gap: 0.75rem; padding: 0.8rem 1.4rem; border-radius: 12px; backdrop-filter: blur(16px); border: 1px solid var(--glass-border); box-shadow: 0 10px 30px rgba(0,0,0,0.4); font-size: 0.88rem; font-weight: 600; pointer-events: auto; min-width: 260px; }
 	.toast.success { background: rgba(16, 185, 129, 0.15); border-color: rgba(16, 185, 129, 0.3); color: #10b981; }
 	.toast.error { background: rgba(239, 68, 68, 0.15); border-color: rgba(239, 68, 68, 0.3); color: var(--danger); }
@@ -1612,4 +1850,17 @@
 	.nuke-confirm { display: flex; align-items: center; gap: 0.5rem; }
 	.btn-outline-danger { padding: 0.4rem 0.9rem; font-size: 0.7rem; font-weight: 700; color: var(--danger); background: transparent; border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
 	.btn-outline-danger:hover { background: rgba(239, 68, 68, 0.1); border-color: var(--danger); }
+	.btn-sentinel { padding: 0.4rem 0.9rem; font-size: 0.7rem; font-weight: 700; color: #a855f7; background: rgba(168,85,247,0.1); border: 1px solid rgba(168,85,247,0.3); border-radius: 8px; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+	.btn-sentinel:hover { background: rgba(168,85,247,0.25); border-color: #a855f7; box-shadow: 0 0 12px rgba(168,85,247,0.2); }
+	.admin-conv-md :global(p) { margin: 0.3em 0; }
+	.admin-conv-md :global(p:first-child) { margin-top: 0; }
+	.admin-conv-md :global(p:last-child) { margin-bottom: 0; }
+	.admin-conv-md :global(code) { background: rgba(0,0,0,0.3); padding: 0.1em 0.3em; border-radius: 4px; font-size: 0.85em; }
+	.admin-conv-md :global(pre) { background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 0.6em; overflow-x: auto; margin: 0.4em 0; }
+	.admin-conv-md :global(pre code) { background: none; padding: 0; }
+	.admin-conv-md :global(strong) { font-weight: 600; }
+	.admin-conv-md :global(ul), .admin-conv-md :global(ol) { margin: 0.3em 0; padding-left: 1.3em; }
+	.admin-conv-md :global(blockquote) { border-left: 3px solid var(--accent); padding: 0.2em 0.6em; margin: 0.3em 0; opacity: 0.85; }
+	.btn-attach { background: var(--hover-tint); border: 1px solid var(--glass-border); color: var(--text-dim); width: 36px; height: 36px; border-radius: 6px; cursor: pointer; font-size: 1rem; display: flex; align-items: center; justify-content: center; transition: all 0.2s; flex-shrink: 0; }
+	.btn-attach:hover { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 </style>

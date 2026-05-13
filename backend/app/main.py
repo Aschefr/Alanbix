@@ -88,6 +88,11 @@ import os
 os.makedirs("static/uploads/games", exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+# Serve chat images from data volume
+DATA_DIR = os.path.dirname(os.getenv("DATABASE_PATH", "/app/data/alanbix.db"))
+os.makedirs(os.path.join(DATA_DIR, "chat_images"), exist_ok=True)
+app.mount("/data", StaticFiles(directory=DATA_DIR), name="data")
+
 
 
 

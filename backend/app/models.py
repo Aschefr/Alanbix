@@ -120,6 +120,7 @@ class Conversation(Base):
     compressed_at = Column(DateTime, nullable=True)
     compression_mode = Column(String, nullable=True)
     auto_compression_mode = Column(String, nullable=True)
+    admin_override = Column(Boolean, default=False)  # When True, admin controls responses
 
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     
@@ -131,6 +132,7 @@ class ChatMessage(Base):
     conversation_id = Column(Integer, ForeignKey("conversations.id", ondelete="CASCADE"))
     role = Column(String) # user, bot
     content = Column(Text)
+    image_path = Column(String, nullable=True)  # Relative path to attached image
     timestamp = Column(DateTime, default=datetime.datetime.utcnow)
     
     conversation = relationship("Conversation", back_populates="messages")

@@ -2,12 +2,16 @@ import os
 import json
 import httpx
 import asyncio
+import uuid
+import shutil
+import base64
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from pydantic import BaseModel
+from ..websockets import manager as ws_manager
 from .. import models, schemas, auth, database
 from ..ia_utils import get_embedding, search_similar
 from starlette.requests import Request as StarletteRequest
@@ -157,11 +161,39 @@ def create_conversation(conv: schemas.ConversationBase, db: Session = Depends(da
     db.refresh(db_conv)
     return db_conv
 
+CHAT_IMAGES_DIR = os.path.join(os.path.dirname(os.getenv("DATABASE_PATH", "/app/data/alanbix.db")), "chat_images")
+MAX_IMAGE_SIZE = 8 * 1024 * 1024  # 8 Mo
+ALLOWED_MIME = {"image/jpeg", "image/png", "image/gif", "image/webp"}
+
+@router.post("/upload-image")
+async def upload_image(conversation_id: int = Form(...), file: UploadFile = File(...), db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
+    """Upload an image for a chat message. Returns the relative path."""
+    if file.content_type not in ALLOWED_MIME:
+        raise HTTPException(400, detail="Type de fichier non supporté. JPEG, PNG, GIF, WebP uniquement.")
+    data = await file.read()
+    if len(data) > MAX_IMAGE_SIZE:
+        raise HTTPException(400, detail="Image trop volumineuse (max 8 Mo).")
+    ext = file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else "jpg"
+    if ext not in ("jpg", "jpeg", "png", "gif", "webp"):
+        ext = "jpg"
+    img_dir = os.path.join(CHAT_IMAGES_DIR, str(conversation_id))
+    os.makedirs(img_dir, exist_ok=True)
+    filename = f"{uuid.uuid4().hex}.{ext}"
+    filepath = os.path.join(img_dir, filename)
+    with open(filepath, "wb") as f:
+        f.write(data)
+    rel_path = f"chat_images/{conversation_id}/{filename}"
+    return {"image_path": rel_path}
+
 @router.delete("/conversations/{conv_id}")
 def delete_conversation(conv_id: int, db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
     conv = db.query(models.Conversation).filter(models.Conversation.id == conv_id, models.Conversation.user_id == user.id).first()
     if not conv:
         raise HTTPException(status_code=404)
+    # Clean up image files
+    img_dir = os.path.join(CHAT_IMAGES_DIR, str(conv_id))
+    if os.path.isdir(img_dir):
+        shutil.rmtree(img_dir, ignore_errors=True)
     db.delete(conv)
     db.commit()
     return {"status": "ok"}
@@ -177,7 +209,7 @@ def get_messages(conv_id: int, db: Session = Depends(database.get_db), user: mod
     
     return {
         "messages": [
-            {"id": m.id, "role": m.role, "content": m.content, "timestamp": m.timestamp.isoformat()}
+            {"id": m.id, "role": m.role, "content": m.content, "image_path": m.image_path, "timestamp": m.timestamp.isoformat()}
             for m in messages
         ],
         "usage": {"estimated_tokens": est_tokens},
@@ -304,13 +336,30 @@ class QueryRequest(BaseModel):
     prompt: str
     conversation_id: int
     game_id: Optional[int] = None
+    image_path: Optional[str] = None
 
 @router.post("/stream")
 async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
     conv = db.query(models.Conversation).filter(models.Conversation.id == request.conversation_id).first()
     if not conv:
         raise HTTPException(404)
-        
+    
+    # Block AI when admin has taken over
+    if conv.admin_override:
+        # Still save the user message so admin can see it
+        user_msg = models.ChatMessage(conversation_id=request.conversation_id, role="user", content=request.prompt, image_path=request.image_path)
+        db.add(user_msg)
+        db.commit()
+        # Notify admin via WS that user sent a message
+        await ws_manager.broadcast({
+            "type": "user_message_during_override",
+            "conversation_id": request.conversation_id,
+            "user_id": conv.user_id,
+            "content": request.prompt
+        })
+        async def admin_mode_response():
+            yield f"data: {json.dumps({'text': '🛡️ Un administrateur gère cette conversation. Votre message a été transmis.', 'done': True})}\n\n"
+        return StreamingResponse(admin_mode_response(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
     ia_cfg = get_effective_config(db)
     model_to_use = conv.model or ia_cfg.get('model', 'llama3')
     instance = await pick_instance(db, model=model_to_use)
@@ -336,7 +385,7 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
     history = history_query.order_by(models.ChatMessage.timestamp.asc()).all()
     
     # Save user message immediately
-    user_msg = models.ChatMessage(conversation_id=request.conversation_id, role="user", content=request.prompt)
+    user_msg = models.ChatMessage(conversation_id=request.conversation_id, role="user", content=request.prompt, image_path=request.image_path)
     db.add(user_msg)
     db.commit()
     
@@ -388,12 +437,24 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
     if rag_context:
         ollama_messages.append({"role": "system", "content": f"=== Base de Connaissances ===\n{rag_context}"})
     
-    # Inject conversation history
+    # Inject conversation history (include images as base64 for vision models)
     for m in history:
-        ollama_messages.append({"role": "user" if m.role == "user" else "assistant", "content": m.content})
+        msg_entry = {"role": "user" if m.role == "user" else "assistant", "content": m.content}
+        if m.image_path:
+            img_full = os.path.join(os.path.dirname(CHAT_IMAGES_DIR), m.image_path)
+            if os.path.isfile(img_full):
+                with open(img_full, "rb") as imgf:
+                    msg_entry["images"] = [base64.b64encode(imgf.read()).decode("utf-8")]
+        ollama_messages.append(msg_entry)
     
-    # Current user message
-    ollama_messages.append({"role": "user", "content": request.prompt})
+    # Current user message (with image if attached)
+    current_msg = {"role": "user", "content": request.prompt}
+    if request.image_path:
+        img_full = os.path.join(os.path.dirname(CHAT_IMAGES_DIR), request.image_path)
+        if os.path.isfile(img_full):
+            with open(img_full, "rb") as imgf:
+                current_msg["images"] = [base64.b64encode(imgf.read()).decode("utf-8")]
+    ollama_messages.append(current_msg)
     
     async def event_generator():
         client = httpx.AsyncClient()
@@ -423,25 +484,12 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
                                 ai_msg = models.ChatMessage(conversation_id=request.conversation_id, role="bot", content=full_response)
                                 s.add(ai_msg)
                                 s.commit()
-                                # Auto-title: generate title on first exchange
-                                conv_check = s.query(models.Conversation).filter(models.Conversation.id == request.conversation_id).first()
-                                if conv_check and conv_check.title in ("Nouvelle discussion", ""):
-                                    try:
-                                        title_res = await client.post(f"{ollama_host}/api/chat", json={
-                                            "model": model_to_use,
-                                            "messages": [{"role": "user", "content": f"Génère un titre COURT (max 5 mots) pour cette conversation. Réponds UNIQUEMENT avec le titre, sans guillemets ni ponctuation finale.\n\nQuestion: {request.prompt}"}],
-                                            "stream": False,
-                                            "options": {"temperature": 0.3}
-                                        }, timeout=10.0)
-                                        if title_res.status_code == 200:
-                                            title_text = title_res.json().get("message", {}).get("content", "").strip().strip('"\'')
-                                            if title_text and len(title_text) < 60:
-                                                conv_check.title = title_text
-                                                s.commit()
-                                                yield f"data: {json.dumps({'title': title_text})}\n\n"
-                                    except:
-                                        pass
-                            yield f"data: {json.dumps({'done': True})}\n\n"
+                                # Compute updated token estimate for frontend
+                                all_msgs = s.query(models.ChatMessage).filter(
+                                    models.ChatMessage.conversation_id == request.conversation_id
+                                ).all()
+                                est_tokens = sum(len(m.content) for m in all_msgs) // 4
+                            yield f"data: {json.dumps({'done': True, 'estimated_tokens': est_tokens})}\n\n"
                             break
                     except:
                         pass
@@ -449,6 +497,138 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
             await client.aclose()
             
     return StreamingResponse(event_generator(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+# ── Auto-title endpoint (called by frontend after first exchange) ────────────
+@router.post("/auto-title/{conv_id}")
+async def auto_title(conv_id: int, db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
+    conv = db.query(models.Conversation).filter(models.Conversation.id == conv_id).first()
+    if not conv:
+        raise HTTPException(404)
+    # Only rename if still default
+    if conv.title not in ("Nouvelle discussion", ""):
+        return {"title": conv.title}
+    # Get the first user message
+    first_msg = db.query(models.ChatMessage).filter(
+        models.ChatMessage.conversation_id == conv_id,
+        models.ChatMessage.role == "user"
+    ).order_by(models.ChatMessage.timestamp.asc()).first()
+    if not first_msg:
+        return {"title": conv.title}
+    
+    ia_cfg = get_effective_config(db)
+    model_to_use = conv.model or ia_cfg.get('model', 'llama3')
+    instance = await pick_instance(db, model=model_to_use)
+    ollama_host = instance["url"] if instance else ia_cfg.get('ollama_host', 'http://localhost:11434')
+    if not conv.model and instance and instance.get("model"):
+        model_to_use = instance["model"]
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            title_res = await client.post(f"{ollama_host}/api/chat", json={
+                "model": model_to_use,
+                "messages": [{"role": "user", "content": f"Génère un titre COURT (max 5 mots) pour cette conversation. Réponds UNIQUEMENT avec le titre, sans guillemets ni ponctuation finale.\n\nQuestion: {first_msg.content}"}],
+                "stream": False,
+                "options": {"temperature": 0.3}
+            }, timeout=15.0)
+            if title_res.status_code == 200:
+                title_text = title_res.json().get("message", {}).get("content", "").strip().strip('"\'')
+                if title_text and len(title_text) < 60:
+                    conv.title = title_text
+                    db.commit()
+                    return {"title": title_text}
+    except Exception:
+        pass
+    return {"title": conv.title}
+
+
+# ── Admin conversation monitoring endpoints ──────────────────────────────────
+@router.get("/admin/conversations")
+async def admin_list_conversations(db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
+    """List ALL conversations across all users (admin only)."""
+    convs = db.query(models.Conversation).order_by(models.Conversation.created_at.desc()).all()
+    results = []
+    for c in convs:
+        user = db.query(models.User).filter(models.User.id == c.user_id).first()
+        msg_count = db.query(models.ChatMessage).filter(models.ChatMessage.conversation_id == c.id).count()
+        results.append({
+            "id": c.id,
+            "title": c.title,
+            "user_id": c.user_id,
+            "username": user.username if user else "?",
+            "created_at": c.created_at.isoformat() if c.created_at else None,
+            "message_count": msg_count,
+            "admin_override": c.admin_override or False
+        })
+    return results
+
+@router.get("/admin/conversations/{conv_id}/messages")
+async def admin_get_messages(conv_id: int, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
+    """Read all messages of any conversation (admin only)."""
+    conv = db.query(models.Conversation).filter(models.Conversation.id == conv_id).first()
+    if not conv:
+        raise HTTPException(404)
+    messages = db.query(models.ChatMessage).filter(
+        models.ChatMessage.conversation_id == conv_id
+    ).order_by(models.ChatMessage.timestamp.asc()).all()
+    user = db.query(models.User).filter(models.User.id == conv.user_id).first()
+    return {
+        "conversation": {
+            "id": conv.id,
+            "title": conv.title,
+            "username": user.username if user else "?",
+            "admin_override": conv.admin_override or False
+        },
+        "messages": [
+            {"id": m.id, "role": m.role, "content": m.content, "image_path": m.image_path, "timestamp": m.timestamp.isoformat()}
+            for m in messages
+        ]
+    }
+
+class AdminInterveneRequest(BaseModel):
+    content: str
+    image_path: Optional[str] = None
+
+@router.post("/admin/conversations/{conv_id}/intervene")
+async def admin_intervene(conv_id: int, body: AdminInterveneRequest, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
+    """Inject an admin message into a player's conversation."""
+    conv = db.query(models.Conversation).filter(models.Conversation.id == conv_id).first()
+    if not conv:
+        raise HTTPException(404)
+    # Save as role 'admin' with the admin's username in the content prefix
+    msg = models.ChatMessage(
+        conversation_id=conv_id,
+        role="admin",
+        content=f"[{admin.username}] {body.content}",
+        image_path=body.image_path
+    )
+    db.add(msg)
+    # Auto-enable admin override
+    conv.admin_override = True
+    db.commit()
+    # Broadcast to all connected clients so user sees it in real-time
+    await ws_manager.broadcast({
+        "type": "admin_message",
+        "conversation_id": conv_id,
+        "user_id": conv.user_id,
+        "admin_name": admin.username,
+        "content": body.content,
+        "message_id": msg.id
+    })
+    return {"status": "ok", "message_id": msg.id}
+
+class OverrideRequest(BaseModel):
+    admin_override: bool
+
+@router.put("/admin/conversations/{conv_id}/override")
+async def admin_toggle_override(conv_id: int, body: OverrideRequest, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
+    """Toggle admin_override flag on a conversation."""
+    conv = db.query(models.Conversation).filter(models.Conversation.id == conv_id).first()
+    if not conv:
+        raise HTTPException(404)
+    conv.admin_override = body.admin_override
+    db.commit()
+    return {"status": "ok", "admin_override": conv.admin_override}
+
 
 class UploadDocumentRequest(BaseModel):
     content: str
@@ -464,3 +644,14 @@ async def upload_document(req: UploadDocumentRequest, db: Session = Depends(data
     db.add(doc)
     db.commit()
     return {"status": "uploaded"}
+
+@router.delete("/admin/nuke-images")
+async def admin_nuke_images(db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
+    """Purge ALL chat images from the server."""
+    if os.path.isdir(CHAT_IMAGES_DIR):
+        shutil.rmtree(CHAT_IMAGES_DIR, ignore_errors=True)
+    os.makedirs(CHAT_IMAGES_DIR, exist_ok=True)
+    # Clear image_path references in DB
+    db.query(models.ChatMessage).filter(models.ChatMessage.image_path != None).update({"image_path": None})
+    db.commit()
+    return {"status": "ok", "message": "Toutes les images ont été supprimées."}
