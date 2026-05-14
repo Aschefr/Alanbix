@@ -1058,6 +1058,16 @@ async def close_tournament(
     bracket_type = config.get("bracket_type", "single_elim")
     use_teams = config.get("use_teams", False)
     
+    # Rebuild _team_map if missing (can be lost during config edits or reopen cycles)
+    if use_teams and not config.get("_team_map"):
+        teams_for_map = db.query(models.TournamentTeam).filter(
+            models.TournamentTeam.tournament_id == tournament_id
+        ).all()
+        config["_team_map"] = {str(-t.id): t.name for t in teams_for_map}
+        tournament.config = config
+        from sqlalchemy.orm.attributes import flag_modified
+        flag_modified(tournament, "config")
+    
     # Points config (from tournament config, with defaults)
     pts_winner = config.get("pts_winner", 10)
     pts_second = config.get("pts_second", 6)

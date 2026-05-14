@@ -380,13 +380,14 @@
 		font-size: 0.6rem; font-weight: 800; text-align: center;
 		box-shadow: 0 0 8px rgba(239,68,68,0.5);
 		animation: notif-pulse 2s ease-in-out infinite;
+		will-change: opacity;
 	}
 	.notif-count-badge.bounce {
 		animation: notif-bounce 0.6s ease;
 	}
 	@keyframes notif-pulse {
-		0%, 100% { transform: scale(1); box-shadow: 0 0 8px rgba(239,68,68,0.5); }
-		50% { transform: scale(1.15); box-shadow: 0 0 16px rgba(239,68,68,0.8); }
+		0%, 100% { opacity: 1; }
+		50% { opacity: 0.4; }
 	}
 	@keyframes notif-bounce {
 		0% { transform: scale(1); }
@@ -405,13 +406,13 @@
 	.ia-status-title { font-size: 0.65rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.4rem; }
 	.ia-inst-row { display: flex; align-items: center; gap: 0.5rem; padding: 0.15rem 0; }
 	.ia-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-	.ia-dot.online { background: #10b981; box-shadow: 0 0 6px rgba(16,185,129,0.6); animation: dot-pulse 2s ease-in-out infinite; }
+	.ia-dot.online { background: #10b981; box-shadow: 0 0 6px rgba(16,185,129,0.6); animation: dot-pulse 2s ease-in-out infinite; will-change: opacity; }
 	.ia-dot.offline { background: #ef4444; box-shadow: 0 0 6px rgba(239,68,68,0.4); }
-	.ia-dot.busy { background: #f59e0b; box-shadow: 0 0 8px rgba(245,158,11,0.7); animation: dot-busy 0.5s ease-in-out infinite; }
+	.ia-dot.busy { background: #f59e0b; box-shadow: 0 0 8px rgba(245,158,11,0.7); animation: dot-busy 0.5s ease-in-out infinite; will-change: opacity; }
 	@keyframes dot-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
-	@keyframes dot-busy { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.7); } }
+	@keyframes dot-busy { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
 	.ia-inst-label { font-size: 0.7rem; color: var(--text-dim); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	.ia-inst-ping { font-size: 0.6rem; color: var(--text-muted); font-family: monospace; }
 	.ia-inst-ping.offline { color: #ef4444; font-weight: 700; }
-	.ia-inst-ping.busy { color: #f59e0b; font-weight: 700; font-size: 0.75rem; animation: dot-busy 0.5s ease-in-out infinite; }
+	.ia-inst-ping.busy { color: #f59e0b; font-weight: 700; font-size: 0.75rem; }
 </style>

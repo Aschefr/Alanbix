@@ -382,8 +382,11 @@
 	$: nameMap = (() => {
 		const m = {};
 		participants.forEach(p => { m[p.user_id] = p.username; });
+		// Primary source: config._team_map (set at tournament start)
 		const tm = selected?.config?._team_map || {};
 		Object.entries(tm).forEach(([id, name]) => { m[id] = name; });
+		// Fallback: rebuild from live teams data (survives config loss on reopen/re-close)
+		teams.forEach(t => { const key = String(-t.id); if (!m[key]) m[key] = t.name; });
 		return m;
 	})();
 
@@ -1105,7 +1108,7 @@
 	.hero-game { color: #60a5fa; font-weight: 600; font-size: 0.85rem; text-shadow: 0 1px 4px rgba(0,0,0,0.5); }
 	.hero-join { align-self: flex-end; }
 	.hero-joined { align-self: flex-end; padding: 0.5rem 1.2rem; background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.3); color: #10b981; border-radius: 10px; font-weight: 700; font-size: 0.85rem; text-shadow: 0 1px 4px rgba(0,0,0,0.3); }
-	.status-pill { display: inline-flex; align-items: center; gap: 0.3rem; align-self: flex-start; padding: 0.2rem 0.6rem; border-radius: 20px; font-size: 0.65rem; font-weight: 700; backdrop-filter: blur(8px); margin-bottom: 0.2rem; text-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+	.status-pill { display: inline-flex; align-items: center; gap: 0.3rem; align-self: flex-start; padding: 0.2rem 0.6rem; border-radius: 20px; font-size: 0.65rem; font-weight: 700; margin-bottom: 0.2rem; text-shadow: 0 1px 3px rgba(0,0,0,0.3); }
 	.status-pill.open { background: rgba(34,197,94,0.2); color: #4ade80; border: 1px solid rgba(34,197,94,0.3); }
 	.status-pill.running { background: rgba(59,130,246,0.2); color: #60a5fa; border: 1px solid rgba(59,130,246,0.3); }
 	.status-pill.done { background: rgba(100,116,139,0.2); color: #94a3b8; border: 1px solid rgba(100,116,139,0.3); }

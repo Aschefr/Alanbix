@@ -338,11 +338,6 @@
 		messages = [...messages, { id: Date.now(), role: 'user', content: userMsg, image_path: imagePath }];
 		loading = true;
 
-		// Determine if this is the first exchange (for auto-title)
-		// Use server-side message count: at this point, the server already has the user message saved
-		// If there are exactly 1 server message (the user msg we just sent), it's the first exchange
-		const serverMsgCount = messages.filter(m => m.role !== 'bot' || m.content !== '').length;
-		const isFirstExchange = serverMsgCount <= 1;
 
 		let botMsgIdx = messages.length;
 		messages = [...messages, { id: Date.now()+1, role: 'bot', content: '' }];
@@ -387,16 +382,11 @@
 								if (data.estimated_tokens) {
 									usage = { estimated_tokens: data.estimated_tokens };
 								}
-								// Auto-title: if this was the first exchange
-								if (isFirstExchange) {
-									try {
-										const titleRes = await api.post(`/ia/auto-title/${activeId}`, {});
-										if (titleRes.title) {
-											const conv = conversations.find(c => c.id === activeId);
-											if (conv) conv.title = titleRes.title;
-											conversations = conversations;
-										}
-									} catch {}
+								// Auto-title: backend generates title inline in SSE stream (G-39)
+								if (data.title) {
+									const conv = conversations.find(c => c.id === activeId);
+									if (conv) conv.title = data.title;
+									conversations = conversations;
 								}
 							}
 						} catch (e) {}
@@ -711,12 +701,11 @@
 	.rag-status { font-size: 0.75rem; color: var(--text-dim); display: flex; align-items: center; gap: 0.4rem; }
 	.pulse { 
 		width: 8px; height: 8px; background: #10b981; border-radius: 50%; 
-		box-shadow: 0 0 10px #10b981; animation: pulse 2s infinite; 
+		box-shadow: 0 0 10px #10b981; animation: pulse 2s infinite; will-change: opacity;
 	}
 	@keyframes pulse {
-		0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
-		70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
-		100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+		0%, 100% { opacity: 1; }
+		50% { opacity: 0.3; }
 	}
 
 	.messages-container { flex-grow: 1; padding: 2rem; overflow-y: auto; display: flex; flex-direction: column; gap: 1.5rem; }
@@ -731,7 +720,7 @@
 	.avatar { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; }
 	.msg-content { padding: 1rem 1.25rem; font-size: 0.95rem; line-height: 1.5; white-space: pre-wrap; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
 	.user .msg-content { background: linear-gradient(135deg, var(--accent), #2563eb); color: white; border-radius: 18px 18px 2px 18px; border: 1px solid rgba(255,255,255,0.1); }
-	.bot .msg-content { background: var(--glass-bg); border-radius: 18px 18px 18px 2px; border: 1px solid var(--glass-border); backdrop-filter: blur(8px); color: var(--text-main); }
+	.bot .msg-content { background: var(--glass-bg); border-radius: 18px 18px 18px 2px; border: 1px solid var(--glass-border); color: var(--text-main); }
 
 	.msg-actions { opacity: 0; display: flex; gap: 0.5rem; padding: 0 0.5rem; transition: opacity 0.2s; }
 	.msg-wrapper:hover .msg-actions { opacity: 1; }

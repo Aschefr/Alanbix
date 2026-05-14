@@ -15,6 +15,7 @@
 	let roomLayout = { seats: [], tables: [] };
 	let allUsers = [];
 	let participants = [];
+	let dashTeams = [];
 	let games = [];
 	let selectedRunningIdx = 0;
 	let lbMode = 'players'; // 'players' | 'teams'
@@ -63,6 +64,7 @@
 
 	async function loadParticipants(tid) {
 		try { participants = await api.get(`/tournaments/${tid}/participants`); } catch { participants = []; }
+		try { dashTeams = await api.get(`/tournaments/${tid}/teams`); } catch { dashTeams = []; }
 	}
 
 	async function selectRunning(idx) {
@@ -77,9 +79,11 @@
 	$: dashNameMap = (() => {
 		const m = {};
 		participants.forEach(p => { m[p.user_id] = p.username; });
-		// Add team names from tournament config
+		// Primary source: config._team_map (set at tournament start)
 		const tm = activeTournament?.config?._team_map || {};
 		Object.entries(tm).forEach(([id, name]) => { m[id] = name; });
+		// Fallback: rebuild from live teams data (survives config loss on reopen/re-close)
+		dashTeams.forEach(t => { const key = String(-t.id); if (!m[key]) m[key] = t.name; });
 		return m;
 	})();
 
@@ -499,7 +503,7 @@
 	.chip-value { font-size: 0.95rem; font-weight: 800; color: var(--text-main); }
 	.cmd-right { display: flex; align-items: center; }
 	.status-live { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; color: var(--success); font-weight: 700; background: rgba(16, 185, 129, 0.08); padding: 0.5rem 1rem; border-radius: 20px; border: 1px solid rgba(16, 185, 129, 0.2); }
-	.pulse { width: 8px; height: 8px; background: var(--success); border-radius: 50%; box-shadow: 0 0 8px var(--success); animation: pulse-g 2s infinite; }
+	.pulse { width: 8px; height: 8px; background: var(--success); border-radius: 50%; box-shadow: 0 0 8px var(--success); animation: pulse-g 2s infinite; will-change: opacity; }
 	@keyframes pulse-g { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 
 	/* 3-Column Triptych */

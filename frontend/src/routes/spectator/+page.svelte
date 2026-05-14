@@ -15,6 +15,7 @@
 	let tournaments = [];
 	let games = [];
 	let participants = [];
+	let specTeams = [];
 	let spectatorInfo = '';
 	let interval;
 	let transClass = 'slide-in';
@@ -54,6 +55,15 @@
 				} catch {}
 			}
 			participants = allParticipants;
+			// Load teams for running tournaments (for bracket name resolution)
+			let allTeams = [];
+			for (const run of tournaments.filter(t => t.status === 'RUNNING' || t.status === 'DONE')) {
+				try {
+					const t = (await fetchPublic(`/tournaments/${run.id}/teams`)) || [];
+					allTeams = [...allTeams, ...t];
+				} catch {}
+			}
+			specTeams = allTeams;
 			// Fetch info page content for spectator
 			try {
 				const info = await fetchPublic('/dashboard/info');
@@ -69,8 +79,14 @@
 	function getPlayerName(userId) {
 		if (userId === 0) return 'TBD';
 		// Check team_map for negative IDs (team bracket)
-		if (userId < 0 && runningTournament?.config?._team_map) {
-			return runningTournament.config._team_map[String(userId)] || `Équipe #${Math.abs(userId)}`;
+		if (userId < 0) {
+			// Primary: config._team_map
+			const tmName = runningTournament?.config?._team_map?.[String(userId)];
+			if (tmName) return tmName;
+			// Fallback: live teams data
+			const team = specTeams.find(t => t.id === Math.abs(userId));
+			if (team) return team.name;
+			return `Équipe #${Math.abs(userId)}`;
 		}
 		const p = participants.find(pp => pp.user_id === userId);
 		return p ? p.username : `#${userId}`;
@@ -458,9 +474,9 @@
 	.spec-bracket-area { position: relative; z-index: 1; flex: 1; overflow-x: auto; overflow-y: hidden; display: flex; align-items: flex-start; justify-content: center; padding: 0.5rem 0; width: 100%; }
 	.spec-rounds { display: flex; gap: 2.5rem; align-items: flex-start; min-width: min-content; }
 	.spec-round-col { display: flex; flex-direction: column; min-width: 240px; flex-shrink: 0; }
-	.spec-round-hdr { text-align: center; font-weight: 800; color: var(--accent); font-size: 1.1rem; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 1rem; padding: 0.4rem 1rem; background: var(--glass-bg); border-radius: 8px; backdrop-filter: blur(4px); }
+	.spec-round-hdr { text-align: center; font-weight: 800; color: var(--accent); font-size: 1.1rem; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 1rem; padding: 0.4rem 1rem; background: var(--glass-bg); border-radius: 8px; }
 	.spec-matches { display: flex; flex-direction: column; justify-content: space-around; flex-grow: 1; gap: 1rem; }
-	.spec-match { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 12px; overflow: hidden; transition: all 0.2s; backdrop-filter: blur(6px); }
+	.spec-match { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 12px; overflow: hidden; transition: all 0.2s; }
 	.spec-match.done { border-color: rgba(59,130,246,0.25); box-shadow: 0 0 15px rgba(59,130,246,0.05); }
 	.spec-player { display: flex; justify-content: space-between; align-items: center; padding: 0.7rem 1rem; transition: all 0.2s; }
 	.spec-player.winner { background: var(--accent-soft); }
@@ -471,13 +487,13 @@
 	.spec-match-div { height: 1px; background: var(--glass-border); }
 
 	/* Tournament nav tabs (multiple running) */
-	.spec-tourney-nav { position: sticky; top: 0; z-index: 2; display: flex; gap: 0.3rem; justify-content: center; margin-bottom: 1rem; padding: 0.3rem; background: var(--glass-bg); border-radius: 10px; backdrop-filter: blur(6px); }
+	.spec-tourney-nav { position: sticky; top: 0; z-index: 2; display: flex; gap: 0.3rem; justify-content: center; margin-bottom: 1rem; padding: 0.3rem; background: var(--glass-bg); border-radius: 10px; }
 	.spec-tourney-tab { padding: 0.5rem 1.2rem; background: none; border: none; color: var(--text-muted); font-size: 1rem; font-weight: 700; cursor: pointer; border-radius: 8px; transition: all 0.2s; }
 	.spec-tourney-tab.active { background: var(--accent-soft); color: var(--accent); }
 
 	/* FFA spectator */
 	.spec-ffa-area { position: relative; z-index: 1; flex: 1; overflow-y: auto; display: flex; flex-wrap: wrap; gap: 1.5rem; justify-content: center; padding: 0 2rem; }
-	.spec-ffa-round { min-width: 300px; max-width: 500px; flex: 1; background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 16px; overflow: hidden; backdrop-filter: blur(6px); }
+	.spec-ffa-round { min-width: 300px; max-width: 500px; flex: 1; background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 16px; overflow: hidden; }
 	.spec-ffa-round.past { opacity: 0.4; }
 	.spec-ffa-hdr { display: flex; justify-content: space-between; align-items: center; padding: 0.7rem 1rem; background: var(--surface-sunken); font-weight: 800; font-size: 1.1rem; color: var(--accent); text-transform: uppercase; letter-spacing: 0.1em; }
 	.spec-ffa-count { font-size: 0.7rem; color: var(--text-muted); font-weight: 600; text-transform: none; letter-spacing: 0; }

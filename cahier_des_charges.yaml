@@ -62,6 +62,8 @@ core_features_deep_dive:
         - Au lancement, les équipes (pas les joueurs) deviennent les unités du bracket.
         - Les IDs d'équipes sont négatifs (-team_id) pour les distinguer des user IDs.
         - Un _team_map est stocké dans config pour la résolution nom ↔ ID côté frontend.
+          Fallback triple couche : 1) config._team_map (set au start), 2) live teams API (survit aux pertes de config), 3) fallback générique "Équipe #N".
+          Le close endpoint reconstruit _team_map s'il est absent (résilience reopen/re-close).
         - Les modifications d'équipes émettent un WebSocket teams_updated pour sync temps réel.
         Tables : tournament_teams (id, tournament_id, name, created_by), tournament_team_members (id, team_id, user_id).
       pitfalls: "config.team_size est contraint côté backend (HTTP 400 si dépassé). Un joueur non-inscrit au tournoi ne peut pas rejoindre une équipe (guard backend + frontend)."
@@ -77,7 +79,7 @@ core_features_deep_dive:
         - pts_participation (tous, défaut 1), pts_per_goal (par point marqué, défaut 0.5)
         - Les points sont cumulés dans User.points et les résultats stockés dans tournament.results (JSON).
         - En mode équipes, les points sont distribués à tous les membres.
-      pitfalls: "La clôture est irréversible — pas de mécanisme de rollback des points distribués."
+      pitfalls: "La clôture est réversible via POST /tournaments/{id}/reopen (AXE-01). Attention : le _team_map peut être perdu lors d'éditions config intermédiaires, le close endpoint le reconstruit automatiquement."
     - mechanism: "Édition Inline des Tournois (Implémenté)"
       details: >
         L'édition d'un tournoi se fait directement dans la carte admin (pas de modale).
@@ -133,7 +135,11 @@ core_features_deep_dive:
 
   ai_chat_pipeline:
     - mechanism: "Streaming SSE (Server-Sent Events)"
-      details: "Le backend Python envoie les chunks de réponse d'Ollama au fur et à mesure (yield). Le SvelteKit lit le flux via un TextDecoder."
+      details: >
+        Le backend Python envoie les chunks de réponse d'Ollama au fur et à mesure (yield). Le SvelteKit lit le flux via un TextDecoder.
+        Le payload SSE 'done' inclut : estimated_tokens, auto_compressed (si compression auto), et title (si auto-titre généré).
+        Auto-titre (G-50) : généré inline dans le SSE stream après le bot response, envoyé dans data.title du payload done.
+        Le frontend lit data.title et met à jour le sidebar sans appel HTTP séparé.
       pitfalls: "Les proxies (Nginx/Docker) peuvent bufferiser le SSE et casser l'effet 'temps réel'. Il faut forcer les headers 'Cache-Control: no-cache' et 'X-Accel-Buffering: no'."
     - mechanism: "Compression de Contexte (Mémoire LLM)"
       details: >
@@ -495,6 +501,37 @@ global_rules:
       Chaque groupe affiche un header avec le nom de l'équipe et le nombre de membres.
       Les joueurs sans équipe apparaissent dans un groupe "Sans équipe" en fin de liste.
       La section "Joueurs disponibles" (inscription admin) n'apparaît qu'en status OPEN.
+  - id: G-49
+    rule: Performance GPU — Animations CSS Compositable
+    description: >
+      Les animations CSS infinies sur éléments visibles en permanence (body::before, sidebar dots,
+      badges) doivent utiliser uniquement des propriétés compositables (opacity, transform)
+      sans changer de géométrie (pas de scale sur fullscreen). Interdit : animer box-shadow,
+      ou transform: scale() sur des éléments couvrant le viewport entier.
+      backdrop-filter: blur() est INTERDIT sur les éléments permanents (.glass, bulles chat,
+      cards) — Firefox crée une couche de compositing GPU par élément qui re-sample et blur
+      tout le contenu derrière à chaque frame. Utiliser --glass-bg (semi-transparent) seul.
+      backdrop-filter reste acceptable sur les overlays/modales temporaires uniquement.
+      Pas d'animation infinie sur body::before (gradient statique).
+  - id: G-50
+    rule: Auto-Titre Conversation IA — Inline SSE (Implémenté)
+    description: >
+      Le titre de conversation IA est généré inline dans le flux SSE, après la réponse bot,
+      pas via un appel HTTP séparé. Cela évite la race condition avec Ollama (GPU single-threaded)
+      qui causait des timeouts silencieux sur l'ancien endpoint POST /ia/auto-title/{id}.
+      Le backend vérifie si conv.title == "Nouvelle discussion", appelle Ollama pour un titre
+      court (max 5 mots), et inclut le titre dans le payload SSE done {title: "..."}.
+      Le frontend lit data.title et met à jour le sidebar sans requête supplémentaire.
+  - id: G-51
+    rule: Résolution Noms d'Équipes Bracket — Fallback Triple Couche (Implémenté)
+    description: >
+      Les noms d'équipes dans le bracket sont résolus via 3 sources (par priorité) :
+      1) config._team_map (généré au start_tournament, clé "-teamId" → nom)
+      2) API live /tournaments/{id}/teams (survit à la perte de _team_map)
+      3) Fallback générique "Équipe #N"
+      Le _team_map peut être perdu lors d'éditions de config (spread JS sans _team_map).
+      Le backend close endpoint reconstruit automatiquement _team_map s'il est absent.
+      Fix appliqué sur : tournaments page, dashboard, spectator.
 
 future_axes:
   - id: AXE-01
@@ -515,8 +552,38 @@ future_axes:
 
   - id: AXE-03
     title: "Fix de l'utilisation des ressources GPU très élevé quand le naviguateur affiche le dashboard"
-    status: TODO
+    status: DONE
     description: >
       Sur firefox, pas tellement sur chrome, l'utilisation du GPU monte en fleche quand on navigue sur le dashboard.
       L'utilisation du GPU redescend quand le dashboard n'est plus affiché.
+      Cause principale : backdrop-filter: blur() sur .glass (8+ éléments permanents sur le dashboard),
+      chacun créant une couche GPU de compositing qui re-sample et blur tout le contenu derrière.
+      Fix : suppression complète de backdrop-filter sur .glass et éléments permanents,
+      suppression de l'animation bgPulse sur body::before (gradient statique),
+      animations infinies converties en opacity-only, will-change:opacity ajouté.
+    priority: high
+
+  - id: AXE-04
+    title: "Fix Auto-Titre Conversations IA (Race Condition Ollama)"
+    status: DONE
+    description: >
+      L'auto-titre des conversations IA ne fonctionnait pas car l'ancien mécanisme
+      utilisait un appel HTTP séparé (POST /ia/auto-title) après le stream SSE.
+      Ollama étant single-threaded GPU, la requête de titre arrivait pendant que le GPU
+      était encore occupé/en cleanup du chat principal, causant un timeout silencieux (catch {} vide).
+      Fix : génération du titre inline dans l'event_generator() SSE, juste après la sauvegarde
+      du message bot. Le titre est inclus dans le payload done et lu directement par le frontend.
+    priority: medium
+
+  - id: AXE-05
+    title: "Fix Noms d'Équipes Disparus dans le Bracket après Reopen/Re-close"
+    status: DONE
+    description: >
+      Après un cycle reopen + re-close d'un tournoi en mode équipes, les noms d'équipes
+      dans le bracket affichaient "Équipe #1" au lieu des vrais noms (LDF, Warrior, etc.).
+      Cause : le _team_map dans config était perdu (probablement lors d'une édition inline
+      qui spread selected.config sans _team_map présent à ce moment).
+      Fix triple : 1) Frontend fallback via API teams live (3 pages corrigées),
+      2) Backend reconstruit _team_map dans close_tournament si absent,
+      3) Le nameMap Svelte consulte teams[] en plus de config._team_map.
     priority: high

@@ -496,9 +496,37 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
                                 post_msgs = post_msgs.all()
                                 ctx_chars = len(conv_obj.compressed_context or "") if conv_obj else 0
                                 est_tokens = int((sum(len(m.content) for m in post_msgs) + ctx_chars) / 3.5)
+                                
+                                # ── Inline auto-title (G-39) ──
+                                # Generate title right here in the stream to avoid race with Ollama
+                                generated_title = None
+                                if conv_obj and conv_obj.title in ("Nouvelle discussion", ""):
+                                    first_user_msg = s.query(models.ChatMessage).filter(
+                                        models.ChatMessage.conversation_id == request.conversation_id,
+                                        models.ChatMessage.role == "user"
+                                    ).order_by(models.ChatMessage.timestamp.asc()).first()
+                                    if first_user_msg:
+                                        try:
+                                            title_res = await client.post(f"{ollama_host}/api/chat", json={
+                                                "model": model_to_use,
+                                                "messages": [{"role": "user", "content": f"Génère un titre COURT (max 5 mots) pour cette conversation. Réponds UNIQUEMENT avec le titre, sans guillemets ni ponctuation finale.\n\nQuestion: {first_user_msg.content}"}],
+                                                "stream": False,
+                                                "options": {"temperature": 0.3}
+                                            }, timeout=20.0)
+                                            if title_res.status_code == 200:
+                                                title_text = title_res.json().get("message", {}).get("content", "").strip().strip('"\'')
+                                                if title_text and len(title_text) < 60:
+                                                    conv_obj.title = title_text
+                                                    s.commit()
+                                                    generated_title = title_text
+                                        except Exception:
+                                            pass
+                                
                             done_payload = {'done': True, 'estimated_tokens': est_tokens}
                             if auto_compressed:
                                 done_payload['auto_compressed'] = True
+                            if generated_title:
+                                done_payload['title'] = generated_title
                             yield f"data: {json.dumps(done_payload)}\n\n"
                             break
                     except:
