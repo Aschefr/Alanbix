@@ -22,6 +22,10 @@
 	let resetPwdPlayer = null;
 	let resetPwdValue = 'lan2025';
 	let deleteConfirmPlayerId = null;
+	let showCreatePlayer = false;
+	let newPlayerData = { username: '', password: 'lan2025', team_name: '' };
+	let creatingPlayer = false;
+	let generatingPool = false;
 
 	// Team Scoring Mode
 	let teamScoringMode = 'weighted';
@@ -528,6 +532,29 @@
 			deleteConfirmPlayerId = null;
 			await loadPlayers();
 		} catch (e) { toast(e.message, 'error'); }
+	}
+
+	async function createPlayer() {
+		if (!newPlayerData.username.trim() || !newPlayerData.password.trim()) return;
+		creatingPlayer = true;
+		try {
+			await api.post('/admin/users/create', newPlayerData);
+			toast(`Joueur "${newPlayerData.username}" créé`, 'success');
+			newPlayerData = { username: '', password: 'lan2025', team_name: '' };
+			showCreatePlayer = false;
+			await loadPlayers();
+		} catch (e) { toast(e.message, 'error'); }
+		creatingPlayer = false;
+	}
+
+	async function generateTestPool() {
+		generatingPool = true;
+		try {
+			const res = await api.post('/admin/users/generate-test-pool');
+			toast(`${res.created_count} joueurs de test générés`, 'success');
+			await loadPlayers();
+		} catch (e) { toast(e.message, 'error'); }
+		generatingPool = false;
 	}
 
 	async function toggleAdmin(player) {
@@ -1178,7 +1205,40 @@
 			<div class="players-view glass p-8">
 				<div class="flex-row justify-between items-center mb-4">
 					<h3>Joueurs inscrits <span class="t-count">{allPlayers.length}</span></h3>
+					<div class="flex-row gap-2">
+						<button class="btn-secondary btn-sm" on:click={() => showCreatePlayer = !showCreatePlayer}>
+							{showCreatePlayer ? '✕ Fermer' : '➕ Ajouter un joueur'}
+						</button>
+						<button class="btn-dev btn-sm" on:click={generateTestPool} disabled={generatingPool}>
+							{generatingPool ? '⏳ Génération...' : '🧪 Générer 20 joueurs test'}
+						</button>
+					</div>
 				</div>
+
+				{#if showCreatePlayer}
+					<div class="create-player-form glass-inner">
+						<div class="cpf-grid">
+							<div class="edit-field">
+								<label>Pseudo</label>
+								<input type="text" bind:value={newPlayerData.username} placeholder="ex: NightHawk" />
+							</div>
+							<div class="edit-field">
+								<label>Mot de passe</label>
+								<input type="text" bind:value={newPlayerData.password} placeholder="lan2025" />
+							</div>
+							<div class="edit-field">
+								<label>Équipe</label>
+								<input type="text" bind:value={newPlayerData.team_name} placeholder="Optionnel" />
+							</div>
+							<div class="edit-field cpf-submit">
+								<button class="btn-primary" on:click={createPlayer} disabled={creatingPlayer || !newPlayerData.username.trim() || !newPlayerData.password.trim()}>
+									{creatingPlayer ? '⏳' : '✅'} Créer le joueur
+								</button>
+							</div>
+						</div>
+					</div>
+				{/if}
+
 				{#if allPlayers.length === 0}
 					<p class="text-dim text-xs">Aucun joueur inscrit.</p>
 				{:else}
@@ -2009,22 +2069,32 @@
 	.pt-row:hover { background: var(--hover-tint); }
 	.pt-row:last-child { border-bottom: none; }
 	.pt-row.is-admin { background: rgba(59,130,246,0.06); }
-	.pt-col { font-size: 0.8rem; }
-	.pt-id { width: 40px; color: var(--text-muted); font-size: 0.7rem; }
-	.pt-name { flex: 2; font-weight: 700; display: flex; align-items: center; gap: 0.4rem; }
-	.pt-team { flex: 2; color: var(--text-dim); }
-	.pt-pts { width: 60px; text-align: center; font-weight: 800; color: var(--accent); }
-	.pt-actions { width: 140px; display: flex; gap: 0.3rem; align-items: center; justify-content: flex-end; }
+	.pt-col { font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.pt-id { width: 36px; flex-shrink: 0; color: var(--text-muted); font-size: 0.7rem; }
+	.pt-name { flex: 3; min-width: 0; font-weight: 700; display: flex; align-items: center; gap: 0.4rem; }
+	.pt-team { flex: 2; min-width: 0; color: var(--text-dim); }
+	.pt-pts { width: 70px; flex-shrink: 0; text-align: center; font-weight: 800; color: var(--accent); }
+	.pt-actions { width: 180px; flex-shrink: 0; display: flex; gap: 0.3rem; align-items: center; justify-content: flex-end; flex-wrap: nowrap; }
 	.admin-badge { font-size: 0.6rem; padding: 0.1rem 0.3rem; background: rgba(234,179,8,0.15); color: #eab308; border-radius: 6px; font-weight: 800; }
-	.btn-icon { background: var(--hover-tint); border: 1px solid var(--glass-border); border-radius: 6px; padding: 0.25rem 0.4rem; cursor: pointer; font-size: 0.75rem; transition: all 0.15s; }
+	.btn-icon { background: var(--hover-tint); border: 1px solid var(--glass-border); border-radius: 6px; padding: 0.25rem 0.4rem; cursor: pointer; font-size: 0.75rem; transition: all 0.15s; flex-shrink: 0; }
 	.btn-icon:hover { background: var(--accent-soft); border-color: var(--accent); }
 	.btn-icon-danger:hover { border-color: var(--danger, #ef4444); background: rgba(239,68,68,0.15); }
-	.btn-danger-sm { background: rgba(239,68,68,0.2); color: #ef4444; border: 1px solid rgba(239,68,68,0.3); border-radius: 6px; padding: 0.2rem 0.5rem; font-size: 0.65rem; font-weight: 700; cursor: pointer; }
+	.btn-danger-sm { background: rgba(239,68,68,0.2); color: #ef4444; border: 1px solid rgba(239,68,68,0.3); border-radius: 6px; padding: 0.2rem 0.5rem; font-size: 0.65rem; font-weight: 700; cursor: pointer; white-space: nowrap; }
 	.btn-danger-sm:hover { background: rgba(239,68,68,0.35); }
 	.mb-3 { margin-bottom: 0.75rem; }
 	.mb-4 { margin-bottom: 1rem; }
 	.t-count { font-size: 0.65rem; background: var(--accent-soft); color: var(--accent); padding: 0.1rem 0.4rem; border-radius: 10px; font-weight: 800; border: 1px solid rgba(59,130,246,0.15); }
 	.p-8 { padding: 1.5rem; }
+	.gap-2 { gap: 0.5rem; }
+	.btn-sm { font-size: 0.7rem; padding: 0.35rem 0.7rem; border-radius: 8px; font-weight: 700; white-space: nowrap; }
+	.btn-dev { background: rgba(168,85,247,0.15); color: #a855f7; border: 1px solid rgba(168,85,247,0.3); cursor: pointer; transition: all 0.15s; }
+	.btn-dev:hover { background: rgba(168,85,247,0.3); border-color: #a855f7; }
+	.btn-dev:disabled { opacity: 0.5; cursor: not-allowed; }
+	.create-player-form { padding: 1rem; margin-bottom: 1rem; border-radius: 10px; border: 1px solid var(--glass-border); animation: slideDown 0.2s ease; }
+	.cpf-grid { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 0.75rem; align-items: end; }
+	.cpf-submit { display: flex; align-items: flex-end; }
+	.cpf-submit button { height: 38px; }
+	@keyframes slideDown { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
 
 
 	/* Inline Edit Panel */

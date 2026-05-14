@@ -142,6 +142,38 @@
 		} catch (e) { toast(e.message || 'Erreur', 'error'); }
 	}
 
+	async function forceRemovePlayer(userId) {
+		try {
+			await api.delete(`/tournaments/${selectedId}/participants/${userId}`);
+			tournaments = await api.get('/tournaments');
+			await selectTournament(selectedId);
+			toast('Joueur désinscrit.', 'success');
+		} catch (e) { toast(e.message || 'Erreur', 'error'); }
+	}
+
+	let confirmJoinAll = false;
+	let confirmLeaveAll = false;
+
+	async function joinAllPlayers() {
+		try {
+			confirmJoinAll = false;
+			const res = await api.post(`/tournaments/${selectedId}/join-all`, {});
+			toast(`${res.added} joueur(s) inscrits !`, 'success');
+			tournaments = await api.get('/tournaments');
+			await selectTournament(selectedId);
+		} catch (e) { toast(e.message || 'Erreur', 'error'); confirmJoinAll = false; }
+	}
+
+	async function leaveAllPlayers() {
+		try {
+			confirmLeaveAll = false;
+			const res = await api.post(`/tournaments/${selectedId}/leave-all`, {});
+			toast(`${res.removed} joueur(s) désinscrits.`, 'success');
+			tournaments = await api.get('/tournaments');
+			await selectTournament(selectedId);
+		} catch (e) { toast(e.message || 'Erreur', 'error'); confirmLeaveAll = false; }
+	}
+
 	// Team management
 	async function createTeam() {
 		if (!newTeamName.trim()) return;
@@ -394,6 +426,19 @@
 	$: bracketType = selected?.config?.bracket_type || 'single_elim';
 	$: lowerIsBetter = selected?.config?.lower_score_is_better || false;
 	$: unassignedPlayers = useTeams ? participants.filter(p => !teams.some(t => t.members?.some(m => m.user_id === p.user_id))) : [];
+	$: groupedParticipants = (() => {
+		const groups = {};
+		participants.forEach(p => {
+			const key = p.team_name || '';
+			if (!groups[key]) groups[key] = [];
+			groups[key].push(p);
+		});
+		return Object.entries(groups).sort(([a], [b]) => {
+			if (!a) return 1;
+			if (!b) return -1;
+			return a.localeCompare(b);
+		});
+	})();
 	$: groupedUnassigned = (() => {
 		const g = {};
 		unassignedPlayers.forEach(p => { const k = p.team_name || ''; if (!g[k]) g[k] = []; g[k].push(p); });
@@ -840,22 +885,59 @@
 
 				<!-- Participants -->
 				<div class="participants-section glass">
-					<div class="section-title"><h3>👥 Participants inscrits</h3></div>
-					<div class="participants-grid">
-						{#each participants as p}
-							<div class="participant-chip">
-								<span class="p-avatar">👤</span>
-								<span class="p-name">{p.username}</span>
-								{#if p.team_name}<span class="p-team">• {p.team_name}</span>{/if}
+					<div class="section-title">
+						<h3>👥 Participants inscrits <span class="part-count">{participants.length}</span></h3>
+						{#if isAdmin && selected.status === 'OPEN'}
+							<div class="part-bulk-actions">
+								{#if confirmJoinAll}
+									<span class="inline-confirm">
+										<span class="inline-confirm-label">Tout inscrire ?</span>
+										<button class="admin-btn confirm-yes" on:click={joinAllPlayers}>✓</button>
+										<button class="admin-btn confirm-no" on:click={() => confirmJoinAll = false}>✕</button>
+									</span>
+								{:else}
+									<button class="admin-btn start btn-xs" on:click={() => confirmJoinAll = true} disabled={unregisteredUsers.length === 0}>📥 Inscrire tout le monde</button>
+								{/if}
+								{#if confirmLeaveAll}
+									<span class="inline-confirm">
+										<span class="inline-confirm-label">Tout désinscrire ?</span>
+										<button class="admin-btn confirm-yes" on:click={leaveAllPlayers}>✓</button>
+										<button class="admin-btn confirm-no" on:click={() => confirmLeaveAll = false}>✕</button>
+									</span>
+								{:else}
+									<button class="admin-btn stop btn-xs" on:click={() => confirmLeaveAll = true} disabled={participants.length === 0}>📤 Désinscrire tout</button>
+								{/if}
 							</div>
-						{:else}
-							<span class="text-dim text-sm">Aucun inscrit pour le moment.</span>
-						{/each}
+						{/if}
 					</div>
+					{#if participants.length === 0}
+						<span class="text-dim text-sm">Aucun inscrit pour le moment.</span>
+					{:else}
+						<div class="part-cards-grid">
+							{#each groupedParticipants as [teamName, members]}
+								<div class="part-card glass">
+									<div class="part-card-header">
+										<span class="part-card-name">{teamName || 'Sans équipe'}</span>
+										<span class="part-card-count">{members.length}</span>
+									</div>
+									<div class="part-card-members">
+										{#each members as p}
+											<div class="part-member-row">
+												<span>👤 {p.username}</span>
+												{#if isAdmin && selected.status === 'OPEN'}
+													<button class="part-member-remove" on:click={() => forceRemovePlayer(p.user_id)} title="Désinscrire {p.username}">✕</button>
+												{/if}
+											</div>
+										{/each}
+									</div>
+								</div>
+							{/each}
+						</div>
+					{/if}
 				</div>
 
 				<!-- Admin: unregistered users -->
-				{#if currentUser?.is_admin && unregisteredUsers.length > 0}
+				{#if currentUser?.is_admin && selected.status === 'OPEN' && unregisteredUsers.length > 0}
 					<div class="unreg-section glass">
 						<div class="section-title">
 							<h3>➕ Joueurs disponibles</h3>
@@ -1075,11 +1157,17 @@
 
 	/* === PARTICIPANTS === */
 	.participants-section { padding: 1rem; border-radius: 14px; }
-	.participants-grid { display: flex; flex-wrap: wrap; gap: 0.4rem; }
-	.participant-chip { display: flex; align-items: center; gap: 0.35rem; padding: 0.3rem 0.65rem; border-radius: 20px; font-size: 0.75rem; font-weight: 600; background: var(--surface-raised); border: 1px solid var(--glass-border); }
-	.p-avatar { font-size: 0.7rem; }
-	.p-name { color: var(--text-main); }
-	.p-team { color: var(--text-muted); font-size: 0.65rem; }
+	.part-count { font-size: 0.6rem; background: var(--accent-soft); color: var(--accent); padding: 0.1rem 0.4rem; border-radius: 10px; font-weight: 800; border: 1px solid rgba(59,130,246,0.15); margin-left: 0.3rem; }
+	.part-bulk-actions { display: flex; gap: 0.4rem; align-items: center; }
+	.part-cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.75rem; }
+	.part-card { padding: 0.75rem; border-radius: 10px; }
+	.part-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; padding-bottom: 0.4rem; border-bottom: 1px solid var(--glass-border); }
+	.part-card-name { font-weight: 800; font-size: 0.85rem; color: var(--accent); }
+	.part-card-count { font-size: 0.6rem; background: rgba(255,255,255,0.06); padding: 0.1rem 0.4rem; border-radius: 8px; color: var(--text-muted); font-weight: 700; }
+	.part-card-members { display: flex; flex-direction: column; gap: 0.3rem; }
+	.part-member-row { display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; padding: 0.25rem 0.4rem; background: rgba(59,130,246,0.08); border-radius: 6px; font-weight: 600; color: var(--text-main); }
+	.part-member-remove { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.65rem; opacity: 0.4; transition: all 0.15s; }
+	.part-member-remove:hover { opacity: 1; color: var(--danger, #ef4444); }
 
 	/* === UNREG BADGES === */
 	.unreg-section { padding: 1rem; border-radius: 14px; }

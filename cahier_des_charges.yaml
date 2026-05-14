@@ -1,6 +1,7 @@
 project:
   name: Alanbix (A-LAN-bix)
   role: Organisateur & Responsable IT
+  default_port_webui: 8080
   description: >
     Système de gestion de LAN de nouvelle génération avec support technique IA local. 
     Clin d'œil à Alambix (personnage du Bouclier Arverne) et à l'alambic : une machinerie complexe qui distille la base de connaissances (RAG) aux joueurs via un pipeline technique ultra-léger et optimisé.
@@ -472,10 +473,33 @@ global_rules:
       Les chemins Windows (UNC \\serveur\partage et locaux C:\dossier) sont automatiquement
       détectés dans le contenu Markdown de la page Infos. Ils sont affichés avec une icône 📂
       et un clic copie le chemin dans le presse-papier avec notification visuelle.
+  - id: G-46
+    rule: Gestion des Comptes Joueurs — Création Admin & Pool de Test (Implémenté)
+    description: >
+      L'admin peut créer manuellement un compte joueur (pseudo, mot de passe, équipe)
+      via POST /admin/users/create. Un bouton "Générer 20 joueurs test" (POST /admin/users/generate-test-pool)
+      crée un pool de joueurs répartis dans 4 équipes (Alpha Wolves, Neon Vipers, Shadow Foxes, Iron Bears)
+      avec des pseudos gamer et des points aléatoires. Idempotent : les pseudos existants sont ignorés.
+  - id: G-47
+    rule: Inscriptions Tournoi — Contrôle Admin Complet (Implémenté)
+    description: >
+      L'admin peut forcer la désinscription d'un joueur individuel (DELETE /tournaments/{id}/participants/{uid}).
+      Deux actions bulk sont disponibles en status OPEN uniquement :
+      - POST /tournaments/{id}/join-all : inscrit TOUS les utilisateurs d'un coup.
+      - POST /tournaments/{id}/leave-all : désinscrit TOUS les participants et retire les membres d'équipe.
+      Les actions bulk utilisent une confirmation inline (pas de window.confirm) conformément à G-08.
+  - id: G-48
+    rule: Affichage des Participants Groupés par Équipe (Implémenté)
+    description: >
+      La liste des participants d'un tournoi est groupée par User.team_name (équipe globale du profil).
+      Chaque groupe affiche un header avec le nom de l'équipe et le nombre de membres.
+      Les joueurs sans équipe apparaissent dans un groupe "Sans équipe" en fin de liste.
+      La section "Joueurs disponibles" (inscription admin) n'apparaît qu'en status OPEN.
 
 future_axes:
   - id: AXE-01
     title: "Rollback Points (Annulation de Clôture)"
+    status: DONE
     description: >
       Permettre de ré-ouvrir un tournoi CLOSED en soustrayant les points distribués.
       Complexe car nécessite de stocker les deltas de points par utilisateur dans results.
@@ -488,3 +512,11 @@ future_axes:
       Afficher une page d'informations générales sur la LAN. Editeur markdown visible pour Administrateurs.
       Une section dédié est aussi présente spécialement pour la page "Projecteur".
     priority: low
+
+  - id: AXE-03
+    title: "Fix de l'utilisation des ressources GPU très élevé quand le naviguateur affiche le dashboard"
+    status: TODO
+    description: >
+      Sur firefox, pas tellement sur chrome, l'utilisation du GPU monte en fleche quand on navigue sur le dashboard.
+      L'utilisation du GPU redescend quand le dashboard n'est plus affiché.
+    priority: high

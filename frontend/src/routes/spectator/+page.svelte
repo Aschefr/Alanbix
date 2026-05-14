@@ -291,7 +291,7 @@
 			</div>
 
 		{:else if currentView === 'bracket'}
-			<div class="spec-view">
+			<div class="spec-view spec-view-wide">
 				<!-- Tournament nav if multiple running -->
 				{#if runningTournaments.length > 1}
 					<div class="spec-tourney-nav">
@@ -421,10 +421,12 @@
 	.pause-badge { font-size: 0.6rem; font-weight: 800; color: #fbbf24; background: rgba(251,191,36,0.1); padding: 0.2rem 0.6rem; border-radius: 20px; border: 1px solid rgba(251,191,36,0.2); }
 
 	.spec-content { flex-grow: 1; display: flex; align-items: center; justify-content: center; padding: 2rem 4rem; }
+	.bracket-active .spec-content { padding: 1rem; align-items: flex-start; }
 	.spec-content.slide-in { animation: specSlideIn 0.6s cubic-bezier(0.16,1,0.3,1) forwards; }
 	@keyframes specSlideIn { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
 
 	.spec-view { width: 100%; max-width: 1100px; }
+	.spec-view-wide { max-width: 100%; }
 	.spec-title { font-size: 3rem; font-weight: 800; text-align: center; margin-bottom: 2.5rem; background: linear-gradient(135deg, var(--title-gradient-from, white) 0%, var(--title-gradient-to, rgba(255,255,255,0.6)) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
 
 	/* Leaderboard */
@@ -453,9 +455,9 @@
 	.bracket-top-info { position: relative; z-index: 1; text-align: center; padding: 0.5rem 0 0.8rem; }
 	.hero-title { margin: 0; font-size: 2rem; color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; background: none !important; text-shadow: 0 2px 16px rgba(0,0,0,0.9), 0 0 40px rgba(0,0,0,0.5); }
 	.hero-game-name { font-size: 0.85rem; font-weight: 600; color: #ffffff; opacity: 0.85; text-shadow: 0 1px 8px rgba(0,0,0,0.8); }
-	.spec-bracket-area { position: relative; z-index: 1; flex: 1; overflow-x: auto; overflow-y: hidden; display: flex; align-items: flex-start; justify-content: center; padding: 0.5rem 1rem; }
-	.spec-rounds { display: flex; gap: 2.5rem; align-items: flex-start; }
-	.spec-round-col { display: flex; flex-direction: column; min-width: 260px; }
+	.spec-bracket-area { position: relative; z-index: 1; flex: 1; overflow-x: auto; overflow-y: hidden; display: flex; align-items: flex-start; justify-content: center; padding: 0.5rem 0; width: 100%; }
+	.spec-rounds { display: flex; gap: 2.5rem; align-items: flex-start; min-width: min-content; }
+	.spec-round-col { display: flex; flex-direction: column; min-width: 240px; flex-shrink: 0; }
 	.spec-round-hdr { text-align: center; font-weight: 800; color: var(--accent); font-size: 1.1rem; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 1rem; padding: 0.4rem 1rem; background: var(--glass-bg); border-radius: 8px; backdrop-filter: blur(4px); }
 	.spec-matches { display: flex; flex-direction: column; justify-content: space-around; flex-grow: 1; gap: 1rem; }
 	.spec-match { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 12px; overflow: hidden; transition: all 0.2s; backdrop-filter: blur(6px); }

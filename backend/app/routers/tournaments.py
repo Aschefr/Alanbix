@@ -300,6 +300,54 @@ async def delete_tournament_participant(
     await manager.broadcast({"type": "participant_left", "tournament_id": tournament_id, "user_id": user_id})
     return {"status": "deleted"}
 
+@router.post("/{tournament_id}/join-all")
+async def join_all_players(
+    tournament_id: int,
+    db: Session = Depends(database.get_db),
+    admin: models.User = Depends(auth.get_current_admin)
+):
+    """Admin bulk-registers ALL users into the tournament."""
+    tournament = db.query(models.Tournament).filter(models.Tournament.id == tournament_id).first()
+    if not tournament:
+        raise HTTPException(status_code=404, detail="Tournament not found")
+    if tournament.status != "OPEN":
+        raise HTTPException(status_code=400, detail="Tournament must be OPEN")
+    all_users = db.query(models.User).all()
+    existing_ids = {p.user_id for p in db.query(models.TournamentParticipant).filter(
+        models.TournamentParticipant.tournament_id == tournament_id
+    ).all()}
+    added = 0
+    for u in all_users:
+        if u.id not in existing_ids:
+            db.add(models.TournamentParticipant(tournament_id=tournament_id, user_id=u.id))
+            added += 1
+    db.commit()
+    await manager.broadcast({"type": "participant_joined", "tournament_id": tournament_id})
+    return {"status": "ok", "added": added}
+
+@router.post("/{tournament_id}/leave-all")
+async def leave_all_players(
+    tournament_id: int,
+    db: Session = Depends(database.get_db),
+    admin: models.User = Depends(auth.get_current_admin)
+):
+    """Admin bulk-removes ALL participants from the tournament."""
+    tournament = db.query(models.Tournament).filter(models.Tournament.id == tournament_id).first()
+    if not tournament:
+        raise HTTPException(status_code=404, detail="Tournament not found")
+    if tournament.status != "OPEN":
+        raise HTTPException(status_code=400, detail="Tournament must be OPEN")
+    count = db.query(models.TournamentParticipant).filter(
+        models.TournamentParticipant.tournament_id == tournament_id
+    ).delete()
+    # Also remove team memberships
+    teams = db.query(models.TournamentTeam).filter(models.TournamentTeam.tournament_id == tournament_id).all()
+    for t in teams:
+        db.query(models.TournamentTeamMember).filter(models.TournamentTeamMember.team_id == t.id).delete()
+    db.commit()
+    await manager.broadcast({"type": "participant_left", "tournament_id": tournament_id})
+    return {"status": "ok", "removed": count}
+
 @router.post("/{tournament_id}/start")
 async def start_tournament(
     tournament_id: int,

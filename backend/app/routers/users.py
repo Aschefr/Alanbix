@@ -242,6 +242,63 @@ def admin_set_config(key: str, data: dict, db: Session = Depends(database.get_db
     db.commit()
     return {"status": "updated", "key": key, "value": data.get("value")}
 
+# --- ADMIN: Create Player ---
+
+@router.post("/admin/users/create")
+def admin_create_user(data: dict, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
+    """Admin manually creates a player account."""
+    username = (data.get("username") or "").strip()
+    password = (data.get("password") or "").strip()
+    team_name = (data.get("team_name") or "").strip() or None
+    if not username:
+        raise HTTPException(status_code=400, detail="Username is required")
+    if not password:
+        raise HTTPException(status_code=400, detail="Password is required")
+    existing = db.query(models.User).filter(models.User.username == username).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Username already taken")
+    new_user = models.User(
+        username=username,
+        hashed_password=auth.get_password_hash(password),
+        team_name=team_name,
+        is_admin=False
+    )
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    return {"status": "created", "id": new_user.id, "username": new_user.username, "team_name": new_user.team_name}
+
+@router.post("/admin/users/generate-test-pool")
+def admin_generate_test_pool(db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
+    """Generate 20 test players spread across 4 teams for development."""
+    import random
+    teams = ["Alpha Wolves", "Neon Vipers", "Shadow Foxes", "Iron Bears"]
+    pseudos = [
+        "xX_DarkSlayer_Xx", "FragMaster2000", "NoobKiller", "ShadowNinja",
+        "PixelHunter", "RocketQueen", "CyberWolf", "GlitchMaster",
+        "Firefox", "NightHawk", "TurboGamer", "IcePhoenix",
+        "StormBringer", "LaserCat", "DragonByte", "QuantumLeap",
+        "BlazeRunner", "ArcticFox", "VoltStrike", "CosmicDust"
+    ]
+    created = []
+    for i, pseudo in enumerate(pseudos):
+        # Skip if username already exists
+        existing = db.query(models.User).filter(models.User.username == pseudo).first()
+        if existing:
+            continue
+        team = teams[i % len(teams)]
+        new_user = models.User(
+            username=pseudo,
+            hashed_password=auth.get_password_hash("test"),
+            team_name=team,
+            is_admin=False,
+            points=random.randint(0, 120)
+        )
+        db.add(new_user)
+        created.append({"username": pseudo, "team": team})
+    db.commit()
+    return {"status": "generated", "created_count": len(created), "players": created}
+
 # --- ADMIN: Nuke / Reset ---
 
 @router.delete("/admin/nuke/tournaments")
