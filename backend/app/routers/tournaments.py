@@ -5,6 +5,9 @@ from pydantic import BaseModel
 from .. import models, schemas, auth, database
 from ..websockets import manager
 from ..tournament_engine import Duel, RoundRobin, FFA, MatchId
+import asyncio
+import json
+import httpx
 
 router = APIRouter(prefix="/tournaments", tags=["Tournaments"])
 
@@ -222,19 +225,20 @@ async def update_tournament(
     return db_tournament
 
 @router.delete("/{tournament_id}")
-def delete_tournament(tournament_id: int, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
+async def delete_tournament(tournament_id: int, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
     t = db.query(models.Tournament).filter(models.Tournament.id == tournament_id).first()
     if not t:
         raise HTTPException(status_code=404, detail="Tournament not found")
     db.delete(t)
     db.commit()
+    await manager.broadcast({"type": "tournament_deleted", "tournament_id": tournament_id})
     return {"status": "deleted"}
 
 class JoinRequest(BaseModel):
     user_id: Optional[int] = None
 
 @router.post("/{tournament_id}/join")
-def join_tournament(
+async def join_tournament(
     tournament_id: int,
     body: JoinRequest = JoinRequest(),
     db: Session = Depends(database.get_db),
@@ -260,6 +264,7 @@ def join_tournament(
     participant = models.TournamentParticipant(tournament_id=tournament_id, user_id=target_id)
     db.add(participant)
     db.commit()
+    await manager.broadcast({"type": "participant_joined", "tournament_id": tournament_id, "user_id": target_id})
     return {"status": "joined"}
 
 @router.get("/{tournament_id}/participants")
@@ -277,7 +282,7 @@ def get_tournament_participants(
     ]
 
 @router.delete("/{tournament_id}/participants/{user_id}")
-def delete_tournament_participant(
+async def delete_tournament_participant(
     tournament_id: int,
     user_id: int,
     db: Session = Depends(database.get_db),
@@ -292,6 +297,7 @@ def delete_tournament_participant(
     
     db.delete(participant)
     db.commit()
+    await manager.broadcast({"type": "participant_left", "tournament_id": tournament_id, "user_id": user_id})
     return {"status": "deleted"}
 
 @router.post("/{tournament_id}/start")
@@ -482,7 +488,7 @@ async def remove_team_member(tournament_id: int, team_id: int, user_id: int, db:
     return {"status": "removed"}
 
 @router.post("/{tournament_id}/teams/randomize")
-def randomize_teams(tournament_id: int, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
+async def randomize_teams(tournament_id: int, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
     import random
     teams = db.query(models.TournamentTeam).filter(models.TournamentTeam.tournament_id == tournament_id).all()
     if not teams:
@@ -500,6 +506,7 @@ def randomize_teams(tournament_id: int, db: Session = Depends(database.get_db), 
         db.add(models.TournamentTeamMember(team_id=team.id, user_id=uid))
         team_idx += 1
     db.commit()
+    await manager.broadcast({"type": "teams_updated", "tournament_id": tournament_id})
     return {"status": "randomized"}
 
 # --- SCORE ---
@@ -1103,7 +1110,169 @@ async def close_tournament(
     db.commit()
     
     await manager.broadcast({"type": "tournament_closed", "tournament_id": tournament_id})
+
+    # Fire-and-forget: generate AI personalized notifications for participants
+    _game_name = tournament.game.name if tournament.game else tournament.name
+    asyncio.create_task(_generate_tournament_notifications(
+        tournament_id, tournament.name, _game_name, results, list(participant_uids), use_teams
+    ))
+
     return {"status": "closed", "results": results}
+
+
+@router.post("/{tournament_id}/retry-notifications")
+async def retry_notifications(tournament_id: int, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
+    """Admin-only: Re-trigger AI notification generation for a closed tournament."""
+    tournament = db.query(models.Tournament).filter(models.Tournament.id == tournament_id).first()
+    if not tournament:
+        raise HTTPException(404, "Tournament not found")
+    if tournament.status != "CLOSED":
+        raise HTTPException(400, "Tournament must be CLOSED")
+    if not tournament.results:
+        raise HTTPException(400, "No results to generate notifications from")
+
+    config = tournament.config or {}
+    use_teams = config.get("use_teams", False)
+    _game_name = tournament.game.name if tournament.game else tournament.name
+
+    # Get participant UIDs
+    participants = db.query(models.TournamentParticipant).filter(
+        models.TournamentParticipant.tournament_id == tournament_id
+    ).all()
+    participant_uids = [p.user_id for p in participants]
+
+    asyncio.create_task(_generate_tournament_notifications(
+        tournament_id, tournament.name, _game_name, tournament.results, participant_uids, use_teams
+    ))
+    return {"status": "retrying"}
+
+async def _generate_tournament_notifications(tournament_id, tournament_name, game_name, results, participant_uids, use_teams):
+    """Fire-and-forget: Ask Ollama to generate personalized messages for participants."""
+    try:
+        from .ia import pick_instance, get_effective_config
+        from ..database import SessionLocal
+
+        db = SessionLocal()
+        try:
+            ia_cfg = get_effective_config(db)
+            instance = await pick_instance(db)
+            ollama_host = instance["url"] if instance else ia_cfg.get('ollama_host', 'http://host.docker.internal:11434')
+            model = instance.get("model") if instance else ia_cfg.get('model', 'llama3')
+
+            # Build standings summary for the prompt
+            standings_text = ""
+            player_names = []
+            for r in results:
+                rank_emoji = {1: "🥇", 2: "🥈", 3: "🥉"}.get(r.get("rank"), f"#{r.get('rank', '?')}")
+                standings_text += f"{rank_emoji} {r['name']} — {r.get('total', 0)} pts\n"
+                player_names.append(r['name'])
+
+            # Also get usernames for solo mode participants not in standings
+            if not use_teams:
+                for uid in participant_uids:
+                    user = db.query(models.User).filter(models.User.id == uid).first()
+                    if user and user.username not in player_names:
+                        player_names.append(user.username)
+                        standings_text += f"  {user.username} — participant\n"
+
+            prompt = (
+                f'Tu es le commentateur sportif surexcité d\'une LAN party. '
+                f'Le tournoi "{tournament_name}" ({game_name or "jeu inconnu"}) vient de se terminer !\n'
+                f'Voici les résultats :\n{standings_text}\n'
+                f'Génère un message COURT (1-2 phrases max), personnalisé et humoristique pour CHAQUE joueur/équipe.\n'
+                f'Réponds UNIQUEMENT en JSON valide, sans markdown, sans backticks :\n'
+                f'{{"messages": [{{"player": "nom", "message": "ton message"}}, ...]}}'
+            )
+
+            async with httpx.AsyncClient() as client:
+                res = await client.post(f"{ollama_host}/api/chat", json={
+                    "model": model,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "stream": False,
+                    "options": {"temperature": 0.8}
+                }, timeout=120.0)
+
+            if res.status_code != 200:
+                raise Exception(f"Ollama returned HTTP {res.status_code}: {res.text[:200]}")
+
+            raw = res.json().get("message", {}).get("content", "")
+            # Clean up potential markdown wrapping
+            raw = raw.strip()
+            if raw.startswith("```"):
+                raw = raw.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+
+            data = json.loads(raw)
+            ai_messages = data.get("messages", [])
+
+            # Map player names to user IDs
+            name_to_uid = {}
+            for uid in participant_uids:
+                user = db.query(models.User).filter(models.User.id == uid).first()
+                if user:
+                    name_to_uid[user.username.lower()] = uid
+
+            # Also map team names to member UIDs
+            if use_teams:
+                for r in results:
+                    if r.get("entity_id") and isinstance(r["entity_id"], int) and r["entity_id"] < 0:
+                        team_id = abs(r["entity_id"])
+                        members = db.query(models.TournamentTeamMember).filter(
+                            models.TournamentTeamMember.team_id == team_id
+                        ).all()
+                        name_to_uid[r["name"].lower()] = [m.user_id for m in members]
+
+            # Create notifications
+            for ai_msg in ai_messages:
+                player_name = ai_msg.get("player", "").lower()
+                message = ai_msg.get("message", "")
+                if not message:
+                    continue
+
+                target_uids = name_to_uid.get(player_name, [])
+                if isinstance(target_uids, int):
+                    target_uids = [target_uids]
+
+                for uid in target_uids:
+                    notif = models.Notification(
+                        user_id=uid,
+                        type="tournament_closed",
+                        title=f"🏆 {tournament_name}",
+                        content=message,
+                        metadata_json={"tournament_id": tournament_id}
+                    )
+                    db.add(notif)
+
+            db.commit()
+            # Broadcast to all clients that new notifications are available
+            await manager.broadcast({"type": "notification_new"})
+
+        finally:
+            db.close()
+    except Exception as e:
+        # Notify all admins about the failure
+        import traceback
+        traceback.print_exc()
+        error_detail = f"{type(e).__name__}: {str(e)[:300]}"
+        try:
+            from ..database import SessionLocal
+            err_db = SessionLocal()
+            try:
+                admins = err_db.query(models.User).filter(models.User.is_admin == True).all()
+                for admin in admins:
+                    notif = models.Notification(
+                        user_id=admin.id,
+                        type="system",
+                        title=f"\u26a0\ufe0f \u00c9chec IA \u2014 {tournament_name}",
+                        content=f"La g\u00e9n\u00e9ration de messages personnalis\u00e9s a \u00e9chou\u00e9.\n{error_detail}",
+                        metadata_json={"tournament_id": tournament_id, "error": True}
+                    )
+                    err_db.add(notif)
+                err_db.commit()
+                await manager.broadcast({"type": "notification_new"})
+            finally:
+                err_db.close()
+        except Exception:
+            pass  # Last resort
 
 
 def _compute_standings(bracket, bracket_type, lower_is_better=False):
@@ -1180,3 +1349,155 @@ def _compute_standings(bracket, bracket_type, lower_is_better=False):
                     standings.append((3, loser_id))
     
     return standings
+
+
+def _compute_projected_standings(tournament, db):
+    """Single source of truth: compute projected points for all participants."""
+    config = tournament.config or {}
+    bracket = tournament.bracket or []
+    bracket_type = config.get("bracket_type", "single_elim")
+    use_teams = config.get("use_teams", False)
+    lower_is_better = config.get("lower_score_is_better", False)
+    pts_winner = config.get("pts_winner", 10)
+    pts_second = config.get("pts_second", 6)
+    pts_third = config.get("pts_third", 4)
+    pts_participation = config.get("pts_participation", 1)
+    pts_per_goal = config.get("pts_per_goal", 0.5)
+    ppw = tournament.points_per_win or 3
+
+    if not bracket:
+        participants = db.query(models.TournamentParticipant).filter(
+            models.TournamentParticipant.tournament_id == tournament.id
+        ).all()
+        users = db.query(models.User).filter(models.User.id.in_([p.user_id for p in participants])).all()
+        user_map = {u.id: u.username for u in users}
+        return [{"rank": None, "entity_id": p.user_id, "name": user_map.get(p.user_id, f"#{p.user_id}"),
+                 "placement_pts": 0, "participation_pts": 0, "score_pts": 0,
+                 "total": 0, "per_member": 0, "member_count": 1, "team_name": None, "wins": 0
+                 } for p in participants]
+
+    # Step 1: Compute wins + goals from bracket
+    wins = {}
+    goals = {}
+    for m in bracket:
+        p = m.get("p", [])
+        s = m.get("score", [])
+        if 0 in p:
+            continue
+        max_score = max((v for v in s if v > 0), default=0) if lower_is_better else 0
+        for i, pid in enumerate(p):
+            if pid and pid != 0:
+                goals.setdefault(pid, 0)
+                wins.setdefault(pid, 0)
+                raw = max(0, s[i] if i < len(s) else 0)
+                if lower_is_better and raw > 0:
+                    goals[pid] += (max_score + 1 - raw)
+                else:
+                    goals[pid] += raw
+        if len(s) >= 2 and s[0] > 0 and s[1] > 0 and s[0] != s[1]:
+            w_idx = (0 if s[0] < s[1] else 1) if lower_is_better else (0 if s[0] > s[1] else 1)
+            w_id = p[w_idx] if w_idx < len(p) else None
+            if w_id and w_id != 0:
+                wins[w_id] = wins.get(w_id, 0) + 1
+
+    # Step 2: Bracket-based placement for elimination formats
+    bracket_standings = _compute_standings(bracket, bracket_type, lower_is_better)
+    bracket_rank_map = {eid: rank for rank, eid in bracket_standings}
+
+    # Step 3: Rank all entities by competitive score
+    all_entities = set(list(wins.keys()) + list(goals.keys()))
+    ranked = []
+    for eid in all_entities:
+        w = wins.get(eid, 0)
+        g = goals.get(eid, 0)
+        rank_score = w * ppw + round(g * pts_per_goal, 1)
+        ranked.append({"entity_id": eid, "wins": w, "goals": g, "rank_score": rank_score})
+    ranked.sort(key=lambda x: x["rank_score"], reverse=True)
+
+    placement_map = {1: pts_winner, 2: pts_second, 3: pts_third}
+    team_map = config.get("_team_map", {})
+
+    # Team member counts
+    team_member_counts = {}
+    if use_teams:
+        teams_db = db.query(models.TournamentTeam).filter(
+            models.TournamentTeam.tournament_id == tournament.id).all()
+        for t in teams_db:
+            count = db.query(models.TournamentTeamMember).filter(
+                models.TournamentTeamMember.team_id == t.id).count()
+            team_member_counts[-t.id] = max(count, 1)
+
+    # Step 4: Build results
+    results = []
+    for i, entry in enumerate(ranked):
+        eid = entry["entity_id"]
+        rank = bracket_rank_map.get(eid, i + 1)
+        placement_pts = placement_map.get(rank, 0)
+        score_pts = round(entry["goals"] * pts_per_goal, 1)
+        total = round(placement_pts + pts_participation + score_pts, 1)
+        if use_teams and eid < 0:
+            name = team_map.get(str(eid), f"Team #{abs(eid)}")
+        else:
+            user = db.query(models.User).filter(models.User.id == eid).first()
+            name = user.username if user else f"#{eid}"
+        member_count = team_member_counts.get(eid, 1) if use_teams else 1
+        per_member = round(total / member_count, 1)
+        results.append({
+            "rank": rank, "entity_id": eid, "name": name, "wins": entry["wins"],
+            "placement_pts": placement_pts, "participation_pts": pts_participation,
+            "score_pts": score_pts, "total": total, "per_member": per_member,
+            "member_count": member_count, "team_name": name if (use_teams and eid < 0) else None
+        })
+
+    results.sort(key=lambda x: (x["rank"] if x["rank"] else 999, -x["total"]))
+
+    # Include participants not in bracket
+    placed_eids = {r["entity_id"] for r in results}
+    participants = db.query(models.TournamentParticipant).filter(
+        models.TournamentParticipant.tournament_id == tournament.id).all()
+    if not use_teams:
+        for p in participants:
+            if p.user_id not in placed_eids:
+                user = db.query(models.User).filter(models.User.id == p.user_id).first()
+                results.append({
+                    "rank": len(results) + 1, "entity_id": p.user_id,
+                    "name": user.username if user else f"#{p.user_id}",
+                    "wins": 0, "placement_pts": 0, "participation_pts": pts_participation,
+                    "score_pts": 0, "total": pts_participation, "per_member": pts_participation,
+                    "member_count": 1, "team_name": None
+                })
+    return results
+
+
+@router.get("/{tournament_id}/standings")
+def get_tournament_standings(tournament_id: int, db: Session = Depends(database.get_db)):
+    """Single source of truth for projected standings. Public endpoint."""
+    tournament = db.query(models.Tournament).filter(models.Tournament.id == tournament_id).first()
+    if not tournament:
+        raise HTTPException(status_code=404, detail="Tournament not found")
+    if tournament.status == "CLOSED" and tournament.results:
+        # Augment stored results with per_member/member_count for frontend
+        config = tournament.config or {}
+        use_teams = config.get("use_teams", False)
+        results = []
+        team_member_counts = {}
+        if use_teams:
+            teams_db = db.query(models.TournamentTeam).filter(
+                models.TournamentTeam.tournament_id == tournament_id).all()
+            for t in teams_db:
+                count = db.query(models.TournamentTeamMember).filter(
+                    models.TournamentTeamMember.team_id == t.id).count()
+                team_member_counts[-t.id] = max(count, 1)
+        for r in tournament.results:
+            entry = dict(r)
+            eid = entry.get("entity_id")
+            mc = team_member_counts.get(eid, 1) if use_teams else 1
+            entry.setdefault("member_count", mc)
+            entry.setdefault("per_member", round(entry.get("total", 0) / mc, 1))
+            entry.setdefault("wins", 0)
+            results.append(entry)
+        return {"status": "closed", "standings": results}
+    if tournament.status in ("RUNNING", "DONE"):
+        standings = _compute_projected_standings(tournament, db)
+        return {"status": "live", "standings": standings}
+    return {"status": "open", "standings": []}

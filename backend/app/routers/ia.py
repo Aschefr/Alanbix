@@ -21,6 +21,7 @@ router = APIRouter(prefix="/ia", tags=["IA"])
 
 # --- Multi-instance Ollama support ---
 _round_robin_idx = 0
+_active_requests = {}  # url -> int (active generation count)
 
 def get_effective_config(db: Session):
     db_config = db.query(models.SystemConfig).filter(models.SystemConfig.key == "ia_settings").first()
@@ -126,7 +127,9 @@ async def instances_status(db: Session = Depends(database.get_db)):
             "enabled": inst.get("enabled", True),
             "online": ok,
             "latency_ms": latency,
-            "available_models": model_names
+            "available_models": model_names,
+            "busy": _active_requests.get(inst["url"], 0) > 0,
+            "active_requests": _active_requests.get(inst["url"], 0)
         })
     return results
 
@@ -155,6 +158,8 @@ def list_conversations(db: Session = Depends(database.get_db), user: models.User
 
 @router.post("/conversations", response_model=schemas.Conversation)
 def create_conversation(conv: schemas.ConversationBase, db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
+    if user.ia_blocked:
+        raise HTTPException(403, detail="Votre accès à l'IA a été suspendu par un administrateur.")
     db_conv = models.Conversation(title=conv.title, user_id=user.id)
     db.add(db_conv)
     db.commit()
@@ -213,6 +218,7 @@ def get_messages(conv_id: int, db: Session = Depends(database.get_db), user: mod
             for m in messages
         ],
         "usage": {"estimated_tokens": est_tokens},
+        "admin_override": conv.admin_override or False,
         "compression": {
             "mode": conv.compression_mode,
             "auto_mode": conv.auto_compression_mode,
@@ -344,6 +350,13 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
     if not conv:
         raise HTTPException(404)
     
+    # Block user if admin has banned them from AI
+    if user.ia_blocked:
+        blocked_msg = json.dumps({"text": "🚫 Votre accès à l'IA a été suspendu par un administrateur.", "done": True, "ia_blocked": True})
+        async def blocked_response():
+            yield f"data: {blocked_msg}\n\n"
+        return StreamingResponse(blocked_response(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+    
     # Block AI when admin has taken over
     if conv.admin_override:
         # Still save the user message so admin can see it
@@ -458,6 +471,7 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
     
     async def event_generator():
         client = httpx.AsyncClient()
+        _active_requests[ollama_host] = _active_requests.get(ollama_host, 0) + 1
         try:
             req_data = {
                 "model": model_to_use,
@@ -494,6 +508,7 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
                     except:
                         pass
         finally:
+            _active_requests[ollama_host] = max(0, _active_requests.get(ollama_host, 1) - 1)
             await client.aclose()
             
     return StreamingResponse(event_generator(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
@@ -614,6 +629,17 @@ async def admin_intervene(conv_id: int, body: AdminInterveneRequest, db: Session
         "content": body.content,
         "message_id": msg.id
     })
+    # Create notification for the user
+    notif = models.Notification(
+        user_id=conv.user_id,
+        type="admin_message",
+        title=f"🛡️ Message de {admin.username}",
+        content=body.content[:200],
+        metadata_json={"conversation_id": conv_id}
+    )
+    db.add(notif)
+    db.commit()
+    await ws_manager.broadcast({"type": "notification_new"})
     return {"status": "ok", "message_id": msg.id}
 
 class OverrideRequest(BaseModel):

@@ -52,7 +52,7 @@ def update_profile(data: dict, db: Session = Depends(database.get_db), user: mod
 @router.get("/me/points-history")
 def get_points_history(db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
     """Get breakdown of how the user earned their points across tournaments."""
-    from .tournaments import _compute_standings
+    from .tournaments import _compute_projected_standings
     
     tournaments = db.query(models.Tournament).filter(
         models.Tournament.status.in_(["RUNNING", "DONE", "CLOSED"])
@@ -62,7 +62,6 @@ def get_points_history(db: Session = Depends(database.get_db), user: models.User
     for t in tournaments:
         config = t.config or {}
         use_teams = config.get("use_teams", False)
-        is_closed = t.status == "CLOSED"
         game_name = None
         if t.game_id:
             game = db.query(models.Game).filter(models.Game.id == t.game_id).first()
@@ -76,10 +75,11 @@ def get_points_history(db: Session = Depends(database.get_db), user: models.User
         if not participant:
             continue
 
-        if is_closed and t.results:
+        is_live = t.status in ("RUNNING", "DONE")
+
+        if t.status == "CLOSED" and t.results:
             # Use stored results for CLOSED tournaments
-            results = t.results or []
-            for r in results:
+            for r in t.results:
                 eid = r.get("entity_id")
                 if not use_teams and eid == user.id:
                     history.append({
@@ -112,47 +112,10 @@ def get_points_history(db: Session = Depends(database.get_db), user: models.User
                         })
                         break
         else:
-            # Compute live standings for RUNNING/DONE tournaments
-            bracket = t.bracket or []
-            if not bracket:
-                history.append({
-                    "tournament_id": t.id, "tournament_name": t.name,
-                    "game_name": game_name, "status": t.status, "live": True,
-                    "rank": None, "placement_pts": 0, "participation_pts": 0,
-                    "score_pts": 0, "total": 0, "team_name": None
-                })
-                continue
+            # Use shared projected standings for RUNNING/DONE
+            standings = _compute_projected_standings(t, db)
 
-            bracket_type = config.get("bracket_type", "single_elim")
-            lower_is_better = config.get("lower_score_is_better", False)
-            ppw = t.points_per_win or 3
-            ppg = config.get("pts_per_goal", 0)
-
-            # Compute wins per entity
-            wins = {}
-            goals = {}
-            for m in bracket:
-                p = m.get("p", [])
-                s = m.get("score", [])
-                if 0 in p:
-                    continue  # Skip byes
-                for i, pid in enumerate(p):
-                    if pid and pid != 0:
-                        goals.setdefault(pid, 0)
-                        wins.setdefault(pid, 0)
-                        raw = max(0, s[i] if i < len(s) else 0)
-                        if lower_is_better and raw > 0:
-                            max_score = max((v for v in s if v > 0), default=0)
-                            goals[pid] += (max_score + 1 - raw)
-                        else:
-                            goals[pid] += raw
-                if len(s) >= 2 and s[0] > 0 and s[1] > 0 and s[0] != s[1]:
-                    w_idx = (0 if s[0] < s[1] else 1) if lower_is_better else (0 if s[0] > s[1] else 1)
-                    w_id = p[w_idx] if w_idx < len(p) else None
-                    if w_id and w_id != 0:
-                        wins[w_id] = wins.get(w_id, 0) + 1
-
-            # Find user's entity
+            # Find user's entry
             user_entity = user.id
             team_name_found = None
             if use_teams:
@@ -167,26 +130,39 @@ def get_points_history(db: Session = Depends(database.get_db), user: models.User
                     team = db.query(models.TournamentTeam).get(team_member.team_id)
                     team_name_found = team.name if team else None
 
-            user_wins = wins.get(user_entity, 0)
-            user_goals = goals.get(user_entity, 0)
-            score_pts = round(user_goals * ppg, 1)
-            live_pts = user_wins * ppw + score_pts
-
-            # Compute rank
-            all_pts = {eid: w * ppw + round(goals.get(eid, 0) * ppg, 1) for eid, w in wins.items()}
-            sorted_entities = sorted(all_pts.items(), key=lambda x: x[1], reverse=True)
-            rank = None
-            for i, (eid, pts) in enumerate(sorted_entities):
-                if eid == user_entity:
-                    rank = i + 1
-                    break
-
-            history.append({
-                "tournament_id": t.id, "tournament_name": t.name,
-                "game_name": game_name, "status": t.status, "live": True,
-                "rank": rank, "placement_pts": user_wins * ppw, "participation_pts": 0,
-                "score_pts": score_pts, "total": live_pts, "team_name": team_name_found
-            })
+            entry = next((s for s in standings if s["entity_id"] == user_entity), None)
+            if entry:
+                # In team mode, show per-member points
+                if use_teams and entry["member_count"] > 1:
+                    mc = entry["member_count"]
+                    history.append({
+                        "tournament_id": t.id, "tournament_name": t.name,
+                        "game_name": game_name, "status": t.status, "live": True,
+                        "rank": entry["rank"],
+                        "placement_pts": round(entry["placement_pts"] / mc, 1),
+                        "participation_pts": round(entry["participation_pts"] / mc, 1),
+                        "score_pts": round(entry["score_pts"] / mc, 1),
+                        "total": entry["per_member"],
+                        "team_name": team_name_found
+                    })
+                else:
+                    history.append({
+                        "tournament_id": t.id, "tournament_name": t.name,
+                        "game_name": game_name, "status": t.status, "live": True,
+                        "rank": entry["rank"],
+                        "placement_pts": entry["placement_pts"],
+                        "participation_pts": entry["participation_pts"],
+                        "score_pts": entry["score_pts"],
+                        "total": entry["total"],
+                        "team_name": team_name_found
+                    })
+            else:
+                history.append({
+                    "tournament_id": t.id, "tournament_name": t.name,
+                    "game_name": game_name, "status": t.status, "live": True,
+                    "rank": None, "placement_pts": 0, "participation_pts": 0,
+                    "score_pts": 0, "total": 0, "team_name": None
+                })
 
     return {"total_points": user.points or 0, "history": history}
 
@@ -196,7 +172,7 @@ def get_points_history(db: Session = Depends(database.get_db), user: models.User
 def admin_list_users(db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
     """List all users with details for admin management."""
     users = db.query(models.User).all()
-    return [{"id": u.id, "username": u.username, "team_name": u.team_name, "is_admin": u.is_admin, "seat_id": u.seat_id, "points": u.points} for u in users]
+    return [{"id": u.id, "username": u.username, "team_name": u.team_name, "is_admin": u.is_admin, "ia_blocked": u.ia_blocked or False, "seat_id": u.seat_id, "points": u.points} for u in users]
 
 @router.put("/admin/users/{user_id}")
 def admin_update_user(user_id: int, data: dict, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
@@ -215,9 +191,11 @@ def admin_update_user(user_id: int, data: dict, db: Session = Depends(database.g
         target.team_name = data["team_name"].strip() if data["team_name"] else None
     if "is_admin" in data:
         target.is_admin = bool(data["is_admin"])
+    if "ia_blocked" in data:
+        target.ia_blocked = bool(data["ia_blocked"])
     db.commit()
     db.refresh(target)
-    return {"status": "updated", "id": target.id, "username": target.username, "team_name": target.team_name, "is_admin": target.is_admin}
+    return {"status": "updated", "id": target.id, "username": target.username, "team_name": target.team_name, "is_admin": target.is_admin, "ia_blocked": target.ia_blocked or False}
 
 @router.post("/admin/users/{user_id}/reset-password")
 def admin_reset_password(user_id: int, data: dict, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
@@ -309,3 +287,11 @@ def admin_nuke_games(db: Session = Depends(database.get_db), admin: models.User 
     db.query(models.User).update({models.User.points: 0})
     db.commit()
     return {"status": "nuked", "deleted_games": count}
+
+@router.delete("/admin/nuke/notifications")
+def admin_nuke_notifications(db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
+    """Delete ALL notifications for all users."""
+    count = db.query(models.Notification).count()
+    db.query(models.Notification).delete()
+    db.commit()
+    return {"status": "nuked", "deleted_notifications": count}

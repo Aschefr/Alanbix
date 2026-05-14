@@ -14,6 +14,7 @@
 	let editConfig = {};
 	let teams = [];
 	let newTeamName = '';
+	let standingsData = [];
 
 	// Bracket pan/zoom
 	let scale = 1, panX = 0, panY = 0, isDragging = false, startX, startY;
@@ -48,16 +49,20 @@
 
 	// WS: re-fetch data when another client modifies tournament state
 	let wsUnsub = null;
+	function refreshStandings() {
+		if (selectedId) api.get(`/tournaments/${selectedId}/standings`).then(r => { standingsData = r.standings || []; }).catch(() => {});
+	}
 	$: {
 		if (!wsUnsub) {
 			wsUnsub = wsMessageStore.subscribe(msg => {
 				if (!msg) return;
 				if (msg.type === 'teams_updated' && msg.tournament_id && selectedId === msg.tournament_id) {
 					api.get(`/tournaments/${msg.tournament_id}/teams`).then(t => { teams = t; }).catch(() => {});
+					refreshStandings();
 				}
 				if ((msg.type === 'score_updated' || msg.type === 'ffa_advanced') && msg.tournament_id) {
-					// Re-fetch tournament list to get updated bracket data
 					api.get('/tournaments').then(t => { tournaments = t; }).catch(() => {});
+					if (selectedId === msg.tournament_id) refreshStandings();
 				}
 				if (msg.type === 'tournament_started' || msg.type === 'tournament_closed') {
 					api.get('/tournaments').then(t => { tournaments = t; }).catch(() => {});
@@ -65,6 +70,32 @@
 						const tid = msg.id || msg.tournament_id;
 						api.get(`/tournaments/${tid}/participants`).then(p => { participants = p; }).catch(() => {});
 						api.get(`/tournaments/${tid}/teams`).then(t => { teams = t; }).catch(() => {});
+						refreshStandings();
+					}
+				}
+				// --- New real-time events ---
+				if (msg.type === 'tournament_created' || msg.type === 'tournament_updated') {
+					api.get('/tournaments').then(t => { tournaments = t; }).catch(() => {});
+					if (msg.type === 'tournament_updated' && msg.data?.id && selectedId === msg.data.id) {
+						api.get(`/tournaments/${selectedId}/participants`).then(p => { participants = p; }).catch(() => {});
+						api.get(`/tournaments/${selectedId}/teams`).then(t => { teams = t; }).catch(() => {});
+						refreshStandings();
+					}
+				}
+				if (msg.type === 'tournament_deleted') {
+					api.get('/tournaments').then(t => {
+						tournaments = t;
+						if (selectedId === msg.tournament_id) {
+							selectedId = tournaments.length > 0 ? tournaments[0].id : null;
+							if (selectedId) selectTournament(selectedId);
+						}
+					}).catch(() => {});
+				}
+				if ((msg.type === 'participant_joined' || msg.type === 'participant_left') && msg.tournament_id) {
+					api.get('/tournaments').then(t => { tournaments = t; }).catch(() => {});
+					if (selectedId === msg.tournament_id) {
+						api.get(`/tournaments/${msg.tournament_id}/participants`).then(p => { participants = p; }).catch(() => {});
+						refreshStandings();
 					}
 				}
 			});
@@ -87,6 +118,10 @@
 		resetZoom();
 		try { participants = await api.get(`/tournaments/${id}/participants`); } catch { participants = []; }
 		try { teams = await api.get(`/tournaments/${id}/teams`); } catch { teams = []; }
+		try {
+			const res = await api.get(`/tournaments/${id}/standings`);
+			standingsData = res.standings || [];
+		} catch { standingsData = []; }
 	}
 
 	async function joinTournament(id) {
@@ -368,74 +403,27 @@
 	}).filter(Boolean);
 
 	// --- Live Standings (projection, no DB mutation) ---
-	function computeLiveStandings(bracket, config, parts) {
-		if (!bracket || !Array.isArray(bracket) || bracket.length === 0) return [];
-		const ppw = selected?.points_per_win || 3;
-		const ppg = config?.pts_per_goal || 0;
-		const inverted = config?.lower_score_is_better || false;
-		const isTeamMode = config?.use_teams || false;
-		const stats = {};
-		
-		if (isTeamMode) {
-			// In team mode, bracket uses negative team IDs (-team.id)
-			// Initialize from team map
-			const tm = config?._team_map || {};
-			Object.entries(tm).forEach(([id, name]) => {
-				stats[id] = { name, wins: 0, goals: 0 };
-			});
-		} else {
-			parts.forEach(p => { stats[p.user_id] = { name: p.username, wins: 0, goals: 0 }; });
-		}
-		
-		bracket.forEach(m => {
-			const p = m.p || [];
-			const s = m.score || [];
-			// Skip bye matches (one slot is 0 = auto-win, not a real match)
-			if (p.includes(0)) return;
-			const maxScore = inverted ? Math.max(...s.filter(v => v > 0), 0) : 0;
-			p.forEach((pid, i) => {
-				if (!pid || pid === 0) return;
-				const key = String(pid);
-				if (!stats[key]) stats[key] = { name: nameMap[pid] || `#${pid}`, wins: 0, goals: 0 };
-				const rawScore = Math.max(0, s[i] || 0);
-				stats[key].goals += inverted && rawScore > 0 ? (maxScore + 1 - rawScore) : rawScore;
-			});
-			if (s.length >= 2 && s[0] > 0 && s[1] > 0 && s[0] !== s[1]) {
-				const wIdx = inverted ? (s[0] < s[1] ? 0 : 1) : (s[0] > s[1] ? 0 : 1);
-				const wKey = String(p[wIdx]);
-				if (wKey && wKey !== '0' && stats[wKey]) stats[wKey].wins++;
-			}
-		});
-		return Object.entries(stats)
-			.map(([id, s]) => ({ id: isNaN(parseInt(id)) ? id : parseInt(id), name: s.name, pts: s.wins * ppw + Math.round(s.goals * ppg * 10) / 10 }))
-			.sort((a, b) => b.pts - a.pts);
-	}
-
-	function computeTeamStandings(individualStandings, teamsList) {
-		if (!teamsList || teamsList.length === 0) return individualStandings;
-		// In team mode, individualStandings already contains team entries (negative IDs)
-		// Just return them directly — they ARE the team standings
-		return individualStandings;
-	}
+	// Standings come from backend (single source of truth)
+	$: liveStandings = standingsData.map(s => ({
+		id: s.entity_id, name: s.name, pts: s.total, rank: s.rank,
+		placement_pts: s.placement_pts, participation_pts: s.participation_pts,
+		score_pts: s.score_pts, per_member: s.per_member, member_count: s.member_count
+	}));
+	$: displayStandings = liveStandings;
 
 	function getPlayerPts(userId, standings) {
-		// In team mode, try to find the user's team and lookup by team bracket ID
+		// In team mode, find user's team and return per_member from backend
 		if (useTeams && teams.length > 0) {
 			const playerTeam = teams.find(t => t.members?.some(m => m.user_id === userId));
 			if (playerTeam) {
 				const teamBracketId = -playerTeam.id;
 				const teamEntry = standings.find(s => s.id === teamBracketId);
-				if (teamEntry && playerTeam.members) {
-					return Math.round((teamEntry.pts / playerTeam.members.length) * 10) / 10;
-				}
+				if (teamEntry) return teamEntry.per_member;
 			}
 		}
 		const entry = standings.find(s => s.id === userId);
 		return entry ? entry.pts : 0;
 	}
-
-	$: liveStandings = ['RUNNING','DONE','CLOSED'].includes(selected?.status) ? computeLiveStandings(selected?.bracket, selected?.config, participants) : [];
-	$: displayStandings = useTeams ? computeTeamStandings(liveStandings, teams) : liveStandings;
 </script>
 
 <div class="tournaments-layout">
@@ -467,6 +455,7 @@
 		{#if selected}
 			<!-- Hero -->
 			<div class="detail-hero" style="background-image: url({selectedGame?.image_url || ''})">
+				{#if selected.status === 'CLOSED'}<div class="hero-checkered"></div>{/if}
 				<div class="hero-overlay">
 					<div class="hero-content">
 						<span class="status-pill {selected.status.toLowerCase()}">
@@ -816,7 +805,7 @@
 					<div class="live-standings glass">
 						<div class="section-title"><h3>📊 {selected?.status === 'RUNNING' ? 'Classement Live' : 'Classement Final'}</h3>{#if selected?.status === 'RUNNING'}<span class="live-badge">⚡ LIVE</span>{:else}<span class="live-badge" style="color:#3b82f6;background:rgba(59,130,246,0.1);border-color:rgba(59,130,246,0.2)">✅ FINAL</span>{/if}</div>
 						<div class="ls-list">
-							{#each selected?.status === 'RUNNING' ? displayStandings.slice(0, 8) : displayStandings as entry, i}
+							{#each displayStandings as entry, i}
 								<div class="ls-row {i < 3 ? 'ls-top' : ''}">
 									<span class="ls-rank {i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : ''}">{i + 1}</span>
 									<span class="ls-name">{entry.name}</span>
@@ -998,6 +987,17 @@
 	.hero-overlay { position: absolute; inset: 0; display: flex; align-items: flex-end; justify-content: space-between; background: linear-gradient(to top, rgba(15,23,42,0.95) 0%, rgba(15,23,42,0.3) 60%, transparent); padding: 1.2rem 1.5rem; border-radius: inherit; }
 	.hero-content { display: flex; flex-direction: column; gap: 0.2rem; }
 	.hero-content h1 { font-size: 1.5rem; margin: 0; color: white; text-shadow: 0 2px 8px rgba(0,0,0,0.5); }
+
+	/* Checkered flag for CLOSED tournaments */
+	.hero-checkered { position: absolute; top: 0; right: 0; width: 25%; height: 100%; z-index: 1; pointer-events: none;
+		background: repeating-conic-gradient(rgba(255,255,255,0.85) 0% 25%, rgba(20,20,20,0.85) 0% 50%) 0 0 / 22px 22px;
+		mask-image: linear-gradient(to left, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.35) 50%, transparent 100%), linear-gradient(to top, transparent 0%, rgba(0,0,0,0.5) 30%, rgba(0,0,0,0.5) 70%, transparent 100%);
+		-webkit-mask-image: linear-gradient(to left, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.35) 50%, transparent 100%), linear-gradient(to top, transparent 0%, rgba(0,0,0,0.5) 30%, rgba(0,0,0,0.5) 70%, transparent 100%);
+		mask-composite: intersect; -webkit-mask-composite: source-in;
+		border-radius: 0 var(--radius-lg) 0 0;
+		animation: checkered-reveal 0.6s ease-out;
+	}
+	@keyframes checkered-reveal { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
 	.hero-game { color: #60a5fa; font-weight: 600; font-size: 0.85rem; text-shadow: 0 1px 4px rgba(0,0,0,0.5); }
 	.hero-join { align-self: flex-end; }
 	.hero-joined { align-self: flex-end; padding: 0.5rem 1.2rem; background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.3); color: #10b981; border-radius: 10px; font-weight: 700; font-size: 0.85rem; text-shadow: 0 1px 4px rgba(0,0,0,0.3); }
@@ -1217,7 +1217,7 @@
 	.live-standings { padding: 1.2rem; border-radius: var(--radius-lg); border: 1px solid rgba(59,130,246,0.15); }
 	.live-badge { font-size: 0.55rem; font-weight: 800; color: #10b981; background: rgba(16,185,129,0.1); padding: 0.15rem 0.5rem; border-radius: 20px; border: 1px solid rgba(16,185,129,0.2); animation: pulse-live 2s infinite; }
 	@keyframes pulse-live { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
-	.ls-list { display: flex; flex-direction: column; gap: 0.3rem; margin-top: 0.75rem; }
+	.ls-list { display: flex; flex-direction: column; gap: 0.3rem; margin-top: 0.75rem; max-height: 400px; overflow-y: auto; }
 	.ls-row { display: flex; align-items: center; gap: 0.6rem; padding: 0.45rem 0.6rem; border-radius: 8px; transition: background 0.15s; }
 	.ls-row:hover { background: rgba(255,255,255,0.03); }
 	.ls-row.ls-top { border-left: 2px solid var(--accent); background: rgba(59,130,246,0.04); }

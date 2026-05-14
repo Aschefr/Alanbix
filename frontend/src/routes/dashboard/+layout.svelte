@@ -8,24 +8,57 @@
 	let user = { username: '...', is_admin: false };
 	let unsub = null;
 	let isDark = true;
+	let notifCount = 0;
+	let notifBounce = false;
+	let iaInstances = [];
+	let iaInterval = null;
 
 	onMount(async () => {
 		isDark = (localStorage.getItem('alanbix_theme') || 'dark') === 'dark';
 		try {
 			user = await api.get('/me');
 			connectWS();
+			// Fetch initial unread count
+			try {
+				const nc = await api.get('/notifications/unread-count');
+				notifCount = nc.count || 0;
+			} catch {}
 			unsub = wsMessageStore.subscribe(msg => {
 				if (msg && msg.type) {
 					invalidateAll();
+					// Update notification badge in real-time
+					if (msg.type === 'notification_new') {
+						api.get('/notifications/unread-count').then(r => {
+							notifCount = r.count || 0;
+							// Trigger bounce animation
+							notifBounce = true;
+							setTimeout(() => notifBounce = false, 600);
+						}).catch(() => {});
+					}
 				}
 			});
 		} catch (e) {
 			window.location.href = '/';
 		}
+		// Admin: poll IA status
+		if (user.is_admin) {
+			pollIaStatus();
+			iaInterval = setInterval(pollIaStatus, 30000);
+		}
 	});
+
+	async function pollIaStatus() {
+		try { iaInstances = await api.get('/ia/instances/status'); } catch { iaInstances = []; }
+		// Poll faster when any instance is busy
+		const anyBusy = iaInstances.some(i => i.busy);
+		const nextInterval = anyBusy ? 5000 : 30000;
+		if (iaInterval) clearInterval(iaInterval);
+		iaInterval = setInterval(pollIaStatus, nextInterval);
+	}
 
 	onDestroy(() => {
 		if (unsub) unsub();
+		if (iaInterval) clearInterval(iaInterval);
 	});
 
 	function toggleTheme() {
@@ -59,6 +92,13 @@
 				<span class="icon">🏆</span>
 				<span class="label">Tournois</span>
 			</a>
+			<a href="/dashboard/notifications" class="nav-item notif-nav" on:click={() => { api.get('/notifications/unread-count').then(r => notifCount = r.count || 0).catch(() => {}); }}>
+				<span class="icon">🔔</span>
+				<span class="label">Notifications</span>
+				{#if notifCount > 0}
+					<span class="notif-count-badge" class:bounce={notifBounce}>{notifCount}</span>
+				{/if}
+			</a>
 			<a href="/dashboard/ai" class="nav-item">
 				<span class="icon">🤖</span>
 				<span class="label">Assistant IA</span>
@@ -83,6 +123,24 @@
 		</div>
 
 		<div class="nav-footer">
+			{#if user.is_admin && iaInstances.length > 0}
+				<div class="ia-status-widget">
+					<div class="ia-status-title">🖥️ IA Instances</div>
+					{#each iaInstances as inst}
+						<div class="ia-inst-row" title="{inst.url} — {inst.latency_ms || 0}ms{inst.busy ? ' — Génération en cours' : ''}">
+							<span class="ia-dot {inst.busy ? 'busy' : inst.online ? 'online' : 'offline'}"></span>
+							<span class="ia-inst-label">{inst.label || inst.model || '?'}</span>
+							{#if inst.busy}
+								<span class="ia-inst-ping busy">⚡</span>
+							{:else if inst.online}
+								<span class="ia-inst-ping">{inst.latency_ms}ms</span>
+							{:else}
+								<span class="ia-inst-ping offline">off</span>
+							{/if}
+						</div>
+					{/each}
+				</div>
+			{/if}
 			<a href="/dashboard/profile" class="user-profile">
 				<div class="avatar">{user.username[0].toUpperCase()}</div>
 				<div class="info">
@@ -307,4 +365,49 @@
 		overflow-y: auto;
 		height: 100vh;
 	}
+
+	/* Notification badge */
+	.notif-nav { position: relative; }
+	.notif-count-badge {
+		position: absolute; top: 4px; right: 8px;
+		min-width: 18px; height: 18px; line-height: 18px;
+		padding: 0 5px; border-radius: 10px;
+		background: #ef4444; color: white;
+		font-size: 0.6rem; font-weight: 800; text-align: center;
+		box-shadow: 0 0 8px rgba(239,68,68,0.5);
+		animation: notif-pulse 2s ease-in-out infinite;
+	}
+	.notif-count-badge.bounce {
+		animation: notif-bounce 0.6s ease;
+	}
+	@keyframes notif-pulse {
+		0%, 100% { transform: scale(1); box-shadow: 0 0 8px rgba(239,68,68,0.5); }
+		50% { transform: scale(1.15); box-shadow: 0 0 16px rgba(239,68,68,0.8); }
+	}
+	@keyframes notif-bounce {
+		0% { transform: scale(1); }
+		30% { transform: scale(1.5); }
+		50% { transform: scale(0.9); }
+		70% { transform: scale(1.2); }
+		100% { transform: scale(1); }
+	}
+
+	/* IA Status Widget */
+	.ia-status-widget {
+		padding: 0.6rem 0.8rem; border-radius: var(--radius-md);
+		background: var(--hover-tint); border: 1px solid var(--glass-border);
+		margin-bottom: 0.8rem;
+	}
+	.ia-status-title { font-size: 0.65rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.4rem; }
+	.ia-inst-row { display: flex; align-items: center; gap: 0.5rem; padding: 0.15rem 0; }
+	.ia-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+	.ia-dot.online { background: #10b981; box-shadow: 0 0 6px rgba(16,185,129,0.6); animation: dot-pulse 2s ease-in-out infinite; }
+	.ia-dot.offline { background: #ef4444; box-shadow: 0 0 6px rgba(239,68,68,0.4); }
+	.ia-dot.busy { background: #f59e0b; box-shadow: 0 0 8px rgba(245,158,11,0.7); animation: dot-busy 0.5s ease-in-out infinite; }
+	@keyframes dot-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+	@keyframes dot-busy { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.7); } }
+	.ia-inst-label { font-size: 0.7rem; color: var(--text-dim); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.ia-inst-ping { font-size: 0.6rem; color: var(--text-muted); font-family: monospace; }
+	.ia-inst-ping.offline { color: #ef4444; font-weight: 700; }
+	.ia-inst-ping.busy { color: #f59e0b; font-weight: 700; font-size: 0.75rem; animation: dot-busy 0.5s ease-in-out infinite; }
 </style>

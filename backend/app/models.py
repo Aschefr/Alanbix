@@ -11,6 +11,7 @@ class User(Base):
     is_admin = Column(Boolean, default=False)
     seat_id = Column(String, nullable=True) # Mapping Poste 2D
     team_name = Column(String, nullable=True) # Nom d'équipe
+    ia_blocked = Column(Boolean, default=False) # Admin can block user from AI chat
     points = Column(Integer, default=0) # Accumulated tournament points
     
     tournaments = relationship("TournamentParticipant", back_populates="user")
@@ -136,3 +137,14 @@ class ChatMessage(Base):
     timestamp = Column(DateTime, default=datetime.datetime.utcnow)
     
     conversation = relationship("Conversation", back_populates="messages")
+
+class Notification(Base):
+    __tablename__ = "notifications"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
+    type = Column(String)  # "tournament_closed", "admin_message", "system"
+    title = Column(String)
+    content = Column(Text)
+    is_read = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    metadata_json = Column(JSON, nullable=True)  # tournament_id, conversation_id, etc.

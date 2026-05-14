@@ -130,7 +130,22 @@
 	let newDocContent = '';
 	let instanceStatuses = [];
 
+	let authorized = false;
+
 	onMount(async () => {
+		// --- Admin Guard: block non-admin access ---
+		try {
+			const me = await api.get('/me');
+			if (!me.is_admin) {
+				window.location.href = '/dashboard';
+				return;
+			}
+			authorized = true;
+		} catch {
+			window.location.href = '/';
+			return;
+		}
+
 		loadData();
 		// Listen for user messages during admin override to auto-refresh conv view
 		wsUnsub = wsMessageStore.subscribe(msg => {
@@ -239,8 +254,8 @@
 	let creatingTournament = false;
 
 	// Nuke state
-	let nukeConfirm = { tournaments: false, players: false, games: false, images: false };
-	let nuking = { tournaments: false, players: false, games: false, images: false };
+	let nukeConfirm = { tournaments: false, players: false, games: false, images: false, notifications: false };
+	let nuking = { tournaments: false, players: false, games: false, images: false, notifications: false };
 
 	async function nukeTournaments() {
 		nuking.tournaments = true;
@@ -283,6 +298,16 @@
 		} catch (e) { toast(e.message, 'error'); }
 		nuking.images = false;
 		nukeConfirm.images = false;
+	}
+
+	async function nukeNotifications() {
+		nuking.notifications = true;
+		try {
+			const res = await api.delete('/admin/nuke/notifications');
+			toast(`${res.deleted_notifications} notification(s) supprimée(s)`, 'success');
+		} catch (e) { toast(e.message, 'error'); }
+		nuking.notifications = false;
+		nukeConfirm.notifications = false;
 	}
 
 	async function saveTournament() {
@@ -453,6 +478,15 @@
 		} catch (e) { toast(e.message, 'error'); }
 	}
 
+	async function toggleIaBlocked(player) {
+		try {
+			const newVal = !player.ia_blocked;
+			await api.put(`/admin/users/${player.id}`, { ia_blocked: newVal });
+			toast(`${player.username} ${newVal ? '🚫 bloqué de l\'IA' : '✅ accès IA rétabli'}`, 'success');
+			await loadPlayers();
+		} catch (e) { toast(e.message, 'error'); }
+	}
+
 	// --- Admin Conversation Monitoring ---
 	let adminConversations = [];
 	let adminActiveConvId = null;
@@ -542,6 +576,7 @@
 	}
 </script>
 
+{#if authorized}
 <div class="admin-view">
 	<header class="flex-row justify-between items-center">
 		<h1 class="title-premium">Administration Centrale</h1>
@@ -1080,6 +1115,7 @@
 								<span class="pt-col pt-name">
 									{p.username}
 									{#if p.is_admin}<span class="admin-badge">⭐</span>{/if}
+									{#if p.ia_blocked}<span class="ia-blocked-badge" title="IA bloquée">🚫</span>{/if}
 								</span>
 								<span class="pt-col pt-team">{p.team_name || '—'}</span>
 								<span class="pt-col pt-pts">{p.points || 0}</span>
@@ -1087,6 +1123,9 @@
 									{#if !p.is_admin}
 										<button class="btn-icon" title="Modifier" on:click={() => { editingPlayer = p; editPlayerData = { username: p.username, team_name: p.team_name || '' }; }}>✏️</button>
 										<button class="btn-icon" title="Réinitialiser MDP" on:click={() => { resetPwdPlayer = p; resetPwdValue = 'lan2025'; }}>🔑</button>
+										<button class="btn-icon {p.ia_blocked ? 'btn-icon-danger' : ''}" title="{p.ia_blocked ? 'Débloquer IA' : 'Bloquer IA'}" on:click={() => toggleIaBlocked(p)}>
+											{p.ia_blocked ? '🔓' : '🚫'}
+										</button>
 										<button class="btn-icon btn-icon-promote" title="Promouvoir admin" on:click={() => toggleAdmin(p)}>👑</button>
 										{#if deleteConfirmPlayerId === p.id}
 											<button class="btn-danger-sm" on:click={() => deletePlayer(p.id)}>Confirmer</button>
@@ -1281,6 +1320,49 @@
 										<button class="btn-outline-danger" on:click={() => nukeConfirm.games = true}>Supprimer les jeux</button>
 									{/if}
 								</div>
+								<!-- Nuke Images -->
+								<div class="nuke-card">
+									<div class="nuke-info">
+										<span class="nuke-icon">🗑️</span>
+										<div>
+											<strong>Purger les images du chat</strong>
+											<p>Supprime toutes les images jointes aux conversations IA</p>
+										</div>
+									</div>
+									{#if nukeConfirm.images}
+										<div class="nuke-confirm">
+											<span class="text-danger text-xs font-bold">⚠️ Toutes les images seront supprimées !</span>
+											<button class="btn-danger-sm" on:click={nukeImages} disabled={nuking.images}>
+												{nuking.images ? '⏳...' : '☢️ Tout supprimer'}
+											</button>
+											<button class="btn-secondary btn-xs" on:click={() => nukeConfirm.images = false}>Annuler</button>
+										</div>
+									{:else}
+										<button class="btn-outline-danger" on:click={() => nukeConfirm.images = true}>Purger les images</button>
+									{/if}
+								</div>
+
+								<!-- Nuke Notifications -->
+								<div class="nuke-card">
+									<div class="nuke-info">
+										<span class="nuke-icon">🔔</span>
+										<div>
+											<strong>Purger les notifications</strong>
+											<p>Supprime toutes les notifications de tous les joueurs</p>
+										</div>
+									</div>
+									{#if nukeConfirm.notifications}
+										<div class="nuke-confirm">
+											<span class="text-danger text-xs font-bold">⚠️ Toutes les notifications seront supprimées !</span>
+											<button class="btn-danger-sm" on:click={nukeNotifications} disabled={nuking.notifications}>
+												{nuking.notifications ? '⏳...' : '☢️ Tout supprimer'}
+											</button>
+											<button class="btn-secondary btn-xs" on:click={() => nukeConfirm.notifications = false}>Annuler</button>
+										</div>
+									{:else}
+										<button class="btn-outline-danger" on:click={() => nukeConfirm.notifications = true}>Purger les notifications</button>
+									{/if}
+								</div>
 							</div>
 						</div>
 					</div>
@@ -1400,29 +1482,6 @@
 						</div>
 						</div>
 
-					<!-- Nuke Chat Images -->
-					<div class="sc danger-zone">
-						<div class="sc-head">
-							<div class="sc-icon">🗑️</div>
-							<div>
-								<h3>Purger les images du chat</h3>
-								<p class="sc-sub">Supprime toutes les images jointes aux conversations IA</p>
-							</div>
-						</div>
-						<div class="sc-body">
-							{#if nukeConfirm.images}
-								<div class="nuke-confirm">
-									<span class="text-danger text-xs font-bold">⚠️ Toutes les images seront supprimées !</span>
-									<button class="btn-danger-sm" on:click={nukeImages} disabled={nuking.images}>
-										{nuking.images ? '⏳...' : '☢️ Tout supprimer'}
-									</button>
-									<button class="btn-secondary btn-xs" on:click={() => nukeConfirm.images = false}>Annuler</button>
-								</div>
-							{:else}
-								<button class="btn-outline-danger" on:click={() => nukeConfirm.images = true}>Purger les images</button>
-							{/if}
-						</div>
-					</div>
 				</div>
 				{/if}
 			</div>
@@ -1546,7 +1605,7 @@
 </div>
 
 
-
+{/if}
 
 <style>
 	.admin-view { display: flex; flex-direction: column; gap: 2rem; }
@@ -1863,4 +1922,6 @@
 	.admin-conv-md :global(blockquote) { border-left: 3px solid var(--accent); padding: 0.2em 0.6em; margin: 0.3em 0; opacity: 0.85; }
 	.btn-attach { background: var(--hover-tint); border: 1px solid var(--glass-border); color: var(--text-dim); width: 36px; height: 36px; border-radius: 6px; cursor: pointer; font-size: 1rem; display: flex; align-items: center; justify-content: center; transition: all 0.2s; flex-shrink: 0; }
 	.btn-attach:hover { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+	.ia-blocked-badge { font-size: 0.7rem; margin-left: 0.3rem; opacity: 0.8; }
 </style>
+

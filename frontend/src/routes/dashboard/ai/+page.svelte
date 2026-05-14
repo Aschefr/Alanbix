@@ -56,6 +56,8 @@
 	let editingContext = false;
 	let editContextText = '';
 	let chatContainer = null;
+	let adminOverride = false;
+	let iaBlocked = false;
 
 	// Image attachment
 	let pendingImage = null;      // File object
@@ -114,6 +116,7 @@
 	onMount(async () => {
 		await loadConversations();
 		iaConfig = await api.get('/ia/config');
+		try { const me = await api.get('/me'); iaBlocked = !!me.ia_blocked; } catch(e) {}
 
 		// Listen for admin intervention via WebSocket
 		unsub = wsMessageStore.subscribe(msg => {
@@ -145,6 +148,7 @@
 		messages = res.messages;
 		usage = res.usage || { estimated_tokens: 0 };
 		compression = res.compression || { mode: null };
+		adminOverride = res.admin_override || false;
 		scrollToBottom();
 	}
 
@@ -367,7 +371,7 @@
 	{/if}
 	<!-- Sidebar: Conversation History -->
 	<aside class="chat-sidebar glass">
-		<button class="btn-primary w-full" on:click={newConversation}>+ Nouvelle Discussion</button>
+		<button class="btn-primary w-full" on:click={newConversation} disabled={iaBlocked}>+ Nouvelle Discussion</button>
 		<div class="conv-list">
 			{#each conversations as conv}
 				<div class="conv-item {activeId === conv.id ? 'active' : ''}">
@@ -518,6 +522,20 @@
 				{/each}
 			</div>
 
+			{#if adminOverride}
+				<div class="admin-takeover-banner">
+					<span class="takeover-icon">🛡️</span>
+					<span class="takeover-text">Un administrateur gère cette conversation — l'IA est temporairement en pause</span>
+				</div>
+			{/if}
+
+			{#if iaBlocked}
+				<div class="ia-blocked-banner">
+					<span class="takeover-icon">🚫</span>
+					<span class="blocked-text">Votre accès à l'IA a été suspendu par un administrateur</span>
+				</div>
+			{/if}
+
 			<form class="input-area" on:submit|preventDefault={send}>
 				{#if pendingImagePreview}
 					<div class="pending-image-preview">
@@ -527,9 +545,9 @@
 				{/if}
 				<div class="input-row">
 					<input type="file" accept="image/*" bind:this={fileInput} on:change={handleFileSelect} style="display:none" />
-					<button type="button" class="btn-attach" on:click={() => fileInput?.click()} title="Joindre une image">📎</button>
-					<input type="text" bind:value={query} placeholder="Posez une question sur la LAN, les règles, le planning..." disabled={loading} on:paste={handlePaste} />
-					<button class="btn-primary" type="submit" disabled={loading}>Envoyer</button>
+					<button type="button" class="btn-attach" on:click={() => fileInput?.click()} title="Joindre une image" disabled={iaBlocked}>📎</button>
+					<input type="text" bind:value={query} placeholder="{iaBlocked ? 'Accès IA suspendu...' : 'Posez une question sur la LAN, les règles, le planning...'}" disabled={loading || iaBlocked} on:paste={handlePaste} />
+					<button class="btn-primary" type="submit" disabled={loading || iaBlocked}>Envoyer</button>
 				</div>
 			</form>
 		{:else}
@@ -737,4 +755,30 @@
 	.input-row input[type="text"] { flex: 1; }
 	.btn-attach { background: var(--hover-tint); border: 1px solid var(--glass-border); color: var(--text-dim); width: 40px; height: 40px; border-radius: 8px; cursor: pointer; font-size: 1.1rem; display: flex; align-items: center; justify-content: center; transition: all 0.2s; flex-shrink: 0; }
 	.btn-attach:hover { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+
+	/* Admin takeover banner */
+	.admin-takeover-banner {
+		display: flex; align-items: center; gap: 0.75rem;
+		padding: 0.75rem 1.5rem; margin: 0;
+		background: rgba(168, 85, 247, 0.1);
+		border-top: 2px solid rgba(168, 85, 247, 0.5);
+		border-bottom: 2px solid rgba(168, 85, 247, 0.5);
+		animation: takeover-pulse 2s ease-in-out infinite;
+	}
+	.takeover-icon { font-size: 1.3rem; }
+	.takeover-text { font-size: 0.85rem; color: #c4b5fd; font-weight: 500; }
+	@keyframes takeover-pulse {
+		0%, 100% { background: rgba(168, 85, 247, 0.08); }
+		50% { background: rgba(168, 85, 247, 0.15); }
+	}
+
+	/* IA blocked banner */
+	.ia-blocked-banner {
+		display: flex; align-items: center; gap: 0.75rem;
+		padding: 0.75rem 1.5rem;
+		background: rgba(239, 68, 68, 0.1);
+		border-top: 2px solid rgba(239, 68, 68, 0.5);
+		border-bottom: 2px solid rgba(239, 68, 68, 0.5);
+	}
+	.blocked-text { font-size: 0.85rem; color: #fca5a5; font-weight: 500; }
 </style>

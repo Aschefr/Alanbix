@@ -18,12 +18,14 @@ Named as a nod to *Alambix* from the Asterix universe — a complex apparatus th
 - **Team support**: Self-service team creation, ownership, random assignment
 - **Live scoring**: Real-time bracket updates via WebSocket
 - **Point distribution**: Configurable per-tournament (winner/placement/participation/per-goal)
+- **Unified backend standings**: Single source of truth for points — no client-side drift
 - **Auto-advancement**: Automatic bracket progression, BYE handling, Grand Final detection
+- **Checkered flag**: Visual banner when a tournament is closed
 
 ### 📊 Dashboard & Leaderboards
 - **Global leaderboard** with movement indicators (↑↓ NEW)
 - **Team leaderboard** with weighted/raw scoring modes
-- **Live standings** during running tournaments (frontend-only projection)
+- **Live standings** powered by centralized backend API
 - **Player profiles** with tournament history and point breakdown
 
 ### 📽️ Spectator Mode (Projector)
@@ -46,12 +48,23 @@ Named as a nod to *Alambix* from the Asterix universe — a complex apparatus th
 - **Context compression** (truncate, compact, AI summary)
 - **Message editing & retry** inline
 - **Configurable system prompt** via admin panel
+- **AI-generated tournament notifications**: Personalized, humorous post-match messages for each participant
+
+### 🔔 Notifications
+- **Centralized notification center** for all player alerts
+- **AI tournament messages**: Auto-generated personalized messages on tournament close
+- **Admin messages**: Notifications when admins reply in AI chat conversations
+- **Read/unread tracking** with animated badge counter in sidebar
+- **Error notifications**: Admin alerts with retry button when AI generation fails
+- **Real-time delivery** via WebSocket broadcast
 
 ### 🛡️ Administration
 - **Full player management**: create, edit, reset passwords, promote/demote admins
 - **Game library**: with cover image search (SearXNG), upload, and auto-localization
 - **Tournament lifecycle**: create → run → score → close → points distributed
 - **System settings**: event name, team scoring mode, AI config
+- **IA instance monitoring**: Real-time status widget (online/busy/offline) in sidebar
+- **Nuke controls**: Mass deletion for tournaments, players, games, chat images, and notifications
 
 ---
 

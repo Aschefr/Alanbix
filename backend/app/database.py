@@ -44,6 +44,7 @@ def init_db():
         _safe_add_column(conn, "conversations", "admin_override", "BOOLEAN DEFAULT 0")
         _safe_add_column(conn, "chat_messages", "image_path", "VARCHAR")
         _safe_add_column(conn, "users", "team_name", "VARCHAR")
+        _safe_add_column(conn, "users", "ia_blocked", "BOOLEAN DEFAULT 0")
         _safe_add_column(conn, "tournaments", "points_per_win", "INTEGER DEFAULT 3")
         _safe_add_column(conn, "tournaments", "bracket", "JSON")
         _safe_add_column(conn, "tournament_teams", "created_by", "INTEGER")

@@ -1,6 +1,7 @@
 <script>
 	import { api } from '$lib/api';
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
+	import { wsMessageStore } from '$lib/ws';
 
 	let stats = {
 		tournaments: 0,
@@ -21,7 +22,28 @@
 	let previousLeaderboard = [];
 	let expandedTeamIdx = -1;
 
+	let wsUnsub = null;
+
 	onMount(async () => {
+		await refreshAll();
+
+		// WS: auto-refresh on tournament mutations
+		wsUnsub = wsMessageStore.subscribe(msg => {
+			if (!msg) return;
+			const t = msg.type;
+			if (t === 'tournament_created' || t === 'tournament_updated' || t === 'tournament_deleted' ||
+				t === 'tournament_started' || t === 'tournament_closed' ||
+				t === 'score_updated' || t === 'ffa_advanced' ||
+				t === 'participant_joined' || t === 'participant_left' ||
+				t === 'teams_updated') {
+				refreshAll();
+			}
+		});
+	});
+
+	onDestroy(() => { if (wsUnsub) wsUnsub(); });
+
+	async function refreshAll() {
 		user = await api.get('/me');
 		previousLeaderboard = [...(stats.leaderboard || [])];
 		stats = await api.get('/dashboard/stats');
@@ -35,9 +57,9 @@
 		roomLayout = roomLayout;
 		try { teamLeaderboard = await api.get('/dashboard/team-leaderboard'); } catch { teamLeaderboard = []; }
 		if (runningTournaments.length > 0) {
-			await loadParticipants(runningTournaments[0].id);
+			await loadParticipants(runningTournaments[selectedRunningIdx]?.id || runningTournaments[0].id);
 		}
-	});
+	}
 
 	async function loadParticipants(tid) {
 		try { participants = await api.get(`/tournaments/${tid}/participants`); } catch { participants = []; }

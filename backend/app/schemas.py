@@ -11,6 +11,7 @@ class UserCreate(UserBase):
 class User(UserBase):
     id: int
     is_admin: bool
+    ia_blocked: Optional[bool] = False
     seat_id: Optional[str] = None
     team_name: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
