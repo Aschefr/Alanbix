@@ -1,6 +1,6 @@
 <script>
 	import { api } from '$lib/api';
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount, onDestroy, tick } from 'svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import { marked } from 'marked';
 	import { wsMessageStore } from '$lib/ws';
@@ -30,14 +30,25 @@
 	let query = '';
 	let loading = false;
 
-	// Live token counting
+	// Live token counting — only count messages that Ollama will actually receive
 	$: liveTokens = (() => {
-		let total = messages.reduce((sum, m) => sum + (m.content ? m.content.length : 0), 0);
+		let activeMessages = compression.compressed_at
+			? messages.filter(m => !m.timestamp || m.timestamp > compression.compressed_at)
+			: messages;
+		let total = activeMessages.reduce((sum, m) => sum + (m.content ? m.content.length : 0), 0);
+		if (compression.context) total += compression.context.length;
 		total += query.length;
 		return Math.ceil(total / 3.5);
 	})();
 	$: contextWindow = iaConfig.context_window || 4096;
 	$: tokenPct = Math.min(100, (liveTokens / contextWindow) * 100);
+
+	// Find the index of the first message after compression (to insert context block inline)
+	$: compressionInsertIdx = (() => {
+		if (!compression.compressed_at || !compression.mode) return -1;
+		const idx = messages.findIndex(m => m.timestamp && m.timestamp > compression.compressed_at);
+		return idx >= 0 ? idx : messages.length; // if no messages after, insert at end
+	})();
 
 	// Admin notification
 	let adminNotification = null;
@@ -51,6 +62,9 @@
 		}
 	}
 	let showCompressionModal = false;
+	let compressionReason = ''; // 'manual' or 'auto'
+	let pendingQuery = ''; // message deferred until after compression
+	let pendingImagePath = null;
 	let editingMsgId = null;
 	let editingMsgContent = '';
 	let editingContext = false;
@@ -58,6 +72,8 @@
 	let chatContainer = null;
 	let adminOverride = false;
 	let iaBlocked = false;
+	let autoCompressNotif = false;
+	let compressing = false;
 
 	// Image attachment
 	let pendingImage = null;      // File object
@@ -93,7 +109,7 @@
 
 	function clearPendingImage() { pendingImage = null; pendingImagePreview = ''; }
 
-	import { tick } from 'svelte';
+
 	async function scrollToBottom() {
 		await tick();
 		if (chatContainer) chatContainer.scrollTop = chatContainer.scrollHeight;
@@ -158,7 +174,7 @@
 			model: iaConfig.model
 		});
 		await loadConversations();
-		selectConversation(res.id);
+		await selectConversation(res.id);
 	}
 
 	async function deleteConversation(id) {
@@ -171,12 +187,34 @@
 
 	async function applyCompression(mode) {
 		showCompressionModal = false;
+		compressing = true;
 		loading = true;
 		try {
 			await api.post(`/ia/compress/${activeId}`, { mode });
+			compressing = false;
 			await selectConversation(activeId);
+			// Scroll to the compression block so the user sees it immediately
+			await tick();
+			const ctxEl = chatContainer?.querySelector('.context-block');
+			if (ctxEl) ctxEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+			autoCompressNotif = true;
+			setTimeout(() => { autoCompressNotif = false; }, 5000);
+			// If there was a pending message deferred by the context check, send it now
+			if (pendingQuery) {
+				// Pause so the user can see the compression result before the AI responds
+				await new Promise(r => setTimeout(r, 1800));
+				query = pendingQuery;
+				pendingQuery = '';
+				pendingImagePath = null;
+				loading = false;
+				await send();
+				return;
+			}
 		} catch (e) {
+			compressing = false;
 			alert(e.message);
+			// Restore pending query so user doesn't lose their message
+			if (pendingQuery) { query = pendingQuery; pendingQuery = ''; }
 		}
 		loading = false;
 	}
@@ -269,6 +307,17 @@
 
 	async function send() {
 		if ((!query && !pendingImage) || loading || !activeId) return;
+
+		// Check context budget BEFORE sending — if over 85%, intercept and show compression picker
+		const nextTokens = liveTokens + Math.ceil((query || '').length / 3.5);
+		if (nextTokens > contextWindow * 0.85 && !compression.mode) {
+			// Defer the message, show compression modal
+			pendingQuery = query;
+			compressionReason = 'auto';
+			showCompressionModal = true;
+			return;
+		}
+
 		const userMsg = query || '(image)';
 		const attachedPreview = pendingImagePreview;
 		query = '';
@@ -288,6 +337,12 @@
 
 		messages = [...messages, { id: Date.now(), role: 'user', content: userMsg, image_path: imagePath }];
 		loading = true;
+
+		// Determine if this is the first exchange (for auto-title)
+		// Use server-side message count: at this point, the server already has the user message saved
+		// If there are exactly 1 server message (the user msg we just sent), it's the first exchange
+		const serverMsgCount = messages.filter(m => m.role !== 'bot' || m.content !== '').length;
+		const isFirstExchange = serverMsgCount <= 1;
 
 		let botMsgIdx = messages.length;
 		messages = [...messages, { id: Date.now()+1, role: 'bot', content: '' }];
@@ -333,7 +388,7 @@
 									usage = { estimated_tokens: data.estimated_tokens };
 								}
 								// Auto-title: if this was the first exchange
-								if (messages.length <= 2) {
+								if (isFirstExchange) {
 									try {
 										const titleRes = await api.post(`/ia/auto-title/${activeId}`, {});
 										if (titleRes.title) {
@@ -415,7 +470,7 @@
 					</div>
 				</div>
 				<div class="flex-row gap-2">
-					<button class="btn-sentinel" on:click={() => showCompressionModal = true} title="Gérer l'espace du contexte">
+					<button class="btn-sentinel" on:click={() => { compressionReason = 'manual'; showCompressionModal = true; }} title="Gérer l'espace du contexte">
 						⚙️ Espace Contexte
 					</button>
 					<button class="btn-sentinel danger" on:click={regenerate} title="Régénérer la dernière réponse">
@@ -427,13 +482,24 @@
 			{#if showCompressionModal}
 				<div class="modal-overlay">
 					<div class="modal-content glass">
-						<h3>Gérer l'espace du contexte</h3>
-						<p class="text-dim text-sm mb-4">Le contexte approche de sa limite maximale. Choisissez comment libérer de l'espace :</p>
+						{#if compressionReason === 'auto'}
+							<h3>⚠️ Contexte saturé</h3>
+							<p class="text-dim text-sm mb-4">Votre message dépasse la capacité mémoire de l'IA. Choisissez comment compresser le contexte avant d'envoyer :</p>
+							{#if pendingQuery}
+								<div class="pending-msg-preview">
+									<span class="pending-label">⏳ Message en attente :</span>
+									<span class="pending-text">{pendingQuery.length > 80 ? pendingQuery.slice(0, 80) + '…' : pendingQuery}</span>
+								</div>
+							{/if}
+						{:else}
+							<h3>Gérer l'espace du contexte</h3>
+							<p class="text-dim text-sm mb-4">Choisissez comment libérer de l'espace :</p>
+						{/if}
 						
 						<div class="flex-col gap-2">
 							<button class="comp-btn" on:click={() => applyCompression('truncate')}>
-								<strong>1. Tronquer (Automatique)</strong>
-								<span class="text-xs text-dim">Le système oubliera les plus anciens messages (0 délai).</span>
+								<strong>1. Tronquer (Instantané)</strong>
+								<span class="text-xs text-dim">Oublie les messages les plus anciens (0 délai).</span>
 							</button>
 							<button class="comp-btn" on:click={() => applyCompression('compact')}>
 								<strong>2. Compacter l'historique</strong>
@@ -446,37 +512,49 @@
 						</div>
 						
 						<div class="flex-row justify-end mt-4">
-							<button class="btn-secondary" on:click={() => showCompressionModal = false}>Annuler</button>
+							<button class="btn-secondary" on:click={() => { showCompressionModal = false; if (pendingQuery) { query = pendingQuery; pendingQuery = ''; } }}>Annuler</button>
 						</div>
 					</div>
 				</div>
 			{/if}
 
 			<div class="messages-container" bind:this={chatContainer}>
-				{#if compression.context}
-					<div class="msg-wrapper system">
-						<div class="msg-row system">
-							<div class="avatar">🗜️</div>
-							<div class="msg-content glass context-block">
-								<div class="context-header">
-									<span class="context-label">Contexte Compressé ({compression.mode})</span>
-									<button class="action-btn" on:click={startEditContext} title="Éditer">✏️</button>
-								</div>
-								{#if editingContext}
-									<textarea class="edit-textarea" bind:value={editContextText} rows="4"></textarea>
-									<div class="edit-actions">
-										<button class="btn-xs-save" on:click={saveContextEdit}>✓ Sauvegarder</button>
-										<button class="btn-xs-cancel" on:click={() => editingContext = false}>✕ Annuler</button>
-									</div>
-								{:else}
-									<div class="context-text">{compression.context}</div>
-								{/if}
-							</div>
-						</div>
+				{#if autoCompressNotif}
+					<div class="auto-compress-notif">
+						<span>🗜️</span>
+						<span>Le contexte a été automatiquement compressé pour libérer de l'espace.</span>
 					</div>
 				{/if}
-
 				{#each messages as msg, idx}
+					{#if idx === compressionInsertIdx && compression.mode}
+						<div class="msg-wrapper system">
+							<div class="msg-row system">
+							<div class="avatar">🗜️</div>
+							<div class="msg-content glass context-block">
+								<details class="context-details">
+									<summary class="context-summary">
+										<span class="context-label">Contexte Compressé ({compression.mode})</span>
+										<span class="context-size">{compression.context ? Math.ceil(compression.context.length / 3.5) + ' tokens' : '⚠️ vide'}</span>
+										<button class="action-btn" on:click|stopPropagation={startEditContext} title="Éditer">✏️</button>
+									</summary>
+									{#if editingContext}
+										<textarea class="edit-textarea" bind:value={editContextText} rows="4"></textarea>
+										<div class="edit-actions">
+											<button class="btn-xs-save" on:click={saveContextEdit}>✓ Sauvegarder</button>
+											<button class="btn-xs-cancel" on:click={() => editingContext = false}>✕ Annuler</button>
+										</div>
+									{:else}
+										{#if compression.context}
+											<div class="context-text">{compression.context}</div>
+										{:else}
+											<div class="context-text" style="opacity:0.5;font-style:italic">Aucun contenu compressé disponible. Le LLM n'a pas renvoyé de résultat.</div>
+										{/if}
+									{/if}
+								</details>
+							</div>
+						</div>
+						</div>
+					{/if}
 					<div class="msg-wrapper {msg.role}">
 						<div class="msg-row {msg.role}">
 							<div class="avatar">{msg.role === 'bot' ? '🤖' : msg.role === 'admin' ? '🛡️' : '👤'}</div>
@@ -503,7 +581,7 @@
 										</div>
 									{/if}
 									{#if msg.content === '' && loading && msg.role === 'bot' && msg.id === messages[messages.length-1].id}
-										<span class="typing-indicator">Alanbix rédige...</span>
+										<span class="typing-indicator">{compressing ? '🗜️ Compression du contexte en cours...' : 'Alanbix rédige...'}</span>
 									{/if}
 								{/if}
 							</div>
@@ -520,6 +598,16 @@
 						</div>
 					</div>
 				{/each}
+				{#if compressing}
+					<div class="msg-wrapper system">
+						<div class="msg-row system">
+							<div class="avatar">🗜️</div>
+							<div class="msg-content glass context-block" style="text-align:center">
+								<span class="typing-indicator">🗜️ Compression du contexte en cours...</span>
+							</div>
+						</div>
+					</div>
+				{/if}
 			</div>
 
 			{#if adminOverride}
@@ -571,7 +659,7 @@
 
 <style>
 	.ai-page { height: calc(100vh - 4rem); gap: 2rem; align-items: stretch; }
-	.chat-sidebar { width: 300px; padding: 1.5rem; display: flex; flex-direction: column; gap: 1.5rem; }
+	.chat-sidebar { width: 260px; min-width: 260px; max-width: 260px; flex-shrink: 0; padding: 1.5rem; display: flex; flex-direction: column; gap: 1.5rem; }
 	.conv-list { display: flex; flex-direction: column; gap: 0.5rem; overflow-y: auto; }
 	
 	.conv-item { 
@@ -586,13 +674,14 @@
 		display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem; 
 		background: none; border: none; color: inherit; cursor: pointer; flex: 1; min-width: 0; text-align: left; overflow: hidden;
 	}
-	.conv-btn .title { font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	.conv-btn .title { font-size: 0.82rem; white-space: normal; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.3; }
 	
 	.delete-btn { opacity: 0; padding: 0.5rem; font-size: 0.8rem; flex-shrink: 0; }
 	.conv-item:hover .delete-btn { opacity: 1; }
 
 	.chat-main { flex-grow: 1; display: flex; flex-direction: column; position: relative; overflow: hidden; }
 	header { padding: 1.2rem 2rem; border-bottom: 1px solid var(--glass-border); min-height: 90px; }
+	header h2 { font-size: 1rem; line-height: 1.3; max-width: 280px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; }
 	.items-center { align-items: center; }
 	.gap-4 { gap: 1rem; }
 	.mt-1 { margin-top: 0.25rem; }
@@ -683,9 +772,15 @@
 	.msg-wrapper.system { align-self: stretch; max-width: 100%; }
 	.msg-row.system { flex-direction: row; }
 	.context-block { background: rgba(16,185,129,0.06) !important; border-color: rgba(16,185,129,0.2) !important; border-radius: 12px !important; }
-	.context-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem; }
+	.context-details { width: 100%; }
+	.context-details summary { list-style: none; cursor: pointer; }
+	.context-details summary::-webkit-details-marker { display: none; }
+	.context-summary { display: flex; align-items: center; gap: 0.5rem; padding: 0.2rem 0; }
+	.context-summary::before { content: '▶'; font-size: 0.6rem; color: #10b981; transition: transform 0.2s; }
+	.context-details[open] .context-summary::before { transform: rotate(90deg); }
 	.context-label { font-size: 0.7rem; font-weight: 700; color: #10b981; text-transform: uppercase; letter-spacing: 0.5px; }
-	.context-text { font-size: 0.8rem; color: var(--text-dim); white-space: pre-wrap; line-height: 1.4; }
+	.context-size { font-size: 0.6rem; color: var(--text-muted); background: rgba(16,185,129,0.1); padding: 0.1rem 0.4rem; border-radius: 4px; margin-left: auto; }
+	.context-text { font-size: 0.8rem; color: var(--text-dim); white-space: pre-wrap; line-height: 1.4; margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid rgba(16,185,129,0.15); }
 
 	/* Warning fill for token bar */
 	.warning-fill { background: linear-gradient(90deg, #f59e0b, #f97316); }
@@ -781,4 +876,22 @@
 		border-bottom: 2px solid rgba(239, 68, 68, 0.5);
 	}
 	.blocked-text { font-size: 0.85rem; color: #fca5a5; font-weight: 500; }
+	/* Pending message preview in modal */
+	.pending-msg-preview {
+		display: flex; flex-direction: column; gap: 0.2rem;
+		padding: 0.6rem 0.8rem; margin-bottom: 0.75rem;
+		background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.2);
+		border-radius: 8px;
+	}
+	.pending-label { font-size: 0.7rem; font-weight: 700; color: var(--accent); }
+	.pending-text { font-size: 0.8rem; color: var(--text-main); font-style: italic; }
+	/* Auto-compress notification */
+	.auto-compress-notif {
+		display: flex; align-items: center; gap: 0.5rem;
+		padding: 0.6rem 1rem; margin-bottom: 0.5rem;
+		background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.25);
+		border-radius: 10px; font-size: 0.8rem; color: #10b981; font-weight: 600;
+		animation: compressIn 0.4s ease-out;
+	}
+	@keyframes compressIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
 </style>

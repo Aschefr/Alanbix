@@ -79,6 +79,33 @@
   --scrollbar-track: rgba(0, 0, 0, 0.2);
   --scrollbar-thumb: rgba(255, 255, 255, 0.1);
   --scrollbar-thumb-hover: rgba(255, 255, 255, 0.2);
+
+  /* Map / Floor-plan tokens */
+  --map-canvas-bg: rgba(0, 0, 0, 0.2);
+  --map-grid-stroke: rgba(255, 255, 255, 0.04);
+  --map-table-fill: rgba(30, 41, 59, 0.85);
+  --map-table-stroke: rgba(255, 255, 255, 0.12);
+  --map-seat-fill: rgba(30, 41, 59, 0.6);
+  --map-seat-stroke: rgba(255, 255, 255, 0.08);
+  --map-seat-hover-fill: rgba(59, 130, 246, 0.1);
+  --map-seat-mine-fill: rgba(59, 130, 246, 0.25);
+  --map-seat-occupied-fill: rgba(239, 68, 68, 0.08);
+  --map-seat-occupied-stroke: rgba(239, 68, 68, 0.25);
+  --map-seat-drop-fill: rgba(16, 185, 129, 0.08);
+  --map-seat-drop-stroke: #10b981;
+  --map-seat-player-fill: #ffffff;
+  --map-select-bg: rgba(15, 23, 42, 0.95);
+  --map-select-option-bg: #1e293b;
+  --map-select-option-color: #e2e8f0;
+  --map-free-dot-bg: rgba(30, 41, 59, 0.6);
+  --map-free-dot-border: rgba(255, 255, 255, 0.1);
+  --map-table-dot-bg: rgba(30, 41, 59, 0.85);
+  --map-table-dot-border: rgba(255, 255, 255, 0.12);
+  --map-user-option-bg: rgba(255, 255, 255, 0.04);
+  --map-user-option-hover: rgba(59, 130, 246, 0.15);
+  --map-badge-bg: rgba(59, 130, 246, 0.1);
+  --map-badge-border: rgba(59, 130, 246, 0.2);
+  --map-badge-hover: rgba(59, 130, 246, 0.2);
 }
 
 /* ═══════════════════════ LIGHT THEME ═══════════════════════ */
@@ -117,6 +144,33 @@
   --scrollbar-track: rgba(29, 78, 216, 0.06);
   --scrollbar-thumb: rgba(29, 78, 216, 0.18);
   --scrollbar-thumb-hover: rgba(29, 78, 216, 0.3);
+
+  /* Map / Floor-plan tokens – light */
+  --map-canvas-bg: rgba(29, 78, 216, 0.06);
+  --map-grid-stroke: rgba(29, 78, 216, 0.08);
+  --map-table-fill: rgba(219, 234, 254, 0.85);
+  --map-table-stroke: rgba(29, 78, 216, 0.2);
+  --map-seat-fill: rgba(241, 245, 249, 0.8);
+  --map-seat-stroke: rgba(29, 78, 216, 0.12);
+  --map-seat-hover-fill: rgba(29, 78, 216, 0.08);
+  --map-seat-mine-fill: rgba(29, 78, 216, 0.2);
+  --map-seat-occupied-fill: rgba(220, 38, 38, 0.08);
+  --map-seat-occupied-stroke: rgba(220, 38, 38, 0.3);
+  --map-seat-drop-fill: rgba(22, 163, 74, 0.08);
+  --map-seat-drop-stroke: #16a34a;
+  --map-seat-player-fill: #0f172a;
+  --map-select-bg: rgba(255, 255, 255, 0.95);
+  --map-select-option-bg: #f0f7ff;
+  --map-select-option-color: #0f172a;
+  --map-free-dot-bg: rgba(241, 245, 249, 0.8);
+  --map-free-dot-border: rgba(29, 78, 216, 0.15);
+  --map-table-dot-bg: rgba(219, 234, 254, 0.85);
+  --map-table-dot-border: rgba(29, 78, 216, 0.2);
+  --map-user-option-bg: rgba(29, 78, 216, 0.04);
+  --map-user-option-hover: rgba(29, 78, 216, 0.12);
+  --map-badge-bg: rgba(29, 78, 216, 0.1);
+  --map-badge-border: rgba(29, 78, 216, 0.2);
+  --map-badge-hover: rgba(29, 78, 216, 0.18);
 }
 
 * {

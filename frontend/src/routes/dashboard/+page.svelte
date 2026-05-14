@@ -290,7 +290,7 @@
 				>
 					<defs>
 						<pattern id="dash-grid" width="40" height="40" patternUnits="userSpaceOnUse">
-							<path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255,255,255,0.03)" stroke-width="1"/>
+							<path d="M 40 0 L 0 0 0 40" fill="none" stroke="var(--map-grid-stroke)" stroke-width="1"/>
 						</pattern>
 					</defs>
 					<rect width="100%" height="100%" fill="url(#dash-grid)"/>
@@ -300,8 +300,8 @@
 						{@const cy = table.y + table.h / 2}
 						<g transform="rotate({table.rotation || 0}, {cx}, {cy})">
 							<rect x={table.x} y={table.y} width={table.w} height={table.h} rx="6"
-								fill="rgba(30, 41, 59, 0.8)" stroke="rgba(255,255,255,0.1)" stroke-width="1.5"/>
-							<text x={cx} y={cy + 4} text-anchor="middle" fill="rgba(255,255,255,0.2)" font-size="10" font-weight="700">{table.label}</text>
+								fill="var(--map-table-fill)" stroke="var(--map-table-stroke)" stroke-width="1.5"/>
+							<text x={cx} y={cy + 4} text-anchor="middle" fill="var(--text-muted)" font-size="10" font-weight="700">{table.label}</text>
 						</g>
 					{/each}
 
@@ -311,17 +311,17 @@
 						{@const scy = seat.y + 25}
 						<g transform="rotate({seat.rotation || 0}, {scx}, {scy})">
 							<rect x={seat.x} y={seat.y} width="50" height="50" rx="6"
-								fill={occ ? 'rgba(59, 130, 246, 0.25)' : 'rgba(30, 41, 59, 0.5)'}
-								stroke={occ ? 'var(--accent)' : 'rgba(255,255,255,0.06)'}
+								fill={occ ? 'var(--map-seat-mine-fill)' : 'var(--map-seat-fill)'}
+								stroke={occ ? 'var(--accent)' : 'var(--map-seat-stroke)'}
 								stroke-width="1.5"
 							/>
 							<clipPath id="dclip-{seat.id}">
 								<rect x={seat.x + 2} y={seat.y} width="46" height="50"/>
 							</clipPath>
 							<g clip-path="url(#dclip-{seat.id})">
-								<text x={scx} y={seat.y + 13} text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="6" font-weight="800">{seat.id}</text>
+								<text x={scx} y={seat.y + 13} text-anchor="middle" fill="var(--text-muted)" font-size="6" font-weight="800">{seat.id}</text>
 								{#if occ}
-									<text x={scx} y={seat.y + 28} text-anchor="middle" fill="white" font-size="7" font-weight="700"
+									<text x={scx} y={seat.y + 28} text-anchor="middle" fill="var(--map-seat-player-fill)" font-size="7" font-weight="700"
 										textLength={occ.username.length > 7 ? 44 : null}
 										lengthAdjust="spacingAndGlyphs"
 									>{occ.username}</text>
@@ -332,7 +332,7 @@
 										>{occ.team_name}</text>
 									{/if}
 								{:else}
-									<text x={scx} y={seat.y + 32} text-anchor="middle" fill="rgba(255,255,255,0.15)" font-size="7">Libre</text>
+									<text x={scx} y={seat.y + 32} text-anchor="middle" fill="var(--text-muted)" font-size="7">Libre</text>
 								{/if}
 							</g>
 						</g>
@@ -498,8 +498,8 @@
 	.chip-label { font-size: 0.6rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em; }
 	.chip-value { font-size: 0.95rem; font-weight: 800; color: var(--text-main); }
 	.cmd-right { display: flex; align-items: center; }
-	.status-live { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; color: #10b981; font-weight: 700; background: rgba(16, 185, 129, 0.08); padding: 0.5rem 1rem; border-radius: 20px; border: 1px solid rgba(16, 185, 129, 0.2); }
-	.pulse { width: 8px; height: 8px; background: #10b981; border-radius: 50%; box-shadow: 0 0 8px #10b981; animation: pulse-g 2s infinite; }
+	.status-live { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; color: var(--success); font-weight: 700; background: rgba(16, 185, 129, 0.08); padding: 0.5rem 1rem; border-radius: 20px; border: 1px solid rgba(16, 185, 129, 0.2); }
+	.pulse { width: 8px; height: 8px; background: var(--success); border-radius: 50%; box-shadow: 0 0 8px var(--success); animation: pulse-g 2s infinite; }
 	@keyframes pulse-g { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 
 	/* 3-Column Triptych */
@@ -514,8 +514,8 @@
 	.leaderboard-list { flex-grow: 1; overflow-y: auto; padding: 0.5rem; }
 	.lb-row { display: flex; align-items: center; gap: 0.6rem; padding: 0.6rem 0.5rem; border-radius: 10px; margin-bottom: 0.3rem; transition: background 0.15s; border-left: 3px solid transparent; }
 	.lb-row:hover { background: var(--hover-tint); }
-	.lb-row.top-3 { border-left-color: var(--accent); background: rgba(59, 130, 246, 0.04); }
-	.lb-rank { width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 800; border-radius: 6px; background: rgba(255,255,255,0.05); color: var(--text-dim); }
+	.lb-row.top-3 { border-left-color: var(--accent); background: var(--accent-soft); }
+	.lb-rank { width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 800; border-radius: 6px; background: var(--surface-raised); color: var(--text-dim); }
 	.lb-rank.gold { background: rgba(255, 215, 0, 0.15); color: #ffd700; }
 	.lb-rank.silver { background: rgba(192, 192, 192, 0.15); color: #c0c0c0; }
 	.lb-rank.bronze { background: rgba(205, 127, 50, 0.15); color: #cd7f32; }
@@ -535,7 +535,7 @@
 
 	/* AXE-04: Expandable team detail */
 	.lb-row.clickable { cursor: pointer; }
-	.lb-row.clickable:hover { background: rgba(255,255,255,0.04); }
+	.lb-row.clickable:hover { background: var(--hover-tint); }
 	.team-expand { padding: 0.3rem 0.5rem 0.5rem 2.5rem; border-bottom: 1px solid var(--glass-border); }
 	.team-member-row { display: flex; justify-content: space-between; align-items: center; padding: 0.2rem 0.4rem; font-size: 0.7rem; border-radius: 4px; }
 	.team-member-row:nth-child(odd) { background: rgba(59,130,246,0.04); }
@@ -551,13 +551,13 @@
 	.lg-item { display: flex; align-items: center; gap: 0.4rem; }
 	.lg-dot { width: 10px; height: 10px; border-radius: 3px; }
 	.lg-dot.occupied { background: rgba(59, 130, 246, 0.4); border: 1px solid var(--accent); }
-	.lg-dot.free { background: rgba(30, 41, 59, 0.5); border: 1px solid rgba(255,255,255,0.08); }
+	.lg-dot.free { background: var(--map-seat-fill); border: 1px solid var(--map-seat-stroke); }
 
 	/* Bracket Panel */
 	.bracket-panel { min-width: 0; }
 	.bracket-preview { flex-grow: 1; display: flex; flex-direction: column; padding: 0.8rem; gap: 0.8rem; }
 	.bracket-info-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem; }
-	.bi-card { display: flex; flex-direction: column; align-items: center; padding: 0.6rem; background: rgba(255,255,255,0.03); border-radius: 10px; border: 1px solid var(--glass-border); }
+	.bi-card { display: flex; flex-direction: column; align-items: center; padding: 0.6rem; background: var(--surface-raised); border-radius: 10px; border: 1px solid var(--glass-border); }
 	.bi-val { font-size: 1rem; font-weight: 800; }
 	.bi-label { font-size: 0.55rem; color: var(--text-muted); text-transform: uppercase; }
 	.status-badge { font-size: 0.7rem; padding: 0.15rem 0.5rem; border-radius: 6px; }
@@ -590,12 +590,12 @@
 	.dash-round-col { display: flex; flex-direction: column; gap: 0.5rem; }
 	.dash-round-hdr { text-align: center; font-weight: 700; color: var(--accent); font-size: 0.55rem; text-transform: uppercase; letter-spacing: 1px; }
 	.dash-matches-col { display: flex; flex-direction: column; justify-content: space-around; flex-grow: 1; gap: 0.6rem; }
-	.dash-match { width: 150px; background: rgba(255,255,255,0.04); border: 1px solid var(--glass-border); border-radius: 6px; overflow: hidden; }
+	.dash-match { width: 150px; background: var(--surface-raised); border: 1px solid var(--glass-border); border-radius: 6px; overflow: hidden; }
 	.dm-player { display: flex; justify-content: space-between; padding: 0.3rem 0.5rem; font-size: 0.6rem; color: var(--text-muted); background: var(--surface-sunken); }
 	.dm-player.filled { color: var(--text-main); background: var(--accent-soft); }
 	.dm-player span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 	.dm-score { font-weight: 800; color: var(--accent); min-width: 14px; text-align: right; flex-shrink: 0; }
-	.dm-div { height: 1px; background: rgba(255,255,255,0.04); }
+	.dm-div { height: 1px; background: var(--glass-border); }
 	.no-bracket-data { display: flex; flex-direction: column; align-items: center; justify-content: center; flex-grow: 1; gap: 0.3rem; padding: 1rem; }
 
 	.no-tournament { display: flex; flex-direction: column; align-items: center; justify-content: center; flex-grow: 1; gap: 0.75rem; padding: 2rem; }
@@ -603,8 +603,8 @@
 	.no-tournament p { color: var(--text-muted); font-size: 0.85rem; }
 
 	/* Chips / Buttons */
-	.btn-chip { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.4rem 0.9rem; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.2); color: var(--accent); border-radius: 8px; font-size: 0.7rem; font-weight: 700; text-decoration: none; transition: all 0.15s; cursor: pointer; }
-	.btn-chip:hover { background: rgba(59, 130, 246, 0.2); }
+	.btn-chip { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.4rem 0.9rem; background: var(--map-badge-bg); border: 1px solid var(--map-badge-border); color: var(--accent); border-radius: 8px; font-size: 0.7rem; font-weight: 700; text-decoration: none; transition: all 0.15s; cursor: pointer; }
+	.btn-chip:hover { background: var(--map-badge-hover); }
 	.btn-chip.full-width { justify-content: center; width: 100%; }
 
 	/* Bottom Stats Bar */
@@ -620,6 +620,6 @@
 	.lb-tabs { display: flex; gap: 0.2rem; }
 	.lb-tab { padding: 0.25rem 0.6rem; font-size: 0.6rem; font-weight: 700; border: 1px solid var(--glass-border); border-radius: 6px; background: transparent; color: var(--text-dim); cursor: pointer; transition: all 0.2s; }
 	.lb-tab:hover { border-color: var(--accent); }
-	.lb-tab.active { background: var(--accent-soft); border-color: var(--accent); color: white; }
+	.lb-tab.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 	.team-av { background: rgba(139,92,246,0.2) !important; color: #a78bfa !important; border-color: rgba(139,92,246,0.3) !important; }
 </style>

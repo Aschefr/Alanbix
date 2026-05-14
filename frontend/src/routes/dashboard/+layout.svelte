@@ -88,6 +88,10 @@
 				<span class="icon">🏠</span>
 				<span class="label">Dashboard</span>
 			</a>
+			<a href="/dashboard/info" class="nav-item">
+				<span class="icon">📋</span>
+				<span class="label">Infos</span>
+			</a>
 			<a href="/dashboard/tournaments" class="nav-item">
 				<span class="icon">🏆</span>
 				<span class="label">Tournois</span>

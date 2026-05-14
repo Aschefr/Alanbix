@@ -194,3 +194,14 @@ def get_team_leaderboard(db: Session = Depends(database.get_db)):
     
     result.sort(key=lambda x: x["score"], reverse=True)
     return result
+
+
+@router.get("/info")
+def get_info_page(db: Session = Depends(database.get_db)):
+    """Public endpoint — serves info page content (markdown)."""
+    content_cfg = db.query(models.SystemConfig).filter(models.SystemConfig.key == "info_page_content").first()
+    spectator_cfg = db.query(models.SystemConfig).filter(models.SystemConfig.key == "info_spectator_content").first()
+    return {
+        "content": content_cfg.value if content_cfg else "",
+        "spectator_content": spectator_cfg.value if spectator_cfg else ""
+    }

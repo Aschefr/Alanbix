@@ -450,6 +450,28 @@ global_rules:
       Le premier compte enregistré via /register obtient automatiquement is_admin=true.
       Les suivants sont des utilisateurs standards. Un admin peut promouvoir/révoquer
       d'autres admins via Administration > Gestion Joueurs.
+  - id: G-43
+    rule: Compression de Contexte IA — Flow Utilisateur
+    description: >
+      Quand le contexte atteint 85%, le prochain message déclenche un modal de choix
+      de compression (tronquer/compacter/résumer). Un indicateur visuel "Compression en
+      cours" est affiché. Le bloc compressé apparaît inline dans la conversation à sa
+      position chronologique. Le compteur de tokens ne comptabilise que les messages
+      post-compression + le contexte compressé.
+  - id: G-44
+    rule: Page d'Informations Générale (AXE-02)
+    description: >
+      Page /dashboard/info accessible depuis la sidebar (📋 Infos). Contenu Markdown
+      éditable par les admins via un éditeur WYSIWYG (EasyMDE) avec deux onglets :
+      Contenu Principal (joueurs) et Contenu Projecteur. Le contenu est stocké dans
+      SystemConfig (clés info_page_content et info_spectator_content). La page Projecteur
+      affiche le contenu spectateur dans sa rotation automatique. Endpoint public GET /dashboard/info.
+  - id: G-45
+    rule: Détection Automatique des Chemins Windows
+    description: >
+      Les chemins Windows (UNC \\serveur\partage et locaux C:\dossier) sont automatiquement
+      détectés dans le contenu Markdown de la page Infos. Ils sont affichés avec une icône 📂
+      et un clic copie le chemin dans le presse-papier avec notification visuelle.
 
 future_axes:
   - id: AXE-01
@@ -457,4 +479,12 @@ future_axes:
     description: >
       Permettre de ré-ouvrir un tournoi CLOSED en soustrayant les points distribués.
       Complexe car nécessite de stocker les deltas de points par utilisateur dans results.
+    priority: low
+
+  - id: AXE-02
+    title: "Page d'informations générale"
+    status: DONE
+    description: >
+      Afficher une page d'informations générales sur la LAN. Editeur markdown visible pour Administrateurs.
+      Une section dédié est aussi présente spécialement pour la page "Projecteur".
     priority: low

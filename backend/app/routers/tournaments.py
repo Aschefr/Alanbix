@@ -1102,6 +1102,11 @@ async def close_tournament(
             user = db.query(models.User).filter(models.User.id == uid).first()
             if user:
                 user.points = (user.points or 0) + int(total)
+                results.append({
+                    "rank": None, "entity_id": uid, "name": user.username,
+                    "placement_pts": 0, "score_pts": score_pts,
+                    "participation_pts": pts_participation, "total": total
+                })
     
     tournament.results = results
     tournament.status = "CLOSED"
@@ -1114,10 +1119,69 @@ async def close_tournament(
     # Fire-and-forget: generate AI personalized notifications for participants
     _game_name = tournament.game.name if tournament.game else tournament.name
     asyncio.create_task(_generate_tournament_notifications(
-        tournament_id, tournament.name, _game_name, results, list(participant_uids), use_teams
+        tournament_id, tournament.name, _game_name, results, list(participant_uids), use_teams,
+        bracket=bracket, config=config
     ))
 
     return {"status": "closed", "results": results}
+
+
+@router.post("/{tournament_id}/reopen")
+async def reopen_tournament(
+    tournament_id: int,
+    db: Session = Depends(database.get_db),
+    admin: models.User = Depends(auth.get_current_admin)
+):
+    """Reopen a CLOSED tournament: rollback distributed points, set status back to DONE."""
+    tournament = db.query(models.Tournament).filter(models.Tournament.id == tournament_id).first()
+    if not tournament:
+        raise HTTPException(status_code=404, detail="Tournament not found")
+    if tournament.status != "CLOSED":
+        raise HTTPException(status_code=400, detail="Only CLOSED tournaments can be reopened")
+
+    config = tournament.config or {}
+    use_teams = config.get("use_teams", False)
+    results = tournament.results or []
+
+    # --- Rollback points from results ---
+    rolled_back_uids = set()
+    for r in results:
+        total = int(r.get("total", 0))
+        if total <= 0:
+            continue
+        entity_id = r.get("entity_id")
+        if use_teams and isinstance(entity_id, int) and entity_id < 0:
+            # Team: rollback for all members
+            team_id = abs(entity_id)
+            members = db.query(models.TournamentTeamMember).filter(
+                models.TournamentTeamMember.team_id == team_id
+            ).all()
+            for m in members:
+                user = db.query(models.User).filter(models.User.id == m.user_id).first()
+                if user:
+                    user.points = max(0, (user.points or 0) - total)
+                    rolled_back_uids.add(m.user_id)
+        else:
+            # Solo player (including rank=None participation-only entries)
+            user = db.query(models.User).filter(models.User.id == entity_id).first()
+            if user:
+                user.points = max(0, (user.points or 0) - total)
+                rolled_back_uids.add(entity_id)
+
+    # Also rollback participation-only players not in results (legacy data before fix)
+    participants = db.query(models.TournamentParticipant).filter(
+        models.TournamentParticipant.tournament_id == tournament_id
+    ).all()
+    # No extra rollback needed — all participants now appear in results after the fix
+
+    tournament.results = None
+    tournament.status = "DONE"
+    from sqlalchemy.orm.attributes import flag_modified
+    flag_modified(tournament, "results")
+    db.commit()
+
+    await manager.broadcast({"type": "tournament_reopened", "tournament_id": tournament_id})
+    return {"status": "reopened", "rolled_back_users": len(rolled_back_uids)}
 
 
 @router.post("/{tournament_id}/retry-notifications")
@@ -1142,12 +1206,262 @@ async def retry_notifications(tournament_id: int, db: Session = Depends(database
     participant_uids = [p.user_id for p in participants]
 
     asyncio.create_task(_generate_tournament_notifications(
-        tournament_id, tournament.name, _game_name, tournament.results, participant_uids, use_teams
+        tournament_id, tournament.name, _game_name, tournament.results, participant_uids, use_teams,
+        bracket=tournament.bracket or [], config=config
     ))
     return {"status": "retrying"}
 
-async def _generate_tournament_notifications(tournament_id, tournament_name, game_name, results, participant_uids, use_teams):
+
+@router.get("/{tournament_id}/ai-prompt-preview")
+async def ai_prompt_preview(tournament_id: int, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
+    """Admin-only: Preview the full prompt that would be sent to Ollama for closing notifications."""
+    tournament = db.query(models.Tournament).filter(models.Tournament.id == tournament_id).first()
+    if not tournament:
+        raise HTTPException(404, "Tournament not found")
+    if not tournament.results:
+        raise HTTPException(400, "No results available")
+
+    config = tournament.config or {}
+    use_teams = config.get("use_teams", False)
+    _game_name = tournament.game.name if tournament.game else tournament.name
+    bracket = tournament.bracket or []
+
+    participants = db.query(models.TournamentParticipant).filter(
+        models.TournamentParticipant.tournament_id == tournament_id
+    ).all()
+    participant_uids = [p.user_id for p in participants]
+
+    prompt = _build_closing_prompt(
+        tournament.name, _game_name, tournament.results, participant_uids,
+        use_teams, bracket, config, db
+    )
+    estimated_tokens = len(prompt.split()) * 1.3
+    return {"prompt": prompt, "estimated_tokens": int(estimated_tokens)}
+
+def _build_player_narratives(bracket, bracket_type, results, config, db, participant_uids, use_teams):
+    """Extract per-player narrative facts from bracket data for richer AI prompts."""
+    narratives = {}  # entity_id -> list of facts
+    lower_is_better = config.get("lower_score_is_better", False)
+
+    if not bracket:
+        return narratives
+
+    # Build name map for all entities
+    name_map = {}
+    for r in results:
+        name_map[r.get("entity_id")] = r.get("name", "?")
+    for uid in participant_uids:
+        if uid not in name_map:
+            user = db.query(models.User).filter(models.User.id == uid).first()
+            if user:
+                name_map[uid] = user.username
+
+    # Analyze each entity's matches
+    all_entities = set()
+    for m in bracket:
+        for pid in m.get("p", []):
+            if pid and pid != 0:
+                all_entities.add(pid)
+
+    max_wb_round = max((m["id"]["r"] for m in bracket if m["id"]["s"] == 1), default=0)
+    max_lb_round = max((m["id"]["r"] for m in bracket if m["id"]["s"] == 2), default=0)
+
+    for eid in all_entities:
+        facts = []
+        wins = 0
+        losses = 0
+        streak = 0
+        max_streak = 0
+        biggest_win_delta = 0
+        biggest_win_label = ""
+        closest_match_delta = 999
+        closest_match_label = ""
+        was_in_lb = False
+        reached_gf = False
+        elim_round = None
+        elim_section = None
+
+        # Gather matches involving this entity, sorted by section then round
+        entity_matches = sorted(
+            [m for m in bracket if eid in m.get("p", [])],
+            key=lambda m: (m["id"]["s"], m["id"]["r"])
+        )
+
+        for m in entity_matches:
+            p = m.get("p", [])
+            s = m.get("score", [])
+            mid = m["id"]
+            if len(s) < 2 or (s[0] == 0 and s[1] == 0):
+                continue  # Unscored
+            if 0 in p:
+                continue  # BYE
+
+            idx = p.index(eid) if eid in p else -1
+            if idx < 0:
+                continue
+            opp_idx = 1 - idx
+
+            my_score = s[idx] if idx < len(s) else 0
+            opp_score = s[opp_idx] if opp_idx < len(s) else 0
+
+            if my_score == opp_score:
+                continue  # Tie, no resolution
+
+            if lower_is_better:
+                won = my_score < opp_score
+            else:
+                won = my_score > opp_score
+
+            delta = abs(my_score - opp_score)
+            round_label = f"R{mid['r']}"
+            if bracket_type == "double_elim":
+                if mid["s"] == 2:
+                    round_label = f"LB R{mid['r']}"
+                elif mid["r"] == max_wb_round:
+                    round_label = "Finale"
+                else:
+                    round_label = f"WB R{mid['r']}"
+
+            if won:
+                wins += 1
+                streak += 1
+                max_streak = max(max_streak, streak)
+                if delta > biggest_win_delta:
+                    biggest_win_delta = delta
+                    biggest_win_label = f"{my_score}-{opp_score} ({round_label})"
+            else:
+                losses += 1
+                streak = 0
+                elim_round = mid["r"]
+                elim_section = mid["s"]
+
+            if delta < closest_match_delta and delta > 0:
+                closest_match_delta = delta
+                closest_match_label = f"{my_score}-{opp_score} ({round_label})"
+
+            # Track LB presence
+            if mid["s"] == 2:
+                was_in_lb = True
+            # Track Grand Final presence
+            if mid["s"] == 1 and mid["r"] == max_wb_round:
+                reached_gf = True
+
+        # Build narrative
+        if wins + losses > 0:
+            facts.append(f"Parcours : {wins}V-{losses}D")
+
+        if max_streak >= 3:
+            facts.append(f"Streak : {max_streak} victoires consécutives")
+
+        if biggest_win_delta >= 2 and biggest_win_label:
+            facts.append(f"Score le plus large : {biggest_win_label}")
+
+        if closest_match_delta <= 2 and closest_match_label and (wins + losses) > 1:
+            facts.append(f"Match le plus serré : {closest_match_label}")
+
+        # Comeback detection (double_elim specific)
+        if bracket_type == "double_elim" and was_in_lb and reached_gf:
+            facts.append("🔥 Reverse sweep depuis le Losers Bracket !")
+
+        # Early elimination
+        if losses > 0 and elim_round and not reached_gf:
+            total_rounds = max_wb_round
+            if bracket_type in ("single_elim", "double_elim") and elim_round <= total_rounds // 2:
+                facts.append(f"Éliminé au Round {elim_round} sur {total_rounds}")
+
+        # Team members
+        if use_teams and eid < 0:
+            team_id = abs(eid)
+            members = db.query(models.TournamentTeamMember).filter(
+                models.TournamentTeamMember.team_id == team_id
+            ).all()
+            member_names = []
+            for m in members:
+                user = db.query(models.User).filter(models.User.id == m.user_id).first()
+                if user:
+                    member_names.append(user.username)
+            if member_names:
+                facts.append(f"Membres : {', '.join(member_names)}")
+
+        if facts:
+            narratives[eid] = facts
+
+    return narratives
+
+
+def _build_closing_prompt(tournament_name, game_name, results, participant_uids, use_teams, bracket, config, db):
+    """Build the full prompt for Ollama closing notifications. Reusable by both generation and preview."""
+    bracket_type = config.get("bracket_type", "single_elim")
+    bracket_labels = {
+        "single_elim": "Élimination Directe",
+        "double_elim": "Double Élimination",
+        "round_robin": "Championnat (Round Robin)",
+        "ffa": "Free For All"
+    }
+
+    # Read admin-customizable intro from SystemConfig
+    closing_prompt_cfg = db.query(models.SystemConfig).filter(
+        models.SystemConfig.key == "tournament_closing_prompt"
+    ).first()
+    if closing_prompt_cfg and closing_prompt_cfg.value:
+        intro = closing_prompt_cfg.value
+    else:
+        intro = "Tu es le commentateur sportif surexcité d'une LAN party."
+
+    # Build standings summary
+    standings_text = ""
+    player_names = []
+    for r in results:
+        rank_emoji = {1: "🥇", 2: "🥈", 3: "🥉"}.get(r.get("rank"), f"#{r.get('rank', '?')}")
+        standings_text += f"{rank_emoji} {r['name']} — {r.get('total', 0)} pts\n"
+        player_names.append(r['name'])
+
+    # Also get usernames for solo mode participants not in standings
+    if not use_teams:
+        for uid in participant_uids:
+            user = db.query(models.User).filter(models.User.id == uid).first()
+            if user and user.username not in player_names:
+                player_names.append(user.username)
+                standings_text += f"  {user.username} — participant\n"
+
+    # Build narratives
+    narratives = _build_player_narratives(bracket, bracket_type, results, config, db, participant_uids, use_teams)
+    narratives_text = ""
+    for r in results:
+        eid = r.get("entity_id")
+        name = r.get("name", "?")
+        facts = narratives.get(eid, [])
+        if facts:
+            narratives_text += f"{name} : {'. '.join(facts)}.\n"
+    # Add narratives for participants not in results
+    if not use_teams:
+        for uid in participant_uids:
+            if uid not in [r.get("entity_id") for r in results]:
+                facts = narratives.get(uid, [])
+                user = db.query(models.User).filter(models.User.id == uid).first()
+                name = user.username if user else f"#{uid}"
+                if facts:
+                    narratives_text += f"{name} : {'. '.join(facts)}.\n"
+
+    prompt = f"{intro}\n"
+    prompt += f'Le tournoi "{tournament_name}" ({game_name or "jeu inconnu"}) vient de se terminer !\n'
+    prompt += f"Format : {bracket_labels.get(bracket_type, bracket_type)} — {len(participant_uids)} joueurs\n\n"
+    prompt += f"=== Résultats ===\n{standings_text}\n"
+    if narratives_text:
+        prompt += f"=== Faits Marquants par Joueur ===\n{narratives_text}\n"
+    prompt += (
+        'Génère un message COURT (1-2 phrases max), personnalisé et humoristique pour CHAQUE joueur/équipe.\n'
+        'Utilise les faits marquants ci-dessus pour personnaliser chaque message.\n'
+        'Réponds UNIQUEMENT en JSON valide, sans markdown, sans backticks :\n'
+        '{"messages": [{"player": "nom", "message": "ton message"}, ...]}'
+    )
+    return prompt
+
+
+async def _generate_tournament_notifications(tournament_id, tournament_name, game_name, results, participant_uids, use_teams, bracket=None, config=None):
     """Fire-and-forget: Ask Ollama to generate personalized messages for participants."""
+    bracket = bracket or []
+    config = config or {}
     try:
         from .ia import pick_instance, get_effective_config
         from ..database import SessionLocal
@@ -1159,29 +1473,9 @@ async def _generate_tournament_notifications(tournament_id, tournament_name, gam
             ollama_host = instance["url"] if instance else ia_cfg.get('ollama_host', 'http://host.docker.internal:11434')
             model = instance.get("model") if instance else ia_cfg.get('model', 'llama3')
 
-            # Build standings summary for the prompt
-            standings_text = ""
-            player_names = []
-            for r in results:
-                rank_emoji = {1: "🥇", 2: "🥈", 3: "🥉"}.get(r.get("rank"), f"#{r.get('rank', '?')}")
-                standings_text += f"{rank_emoji} {r['name']} — {r.get('total', 0)} pts\n"
-                player_names.append(r['name'])
-
-            # Also get usernames for solo mode participants not in standings
-            if not use_teams:
-                for uid in participant_uids:
-                    user = db.query(models.User).filter(models.User.id == uid).first()
-                    if user and user.username not in player_names:
-                        player_names.append(user.username)
-                        standings_text += f"  {user.username} — participant\n"
-
-            prompt = (
-                f'Tu es le commentateur sportif surexcité d\'une LAN party. '
-                f'Le tournoi "{tournament_name}" ({game_name or "jeu inconnu"}) vient de se terminer !\n'
-                f'Voici les résultats :\n{standings_text}\n'
-                f'Génère un message COURT (1-2 phrases max), personnalisé et humoristique pour CHAQUE joueur/équipe.\n'
-                f'Réponds UNIQUEMENT en JSON valide, sans markdown, sans backticks :\n'
-                f'{{"messages": [{{"player": "nom", "message": "ton message"}}, ...]}}'
+            prompt = _build_closing_prompt(
+                tournament_name, game_name, results, participant_uids,
+                use_teams, bracket, config, db
             )
 
             async with httpx.AsyncClient() as client:

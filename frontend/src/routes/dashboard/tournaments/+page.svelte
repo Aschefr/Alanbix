@@ -64,7 +64,7 @@
 					api.get('/tournaments').then(t => { tournaments = t; }).catch(() => {});
 					if (selectedId === msg.tournament_id) refreshStandings();
 				}
-				if (msg.type === 'tournament_started' || msg.type === 'tournament_closed') {
+				if (msg.type === 'tournament_started' || msg.type === 'tournament_closed' || msg.type === 'tournament_reopened') {
 					api.get('/tournaments').then(t => { tournaments = t; }).catch(() => {});
 					if (msg.id && selectedId === msg.id || msg.tournament_id && selectedId === msg.tournament_id) {
 						const tid = msg.id || msg.tournament_id;
@@ -216,6 +216,17 @@
 			confirmingClose = false;
 			const res = await api.post(`/tournaments/${selectedId}/close`);
 			toast('🏆 Tournoi clôturé ! Points distribués.', 'success');
+			tournaments = await api.get('/tournaments');
+			await selectTournament(selectedId);
+		} catch (e) { toast(e.message || 'Erreur', 'error'); }
+	}
+
+	let confirmingReopen = false;
+	async function reopenTournament() {
+		try {
+			confirmingReopen = false;
+			await api.post(`/tournaments/${selectedId}/reopen`);
+			toast('🔓 Tournoi ré-ouvert ! Points retirés.', 'success');
 			tournaments = await api.get('/tournaments');
 			await selectTournament(selectedId);
 		} catch (e) { toast(e.message || 'Erreur', 'error'); }
@@ -510,6 +521,17 @@
 									<button class="admin-btn close" on:click={() => confirmingClose = true}>🏁 Clôturer & Distribuer</button>
 								{/if}
 							{/if}
+							{#if selected.status === 'CLOSED'}
+								{#if confirmingReopen}
+									<span class="inline-confirm">
+										<span class="inline-confirm-label">Retirer les points distribués ?</span>
+										<button class="admin-btn confirm-yes" on:click={reopenTournament}>✓ Confirmer</button>
+										<button class="admin-btn confirm-no" on:click={() => confirmingReopen = false}>✕</button>
+									</span>
+								{:else}
+									<button class="admin-btn reset" on:click={() => confirmingReopen = true}>🔓 Ré-ouvrir</button>
+								{/if}
+							{/if}
 							{#if selected.status !== 'OPEN' && selected.status !== 'CLOSED'}
 								<button class="admin-btn reset" on:click={resetTournament}>🔄 Réinitialiser</button>
 							{/if}
@@ -535,7 +557,7 @@
 							</div>
 							{#each selected.results as r}
 								<div class="res-row {r.rank === 1 ? 'gold' : r.rank === 2 ? 'silver' : r.rank === 3 ? 'bronze' : ''}">
-									<span class="res-rank">{r.rank <= 3 ? ['🥇','🥈','🥉'][r.rank-1] : '#' + r.rank}</span>
+									<span class="res-rank">{r.rank != null && r.rank <= 3 ? ['🥇','🥈','🥉'][r.rank-1] : r.rank != null ? '#' + r.rank : '—'}</span>
 									<span class="res-name">{r.name}</span>
 									<span class="res-pts">{r.placement_pts}</span>
 									<span class="res-pts">{r.score_pts}</span>
@@ -1022,7 +1044,7 @@
 	/* === BRACKET === */
 	.bracket-section { padding: 1rem; border-radius: 14px; display: flex; flex-direction: column; }
 	.bracket-section.bracket-expanded { flex-grow: 1; min-height: 400px; }
-	.bracket-viewport { flex-grow: 1; min-height: 300px; overflow: hidden; cursor: grab; background: radial-gradient(circle at center, rgba(255,255,255,0.03) 0%, transparent 100%); border-radius: 10px; border: 1px solid var(--glass-border); }
+	.bracket-viewport { flex-grow: 1; min-height: 300px; overflow: hidden; cursor: grab; background: var(--surface-sunken); border-radius: 10px; border: 1px solid var(--glass-border); }
 	.bracket-viewport:active { cursor: grabbing; }
 	.bracket-canvas { transform-origin: 0 0; transition: transform 0.1s ease-out; padding: 2rem; display: inline-block; min-width: 100%; min-height: 100%; }
 	.rounds-container { display: flex; gap: 3rem; }
@@ -1033,7 +1055,7 @@
 	.matches-col { display: flex; flex-direction: column; justify-content: space-around; flex-grow: 1; gap: 1.5rem; position: relative; }
 	.bracket-match { width: 240px; background: var(--hover-tint); border: 1px solid var(--glass-border); border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.15); }
 	.player-row { display: flex; align-items: center; justify-content: space-between; padding: 0.45rem 0.7rem; font-size: 0.78rem; background: var(--surface-sunken); color: var(--text-muted); }
-	.player-row.filled { color: var(--text-main); background: rgba(59,130,246,0.1); }
+	.player-row.filled { color: var(--text-main); background: var(--accent-soft); }
 	.player-row.winner { background: rgba(34,197,94,0.15); color: #4ade80; }
 	.player-row.winner .score-input, .player-row.winner .score-display { color: #4ade80; }
 	.player-row.loser { opacity: 0.45; }
@@ -1054,7 +1076,7 @@
 	/* === PARTICIPANTS === */
 	.participants-section { padding: 1rem; border-radius: 14px; }
 	.participants-grid { display: flex; flex-wrap: wrap; gap: 0.4rem; }
-	.participant-chip { display: flex; align-items: center; gap: 0.35rem; padding: 0.3rem 0.65rem; border-radius: 20px; font-size: 0.75rem; font-weight: 600; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); }
+	.participant-chip { display: flex; align-items: center; gap: 0.35rem; padding: 0.3rem 0.65rem; border-radius: 20px; font-size: 0.75rem; font-weight: 600; background: var(--surface-raised); border: 1px solid var(--glass-border); }
 	.p-avatar { font-size: 0.7rem; }
 	.p-name { color: var(--text-main); }
 	.p-team { color: var(--text-muted); font-size: 0.65rem; }
@@ -1063,11 +1085,11 @@
 	.unreg-section { padding: 1rem; border-radius: 14px; }
 	.unreg-hint { font-size: 0.6rem; color: var(--text-muted); font-style: italic; }
 	.unreg-badges { display: flex; flex-wrap: wrap; gap: 0.35rem; }
-	.unreg-badge { display: flex; align-items: center; gap: 0.3rem; padding: 0.3rem 0.6rem; border-radius: 20px; font-size: 0.72rem; font-weight: 600; background: rgba(255,255,255,0.04); border: 1px solid var(--glass-border); color: var(--text-dim); cursor: pointer; transition: all 0.2s; }
-	.unreg-badge:hover { background: rgba(59,130,246,0.15); border-color: var(--accent); color: white; }
+	.unreg-badge { display: flex; align-items: center; gap: 0.3rem; padding: 0.3rem 0.6rem; border-radius: 20px; font-size: 0.72rem; font-weight: 600; background: var(--surface-raised); border: 1px solid var(--glass-border); color: var(--text-dim); cursor: pointer; transition: all 0.2s; }
+	.unreg-badge:hover { background: var(--map-user-option-hover); border-color: var(--accent); color: var(--accent); }
 	.unreg-name { color: inherit; }
 	.unreg-team { color: var(--text-muted); font-size: 0.6rem; }
-	.unreg-badge:hover .unreg-team { color: rgba(255,255,255,0.6); }
+	.unreg-badge:hover .unreg-team { color: var(--text-dim); }
 	.unreg-plus { color: var(--accent); font-weight: 800; font-size: 0.8rem; opacity: 0; transition: opacity 0.15s; }
 	.unreg-badge:hover .unreg-plus { opacity: 1; }
 
@@ -1075,7 +1097,7 @@
 	.admin-bar { display: flex; justify-content: space-between; align-items: center; padding: 0.7rem 1rem; border-radius: 10px; border: 1px dashed rgba(59,130,246,0.2); background: rgba(59,130,246,0.04); }
 	.admin-bar-label { font-size: 0.75rem; font-weight: 700; color: var(--text-dim); }
 	.admin-bar-actions { display: flex; gap: 0.4rem; }
-	.admin-btn { padding: 0.4rem 0.8rem; font-size: 0.72rem; font-weight: 700; border-radius: 8px; border: 1px solid var(--glass-border); cursor: pointer; transition: all 0.2s; background: rgba(255,255,255,0.04); color: var(--text-dim); }
+	.admin-btn { padding: 0.4rem 0.8rem; font-size: 0.72rem; font-weight: 700; border-radius: 8px; border: 1px solid var(--glass-border); cursor: pointer; transition: all 0.2s; background: var(--surface-raised); color: var(--text-dim); }
 	.admin-btn:hover { transform: translateY(-1px); }
 	.admin-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 	.admin-btn.start { border-color: rgba(34,197,94,0.3); color: var(--success); }
@@ -1101,7 +1123,7 @@
 	.results-table { display: flex; flex-direction: column; gap: 2px; }
 	.res-header, .res-row { display: grid; grid-template-columns: 40px 1fr repeat(3, 55px) 60px; align-items: center; padding: 0.35rem 0.5rem; font-size: 0.65rem; border-radius: 4px; }
 	.res-header { font-weight: 800; color: var(--text-muted); text-transform: uppercase; font-size: 0.5rem; letter-spacing: 0.5px; }
-	.res-row { background: rgba(255,255,255,0.02); }
+	.res-row { background: var(--surface-sunken); }
 	.res-row.gold { background: rgba(255,215,0,0.08); border-left: 3px solid #ffd700; }
 	.res-row.silver { background: rgba(192,192,192,0.06); border-left: 3px solid #c0c0c0; }
 	.res-row.bronze { background: rgba(205,127,50,0.06); border-left: 3px solid #cd7f32; }
@@ -1170,8 +1192,8 @@
 	.member-remove { background: none; border: none; color: var(--danger); cursor: pointer; font-size: 0.65rem; opacity: 0.4; }
 	.member-remove:hover { opacity: 1; }
 	.member-pts { font-size: 0.65rem; font-weight: 800; color: #fbbf24; background: rgba(251,191,36,0.1); padding: 0.1rem 0.4rem; border-radius: 4px; white-space: nowrap; }
-	.team-add-select { width: 100%; padding: 0.35rem; border-radius: 6px; border: 1px solid var(--glass-border); background: rgba(15,20,35,0.95); color: white; font-size: 0.7rem; appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23888'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 0.5rem center; padding-right: 1.5rem; cursor: pointer; }
-	.team-add-select option { background: #1a1f35; color: #e2e8f0; padding: 0.4rem; }
+	.team-add-select { width: 100%; padding: 0.35rem; border-radius: 6px; border: 1px solid var(--glass-border); background: var(--input-bg); color: var(--input-color); font-size: 0.7rem; appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23888'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 0.5rem center; padding-right: 1.5rem; cursor: pointer; }
+	.team-add-select option { background: var(--bg-secondary); color: var(--text-main); padding: 0.4rem; }
 	.unassigned-hint { margin-top: 0.75rem; padding: 0.5rem 0.75rem; background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.2); border-radius: 8px; color: #f59e0b; font-size: 0.75rem; font-weight: 600; }
 
 	/* === ROUND ROBIN === */
@@ -1219,9 +1241,9 @@
 	@keyframes pulse-live { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
 	.ls-list { display: flex; flex-direction: column; gap: 0.3rem; margin-top: 0.75rem; max-height: 400px; overflow-y: auto; }
 	.ls-row { display: flex; align-items: center; gap: 0.6rem; padding: 0.45rem 0.6rem; border-radius: 8px; transition: background 0.15s; }
-	.ls-row:hover { background: rgba(255,255,255,0.03); }
+	.ls-row:hover { background: var(--hover-tint); }
 	.ls-row.ls-top { border-left: 2px solid var(--accent); background: rgba(59,130,246,0.04); }
-	.ls-rank { width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 800; border-radius: 6px; background: rgba(255,255,255,0.05); color: var(--text-dim); }
+	.ls-rank { width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 800; border-radius: 6px; background: var(--surface-raised); color: var(--text-dim); }
 	.ls-rank.gold { background: rgba(255,215,0,0.15); color: #ffd700; }
 	.ls-rank.silver { background: rgba(192,192,192,0.15); color: #c0c0c0; }
 	.ls-rank.bronze { background: rgba(205,127,50,0.15); color: #cd7f32; }

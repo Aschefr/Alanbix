@@ -324,12 +324,12 @@
 	.confirm-box { background: rgba(239, 68, 68, 0.05); border: 1px dashed var(--danger); border-radius: 8px; }
 	.flex-grow { flex-grow: 1; }
 
-	.avatar-small { width: 32px; height: 32px; background: rgba(255,255,255,0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+	.avatar-small { width: 32px; height: 32px; background: var(--surface-raised); border-radius: 50%; display: flex; align-items: center; justify-content: center; }
 
 	/* Bracket Pan/Zoom Styles */
 	.bracket-wrapper { position: relative; flex-grow: 1; min-height: 500px; overflow: hidden; border-radius: 12px; display: flex; flex-direction: column; }
-	.bracket-controls { position: absolute; top: 1rem; left: 1rem; z-index: 10; display: flex; align-items: center; gap: 1rem; background: rgba(0,0,0,0.5); padding: 0.5rem; border-radius: 8px; backdrop-filter: blur(4px); }
-	.bracket-viewport { flex-grow: 1; overflow: hidden; cursor: grab; background: radial-gradient(circle at center, rgba(255,255,255,0.05) 0%, transparent 100%); }
+	.bracket-controls { position: absolute; top: 1rem; left: 1rem; z-index: 10; display: flex; align-items: center; gap: 1rem; background: var(--glass-bg); padding: 0.5rem; border-radius: 8px; backdrop-filter: blur(4px); }
+	.bracket-viewport { flex-grow: 1; overflow: hidden; cursor: grab; background: var(--surface-sunken); }
 	.bracket-viewport:active { cursor: grabbing; }
 	.bracket-canvas { transform-origin: 0 0; transition: transform 0.1s ease-out; padding: 4rem; display: inline-block; min-width: 100%; min-height: 100%; }
 	
@@ -341,7 +341,7 @@
 	
 	.matches-col { display: flex; flex-direction: column; justify-content: space-around; flex-grow: 1; gap: 2rem; position: relative; }
 
-	.bracket-match { width: 220px; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 4px 6px rgba(0,0,0,0.3); z-index: 2; position: relative; }
+	.bracket-match { width: 220px; background: var(--surface-raised); border: 1px solid var(--glass-border); border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 4px 6px rgba(0,0,0,0.15); z-index: 2; position: relative; }
 	
 	/* Connection lines styling */
 	.matches-col:not(:last-child) .bracket-match::after {
@@ -351,9 +351,9 @@
 		content: ''; position: absolute; left: -2rem; top: 25%; bottom: 25%; width: 2px; background: var(--glass-border);
 	}
 
-	.player { padding: 0.6rem 1rem; font-size: 0.9rem; border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(0,0,0,0.2); color: var(--text-muted); }
+	.player { padding: 0.6rem 1rem; font-size: 0.9rem; border-bottom: 1px solid var(--glass-border); background: var(--surface-sunken); color: var(--text-muted); }
 	.player:last-child { border-bottom: none; }
-	.player.filled { color: white; background: rgba(59, 130, 246, 0.1); }
+	.player.filled { color: var(--text-main); background: var(--accent-soft); }
 
 	/* Unregistered users bar */
 	.unregistered-bar { margin-top: 1rem; padding: 1rem; border-radius: 12px; }
@@ -364,14 +364,14 @@
 	.unreg-badge {
 		display: flex; align-items: center; gap: 0.35rem;
 		padding: 0.3rem 0.6rem; border-radius: 20px; font-size: 0.75rem; font-weight: 600;
-		background: rgba(255,255,255,0.04); border: 1px solid var(--glass-border);
+		background: var(--surface-raised); border: 1px solid var(--glass-border);
 		color: var(--text-dim); cursor: pointer; transition: all 0.2s;
 	}
-	.unreg-badge:hover { background: rgba(59,130,246,0.15); border-color: var(--accent); color: white; }
+	.unreg-badge:hover { background: var(--map-user-option-hover); border-color: var(--accent); color: var(--accent); }
 	.unreg-avatar { font-size: 0.7rem; }
 	.unreg-name { color: inherit; }
 	.unreg-team { color: var(--text-muted); font-weight: 500; font-size: 0.65rem; }
-	.unreg-badge:hover .unreg-team { color: rgba(255,255,255,0.6); }
+	.unreg-badge:hover .unreg-team { color: var(--text-dim); }
 	.unreg-plus { color: var(--accent); font-weight: 800; font-size: 0.85rem; margin-left: 0.15rem; opacity: 0; transition: opacity 0.2s; }
 	.unreg-badge:hover .unreg-plus { opacity: 1; }
 </style>

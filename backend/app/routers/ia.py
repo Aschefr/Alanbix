@@ -208,9 +208,14 @@ def get_messages(conv_id: int, db: Session = Depends(database.get_db), user: mod
     conv = db.query(models.Conversation).filter(models.Conversation.id == conv_id).first()
     messages = db.query(models.ChatMessage).filter(models.ChatMessage.conversation_id == conv_id).order_by(models.ChatMessage.timestamp.asc()).all()
     
-    # Estimate tokens
-    history_str = " ".join([m.content for m in messages])
-    est_tokens = len(history_str) // 4
+    # Estimate tokens — only count messages that Ollama will see (post-compression) + compressed context
+    if conv.compressed_at:
+        active_msgs = [m for m in messages if m.timestamp > conv.compressed_at]
+    else:
+        active_msgs = messages
+    active_chars = sum(len(m.content) for m in active_msgs)
+    ctx_chars = len(conv.compressed_context or "") if conv.compressed_context else 0
+    est_tokens = int((active_chars + ctx_chars) / 3.5)
     
     return {
         "messages": [
@@ -273,8 +278,11 @@ async def compress_context(conv_id: int, req: CompressRequest, db: Session = Dep
             res = await run_summary(text_to_compress, url, model)
         else:
             raise HTTPException(400, "Invalid mode")
+        
+        if not res or not res.strip():
+            raise HTTPException(500, "L'IA n'a pas pu compresser le contexte (réponse vide). Réessayez ou choisissez un autre mode.")
             
-        conv.compressed_context = res
+        conv.compressed_context = res.strip()
         conv.compressed_at = cutoff_time
         conv.compression_mode = req.mode
         conv.auto_compression_mode = req.mode
@@ -402,28 +410,8 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
     db.add(user_msg)
     db.commit()
     
-    # Auto-compression: if tokens exceed 80% of context_window, auto-compress
-    context_window = ia_cfg.get("context_window", 4096)
-    all_msgs_for_count = db.query(models.ChatMessage).filter(
-        models.ChatMessage.conversation_id == request.conversation_id
-    ).order_by(models.ChatMessage.timestamp.asc()).all()
-    estimated_tokens = sum(len(m.content.split()) * 1.3 for m in all_msgs_for_count)
-    if estimated_tokens > context_window * 0.9:
-        auto_mode = conv.auto_compression_mode or "truncate"
-        # Run truncation inline
-        dropped, kept = run_truncation(all_msgs_for_count, max_tokens=int(context_window * 0.5))
-        if dropped:
-            dropped_lines = [f"- {'U' if m.role == 'user' else 'A'}: {m.content.strip().split(chr(10))[0][:120]}" for m in dropped]
-            old_ctx = (conv.compressed_context or "")
-            conv.compressed_context = old_ctx + ("\n" if old_ctx else "") + "[Auto-compressé]\n" + "\n".join(dropped_lines)
-            conv.compressed_at = kept[0].timestamp if kept else datetime.utcnow()
-            conv.compression_mode = auto_mode
-            db.commit()
-        # Reload history after compression
-        history_query = db.query(models.ChatMessage).filter(models.ChatMessage.conversation_id == request.conversation_id)
-        if conv.compressed_at:
-            history_query = history_query.filter(models.ChatMessage.timestamp > conv.compressed_at)
-        history = history_query.order_by(models.ChatMessage.timestamp.asc()).all()
+    # Note: auto-compression is now driven by the frontend (modal picker before send)
+    auto_compressed = False
     
     # Build system prompt — read from SystemConfig, fallback to fr.json, then default
     system_prompt = "Tu es Alanbix, l'IA de gestion de LAN."
@@ -480,7 +468,7 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
                 "options": {"temperature": ia_cfg.get('temperature', 0.2), "num_ctx": ia_cfg.get('context_window', 4096)}
             }
             full_response = ""
-            async with client.stream("POST", f"{ollama_host}/api/chat", json=req_data, timeout=60.0) as response:
+            async with client.stream("POST", f"{ollama_host}/api/chat", json=req_data, timeout=httpx.Timeout(connect=10.0, read=300.0, write=10.0, pool=10.0)) as response:
                 async for chunk in response.aiter_lines():
                     # FEAT-04: Check if client disconnected
                     if await raw_request.is_disconnected():
@@ -499,14 +487,25 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
                                 s.add(ai_msg)
                                 s.commit()
                                 # Compute updated token estimate for frontend
-                                all_msgs = s.query(models.ChatMessage).filter(
+                                conv_obj = s.query(models.Conversation).filter(models.Conversation.id == request.conversation_id).first()
+                                post_msgs = s.query(models.ChatMessage).filter(
                                     models.ChatMessage.conversation_id == request.conversation_id
-                                ).all()
-                                est_tokens = sum(len(m.content) for m in all_msgs) // 4
-                            yield f"data: {json.dumps({'done': True, 'estimated_tokens': est_tokens})}\n\n"
+                                )
+                                if conv_obj and conv_obj.compressed_at:
+                                    post_msgs = post_msgs.filter(models.ChatMessage.timestamp > conv_obj.compressed_at)
+                                post_msgs = post_msgs.all()
+                                ctx_chars = len(conv_obj.compressed_context or "") if conv_obj else 0
+                                est_tokens = int((sum(len(m.content) for m in post_msgs) + ctx_chars) / 3.5)
+                            done_payload = {'done': True, 'estimated_tokens': est_tokens}
+                            if auto_compressed:
+                                done_payload['auto_compressed'] = True
+                            yield f"data: {json.dumps(done_payload)}\n\n"
                             break
                     except:
                         pass
+        except Exception as stream_err:
+            error_msg = f"Erreur IA ({type(stream_err).__name__}): {str(stream_err)[:200]}"
+            yield f"data: {json.dumps({'text': error_msg, 'done': True, 'error': True})}\n\n"
         finally:
             _active_requests[ollama_host] = max(0, _active_requests.get(ollama_host, 1) - 1)
             await client.aclose()
@@ -669,7 +668,30 @@ async def upload_document(req: UploadDocumentRequest, db: Session = Depends(data
     doc = models.KnowledgeBase(content=req.content, metadata_json=req.metadata, embedding_json=embedding_str)
     db.add(doc)
     db.commit()
-    return {"status": "uploaded"}
+    db.refresh(doc)
+    return {"status": "uploaded", "id": doc.id}
+
+@router.get("/knowledge")
+async def list_knowledge(db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
+    """List all RAG knowledge base entries (without full embedding data for performance)."""
+    docs = db.query(models.KnowledgeBase).all()
+    return [{
+        "id": d.id,
+        "content": d.content[:200] + ("…" if len(d.content) > 200 else ""),
+        "content_length": len(d.content),
+        "has_embedding": d.embedding_json is not None and len(d.embedding_json or "") > 10,
+        "metadata": d.metadata_json
+    } for d in docs]
+
+@router.delete("/knowledge/{doc_id}")
+async def delete_knowledge(doc_id: int, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
+    """Delete a knowledge base entry."""
+    doc = db.query(models.KnowledgeBase).filter(models.KnowledgeBase.id == doc_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    db.delete(doc)
+    db.commit()
+    return {"status": "deleted", "id": doc_id}
 
 @router.delete("/admin/nuke-images")
 async def admin_nuke_images(db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):

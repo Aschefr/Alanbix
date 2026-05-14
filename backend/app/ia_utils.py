@@ -4,17 +4,34 @@ import httpx
 import numpy as np
 
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://host.docker.internal:11434")
-EMBED_MODEL = "mxbai-embed-large"
+DEFAULT_EMBED_MODEL = "nomic-embed-text"
+
+def _get_embed_model():
+    """Read embedding model from SystemConfig, fallback to default."""
+    try:
+        from .database import SessionLocal
+        from . import models as m
+        db = SessionLocal()
+        try:
+            cfg = db.query(m.SystemConfig).filter(m.SystemConfig.key == "ia_settings").first()
+            if cfg and cfg.value:
+                return cfg.value.get("embedding_model") or DEFAULT_EMBED_MODEL
+        finally:
+            db.close()
+    except Exception:
+        pass
+    return DEFAULT_EMBED_MODEL
 
 async def get_embedding(text: str, ollama_host: str = None):
     """Get embedding vector from Ollama."""
     host = ollama_host or OLLAMA_HOST
+    embed_model = _get_embed_model()
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 f"{host}/api/embeddings",
                 json={
-                    "model": EMBED_MODEL,
+                    "model": embed_model,
                     "prompt": text
                 },
                 timeout=30.0

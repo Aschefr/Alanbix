@@ -463,7 +463,7 @@
 		>
 			<defs>
 				<pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-					<path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+					<path d="M 40 0 L 0 0 0 40" fill="none" stroke="var(--map-grid-stroke)" stroke-width="1"/>
 				</pattern>
 			</defs>
 			<rect width="100%" height="100%" fill="url(#grid)"/>
@@ -668,16 +668,16 @@
 <style>
 	.map-page { display: flex; flex-direction: column; gap: 1rem; height: calc(100vh - 6rem); }
 	.canvas-wrapper { flex-grow: 1; padding: 0.5rem; overflow: hidden; border-radius: 16px; min-height: 400px; }
-	.room-canvas { width: 100%; height: 100%; background: rgba(0, 0, 0, 0.2); border-radius: 12px; user-select: none; }
+	.room-canvas { width: 100%; height: 100%; background: var(--map-canvas-bg); border-radius: 12px; user-select: none; }
 	.room-canvas.edit-mode { outline: 2px dashed rgba(59, 130, 246, 0.3); outline-offset: -2px; }
 
-	.table-select { padding: 0.75rem 1rem; background: rgba(15,23,42,0.95); border: 1px solid var(--glass-border); border-radius: var(--radius-md); color: var(--accent); font-size: 0.75rem; font-weight: 700; cursor: pointer; }
-	.table-select option { background: #1e293b; color: #e2e8f0; padding: 0.3rem; }
+	.table-select { padding: 0.75rem 1rem; background: var(--map-select-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-md); color: var(--accent); font-size: 0.75rem; font-weight: 700; cursor: pointer; }
+	.table-select option { background: var(--map-select-option-bg); color: var(--map-select-option-color); padding: 0.3rem; }
 
 	/* Tables */
 	.table-rect {
-		fill: rgba(30, 41, 59, 0.85);
-		stroke: rgba(255, 255, 255, 0.12);
+		fill: var(--map-table-fill);
+		stroke: var(--map-table-stroke);
 		stroke-width: 2;
 		filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
 	}
@@ -694,22 +694,22 @@
 
 	/* Seats */
 	.seat-rect {
-		fill: rgba(30, 41, 59, 0.6);
-		stroke: rgba(255, 255, 255, 0.08);
+		fill: var(--map-seat-fill);
+		stroke: var(--map-seat-stroke);
 		stroke-width: 1.5;
 		transition: all 0.2s;
 	}
-	.seat-group:hover .seat-rect { stroke: var(--accent); stroke-width: 2; fill: rgba(59, 130, 246, 0.1); }
-	.seat-group.mine .seat-rect { fill: rgba(59, 130, 246, 0.25); stroke: var(--accent); stroke-width: 2; filter: drop-shadow(0 0 10px var(--accent-glow)); }
-	.seat-group.occupied .seat-rect { fill: rgba(239, 68, 68, 0.08); stroke: rgba(239, 68, 68, 0.25); }
-	.seat-group.drop-target .seat-rect { stroke: #10b981; stroke-width: 2; stroke-dasharray: 4 2; fill: rgba(16, 185, 129, 0.08); }
+	.seat-group:hover .seat-rect { stroke: var(--accent); stroke-width: 2; fill: var(--map-seat-hover-fill); }
+	.seat-group.mine .seat-rect { fill: var(--map-seat-mine-fill); stroke: var(--accent); stroke-width: 2; filter: drop-shadow(0 0 10px var(--accent-glow)); }
+	.seat-group.occupied .seat-rect { fill: var(--map-seat-occupied-fill); stroke: var(--map-seat-occupied-stroke); }
+	.seat-group.drop-target .seat-rect { stroke: var(--map-seat-drop-stroke); stroke-width: 2; stroke-dasharray: 4 2; fill: var(--map-seat-drop-fill); }
 
 	.seat-label { fill: var(--text-dim); font-size: 8px; font-weight: 800; pointer-events: none; }
 	.seat-group.mine .seat-label { fill: var(--accent); }
-	.seat-player { fill: white; font-size: 9px; font-weight: 700; pointer-events: none; }
+	.seat-player { fill: var(--map-seat-player-fill); font-size: 9px; font-weight: 700; pointer-events: none; }
 	.seat-team { fill: var(--accent); font-size: 7px; font-weight: 600; pointer-events: none; opacity: 0.8; }
 	.seat-free { fill: var(--text-muted); font-size: 9px; pointer-events: none; }
-	.seat-group.mine .seat-player { fill: white; }
+	.seat-group.mine .seat-player { fill: var(--map-seat-player-fill); }
 
 	/* Remove btn */
 	.remove-btn { cursor: pointer; opacity: 0; transition: opacity 0.2s; }
@@ -724,15 +724,15 @@
 	.legend-item { display: flex; align-items: center; gap: 0.4rem; }
 	.dot { width: 10px; height: 10px; border-radius: 3px; }
 	.mine-dot { background: var(--accent); box-shadow: 0 0 6px var(--accent-glow); }
-	.free-dot { background: rgba(30, 41, 59, 0.6); border: 1px solid rgba(255,255,255,0.1); }
-	.occupied-dot { background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239,68,68,0.25); }
-	.table-dot { background: rgba(30, 41, 59, 0.85); border: 2px solid rgba(255,255,255,0.12); }
+	.free-dot { background: var(--map-free-dot-bg); border: 1px solid var(--map-free-dot-border); }
+	.occupied-dot { background: var(--map-seat-occupied-fill); border: 1px solid var(--map-seat-occupied-stroke); }
+	.table-dot { background: var(--map-table-dot-bg); border: 2px solid var(--map-table-dot-border); }
 
 	/* Player badge bar (admin drag-drop) */
 	.player-badge-bar { display: flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1rem; border-radius: 12px; flex-wrap: wrap; }
 	.badge-label { font-size: 0.7rem; font-weight: 700; color: var(--text-muted); white-space: nowrap; }
-	.player-badge { padding: 0.3rem 0.7rem; background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.2); border-radius: 8px; font-size: 0.7rem; font-weight: 700; color: var(--accent); cursor: grab; transition: all 0.15s; user-select: none; }
-	.player-badge:hover { background: rgba(59,130,246,0.2); }
+	.player-badge { padding: 0.3rem 0.7rem; background: var(--map-badge-bg); border: 1px solid var(--map-badge-border); border-radius: 8px; font-size: 0.7rem; font-weight: 700; color: var(--accent); cursor: grab; transition: all 0.15s; user-select: none; }
+	.player-badge:hover { background: var(--map-badge-hover); }
 	.player-badge.active { background: var(--accent); color: white; box-shadow: 0 0 12px var(--accent-glow); }
 	.badge-cancel { padding: 0.25rem 0.6rem; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2); border-radius: 6px; color: var(--danger); font-size: 0.65rem; font-weight: 700; cursor: pointer; }
 	.badge-team { color: var(--text-muted); font-weight: 500; font-size: 0.6rem; }
@@ -753,11 +753,11 @@
 
 	.user-list { display: flex; flex-direction: column; gap: 0.3rem; max-height: 200px; overflow-y: auto; }
 	.user-option {
-		background: rgba(255,255,255,0.04); border: 1px solid var(--glass-border); border-radius: 8px;
+		background: var(--map-user-option-bg); border: 1px solid var(--glass-border); border-radius: 8px;
 		padding: 0.5rem 0.8rem; color: var(--text-main); cursor: pointer; font-size: 0.8rem; font-weight: 600;
 		text-align: left; transition: all 0.15s;
 	}
-	.user-option:hover { background: rgba(59, 130, 246, 0.15); border-color: var(--accent); }
+	.user-option:hover { background: var(--map-user-option-hover); border-color: var(--accent); }
 
 	.btn-link { background: none; border: none; color: var(--accent); cursor: pointer; text-decoration: underline; font-size: inherit; padding: 0; }
 

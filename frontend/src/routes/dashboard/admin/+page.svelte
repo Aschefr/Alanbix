@@ -26,7 +26,12 @@
 	// Team Scoring Mode
 	let teamScoringMode = 'weighted';
 	let eventName = 'Alanbix LAN';
-	let systemPrompt = ''; // 'weighted' | 'raw'
+	let systemPrompt = '';
+	let closingPrompt = '';
+	let promptPreviewId = null;
+	let promptPreviewText = '';
+	let promptPreviewTokens = 0;
+	let loadingPreview = false;
 
 	// Inline Edit (replaces modal)
 	let inlineEditId = null;
@@ -125,10 +130,11 @@
 	let iaConfig = { 
 		ollama_host: '', model: '', rag_enabled: true, 
 		temperature: 0.7, context_window: 4096,
-		ollama_instances: []
+		ollama_instances: [], embedding_model: ''
 	};
 	let newDocContent = '';
 	let instanceStatuses = [];
+	let knowledgeDocs = [];
 
 	let authorized = false;
 
@@ -164,6 +170,7 @@
 		if (!iaConfig.ollama_instances) iaConfig.ollama_instances = [];
 		fetchModels();
 		loadInstanceStatuses();
+		loadKnowledge();
 		try {
 			const stats = await api.get('/dashboard/stats');
 			teamScoringMode = stats.team_scoring_mode || 'weighted';
@@ -171,6 +178,10 @@
 			try {
 				const spCfg = await api.get('/ia/config');
 				systemPrompt = spCfg.system_prompt || "Tu es Alanbix, l'IA de gestion de LAN.";
+			} catch {}
+			try {
+				const cpCfg = await api.get('/admin/config/tournament_closing_prompt');
+				closingPrompt = cpCfg?.value || '';
 			} catch {}
 		} catch {}
 	}
@@ -194,6 +205,55 @@
 			await api.put('/admin/config/system_prompt', { value: systemPrompt });
 			toast('Prompt système sauvegardé.', 'success');
 		} catch { toast('Erreur sauvegarde prompt.', 'error'); }
+	}
+
+	async function saveClosingPrompt() {
+		try {
+			await api.put('/admin/config/tournament_closing_prompt', { value: closingPrompt });
+			toast('Prompt de clôture sauvegardé.', 'success');
+		} catch { toast('Erreur sauvegarde.', 'error'); }
+	}
+
+	async function previewAiPrompt(tournamentId) {
+		loadingPreview = true;
+		try {
+			const res = await api.get(`/tournaments/${tournamentId}/ai-prompt-preview`);
+			promptPreviewId = tournamentId;
+			promptPreviewText = res.prompt;
+			promptPreviewTokens = res.estimated_tokens;
+		} catch (e) { toast(e.message || 'Erreur preview', 'error'); }
+		loadingPreview = false;
+	}
+
+	async function retryNotifications(tournamentId) {
+		try {
+			await api.post(`/tournaments/${tournamentId}/retry-notifications`);
+			toast('🔄 Régénération des messages IA lancée.', 'success');
+		} catch (e) { toast(e.message || 'Erreur retry', 'error'); }
+	}
+
+	async function loadKnowledge() {
+		try {
+			knowledgeDocs = await api.get('/ia/knowledge');
+		} catch { knowledgeDocs = []; }
+	}
+
+	async function deleteKnowledge(docId) {
+		try {
+			await api.delete(`/ia/knowledge/${docId}`);
+			toast('Document supprimé de la base RAG.', 'success');
+			loadKnowledge();
+		} catch (e) { toast(e.message || 'Erreur suppression', 'error'); }
+	}
+
+	async function uploadRagDoc() {
+		if (!newDocContent.trim()) return;
+		try {
+			await api.post('/ia/upload-document', { content: newDocContent });
+			newDocContent = '';
+			toast('Document vectorisé et ajouté à la base RAG.', 'success');
+			loadKnowledge();
+		} catch (e) { toast(e.message || 'Erreur vectorisation', 'error'); }
 	}
 
 	async function fetchModels() {
@@ -785,6 +845,14 @@
 									</div>
 								</div>
 								<div class="item-actions">
+									{#if t.status === 'CLOSED'}
+										<button class="btn-icon-edit" on:click={() => previewAiPrompt(t.id)} title="Voir le prompt IA" disabled={loadingPreview}>
+											{loadingPreview && promptPreviewId === t.id ? '⏳' : '👁️'}
+										</button>
+										<button class="btn-icon-edit" on:click={() => retryNotifications(t.id)} title="Régénérer les messages IA">
+											🔄
+										</button>
+									{/if}
 									{#if deleteConfirmTournamentId === t.id}
 										<div class="confirm-delete-row">
 											<span class="text-xs text-danger font-bold">Supprimer ?</span>
@@ -922,6 +990,19 @@
 
 									</div>
 
+								{/if}
+
+								{#if promptPreviewId === t.id && promptPreviewText}
+									<div class="prompt-preview-panel">
+										<div class="prompt-preview-header">
+											<span>👁️ Prompt IA envoyé à Ollama</span>
+											<div style="display:flex;align-items:center;gap:0.5rem">
+												<span class="prompt-token-badge">~{promptPreviewTokens} tokens</span>
+												<button class="close-btn" on:click={() => { promptPreviewId = null; promptPreviewText = ''; }}>✕</button>
+											</div>
+										</div>
+										<textarea class="prompt-preview-textarea" readonly>{promptPreviewText}</textarea>
+									</div>
 								{/if}
 
 							</div>
@@ -1450,6 +1531,24 @@
 							</div>
 						</div>
 					</div>
+
+					<!-- Embedding Model -->
+					<div class="sc glass">
+						<div class="sc-head compact">
+							<div class="sc-icon sm">🔗</div>
+							<h3>Modèle d'Embedding (RAG)</h3>
+						</div>
+						<div class="sc-body">
+							<select bind:value={iaConfig.embedding_model} class="inst-model" style="width:100%">
+								<option value="">— Auto (nomic-embed-text) —</option>
+								{#each availableModels.filter(m => m.name.includes('embed')) as m}
+									<option value={m.name}>{m.name}</option>
+								{/each}
+							</select>
+							<p class="text-xs text-dim" style="margin-top:0.4rem">Modèle utilisé pour la recherche vectorielle (RAG). Seuls les modèles d'embedding sont listés.</p>
+						</div>
+					</div>
+
 					<button class="btn-primary" on:click={saveIAConfig} style="align-self:flex-end;">💾 Enregistrer la configuration IA</button>
 
 					<!-- System Prompt -->
@@ -1467,20 +1566,68 @@
 						</div>
 					</div>
 
+					<!-- Tournament Closing Prompt -->
+					<div class="sc glass">
+						<div class="sc-head">
+							<div class="sc-icon">📣</div>
+							<div>
+								<h3>Prompt Clôture Tournoi</h3>
+								<p class="sc-sub">Personnalité et ton utilisés pour les messages IA de fin de tournoi</p>
+							</div>
+						</div>
+						<div class="sc-body">
+							<textarea bind:value={closingPrompt} rows="3" placeholder="Tu es le commentateur sportif surexcité d'une LAN party..." class="prompt-textarea"></textarea>
+							<p class="text-xs text-dim" style="margin-top:0.3rem">Laissez vide pour utiliser le prompt par défaut. Ce texte est l'introduction envoyée à l'IA avant les résultats du tournoi.</p>
+							<button class="btn-primary btn-xs" on:click={saveClosingPrompt} style="align-self:flex-end;margin-top:0.5rem;">Sauvegarder le prompt de clôture</button>
+						</div>
+					</div>
+
 					<!-- RAG -->
 					<div class="sc glass">
 						<div class="sc-head">
 							<div class="sc-icon">📚</div>
-							<div>
+							<div style="flex:1">
 								<h3>Base de Connaissances RAG</h3>
 								<p class="sc-sub">Injectez des données pour spécialiser l'IA</p>
 							</div>
+							<span class="badge-count">{knowledgeDocs.length}</span>
 						</div>
 						<div class="sc-body">
-							<textarea bind:value={newDocContent} placeholder="Copiez-collez ici vos tutoriels, patchnotes ou règles spécifiques..." class="prompt-textarea"></textarea>
-							<button class="btn-primary btn-xs" on:click={() => { api.post('/ia/upload-document', { content: newDocContent }); newDocContent = ''; toast('Document envoyé pour vectorisation.', 'success'); }} style="align-self:flex-end;margin-top:0.5rem;">🚀 Lancer la Vectorisation</button>
+							<!-- Existing documents -->
+							{#if knowledgeDocs.length > 0}
+								<div class="rag-list">
+									{#each knowledgeDocs as doc}
+										<div class="rag-item">
+											<div class="rag-item-main">
+												<div class="rag-item-header">
+													<span class="rag-id">#{doc.id}</span>
+													<span class="rag-size">{doc.content_length} car.</span>
+													{#if doc.has_embedding}
+														<span class="rag-embed-badge">✅ Vectorisé</span>
+													{:else}
+														<span class="rag-embed-badge no">⚠️ Non vectorisé</span>
+													{/if}
+												</div>
+												<p class="rag-preview">{doc.content}</p>
+											</div>
+											<button class="btn-icon btn-icon-danger" title="Supprimer" on:click={() => deleteKnowledge(doc.id)}>🗑️</button>
+										</div>
+									{/each}
+								</div>
+							{:else}
+								<div class="rag-empty">
+									<span>📭</span>
+									<p>Aucun document dans la base de connaissances.</p>
+								</div>
+							{/if}
+
+							<!-- Add new document -->
+							<div class="rag-add-section">
+								<textarea bind:value={newDocContent} placeholder="Copiez-collez ici vos tutoriels, patchnotes ou règles spécifiques..." class="prompt-textarea" rows="3"></textarea>
+								<button class="btn-primary btn-xs" on:click={uploadRagDoc} style="align-self:flex-end;margin-top:0.5rem;" disabled={!newDocContent.trim()}>🚀 Vectoriser & Ajouter</button>
+							</div>
 						</div>
-						</div>
+					</div>
 
 				</div>
 				{/if}
@@ -1923,5 +2070,26 @@
 	.btn-attach { background: var(--hover-tint); border: 1px solid var(--glass-border); color: var(--text-dim); width: 36px; height: 36px; border-radius: 6px; cursor: pointer; font-size: 1rem; display: flex; align-items: center; justify-content: center; transition: all 0.2s; flex-shrink: 0; }
 	.btn-attach:hover { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 	.ia-blocked-badge { font-size: 0.7rem; margin-left: 0.3rem; opacity: 0.8; }
+	/* Prompt Preview Panel */
+	.prompt-preview-panel { margin-top: 0.75rem; border: 1px solid rgba(139,92,246,0.25); border-radius: 12px; background: rgba(139,92,246,0.04); overflow: hidden; animation: slideDown 0.2s ease-out; }
+	.prompt-preview-header { display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 0.8rem; background: rgba(139,92,246,0.08); border-bottom: 1px solid rgba(139,92,246,0.15); font-size: 0.75rem; font-weight: 700; color: #a78bfa; }
+	.prompt-token-badge { font-size: 0.6rem; font-weight: 800; background: rgba(139,92,246,0.15); color: #a78bfa; padding: 0.15rem 0.5rem; border-radius: 6px; border: 1px solid rgba(139,92,246,0.25); }
+	.prompt-preview-textarea { width: 100%; min-height: 200px; max-height: 400px; background: var(--surface-sunken); border: none; padding: 0.8rem; color: var(--text-main); font-size: 0.75rem; font-family: 'Courier New', monospace; line-height: 1.5; resize: vertical; }
+	.prompt-preview-textarea:focus { outline: none; }
+	/* RAG Knowledge List */
+	.rag-list { display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 1rem; max-height: 300px; overflow-y: auto; }
+	.rag-item { display: flex; align-items: flex-start; gap: 0.5rem; padding: 0.6rem 0.7rem; border-radius: 8px; background: var(--hover-tint); border: 1px solid var(--glass-border); transition: all 0.15s; }
+	.rag-item:hover { border-color: rgba(59,130,246,0.2); background: rgba(59,130,246,0.03); }
+	.rag-item-main { flex: 1; min-width: 0; }
+	.rag-item-header { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.2rem; }
+	.rag-id { font-size: 0.6rem; font-weight: 800; color: var(--accent); background: rgba(59,130,246,0.1); padding: 0.1rem 0.3rem; border-radius: 4px; }
+	.rag-size { font-size: 0.6rem; color: var(--text-muted); }
+	.rag-embed-badge { font-size: 0.55rem; font-weight: 700; padding: 0.1rem 0.35rem; border-radius: 4px; background: rgba(16,185,129,0.1); color: #10b981; }
+	.rag-embed-badge.no { background: rgba(245,158,11,0.1); color: #f59e0b; }
+	.rag-preview { font-size: 0.7rem; color: var(--text-dim); line-height: 1.4; margin: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; word-break: break-word; }
+	.rag-empty { display: flex; flex-direction: column; align-items: center; gap: 0.3rem; padding: 1.5rem; color: var(--text-muted); font-size: 0.8rem; }
+	.rag-empty span { font-size: 1.5rem; opacity: 0.5; }
+	.rag-empty p { margin: 0; }
+	.rag-add-section { margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--glass-border); display: flex; flex-direction: column; }
 </style>
 

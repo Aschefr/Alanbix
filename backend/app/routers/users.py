@@ -222,6 +222,14 @@ def admin_delete_user(user_id: int, db: Session = Depends(database.get_db), admi
     db.commit()
     return {"status": "deleted", "id": user_id}
 
+@router.get("/admin/config/{key}")
+def admin_get_config(key: str, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
+    """Admin reads a system config value."""
+    config = db.query(models.SystemConfig).filter(models.SystemConfig.key == key).first()
+    if not config:
+        return {"key": key, "value": None}
+    return {"key": key, "value": config.value}
+
 @router.put("/admin/config/{key}")
 def admin_set_config(key: str, data: dict, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
     """Admin sets a system config value."""

@@ -5,7 +5,7 @@
 
 	const API_URL = 'http://localhost:8000';
 
-	const VIEWS = ['leaderboard', 'teams', 'map', 'bracket'];
+	const VIEWS = ['leaderboard', 'teams', 'map', 'bracket', 'info'];
 	let currentIdx = 0;
 	let paused = false;
 	let data = { leaderboard: [], event_name: 'Alanbix LAN' };
@@ -15,6 +15,7 @@
 	let tournaments = [];
 	let games = [];
 	let participants = [];
+	let spectatorInfo = '';
 	let interval;
 	let transClass = 'slide-in';
 
@@ -53,6 +54,11 @@
 				} catch {}
 			}
 			participants = allParticipants;
+			// Fetch info page content for spectator
+			try {
+				const info = await fetchPublic('/dashboard/info');
+				if (info) spectatorInfo = info.spectator_content || '';
+			} catch {}
 		} catch (e) { console.error(e); }
 	}
 
@@ -83,6 +89,7 @@
 			case 'teams': return teamLeaderboard.length > 0;
 			case 'map': return roomLayout.seats.length > 0;
 			case 'bracket': return runningTournaments.length > 0;
+			case 'info': return spectatorInfo.length > 0;
 			default: return true;
 		}
 	}
@@ -233,7 +240,7 @@
 					<svg viewBox={mapViewBox} class="spec-map">
 						<defs>
 							<pattern id="spec-grid" width="40" height="40" patternUnits="userSpaceOnUse">
-								<path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255,255,255,0.03)" stroke-width="1"/>
+								<path d="M 40 0 L 0 0 0 40" fill="none" stroke="var(--map-grid-stroke)" stroke-width="1"/>
 							</pattern>
 						</defs>
 						<rect width="100%" height="100%" fill="url(#spec-grid)"/>
@@ -241,8 +248,8 @@
 							{@const cx = table.x + table.w / 2}
 							{@const cy = table.y + table.h / 2}
 							<g transform="rotate({table.rotation || 0}, {cx}, {cy})">
-								<rect x={table.x} y={table.y} width={table.w} height={table.h} rx="6" fill="rgba(30,41,59,0.8)" stroke="rgba(255,255,255,0.1)" stroke-width="1.5"/>
-								<text x={cx} y={cy + 4} text-anchor="middle" fill="rgba(255,255,255,0.2)" font-size="12" font-weight="700">{table.label}</text>
+								<rect x={table.x} y={table.y} width={table.w} height={table.h} rx="6" fill="var(--map-table-fill)" stroke="var(--map-table-stroke)" stroke-width="1.5"/>
+								<text x={cx} y={cy + 4} text-anchor="middle" fill="var(--text-muted)" font-size="12" font-weight="700">{table.label}</text>
 							</g>
 						{/each}
 						{#each roomLayout.seats as seat}
@@ -254,23 +261,23 @@
 								<rect x={seat.x + 2} y={seat.y} width="46" height="50"/>
 							</clipPath>
 							<rect x={seat.x} y={seat.y} width="50" height="50" rx="6"
-								fill={occ ? 'rgba(59,130,246,0.25)' : 'rgba(30,41,59,0.5)'}
-								stroke={occ ? 'var(--accent)' : 'rgba(255,255,255,0.06)'} stroke-width="1.5"/>
+								fill={occ ? 'var(--map-seat-mine-fill)' : 'var(--map-seat-fill)'}
+								stroke={occ ? 'var(--accent)' : 'var(--map-seat-stroke)'} stroke-width="1.5"/>
 							<g clip-path="url(#spec-clip-{seat.id})">
 								{#if occ}
-									<text x={scx} y={seat.y + 13} text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="7" font-weight="800">{seat.id}</text>
-									<text x={scx} y={seat.y + 27} text-anchor="middle" fill="white" font-size="9" font-weight="700"
+									<text x={scx} y={seat.y + 13} text-anchor="middle" fill="var(--text-muted)" font-size="7" font-weight="800">{seat.id}</text>
+									<text x={scx} y={seat.y + 27} text-anchor="middle" fill="var(--map-seat-player-fill)" font-size="9" font-weight="700"
 										textLength={occ.username.length > 7 ? 44 : null}
 										lengthAdjust="spacingAndGlyphs"
 									>{occ.username}</text>
 									{#if occ.team_name}
-										<text x={scx} y={seat.y + 38} text-anchor="middle" fill="#60a5fa" font-size="7" font-weight="600"
+										<text x={scx} y={seat.y + 38} text-anchor="middle" fill="var(--accent)" font-size="7" font-weight="600"
 											textLength={occ.team_name.length > 8 ? 42 : null}
 											lengthAdjust="spacingAndGlyphs"
 										>{occ.team_name}</text>
 									{/if}
 								{:else}
-									<text x={scx} y={scy + 4} text-anchor="middle" fill="rgba(255,255,255,0.15)" font-size="8">Libre</text>
+									<text x={scx} y={scy + 4} text-anchor="middle" fill="var(--text-muted)" font-size="8">Libre</text>
 								{/if}
 							</g>
 						</g>
@@ -382,24 +389,21 @@
 					<p class="spec-empty">Aucun bracket actif</p>
 				{/if}
 			</div>
+
+		{:else if currentView === 'info'}
+			<div class="spec-view">
+				<h1 class="spec-title"><span style="-webkit-text-fill-color:initial;background:none">📋</span> Informations</h1>
+				<div class="spec-info-content">
+					{@html spectatorInfo.replace(/\n/g, '<br>')}
+				</div>
+			</div>
 		{/if}
 	</div>
 </div>
 
 <style>
-	/* Force dark theme on spectator — projector is always dark */
+	/* Spectator inherits the active theme (dark/light) from :root / [data-theme] */
 	:global(body) { overflow: hidden; }
-	:global(.spectator-mode),
-	:global(.spectator-mode *) { color-scheme: dark; }
-	.spectator-mode {
-		--bg-primary: #020617;
-		--text-main: #f1f5f9;
-		--text-muted: #94a3b8;
-		--accent: #3b82f6;
-		--glass-border: rgba(255,255,255,0.06);
-		--hover-tint: rgba(255,255,255,0.03);
-		--surface-sunken: rgba(0,0,0,0.3);
-	}
 
 	.spectator-mode {
 		position: relative;
@@ -426,7 +430,7 @@
 	/* Leaderboard */
 	.spec-lb { display: flex; flex-direction: column; gap: 0.8rem; }
 	.spec-row { display: flex; align-items: center; gap: 1.2rem; padding: 1rem 1.8rem; background: var(--hover-tint, rgba(255,255,255,0.03)); border-radius: 14px; border: 1px solid var(--glass-border, rgba(255,255,255,0.05)); font-size: 1.6rem; transition: all 0.2s; }
-	.spec-row.spec-top { border-left: 3px solid var(--accent, #3b82f6); background: rgba(59,130,246,0.05); }
+	.spec-row.spec-top { border-left: 3px solid var(--accent); background: var(--accent-soft); }
 	.spec-rank { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; font-weight: 800; border-radius: 10px; background: var(--hover-tint); font-size: 1.2rem; }
 	.spec-rank.gold { background: rgba(255,215,0,0.15); color: #ffd700; }
 	.spec-rank.silver { background: rgba(192,192,192,0.15); color: #c0c0c0; }
@@ -447,17 +451,17 @@
 	.game-fullscreen-bg { position: fixed; inset: 0; z-index: 0; background-size: cover; background-position: center; background-repeat: no-repeat; }
 	.game-fullscreen-vignette { position: fixed; inset: 0; z-index: 0; pointer-events: none; background: radial-gradient(ellipse at center, rgba(10,15,30,0.6) 0%, rgba(10,15,30,0.82) 40%, rgba(10,15,30,0.96) 70%, rgba(10,15,30,1) 100%); }
 	.bracket-top-info { position: relative; z-index: 1; text-align: center; padding: 0.5rem 0 0.8rem; }
-	.hero-title { margin: 0; font-size: 2rem; color: #ffffff; text-shadow: 0 2px 16px rgba(0,0,0,0.9), 0 0 40px rgba(0,0,0,0.5); }
-	.hero-game-name { font-size: 0.85rem; font-weight: 600; color: var(--accent); opacity: 0.9; text-shadow: 0 1px 8px rgba(0,0,0,0.8); }
+	.hero-title { margin: 0; font-size: 2rem; color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; background: none !important; text-shadow: 0 2px 16px rgba(0,0,0,0.9), 0 0 40px rgba(0,0,0,0.5); }
+	.hero-game-name { font-size: 0.85rem; font-weight: 600; color: #ffffff; opacity: 0.85; text-shadow: 0 1px 8px rgba(0,0,0,0.8); }
 	.spec-bracket-area { position: relative; z-index: 1; flex: 1; overflow-x: auto; overflow-y: hidden; display: flex; align-items: flex-start; justify-content: center; padding: 0.5rem 1rem; }
 	.spec-rounds { display: flex; gap: 2.5rem; align-items: flex-start; }
 	.spec-round-col { display: flex; flex-direction: column; min-width: 260px; }
-	.spec-round-hdr { text-align: center; font-weight: 800; color: var(--accent, #3b82f6); font-size: 1.1rem; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 1rem; padding: 0.4rem 1rem; background: rgba(10,15,30,0.7); border-radius: 8px; backdrop-filter: blur(4px); }
+	.spec-round-hdr { text-align: center; font-weight: 800; color: var(--accent); font-size: 1.1rem; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 1rem; padding: 0.4rem 1rem; background: var(--glass-bg); border-radius: 8px; backdrop-filter: blur(4px); }
 	.spec-matches { display: flex; flex-direction: column; justify-content: space-around; flex-grow: 1; gap: 1rem; }
-	.spec-match { background: rgba(10,15,30,0.75); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; overflow: hidden; transition: all 0.2s; backdrop-filter: blur(6px); }
+	.spec-match { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 12px; overflow: hidden; transition: all 0.2s; backdrop-filter: blur(6px); }
 	.spec-match.done { border-color: rgba(59,130,246,0.25); box-shadow: 0 0 15px rgba(59,130,246,0.05); }
 	.spec-player { display: flex; justify-content: space-between; align-items: center; padding: 0.7rem 1rem; transition: all 0.2s; }
-	.spec-player.winner { background: rgba(59,130,246,0.1); }
+	.spec-player.winner { background: var(--accent-soft); }
 	.spec-player.loser { opacity: 0.4; }
 	.spec-pname { font-size: 1.2rem; font-weight: 600; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	.spec-player.winner .spec-pname { color: var(--text-main); font-weight: 800; }
@@ -465,15 +469,15 @@
 	.spec-match-div { height: 1px; background: var(--glass-border); }
 
 	/* Tournament nav tabs (multiple running) */
-	.spec-tourney-nav { position: sticky; top: 0; z-index: 2; display: flex; gap: 0.3rem; justify-content: center; margin-bottom: 1rem; padding: 0.3rem; background: rgba(10,15,30,0.85); border-radius: 10px; backdrop-filter: blur(6px); }
+	.spec-tourney-nav { position: sticky; top: 0; z-index: 2; display: flex; gap: 0.3rem; justify-content: center; margin-bottom: 1rem; padding: 0.3rem; background: var(--glass-bg); border-radius: 10px; backdrop-filter: blur(6px); }
 	.spec-tourney-tab { padding: 0.5rem 1.2rem; background: none; border: none; color: var(--text-muted); font-size: 1rem; font-weight: 700; cursor: pointer; border-radius: 8px; transition: all 0.2s; }
-	.spec-tourney-tab.active { background: rgba(59,130,246,0.15); color: #3b82f6; }
+	.spec-tourney-tab.active { background: var(--accent-soft); color: var(--accent); }
 
 	/* FFA spectator */
 	.spec-ffa-area { position: relative; z-index: 1; flex: 1; overflow-y: auto; display: flex; flex-wrap: wrap; gap: 1.5rem; justify-content: center; padding: 0 2rem; }
-	.spec-ffa-round { min-width: 300px; max-width: 500px; flex: 1; background: rgba(10,15,30,0.75); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; overflow: hidden; backdrop-filter: blur(6px); }
+	.spec-ffa-round { min-width: 300px; max-width: 500px; flex: 1; background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 16px; overflow: hidden; backdrop-filter: blur(6px); }
 	.spec-ffa-round.past { opacity: 0.4; }
-	.spec-ffa-hdr { display: flex; justify-content: space-between; align-items: center; padding: 0.7rem 1rem; background: rgba(10,15,30,0.6); font-weight: 800; font-size: 1.1rem; color: #3b82f6; text-transform: uppercase; letter-spacing: 0.1em; }
+	.spec-ffa-hdr { display: flex; justify-content: space-between; align-items: center; padding: 0.7rem 1rem; background: var(--surface-sunken); font-weight: 800; font-size: 1.1rem; color: var(--accent); text-transform: uppercase; letter-spacing: 0.1em; }
 	.spec-ffa-count { font-size: 0.7rem; color: var(--text-muted); font-weight: 600; text-transform: none; letter-spacing: 0; }
 	.spec-ffa-players { padding: 0.3rem 0; }
 	.spec-ffa-row { display: flex; align-items: center; gap: 0.8rem; padding: 0.5rem 1rem; transition: all 0.2s; }
@@ -495,5 +499,12 @@
 	.spec-rr-p { flex: 1; font-size: 1rem; color: var(--text-muted); }
 	.spec-rr-p:last-child { text-align: right; }
 	.spec-rr-p.winner { color: var(--text-main); font-weight: 700; }
-	.spec-rr-score { font-size: 1rem; font-weight: 800; color: #3b82f6; min-width: 3.5rem; text-align: center; }
+	.spec-rr-score { font-size: 1rem; font-weight: 800; color: var(--accent); min-width: 3.5rem; text-align: center; }
+
+	/* Info spectator */
+	.spec-info-content {
+		max-width: 800px; margin: 0 auto;
+		font-size: 1.8rem; line-height: 1.6; color: var(--text-main, white);
+		text-align: center; padding: 0 2rem;
+	}
 </style>
