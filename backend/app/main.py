@@ -2,7 +2,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from .database import engine, init_db
 from . import models
-from .routers import users, tournaments, room, ia, dashboard, notifications
+from .routers import users, tournaments, room, ia, dashboard, notifications, players
 
 from .websockets import manager
 
@@ -82,6 +82,7 @@ app.include_router(room.router)
 app.include_router(ia.router)
 app.include_router(dashboard.router)
 app.include_router(notifications.router)
+app.include_router(players.router)
 
 # Serve uploaded images
 from fastapi.staticfiles import StaticFiles

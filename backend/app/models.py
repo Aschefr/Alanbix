@@ -148,3 +148,12 @@ class Notification(Base):
     is_read = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     metadata_json = Column(JSON, nullable=True)  # tournament_id, conversation_id, etc.
+
+class PrivateMessage(Base):
+    __tablename__ = "private_messages"
+    id = Column(Integer, primary_key=True, index=True)
+    sender_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
+    receiver_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
+    content = Column(Text)
+    is_read = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)

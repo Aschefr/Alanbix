@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 from datetime import timedelta
 from .. import models, schemas, auth, database
 
@@ -332,6 +333,10 @@ def admin_nuke_players(db: Session = Depends(database.get_db), admin: models.Use
         for c in convos:
             db.query(models.ChatMessage).filter(models.ChatMessage.conversation_id == c.id).delete(synchronize_session=False)
         db.query(models.Conversation).filter(models.Conversation.user_id.in_(non_admin_ids)).delete(synchronize_session=False)
+        # Delete private messages sent or received by these users
+        db.query(models.PrivateMessage).filter(
+            or_(models.PrivateMessage.sender_id.in_(non_admin_ids), models.PrivateMessage.receiver_id.in_(non_admin_ids))
+        ).delete(synchronize_session=False)
         db.query(models.User).filter(models.User.id.in_(non_admin_ids)).delete(synchronize_session=False)
     db.commit()
     return {"status": "nuked", "deleted_players": count}

@@ -1,6 +1,7 @@
 <script>
 	import { onMount } from 'svelte';
 	import { api } from '$lib/api';
+	import { page } from '$app/stores';
 
 	let layout = { seats: [], tables: [] };
 	let user = null;
@@ -10,6 +11,7 @@
 	let draggingUserId = null; // admin drag-drop player badge
 	let editingId = null; // seat/table ID being edited
 	let editIdValue = '';
+	let highlightedSeat = null; // from ?highlight= query param
 
 	// Interaction state
 	let dragging = null;
@@ -62,6 +64,23 @@
 		try { const lk = await api.get('/room/seating-locked'); seatingLocked = lk.locked; } catch {}
 		// Auto-select first table for seat placement
 		if (layout.tables.length > 0) targetTableId = layout.tables[0].id;
+
+		// Handle ?highlight=SEAT_ID from bracket seat badges
+		const hlParam = $page.url.searchParams.get('highlight');
+		if (hlParam) {
+			const targetSeat = layout.seats.find(s => s.id === hlParam);
+			if (targetSeat) {
+				// Auto-pan & zoom to the seat
+				const cx = targetSeat.x + SEAT_SIZE / 2;
+				const cy = targetSeat.y + SEAT_SIZE / 2;
+				vbW = 400; vbH = 267;
+				vbX = cx - vbW / 2;
+				vbY = cy - vbH / 2;
+				// Highlight for 5 seconds
+				highlightedSeat = hlParam;
+				setTimeout(() => { highlightedSeat = null; }, 5000);
+			}
+		}
 	});
 
 	async function loadUsers() {
@@ -530,7 +549,7 @@
 				{@const scy = seat.y + SEAT_SIZE / 2}
 				<!-- svelte-ignore a11y-no-static-element-interactions -->
 				<g 
-					class="seat-group {isMine ? 'mine' : ''} {isOccupied && !isMine ? 'occupied' : ''} {draggingUserId && !isOccupied ? 'drop-target' : ''}"
+					class="seat-group {isMine ? 'mine' : ''} {isOccupied && !isMine ? 'occupied' : ''} {draggingUserId && !isOccupied ? 'drop-target' : ''} {highlightedSeat === seat.id ? 'highlighted' : ''}"
 					transform="rotate({seat.rotation || 0}, {scx}, {scy})"
 					on:mousedown={(e) => editMode ? startDragSeat(e, seat) : null}
 					on:click={() => {
@@ -703,6 +722,11 @@
 	.seat-group.mine .seat-rect { fill: var(--map-seat-mine-fill); stroke: var(--accent); stroke-width: 2; filter: drop-shadow(0 0 10px var(--accent-glow)); }
 	.seat-group.occupied .seat-rect { fill: var(--map-seat-occupied-fill); stroke: var(--map-seat-occupied-stroke); }
 	.seat-group.drop-target .seat-rect { stroke: var(--map-seat-drop-stroke); stroke-width: 2; stroke-dasharray: 4 2; fill: var(--map-seat-drop-fill); }
+	.seat-group.highlighted .seat-rect { stroke: #fbbf24; stroke-width: 3; fill: rgba(251,191,36,0.15); animation: seatHighlight 1.2s ease-in-out 4; }
+	@keyframes seatHighlight {
+		0%, 100% { stroke: #fbbf24; stroke-width: 3; filter: drop-shadow(0 0 6px rgba(251,191,36,0.4)); }
+		50% { stroke: #38bdf8; stroke-width: 4; filter: drop-shadow(0 0 14px rgba(56,189,248,0.6)); }
+	}
 
 	.seat-label { fill: var(--text-dim); font-size: 8px; font-weight: 800; pointer-events: none; }
 	.seat-group.mine .seat-label { fill: var(--accent); }

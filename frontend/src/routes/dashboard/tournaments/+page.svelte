@@ -107,9 +107,7 @@
 		tournaments = await api.get('/tournaments');
 		try { games = await api.get('/tournaments/games'); } catch { games = []; }
 		try { currentUser = await api.get('/me'); } catch {}
-		if (currentUser?.is_admin) {
-			try { allUsers = await api.get('/room/users'); } catch {}
-		}
+		try { allUsers = await api.get('/room/users'); } catch {}
 	}
 
 	async function selectTournament(id) {
@@ -415,6 +413,9 @@
 	// Player hover tracking for bracket path highlight
 	let hoveredPlayerId = null;
 
+	// Seat map: userId -> seatId (for bracket seat badges)
+	$: seatMap = Object.fromEntries(allUsers.filter(u => u.seat_id).map(u => [u.id, u.seat_id]));
+
 	$: selected = tournaments.find(t => t.id === selectedId);
 	$: selectedGame = selected ? getGame(selected.game_id) : null;
 	$: gameMap = Object.fromEntries(games.map(g => [g.id, g]));
@@ -494,13 +495,16 @@
 		</div>
 		<div class="t-list">
 			{#each tournaments as t}
-				<button class="t-item {selectedId === t.id ? 'active' : ''}" on:click={() => selectTournament(t.id)} style="background-image: url({gameMap[t.game_id]?.image_url || ''})">
+				<button class="t-item {selectedId === t.id ? 'active' : ''} {t.status.toLowerCase()}" on:click={() => selectTournament(t.id)} style="background-image: url({gameMap[t.game_id]?.image_url || ''})">
+					{#if t.status === 'CLOSED'}<div class="t-item-checkered"></div>{/if}
 					<div class="t-item-overlay">
 						<div class="t-item-info">
 							<span class="t-item-name">{t.name}</span>
 							<span class="t-item-meta">{gameMap[t.game_id]?.name || '—'}</span>
 						</div>
-						<span class="t-dot {t.status.toLowerCase()}"></span>
+						<span class="t-status-badge {t.status.toLowerCase()}">
+							{t.status === 'OPEN' ? '🟢 Ouvert' : t.status === 'RUNNING' ? '🔵 En cours' : t.status === 'CLOSED' ? '🏁 Clôturé' : '⚪ Terminé'}
+						</span>
 					</div>
 				</button>
 			{:else}
@@ -713,6 +717,7 @@
 														{#if match.score?.[pi] > 0}#{match.score[pi]}{:else}—{/if}
 													</span>
 													<span class="ffa-name">{getPlayerName(playerId, nameMap)}</span>
+													{#if playerId > 0 && seatMap[playerId]}<a href="/dashboard/map?highlight={seatMap[playerId]}" class="seat-badge" title="Voir sur le plan">📍{seatMap[playerId]}</a>{/if}
 													{#if canEditPlayerScore(match, pi, myTeamSlotId) && isLatest}
 														<input type="number" class="score-input ffa-input" value={match.score?.[pi] || ''} placeholder="Pos."
 															on:change={(e) => updateFFAPlacement(match, pi, e.target.value)} min="1" max={match.p.length} />
@@ -747,7 +752,7 @@
 											{@const s1 = match.score?.[1] ?? 0}
 											{@const isDone = s0 > 0 && s1 > 0 && s0 !== s1}
 											<div class="rr-match {isDone ? 'match-done' : ''}">
-												<span class="rr-p {isDone && (lowerIsBetter ? s0 < s1 : s0 > s1) ? 'winner' : ''}">{getPlayerName(match.p[0], nameMap)}</span>
+												<span class="rr-p {isDone && (lowerIsBetter ? s0 < s1 : s0 > s1) ? 'winner' : ''}">{getPlayerName(match.p[0], nameMap)}{#if match.p[0] > 0 && seatMap[match.p[0]]}<a href="/dashboard/map?highlight={seatMap[match.p[0]]}" class="seat-badge" title="Voir sur le plan">📍{seatMap[match.p[0]]}</a>{/if}</span>
 												<div class="rr-scores">
 													{#if canEditPlayerScore(match, 0, myTeamSlotId)}
 														<input type="number" class="score-input" value={s0 || ''} placeholder="—" on:change={(e) => updateScore(match, 0, e.target.value)} min="0" disabled={match.p[0] === 0 || match.p[1] === 0} />
@@ -761,7 +766,7 @@
 														<span class="rr-score">{s1}</span>
 													{/if}
 												</div>
-												<span class="rr-p {isDone && (lowerIsBetter ? s1 < s0 : s1 > s0) ? 'winner' : ''}">{getPlayerName(match.p[1], nameMap)}</span>
+												<span class="rr-p {isDone && (lowerIsBetter ? s1 < s0 : s1 > s0) ? 'winner' : ''}">{getPlayerName(match.p[1], nameMap)}{#if match.p[1] > 0 && seatMap[match.p[1]]}<a href="/dashboard/map?highlight={seatMap[match.p[1]]}" class="seat-badge" title="Voir sur le plan">📍{seatMap[match.p[1]]}</a>{/if}</span>
 											</div>
 										{/each}
 									</div>
@@ -792,6 +797,7 @@
 															<!-- svelte-ignore a11y-no-static-element-interactions -->
 															<div class="player-row {match.p[0] ? 'filled' : ''} {isDone && (lowerIsBetter ? s0 < s1 : s0 > s1) ? 'winner' : ''} {isDone && (lowerIsBetter ? s0 > s1 : s0 < s1) ? 'loser' : ''}" on:mouseenter={() => { if(match.p[0]) hoveredPlayerId = match.p[0]; }} on:mouseleave={() => hoveredPlayerId = null}>
 																<span class="player-name">{getPlayerName(match.p[0], nameMap)}</span>
+																{#if match.p[0] > 0 && seatMap[match.p[0]]}<a href="/dashboard/map?highlight={seatMap[match.p[0]]}" class="seat-badge" title="Voir sur le plan">📍{seatMap[match.p[0]]}</a>{/if}
 																{#if canEditPlayerScore(match, 0, myTeamSlotId)}
 																	<input type="number" class="score-input" value={s0 || ''} placeholder="—" on:change={(e) => updateScore(match, 0, e.target.value)} min="0" disabled={match.p[0] === 0 || match.p[1] === 0} />
 																{:else}
@@ -802,6 +808,7 @@
 															<!-- svelte-ignore a11y-no-static-element-interactions -->
 															<div class="player-row {match.p[1] ? 'filled' : ''} {isDone && (lowerIsBetter ? s1 < s0 : s1 > s0) ? 'winner' : ''} {isDone && (lowerIsBetter ? s1 > s0 : s1 < s0) ? 'loser' : ''}" on:mouseenter={() => { if(match.p[1]) hoveredPlayerId = match.p[1]; }} on:mouseleave={() => hoveredPlayerId = null}>
 																<span class="player-name">{getPlayerName(match.p[1], nameMap)}</span>
+																{#if match.p[1] > 0 && seatMap[match.p[1]]}<a href="/dashboard/map?highlight={seatMap[match.p[1]]}" class="seat-badge" title="Voir sur le plan">📍{seatMap[match.p[1]]}</a>{/if}
 																{#if canEditPlayerScore(match, 1, myTeamSlotId)}
 																	<input type="number" class="score-input" value={s1 || ''} placeholder="—" on:change={(e) => updateScore(match, 1, e.target.value)} min="0" disabled={match.p[0] === 0 || match.p[1] === 0} />
 																{:else}
@@ -833,6 +840,7 @@
 																<!-- svelte-ignore a11y-no-static-element-interactions -->
 																<div class="player-row {match.p[0] ? 'filled' : ''} {isDone && (lowerIsBetter ? s0 < s1 : s0 > s1) ? 'winner' : ''} {isDone && (lowerIsBetter ? s0 > s1 : s0 < s1) ? 'loser' : ''}" on:mouseenter={() => { if(match.p[0]) hoveredPlayerId = match.p[0]; }} on:mouseleave={() => hoveredPlayerId = null}>
 																	<span class="player-name">{getPlayerName(match.p[0], nameMap)}</span>
+																	{#if match.p[0] > 0 && seatMap[match.p[0]]}<a href="/dashboard/map?highlight={seatMap[match.p[0]]}" class="seat-badge" title="Voir sur le plan">📍{seatMap[match.p[0]]}</a>{/if}
 																	{#if canEditPlayerScore(match, 0, myTeamSlotId)}
 																		<input type="number" class="score-input" value={s0 || ''} placeholder="—" on:change={(e) => updateScore(match, 0, e.target.value)} min="0" disabled={match.p[0] === 0 || match.p[1] === 0} />
 																	{:else}
@@ -843,6 +851,7 @@
 																<!-- svelte-ignore a11y-no-static-element-interactions -->
 																<div class="player-row {match.p[1] ? 'filled' : ''} {isDone && (lowerIsBetter ? s1 < s0 : s1 > s0) ? 'winner' : ''} {isDone && (lowerIsBetter ? s1 > s0 : s1 < s0) ? 'loser' : ''}" on:mouseenter={() => { if(match.p[1]) hoveredPlayerId = match.p[1]; }} on:mouseleave={() => hoveredPlayerId = null}>
 																	<span class="player-name">{getPlayerName(match.p[1], nameMap)}</span>
+																	{#if match.p[1] > 0 && seatMap[match.p[1]]}<a href="/dashboard/map?highlight={seatMap[match.p[1]]}" class="seat-badge" title="Voir sur le plan">📍{seatMap[match.p[1]]}</a>{/if}
 																	{#if canEditPlayerScore(match, 1, myTeamSlotId)}
 																		<input type="number" class="score-input" value={s1 || ''} placeholder="—" on:change={(e) => updateScore(match, 1, e.target.value)} min="0" disabled={match.p[0] === 0 || match.p[1] === 0} />
 																	{:else}
@@ -1073,19 +1082,30 @@
 	.sidebar-header h2 { font-size: 0.95rem; margin: 0; }
 	.t-count { font-size: 0.65rem; background: var(--accent-soft); color: var(--accent); padding: 0.1rem 0.4rem; border-radius: 10px; font-weight: 800; border: 1px solid rgba(59,130,246,0.15); }
 	.t-list { flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 0.4rem; padding: 0.5rem; }
-	.t-item { position: relative; display: flex; align-items: flex-end; min-height: 72px; padding: 0; background-size: cover; background-position: center; background-color: rgba(0,0,0,0.4); border: 1px solid transparent; border-radius: 10px; cursor: pointer; transition: all 0.2s; text-align: left; color: white; width: 100%; overflow: hidden; }
-	.t-item:hover { border-color: var(--glass-border); transform: scale(1.02); box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
+	.t-item { position: relative; display: flex; align-items: flex-end; min-height: 72px; padding: 0; background-size: cover; background-position: center; background-color: rgba(0,0,0,0.4); border: 1px solid #1e293b; border-radius: 10px; cursor: pointer; transition: all 0.2s; text-align: left; color: white; width: 100%; overflow: hidden; }
+	.t-item::before { content: ''; position: absolute; inset: 0; z-index: 1; pointer-events: none; border-radius: inherit; transition: opacity 0.2s; opacity: 0; }
+	.t-item.open::before { background: radial-gradient(ellipse at center, transparent 20%, rgba(34,197,94,0.28) 100%); opacity: 1; }
+	.t-item.running::before { background: radial-gradient(ellipse at center, transparent 20%, rgba(59,130,246,0.3) 100%); opacity: 1; }
+	.t-item.done::before { background: radial-gradient(ellipse at center, transparent 10%, rgba(100,116,139,0.35) 100%); opacity: 1; }
+	.t-item.closed::before { background: radial-gradient(ellipse at center, transparent 10%, rgba(100,116,139,0.4) 100%); opacity: 1; }
+	.t-item:hover { border-color: rgba(71,85,105,0.7); transform: scale(1.02); box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
 	.t-item.active { border-color: var(--accent); box-shadow: 0 0 12px rgba(59,130,246,0.3); }
-	.t-item-overlay { display: flex; align-items: flex-end; justify-content: space-between; width: 100%; padding: 0.6rem 0.75rem; background: linear-gradient(to top, rgba(10,15,30,0.92) 0%, rgba(10,15,30,0.6) 50%, rgba(10,15,30,0.15) 100%); }
+	.t-item-checkered { position: absolute; top: 0; right: 0; width: 35%; height: 100%; z-index: 1; pointer-events: none;
+		background: repeating-conic-gradient(rgba(255,255,255,0.75) 0% 25%, rgba(20,20,20,0.75) 0% 50%) 0 0 / 14px 14px;
+		mask-image: linear-gradient(to left, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.25) 50%, transparent 100%), linear-gradient(to top, transparent 0%, rgba(0,0,0,0.5) 25%, rgba(0,0,0,0.5) 75%, transparent 100%);
+		-webkit-mask-image: linear-gradient(to left, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.25) 50%, transparent 100%), linear-gradient(to top, transparent 0%, rgba(0,0,0,0.5) 25%, rgba(0,0,0,0.5) 75%, transparent 100%);
+		mask-composite: intersect; -webkit-mask-composite: source-in;
+	}
+	.t-item-overlay { position: absolute; inset: 0; z-index: 2; display: flex; align-items: flex-end; justify-content: space-between; padding: 0.6rem 0.75rem; background: linear-gradient(to top, rgba(10,15,30,0.92) 0%, rgba(10,15,30,0.45) 55%, transparent 100%), radial-gradient(ellipse at center, transparent 50%, rgba(10,15,30,0.3) 100%); }
 	.t-item-info { flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.1rem; }
 	.t-item-name { font-size: 0.82rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 4px rgba(0,0,0,0.6); }
 	.t-item-meta { font-size: 0.65rem; color: rgba(255,255,255,0.55); text-shadow: 0 1px 2px rgba(0,0,0,0.5); }
 	.t-item.active .t-item-name { color: #60a5fa; }
-	.t-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-bottom: 0.15rem; }
-	.t-dot.open { background: var(--success); box-shadow: 0 0 6px var(--success); }
-	.t-dot.running { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
-	.t-dot.done { background: var(--text-muted); }
-	.t-dot.closed { background: #10b981; box-shadow: 0 0 4px rgba(16,185,129,0.4); }
+	.t-status-badge { flex-shrink: 0; padding: 0.15rem 0.45rem; border-radius: 6px; font-size: 0.55rem; font-weight: 700; letter-spacing: 0.02em; white-space: nowrap; line-height: 1.3; text-shadow: 0 1px 2px rgba(0,0,0,0.4); }
+	.t-status-badge.open { background: rgba(34,197,94,0.25); color: #4ade80; border: 1px solid rgba(34,197,94,0.4); }
+	.t-status-badge.running { background: rgba(59,130,246,0.25); color: #60a5fa; border: 1px solid rgba(59,130,246,0.4); }
+	.t-status-badge.done { background: rgba(100,116,139,0.25); color: #94a3b8; border: 1px solid rgba(100,116,139,0.35); }
+	.t-status-badge.closed { background: rgba(16,185,129,0.2); color: #34d399; border: 1px solid rgba(16,185,129,0.35); }
 	.t-empty-sidebar { padding: 2rem 1rem; text-align: center; }
 
 	/* === DETAIL === */
@@ -1096,7 +1116,7 @@
 	.hero-content h1 { font-size: 1.5rem; margin: 0; color: white; text-shadow: 0 2px 8px rgba(0,0,0,0.5); }
 
 	/* Checkered flag for CLOSED tournaments */
-	.hero-checkered { position: absolute; top: 0; right: 0; width: 25%; height: 100%; z-index: 1; pointer-events: none;
+	.hero-checkered { position: absolute; top: 0; right: 0; width: 75%; height: 100%; z-index: 1; pointer-events: none;
 		background: repeating-conic-gradient(rgba(255,255,255,0.85) 0% 25%, rgba(20,20,20,0.85) 0% 50%) 0 0 / 22px 22px;
 		mask-image: linear-gradient(to left, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.35) 50%, transparent 100%), linear-gradient(to top, transparent 0%, rgba(0,0,0,0.5) 30%, rgba(0,0,0,0.5) 70%, transparent 100%);
 		-webkit-mask-image: linear-gradient(to left, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.35) 50%, transparent 100%), linear-gradient(to top, transparent 0%, rgba(0,0,0,0.5) 30%, rgba(0,0,0,0.5) 70%, transparent 100%);
@@ -1149,6 +1169,8 @@
 	.bracket-match { transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s; }
 	.player-row { cursor: default; }
 	.player-name { flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+	.seat-badge { flex-shrink: 0; display: inline-flex; align-items: center; padding: 0.1rem 0.35rem; margin-left: 0.3rem; font-size: 0.55rem; font-weight: 700; color: var(--accent); background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.25); border-radius: 4px; text-decoration: none; white-space: nowrap; transition: all 0.15s; vertical-align: middle; }
+	.seat-badge:hover { background: rgba(59,130,246,0.25); color: #93c5fd; border-color: rgba(59,130,246,0.5); transform: translateY(-1px); }
 	.match-divider { height: 1px; background: var(--glass-border); }
 	.score-input { width: 42px; padding: 0.2rem 0.3rem; text-align: center; font-size: 0.75rem; font-weight: 700; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 4px; color: var(--accent); -moz-appearance: textfield; }
 	.score-input::-webkit-inner-spin-button, .score-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }

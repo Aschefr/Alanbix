@@ -587,3 +587,39 @@ future_axes:
       2) Backend reconstruit _team_map dans close_tournament si absent,
       3) Le nameMap Svelte consulte teams[] en plus de config._team_map.
     priority: high
+
+  - id: AXE-06
+    title: "Badge Siège Cliquable dans le Bracket → Navigation Plan de Salle"
+    status: DONE
+    description: >
+      Afficher le numéro de poste (seat_id) de chaque joueur dans le bracket sous forme
+      d'un petit badge cliquable (📍 T1_S3). Au clic, navigation vers /dashboard/map
+      avec paramètre ?highlight=SEAT_ID. La page Plan de Salle lit ce paramètre et
+      met en surbrillance le siège correspondant pendant 5 secondes (animation pulsante).
+      Nécessite : 1) Charger les seat_id des participants dans la page tournois,
+      2) Afficher un badge compact à côté du nom dans le bracket (duel + FFA + round_robin),
+      3) Ajouter la gestion du query param ?highlight sur la page map avec auto-pan vers le siège.
+    priority: medium
+
+  - id: AXE-07
+    title: "Page Joueurs & Messagerie Privée"
+    status: DONE
+    description: >
+      Créer une nouvelle page "Joueurs" (entre Tournois et Notifications).
+      Fonctionnalités : 1) Liste de tous les joueurs groupés par équipe. Affiche un chat à droite. 
+      2) Clic sur joueur -> Affichage du détail des points (historique des tournois).
+      3) Bouton "Voir siège" -> Navigation vers /map avec highlight.
+      4) Système de messagerie privée (P2P ou Admin-to-User).
+      5) Colonne de chat à droite pour la conversation active.
+      6) Badge de notifications (bulle rouge) sur le bouton "Joueurs" de la sidebar pour les messages non lus.
+    priority: high
+
+  - id: AXE-08
+    title: "Vérification et Extraction i18n"
+    status: TODO
+    description: >
+      Parcourir l'ensemble des composants Svelte et extraire tous les textes statiques
+      vers le fichier de traduction backend/static/i18n/fr.json.
+      S'assurer qu'aucun texte n'est hardcodé en HTML/JS pour garantir un support multi-langue
+      complet (Anglais notamment) dans les futures versions.
+    priority: medium

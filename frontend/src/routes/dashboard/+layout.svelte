@@ -4,12 +4,15 @@
 	import { api } from '$lib/api';
 	import { connectWS, wsMessageStore } from '$lib/ws';
 	import { invalidateAll } from '$app/navigation';
+	import { pmUnreadCount } from '$lib/pmStore';
 
 	let user = { username: '...', is_admin: false };
 	let unsub = null;
 	let isDark = true;
 	let notifCount = 0;
 	let notifBounce = false;
+	let pmBounce = false;
+	let lastPmSender = null;
 	let iaInstances = [];
 	let iaInterval = null;
 
@@ -23,6 +26,10 @@
 				const nc = await api.get('/notifications/unread-count');
 				notifCount = nc.count || 0;
 			} catch {}
+			try {
+				const pc = await api.get('/players/messages/unread-count');
+				pmUnreadCount.set(pc.count || 0);
+			} catch {}
 			unsub = wsMessageStore.subscribe(msg => {
 				if (msg && msg.type) {
 					invalidateAll();
@@ -30,9 +37,20 @@
 					if (msg.type === 'notification_new') {
 						api.get('/notifications/unread-count').then(r => {
 							notifCount = r.count || 0;
-							// Trigger bounce animation
 							notifBounce = true;
 							setTimeout(() => notifBounce = false, 600);
+						}).catch(() => {});
+					}
+					if (msg.type === 'private_message_new') {
+						// Track sender for auto-open on Players page
+						if (msg.sender_id && msg.sender_id !== user.id) {
+							lastPmSender = msg.sender_id;
+							localStorage.setItem('alanbix_pm_last_sender', String(msg.sender_id));
+						}
+						api.get('/players/messages/unread-count').then(r => {
+							pmUnreadCount.set(r.count || 0);
+							pmBounce = true;
+							setTimeout(() => pmBounce = false, 600);
 						}).catch(() => {});
 					}
 				}
@@ -95,6 +113,13 @@
 			<a href="/dashboard/tournaments" class="nav-item">
 				<span class="icon">🏆</span>
 				<span class="label">Tournois</span>
+			</a>
+			<a href="/dashboard/players{$pmUnreadCount > 0 && lastPmSender ? '?chat=' + lastPmSender : ''}" class="nav-item pm-nav">
+				<span class="icon">👥</span>
+				<span class="label">Joueurs</span>
+				{#if $pmUnreadCount > 0}
+					<span class="pm-count-badge" class:bounce={pmBounce}>{$pmUnreadCount}</span>
+				{/if}
 			</a>
 			<a href="/dashboard/notifications" class="nav-item notif-nav" on:click={() => { api.get('/notifications/unread-count').then(r => notifCount = r.count || 0).catch(() => {}); }}>
 				<span class="icon">🔔</span>
@@ -395,6 +420,22 @@
 		50% { transform: scale(0.9); }
 		70% { transform: scale(1.2); }
 		100% { transform: scale(1); }
+	}
+
+	/* PM badge (same pattern as notif) */
+	.pm-nav { position: relative; }
+	.pm-count-badge {
+		position: absolute; top: 4px; right: 8px;
+		min-width: 18px; height: 18px; line-height: 18px;
+		padding: 0 5px; border-radius: 10px;
+		background: #8b5cf6; color: white;
+		font-size: 0.6rem; font-weight: 800; text-align: center;
+		box-shadow: 0 0 8px rgba(139,92,246,0.5);
+		animation: notif-pulse 2s ease-in-out infinite;
+		will-change: opacity;
+	}
+	.pm-count-badge.bounce {
+		animation: notif-bounce 0.6s ease;
 	}
 
 	/* IA Status Widget */
