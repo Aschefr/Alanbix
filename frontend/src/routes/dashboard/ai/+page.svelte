@@ -31,6 +31,8 @@
 	let loading = false;
 
 	// Live token counting — only count messages that Ollama will actually receive
+	// +1300 tokens overhead for system prompt + user identity + tool definitions
+	const SYSTEM_OVERHEAD_TOKENS = 1300;
 	$: liveTokens = (() => {
 		let activeMessages = compression.compressed_at
 			? messages.filter(m => !m.timestamp || m.timestamp > compression.compressed_at)
@@ -38,7 +40,7 @@
 		let total = activeMessages.reduce((sum, m) => sum + (m.content ? m.content.length : 0), 0);
 		if (compression.context) total += compression.context.length;
 		total += query.length;
-		return Math.ceil(total / 3.5);
+		return Math.ceil(total / 3.5) + SYSTEM_OVERHEAD_TOKENS;
 	})();
 	$: contextWindow = iaConfig.context_window || 4096;
 	$: tokenPct = Math.min(100, (liveTokens / contextWindow) * 100);
@@ -74,6 +76,49 @@
 	let iaBlocked = false;
 	let autoCompressNotif = false;
 	let compressing = false;
+
+	// Queue state (G-52)
+	let queuePosition = 0;
+	let queueEstWait = 0;
+	let queueEntryId = null;
+	let queued = false;
+	let busyOtherConv = false; // true when user has active request in ANOTHER conversation
+
+	// Rotating typing messages (Astérix/Alanbix themed)
+	const typingMessages = [
+		'🧪 Alanbix distille une réponse…',
+		'📜 Alanbix consulte les parchemins…',
+		'🧠 Alanbix réfléchit intensément…',
+		'⚗️ La potion de réponse mijote…',
+		'🏛️ Alanbix consulte le sénat…',
+		'🗡️ Alanbix combat les bugs gaulois…',
+		'🐗 Alanbix chasse le sanglier de données…',
+		'🍖 Pause banquet… non, Alanbix travaille !',
+		'🪄 Par Toutatis, ça arrive…',
+		'🛡️ Alanbix forge sa réponse…',
+		'📖 Alanbix tourne les pages du savoir…',
+		'🌿 Cueillette du gui numérique en cours…',
+		'🏺 L\'alambic tourne à plein régime…',
+		'⭐ Alanbix aligne les menhirs…',
+	];
+	let typingMsgIdx = 0;
+	let typingFade = true;
+	let typingInterval = null;
+	$: typingText = typingMessages[typingMsgIdx];
+	$: if (loading && !compressing && !queued) {
+		if (!typingInterval) {
+			typingMsgIdx = Math.floor(Math.random() * typingMessages.length);
+			typingInterval = setInterval(() => {
+				typingFade = false;
+				setTimeout(() => {
+					typingMsgIdx = (typingMsgIdx + 1) % typingMessages.length;
+					typingFade = true;
+				}, 200);
+			}, 5000);
+		}
+	} else {
+		if (typingInterval) { clearInterval(typingInterval); typingInterval = null; }
+	}
 
 	// Image attachment
 	let pendingImage = null;      // File object
@@ -166,6 +211,55 @@
 		compression = res.compression || { mode: null };
 		adminOverride = res.admin_override || false;
 		scrollToBottom();
+
+		// Check if user has an active/queued AI request FOR THIS conversation
+		busyOtherConv = false;
+		try {
+			const qs = await api.get('/ia/queue/status');
+			if (qs && (qs.status === 'processing' || qs.status === 'queued')) {
+				if (qs.conversation_id === id) {
+					loading = true;
+					queued = qs.status === 'queued';
+					queuePosition = qs.position || 0;
+					queueEstWait = qs.estimated_wait || 0;
+					queueEntryId = qs.entry_id || null;
+					// Add a placeholder bot message to show the typing indicator
+					const lastMsg = messages[messages.length - 1];
+					if (!lastMsg || lastMsg.role !== 'bot' || lastMsg.content !== '') {
+						messages = [...messages, { id: Date.now(), role: 'bot', content: '' }];
+					}
+					scrollToBottom();
+					// Record initial DB message count for change detection
+					const initialCount = res.messages.length;
+					// Poll for completion: check if bot message appeared in DB
+					const pollId = setInterval(async () => {
+						if (activeId !== id) { clearInterval(pollId); return; }
+						try {
+							const fresh = await api.get(`/ia/conversations/${id}/messages`);
+							const qsNow = await api.get('/ia/queue/status');
+							if (qsNow && qsNow.status === 'queued') {
+								queuePosition = qsNow.position || 0;
+								queueEstWait = qsNow.estimated_wait || 0;
+							} else if (qsNow && qsNow.status === 'processing') {
+								queued = false; queuePosition = 0;
+							}
+							if (fresh.messages.length > initialCount || !qsNow || !qsNow.status) {
+								clearInterval(pollId);
+								messages = fresh.messages;
+								usage = fresh.usage || { estimated_tokens: 0 };
+								loading = false;
+								queued = false; queuePosition = 0; queueEntryId = null;
+								scrollToBottom();
+							}
+						} catch { clearInterval(pollId); loading = false; }
+					}, 2000);
+				} else {
+					// Request is for a DIFFERENT conversation — block input here
+					busyOtherConv = true;
+					queueEntryId = qs.entry_id || null;
+				}
+			}
+		} catch {}
 	}
 
 	async function newConversation() {
@@ -305,6 +399,20 @@
 		await selectConversation(activeId);
 	}
 
+	async function cancelQueue() {
+		try {
+			if (queueEntryId) {
+				await api.delete(`/ia/queue/${queueEntryId}`);
+			} else {
+				await api.delete('/ia/queue/user/cancel');
+			}
+		} catch {}
+		queued = false;
+		queuePosition = 0;
+		queueEntryId = null;
+		loading = false;
+	}
+
 	async function send() {
 		if ((!query && !pendingImage) || loading || !activeId) return;
 
@@ -337,7 +445,9 @@
 
 		messages = [...messages, { id: Date.now(), role: 'user', content: userMsg, image_path: imagePath }];
 		loading = true;
-
+		queued = false;
+		queuePosition = 0;
+		queueEntryId = null;
 
 		let botMsgIdx = messages.length;
 		messages = [...messages, { id: Date.now()+1, role: 'bot', content: '' }];
@@ -372,9 +482,28 @@
 						const dataStr = line.replace('data: ', '');
 						try {
 							const data = JSON.parse(dataStr);
+							// Queue events (G-52)
+							if (data.queued) {
+								queued = true;
+								queuePosition = data.position || 1;
+								queueEstWait = data.estimated_wait || 0;
+								queueEntryId = data.entry_id || null;
+								continue;
+							}
+							if (data.position !== undefined && !data.done) {
+								queuePosition = data.position;
+								queueEstWait = data.estimated_wait || 0;
+								continue;
+							}
+							if (data.processing) {
+								queued = false;
+								queuePosition = 0;
+								continue;
+							}
+							// Normal token streaming
 							if (data.text) {
 								messages[botMsgIdx].content += data.text;
-								messages = messages; // trigger Svelte reactivity for markdown re-render
+								messages = messages; // trigger Svelte reactivity
 								scrollToBottom();
 							}
 							if (data.done) {
@@ -382,7 +511,7 @@
 								if (data.estimated_tokens) {
 									usage = { estimated_tokens: data.estimated_tokens };
 								}
-								// Auto-title: backend generates title inline in SSE stream (G-39)
+								// Auto-title: backend generates title inline in SSE stream (G-50)
 								if (data.title) {
 									const conv = conversations.find(c => c.id === activeId);
 									if (conv) conv.title = data.title;
@@ -397,6 +526,9 @@
 			alert(e.message);
 		} finally {
 			loading = false;
+			queued = false;
+			queuePosition = 0;
+			queueEntryId = null;
 			await selectConversation(activeId);
 		}
 	}
@@ -571,7 +703,7 @@
 										</div>
 									{/if}
 									{#if msg.content === '' && loading && msg.role === 'bot' && msg.id === messages[messages.length-1].id}
-										<span class="typing-indicator">{compressing ? '🗜️ Compression du contexte en cours...' : 'Alanbix rédige...'}</span>
+										<span class="typing-indicator" class:typing-fade-in={typingFade} class:typing-fade-out={!typingFade}>{compressing ? '🗜️ Compression du contexte en cours...' : queued ? `⏳ Position #${queuePosition} dans la file...` : typingText}</span>
 									{/if}
 								{/if}
 							</div>
@@ -614,7 +746,25 @@
 				</div>
 			{/if}
 
-			<form class="input-area" on:submit|preventDefault={send}>
+			{#if queued && queuePosition > 0}
+				<div class="queue-banner">
+					<div class="queue-banner-content">
+						<span class="queue-icon">⏳</span>
+						<div class="queue-info">
+							<span class="queue-label">File d'attente IA — Position <strong>#{queuePosition}</strong></span>
+							{#if queueEstWait > 0}
+								<span class="queue-wait">Temps estimé : ~{queueEstWait}s</span>
+							{/if}
+						</div>
+						<button class="queue-cancel-btn" on:click={cancelQueue} title="Annuler">❌ Annuler</button>
+					</div>
+					<div class="queue-progress-bg">
+						<div class="queue-progress-fill"></div>
+					</div>
+				</div>
+			{/if}
+
+			<form class="input-area" class:input-disabled={loading || busyOtherConv} on:submit|preventDefault={send}>
 				{#if pendingImagePreview}
 					<div class="pending-image-preview">
 						<img src={pendingImagePreview} alt="Preview" />
@@ -623,9 +773,15 @@
 				{/if}
 				<div class="input-row">
 					<input type="file" accept="image/*" bind:this={fileInput} on:change={handleFileSelect} style="display:none" />
-					<button type="button" class="btn-attach" on:click={() => fileInput?.click()} title="Joindre une image" disabled={iaBlocked}>📎</button>
-					<input type="text" bind:value={query} placeholder="{iaBlocked ? 'Accès IA suspendu...' : 'Posez une question sur la LAN, les règles, le planning...'}" disabled={loading || iaBlocked} on:paste={handlePaste} />
-					<button class="btn-primary" type="submit" disabled={loading || iaBlocked}>Envoyer</button>
+					<button type="button" class="btn-attach" on:click={() => fileInput?.click()} title="Joindre une image" disabled={iaBlocked || loading || busyOtherConv}>📎</button>
+					<input type="text" bind:value={query} placeholder="{iaBlocked ? 'Accès IA suspendu...' : busyOtherConv ? 'IA occupée dans une autre conversation…' : loading ? 'Alanbix rédige une réponse…' : 'Posez une question sur la LAN, les règles, le planning...'}" disabled={loading || iaBlocked || busyOtherConv} title={busyOtherConv ? 'Une requête IA est déjà en cours dans une autre conversation' : loading ? 'Veuillez patienter — l\'IA génère une réponse' : ''} on:paste={handlePaste} />
+					{#if loading}
+						<button class="btn-stop" type="button" on:click={cancelQueue} title="Interrompre la génération">⏹ Arrêter</button>
+					{:else if busyOtherConv}
+						<button class="btn-stop" type="button" on:click={async () => { await cancelQueue(); busyOtherConv = false; }} title="Annuler la requête en cours">⏹ Libérer</button>
+					{:else}
+						<button class="btn-primary" type="submit" disabled={iaBlocked}>Envoyer</button>
+					{/if}
 				</div>
 			</form>
 		{:else}
@@ -727,10 +883,21 @@
 	.action-btn { background: none; border: none; cursor: pointer; font-size: 0.8rem; filter: grayscale(1); transition: filter 0.2s; }
 	.action-btn:hover { filter: grayscale(0); }
 	
-	.typing-indicator { font-style: italic; opacity: 0.6; }
+	.typing-indicator { font-style: italic; opacity: 0.6; transition: opacity 0.2s ease; }
+	.typing-fade-in { opacity: 0.6; }
+	.typing-fade-out { opacity: 0; }
 
-	.input-area { padding: 1.5rem 2rem; display: flex; gap: 1rem; border-top: 1px solid var(--glass-border); }
+	.input-area { padding: 1.5rem 2rem; display: flex; gap: 1rem; border-top: 1px solid var(--glass-border); transition: opacity 0.3s; }
+	.input-area.input-disabled { opacity: 0.55; }
+	.input-area.input-disabled input { cursor: not-allowed; background: var(--surface-sunken); }
 	.input-area input { flex-grow: 1; }
+	.btn-stop {
+		padding: 0.6rem 1.2rem; font-size: 0.85rem; font-weight: 700;
+		color: #ef4444; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.35);
+		border-radius: var(--radius-md); cursor: pointer; transition: all 0.2s;
+		white-space: nowrap; display: flex; align-items: center; gap: 0.3rem;
+	}
+	.btn-stop:hover { background: rgba(239,68,68,0.2); border-color: #ef4444; }
 	
 	.empty-chat { flex-grow: 1; justify-content: center; text-align: center; }
 	.large-icon { font-size: 4rem; margin-bottom: 1rem; }
@@ -883,4 +1050,42 @@
 		animation: compressIn 0.4s ease-out;
 	}
 	@keyframes compressIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+
+	/* Queue banner (G-52) — no backdrop-filter per G-49 */
+	.queue-banner {
+		padding: 0.6rem 1.5rem; margin: 0;
+		background: rgba(245, 158, 11, 0.1);
+		border-top: 2px solid rgba(245, 158, 11, 0.4);
+		border-bottom: 2px solid rgba(245, 158, 11, 0.4);
+		animation: slideDown 0.35s cubic-bezier(0.16,1,0.3,1);
+	}
+	.queue-banner-content {
+		display: flex; align-items: center; gap: 0.75rem;
+	}
+	.queue-icon { font-size: 1.2rem; }
+	.queue-info { flex: 1; display: flex; flex-direction: column; gap: 0.15rem; }
+	.queue-label { font-size: 0.85rem; color: #fbbf24; font-weight: 500; }
+	.queue-label strong { color: #f59e0b; font-weight: 800; }
+	.queue-wait { font-size: 0.72rem; color: var(--text-muted); }
+	.queue-cancel-btn {
+		background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.3);
+		color: #f87171; border-radius: 6px; padding: 0.3rem 0.7rem;
+		font-size: 0.72rem; font-weight: 700; cursor: pointer; transition: all 0.2s;
+		white-space: nowrap;
+	}
+	.queue-cancel-btn:hover { background: rgba(239, 68, 68, 0.25); border-color: #ef4444; }
+	.queue-progress-bg {
+		height: 3px; background: rgba(245, 158, 11, 0.15); border-radius: 2px;
+		margin-top: 0.4rem; overflow: hidden;
+	}
+	.queue-progress-fill {
+		height: 100%; width: 40%;
+		background: linear-gradient(90deg, #f59e0b, #fbbf24);
+		animation: queueSlide 1.5s ease-in-out infinite;
+		border-radius: 2px;
+	}
+	@keyframes queueSlide {
+		0% { transform: translateX(-100%); }
+		100% { transform: translateX(350%); }
+	}
 </style>

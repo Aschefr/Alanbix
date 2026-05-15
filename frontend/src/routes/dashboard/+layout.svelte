@@ -15,6 +15,8 @@
 	let lastPmSender = null;
 	let iaInstances = [];
 	let iaInterval = null;
+	let iaQueueSize = 0;
+	let iaQueueActive = 0;
 
 	onMount(async () => {
 		isDark = (localStorage.getItem('alanbix_theme') || 'dark') === 'dark';
@@ -52,6 +54,11 @@
 							pmBounce = true;
 							setTimeout(() => pmBounce = false, 600);
 						}).catch(() => {});
+					}
+					// AI queue updates (G-52)
+					if (msg.type === 'ia_queue_update') {
+						iaQueueSize = msg.queue_size || 0;
+						iaQueueActive = msg.active_count || 0;
 					}
 				}
 			});
@@ -152,10 +159,10 @@
 		</div>
 
 		<div class="nav-footer">
-			{#if user.is_admin && iaInstances.length > 0}
+			{#if user.is_admin && iaInstances.filter(i => i.enabled !== false).length > 0}
 				<div class="ia-status-widget">
 					<div class="ia-status-title">🖥️ IA Instances</div>
-					{#each iaInstances as inst}
+					{#each iaInstances.filter(i => i.enabled !== false) as inst}
 						<div class="ia-inst-row" title="{inst.url} — {inst.latency_ms || 0}ms{inst.busy ? ' — Génération en cours' : ''}">
 							<span class="ia-dot {inst.busy ? 'busy' : inst.online ? 'online' : 'offline'}"></span>
 							<span class="ia-inst-label">{inst.label || inst.model || '?'}</span>
@@ -168,6 +175,12 @@
 							{/if}
 						</div>
 					{/each}
+					{#if iaQueueSize > 0 || iaQueueActive > 0}
+						<div class="ia-queue-line">
+							<span class="ia-queue-icon">📋</span>
+							<span class="ia-queue-text">File: {iaQueueSize} en attente{iaQueueActive > 0 ? ` (${iaQueueActive} actif${iaQueueActive > 1 ? 's' : ''})` : ''}</span>
+						</div>
+					{/if}
 				</div>
 			{/if}
 			<a href="/dashboard/profile" class="user-profile">
@@ -456,4 +469,12 @@
 	.ia-inst-ping { font-size: 0.6rem; color: var(--text-muted); font-family: monospace; }
 	.ia-inst-ping.offline { color: #ef4444; font-weight: 700; }
 	.ia-inst-ping.busy { color: #f59e0b; font-weight: 700; font-size: 0.75rem; }
+	/* Queue line in sidebar widget (G-52) */
+	.ia-queue-line {
+		display: flex; align-items: center; gap: 0.4rem;
+		padding: 0.25rem 0; margin-top: 0.3rem;
+		border-top: 1px solid rgba(255,255,255,0.06);
+	}
+	.ia-queue-icon { font-size: 0.65rem; }
+	.ia-queue-text { font-size: 0.65rem; color: #fbbf24; font-weight: 600; }
 </style>

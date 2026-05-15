@@ -55,3 +55,4 @@ backend/static/uploads/
 
 # === Gemini/AI agent workspace ===
 .gemini/
+Tool_calling_plan.md

@@ -265,12 +265,74 @@
 	async function updateFFAPlacement(match, playerIdx, value) {
 		const score = [...(match.score || match.p.map(() => 0))];
 		score[playerIdx] = parseInt(value) || 0;
+		scheduleScore(match, playerIdx, score);
+	}
+
+	// --- Delayed Score Submission (5s countdown with progress bar) ---
+	const SCORE_DELAY_MS = 5000;
+	let pendingScores = {};  // key -> { timer, startTime, score, match }
+	let pendingTick = 0;     // Reactive tick to force re-render of progress bars
+
+	function scoreKey(match, playerIdx) {
+		return `${match.id.s}_${match.id.r}_${match.id.m}_${playerIdx}`;
+	}
+
+	function scheduleScore(match, playerIdx, score) {
+		const key = scoreKey(match, playerIdx);
+		// Cancel any existing pending submission for this slot
+		if (pendingScores[key]?.timer) clearTimeout(pendingScores[key].timer);
+		if (pendingScores[key]?.interval) clearInterval(pendingScores[key].interval);
+
+		// Admin bypass: submit immediately
+		if (isAdmin) {
+			doSubmitScore(match, score, key);
+			return;
+		}
+
+		const startTime = Date.now();
+		const interval = setInterval(() => { pendingTick++; }, 100); // update progress every 100ms
+		const timer = setTimeout(() => {
+			clearInterval(interval);
+			doSubmitScore(match, score, key);
+		}, SCORE_DELAY_MS);
+
+		pendingScores[key] = { timer, interval, startTime, score, match };
+		pendingScores = pendingScores; // trigger reactivity
+	}
+
+	function cancelPendingScore(match, playerIdx) {
+		const key = scoreKey(match, playerIdx);
+		if (pendingScores[key]) {
+			clearTimeout(pendingScores[key].timer);
+			clearInterval(pendingScores[key].interval);
+			delete pendingScores[key];
+			pendingScores = pendingScores;
+		}
+	}
+
+	function getPendingProgress(match, playerIdx, _tick) {
+		const key = scoreKey(match, playerIdx);
+		const p = pendingScores[key];
+		if (!p) return null;
+		const elapsed = Date.now() - p.startTime;
+		return Math.min(1, elapsed / SCORE_DELAY_MS);
+	}
+
+	async function doSubmitScore(match, score, key) {
+		delete pendingScores[key];
+		pendingScores = pendingScores;
 		try {
 			await api.put(`/tournaments/${selectedId}/score`, {
 				match_s: match.id.s, match_r: match.id.r, match_m: match.id.m, score
 			});
 			tournaments = await api.get('/tournaments');
 		} catch (e) { toast(e.message || 'Erreur score', 'error'); }
+	}
+
+	async function updateScore(match, playerIdx, value) {
+		const score = [...(match.score || [0, 0])];
+		score[playerIdx] = parseInt(value) || 0;
+		scheduleScore(match, playerIdx, score);
 	}
 
 	async function advanceFFARound() {
@@ -291,34 +353,44 @@
 		} catch (e) { toast(e.message || 'Erreur', 'error'); }
 	}
 
+	// AXE-15: Check if a match is finalized (scores validated)
+	function isMatchFinalized(match) {
+		const scores = match.score || [];
+		if (bracketType === 'ffa') {
+			return scores.length > 0 && scores.every(s => s > 0);
+		}
+		// Duel / Round Robin: both scores > 0 and different
+		if (scores.length >= 2) {
+			const s0 = scores[0], s1 = scores[1];
+			return s0 > 0 && s1 > 0 && s0 !== s1;
+		}
+		return false;
+	}
+
 	function canEditScore(match) {
-		// Admin can always edit all scores
 		if (isAdmin) return true;
 		return false;
 	}
 
 	function canEditPlayerScore(match, playerIdx, _myTeamSlotId) {
-		// Admin can always edit
 		if (isAdmin) return true;
 		if (!isParticipant || !currentUser) return false;
+		if (isMatchFinalized(match)) return false;
 		const uid = currentUser.id;
-		// Solo: player can only edit their own score slot
 		if (match.p[playerIdx] === uid) return true;
-		// Team: check if this slot belongs to our team
 		if (_myTeamSlotId && match.p[playerIdx] === _myTeamSlotId) return true;
 		return false;
 	}
 
-	async function updateScore(match, playerIdx, value) {
-		const score = [...(match.score || [0, 0])];
-		score[playerIdx] = parseInt(value) || 0;
-		try {
-			await api.put(`/tournaments/${selectedId}/score`, {
-				match_s: match.id.s, match_r: match.id.r, match_m: match.id.m, score
-			});
-			// Refresh bracket data
-			tournaments = await api.get('/tournaments');
-		} catch (e) { toast(e.message || 'Erreur score', 'error'); }
+	// AXE-15: Check if a player's score slot should show a lock indicator
+	function isPlayerLocked(match, playerIdx, _myTeamSlotId) {
+		if (isAdmin) return false;
+		if (!isParticipant || !currentUser) return false;
+		if (!isMatchFinalized(match)) return false;
+		const uid = currentUser.id;
+		if (match.p[playerIdx] === uid) return true;
+		if (_myTeamSlotId && match.p[playerIdx] === _myTeamSlotId) return true;
+		return false;
 	}
 
 	function openEdit() {
@@ -721,6 +793,8 @@
 													{#if canEditPlayerScore(match, pi, myTeamSlotId) && isLatest}
 														<input type="number" class="score-input ffa-input" value={match.score?.[pi] || ''} placeholder="Pos."
 															on:change={(e) => updateFFAPlacement(match, pi, e.target.value)} min="1" max={match.p.length} />
+													{:else if isPlayerLocked(match, pi, myTeamSlotId)}
+														<span class="score-locked ffa-input" title="Score validé">🔒 {match.score?.[pi]}</span>
 													{:else if match.score?.[pi] > 0}
 														<span class="score-display ffa-input">{match.score[pi]}</span>
 													{/if}
@@ -756,17 +830,27 @@
 												<div class="rr-scores">
 													{#if canEditPlayerScore(match, 0, myTeamSlotId)}
 														<input type="number" class="score-input" value={s0 || ''} placeholder="—" on:change={(e) => updateScore(match, 0, e.target.value)} min="0" disabled={match.p[0] === 0 || match.p[1] === 0} />
+													{:else if isPlayerLocked(match, 0, myTeamSlotId)}
+														<span class="score-locked" title="Score validé">🔒 {s0}</span>
 													{:else}
 														<span class="rr-score">{s0}</span>
 													{/if}
 													<span class="rr-vs">-</span>
 													{#if canEditPlayerScore(match, 1, myTeamSlotId)}
 														<input type="number" class="score-input" value={s1 || ''} placeholder="—" on:change={(e) => updateScore(match, 1, e.target.value)} min="0" disabled={match.p[0] === 0 || match.p[1] === 0} />
+													{:else if isPlayerLocked(match, 1, myTeamSlotId)}
+														<span class="score-locked" title="Score validé">🔒 {s1}</span>
 													{:else}
 														<span class="rr-score">{s1}</span>
 													{/if}
 												</div>
 												<span class="rr-p {isDone && (lowerIsBetter ? s1 < s0 : s1 > s0) ? 'winner' : ''}">{getPlayerName(match.p[1], nameMap)}{#if match.p[1] > 0 && seatMap[match.p[1]]}<a href="/dashboard/map?highlight={seatMap[match.p[1]]}" class="seat-badge" title="Voir sur le plan">📍{seatMap[match.p[1]]}</a>{/if}</span>
+												{#if getPendingProgress(match, 0, pendingTick) !== null || getPendingProgress(match, 1, pendingTick) !== null}
+													<div class="score-pending rr-pending">
+														<div class="score-pending-bar" style="width:{((getPendingProgress(match, 0, pendingTick) ?? getPendingProgress(match, 1, pendingTick)) * 100).toFixed(0)}%"></div>
+														<button class="score-pending-cancel" on:click|stopPropagation={() => { cancelPendingScore(match, getPendingProgress(match, 0, pendingTick) !== null ? 0 : 1); }}>✕ Annuler</button>
+													</div>
+												{/if}
 											</div>
 										{/each}
 									</div>
@@ -800,6 +884,8 @@
 																{#if match.p[0] > 0 && seatMap[match.p[0]]}<a href="/dashboard/map?highlight={seatMap[match.p[0]]}" class="seat-badge" title="Voir sur le plan">📍{seatMap[match.p[0]]}</a>{/if}
 																{#if canEditPlayerScore(match, 0, myTeamSlotId)}
 																	<input type="number" class="score-input" value={s0 || ''} placeholder="—" on:change={(e) => updateScore(match, 0, e.target.value)} min="0" disabled={match.p[0] === 0 || match.p[1] === 0} />
+																{:else if isPlayerLocked(match, 0, myTeamSlotId)}
+																	<span class="score-locked" title="Score validé — modification admin uniquement">🔒 {s0}</span>
 																{:else}
 																	<span class="score-display">{s0 || '—'}</span>
 																{/if}
@@ -811,10 +897,18 @@
 																{#if match.p[1] > 0 && seatMap[match.p[1]]}<a href="/dashboard/map?highlight={seatMap[match.p[1]]}" class="seat-badge" title="Voir sur le plan">📍{seatMap[match.p[1]]}</a>{/if}
 																{#if canEditPlayerScore(match, 1, myTeamSlotId)}
 																	<input type="number" class="score-input" value={s1 || ''} placeholder="—" on:change={(e) => updateScore(match, 1, e.target.value)} min="0" disabled={match.p[0] === 0 || match.p[1] === 0} />
+																{:else if isPlayerLocked(match, 1, myTeamSlotId)}
+																	<span class="score-locked" title="Score validé — modification admin uniquement">🔒 {s1}</span>
 																{:else}
 																	<span class="score-display">{s1 || '—'}</span>
 																{/if}
 															</div>
+															{#if getPendingProgress(match, 0, pendingTick) !== null || getPendingProgress(match, 1, pendingTick) !== null}
+																<div class="score-pending">
+																	<div class="score-pending-bar" style="width:{((getPendingProgress(match, 0, pendingTick) ?? getPendingProgress(match, 1, pendingTick)) * 100).toFixed(0)}%"></div>
+																	<button class="score-pending-cancel" on:click|stopPropagation={() => { cancelPendingScore(match, getPendingProgress(match, 0, pendingTick) !== null ? 0 : 1); }}>✕ Annuler</button>
+																</div>
+															{/if}
 														</div>
 														{/if}
 													{/each}
@@ -843,6 +937,8 @@
 																	{#if match.p[0] > 0 && seatMap[match.p[0]]}<a href="/dashboard/map?highlight={seatMap[match.p[0]]}" class="seat-badge" title="Voir sur le plan">📍{seatMap[match.p[0]]}</a>{/if}
 																	{#if canEditPlayerScore(match, 0, myTeamSlotId)}
 																		<input type="number" class="score-input" value={s0 || ''} placeholder="—" on:change={(e) => updateScore(match, 0, e.target.value)} min="0" disabled={match.p[0] === 0 || match.p[1] === 0} />
+																	{:else if isPlayerLocked(match, 0, myTeamSlotId)}
+																		<span class="score-locked" title="Score validé">🔒 {s0}</span>
 																	{:else}
 																		<span class="score-display">{s0 || '—'}</span>
 																	{/if}
@@ -854,10 +950,18 @@
 																	{#if match.p[1] > 0 && seatMap[match.p[1]]}<a href="/dashboard/map?highlight={seatMap[match.p[1]]}" class="seat-badge" title="Voir sur le plan">📍{seatMap[match.p[1]]}</a>{/if}
 																	{#if canEditPlayerScore(match, 1, myTeamSlotId)}
 																		<input type="number" class="score-input" value={s1 || ''} placeholder="—" on:change={(e) => updateScore(match, 1, e.target.value)} min="0" disabled={match.p[0] === 0 || match.p[1] === 0} />
+																	{:else if isPlayerLocked(match, 1, myTeamSlotId)}
+																		<span class="score-locked" title="Score validé">🔒 {s1}</span>
 																	{:else}
 																		<span class="score-display">{s1 || '—'}</span>
 																	{/if}
 																</div>
+																{#if getPendingProgress(match, 0, pendingTick) !== null || getPendingProgress(match, 1, pendingTick) !== null}
+																	<div class="score-pending">
+																		<div class="score-pending-bar" style="width:{((getPendingProgress(match, 0, pendingTick) ?? getPendingProgress(match, 1, pendingTick)) * 100).toFixed(0)}%"></div>
+																		<button class="score-pending-cancel" on:click|stopPropagation={() => { cancelPendingScore(match, getPendingProgress(match, 0, pendingTick) !== null ? 0 : 1); }}>✕ Annuler</button>
+																	</div>
+																{/if}
 															</div>
 															{/if}
 														{/each}
@@ -1176,6 +1280,14 @@
 	.score-input::-webkit-inner-spin-button, .score-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 	.score-input:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 6px var(--accent-glow); }
 	.score-display { font-size: 0.75rem; font-weight: 700; color: var(--accent); min-width: 20px; text-align: center; }
+	.score-locked { font-size: 0.7rem; color: var(--text-muted); opacity: 0.7; cursor: not-allowed; transition: opacity 0.2s; display: flex; align-items: center; gap: 0.15rem; }
+	.score-locked:hover { opacity: 1; }
+	/* Score countdown progress bar */
+	.score-pending { position: relative; width: 100%; height: 16px; background: rgba(0,0,0,0.2); border-radius: 0 0 8px 8px; overflow: hidden; display: flex; align-items: center; }
+	.score-pending-bar { position: absolute; left: 0; top: 0; height: 100%; background: linear-gradient(90deg, #3b82f6, #60a5fa); border-radius: 0 0 0 8px; transition: width 0.1s linear; }
+	.score-pending-cancel { position: relative; z-index: 2; width: 100%; background: none; border: none; color: rgba(255,255,255,0.8); font-size: 0.6rem; font-weight: 600; cursor: pointer; text-align: center; padding: 0; line-height: 16px; transition: color 0.2s; }
+	.score-pending-cancel:hover { color: #f87171; }
+	.rr-pending { border-radius: 6px; margin-top: 0.25rem; }
 	.bracket-empty { padding: 3rem; text-align: center; color: var(--text-dim); display: flex; flex-direction: column; align-items: center; gap: 0.5rem; }
 	.bracket-empty-icon { font-size: 2rem; opacity: 0.4; }
 	.bracket-empty p { margin: 0; font-size: 0.85rem; }

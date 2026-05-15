@@ -5,6 +5,7 @@ import asyncio
 import uuid
 import shutil
 import base64
+import time
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form
 from fastapi.responses import StreamingResponse
@@ -116,10 +117,19 @@ async def test_connection(config: dict):
 @router.get("/instances/status")
 async def instances_status(db: Session = Depends(database.get_db)):
     """Return health status of all configured instances."""
+    from ..ia_queue import queue_manager
     instances = get_instances(db)
+    # Build a set of URLs currently being used by active queue entries
+    active_urls = set()
+    for entry in queue_manager._active.values():
+        host = entry.payload.get("ollama_host", "")
+        if host:
+            active_urls.add(host.rstrip("/"))
     results = []
     for inst in instances:
+        inst_url = inst["url"].rstrip("/")
         ok, latency, model_names = await _check_instance_health(inst["url"])
+        is_busy = inst_url in active_urls
         results.append({
             "url": inst["url"],
             "label": inst.get("label", ""),
@@ -128,8 +138,8 @@ async def instances_status(db: Session = Depends(database.get_db)):
             "online": ok,
             "latency_ms": latency,
             "available_models": model_names,
-            "busy": _active_requests.get(inst["url"], 0) > 0,
-            "active_requests": _active_requests.get(inst["url"], 0)
+            "busy": is_busy,
+            "active_requests": 1 if is_busy else 0
         })
     return results
 
@@ -150,6 +160,13 @@ def update_ia_config(config_data: dict, db: Session = Depends(database.get_db), 
     else:
         config.value = config_data
     db.commit()
+
+    # Hot-restart queue workers to match new instance count (G-52)
+    instances = config_data.get("ollama_instances", [])
+    enabled_count = max(1, sum(1 for inst in instances if inst.get("enabled", True)))
+    from .ia_queue import queue_manager
+    asyncio.create_task(queue_manager.restart_workers(enabled_count))
+
     return {"status": "updated"}
 
 @router.get("/conversations", response_model=List[schemas.Conversation])
@@ -209,13 +226,15 @@ def get_messages(conv_id: int, db: Session = Depends(database.get_db), user: mod
     messages = db.query(models.ChatMessage).filter(models.ChatMessage.conversation_id == conv_id).order_by(models.ChatMessage.timestamp.asc()).all()
     
     # Estimate tokens — only count messages that Ollama will see (post-compression) + compressed context
+    # Add overhead for system prompt + user identity + tool definitions (~1300 tokens)
+    SYSTEM_OVERHEAD_TOKENS = 1300
     if conv.compressed_at:
         active_msgs = [m for m in messages if m.timestamp > conv.compressed_at]
     else:
         active_msgs = messages
     active_chars = sum(len(m.content) for m in active_msgs)
     ctx_chars = len(conv.compressed_context or "") if conv.compressed_context else 0
-    est_tokens = int((active_chars + ctx_chars) / 3.5)
+    est_tokens = int((active_chars + ctx_chars) / 3.5) + SYSTEM_OVERHEAD_TOKENS
     
     return {
         "messages": [
@@ -271,24 +290,45 @@ async def compress_context(conv_id: int, req: CompressRequest, db: Session = Dep
         
     cutoff_time = datetime.utcnow()
     
+    # Route through AI queue for compact/summary (requires GPU)
+    from ..ia_queue import queue_manager, QueueEntry
+    entry = QueueEntry(
+        priority=15,
+        created_at=time.time(),
+        user_id=user.id,
+        username=user.username,
+        conversation_id=conv_id,
+        task_type="compress",
+        payload={
+            "ollama_host": url,
+            "model": model,
+            "mode": req.mode,
+            "text": text_to_compress,
+        }
+    )
+    entry, position = await queue_manager.enqueue(entry)
+    
+    # Wait for the worker to finish (with timeout)
     try:
-        if req.mode == "compact":
-            res = await run_compaction(text_to_compress, url, model)
-        elif req.mode == "summary":
-            res = await run_summary(text_to_compress, url, model)
-        else:
-            raise HTTPException(400, "Invalid mode")
+        await asyncio.wait_for(entry.done_event.wait(), timeout=180.0)
+    except asyncio.TimeoutError:
+        await queue_manager.cancel(entry.id)
+        raise HTTPException(504, "Timeout — la file d'attente IA est saturée. Réessayez plus tard.")
+    
+    # Read result
+    result_data = await entry.result_stream.get()
+    if result_data.get("error"):
+        raise HTTPException(500, result_data.get("result", "Erreur de compression"))
+    
+    res = result_data.get("result", "")
+    if not res or not res.strip():
+        raise HTTPException(500, "L'IA n'a pas pu compresser le contexte (réponse vide). Réessayez ou choisissez un autre mode.")
         
-        if not res or not res.strip():
-            raise HTTPException(500, "L'IA n'a pas pu compresser le contexte (réponse vide). Réessayez ou choisissez un autre mode.")
-            
-        conv.compressed_context = res.strip()
-        conv.compressed_at = cutoff_time
-        conv.compression_mode = req.mode
-        conv.auto_compression_mode = req.mode
-        db.commit()
-    except Exception as e:
-        raise HTTPException(500, str(e))
+    conv.compressed_context = res.strip()
+    conv.compressed_at = cutoff_time
+    conv.compression_mode = req.mode
+    conv.auto_compression_mode = req.mode
+    db.commit()
         
     return {"status": "ok"}
 
@@ -410,9 +450,6 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
     db.add(user_msg)
     db.commit()
     
-    # Note: auto-compression is now driven by the frontend (modal picker before send)
-    auto_compressed = False
-    
     # Build system prompt — read from SystemConfig, fallback to fr.json, then default
     system_prompt = "Tu es Alanbix, l'IA de gestion de LAN."
     sp_config = db.query(models.SystemConfig).filter(models.SystemConfig.key == "system_prompt").first()
@@ -429,6 +466,15 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
     
     # Build messages array for Ollama chat API
     ollama_messages = [{"role": "system", "content": system_prompt}]
+    
+    # Inject user identity so the model knows who is asking
+    user_context = f"L'utilisateur qui te parle s'appelle \"{user.username}\""
+    if user.team_name:
+        user_context += f", il fait partie de l'équipe \"{user.team_name}\""
+    if user.is_admin:
+        user_context += ", c'est un administrateur de la LAN"
+    user_context += "."
+    ollama_messages.append({"role": "system", "content": user_context})
     
     # Inject compressed context if present
     if conv.compressed_context:
@@ -457,88 +503,175 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
                 current_msg["images"] = [base64.b64encode(imgf.read()).decode("utf-8")]
     ollama_messages.append(current_msg)
     
+    # ── Enqueue into AI Queue (G-52) ──
+    from ..ia_queue import queue_manager, QueueEntry
+    from ..ia_tools import TOOL_DEFINITIONS
+    req_data = {
+        "model": model_to_use,
+        "messages": ollama_messages,
+        "stream": True,
+        "options": {"temperature": ia_cfg.get('temperature', 0.2), "num_ctx": ia_cfg.get('context_window', 4096)},
+        "tools": TOOL_DEFINITIONS,
+    }
+    queue_entry = QueueEntry(
+        priority=0 if user.is_admin else 10,
+        created_at=time.time(),
+        user_id=user.id,
+        username=user.username,
+        conversation_id=request.conversation_id,
+        task_type="chat",
+        payload={
+            "ollama_host": ollama_host,
+            "req_data": req_data,
+            "conversation_id": request.conversation_id,
+            "raw_request": raw_request,
+        }
+    )
+    queue_entry, position = await queue_manager.enqueue(queue_entry)
+
     async def event_generator():
-        client = httpx.AsyncClient()
         _active_requests[ollama_host] = _active_requests.get(ollama_host, 0) + 1
         try:
-            req_data = {
-                "model": model_to_use,
-                "messages": ollama_messages,
-                "stream": True,
-                "options": {"temperature": ia_cfg.get('temperature', 0.2), "num_ctx": ia_cfg.get('context_window', 4096)}
-            }
-            full_response = ""
-            async with client.stream("POST", f"{ollama_host}/api/chat", json=req_data, timeout=httpx.Timeout(connect=10.0, read=300.0, write=10.0, pool=10.0)) as response:
-                async for chunk in response.aiter_lines():
-                    # FEAT-04: Check if client disconnected
-                    if await raw_request.is_disconnected():
-                        break
-                    if not chunk: continue
+            # ── Phase 1: Queue wait (send position updates via SSE) ──
+            if position > 0:
+                yield f"data: {json.dumps({'queued': True, 'position': position, 'estimated_wait': round(position * queue_manager._avg_duration)})}\n\n"
+                # Wait for worker to pick us up, sending position updates
+                while not queue_entry.processing_event.is_set():
                     try:
-                        data = json.loads(chunk)
-                        token = data.get("message", {}).get("content", "")
-                        if token:
-                            full_response += token
-                            yield f"data: {json.dumps({'text': token})}\n\n"
-                        if data.get("done"):
-                            # Save assistant message
-                            with database.SessionLocal() as s:
-                                ai_msg = models.ChatMessage(conversation_id=request.conversation_id, role="bot", content=full_response)
-                                s.add(ai_msg)
-                                s.commit()
-                                # Compute updated token estimate for frontend
-                                conv_obj = s.query(models.Conversation).filter(models.Conversation.id == request.conversation_id).first()
-                                post_msgs = s.query(models.ChatMessage).filter(
-                                    models.ChatMessage.conversation_id == request.conversation_id
-                                )
-                                if conv_obj and conv_obj.compressed_at:
-                                    post_msgs = post_msgs.filter(models.ChatMessage.timestamp > conv_obj.compressed_at)
-                                post_msgs = post_msgs.all()
-                                ctx_chars = len(conv_obj.compressed_context or "") if conv_obj else 0
-                                est_tokens = int((sum(len(m.content) for m in post_msgs) + ctx_chars) / 3.5)
-                                
-                                # ── Inline auto-title (G-39) ──
-                                # Generate title right here in the stream to avoid race with Ollama
-                                generated_title = None
-                                if conv_obj and conv_obj.title in ("Nouvelle discussion", ""):
-                                    first_user_msg = s.query(models.ChatMessage).filter(
-                                        models.ChatMessage.conversation_id == request.conversation_id,
-                                        models.ChatMessage.role == "user"
-                                    ).order_by(models.ChatMessage.timestamp.asc()).first()
-                                    if first_user_msg:
-                                        try:
-                                            title_res = await client.post(f"{ollama_host}/api/chat", json={
-                                                "model": model_to_use,
-                                                "messages": [{"role": "user", "content": f"Génère un titre COURT (max 5 mots) pour cette conversation. Réponds UNIQUEMENT avec le titre, sans guillemets ni ponctuation finale.\n\nQuestion: {first_user_msg.content}"}],
-                                                "stream": False,
-                                                "options": {"temperature": 0.3}
-                                            }, timeout=20.0)
-                                            if title_res.status_code == 200:
-                                                title_text = title_res.json().get("message", {}).get("content", "").strip().strip('"\'')
-                                                if title_text and len(title_text) < 60:
-                                                    conv_obj.title = title_text
-                                                    s.commit()
-                                                    generated_title = title_text
-                                        except Exception:
-                                            pass
-                                
-                            done_payload = {'done': True, 'estimated_tokens': est_tokens}
-                            if auto_compressed:
-                                done_payload['auto_compressed'] = True
-                            if generated_title:
-                                done_payload['title'] = generated_title
-                            yield f"data: {json.dumps(done_payload)}\n\n"
-                            break
-                    except:
-                        pass
+                        await asyncio.wait_for(queue_entry.processing_event.wait(), timeout=3.0)
+                    except asyncio.TimeoutError:
+                        if queue_entry.cancelled:
+                            yield f"data: {json.dumps({'text': '❌ Requête annulée.', 'done': True})}\n\n"
+                            return
+                        if await raw_request.is_disconnected():
+                            await queue_manager.cancel(queue_entry.id)
+                            return
+                        # Send updated position
+                        new_pos = queue_manager._get_position(queue_entry.id)
+                        if new_pos > 0:
+                            yield f"data: {json.dumps({'position': new_pos, 'estimated_wait': round(new_pos * queue_manager._avg_duration)})}\n\n"
+                yield f"data: {json.dumps({'processing': True})}\n\n"
+
+            # ── Phase 2: Stream tokens from worker ──
+            full_response = ""
+            while True:
+                try:
+                    chunk = await asyncio.wait_for(queue_entry.result_stream.get(), timeout=300.0)
+                except asyncio.TimeoutError:
+                    yield f"data: {json.dumps({'text': '⏱️ Timeout de génération.', 'done': True, 'error': True})}\n\n"
+                    break
+
+                if chunk.get("cancelled"):
+                    yield f"data: {json.dumps({'text': '❌ Requête annulée.', 'done': True})}\n\n"
+                    break
+
+                if chunk.get("text") and not chunk.get("done"):
+                    full_response += chunk["text"]
+                    yield f"data: {json.dumps({'text': chunk['text']})}\n\n"
+
+                if chunk.get("done"):
+                    if chunk.get("error"):
+                        error_text = chunk.get("text", "Erreur IA inconnue")
+                        if error_text:
+                            full_response += error_text
+                        yield f"data: {json.dumps({'text': error_text, 'done': True, 'error': True})}\n\n"
+                        break
+
+                    # Worker finished — compute tokens + auto-title
+                    worker_response = chunk.get("full_response", full_response)
+                    if not worker_response:
+                        worker_response = full_response
+
+                    with database.SessionLocal() as s:
+                        # Only save if the worker hasn't already persisted the message
+                        if not chunk.get("saved_by_worker"):
+                            ai_msg = models.ChatMessage(conversation_id=request.conversation_id, role="bot", content=worker_response)
+                            s.add(ai_msg)
+                            s.commit()
+                        # Compute updated token estimate for frontend
+                        conv_obj = s.query(models.Conversation).filter(models.Conversation.id == request.conversation_id).first()
+                        post_msgs = s.query(models.ChatMessage).filter(
+                            models.ChatMessage.conversation_id == request.conversation_id
+                        )
+                        if conv_obj and conv_obj.compressed_at:
+                            post_msgs = post_msgs.filter(models.ChatMessage.timestamp > conv_obj.compressed_at)
+                        post_msgs = post_msgs.all()
+                        ctx_chars = len(conv_obj.compressed_context or "") if conv_obj else 0
+                        est_tokens = int((sum(len(m.content) for m in post_msgs) + ctx_chars) / 3.5) + 1300  # +system overhead
+                        
+                        # ── Inline auto-title (G-50) ──
+                        generated_title = None
+                        if conv_obj and conv_obj.title in ("Nouvelle discussion", ""):
+                            first_user_msg = s.query(models.ChatMessage).filter(
+                                models.ChatMessage.conversation_id == request.conversation_id,
+                                models.ChatMessage.role == "user"
+                            ).order_by(models.ChatMessage.timestamp.asc()).first()
+                            if first_user_msg:
+                                try:
+                                    async with httpx.AsyncClient() as title_client:
+                                        title_res = await title_client.post(f"{ollama_host}/api/chat", json={
+                                            "model": model_to_use,
+                                            "messages": [{"role": "user", "content": f"Génère un titre COURT (max 5 mots) pour cette conversation. Réponds UNIQUEMENT avec le titre, sans guillemets ni ponctuation finale.\n\nQuestion: {first_user_msg.content}"}],
+                                            "stream": False,
+                                            "options": {"temperature": 0.3}
+                                        }, timeout=20.0)
+                                        if title_res.status_code == 200:
+                                            title_text = title_res.json().get("message", {}).get("content", "").strip().strip('"\'')
+                                            if title_text and len(title_text) < 60:
+                                                conv_obj.title = title_text
+                                                s.commit()
+                                                generated_title = title_text
+                                except Exception:
+                                    pass
+                        
+                    done_payload = {'done': True, 'estimated_tokens': est_tokens}
+                    if generated_title:
+                        done_payload['title'] = generated_title
+                    yield f"data: {json.dumps(done_payload)}\n\n"
+                    break
         except Exception as stream_err:
             error_msg = f"Erreur IA ({type(stream_err).__name__}): {str(stream_err)[:200]}"
             yield f"data: {json.dumps({'text': error_msg, 'done': True, 'error': True})}\n\n"
         finally:
             _active_requests[ollama_host] = max(0, _active_requests.get(ollama_host, 1) - 1)
-            await client.aclose()
             
     return StreamingResponse(event_generator(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+# ── Queue status endpoints (G-52) ────────────────────────────────────────────
+@router.get("/queue/status")
+async def queue_status(user: models.User = Depends(auth.get_current_user)):
+    """Get the current user's position in the AI queue."""
+    from ..ia_queue import queue_manager
+    info = queue_manager.get_user_position(user.id)
+    if not info:
+        return {"queued": False}
+    return {"queued": True, **info}
+
+@router.get("/queue/admin")
+async def queue_admin(admin: models.User = Depends(auth.get_current_admin)):
+    """Full queue status for admin dashboard."""
+    from ..ia_queue import queue_manager
+    return queue_manager.get_full_status()
+
+@router.delete("/queue/{entry_id}")
+async def queue_cancel(entry_id: str, user: models.User = Depends(auth.get_current_user)):
+    """Cancel a queued request. Players can cancel their own; admins can cancel any."""
+    from ..ia_queue import queue_manager
+    # Check ownership (unless admin)
+    entry = queue_manager._pending.get(entry_id)
+    if entry and not user.is_admin and entry.user_id != user.id:
+        raise HTTPException(403, "Vous ne pouvez annuler que vos propres requêtes.")
+    ok = await queue_manager.cancel(entry_id)
+    if not ok:
+        raise HTTPException(404, "Entrée non trouvée dans la file.")
+    return {"status": "cancelled"}
+
+@router.delete("/queue/user/cancel")
+async def queue_cancel_own(user: models.User = Depends(auth.get_current_user)):
+    """Cancel the current user's pending queue entry."""
+    from ..ia_queue import queue_manager
+    ok = await queue_manager.cancel_by_user(user.id)
+    return {"status": "cancelled" if ok else "not_found"}
 
 # ── Auto-title endpoint (called by frontend after first exchange) ────────────
 @router.post("/auto-title/{conv_id}")

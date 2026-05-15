@@ -11,9 +11,11 @@
 	let games = [];
 	let tournaments = [];
 	let availableModels = [];
-	let activeTab = 'tournaments';
+	let activeTab = (typeof localStorage !== 'undefined' && localStorage.getItem('admin_tab')) || 'tournaments';
 
-	let settingsSubTab = 'general'; // 'tournaments', 'games', 'players', 'settings'
+	let settingsSubTab = (typeof localStorage !== 'undefined' && localStorage.getItem('admin_subtab')) || 'general';
+	$: if (typeof localStorage !== 'undefined') localStorage.setItem('admin_tab', activeTab);
+	$: if (typeof localStorage !== 'undefined') localStorage.setItem('admin_subtab', settingsSubTab);
 
 	// Player Management
 	let allPlayers = [];
@@ -140,6 +142,10 @@
 	let instanceStatuses = [];
 	let knowledgeDocs = [];
 
+	// AI Queue admin state (G-52)
+	let iaQueueData = { pending: [], active: [], queue_size: 0, active_count: 0, avg_duration: 15 };
+	let iaQueueInterval = null;
+
 	let authorized = false;
 
 	onMount(async () => {
@@ -165,7 +171,7 @@
 		});
 	});
 
-	onDestroy(() => { if (wsUnsub) wsUnsub(); });
+	onDestroy(() => { if (wsUnsub) wsUnsub(); if (iaQueueInterval) clearInterval(iaQueueInterval); });
 
 	async function loadData() {
 		games = await api.get('/tournaments/games');
@@ -175,6 +181,7 @@
 		fetchModels();
 		loadInstanceStatuses();
 		loadKnowledge();
+		loadQueueAdmin();
 		try {
 			const stats = await api.get('/dashboard/stats');
 			teamScoringMode = stats.team_scoring_mode || 'weighted';
@@ -279,6 +286,25 @@
 
 	async function loadInstanceStatuses() {
 		try { instanceStatuses = await api.get('/ia/instances/status'); } catch { instanceStatuses = []; }
+	}
+
+	// AI Queue admin polling (G-52)
+	async function loadQueueAdmin() {
+		try { iaQueueData = await api.get('/ia/queue/admin'); } catch { iaQueueData = { pending: [], active: [], queue_size: 0, active_count: 0, avg_duration: 15 }; }
+		// Poll faster when queue has entries
+		const nextMs = iaQueueData.queue_size > 0 || iaQueueData.active_count > 0 ? 3000 : 15000;
+		if (iaQueueInterval) clearInterval(iaQueueInterval);
+		iaQueueInterval = setInterval(loadQueueAdmin, nextMs);
+	}
+
+	async function cancelQueueEntry(entryId) {
+		try {
+			await api.delete(`/ia/queue/${entryId}`);
+			toast('Requête annulée', 'success');
+			await loadQueueAdmin();
+		} catch (e) {
+			toast('Erreur: ' + e.message, 'error');
+		}
 	}
 
 	async function testInstance(idx) {
@@ -1512,6 +1538,52 @@
 				<!-- IA TAB -->
 				{:else if settingsSubTab === 'ia'}
 				<div class="stab-content">
+					<!-- AI Queue Panel (G-52) -->
+					<div class="sc glass">
+						<div class="sc-head">
+							<div class="sc-icon">📋</div>
+							<div style="flex:1">
+								<h3>File d'attente IA</h3>
+								<p class="sc-sub">Requêtes en attente et en cours de traitement</p>
+							</div>
+							<div class="queue-stats-badges">
+								<span class="queue-stat-badge pending" title="En attente">⏳ {iaQueueData.queue_size}</span>
+								<span class="queue-stat-badge active" title="En cours">⚡ {iaQueueData.active_count}</span>
+								<span class="queue-stat-badge avg" title="Durée moyenne">⏱️ {iaQueueData.avg_duration}s</span>
+							</div>
+						</div>
+						<div class="sc-body">
+							{#if iaQueueData.active.length > 0}
+								<div class="queue-section-label">⚡ En cours de traitement</div>
+								{#each iaQueueData.active as entry}
+									<div class="queue-row active">
+										<span class="queue-row-type">{entry.task_type === 'chat' ? '💬' : entry.task_type === 'compress' ? '🗜️' : '🏆'}</span>
+										<span class="queue-row-user">{entry.username || '—'}</span>
+										<span class="queue-row-type-label">{entry.task_type}</span>
+										<span class="queue-row-time">{entry.processing_since}s</span>
+										<button class="queue-cancel-btn" on:click|stopPropagation={() => cancelQueueEntry(entry.id)} title="Annuler">❌</button>
+									</div>
+								{/each}
+							{/if}
+							{#if iaQueueData.pending.length > 0}
+								<div class="queue-section-label" style="margin-top:{iaQueueData.active.length > 0 ? '0.75rem' : '0'}">⏳ En attente</div>
+								{#each iaQueueData.pending as entry}
+									<div class="queue-row">
+										<span class="queue-row-pos">#{entry.position}</span>
+										<span class="queue-row-type">{entry.task_type === 'chat' ? '💬' : entry.task_type === 'compress' ? '🗜️' : '🏆'}</span>
+										<span class="queue-row-user">{entry.username || '—'}</span>
+										<span class="queue-row-type-label">{entry.task_type}</span>
+										<span class="queue-row-time">{entry.waiting_since}s</span>
+										<button class="queue-cancel-btn" on:click|stopPropagation={() => cancelQueueEntry(entry.id)} title="Annuler">❌</button>
+									</div>
+								{/each}
+							{/if}
+							{#if iaQueueData.active.length === 0 && iaQueueData.pending.length === 0}
+								<div class="queue-empty">✅ Aucune requête en file — le GPU est libre</div>
+							{/if}
+						</div>
+					</div>
+
 					<!-- Ollama Instances -->
 					<div class="sc glass">
 						<div class="sc-head">
@@ -2161,5 +2233,36 @@
 	.rag-empty span { font-size: 1.5rem; opacity: 0.5; }
 	.rag-empty p { margin: 0; }
 	.rag-add-section { margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--glass-border); display: flex; flex-direction: column; }
+
+	/* Queue admin panel (G-52) */
+	.queue-stats-badges { display: flex; gap: 0.4rem; }
+	.queue-stat-badge {
+		font-size: 0.65rem; font-weight: 700; padding: 0.15rem 0.5rem;
+		border-radius: 6px; font-family: monospace;
+	}
+	.queue-stat-badge.pending { background: rgba(245,158,11,0.12); color: #f59e0b; border: 1px solid rgba(245,158,11,0.3); }
+	.queue-stat-badge.active { background: rgba(16,185,129,0.12); color: #10b981; border: 1px solid rgba(16,185,129,0.3); }
+	.queue-stat-badge.avg { background: rgba(99,102,241,0.12); color: #818cf8; border: 1px solid rgba(99,102,241,0.3); }
+	.queue-section-label { font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.4rem; }
+	.queue-row {
+		display: flex; align-items: center; gap: 0.6rem;
+		padding: 0.5rem 0.6rem; border-radius: 8px;
+		background: var(--hover-tint); border: 1px solid transparent;
+		margin-bottom: 0.3rem; transition: all 0.2s;
+	}
+	.queue-row:hover { border-color: var(--glass-border); }
+	.queue-row.active { background: rgba(16,185,129,0.06); border: 1px solid rgba(16,185,129,0.2); }
+	.queue-row-pos { font-size: 0.7rem; font-weight: 800; color: var(--accent); min-width: 1.5rem; }
+	.queue-row-type { font-size: 0.85rem; }
+	.queue-row-user { flex: 1; font-size: 0.8rem; font-weight: 600; color: var(--text-main); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.queue-row-type-label { font-size: 0.65rem; color: var(--text-muted); padding: 0.1rem 0.4rem; background: var(--surface-sunken); border-radius: 4px; }
+	.queue-row-time { font-size: 0.65rem; color: var(--text-dim); font-family: monospace; min-width: 2.5rem; text-align: right; }
+	.queue-cancel-btn {
+		background: none; border: 1px solid rgba(239,68,68,0.2);
+		color: var(--text-muted); border-radius: 6px; padding: 0.15rem 0.4rem;
+		font-size: 0.6rem; cursor: pointer; transition: all 0.2s;
+	}
+	.queue-cancel-btn:hover { background: rgba(239,68,68,0.15); color: #ef4444; border-color: rgba(239,68,68,0.4); }
+	.queue-empty { text-align: center; padding: 1rem; font-size: 0.8rem; color: var(--text-muted); }
 </style>
 

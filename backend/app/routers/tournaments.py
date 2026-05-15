@@ -915,6 +915,16 @@ async def update_match_score(
                         break
         if not user_in_match:
             raise HTTPException(status_code=403, detail="You can only update scores for matches you are playing in")
+        # AXE-15: Non-admin cannot edit a finalized match
+        existing_scores = scored_match.get("score", [])
+        if bracket_type in ("single_elim", "double_elim", "round_robin"):
+            if len(existing_scores) >= 2:
+                es0, es1 = existing_scores[0], existing_scores[1]
+                if es0 > 0 and es1 > 0 and es0 != es1:
+                    raise HTTPException(status_code=403, detail="Ce match est terminé. Seul un admin peut modifier le score.")
+        elif bracket_type == "ffa":
+            if existing_scores and all(s > 0 for s in existing_scores):
+                raise HTTPException(status_code=403, detail="Cette manche est terminée. Seul un admin peut modifier les classements.")
     # Rollback previous advancement if match was already scored (score correction)
     lower_is_better = config.get("lower_score_is_better", False)
     if bracket_type not in ("round_robin", "ffa"):
@@ -1517,12 +1527,14 @@ def _build_closing_prompt(tournament_name, game_name, results, participant_uids,
 
 
 async def _generate_tournament_notifications(tournament_id, tournament_name, game_name, results, participant_uids, use_teams, bracket=None, config=None):
-    """Fire-and-forget: Ask Ollama to generate personalized messages for participants."""
+    """Fire-and-forget: Ask Ollama to generate personalized messages for participants (via AI queue)."""
     bracket = bracket or []
     config = config or {}
     try:
         from .ia import pick_instance, get_effective_config
         from ..database import SessionLocal
+        from ..ia_queue import queue_manager, QueueEntry
+        import time
 
         db = SessionLocal()
         try:
@@ -1536,18 +1548,31 @@ async def _generate_tournament_notifications(tournament_id, tournament_name, gam
                 use_teams, bracket, config, db
             )
 
-            async with httpx.AsyncClient() as client:
-                res = await client.post(f"{ollama_host}/api/chat", json={
+            # Enqueue through AI queue (priority 20 = background)
+            entry = QueueEntry(
+                priority=20,
+                created_at=time.time(),
+                user_id=0,  # System task, no user limit
+                username=f"[Tournoi] {tournament_name}",
+                conversation_id=0,
+                task_type="notification",
+                payload={
+                    "ollama_host": ollama_host,
                     "model": model,
-                    "messages": [{"role": "user", "content": prompt}],
-                    "stream": False,
-                    "options": {"temperature": 0.8}
-                }, timeout=120.0)
+                    "prompt": prompt,
+                }
+            )
+            entry, _ = await queue_manager.enqueue(entry)
 
-            if res.status_code != 200:
-                raise Exception(f"Ollama returned HTTP {res.status_code}: {res.text[:200]}")
+            # Wait for the worker to finish (with generous timeout for background task)
+            await asyncio.wait_for(entry.done_event.wait(), timeout=180.0)
 
-            raw = res.json().get("message", {}).get("content", "")
+            # Read result
+            result_data = await entry.result_stream.get()
+            if result_data.get("error"):
+                raise Exception(result_data.get("result", "Erreur de génération IA"))
+
+            raw = result_data.get("result", "")
             # Clean up potential markdown wrapping
             raw = raw.strip()
             if raw.startswith("```"):

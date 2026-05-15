@@ -69,7 +69,22 @@ async def startup():
         db.add_all(sample_users)
         db.commit()
 
+    # Start IA Queue workers (1 per enabled Ollama instance, min 1)
+    from .ia_queue import queue_manager
+    try:
+        from .routers.ia import get_instances
+        instances = [i for i in get_instances(db) if i.get("enabled", True)]
+        num_workers = max(1, len(instances))
+    except Exception:
+        num_workers = 1
+    await queue_manager.start(num_workers=num_workers)
+
     db.close()
+
+@app.on_event("shutdown")
+async def shutdown():
+    from .ia_queue import queue_manager
+    await queue_manager.stop()
 
 @app.get("/health")
 
