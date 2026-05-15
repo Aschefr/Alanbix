@@ -1,5 +1,36 @@
 # Changelog
 
+## [1.5.0] - 2026-05-15
+
+### ✨ Nouvelles fonctionnalités
+
+- **Messagerie de Groupe & Inter-Équipes (AXE-12)** — Deux nouveaux types de canaux de chat :
+  - 💬 **Chat d'équipe privé** : clic sur le nom de sa propre équipe → salon réservé aux membres (icône 🛡️).
+  - ⚔️ **Chat inter-équipes** : clic sur une équipe adverse → salon commun entre les deux équipes (trash-talk, coordination).
+  - Channel keys déterministes (`team:NomEquipe`, `inter:EquipeA|EquipeB`) pour unicité garantie.
+  - Sender names affichés dans les bulles de groupe.
+  - Badge « non-lu » violet pulsant directement sur le nom de chaque équipe dans l'annuaire.
+- **Gestionnaire de fichiers (AXE-13)** — Section « 📦 Fichiers utiles » sur la page Informations :
+  - Upload de fichiers par les admins (max 100 MB, noms sanitisés, déduplication automatique).
+  - Téléchargement direct par les joueurs avec icônes par type de fichier (.torrent, .zip, .pdf, .exe…).
+  - Suppression individuelle avec confirmation inline + bouton ☢️ Nuke pour tout supprimer d'un coup.
+  
+### 🔧 Améliorations
+
+- **Badge sidebar combiné** — Le compteur de messages non lus dans la sidebar cumule désormais les messages P2P + les messages de groupe via un store dérivé (`totalMsgUnread`).
+- **WebSocket `group_message_new`** — Nouveau type d'événement temps réel pour les canaux de groupe, avec refresh automatique du chat ouvert et des badges.
+- **Badges non-lus réactifs** — Les badges 🛡️ (équipe, vert) et ⚔️ (inter, orange) se mettent à jour en temps réel via un objet Svelte `$: teamUnreads` dérivé réactif.
+- **Bouton chat groupe élargi** — Le bouton `🛡️ Chat équipe` / `⚔️ Chat inter` est plus grand avec texte lisible, et pulse en violet (`btn-glow`) quand des messages sont non-lus.
+- **Éléments logistiques Plan de Salle (AXE-09)** — Ajout d'éléments de mobilier (Porte, Cuisine, Bar, WC, Rack technique, Écran) dans l'éditeur du plan de salle avec drag & drop et rotation.
+- **Verrouillage de scores (AXE-15)** — Délai de saisie 5s pour joueurs, verrouillage des matchs terminés, indicateur 🔒 visuel.
+- **Proxy `/data`** — Le frontend proxifie désormais `/data` vers le backend pour le téléchargement de fichiers depuis le volume persistant.
+
+### 📝 Documentation
+
+- Ajout de la règle G-53 (Canaux de groupe déterministes) dans le cahier des charges.
+
+---
+
 ## [1.4.0] - 2026-05-15
 
 ### ✨ Nouvelles fonctionnalités

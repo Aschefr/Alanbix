@@ -451,6 +451,7 @@ global_rules:
       Le fichier VERSION à la racine du projet contient le numéro de version SemVer (MAJOR.MINOR.PATCH).
       Il doit être mis à jour MANUELLEMENT à chaque release significative.
       Rappel : mettre à jour VERSION avant chaque push GitHub.
+      Mettre à jours le fichier changelog.md également
   - id: G-42
     rule: Premier Utilisateur = Admin
     description: >
@@ -543,6 +544,18 @@ global_rules:
       Widget sidebar admin avec compteur file + panneau détaillé dans Administration > IA.
       Estimation rolling average sur 20 dernières requêtes. Annulation possible (joueur: soi,
       admin: tous). WebSocket broadcasts ia_queue_update et ia_queue_position.
+
+  - id: G-53
+    rule: Messagerie de Groupe — Canaux Déterministes (AXE-12, Implémenté)
+    description: >
+      Le système de messagerie de groupe utilise des channel_keys déterministes :
+      - Chat d'équipe privé : "team:NomEquipe" (tous les User.team_name identiques).
+      - Chat inter-équipes : "inter:EquipeA|EquipeB" (noms triés alphabétiquement).
+      Modèles : GroupChannel (channel_key unique, team_names JSON), GroupMessage
+      (sender_id + content), GroupMessageRead (last_read_message_id par user/channel).
+      Guards : un joueur n'accède qu'aux canaux dont son User.team_name fait partie.
+      Les admins accèdent à tous les canaux. WebSocket event: group_message_new.
+      Le badge sidebar combine P2P (pmUnreadCount) + Groupe (groupUnreadCount).
 
 future_axes:
   - id: AXE-01
@@ -637,7 +650,7 @@ future_axes:
 
   - id: AXE-09
     title: "Plan de Salle : Éléments Logistiques et Fonctionnels"
-    status: TODO
+    status: DONE
     description: >
       Permettre l'ajout d'éléments logistiques dans l'éditeur du plan de salle (similaires
       aux tables, avec gestion de la rotation et du drag & drop). Les éléments prévus incluent :
@@ -668,7 +681,7 @@ future_axes:
 
   - id: AXE-12
     title: "Messagerie de Groupe & Inter-Équipes"
-    status: TODO
+    status: DONE
     description: >
       Étendre le système de messagerie P2P existant pour supporter les groupes.
       1. Chat privé d'équipe : En cliquant sur le nom de sa propre équipe dans la page
@@ -682,7 +695,7 @@ future_axes:
 
   - id: AXE-13
     title: "Page Informations : Gestionnaire de fichiers utiles"
-    status: TODO
+    status: DONE
     description: >
       Ajouter un système d'upload et de gestion de fichiers dédié à la page 'Informations'
       pour les administrateurs (ajout/suppression).

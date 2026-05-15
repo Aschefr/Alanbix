@@ -1,8 +1,12 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 from .. import models, database, auth
+import os
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
+
+DATA_DIR = os.path.dirname(os.getenv("DATABASE_PATH", "/app/data/alanbix.db"))
+INFO_FILES_DIR = os.path.join(DATA_DIR, "info_files")
 
 @router.get("/stats")
 def get_stats(db: Session = Depends(database.get_db)):
@@ -205,3 +209,95 @@ def get_info_page(db: Session = Depends(database.get_db)):
         "content": content_cfg.value if content_cfg else "",
         "spectator_content": spectator_cfg.value if spectator_cfg else ""
     }
+
+
+# --- Info Page File Manager (AXE-13) ---
+
+def _sanitize_filename(name: str) -> str:
+    """Sanitize filename: keep alphanums, dots, hyphens, underscores."""
+    import re
+    name = name.strip().replace(" ", "_")
+    name = re.sub(r'[^\w.\-]', '', name)
+    return name or "file"
+
+
+@router.get("/info/files")
+def list_info_files():
+    """Public — list uploaded files with name, size, date."""
+    os.makedirs(INFO_FILES_DIR, exist_ok=True)
+    files = []
+    for fname in sorted(os.listdir(INFO_FILES_DIR)):
+        fpath = os.path.join(INFO_FILES_DIR, fname)
+        if os.path.isfile(fpath):
+            stat = os.stat(fpath)
+            files.append({
+                "name": fname,
+                "size": stat.st_size,
+                "modified": stat.st_mtime,
+                "url": f"/data/info_files/{fname}"
+            })
+    return files
+
+
+@router.post("/info/files/upload")
+async def upload_info_file(
+    file: UploadFile = File(...),
+    admin: models.User = Depends(auth.get_current_admin)
+):
+    """Admin — upload a file (max 100MB)."""
+    os.makedirs(INFO_FILES_DIR, exist_ok=True)
+    
+    content = await file.read()
+    if len(content) > 100 * 1024 * 1024:
+        raise HTTPException(400, "File too large (max 100 MB)")
+    
+    safe_name = _sanitize_filename(file.filename or "upload")
+    filepath = os.path.join(INFO_FILES_DIR, safe_name)
+    
+    # Avoid overwriting: append counter if exists
+    if os.path.exists(filepath):
+        base, ext = os.path.splitext(safe_name)
+        counter = 1
+        while os.path.exists(filepath):
+            safe_name = f"{base}_{counter}{ext}"
+            filepath = os.path.join(INFO_FILES_DIR, safe_name)
+            counter += 1
+    
+    with open(filepath, "wb") as f:
+        f.write(content)
+    
+    return {
+        "name": safe_name,
+        "size": len(content),
+        "url": f"/data/info_files/{safe_name}"
+    }
+
+
+@router.delete("/info/files/{filename}")
+def delete_info_file(
+    filename: str,
+    admin: models.User = Depends(auth.get_current_admin)
+):
+    """Admin — delete a file."""
+    safe_name = _sanitize_filename(filename)
+    filepath = os.path.join(INFO_FILES_DIR, safe_name)
+    if not os.path.isfile(filepath):
+        raise HTTPException(404, "File not found")
+    os.remove(filepath)
+    return {"status": "deleted", "name": safe_name}
+
+
+@router.delete("/info/files")
+def nuke_info_files(
+    admin: models.User = Depends(auth.get_current_admin)
+):
+    """Admin — delete ALL info files."""
+    os.makedirs(INFO_FILES_DIR, exist_ok=True)
+    count = 0
+    for fname in os.listdir(INFO_FILES_DIR):
+        fpath = os.path.join(INFO_FILES_DIR, fname)
+        if os.path.isfile(fpath):
+            os.remove(fpath)
+            count += 1
+    return {"status": "nuked", "deleted": count}
+

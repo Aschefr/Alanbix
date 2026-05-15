@@ -50,9 +50,10 @@
 		stats = await api.get('/dashboard/stats');
 		tournaments = await api.get('/tournaments');
 		const res = await api.get('/room/layout');
-		roomLayout = res.layout || { seats: [], tables: [] };
+		roomLayout = res.layout || { seats: [], tables: [], furniture: [] };
 		if (!roomLayout.tables) roomLayout.tables = [];
 		if (!roomLayout.seats) roomLayout.seats = [];
+		if (!roomLayout.furniture) roomLayout.furniture = [];
 		allUsers = await api.get('/room/users');
 		try { games = await api.get('/tournaments/games'); } catch { games = []; }
 		roomLayout = roomLayout;
@@ -123,7 +124,8 @@
 
 	$: if (!mapVbInit && (roomLayout.seats.length > 0 || roomLayout.tables.length > 0)) {
 		const items = [...roomLayout.seats.map(s => ({ x: s.x, y: s.y, w: 50, h: 50 })),
-			...roomLayout.tables.map(t => ({ x: t.x, y: t.y, w: t.w, h: t.h }))];
+			...roomLayout.tables.map(t => ({ x: t.x, y: t.y, w: t.w, h: t.h })),
+			...(roomLayout.furniture || []).map(f => ({ x: f.x, y: f.y, w: f.w, h: f.h }))];
 		if (items.length > 0) {
 			const pad = 40;
 			mapVb = {
@@ -306,6 +308,17 @@
 							<rect x={table.x} y={table.y} width={table.w} height={table.h} rx="6"
 								fill="var(--map-table-fill)" stroke="var(--map-table-stroke)" stroke-width="1.5"/>
 							<text x={cx} y={cy + 4} text-anchor="middle" fill="var(--text-muted)" font-size="10" font-weight="700">{table.label}</text>
+						</g>
+					{/each}
+
+					{#each (roomLayout.furniture || []) as furn}
+						{@const fcx = furn.x + furn.w / 2}
+						{@const fcy = furn.y + furn.h / 2}
+						<g transform="rotate({furn.rotation || 0}, {fcx}, {fcy})">
+							<rect x={furn.x} y={furn.y} width={furn.w} height={furn.h} rx="4"
+								fill="rgba(245,158,11,0.1)" stroke="rgba(245,158,11,0.4)" stroke-width="1.5" stroke-dasharray="4 2"/>
+							<text x={fcx} y={fcy - 1} text-anchor="middle" font-size="12" style="pointer-events:none">{furn.icon}</text>
+							<text x={fcx} y={fcy + 10} text-anchor="middle" fill="#f59e0b" font-size="7" font-weight="700">{furn.label}</text>
 						</g>
 					{/each}
 

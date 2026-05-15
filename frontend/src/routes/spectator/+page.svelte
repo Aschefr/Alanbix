@@ -39,9 +39,10 @@
 			if (tl) teamLeaderboard = tl;
 			const layout = await fetchPublic('/room/layout');
 			if (layout) {
-				roomLayout = layout.layout || { seats: [], tables: [] };
+				roomLayout = layout.layout || { seats: [], tables: [], furniture: [] };
 				if (!roomLayout.tables) roomLayout.tables = [];
 				if (!roomLayout.seats) roomLayout.seats = [];
+				if (!roomLayout.furniture) roomLayout.furniture = [];
 			}
 			const users = await fetchPublic('/room/users');
 			if (users) allUsers = users;
@@ -186,7 +187,8 @@
 	$: totalSeats = roomLayout.seats.length;
 	$: mapViewBox = (() => {
 		const items = [...(roomLayout.seats || []).map(s => ({ x: s.x, y: s.y, w: 50, h: 50 })),
-			...(roomLayout.tables || []).map(t => ({ x: t.x, y: t.y, w: t.w, h: t.h }))];
+			...(roomLayout.tables || []).map(t => ({ x: t.x, y: t.y, w: t.w, h: t.h })),
+			...(roomLayout.furniture || []).map(f => ({ x: f.x, y: f.y, w: f.w, h: f.h }))];
 		if (items.length === 0) return '0 0 900 600';
 		const pad = 40;
 		const minX = Math.min(...items.map(i => i.x)) - pad;
@@ -266,6 +268,16 @@
 							<g transform="rotate({table.rotation || 0}, {cx}, {cy})">
 								<rect x={table.x} y={table.y} width={table.w} height={table.h} rx="6" fill="var(--map-table-fill)" stroke="var(--map-table-stroke)" stroke-width="1.5"/>
 								<text x={cx} y={cy + 4} text-anchor="middle" fill="var(--text-muted)" font-size="12" font-weight="700">{table.label}</text>
+							</g>
+						{/each}
+						{#each (roomLayout.furniture || []) as furn}
+							{@const fcx = furn.x + furn.w / 2}
+							{@const fcy = furn.y + furn.h / 2}
+							<g transform="rotate({furn.rotation || 0}, {fcx}, {fcy})">
+								<rect x={furn.x} y={furn.y} width={furn.w} height={furn.h} rx="5"
+									fill="rgba(245,158,11,0.1)" stroke="rgba(245,158,11,0.4)" stroke-width="1.5" stroke-dasharray="5 2"/>
+								<text x={fcx} y={fcy - 2} text-anchor="middle" font-size="14" style="pointer-events:none">{furn.icon}</text>
+								<text x={fcx} y={fcy + 12} text-anchor="middle" fill="#f59e0b" font-size="9" font-weight="700">{furn.label}</text>
 							</g>
 						{/each}
 						{#each roomLayout.seats as seat}

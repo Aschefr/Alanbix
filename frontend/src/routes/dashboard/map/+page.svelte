@@ -3,7 +3,19 @@
 	import { api } from '$lib/api';
 	import { page } from '$app/stores';
 
-	let layout = { seats: [], tables: [] };
+	let layout = { seats: [], tables: [], furniture: [] };
+
+	// AXE-09: Furniture type presets
+	const FURNITURE_TYPES = [
+		{ type: 'door', icon: '🚪', label: 'Porte', w: 80, h: 40 },
+		{ type: 'kitchen', icon: '🍳', label: 'Cuisine', w: 160, h: 100 },
+		{ type: 'bar', icon: '🍺', label: 'Bar', w: 200, h: 60 },
+		{ type: 'wc', icon: '🚻', label: 'WC', w: 80, h: 80 },
+		{ type: 'rack', icon: '🖥️', label: 'Rack', w: 60, h: 80 },
+		{ type: 'screen', icon: '📺', label: 'Écran', w: 160, h: 40 },
+		{ type: 'generic', icon: '📦', label: 'Élément', w: 100, h: 80 },
+	];
+	let selectedFurnitureType = 'door';
 	let user = null;
 	let allUsers = [];
 	let editMode = false;
@@ -53,12 +65,14 @@
 	onMount(async () => {
 		user = await api.get('/me');
 		const res = await api.get('/room/layout');
-		layout = res.layout || { seats: [], tables: [] };
+		layout = res.layout || { seats: [], tables: [], furniture: [] };
 		if (!layout.tables) layout.tables = [];
 		if (!layout.seats) layout.seats = [];
+		if (!layout.furniture) layout.furniture = [];
 		// Ensure rotation field exists
 		layout.tables.forEach(t => { if (t.rotation === undefined) t.rotation = 0; });
 		layout.seats.forEach(s => { if (s.rotation === undefined) s.rotation = 0; });
+		layout.furniture.forEach(f => { if (f.rotation === undefined) f.rotation = 0; });
 		selectedSeat = user.seat_id;
 		await loadUsers();
 		try { const lk = await api.get('/room/seating-locked'); seatingLocked = lk.locked; } catch {}
@@ -136,6 +150,25 @@
 		targetTableId = newTable.id; // auto-select new table
 	}
 
+	// AXE-09: Add furniture element
+	function nextFurnitureNum() {
+		const nums = layout.furniture.map(f => parseInt(f.id.replace('F','')) || 0);
+		return (Math.max(0, ...nums) + 1);
+	}
+	function addFurniture() {
+		const preset = FURNITURE_TYPES.find(t => t.type === selectedFurnitureType) || FURNITURE_TYPES[0];
+		const n = nextFurnitureNum();
+		layout.furniture = [...layout.furniture, {
+			id: 'F' + n,
+			type: preset.type,
+			icon: preset.icon,
+			label: preset.label,
+			x: 200, y: 200,
+			w: preset.w, h: preset.h,
+			rotation: 0
+		}];
+	}
+
 	function nextSeatNum(tableId) {
 		const prefix = tableId + '_S';
 		const nums = layout.seats.filter(s => s.id.startsWith(prefix)).map(s => parseInt(s.id.split('_S')[1]) || 0);
@@ -196,6 +229,7 @@
 
 	async function removeItem(type, id) {
 		if (type === 'table') layout.tables = layout.tables.filter(t => t.id !== id);
+		if (type === 'furniture') layout.furniture = layout.furniture.filter(f => f.id !== id);
 		if (type === 'seat') {
 			// Unassign player if seated here
 			const occupant = getOccupant(id);
@@ -455,6 +489,13 @@
 						{/each}
 					</select>
 					<button class="btn-secondary" on:click={addSeat}>+ Poste</button>
+					<span class="toolbar-sep">|</span>
+					<select class="table-select" bind:value={selectedFurnitureType}>
+						{#each FURNITURE_TYPES as ft}
+							<option value={ft.type}>{ft.icon} {ft.label}</option>
+						{/each}
+					</select>
+					<button class="btn-secondary" on:click={addFurniture}>+ Élément</button>
 					<button class="btn-primary" on:click={saveLayout}>💾 Sauvegarder</button>
 					<button class="btn-secondary" on:click={() => { editMode = false; assigningSeatId = null; }}>🔒 Fermer éditeur</button>
 				{/if}
@@ -535,6 +576,59 @@
 						<g class="remove-btn" on:click|stopPropagation={() => removeItem('table', table.id)}>
 							<circle cx={table.x + table.w - 8} cy={table.y + 8} r="8" fill="var(--danger)"/>
 							<text x={table.x + table.w - 8} y={table.y + 12} text-anchor="middle" fill="white" font-size="10" font-weight="bold">✕</text>
+						</g>
+					{/if}
+				</g>
+			{/each}
+
+			<!-- Furniture (AXE-09) -->
+			{#each layout.furniture as furn}
+				{@const fcx = furn.x + furn.w / 2}
+				{@const fcy = furn.y + furn.h / 2}
+				<g transform="rotate({furn.rotation || 0}, {fcx}, {fcy})">
+					<!-- svelte-ignore a11y-no-static-element-interactions -->
+					<rect 
+						x={furn.x} y={furn.y} width={furn.w} height={furn.h} rx="6"
+						class="furniture-rect"
+						style="cursor: {editMode ? 'grab' : 'default'}"
+						on:mousedown={(e) => startDragTable(e, furn, 'move')}
+					/>
+					<text x={fcx} y={fcy - 2} text-anchor="middle" class="furniture-icon" style="pointer-events:none">{furn.icon}</text>
+					<text x={fcx} y={fcy + 12} text-anchor="middle" class="furniture-label">{furn.label}</text>
+
+					{#if editMode}
+						<!-- Resize handles -->
+						{#each [
+							{ type: 'resize-tl', hx: furn.x, hy: furn.y },
+							{ type: 'resize-tr', hx: furn.x + furn.w, hy: furn.y },
+							{ type: 'resize-bl', hx: furn.x, hy: furn.y + furn.h },
+							{ type: 'resize-br', hx: furn.x + furn.w, hy: furn.y + furn.h }
+						] as handle}
+							<!-- svelte-ignore a11y-no-static-element-interactions -->
+							<rect 
+								x={handle.hx - 5} y={handle.hy - 5} width="10" height="10" rx="2"
+								class="resize-handle"
+								style="cursor: {handle.type.includes('tl') || handle.type.includes('br') ? 'nwse-resize' : 'nesw-resize'}"
+								on:mousedown={(e) => startDragTable(e, furn, handle.type)}
+							/>
+						{/each}
+
+						<!-- Rotation handle -->
+						<!-- svelte-ignore a11y-no-static-element-interactions -->
+						<line x1={fcx} y1={furn.y} x2={fcx} y2={furn.y - 25} stroke="#f59e0b" stroke-width="2" stroke-dasharray="3 2"/>
+						<!-- svelte-ignore a11y-no-static-element-interactions -->
+						<circle 
+							cx={fcx} cy={furn.y - 30} r="7"
+							class="rotate-handle furniture-rotate"
+							on:mousedown={(e) => startDragTable(e, furn, 'rotate')}
+						/>
+						<text x={fcx} y={furn.y - 27} text-anchor="middle" fill="white" font-size="8" font-weight="bold" style="pointer-events:none">↻</text>
+
+						<!-- Remove -->
+						<!-- svelte-ignore a11y-no-static-element-interactions -->
+						<g class="remove-btn" on:click|stopPropagation={() => removeItem('furniture', furn.id)}>
+							<circle cx={furn.x + furn.w - 8} cy={furn.y + 8} r="8" fill="var(--danger)"/>
+							<text x={furn.x + furn.w - 8} y={furn.y + 12} text-anchor="middle" fill="white" font-size="10" font-weight="bold">✕</text>
 						</g>
 					{/if}
 				</g>
@@ -647,6 +741,7 @@
 		<div class="legend-item"><span class="dot free-dot"></span> Libre</div>
 		<div class="legend-item"><span class="dot occupied-dot"></span> Occupé</div>
 		<div class="legend-item"><span class="dot table-dot"></span> Table</div>
+		<div class="legend-item"><span class="dot furniture-dot"></span> Élément</div>
 	</div>
 
 	<!-- Admin: Player badge bar for drag-drop -->
@@ -701,6 +796,14 @@
 		filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
 	}
 	.table-label { fill: var(--text-muted); font-size: 13px; font-weight: 700; pointer-events: none; }
+
+	/* Furniture (AXE-09) */
+	.furniture-rect { fill: rgba(245, 158, 11, 0.12); stroke: rgba(245, 158, 11, 0.5); stroke-width: 2; stroke-dasharray: 6 3; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.2)); }
+	.furniture-icon { font-size: 16px; }
+	.furniture-label { fill: #f59e0b; font-size: 10px; font-weight: 700; pointer-events: none; }
+	.furniture-rotate { fill: #f59e0b; }
+	.furniture-dot { background: rgba(245, 158, 11, 0.3); border: 2px solid rgba(245, 158, 11, 0.6); }
+	.toolbar-sep { color: var(--text-muted); opacity: 0.3; font-size: 1.2rem; align-self: center; }
 
 	/* Resize handles */
 	.resize-handle { fill: var(--accent); stroke: white; stroke-width: 1; opacity: 0; transition: opacity 0.15s; }

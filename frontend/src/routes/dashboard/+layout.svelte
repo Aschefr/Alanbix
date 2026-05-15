@@ -4,7 +4,7 @@
 	import { api } from '$lib/api';
 	import { connectWS, wsMessageStore } from '$lib/ws';
 	import { invalidateAll } from '$app/navigation';
-	import { pmUnreadCount } from '$lib/pmStore';
+	import { pmUnreadCount, groupUnreadCount, totalMsgUnread } from '$lib/pmStore';
 
 	let user = { username: '...', is_admin: false };
 	let unsub = null;
@@ -32,6 +32,10 @@
 				const pc = await api.get('/players/messages/unread-count');
 				pmUnreadCount.set(pc.count || 0);
 			} catch {}
+			try {
+				const gc = await api.get('/players/group/unread-count');
+				groupUnreadCount.set(gc.count || 0);
+			} catch {}
 			unsub = wsMessageStore.subscribe(msg => {
 				if (msg && msg.type) {
 					invalidateAll();
@@ -51,6 +55,14 @@
 						}
 						api.get('/players/messages/unread-count').then(r => {
 							pmUnreadCount.set(r.count || 0);
+							pmBounce = true;
+							setTimeout(() => pmBounce = false, 600);
+						}).catch(() => {});
+					}
+					// AXE-12: Group message notification
+					if (msg.type === 'group_message_new') {
+						api.get('/players/group/unread-count').then(r => {
+							groupUnreadCount.set(r.count || 0);
 							pmBounce = true;
 							setTimeout(() => pmBounce = false, 600);
 						}).catch(() => {});
@@ -121,11 +133,11 @@
 				<span class="icon">🏆</span>
 				<span class="label">Tournois</span>
 			</a>
-			<a href="/dashboard/players{$pmUnreadCount > 0 && lastPmSender ? '?chat=' + lastPmSender : ''}" class="nav-item pm-nav">
+			<a href="/dashboard/players{$totalMsgUnread > 0 && lastPmSender ? '?chat=' + lastPmSender : ''}" class="nav-item pm-nav">
 				<span class="icon">👥</span>
 				<span class="label">Joueurs</span>
-				{#if $pmUnreadCount > 0}
-					<span class="pm-count-badge" class:bounce={pmBounce}>{$pmUnreadCount}</span>
+				{#if $totalMsgUnread > 0}
+					<span class="pm-count-badge" class:bounce={pmBounce}>{$totalMsgUnread}</span>
 				{/if}
 			</a>
 			<a href="/dashboard/notifications" class="nav-item notif-nav" on:click={() => { api.get('/notifications/unread-count').then(r => notifCount = r.count || 0).catch(() => {}); }}>

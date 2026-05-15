@@ -157,3 +157,33 @@ class PrivateMessage(Base):
     content = Column(Text)
     is_read = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+class GroupChannel(Base):
+    """Canal de groupe (team-only ou inter-team). AXE-12."""
+    __tablename__ = "group_channels"
+    id = Column(Integer, primary_key=True, index=True)
+    channel_key = Column(String, unique=True, index=True)  # "team:Alpha Wolves" ou "inter:Alpha Wolves|Neon Vipers"
+    channel_type = Column(String)  # "team" ou "inter"
+    team_names = Column(JSON)  # ["Alpha Wolves"] ou ["Alpha Wolves", "Neon Vipers"]
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+    messages = relationship("GroupMessage", back_populates="channel", cascade="all, delete-orphan")
+
+class GroupMessage(Base):
+    """Message dans un canal de groupe. AXE-12."""
+    __tablename__ = "group_messages"
+    id = Column(Integer, primary_key=True, index=True)
+    channel_id = Column(Integer, ForeignKey("group_channels.id", ondelete="CASCADE"))
+    sender_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
+    content = Column(Text)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+    channel = relationship("GroupChannel", back_populates="messages")
+
+class GroupMessageRead(Base):
+    """Dernier message lu par user dans un channel. AXE-12."""
+    __tablename__ = "group_message_reads"
+    id = Column(Integer, primary_key=True, index=True)
+    channel_id = Column(Integer, ForeignKey("group_channels.id", ondelete="CASCADE"))
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
+    last_read_message_id = Column(Integer, default=0)

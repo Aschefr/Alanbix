@@ -247,3 +247,257 @@ async def pm_send(peer_id: int, body: SendMessage, db: Session = Depends(databas
         "status": "sent", "id": msg.id,
         "created_at": msg.created_at.isoformat() if msg.created_at else None
     }
+
+
+# --- Group Messaging (AXE-12) ---
+
+def _make_channel_key(channel_type: str, team_names: list) -> str:
+    """Build deterministic channel key from type and team names."""
+    if channel_type == "team":
+        return f"team:{team_names[0]}"
+    else:
+        sorted_names = sorted(team_names)
+        return f"inter:{sorted_names[0]}|{sorted_names[1]}"
+
+
+def _user_can_access_channel(user: models.User, channel: models.GroupChannel) -> bool:
+    """Check if user's team_name is in the channel's team_names."""
+    if not user.team_name:
+        return False
+    if user.is_admin:
+        return True
+    return user.team_name in (channel.team_names or [])
+
+
+def _get_or_create_channel(db: Session, channel_type: str, team_names: list) -> models.GroupChannel:
+    """Get existing channel or create one."""
+    key = _make_channel_key(channel_type, team_names)
+    channel = db.query(models.GroupChannel).filter(models.GroupChannel.channel_key == key).first()
+    if not channel:
+        channel = models.GroupChannel(
+            channel_key=key,
+            channel_type=channel_type,
+            team_names=sorted(team_names) if channel_type == "inter" else team_names
+        )
+        db.add(channel)
+        db.commit()
+        db.refresh(channel)
+    return channel
+
+
+@router.get("/group/unread-count")
+def group_unread_count(db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
+    """Total unread group messages across all accessible channels."""
+    if not user.team_name:
+        return {"count": 0}
+
+    # Find all channels the user can access
+    channels = db.query(models.GroupChannel).all()
+    accessible = [c for c in channels if _user_can_access_channel(user, c)]
+
+    total = 0
+    for ch in accessible:
+        read_record = db.query(models.GroupMessageRead).filter(
+            models.GroupMessageRead.channel_id == ch.id,
+            models.GroupMessageRead.user_id == user.id
+        ).first()
+        last_read = read_record.last_read_message_id if read_record else 0
+        unread = db.query(models.GroupMessage).filter(
+            models.GroupMessage.channel_id == ch.id,
+            models.GroupMessage.id > last_read,
+            models.GroupMessage.sender_id != user.id
+        ).count()
+        total += unread
+    return {"count": total}
+
+
+@router.get("/group/channels")
+def group_channels(db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
+    """List group channels accessible to user with unread counts & last message."""
+    if not user.team_name:
+        return []
+
+    channels = db.query(models.GroupChannel).all()
+    result = []
+
+    for ch in channels:
+        if not _user_can_access_channel(user, ch):
+            continue
+
+        read_record = db.query(models.GroupMessageRead).filter(
+            models.GroupMessageRead.channel_id == ch.id,
+            models.GroupMessageRead.user_id == user.id
+        ).first()
+        last_read = read_record.last_read_message_id if read_record else 0
+
+        unread = db.query(models.GroupMessage).filter(
+            models.GroupMessage.channel_id == ch.id,
+            models.GroupMessage.id > last_read,
+            models.GroupMessage.sender_id != user.id
+        ).count()
+
+        last_msg = db.query(models.GroupMessage).filter(
+            models.GroupMessage.channel_id == ch.id
+        ).order_by(models.GroupMessage.created_at.desc()).first()
+
+        last_sender = None
+        if last_msg:
+            sender = db.query(models.User).filter(models.User.id == last_msg.sender_id).first()
+            last_sender = sender.username if sender else "?"
+
+        # Count members currently in this channel
+        member_count = 0
+        for tn in (ch.team_names or []):
+            member_count += db.query(models.User).filter(models.User.team_name == tn).count()
+
+        result.append({
+            "channel_key": ch.channel_key,
+            "channel_type": ch.channel_type,
+            "team_names": ch.team_names or [],
+            "member_count": member_count,
+            "unread": unread,
+            "last_message": last_msg.content[:100] if last_msg else None,
+            "last_sender": last_sender,
+            "last_at": last_msg.created_at.isoformat() if last_msg and last_msg.created_at else None
+        })
+
+    # Sort by most recent message
+    result.sort(key=lambda x: x["last_at"] or "", reverse=True)
+    return result
+
+
+class GroupSendMessage(BaseModel):
+    content: str
+    channel_type: str  # "team" or "inter"
+    team_names: list   # ["Alpha Wolves"] or ["Alpha Wolves", "Neon Vipers"]
+
+
+@router.get("/group/channel/{channel_key:path}")
+def group_read(channel_key: str, db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
+    """Read messages from a group channel. Auto-marks as read."""
+    channel = db.query(models.GroupChannel).filter(models.GroupChannel.channel_key == channel_key).first()
+    if not channel:
+        return {"channel": None, "messages": [], "members": []}
+
+    if not _user_can_access_channel(user, channel):
+        raise HTTPException(403, "Access denied to this channel")
+
+    # Mark as read
+    last_msg = db.query(models.GroupMessage).filter(
+        models.GroupMessage.channel_id == channel.id
+    ).order_by(models.GroupMessage.id.desc()).first()
+
+    if last_msg:
+        read_record = db.query(models.GroupMessageRead).filter(
+            models.GroupMessageRead.channel_id == channel.id,
+            models.GroupMessageRead.user_id == user.id
+        ).first()
+        if read_record:
+            read_record.last_read_message_id = last_msg.id
+        else:
+            db.add(models.GroupMessageRead(
+                channel_id=channel.id, user_id=user.id,
+                last_read_message_id=last_msg.id
+            ))
+        db.commit()
+
+    # Fetch messages
+    messages = db.query(models.GroupMessage).filter(
+        models.GroupMessage.channel_id == channel.id
+    ).order_by(models.GroupMessage.created_at.asc()).all()
+
+    # Resolve sender names
+    sender_ids = list(set(m.sender_id for m in messages))
+    users_map = {}
+    if sender_ids:
+        senders = db.query(models.User).filter(models.User.id.in_(sender_ids)).all()
+        users_map = {u.id: u.username for u in senders}
+
+    # Get channel members
+    members = []
+    for tn in (channel.team_names or []):
+        team_users = db.query(models.User).filter(models.User.team_name == tn).all()
+        for u in team_users:
+            members.append({"id": u.id, "username": u.username, "team_name": u.team_name})
+
+    return {
+        "channel": {
+            "channel_key": channel.channel_key,
+            "channel_type": channel.channel_type,
+            "team_names": channel.team_names or []
+        },
+        "messages": [{
+            "id": m.id, "sender_id": m.sender_id,
+            "sender_name": users_map.get(m.sender_id, "?"),
+            "content": m.content,
+            "created_at": m.created_at.isoformat() if m.created_at else None
+        } for m in messages],
+        "members": members
+    }
+
+
+@router.post("/group/send")
+async def group_send(body: GroupSendMessage, db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
+    """Send a message to a group channel (creates channel if needed)."""
+    if not user.team_name:
+        raise HTTPException(400, "You must have a team to use group chat")
+
+    if body.channel_type not in ("team", "inter"):
+        raise HTTPException(400, "Invalid channel_type")
+
+    if body.channel_type == "team":
+        if len(body.team_names) != 1:
+            raise HTTPException(400, "Team channel requires exactly 1 team name")
+        if user.team_name != body.team_names[0] and not user.is_admin:
+            raise HTTPException(403, "Cannot access another team's private channel")
+    elif body.channel_type == "inter":
+        if len(body.team_names) != 2:
+            raise HTTPException(400, "Inter channel requires exactly 2 team names")
+        if user.team_name not in body.team_names and not user.is_admin:
+            raise HTTPException(403, "You must be a member of one of the teams")
+
+    content = (body.content or "").strip()
+    if not content:
+        raise HTTPException(400, "Message cannot be empty")
+    if len(content) > 2000:
+        raise HTTPException(400, "Message too long (max 2000 chars)")
+
+    channel = _get_or_create_channel(db, body.channel_type, body.team_names)
+
+    msg = models.GroupMessage(
+        channel_id=channel.id, sender_id=user.id, content=content
+    )
+    db.add(msg)
+    db.commit()
+    db.refresh(msg)
+
+    # Auto-mark as read for sender
+    read_record = db.query(models.GroupMessageRead).filter(
+        models.GroupMessageRead.channel_id == channel.id,
+        models.GroupMessageRead.user_id == user.id
+    ).first()
+    if read_record:
+        read_record.last_read_message_id = msg.id
+    else:
+        db.add(models.GroupMessageRead(
+            channel_id=channel.id, user_id=user.id,
+            last_read_message_id=msg.id
+        ))
+    db.commit()
+
+    # WebSocket broadcast
+    await ws_manager.broadcast({
+        "type": "group_message_new",
+        "channel_key": channel.channel_key,
+        "channel_type": channel.channel_type,
+        "team_names": channel.team_names or [],
+        "sender_id": user.id,
+        "message_id": msg.id
+    })
+
+    return {
+        "status": "sent", "id": msg.id,
+        "channel_key": channel.channel_key,
+        "created_at": msg.created_at.isoformat() if msg.created_at else None
+    }
+

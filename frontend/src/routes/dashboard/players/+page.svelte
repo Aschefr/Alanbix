@@ -3,15 +3,19 @@
 	import { onMount, onDestroy, tick } from 'svelte';
 	import { wsMessageStore } from '$lib/ws';
 	import { page } from '$app/stores';
-	import { pmUnreadCount } from '$lib/pmStore';
+	import { pmUnreadCount, groupUnreadCount } from '$lib/pmStore';
 
 	let players = [];
 	let currentUser = null;
 	let loading = true;
 
-	// Chat state
+	// Chat state — dual mode: P2P (chatPeerId) or Group (chatChannelKey)
+	let chatMode = null; // 'p2p' | 'group' | null
 	let chatPeerId = null;
 	let chatPeer = null;
+	let chatChannelKey = null;
+	let chatChannelInfo = null; // {channel_key, channel_type, team_names}
+	let chatChannelMembers = [];
 	let chatMessages = [];
 	let chatInput = '';
 	let chatLoading = false;
@@ -28,33 +32,49 @@
 	// Per-player unread counts
 	let unreadMap = {}; // peer_id -> unread count
 
+	// Group unread counts (AXE-12)
+	let groupUnreadMap = {}; // channel_key -> unread count
+
 	let wsUnsub = null;
 
 	onMount(async () => {
 		try { currentUser = await api.get('/me'); } catch {}
 		await loadPlayers();
 		await loadUnreadMap();
+		await loadGroupUnreadMap();
 
 		// Restore last selected chat from localStorage
 		const savedPeer = localStorage.getItem('alanbix_players_chat');
+		const savedGroup = localStorage.getItem('alanbix_players_group_chat');
 		// Check URL params for auto-open from notification click
 		const urlPeer = $page.url.searchParams.get('chat');
-		const targetPeer = urlPeer ? parseInt(urlPeer) : (savedPeer ? parseInt(savedPeer) : null);
-
-		if (targetPeer && targetPeer !== currentUser?.id) {
-			openChat(targetPeer);
+		const urlGroup = $page.url.searchParams.get('group');
+		
+		if (urlGroup) {
+			openGroupChat(decodeURIComponent(urlGroup));
+		} else {
+			const targetPeer = urlPeer ? parseInt(urlPeer) : (savedPeer ? parseInt(savedPeer) : null);
+			if (targetPeer && targetPeer !== currentUser?.id) {
+				openChat(targetPeer);
+			} else if (savedGroup) {
+				openGroupChat(savedGroup);
+			}
 		}
 
 		wsUnsub = wsMessageStore.subscribe(msg => {
 			if (!msg) return;
 			if (msg.type === 'private_message_new') {
-				// If we have the chat open with this peer, refresh messages
 				const peerId = msg.sender_id === currentUser?.id ? msg.receiver_id : msg.sender_id;
-				if (chatPeerId && (msg.sender_id === chatPeerId || msg.receiver_id === chatPeerId)) {
+				if (chatMode === 'p2p' && chatPeerId && (msg.sender_id === chatPeerId || msg.receiver_id === chatPeerId)) {
 					loadChat(chatPeerId, true);
 				}
-				// Refresh unread map for badge display
 				loadUnreadMap();
+			}
+			if (msg.type === 'group_message_new') {
+				if (chatMode === 'group' && chatChannelKey === msg.channel_key) {
+					loadGroupChat(msg.channel_key, true);
+				}
+				loadGroupUnreadMap();
 			}
 		});
 	});
@@ -74,10 +94,46 @@
 			let total = 0;
 			convos.forEach(c => { if (c.unread > 0) { map[c.peer_id] = c.unread; total += c.unread; } });
 			unreadMap = map;
-			// Sync sidebar badge
 			pmUnreadCount.set(total);
 		} catch { unreadMap = {}; pmUnreadCount.set(0); }
 	}
+
+	async function loadGroupUnreadMap() {
+		try {
+			const channels = await api.get('/players/group/channels');
+			const map = {};
+			let total = 0;
+			channels.forEach(c => { if (c.unread > 0) { map[c.channel_key] = c.unread; total += c.unread; } });
+			groupUnreadMap = map;
+			groupUnreadCount.set(total);
+		} catch { groupUnreadMap = {}; groupUnreadCount.set(0); }
+	}
+
+	// Reactive per-team unread breakdown — recalculated whenever groupUnreadMap changes
+	$: teamUnreads = (() => {
+		const result = {};
+		// Build for every team mentioned in groupUnreadMap keys
+		const allTeams = new Set();
+		Object.keys(groupUnreadMap).forEach(key => {
+			if (key.startsWith('team:')) allTeams.add(key.slice(5));
+			if (key.startsWith('inter:')) key.slice(6).split('|').forEach(t => allTeams.add(t));
+		});
+		// Also include teams from players list
+		players.forEach(p => { if (p.team_name) allTeams.add(p.team_name); });
+		allTeams.forEach(teamName => {
+			const teamCount = groupUnreadMap[`team:${teamName}`] || 0;
+			const inters = [];
+			Object.entries(groupUnreadMap).forEach(([k, count]) => {
+				if (k.startsWith('inter:') && k.includes(teamName) && count > 0) {
+					const teams = k.slice(6).split('|');
+					const otherTeam = teams[0] === teamName ? teams[1] : teams[0];
+					inters.push({ key: k, otherTeam, count });
+				}
+			});
+			result[teamName] = { teamCount, inters, total: teamCount + inters.reduce((s, i) => s + i.count, 0) };
+		});
+		return result;
+	})();
 
 	// Group players by team
 	$: grouped = (() => {
@@ -91,7 +147,6 @@
 				noTeam.push(p);
 			}
 		});
-		// Sort each team by points desc
 		Object.values(teams).forEach(arr => arr.sort((a, b) => b.points - a.points));
 		noTeam.sort((a, b) => b.points - a.points);
 		const sorted = Object.entries(teams).sort(([a], [b]) => a.localeCompare(b));
@@ -113,13 +168,17 @@
 		pointsLoading = false;
 	}
 
+	// --- P2P Chat ---
 	async function openChat(peerId) {
 		if (peerId === currentUser?.id) return;
+		chatMode = 'p2p';
 		chatPeerId = peerId;
-		// Persist selection
+		chatChannelKey = null;
+		chatChannelInfo = null;
+		chatChannelMembers = [];
 		localStorage.setItem('alanbix_players_chat', String(peerId));
+		localStorage.removeItem('alanbix_players_group_chat');
 		await loadChat(peerId, false);
-		// Refresh unread since opening marks as read
 		await loadUnreadMap();
 	}
 
@@ -133,11 +192,11 @@
 			scrollChat();
 		} catch { chatMessages = []; }
 		if (!silent) chatLoading = false;
-		// After reading, refresh unread map (messages got marked as read)
 		if (!silent) await loadUnreadMap();
 	}
 
 	async function sendMessage() {
+		if (chatMode === 'group') { sendGroupMessage(); return; }
 		const content = chatInput.trim();
 		if (!content || !chatPeerId) return;
 		chatInput = '';
@@ -145,8 +204,82 @@
 			await api.post(`/players/messages/${chatPeerId}`, { content });
 			await loadChat(chatPeerId, true);
 		} catch (e) {
-			chatInput = content; // Restore on error
+			chatInput = content;
 		}
+	}
+
+	// --- Group Chat (AXE-12) ---
+	function openTeamChat(e, teamName) {
+		e.stopPropagation();
+		if (!currentUser?.team_name) return;
+		const isMyTeam = currentUser.team_name === teamName;
+		if (isMyTeam) {
+			openGroupChat(`team:${teamName}`);
+		} else if (currentUser.team_name) {
+			// Inter-team: sorted alphabetically for deterministic key
+			const names = [currentUser.team_name, teamName].sort();
+			openGroupChat(`inter:${names[0]}|${names[1]}`);
+		}
+	}
+
+	async function openGroupChat(channelKey) {
+		chatMode = 'group';
+		chatChannelKey = channelKey;
+		chatPeerId = null;
+		chatPeer = null;
+		localStorage.setItem('alanbix_players_group_chat', channelKey);
+		localStorage.removeItem('alanbix_players_chat');
+		await loadGroupChat(channelKey, false);
+		await loadGroupUnreadMap();
+	}
+
+	async function loadGroupChat(channelKey, silent) {
+		if (!silent) chatLoading = true;
+		try {
+			const data = await api.get(`/players/group/channel/${channelKey}`);
+			chatChannelInfo = data.channel;
+			chatMessages = (data.messages || []).map(m => ({
+				...m, sender_id: m.sender_id, sender_name: m.sender_name
+			}));
+			chatChannelMembers = data.members || [];
+			await tick();
+			scrollChat();
+		} catch { chatMessages = []; chatChannelInfo = null; }
+		if (!silent) chatLoading = false;
+		if (!silent) await loadGroupUnreadMap();
+	}
+
+	async function sendGroupMessage() {
+		const content = chatInput.trim();
+		if (!content || !chatChannelKey) return;
+		chatInput = '';
+		// Parse channel_key to determine type and team_names
+		let channel_type, team_names;
+		if (chatChannelKey.startsWith('team:')) {
+			channel_type = 'team';
+			team_names = [chatChannelKey.slice(5)];
+		} else {
+			channel_type = 'inter';
+			team_names = chatChannelKey.slice(6).split('|');
+		}
+		try {
+			await api.post('/players/group/send', { content, channel_type, team_names });
+			await loadGroupChat(chatChannelKey, true);
+		} catch (e) {
+			chatInput = content;
+		}
+	}
+
+	function closeChat() {
+		chatMode = null;
+		chatPeerId = null;
+		chatPeer = null;
+		chatChannelKey = null;
+		chatChannelInfo = null;
+		chatChannelMembers = [];
+		chatMessages = [];
+		localStorage.removeItem('alanbix_players_chat');
+		localStorage.removeItem('alanbix_players_group_chat');
 	}
 
 	function scrollChat() {
@@ -163,13 +296,6 @@
 	function toggleTeam(name) {
 		collapsedTeams[name] = !collapsedTeams[name];
 		collapsedTeams = collapsedTeams;
-	}
-
-	function closeChat() {
-		chatPeerId = null;
-		chatPeer = null;
-		chatMessages = [];
-		localStorage.removeItem('alanbix_players_chat');
 	}
 
 	function timeAgo(dateStr) {
@@ -209,8 +335,29 @@
 						<!-- svelte-ignore a11y-no-static-element-interactions -->
 						<div class="team-header" on:click={() => toggleTeam(teamName)}>
 							<span class="team-chevron">{collapsedTeams[teamName] ? '▸' : '▾'}</span>
-							<span class="team-name">{teamName}</span>
+							<span class="team-name">
+								{teamName}
+								{#if (teamUnreads[teamName]?.teamCount || 0) > 0}
+									<span class="team-name-badge team-badge">🛡️ {teamUnreads[teamName].teamCount}</span>
+								{/if}
+								{#each (teamUnreads[teamName]?.inters || []) as inter}
+									<span class="team-name-badge inter-badge">⚔️ {inter.count}</span>
+								{/each}
+							</span>
 							<span class="team-count">{members.length}</span>
+							{#if currentUser?.team_name}
+								<button
+									class="team-chat-btn"
+									class:has-unread={(teamUnreads[teamName]?.total || 0) > 0}
+									on:click={(e) => openTeamChat(e, teamName)}
+								>
+									{#if currentUser.team_name === teamName}
+										🛡️ Chat équipe
+									{:else}
+										⚔️ Chat inter
+									{/if}
+								</button>
+							{/if}
 						</div>
 						{#if !collapsedTeams[teamName]}
 							<div class="team-members">
@@ -326,14 +473,14 @@
 
 		<!-- RIGHT: Chat panel -->
 		<div class="chat-col glass">
-			{#if !chatPeerId}
+			{#if !chatMode}
 				<div class="chat-empty">
 					<span class="chat-empty-icon">💬</span>
-					<p>Cliquez sur un joueur pour démarrer une conversation</p>
+					<p>Cliquez sur un joueur ou une équipe pour démarrer une conversation</p>
 				</div>
 			{:else if chatLoading}
 				<div class="chat-empty"><span>⏳</span> Chargement...</div>
-			{:else}
+			{:else if chatMode === 'p2p'}
 				<div class="chat-header">
 					<div class="chat-peer-avatar">{chatPeer?.username?.[0]?.toUpperCase() || '?'}</div>
 					<div class="chat-peer-info">
@@ -348,9 +495,7 @@
 
 				<div class="chat-messages" bind:this={chatEl}>
 					{#if chatMessages.length === 0}
-						<div class="chat-no-msg">
-							<p>Aucun message. Envoyez le premier !</p>
-						</div>
+						<div class="chat-no-msg"><p>Aucun message. Envoyez le premier !</p></div>
 					{:else}
 						{#each chatMessages as msg}
 							<div class="chat-bubble {msg.sender_id === currentUser?.id ? 'mine' : 'theirs'}">
@@ -362,13 +507,51 @@
 				</div>
 
 				<div class="chat-input-bar">
-					<textarea
-						class="chat-input"
-						bind:value={chatInput}
-						on:keydown={handleKeydown}
-						placeholder="Écrire un message..."
-						rows="1"
-					></textarea>
+					<textarea class="chat-input" bind:value={chatInput} on:keydown={handleKeydown} placeholder="Écrire un message..." rows="1"></textarea>
+					<button class="chat-send" on:click={sendMessage} disabled={!chatInput.trim()}>
+						<span>➤</span>
+					</button>
+				</div>
+			{:else if chatMode === 'group'}
+				<div class="chat-header group-header">
+					<div class="chat-group-icon">{chatChannelInfo?.channel_type === 'team' ? '🛡️' : '⚔️'}</div>
+					<div class="chat-peer-info">
+						<span class="chat-peer-name">
+							{#if chatChannelInfo?.channel_type === 'team'}
+								{chatChannelInfo.team_names[0]}
+							{:else}
+								{(chatChannelInfo?.team_names || []).join(' vs ')}
+							{/if}
+						</span>
+						<span class="chat-peer-team">
+							{chatChannelInfo?.channel_type === 'team' ? 'Chat d\'équipe' : 'Chat inter-équipes'}
+							 · {chatChannelMembers.length} membres
+						</span>
+					</div>
+					<span class="group-type-badge {chatChannelInfo?.channel_type}">
+						{chatChannelInfo?.channel_type === 'team' ? 'ÉQUIPE' : 'INTER'}
+					</span>
+					<button class="chat-close" on:click={closeChat} title="Fermer">✕</button>
+				</div>
+
+				<div class="chat-messages" bind:this={chatEl}>
+					{#if chatMessages.length === 0}
+						<div class="chat-no-msg"><p>Aucun message. Lancez la conversation !</p></div>
+					{:else}
+						{#each chatMessages as msg}
+							<div class="chat-bubble {msg.sender_id === currentUser?.id ? 'mine' : 'theirs'}">
+								{#if msg.sender_id !== currentUser?.id}
+									<span class="bubble-sender">{msg.sender_name}</span>
+								{/if}
+								<div class="bubble-content">{msg.content}</div>
+								<span class="bubble-time">{timeAgo(msg.created_at)}</span>
+							</div>
+						{/each}
+					{/if}
+				</div>
+
+				<div class="chat-input-bar">
+					<textarea class="chat-input" bind:value={chatInput} on:keydown={handleKeydown} placeholder="Écrire au groupe..." rows="1"></textarea>
 					<button class="chat-send" on:click={sendMessage} disabled={!chatInput.trim()}>
 						<span>➤</span>
 					</button>
@@ -394,7 +577,19 @@
 	.team-header:hover { background: var(--hover-tint); }
 	.solo-header { cursor: default; }
 	.team-chevron { font-size: 0.7rem; color: var(--text-muted); width: 12px; }
-	.team-name { font-weight: 800; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent); flex: 1; }
+	.team-name { font-weight: 800; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent); flex: 1; position: relative; display: inline-flex; align-items: center; gap: 0.4rem; }
+	.team-name-badge {
+		min-width: 16px; height: 16px; line-height: 16px;
+		padding: 0 4px; border-radius: 8px;
+		background: #8b5cf6; color: white;
+		font-size: 0.5rem; font-weight: 800; text-align: center;
+		box-shadow: 0 0 6px rgba(139,92,246,0.5);
+		text-transform: none; letter-spacing: 0;
+		animation: notif-pulse 2s ease-in-out infinite; will-change: opacity;
+	}
+	.team-name-badge.team-badge { background: #10b981; box-shadow: 0 0 6px rgba(16,185,129,0.5); }
+	.team-name-badge.inter-badge { background: #f59e0b; box-shadow: 0 0 6px rgba(245,158,11,0.5); }
+	@keyframes notif-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
 	.team-count { font-size: 0.6rem; font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 10px; background: rgba(59,130,246,0.1); color: var(--accent); }
 
 	.team-members { padding: 0 0.5rem 0.5rem; display: flex; flex-direction: column; gap: 0.3rem; }
@@ -477,4 +672,43 @@
 
 	/* Loading */
 	.loading-state { text-align: center; padding: 3rem; border-radius: 16px; font-size: 0.85rem; color: var(--text-muted); }
+
+	/* Group Chat (AXE-12) */
+	.team-chat-btn {
+		padding: 0.3rem 0.7rem; border-radius: 8px; border: 1px solid var(--glass-border);
+		background: transparent; cursor: pointer; font-size: 0.65rem; font-weight: 700;
+		display: flex; align-items: center; gap: 0.3rem;
+		transition: all 0.2s; position: relative; flex-shrink: 0;
+		color: var(--text-dim); white-space: nowrap;
+	}
+	.team-chat-btn:hover { background: rgba(139,92,246,0.1); border-color: rgba(139,92,246,0.4); transform: translateY(-1px); color: #8b5cf6; }
+	.team-chat-btn.has-unread {
+		border-color: #8b5cf6; color: #8b5cf6;
+		background: rgba(139,92,246,0.08);
+		animation: btn-glow 2s ease-in-out infinite; will-change: opacity, box-shadow;
+	}
+	@keyframes btn-glow {
+		0%, 100% { box-shadow: 0 0 4px rgba(139,92,246,0.2); }
+		50% { box-shadow: 0 0 12px rgba(139,92,246,0.5); }
+	}
+	.team-unread-badge {
+		position: absolute; top: -5px; right: -6px;
+		min-width: 14px; height: 14px; line-height: 14px;
+		padding: 0 3px; border-radius: 7px;
+		background: #8b5cf6; color: white;
+		font-size: 0.45rem; font-weight: 800; text-align: center;
+		box-shadow: 0 0 6px rgba(139,92,246,0.5);
+	}
+	.chat-group-icon { font-size: 1.4rem; flex-shrink: 0; }
+	.group-type-badge {
+		font-size: 0.5rem; font-weight: 800; padding: 0.2rem 0.5rem; border-radius: 6px;
+		text-transform: uppercase; letter-spacing: 0.08em; flex-shrink: 0;
+	}
+	.group-type-badge.team { background: rgba(16,185,129,0.12); color: #10b981; border: 1px solid rgba(16,185,129,0.3); }
+	.group-type-badge.inter { background: rgba(245,158,11,0.12); color: #f59e0b; border: 1px solid rgba(245,158,11,0.3); }
+	.group-header .chat-peer-name { color: #8b5cf6; }
+	.bubble-sender {
+		display: block; font-size: 0.55rem; font-weight: 800; color: #8b5cf6;
+		margin-bottom: 0.15rem; text-transform: uppercase; letter-spacing: 0.03em;
+	}
 </style>

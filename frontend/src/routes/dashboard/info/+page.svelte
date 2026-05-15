@@ -11,6 +11,13 @@
 	let saving = false;
 	let saveMsg = '';
 
+	// File manager (AXE-13)
+	let files = [];
+	let uploading = false;
+	let deleteConfirm = null; // filename to confirm
+	let nukeConfirm = false;
+	let fileInput;
+
 	// EasyMDE instances
 	let editorMain = null;
 	let editorSpectator = null;
@@ -24,6 +31,7 @@
 			isAdmin = me.is_admin || false;
 		} catch {}
 		await loadInfo();
+		await loadFiles();
 		// Dynamically import EasyMDE (avoid SSR issues)
 		const mod = await import('easymde');
 		EasyMDE = mod.default;
@@ -128,6 +136,69 @@
 
 	let copyToast = '';
 
+	// --- File Manager (AXE-13) ---
+	async function loadFiles() {
+		try { files = await api.get('/dashboard/info/files'); } catch { files = []; }
+	}
+
+	async function uploadFile() {
+		if (!fileInput?.files?.length) return;
+		uploading = true;
+		const formData = new FormData();
+		formData.append('file', fileInput.files[0]);
+		try {
+			await api.upload('/dashboard/info/files/upload', formData);
+			await loadFiles();
+			fileInput.value = ''; // reset
+		} catch (e) {
+			saveMsg = '✕ Erreur upload: ' + e.message;
+			setTimeout(() => saveMsg = '', 3000);
+		}
+		uploading = false;
+	}
+
+	async function deleteFile(name) {
+		try {
+			await api.delete(`/dashboard/info/files/${encodeURIComponent(name)}`);
+			deleteConfirm = null;
+			await loadFiles();
+		} catch (e) {
+			saveMsg = '✕ Erreur suppression: ' + e.message;
+			setTimeout(() => saveMsg = '', 3000);
+		}
+	}
+
+	async function nukeFiles() {
+		try {
+			await api.delete('/dashboard/info/files');
+			nukeConfirm = false;
+			await loadFiles();
+		} catch (e) {
+			saveMsg = '✕ Erreur nuke: ' + e.message;
+			setTimeout(() => saveMsg = '', 3000);
+		}
+	}
+
+	function fileIcon(name) {
+		const ext = (name.split('.').pop() || '').toLowerCase();
+		if (['torrent'].includes(ext)) return '🎮';
+		if (['pdf'].includes(ext)) return '📄';
+		if (['exe', 'msi', 'bat', 'sh'].includes(ext)) return '🔧';
+		if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) return '📦';
+		if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(ext)) return '🖼️';
+		if (['mp4', 'avi', 'mkv', 'mov'].includes(ext)) return '🎬';
+		if (['mp3', 'wav', 'flac', 'ogg'].includes(ext)) return '🎵';
+		if (['txt', 'md', 'log', 'cfg', 'ini', 'yaml', 'json'].includes(ext)) return '📝';
+		return '📁';
+	}
+
+	function formatSize(bytes) {
+		if (bytes < 1024) return bytes + ' B';
+		if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+		if (bytes < 1073741824) return (bytes / 1048576).toFixed(1) + ' MB';
+		return (bytes / 1073741824).toFixed(2) + ' GB';
+	}
+
 	function parseMd(text) {
 		if (!text) return '';
 		// Pre-process: wrap Windows paths BEFORE marked parsing
@@ -219,6 +290,55 @@
 						<p>Aucune information publiée pour le moment.</p>
 						<p class="empty-hint">L'organisateur n'a pas encore publié d'informations.</p>
 					{/if}
+				</div>
+			{/if}
+		</div>
+	{/if}
+
+	<!-- File Manager (AXE-13) -->
+	{#if files.length > 0 || isAdmin}
+		<div class="files-section glass">
+			<div class="files-header">
+				<h2>📦 Fichiers utiles</h2>
+				{#if isAdmin}
+					<div class="files-admin-btns">
+						<label class="btn-upload" class:uploading>
+							{uploading ? '⏳ Upload...' : '➕ Ajouter un fichier'}
+							<input type="file" bind:this={fileInput} on:change={uploadFile} style="display:none" />
+						</label>
+						{#if files.length > 0}
+							{#if nukeConfirm}
+								<button class="btn-nuke confirm" on:click={nukeFiles}>✓ Confirmer ({files.length})</button>
+								<button class="btn-nuke cancel" on:click={() => nukeConfirm = false}>✕</button>
+							{:else}
+								<button class="btn-nuke" on:click={() => nukeConfirm = true} title="Supprimer tous les fichiers">☢️ Nuke</button>
+							{/if}
+						{/if}
+					</div>
+				{/if}
+			</div>
+			{#if files.length === 0}
+				<p class="files-empty">Aucun fichier uploadé.</p>
+			{:else}
+				<div class="files-list">
+					{#each files as f}
+						<div class="file-card">
+							<span class="file-icon">{fileIcon(f.name)}</span>
+							<div class="file-info">
+								<a href="{f.url}" download class="file-name" title="Télécharger {f.name}">{f.name}</a>
+								<span class="file-size">{formatSize(f.size)}</span>
+							</div>
+							<a href="{f.url}" download class="file-dl" title="Télécharger">⬇️</a>
+							{#if isAdmin}
+								{#if deleteConfirm === f.name}
+									<button class="file-del confirm" on:click={() => deleteFile(f.name)}>✓ Confirmer</button>
+									<button class="file-del cancel" on:click={() => deleteConfirm = null}>✕</button>
+								{:else}
+									<button class="file-del" on:click={() => deleteConfirm = f.name} title="Supprimer">🗑️</button>
+								{/if}
+							{/if}
+						</div>
+					{/each}
 				</div>
 			{/if}
 		</div>
@@ -364,4 +484,55 @@
 	.empty-hint { font-size: 0.9rem !important; color: var(--text-muted) !important; }
 
 	@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+	/* File Manager (AXE-13) */
+	.files-section { margin-top: 2rem; padding: 1.5rem; border-radius: var(--radius-lg, 16px); }
+	.files-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+	.files-header h2 { margin: 0; font-size: 1.1rem; font-weight: 800; color: var(--accent); }
+	.btn-upload {
+		padding: 0.5rem 1rem; border-radius: var(--radius-md);
+		background: linear-gradient(135deg, #8b5cf6, #6d28d9); color: white;
+		font-weight: 700; font-size: 0.8rem; cursor: pointer;
+		transition: all 0.2s; border: none; display: inline-block;
+	}
+	.btn-upload:hover { transform: translateY(-1px); box-shadow: 0 4px 15px rgba(139,92,246,0.4); }
+	.btn-upload.uploading { opacity: 0.6; cursor: wait; }
+	.files-empty { color: var(--text-muted); font-size: 0.85rem; font-style: italic; text-align: center; padding: 1rem; }
+	.files-list { display: flex; flex-direction: column; gap: 0.4rem; }
+	.file-card {
+		display: flex; align-items: center; gap: 0.7rem;
+		padding: 0.6rem 0.8rem; border-radius: var(--radius-md, 8px);
+		background: var(--hover-tint, rgba(255,255,255,0.03));
+		border: 1px solid var(--glass-border); transition: all 0.15s;
+	}
+	.file-card:hover { border-color: rgba(139,92,246,0.3); background: rgba(139,92,246,0.04); }
+	.file-icon { font-size: 1.3rem; flex-shrink: 0; }
+	.file-info { flex: 1; min-width: 0; }
+	.file-name {
+		display: block; font-weight: 700; font-size: 0.85rem; color: var(--accent);
+		text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+	}
+	.file-name:hover { text-decoration: underline; }
+	.file-size { font-size: 0.65rem; color: var(--text-muted); }
+	.file-dl {
+		font-size: 1rem; text-decoration: none; padding: 0.3rem;
+		border-radius: 6px; transition: all 0.15s; flex-shrink: 0;
+	}
+	.file-dl:hover { background: rgba(59,130,246,0.1); transform: scale(1.15); }
+	.file-del {
+		background: none; border: 1px solid var(--glass-border); border-radius: 6px;
+		font-size: 0.75rem; padding: 0.25rem 0.4rem; cursor: pointer; transition: all 0.15s; color: var(--text-dim);
+	}
+	.file-del:hover { border-color: var(--danger); color: var(--danger); }
+	.file-del.confirm { background: var(--danger); color: white; border-color: var(--danger); font-weight: 700; }
+	.file-del.cancel { font-weight: 700; }
+	.files-admin-btns { display: flex; gap: 0.5rem; align-items: center; }
+	.btn-nuke {
+		padding: 0.5rem 0.8rem; border-radius: var(--radius-md);
+		background: transparent; color: var(--danger, #ef4444); border: 1px solid var(--danger, #ef4444);
+		font-weight: 700; font-size: 0.75rem; cursor: pointer; transition: all 0.2s;
+	}
+	.btn-nuke:hover { background: rgba(239,68,68,0.1); transform: translateY(-1px); }
+	.btn-nuke.confirm { background: var(--danger); color: white; }
+	.btn-nuke.cancel { border-color: var(--glass-border); color: var(--text-dim); }
 </style>

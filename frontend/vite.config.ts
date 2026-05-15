@@ -11,6 +11,10 @@ export default defineConfig({
 			'/static': {
 				target: 'http://backend:8000',
 				changeOrigin: true
+			},
+			'/data': {
+				target: 'http://backend:8000',
+				changeOrigin: true
 			}
 		}
 	}

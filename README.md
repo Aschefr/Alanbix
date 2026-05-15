@@ -22,6 +22,7 @@ Nommé en clin d'œil à *Alambix* de l'univers d'Astérix — une machinerie co
 - **Avancement automatique** : Progression automatique dans le bracket, gestion des "BYE", détection de la Grande Finale.
 - **Annuler/Rollback** : Réouverture des tournois clôturés avec annulation automatique des points distribués.
 - **Drapeau à damier** : Bannière visuelle claire lorsqu'un tournoi est terminé.
+- **Vérouillage des scores** : Délai de saisie (5s) pour les joueurs, verrouillage automatique des matchs terminés, indicateur 🔒 visuel. Seuls les admins peuvent corriger un score verrouillé.
 
 ### 📊 Dashboard & Classements
 - **Classement global** : Leaderboard avec indicateurs de progression (↑↓ NEW).
@@ -29,11 +30,13 @@ Nommé en clin d'œil à *Alambix* de l'univers d'Astérix — une machinerie co
 - **Classements live** : Projections en direct générées par le backend.
 - **Profils joueurs** : Historique complet des tournois et détail des points obtenus.
 - **Page d'informations** : Page formatée en Markdown pour les plannings, règles et liens utiles.
+- **Gestionnaire de fichiers** : Les admins peuvent uploader des fichiers utiles (torrents, patchs, configs…) téléchargeables par les joueurs directement depuis la page d'informations.
 
 ### 👥 Joueurs & Communauté
 - **Annuaire organisé** : Visualisation de tous les participants inscrits, regroupés par équipe.
 - **Messagerie privée en direct** : Interface de chat P2P rapide intégrée directement à l'annuaire.
 - **Badges de notifications intelligents** : Compteurs de messages non-lus globaux et par joueur, mis à jour instantanément via WebSocket.
+- **Messagerie de groupe** : Chat d'équipe privé (🛡️) et chat inter-équipes (⚔️) avec badges non-lus distincts, boutons avec pulse violet, et channels déterministes.
 - **Actions rapides** : Raccourcis en un clic pour voir l'historique des points d'un joueur ou localiser son siège sur le plan interactif.
 
 ### 📽️ Mode Spectateur (Projecteur)
@@ -48,6 +51,7 @@ Nommé en clin d'œil à *Alambix* de l'univers d'Astérix — une machinerie co
 - **Navigation depuis le bracket** : Cliquez sur un badge de siège directement dans un arbre de tournoi pour le localiser sur la carte.
 - **Zoom auto-adaptatif** : Ajustement automatique à la taille de l'écran.
 - **Zoom centré sur le curseur** : Avec prise en charge du déplacement (pan).
+- **Éléments logistiques** : Placement de mobilier (portes, cuisine, bar, WC, racks techniques, écrans) avec rotation et drag & drop.
 
 ### 🤖 Assistant IA (Ollama)
 - **Réponses en streaming** : Affichage fluide via Server-Sent Events.
