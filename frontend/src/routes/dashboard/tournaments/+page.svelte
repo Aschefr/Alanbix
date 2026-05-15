@@ -607,6 +607,12 @@
 						{/if}
 					{/if}
 				</div>
+				{#if selectedGame?.rules}
+					<div class="hero-rules">
+						<span class="hero-rules-label">📋 Règles</span>
+						<p class="hero-rules-text">{selectedGame.rules}</p>
+					</div>
+				{/if}
 			</div>
 
 			<!-- Info Cards -->
@@ -1230,6 +1236,17 @@
 	}
 	@keyframes checkered-reveal { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
 	.hero-game { color: #60a5fa; font-weight: 600; font-size: 0.85rem; text-shadow: 0 1px 4px rgba(0,0,0,0.5); }
+	.hero-rules {
+		position: absolute; right: 1.5rem; bottom: 1rem; max-width: 280px; max-height: 140px;
+		overflow-y: auto; padding: 0.6rem 0.8rem; border-radius: 10px;
+		background: rgba(15,23,42,0.7); backdrop-filter: blur(6px);
+		border: 1px solid rgba(255,255,255,0.08);
+		z-index: 3;
+	}
+	.hero-rules-label { font-size: 0.55rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #60a5fa; margin-bottom: 0.25rem; display: block; }
+	.hero-rules-text { font-size: 0.7rem; color: rgba(255,255,255,0.75); margin: 0; line-height: 1.45; white-space: pre-line; word-break: break-word; }
+	.hero-rules::-webkit-scrollbar { width: 3px; }
+	.hero-rules::-webkit-scrollbar-thumb { background: rgba(96,165,250,0.3); border-radius: 3px; }
 	.hero-join { align-self: flex-end; }
 	.hero-joined { align-self: flex-end; padding: 0.5rem 1.2rem; background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.3); color: #10b981; border-radius: 10px; font-weight: 700; font-size: 0.85rem; text-shadow: 0 1px 4px rgba(0,0,0,0.3); }
 	.status-pill { display: inline-flex; align-items: center; gap: 0.3rem; align-self: flex-start; padding: 0.2rem 0.6rem; border-radius: 20px; font-size: 0.65rem; font-weight: 700; margin-bottom: 0.2rem; text-shadow: 0 1px 3px rgba(0,0,0,0.3); }
