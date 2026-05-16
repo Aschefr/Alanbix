@@ -1083,28 +1083,46 @@ async def close_tournament(
     pts_second = config.get("pts_second", 6)
     pts_third = config.get("pts_third", 4)
     pts_participation = config.get("pts_participation", 1)
-    pts_per_goal = config.get("pts_per_goal", 0.5)
+    pts_per_match = config.get("pts_per_match", config.get("pts_per_goal", 1.0))
     
     bracket = tournament.bracket or []
     
     # --- Calculate standings ---
     standings = _compute_standings(bracket, bracket_type, config.get("lower_score_is_better", False))
     
-    # --- Calculate score points per player/team ---
+    # --- Calculate score bonus via cumulated score normalization ---
+    # Sum raw scores per entity across all matches, normalize min→max,
+    # then bonus = pts_per_match × (1 + normalized)  →  floor=pts_per_match, ceiling=2×pts_per_match
     lower_is_better = config.get("lower_score_is_better", False)
-    score_totals = {}  # player_id -> total score points
+    cumulated_scores = {}  # entity_id -> total raw score
+    matches_count = {}  # entity_id -> number of scored matches
     for match in bracket:
         players = match.get("p", [])
         scores = match.get("score", [])
-        if lower_is_better:
-            max_score = max((s for s in scores if s > 0), default=0)
+        has_scores = any(s > 0 for s in scores)
+        if not has_scores:
+            continue
         for i, pid in enumerate(players):
             if pid and pid != 0 and i < len(scores):
-                raw = max(0, scores[i])
-                if lower_is_better and raw > 0:
-                    score_totals[pid] = score_totals.get(pid, 0) + (max_score + 1 - raw)
+                cumulated_scores[pid] = cumulated_scores.get(pid, 0) + max(0, scores[i])
+                matches_count[pid] = matches_count.get(pid, 0) + 1
+
+    # Normalize and compute bonus
+    score_totals = {}
+    if cumulated_scores:
+        scores_list = list(cumulated_scores.values())
+        min_cs = min(scores_list)
+        max_cs = max(scores_list)
+        score_range = max_cs - min_cs
+        for eid, cs in cumulated_scores.items():
+            if score_range > 0:
+                if lower_is_better:
+                    normalized = (max_cs - cs) / score_range
                 else:
-                    score_totals[pid] = score_totals.get(pid, 0) + raw
+                    normalized = (cs - min_cs) / score_range
+            else:
+                normalized = 1.0  # everyone equal → everyone gets full bonus
+            score_totals[eid] = pts_per_match * (1 + normalized)
     
     # --- Build results & distribute points ---
     results = []
@@ -1132,8 +1150,10 @@ async def close_tournament(
     
     for rank, entity_id in standings:
         placement = placement_pts_map.get(rank, 0)
-        score_pts = round(score_totals.get(entity_id, 0) * pts_per_goal, 1)
-        total = placement + pts_participation + score_pts
+        score_pts = round(score_totals.get(entity_id, 0), 1)
+        mp = matches_count.get(entity_id, 0)
+        participation = round(pts_participation * max(mp, 1), 1)  # At least 1 if in standings
+        total = placement + participation + score_pts
         
         if use_teams and entity_id < 0:
             # Team: give points to all members
@@ -1142,7 +1162,7 @@ async def close_tournament(
             results.append({
                 "rank": rank, "entity_id": entity_id, "name": team_name,
                 "placement_pts": placement, "score_pts": score_pts,
-                "participation_pts": pts_participation, "total": total
+                "participation_pts": participation, "total": total
             })
             for uid in member_uids:
                 user = db.query(models.User).filter(models.User.id == uid).first()
@@ -1156,7 +1176,7 @@ async def close_tournament(
             results.append({
                 "rank": rank, "entity_id": entity_id, "name": uname,
                 "placement_pts": placement, "score_pts": score_pts,
-                "participation_pts": pts_participation, "total": total
+                "participation_pts": participation, "total": total
             })
             if user:
                 user.points = (user.points or 0) + int(total)
@@ -1165,15 +1185,17 @@ async def close_tournament(
     # Give participation points to remaining participants not in standings
     for uid in participant_uids:
         if uid not in placed_uids:
-            score_pts = round(score_totals.get(uid, 0) * pts_per_goal, 1)
-            total = pts_participation + score_pts
+            score_pts = round(score_totals.get(uid, 0), 1)
+            mp = matches_count.get(uid, 0)
+            participation = round(pts_participation * max(mp, 1), 1)
+            total = participation + score_pts
             user = db.query(models.User).filter(models.User.id == uid).first()
             if user:
                 user.points = (user.points or 0) + int(total)
                 results.append({
                     "rank": None, "entity_id": uid, "name": user.username,
                     "placement_pts": 0, "score_pts": score_pts,
-                    "participation_pts": pts_participation, "total": total
+                    "participation_pts": participation, "total": total
                 })
     
     tournament.results = results
@@ -1381,14 +1403,14 @@ def _build_player_narratives(bracket, bracket_type, results, config, db, partici
                 won = my_score > opp_score
 
             delta = abs(my_score - opp_score)
-            round_label = f"R{mid['r']}"
+            round_label = f"Manche {mid['r']}"
             if bracket_type == "double_elim":
                 if mid["s"] == 2:
-                    round_label = f"LB R{mid['r']}"
+                    round_label = f"Manche {mid['r']} du Losers Bracket"
                 elif mid["r"] == max_wb_round:
                     round_label = "Finale"
                 else:
-                    round_label = f"WB R{mid['r']}"
+                    round_label = f"Manche {mid['r']} du Winners Bracket"
 
             if won:
                 wins += 1
@@ -1416,7 +1438,7 @@ def _build_player_narratives(bracket, bracket_type, results, config, db, partici
 
         # Build narrative
         if wins + losses > 0:
-            facts.append(f"Parcours : {wins}V-{losses}D")
+            facts.append(f"Bilan : {wins} victoire{'s' if wins > 1 else ''}, {losses} défaite{'s' if losses > 1 else ''}")
 
         if max_streak >= 3:
             facts.append(f"Streak : {max_streak} victoires consécutives")
@@ -1481,7 +1503,7 @@ def _build_closing_prompt(tournament_name, game_name, results, participant_uids,
     player_names = []
     for r in results:
         rank_emoji = {1: "🥇", 2: "🥈", 3: "🥉"}.get(r.get("rank"), f"#{r.get('rank', '?')}")
-        standings_text += f"{rank_emoji} {r['name']} — {r.get('total', 0)} pts\n"
+        standings_text += f"{rank_emoji} {r['name']} — {r.get('total', 0)} pts (Placement: {r.get('placement_pts', 0)}, Bonus: {r.get('score_pts', 0)}, Participation: {r.get('participation_pts', 0)})\n"
         player_names.append(r['name'])
 
     # Also get usernames for solo mode participants not in standings
@@ -1560,6 +1582,7 @@ async def _generate_tournament_notifications(tournament_id, tournament_name, gam
                     "ollama_host": ollama_host,
                     "model": model,
                     "prompt": prompt,
+                    "context_window": ia_cfg.get("context_window", 4096),
                 }
             )
             entry, _ = await queue_manager.enqueue(entry)
@@ -1739,7 +1762,7 @@ def _compute_projected_standings(tournament, db):
     pts_second = config.get("pts_second", 6)
     pts_third = config.get("pts_third", 4)
     pts_participation = config.get("pts_participation", 1)
-    pts_per_goal = config.get("pts_per_goal", 0.5)
+    pts_per_match = config.get("pts_per_match", config.get("pts_per_goal", 1.0))
     ppw = tournament.points_per_win or 3
 
     if not bracket:
@@ -1753,42 +1776,62 @@ def _compute_projected_standings(tournament, db):
                  "total": 0, "per_member": 0, "member_count": 1, "team_name": None, "wins": 0
                  } for p in participants]
 
-    # Step 1: Compute wins + goals from bracket
+    # Step 1: Compute wins + cumulated scores from bracket
     wins = {}
-    goals = {}
+    cumulated_scores = {}  # entity_id -> total raw score
+    matches_played = {}  # match count per entity
     for m in bracket:
         p = m.get("p", [])
         s = m.get("score", [])
         if 0 in p:
             continue
-        max_score = max((v for v in s if v > 0), default=0) if lower_is_better else 0
+        has_scores = any(v > 0 for v in s)
         for i, pid in enumerate(p):
             if pid and pid != 0:
-                goals.setdefault(pid, 0)
                 wins.setdefault(pid, 0)
-                raw = max(0, s[i] if i < len(s) else 0)
-                if lower_is_better and raw > 0:
-                    goals[pid] += (max_score + 1 - raw)
-                else:
-                    goals[pid] += raw
+                cumulated_scores.setdefault(pid, 0)
+                matches_played.setdefault(pid, 0)
+                if has_scores and i < len(s):
+                    cumulated_scores[pid] += max(0, s[i])
+                    matches_played[pid] += 1
         if len(s) >= 2 and s[0] > 0 and s[1] > 0 and s[0] != s[1]:
             w_idx = (0 if s[0] < s[1] else 1) if lower_is_better else (0 if s[0] > s[1] else 1)
             w_id = p[w_idx] if w_idx < len(p) else None
             if w_id and w_id != 0:
                 wins[w_id] = wins.get(w_id, 0) + 1
 
+    # Normalize cumulated scores → score bonus
+    score_bonus = {}
+    all_cs = [v for v in cumulated_scores.values() if v > 0] or [0]
+    min_cs = min(all_cs)
+    max_cs = max(all_cs)
+    score_range = max_cs - min_cs
+    for eid, cs in cumulated_scores.items():
+        if cs <= 0:
+            score_bonus[eid] = 0
+        elif score_range > 0:
+            if lower_is_better:
+                normalized = (max_cs - cs) / score_range
+            else:
+                normalized = (cs - min_cs) / score_range
+            score_bonus[eid] = pts_per_match * (1 + normalized)
+        else:
+            score_bonus[eid] = pts_per_match * 2  # everyone equal → full bonus
+
     # Step 2: Bracket-based placement for elimination formats
     bracket_standings = _compute_standings(bracket, bracket_type, lower_is_better)
     bracket_rank_map = {eid: rank for rank, eid in bracket_standings}
 
     # Step 3: Rank all entities by competitive score
-    all_entities = set(list(wins.keys()) + list(goals.keys()))
+    all_entities = set(list(wins.keys()) + list(score_bonus.keys()))
     ranked = []
     for eid in all_entities:
         w = wins.get(eid, 0)
-        g = goals.get(eid, 0)
-        rank_score = w * ppw + round(g * pts_per_goal, 1)
-        ranked.append({"entity_id": eid, "wins": w, "goals": g, "rank_score": rank_score})
+        sb = score_bonus.get(eid, 0)
+        rank_score = w * ppw + round(sb, 1)
+        ranked.append({"entity_id": eid, "wins": w, "score_bonus": sb, "rank_score": rank_score,
+                       "matches_played": matches_played.get(eid, 0),
+                       "cumulated_score": cumulated_scores.get(eid, 0)})
     ranked.sort(key=lambda x: x["rank_score"], reverse=True)
 
     placement_map = {1: pts_winner, 2: pts_second, 3: pts_third}
@@ -1820,20 +1863,24 @@ def _compute_projected_standings(tournament, db):
         # Use bracket placement for finalized positions (1st/2nd/3rd), else ex-aequo rank
         rank = bracket_rank_map.get(eid, exaequo_ranks[i])
         placement_pts = placement_map.get(rank, 0)
-        score_pts = round(entry["goals"] * pts_per_goal, 1)
-        total = round(placement_pts + pts_participation + score_pts, 1)
+        score_pts = round(entry["score_bonus"], 1)
+        mp = entry["matches_played"]
+        participation = round(pts_participation * max(mp, 1), 1)  # At least 1 if in standings
+        total = round(placement_pts + participation + score_pts, 1)
         if use_teams and eid < 0:
             name = team_map.get(str(eid), f"Team #{abs(eid)}")
         else:
             user = db.query(models.User).filter(models.User.id == eid).first()
             name = user.username if user else f"#{eid}"
         member_count = team_member_counts.get(eid, 1) if use_teams else 1
-        per_member = round(total / member_count, 1)
+        per_member = total  # No division — each member gets full team points
         results.append({
             "rank": rank, "entity_id": eid, "name": name, "wins": entry["wins"],
-            "placement_pts": placement_pts, "participation_pts": pts_participation,
+            "placement_pts": placement_pts, "participation_pts": participation,
             "score_pts": score_pts, "total": total, "per_member": per_member,
-            "member_count": member_count, "team_name": name if (use_teams and eid < 0) else None
+            "member_count": member_count, "team_name": name if (use_teams and eid < 0) else None,
+            "matches_played": entry["matches_played"], "pts_per_match": pts_per_match,
+            "cumulated_score": entry["cumulated_score"]
         })
 
     results.sort(key=lambda x: (x["rank"] if x["rank"] else 999, -x["total"]))

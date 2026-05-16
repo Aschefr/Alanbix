@@ -457,6 +457,7 @@ class IAQueueManager:
         ollama_host = payload["ollama_host"]
         model = payload["model"]
         prompt = payload["prompt"]
+        context_window = payload.get("context_window", 4096)
 
         try:
             async with httpx.AsyncClient() as client:
@@ -464,7 +465,8 @@ class IAQueueManager:
                     "model": model,
                     "messages": [{"role": "user", "content": prompt}],
                     "stream": False,
-                    "options": {"temperature": 0.8}
+                    "format": "json",
+                    "options": {"temperature": 0.8, "num_predict": context_window}
                 }, timeout=120.0)
 
             if res.status_code != 200:

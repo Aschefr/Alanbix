@@ -113,9 +113,7 @@
 							<tr>
 								<th>Rang</th>
 								<th>Tournoi</th>
-								<th class="pts-col">Placement</th>
-								<th class="pts-col">Participation</th>
-								<th class="pts-col">Score</th>
+								<th class="pts-col">Détails</th>
 								<th class="pts-col total-col">Total</th>
 								<th></th>
 							</tr>
@@ -134,9 +132,13 @@
 										{#if h.game_name}<div class="tourney-game">{h.game_name}</div>{/if}
 										{#if h.team_name}<div class="tourney-team">👥 {h.team_name}</div>{/if}
 									</td>
-									<td class="pts-col">{h.placement_pts > 0 ? '+' + h.placement_pts : '—'}</td>
-									<td class="pts-col">{h.participation_pts > 0 ? '+' + h.participation_pts : '—'}</td>
-									<td class="pts-col">{h.score_pts > 0 ? '+' + h.score_pts : '—'}</td>
+									<td class="pts-col">
+										<div class="ph-breakdown">
+											{#if h.placement_pts > 0}<span class="ph-bp ph-bp-place" title="Placement : top {h.rank}">🏅+{h.placement_pts}</span>{/if}
+											<span class="ph-bp ph-bp-parti" title="Points de participation">👤+{h.participation_pts}</span>
+											{#if h.score_pts > 0}<span class="ph-bp ph-bp-score" title="Bonus/Score — distribué selon le score cumulé">⚡+{h.score_pts}</span>{/if}
+										</div>
+									</td>
 									<td class="pts-col total-col"><strong>{h.live ? '~' : '+'}{h.total}</strong></td>
 									<td>
 										<button class="btn-goto" on:click={() => goToTournament(h.tournament_id)} title="Voir le tournoi">
@@ -206,4 +208,11 @@
 
 	.btn-goto { background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.2); color: var(--accent); padding: 0.3rem 0.6rem; border-radius: 6px; cursor: pointer; font-weight: 800; font-size: 0.8rem; transition: all 0.15s; }
 	.btn-goto:hover { background: rgba(59,130,246,0.2); transform: translateX(2px); }
+
+	/* Points history breakdown chips */
+	.ph-breakdown { display: flex; gap: 0.3rem; flex-wrap: wrap; justify-content: center; }
+	.ph-bp { font-size: 0.65rem; font-weight: 700; padding: 0.1rem 0.4rem; border-radius: 4px; cursor: help; white-space: nowrap; }
+	.ph-bp-place { color: #fbbf24; background: rgba(251,191,36,0.1); }
+	.ph-bp-score { color: #818cf8; background: rgba(129,140,248,0.1); }
+	.ph-bp-parti { color: var(--text-muted); background: var(--surface-sunken); }
 </style>

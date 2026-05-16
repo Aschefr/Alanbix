@@ -403,7 +403,7 @@
 			pts_second: selected.config?.pts_second ?? 6,
 			pts_third: selected.config?.pts_third ?? 4,
 			pts_participation: selected.config?.pts_participation ?? 1,
-			pts_per_goal: selected.config?.pts_per_goal ?? 0.5,
+			pts_per_match: selected.config?.pts_per_match ?? selected.config?.pts_per_goal ?? 1.0,
 			lower_score_is_better: selected.config?.lower_score_is_better || false,
 			phases: selected.config?.phases || 'single',
 			group_size: selected.config?.group_size || 4,
@@ -417,7 +417,7 @@
 			await api.put(`/tournaments/${selectedId}`, {
 				name: editConfig.name,
 				points_per_win: editConfig.points_per_win,
-				config: { ...selected.config, use_teams: editConfig.use_teams, team_size: editConfig.team_size, bracket_type: editConfig.bracket_type, pts_winner: editConfig.pts_winner, pts_second: editConfig.pts_second, pts_third: editConfig.pts_third, pts_participation: editConfig.pts_participation, pts_per_goal: editConfig.pts_per_goal, lower_score_is_better: editConfig.lower_score_is_better, phases: editConfig.phases, group_size: editConfig.group_size, advancers_count: editConfig.advancers_count }
+				config: { ...selected.config, use_teams: editConfig.use_teams, team_size: editConfig.team_size, bracket_type: editConfig.bracket_type, pts_winner: editConfig.pts_winner, pts_second: editConfig.pts_second, pts_third: editConfig.pts_third, pts_participation: editConfig.pts_participation, pts_per_match: editConfig.pts_per_match, lower_score_is_better: editConfig.lower_score_is_better, phases: editConfig.phases, group_size: editConfig.group_size, advancers_count: editConfig.advancers_count }
 			});
 			toast('Tournoi mis à jour !', 'success');
 			editingTournament = false;
@@ -538,7 +538,9 @@
 	$: liveStandings = standingsData.map(s => ({
 		id: s.entity_id, name: s.name, pts: s.total, rank: s.rank,
 		placement_pts: s.placement_pts, participation_pts: s.participation_pts,
-		score_pts: s.score_pts, per_member: s.per_member, member_count: s.member_count
+		score_pts: s.score_pts, per_member: s.per_member, member_count: s.member_count,
+		wins: s.wins ?? 0, matches_played: s.matches_played ?? 0, pts_per_match: s.pts_per_match ?? 1.0,
+		cumulated_score: s.cumulated_score ?? 0
 	}));
 	$: displayStandings = liveStandings;
 
@@ -549,7 +551,7 @@
 			if (playerTeam) {
 				const teamBracketId = -playerTeam.id;
 				const teamEntry = standings.find(s => s.id === teamBracketId);
-				if (teamEntry) return teamEntry.per_member;
+				if (teamEntry) return teamEntry.pts;
 			}
 		}
 		const entry = standings.find(s => s.id === userId);
@@ -992,11 +994,25 @@
 				{#if liveStandings.length > 0}
 					<div class="live-standings glass">
 						<div class="section-title"><h3>📊 {selected?.status === 'RUNNING' ? 'Classement Live' : 'Classement Final'}</h3>{#if selected?.status === 'RUNNING'}<span class="live-badge">⚡ LIVE</span>{:else}<span class="live-badge" style="color:#3b82f6;background:rgba(59,130,246,0.1);border-color:rgba(59,130,246,0.2)">✅ FINAL</span>{/if}</div>
+						<div class="ls-config-summary">
+							<span class="ls-cfg" title="Points pour le 1er">🥇 {selected?.config?.pts_winner ?? 10}</span>
+							<span class="ls-cfg" title="Points pour le 2ème">🥈 {selected?.config?.pts_second ?? 6}</span>
+							<span class="ls-cfg" title="Points pour le 3ème">🥉 {selected?.config?.pts_third ?? 4}</span>
+							<span class="ls-cfg" title="Points de participation par match joué">👤 {selected?.config?.pts_participation ?? 1}/match</span>
+							<span class="ls-cfg" title="Bonus score : du plancher au plafond selon le score cumulé">⚡ {selected?.config?.pts_per_match ?? selected?.config?.pts_per_goal ?? 1.0} Bonus/Score</span>
+						</div>
 						<div class="ls-list">
 							{#each displayStandings as entry, i}
 								<div class="ls-row {i < 3 ? 'ls-top' : ''}">
 									<span class="ls-rank {i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : ''}">{i + 1}</span>
-									<span class="ls-name">{entry.name}</span>
+									<div class="ls-info">
+										<span class="ls-name">{entry.name}</span>
+										<div class="ls-breakdown">
+											{#if entry.placement_pts > 0}<span class="ls-bp ls-bp-place" title="Placement : top {entry.rank}">🏅{entry.placement_pts}</span>{/if}
+											<span class="ls-bp ls-bp-parti" title="{entry.matches_played} match{entry.matches_played > 1 ? 's' : ''} joué{entry.matches_played > 1 ? 's' : ''} × {selected?.config?.pts_participation ?? 1} pts">👤{entry.participation_pts}</span>
+											{#if entry.score_pts > 0}<span class="ls-bp ls-bp-score" title="Score cumulé : {entry.cumulated_score} — Bonus de {entry.pts_per_match} (plancher) à {Math.round(entry.pts_per_match * 2 * 10) / 10} (plafond) selon votre position entre le pire et le meilleur scoreur">⚡{entry.score_pts}</span>{/if}
+										</div>
+									</div>
 									<span class="ls-pts">{entry.pts} pts</span>
 								</div>
 							{/each}
@@ -1159,7 +1175,7 @@
 						<div class="edit-pts-field"><label>🥈 2ème</label><input type="number" bind:value={editConfig.pts_second} min="0" /></div>
 						<div class="edit-pts-field"><label>🥉 3ème</label><input type="number" bind:value={editConfig.pts_third} min="0" /></div>
 						<div class="edit-pts-field"><label>👤 Parti.</label><input type="number" bind:value={editConfig.pts_participation} min="0" /></div>
-						<div class="edit-pts-field"><label>⚡ /Score</label><input type="number" bind:value={editConfig.pts_per_goal} min="0" step="0.1" /></div>
+						<div class="edit-pts-field"><label>⚡ Bonus/Score</label><input type="number" bind:value={editConfig.pts_per_match} min="0" step="0.1" /></div>
 					</div>
 				</details>
 			</div>
@@ -1489,5 +1505,17 @@
 	.ls-rank.silver { background: rgba(192,192,192,0.15); color: #c0c0c0; }
 	.ls-rank.bronze { background: rgba(205,127,50,0.15); color: #cd7f32; }
 	.ls-name { flex-grow: 1; font-size: 0.8rem; font-weight: 600; }
-	.ls-pts { font-size: 0.8rem; font-weight: 800; color: var(--accent); }
+	.ls-pts { font-size: 0.8rem; font-weight: 800; color: var(--accent); white-space: nowrap; }
+
+	/* Standings config summary */
+	.ls-config-summary { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem; padding: 0.4rem 0.6rem; border-radius: 8px; background: var(--surface-sunken); }
+	.ls-cfg { font-size: 0.65rem; font-weight: 600; color: var(--text-dim); cursor: help; white-space: nowrap; }
+
+	/* Standings row info & breakdown */
+	.ls-info { flex-grow: 1; display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
+	.ls-breakdown { display: flex; gap: 0.3rem; flex-wrap: wrap; }
+	.ls-bp { font-size: 0.55rem; font-weight: 700; padding: 0.05rem 0.35rem; border-radius: 4px; cursor: help; white-space: nowrap; }
+	.ls-bp-place { color: #fbbf24; background: rgba(251,191,36,0.1); }
+	.ls-bp-score { color: #818cf8; background: rgba(129,140,248,0.1); }
+	.ls-bp-parti { color: var(--text-muted); background: var(--surface-sunken); }
 </style>

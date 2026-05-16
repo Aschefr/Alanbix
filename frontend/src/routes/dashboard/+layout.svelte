@@ -4,12 +4,11 @@
 	import { api } from '$lib/api';
 	import { connectWS, wsMessageStore } from '$lib/ws';
 	import { invalidateAll } from '$app/navigation';
-	import { pmUnreadCount, groupUnreadCount, totalMsgUnread } from '$lib/pmStore';
+	import { pmUnreadCount, groupUnreadCount, totalMsgUnread, notifUnreadCount } from '$lib/pmStore';
 
 	let user = { username: '...', is_admin: false };
 	let unsub = null;
 	let isDark = true;
-	let notifCount = 0;
 	let notifBounce = false;
 	let pmBounce = false;
 	let lastPmSender = null;
@@ -26,7 +25,7 @@
 			// Fetch initial unread count
 			try {
 				const nc = await api.get('/notifications/unread-count');
-				notifCount = nc.count || 0;
+				notifUnreadCount.set(nc.count || 0);
 			} catch {}
 			try {
 				const pc = await api.get('/players/messages/unread-count');
@@ -42,7 +41,7 @@
 					// Update notification badge in real-time
 					if (msg.type === 'notification_new') {
 						api.get('/notifications/unread-count').then(r => {
-							notifCount = r.count || 0;
+							notifUnreadCount.set(r.count || 0);
 							notifBounce = true;
 							setTimeout(() => notifBounce = false, 600);
 						}).catch(() => {});
@@ -140,11 +139,11 @@
 					<span class="pm-count-badge" class:bounce={pmBounce}>{$totalMsgUnread}</span>
 				{/if}
 			</a>
-			<a href="/dashboard/notifications" class="nav-item notif-nav" on:click={() => { api.get('/notifications/unread-count').then(r => notifCount = r.count || 0).catch(() => {}); }}>
+			<a href="/dashboard/notifications" class="nav-item notif-nav" on:click={() => { api.get('/notifications/unread-count').then(r => notifUnreadCount.set(r.count || 0)).catch(() => {}); }}>
 				<span class="icon">🔔</span>
 				<span class="label">Notifications</span>
-				{#if notifCount > 0}
-					<span class="notif-count-badge" class:bounce={notifBounce}>{notifCount}</span>
+				{#if $notifUnreadCount > 0}
+					<span class="notif-count-badge" class:bounce={notifBounce}>{$notifUnreadCount}</span>
 				{/if}
 			</a>
 			<a href="/dashboard/ai" class="nav-item">

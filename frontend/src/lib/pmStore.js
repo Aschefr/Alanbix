@@ -11,3 +11,6 @@ export const totalMsgUnread = derived(
 	[pmUnreadCount, groupUnreadCount],
 	([$pm, $group]) => $pm + $group
 );
+
+/** Shared store for general notifications. */
+export const notifUnreadCount = writable(0);

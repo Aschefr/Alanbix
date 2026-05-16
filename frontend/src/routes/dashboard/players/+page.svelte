@@ -451,12 +451,16 @@
 												<div class="pts-total">Total : <strong>{pointsHistory.total_points} pts</strong></div>
 												{#each pointsHistory.history as h}
 													<div class="pts-row">
-														<span class="pts-rank">{getRankEmoji(h.rank)}</span>
-														<span class="pts-tourney">{h.tournament_name}</span>
-														{#if h.game_name}<span class="pts-game">{h.game_name}</span>{/if}
-														<span class="pts-val">+{h.total}</span>
-														{#if h.live}<span class="pts-live">LIVE</span>{/if}
-													</div>
+									<span class="pts-rank">{getRankEmoji(h.rank)}</span>
+									<span class="pts-tourney">{h.tournament_name}</span>
+									<div class="pts-bp-wrap">
+										{#if h.placement_pts > 0}<span class="pts-bp pts-bp-place" title="Placement">🏅{h.placement_pts}</span>{/if}
+										<span class="pts-bp pts-bp-parti" title="Participation">👤{h.participation_pts}</span>
+										{#if h.score_pts > 0}<span class="pts-bp pts-bp-score" title="Bonus/Score — distribué selon le score cumulé">⚡{h.score_pts}</span>{/if}
+									</div>
+									<span class="pts-val">{h.live ? '~' : '+'}{h.total}</span>
+									{#if h.live}<span class="pts-live">LIVE</span>{/if}
+								</div>
 												{/each}
 											{:else}
 												<span class="pts-empty">Aucune participation</span>
@@ -635,6 +639,13 @@
 	.pts-live { font-size: 0.5rem; font-weight: 800; color: var(--accent); background: rgba(59,130,246,0.12); padding: 0.1rem 0.3rem; border-radius: 4px; }
 	.pts-loading { font-size: 0.8rem; }
 	.pts-empty { font-size: 0.65rem; color: var(--text-muted); font-style: italic; }
+
+	/* Breakdown chips in points detail */
+	.pts-bp-wrap { display: flex; gap: 0.2rem; flex-wrap: wrap; }
+	.pts-bp { font-size: 0.5rem; font-weight: 700; padding: 0.05rem 0.3rem; border-radius: 3px; cursor: help; white-space: nowrap; }
+	.pts-bp-place { color: #fbbf24; background: rgba(251,191,36,0.1); }
+	.pts-bp-score { color: #818cf8; background: rgba(129,140,248,0.1); }
+	.pts-bp-parti { color: var(--text-muted); background: var(--surface-sunken); }
 
 	/* Chat column */
 	.chat-col { border-radius: 16px; display: flex; flex-direction: column; overflow: hidden; min-height: 0; }

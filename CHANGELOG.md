@@ -1,8 +1,25 @@
 # Changelog
 
-## [1.5.0] - 2026-05-15
+## [1.6.0] - 2026-05-16
 
 ### ✨ Nouvelles fonctionnalités
+
+- **Configuration des Points de Tournoi (AXE-14)** — Nouvelle interface d'administration pour définir les points par défaut :
+  - Paramétrage persistant (via `SystemConfig`) des gains pour Placement (1er, 2e, 3e), Participation (par match joué) et Bonus (par score).
+  - Les formulaires de création de tournois utilisent automatiquement ces valeurs par défaut.
+- **Narrations IA Enrichies (G-25)** — Le moteur de génération de messages de clôture est plus intelligent :
+  - Remplacement des abréviations techniques (R1, WB, LB) par des termes naturels compréhensibles.
+  - Injection détaillée du détail des points (Placement, Bonus, Participation) dans le prompt pour des messages félicitant la régularité ou la performance.
+  - Fix de la limite de contexte IA : le paramètre `context_window` de l'administration s'applique dorénavant dynamiquement à la génération (num_predict) pour éviter que les longs messages ne soient tronqués en JSON invalide.
+
+### 🐛 Corrections de bugs
+
+- **Badge de Notifications Global** — Fix du bug où le compteur "1" de notification restait bloqué dans le menu latéral après avoir cliqué sur "Réessayer" ou supprimé un message. Le statut se synchronise désormais instantanément sans nécessiter un rechargement de page.
+- **Sécurité JSON Ollama** — Application du mode strict `format: "json"` sur les appels API de notifications pour empêcher toute tentative de génération en Markdown par le modèle.
+
+---
+
+## [1.5.0] - 2026-05-15### ✨ Nouvelles fonctionnalités
 
 - **Messagerie de Groupe & Inter-Équipes (AXE-12)** — Deux nouveaux types de canaux de chat :
   - 💬 **Chat d'équipe privé** : clic sur le nom de sa propre équipe → salon réservé aux membres (icône 🛡️).

@@ -32,6 +32,7 @@
 	// Team Scoring Mode
 	let teamScoringMode = 'weighted';
 	let eventName = 'Alanbix LAN';
+	let defaultPts = { pts_winner: 10, pts_second: 6, pts_third: 4, pts_participation: 1, pts_per_match: 1.0 };
 	let systemPrompt = '';
 	let closingPrompt = '';
 	let promptPreviewId = null;
@@ -80,7 +81,7 @@
 			pts_second: t.config?.pts_second ?? 6,
 			pts_third: t.config?.pts_third ?? 4,
 			pts_participation: t.config?.pts_participation ?? 1,
-			pts_per_goal: t.config?.pts_per_goal ?? 0.5,
+			pts_per_match: t.config?.pts_per_match ?? t.config?.pts_per_goal ?? 1.0,
 			lower_score_is_better: t.config?.lower_score_is_better || false,
 			phases: t.config?.phases || 'single',
 			group_size: t.config?.group_size || 4,
@@ -105,7 +106,7 @@
 					pts_second: editConfig.pts_second,
 					pts_third: editConfig.pts_third,
 					pts_participation: editConfig.pts_participation,
-					pts_per_goal: editConfig.pts_per_goal,
+					pts_per_match: editConfig.pts_per_match,
 					lower_score_is_better: editConfig.lower_score_is_better,
 					phases: editConfig.phases,
 					group_size: editConfig.group_size,
@@ -124,8 +125,8 @@
 		name: '', game_id: null, use_teams: false, team_size: 1, 
 		points_per_win: 3, phases: 'single', group_size: 4, 
 		advancers_count: 2, bracket_type: 'single_elim',
-		pts_winner: 10, pts_second: 6, pts_third: 4,
-		pts_participation: 1, pts_per_goal: 0.5,
+		pts_winner: defaultPts.pts_winner, pts_second: defaultPts.pts_second, pts_third: defaultPts.pts_third,
+		pts_participation: defaultPts.pts_participation, pts_per_match: defaultPts.pts_per_match,
 		lower_score_is_better: false
 	};
 
@@ -187,6 +188,14 @@
 			teamScoringMode = stats.team_scoring_mode || 'weighted';
 			eventName = stats.event_name || 'Alanbix LAN';
 			try {
+				const dpCfg = await api.get('/admin/config/default_tournament_pts');
+				if (dpCfg?.value) {
+					const parsed = typeof dpCfg.value === 'string' ? JSON.parse(dpCfg.value) : dpCfg.value;
+					defaultPts = { ...defaultPts, ...parsed };
+				}
+			} catch {}
+			config = { ...config, pts_winner: defaultPts.pts_winner, pts_second: defaultPts.pts_second, pts_third: defaultPts.pts_third, pts_participation: defaultPts.pts_participation, pts_per_match: defaultPts.pts_per_match };
+			try {
 				const spCfg = await api.get('/ia/config');
 				systemPrompt = spCfg.system_prompt || "Tu es Alanbix, l'IA de gestion de LAN.";
 			} catch {}
@@ -208,6 +217,13 @@
 		try {
 			await api.put('/admin/config/event_name', { value: eventName });
 			toast('Nom de la LAN sauvegardé.', 'success');
+		} catch { toast('Erreur sauvegarde.', 'error'); }
+	}
+
+	async function saveDefaultPts() {
+		try {
+			await api.put('/admin/config/default_tournament_pts', { value: JSON.stringify(defaultPts) });
+			toast('Points par défaut sauvegardés.', 'success');
 		} catch { toast('Erreur sauvegarde.', 'error'); }
 	}
 
@@ -419,7 +435,7 @@
 					pts_second: config.pts_second,
 					pts_third: config.pts_third,
 					pts_participation: config.pts_participation,
-					pts_per_goal: config.pts_per_goal,
+					pts_per_match: config.pts_per_match,
 					lower_score_is_better: config.lower_score_is_better
 				}
 			};
@@ -429,7 +445,7 @@
 			setTimeout(() => {
 				step = 1;
 				creatingTournament = false;
-				config = { name: '', game_id: null, use_teams: false, team_size: 1, points_per_win: 3, phases: 'single', group_size: 4, advancers_count: 2, bracket_type: 'single_elim', pts_winner: 10, pts_second: 6, pts_third: 4, pts_participation: 1, pts_per_goal: 0.5 };
+				config = { name: '', game_id: null, use_teams: false, team_size: 1, points_per_win: 3, phases: 'single', group_size: 4, advancers_count: 2, bracket_type: 'single_elim', pts_winner: defaultPts.pts_winner, pts_second: defaultPts.pts_second, pts_third: defaultPts.pts_third, pts_participation: defaultPts.pts_participation, pts_per_match: defaultPts.pts_per_match };
 			}, 1000);
 		} catch (e) { 
 			creatingTournament = false;
@@ -848,11 +864,11 @@
 										<input type="number" bind:value={config.pts_participation} min="0" />
 									</div>
 									<div class="pts-field">
-										<label>⚡ Par score</label>
-										<input type="number" bind:value={config.pts_per_goal} min="0" step="0.1" />
+										<label>⚡ Bonus/Score</label>
+										<input type="number" bind:value={config.pts_per_match} min="0" step="0.1" />
 									</div>
 								</div>
-								<p class="pts-hint">Points par score = pts × chaque point marqué (même en défaite)</p>
+								<p class="pts-hint">Bonus/Score = bonus du plancher (valeur saisie) au plafond (2×) selon le score cumulé de chaque joueur/équipe</p>
 							</details>
 
 								<div class="nav-btns">
@@ -1027,7 +1043,7 @@
 
 												<div class="pts-field"><label>👤 Parti.</label><input type="number" bind:value={editConfig.pts_participation} min="0" /></div>
 
-												<div class="pts-field"><label>⚡ /Score</label><input type="number" bind:value={editConfig.pts_per_goal} min="0" step="0.1" /></div>
+												<div class="pts-field"><label>⚡ Bonus/Score</label><input type="number" bind:value={editConfig.pts_per_match} min="0" step="0.1" /></div>
 
 											</div>
 
@@ -1408,6 +1424,26 @@
 									<span class="score-opt-desc">Total cumulé</span>
 								</button>
 							</div>
+						</div>
+					</div>
+
+					<div class="sc glass">
+						<div class="sc-head">
+							<div class="sc-icon">🏆</div>
+							<div>
+								<h3>Points par défaut</h3>
+								<p class="sc-sub">Valeurs utilisées lors de la création d'un nouveau tournoi</p>
+							</div>
+						</div>
+						<div class="sc-body">
+							<div class="default-pts-grid">
+								<div class="dpt-field"><label>🥇 1er</label><input type="number" bind:value={defaultPts.pts_winner} min="0" /></div>
+								<div class="dpt-field"><label>🥈 2ème</label><input type="number" bind:value={defaultPts.pts_second} min="0" /></div>
+								<div class="dpt-field"><label>🥉 3ème</label><input type="number" bind:value={defaultPts.pts_third} min="0" /></div>
+								<div class="dpt-field"><label>👤 Parti./match</label><input type="number" bind:value={defaultPts.pts_participation} min="0" /></div>
+								<div class="dpt-field"><label>⚡ Bonus/Score</label><input type="number" bind:value={defaultPts.pts_per_match} min="0" step="0.1" /></div>
+							</div>
+							<button class="btn-primary btn-xs" style="margin-top:0.6rem" on:click={saveDefaultPts}>Sauvegarder</button>
 						</div>
 					</div>
 
@@ -2037,6 +2073,12 @@
 	.score-opt-label { font-size: 0.85rem; font-weight: 700; color: var(--text-main); }
 	.score-opt-desc { font-size: 0.65rem; color: var(--text-muted); }
 
+	/* Default Points Grid */
+	.default-pts-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.5rem; }
+	.dpt-field { display: flex; flex-direction: column; gap: 0.25rem; }
+	.dpt-field label { font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-align: center; }
+	.dpt-field input { background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 8px; padding: 0.4rem; color: var(--text-main); font-size: 0.9rem; font-weight: 700; text-align: center; width: 100%; transition: border-color 0.2s; }
+	.dpt-field input:focus { border-color: var(--accent); outline: none; }
 	/* Param display */
 	.param-val { margin-left: auto; font-size: 0.85rem; font-weight: 800; color: var(--accent); background: rgba(59,130,246,0.1); padding: 0.15rem 0.5rem; border-radius: 6px; }
 	.range-accent { width: 100%; accent-color: var(--accent); }

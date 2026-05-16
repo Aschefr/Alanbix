@@ -133,30 +133,17 @@ def get_points_history(db: Session = Depends(database.get_db), user: models.User
 
             entry = next((s for s in standings if s["entity_id"] == user_entity), None)
             if entry:
-                # In team mode, show per-member points
-                if use_teams and entry["member_count"] > 1:
-                    mc = entry["member_count"]
-                    history.append({
-                        "tournament_id": t.id, "tournament_name": t.name,
-                        "game_name": game_name, "status": t.status, "live": True,
-                        "rank": entry["rank"],
-                        "placement_pts": round(entry["placement_pts"] / mc, 1),
-                        "participation_pts": round(entry["participation_pts"] / mc, 1),
-                        "score_pts": round(entry["score_pts"] / mc, 1),
-                        "total": entry["per_member"],
-                        "team_name": team_name_found
-                    })
-                else:
-                    history.append({
-                        "tournament_id": t.id, "tournament_name": t.name,
-                        "game_name": game_name, "status": t.status, "live": True,
-                        "rank": entry["rank"],
-                        "placement_pts": entry["placement_pts"],
-                        "participation_pts": entry["participation_pts"],
-                        "score_pts": entry["score_pts"],
-                        "total": entry["total"],
-                        "team_name": team_name_found
-                    })
+                # Each team member gets full team points (no division)
+                history.append({
+                    "tournament_id": t.id, "tournament_name": t.name,
+                    "game_name": game_name, "status": t.status, "live": True,
+                    "rank": entry["rank"],
+                    "placement_pts": entry["placement_pts"],
+                    "participation_pts": entry["participation_pts"],
+                    "score_pts": entry["score_pts"],
+                    "total": entry["total"],
+                    "team_name": team_name_found
+                })
             else:
                 history.append({
                     "tournament_id": t.id, "tournament_name": t.name,

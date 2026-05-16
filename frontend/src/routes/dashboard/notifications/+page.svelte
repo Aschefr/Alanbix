@@ -91,7 +91,10 @@
 		return `il y a ${Math.floor(diff / 86400)}j`;
 	}
 
+	import { pmUnreadCount, groupUnreadCount, totalMsgUnread, notifUnreadCount } from '$lib/pmStore';
+
 	$: unreadCount = notifications.filter(n => !n.is_read).length;
+	$: $notifUnreadCount = unreadCount;
 </script>
 
 <div class="notif-page animate-in">
