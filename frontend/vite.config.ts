@@ -4,7 +4,7 @@ import { defineConfig } from 'vite';
 export default defineConfig({
 	plugins: [sveltekit()],
 	server: {
-		allowedHosts: 'all',
+		allowedHosts: true,
 		fs: {
 			allow: ['..']
 		},
