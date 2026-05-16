@@ -10,10 +10,14 @@ app = FastAPI(title="Alanbix API")
 
 
 # CORS & Redirects Fix
+import os
+_cors_raw = os.getenv("CORS_ORIGINS", "*")
+_cors_origins = ["*"] if _cors_raw.strip() == "*" else [o.strip() for o in _cors_raw.split(",") if o.strip()]
+
 app.router.redirect_slashes = False
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8080", "http://127.0.0.1:8080"],
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
