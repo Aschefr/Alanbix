@@ -300,18 +300,11 @@ class IAQueueManager:
                     )
                 }
 
-                # Build a MINIMAL message list for tool detection:
-                # system prompts + tool instruction + last user message only
-                # (full history overwhelms the model and prevents tool_calls)
+                # Use full conversation history for tool detection.
+                # Insert tool instruction after system messages.
                 system_msgs = [m for m in tool_messages if m.get("role") == "system"]
-                last_user = None
-                for m in reversed(tool_messages):
-                    if m.get("role") == "user":
-                        last_user = m
-                        break
-                tool_detect_msgs = system_msgs + [tool_instruction]
-                if last_user:
-                    tool_detect_msgs.append(last_user)
+                non_system = [m for m in tool_messages if m.get("role") != "system"]
+                tool_detect_msgs = system_msgs + [tool_instruction] + non_system
 
                 while tool_round < max_tool_rounds:
                     tool_round += 1
@@ -339,24 +332,9 @@ class IAQueueManager:
                         print(f"[ToolCall] Calls: {json.dumps(tool_calls, default=str)[:500]}", flush=True)
 
                     if not tool_calls:
-                        # No tool calls — model answered directly.
-                        # Strip any <think>...</think> blocks (some models like Qwen3)
-                        import re
-                        clean_content = re.sub(r'<think>.*?</think>', '', direct_content, flags=re.DOTALL).strip()
-                        if clean_content:
-                            # Stream the direct response token by token (simulate)
-                            for i in range(0, len(clean_content), 4):
-                                chunk = clean_content[i:i+4]
-                                await entry.result_stream.put({"text": chunk})
-                            # Save to DB
-                            saved_msg_id = self._save_bot_message(conversation_id, clean_content)
-                            await entry.result_stream.put({
-                                "done": True,
-                                "full_response": clean_content,
-                                "saved_by_worker": saved_msg_id is not None,
-                            })
-                            return
-                        break  # Empty content — fall through to streaming
+                        # No tool calls needed — fall through to Phase 2
+                        # for real streaming (tool detection was non-streaming).
+                        break
 
                     # Execute each tool call
                     # Add assistant message with tool_calls to BOTH lists
@@ -389,6 +367,7 @@ class IAQueueManager:
                 stream_req = req_data
 
             full_response = ""
+            in_think_block = False
             async with client.stream("POST", f"{ollama_host}/api/chat",
                                      json=stream_req,
                                      timeout=httpx.Timeout(connect=10.0, read=300.0, write=10.0, pool=10.0)) as response:
@@ -408,12 +387,21 @@ class IAQueueManager:
                         token = data.get("message", {}).get("content", "")
                         if token:
                             full_response += token
-                            await entry.result_stream.put({"text": token})
+                            # Filter <think>...</think> blocks (Qwen3 etc.)
+                            if "<think>" in token:
+                                in_think_block = True
+                            if not in_think_block:
+                                await entry.result_stream.put({"text": token})
+                            if "</think>" in token:
+                                in_think_block = False
                         if data.get("done"):
-                            saved_msg_id = self._save_bot_message(conversation_id, full_response)
+                            # Strip think blocks from saved response
+                            import re
+                            clean_response = re.sub(r'<think>.*?</think>', '', full_response, flags=re.DOTALL).strip()
+                            saved_msg_id = self._save_bot_message(conversation_id, clean_response)
                             await entry.result_stream.put({
                                 "done": True,
-                                "full_response": full_response,
+                                "full_response": clean_response,
                                 "saved_by_worker": saved_msg_id is not None,
                             })
                             break

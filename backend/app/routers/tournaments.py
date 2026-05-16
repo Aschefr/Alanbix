@@ -1804,11 +1804,21 @@ def _compute_projected_standings(tournament, db):
                 models.TournamentTeamMember.team_id == t.id).count()
             team_member_counts[-t.id] = max(count, 1)
 
-    # Step 4: Build results
+    # Step 4: Build results with ex-aequo support
+    # Compute competition-style ranks (1,1,3,3,5...) based on rank_score
+    exaequo_ranks = []
+    prev_score = None
+    for i, entry in enumerate(ranked):
+        if entry["rank_score"] != prev_score:
+            current_rank = i + 1
+            prev_score = entry["rank_score"]
+        exaequo_ranks.append(current_rank)
+
     results = []
     for i, entry in enumerate(ranked):
         eid = entry["entity_id"]
-        rank = bracket_rank_map.get(eid, i + 1)
+        # Use bracket placement for finalized positions (1st/2nd/3rd), else ex-aequo rank
+        rank = bracket_rank_map.get(eid, exaequo_ranks[i])
         placement_pts = placement_map.get(rank, 0)
         score_pts = round(entry["goals"] * pts_per_goal, 1)
         total = round(placement_pts + pts_participation + score_pts, 1)

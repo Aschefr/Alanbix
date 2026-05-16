@@ -372,25 +372,24 @@
 		return false;
 	}
 
-	function canEditPlayerScore(match, playerIdx, _myTeamSlotId) {
+	function canEditPlayerScore(match, playerIdx, _myTeamSlotId, _isParticipant, _currentUser) {
 		if (isAdmin) return true;
-		if (!isParticipant || !currentUser) return false;
+		if (!_isParticipant || !_currentUser) return false;
 		if (isMatchFinalized(match)) return false;
-		const uid = currentUser.id;
-		if (match.p[playerIdx] === uid) return true;
-		if (_myTeamSlotId && match.p[playerIdx] === _myTeamSlotId) return true;
-		return false;
+		const uid = _currentUser.id;
+		// Allow editing both score slots if player is in this match
+		const isInMatch = match.p.some(pid => pid === uid || (_myTeamSlotId && pid === _myTeamSlotId));
+		return isInMatch;
 	}
 
 	// AXE-15: Check if a player's score slot should show a lock indicator
-	function isPlayerLocked(match, playerIdx, _myTeamSlotId) {
+	function isPlayerLocked(match, playerIdx, _myTeamSlotId, _isParticipant, _currentUser) {
 		if (isAdmin) return false;
-		if (!isParticipant || !currentUser) return false;
+		if (!_isParticipant || !_currentUser) return false;
 		if (!isMatchFinalized(match)) return false;
-		const uid = currentUser.id;
-		if (match.p[playerIdx] === uid) return true;
-		if (_myTeamSlotId && match.p[playerIdx] === _myTeamSlotId) return true;
-		return false;
+		const uid = _currentUser.id;
+		const isInMatch = match.p.some(pid => pid === uid || (_myTeamSlotId && pid === _myTeamSlotId));
+		return isInMatch;
 	}
 
 	function openEdit() {
@@ -796,10 +795,10 @@
 													</span>
 													<span class="ffa-name">{getPlayerName(playerId, nameMap)}</span>
 													{#if playerId > 0 && seatMap[playerId]}<a href="/dashboard/map?highlight={seatMap[playerId]}" class="seat-badge" title="Voir sur le plan">📍{seatMap[playerId]}</a>{/if}
-													{#if canEditPlayerScore(match, pi, myTeamSlotId) && isLatest}
+													{#if canEditPlayerScore(match, pi, myTeamSlotId, isParticipant, currentUser) && isLatest}
 														<input type="number" class="score-input ffa-input" value={match.score?.[pi] || ''} placeholder="Pos."
 															on:change={(e) => updateFFAPlacement(match, pi, e.target.value)} min="1" max={match.p.length} />
-													{:else if isPlayerLocked(match, pi, myTeamSlotId)}
+													{:else if isPlayerLocked(match, pi, myTeamSlotId, isParticipant, currentUser)}
 														<span class="score-locked ffa-input" title="Score validé">🔒 {match.score?.[pi]}</span>
 													{:else if match.score?.[pi] > 0}
 														<span class="score-display ffa-input">{match.score[pi]}</span>
@@ -834,17 +833,17 @@
 											<div class="rr-match {isDone ? 'match-done' : ''}">
 												<span class="rr-p {isDone && (lowerIsBetter ? s0 < s1 : s0 > s1) ? 'winner' : ''}">{getPlayerName(match.p[0], nameMap)}{#if match.p[0] > 0 && seatMap[match.p[0]]}<a href="/dashboard/map?highlight={seatMap[match.p[0]]}" class="seat-badge" title="Voir sur le plan">📍{seatMap[match.p[0]]}</a>{/if}</span>
 												<div class="rr-scores">
-													{#if canEditPlayerScore(match, 0, myTeamSlotId)}
+													{#if canEditPlayerScore(match, 0, myTeamSlotId, isParticipant, currentUser)}
 														<input type="number" class="score-input" value={s0 || ''} placeholder="—" on:change={(e) => updateScore(match, 0, e.target.value)} min="0" disabled={match.p[0] === 0 || match.p[1] === 0} />
-													{:else if isPlayerLocked(match, 0, myTeamSlotId)}
+													{:else if isPlayerLocked(match, 0, myTeamSlotId, isParticipant, currentUser)}
 														<span class="score-locked" title="Score validé">🔒 {s0}</span>
 													{:else}
 														<span class="rr-score">{s0}</span>
 													{/if}
 													<span class="rr-vs">-</span>
-													{#if canEditPlayerScore(match, 1, myTeamSlotId)}
+													{#if canEditPlayerScore(match, 1, myTeamSlotId, isParticipant, currentUser)}
 														<input type="number" class="score-input" value={s1 || ''} placeholder="—" on:change={(e) => updateScore(match, 1, e.target.value)} min="0" disabled={match.p[0] === 0 || match.p[1] === 0} />
-													{:else if isPlayerLocked(match, 1, myTeamSlotId)}
+													{:else if isPlayerLocked(match, 1, myTeamSlotId, isParticipant, currentUser)}
 														<span class="score-locked" title="Score validé">🔒 {s1}</span>
 													{:else}
 														<span class="rr-score">{s1}</span>
@@ -888,9 +887,9 @@
 															<div class="player-row {match.p[0] ? 'filled' : ''} {isDone && (lowerIsBetter ? s0 < s1 : s0 > s1) ? 'winner' : ''} {isDone && (lowerIsBetter ? s0 > s1 : s0 < s1) ? 'loser' : ''}" on:mouseenter={() => { if(match.p[0]) hoveredPlayerId = match.p[0]; }} on:mouseleave={() => hoveredPlayerId = null}>
 																<span class="player-name">{getPlayerName(match.p[0], nameMap)}</span>
 																{#if match.p[0] > 0 && seatMap[match.p[0]]}<a href="/dashboard/map?highlight={seatMap[match.p[0]]}" class="seat-badge" title="Voir sur le plan">📍{seatMap[match.p[0]]}</a>{/if}
-																{#if canEditPlayerScore(match, 0, myTeamSlotId)}
+																{#if canEditPlayerScore(match, 0, myTeamSlotId, isParticipant, currentUser)}
 																	<input type="number" class="score-input" value={s0 || ''} placeholder="—" on:change={(e) => updateScore(match, 0, e.target.value)} min="0" disabled={match.p[0] === 0 || match.p[1] === 0} />
-																{:else if isPlayerLocked(match, 0, myTeamSlotId)}
+																{:else if isPlayerLocked(match, 0, myTeamSlotId, isParticipant, currentUser)}
 																	<span class="score-locked" title="Score validé — modification admin uniquement">🔒 {s0}</span>
 																{:else}
 																	<span class="score-display">{s0 || '—'}</span>
@@ -901,9 +900,9 @@
 															<div class="player-row {match.p[1] ? 'filled' : ''} {isDone && (lowerIsBetter ? s1 < s0 : s1 > s0) ? 'winner' : ''} {isDone && (lowerIsBetter ? s1 > s0 : s1 < s0) ? 'loser' : ''}" on:mouseenter={() => { if(match.p[1]) hoveredPlayerId = match.p[1]; }} on:mouseleave={() => hoveredPlayerId = null}>
 																<span class="player-name">{getPlayerName(match.p[1], nameMap)}</span>
 																{#if match.p[1] > 0 && seatMap[match.p[1]]}<a href="/dashboard/map?highlight={seatMap[match.p[1]]}" class="seat-badge" title="Voir sur le plan">📍{seatMap[match.p[1]]}</a>{/if}
-																{#if canEditPlayerScore(match, 1, myTeamSlotId)}
+																{#if canEditPlayerScore(match, 1, myTeamSlotId, isParticipant, currentUser)}
 																	<input type="number" class="score-input" value={s1 || ''} placeholder="—" on:change={(e) => updateScore(match, 1, e.target.value)} min="0" disabled={match.p[0] === 0 || match.p[1] === 0} />
-																{:else if isPlayerLocked(match, 1, myTeamSlotId)}
+																{:else if isPlayerLocked(match, 1, myTeamSlotId, isParticipant, currentUser)}
 																	<span class="score-locked" title="Score validé — modification admin uniquement">🔒 {s1}</span>
 																{:else}
 																	<span class="score-display">{s1 || '—'}</span>
@@ -941,9 +940,9 @@
 																<div class="player-row {match.p[0] ? 'filled' : ''} {isDone && (lowerIsBetter ? s0 < s1 : s0 > s1) ? 'winner' : ''} {isDone && (lowerIsBetter ? s0 > s1 : s0 < s1) ? 'loser' : ''}" on:mouseenter={() => { if(match.p[0]) hoveredPlayerId = match.p[0]; }} on:mouseleave={() => hoveredPlayerId = null}>
 																	<span class="player-name">{getPlayerName(match.p[0], nameMap)}</span>
 																	{#if match.p[0] > 0 && seatMap[match.p[0]]}<a href="/dashboard/map?highlight={seatMap[match.p[0]]}" class="seat-badge" title="Voir sur le plan">📍{seatMap[match.p[0]]}</a>{/if}
-																	{#if canEditPlayerScore(match, 0, myTeamSlotId)}
+																	{#if canEditPlayerScore(match, 0, myTeamSlotId, isParticipant, currentUser)}
 																		<input type="number" class="score-input" value={s0 || ''} placeholder="—" on:change={(e) => updateScore(match, 0, e.target.value)} min="0" disabled={match.p[0] === 0 || match.p[1] === 0} />
-																	{:else if isPlayerLocked(match, 0, myTeamSlotId)}
+																	{:else if isPlayerLocked(match, 0, myTeamSlotId, isParticipant, currentUser)}
 																		<span class="score-locked" title="Score validé">🔒 {s0}</span>
 																	{:else}
 																		<span class="score-display">{s0 || '—'}</span>
@@ -954,9 +953,9 @@
 																<div class="player-row {match.p[1] ? 'filled' : ''} {isDone && (lowerIsBetter ? s1 < s0 : s1 > s0) ? 'winner' : ''} {isDone && (lowerIsBetter ? s1 > s0 : s1 < s0) ? 'loser' : ''}" on:mouseenter={() => { if(match.p[1]) hoveredPlayerId = match.p[1]; }} on:mouseleave={() => hoveredPlayerId = null}>
 																	<span class="player-name">{getPlayerName(match.p[1], nameMap)}</span>
 																	{#if match.p[1] > 0 && seatMap[match.p[1]]}<a href="/dashboard/map?highlight={seatMap[match.p[1]]}" class="seat-badge" title="Voir sur le plan">📍{seatMap[match.p[1]]}</a>{/if}
-																	{#if canEditPlayerScore(match, 1, myTeamSlotId)}
+																	{#if canEditPlayerScore(match, 1, myTeamSlotId, isParticipant, currentUser)}
 																		<input type="number" class="score-input" value={s1 || ''} placeholder="—" on:change={(e) => updateScore(match, 1, e.target.value)} min="0" disabled={match.p[0] === 0 || match.p[1] === 0} />
-																	{:else if isPlayerLocked(match, 1, myTeamSlotId)}
+																	{:else if isPlayerLocked(match, 1, myTeamSlotId, isParticipant, currentUser)}
 																		<span class="score-locked" title="Score validé">🔒 {s1}</span>
 																	{:else}
 																		<span class="score-display">{s1 || '—'}</span>
@@ -1184,10 +1183,10 @@
 
 <style>
 	/* === LAYOUT === */
-	.tournaments-layout { display: flex; gap: 1.5rem; height: calc(100vh - 5rem); }
+	.tournaments-layout { display: flex; height: calc(100vh - 5rem); }
 
 	/* === SIDEBAR === */
-	.t-sidebar { width: 280px; min-width: 260px; display: flex; flex-direction: column; padding: 0; overflow: hidden; flex-shrink: 0; }
+	.t-sidebar { width: 280px; min-width: 260px; display: flex; flex-direction: column; padding: 0; overflow: hidden; flex-shrink: 0; margin-right: 1.5rem; position: relative; z-index: 2; }
 	.sidebar-header { display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.2rem; border-bottom: 1px solid var(--glass-border); }
 	.sidebar-header h2 { font-size: 0.95rem; margin: 0; }
 	.t-count { font-size: 0.65rem; background: var(--accent-soft); color: var(--accent); padding: 0.1rem 0.4rem; border-radius: 10px; font-weight: 800; border: 1px solid rgba(59,130,246,0.15); }
@@ -1219,7 +1218,7 @@
 	.t-empty-sidebar { padding: 2rem 1rem; text-align: center; }
 
 	/* === DETAIL === */
-	.t-detail { flex-grow: 1; display: flex; flex-direction: column; overflow-y: auto; border-radius: var(--radius-lg); }
+	.t-detail { flex-grow: 1; display: flex; flex-direction: column; overflow-y: auto; border-radius: var(--radius-lg); margin-left: -3rem; padding-left: 3rem; }
 	.detail-hero { height: 180px; background-size: cover; background-position: center; background-color: var(--bg-secondary); border-radius: var(--radius-lg) var(--radius-lg) 0 0; position: relative; flex-shrink: 0; }
 	.hero-overlay { position: absolute; inset: 0; display: flex; align-items: flex-end; justify-content: space-between; background: linear-gradient(to top, rgba(15,23,42,0.95) 0%, rgba(15,23,42,0.3) 60%, transparent); padding: 1.2rem 1.5rem; border-radius: inherit; }
 	.hero-content { display: flex; flex-direction: column; gap: 0.2rem; }
