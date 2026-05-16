@@ -31,14 +31,9 @@ app.add_middleware(
 async def startup():
     init_db()
     
-    # Always create default admin on fresh DB
     from .database import SessionLocal
     from . import models
     db = SessionLocal()
-    if db.query(models.User).count() == 0:
-        from .auth import get_password_hash
-        db.add(models.User(username="Admin", hashed_password=get_password_hash("admin"), is_admin=True))
-        db.commit()
 
     # Seed test data only if explicitly requested (dev/testing)
     if os.getenv("SEED_TEST_DATA", "").lower() in ("1", "true", "yes"):
