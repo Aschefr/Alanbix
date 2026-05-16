@@ -31,47 +31,52 @@ app.add_middleware(
 async def startup():
     init_db()
     
-    # Seed default games
+    # Always create default admin on fresh DB
     from .database import SessionLocal
     from . import models
     db = SessionLocal()
-    if db.query(models.Game).count() == 0:
-        games = [
-            models.Game(
-                name="Counter-Strike 2", 
-                rules="5v5 Competitive",
-                image_url="/games/cs2.png"
-            ),
-            models.Game(
-                name="Trackmania", 
-                rules="Time Attack",
-                image_url="/games/tm.png"
-            ),
-            models.Game(
-                name="League of Legends", 
-                rules="5v5 Summoner's Rift",
-                image_url="/games/lol.png"
-            )
-        ]
-        db.add_all(games)
-        db.commit()
-
-    # Seed sample users for testing
     if db.query(models.User).count() == 0:
         from .auth import get_password_hash
-        sample_users = [
-            models.User(username="Admin", hashed_password=get_password_hash("admin"), is_admin=True),
-            models.User(username="xX_DarkSlayer_Xx", hashed_password=get_password_hash("test")),
-            models.User(username="FragMaster2000", hashed_password=get_password_hash("test")),
-            models.User(username="NoobKiller", hashed_password=get_password_hash("test")),
-            models.User(username="ShadowNinja", hashed_password=get_password_hash("test")),
-            models.User(username="PixelHunter", hashed_password=get_password_hash("test")),
-            models.User(username="RocketQueen", hashed_password=get_password_hash("test")),
-            models.User(username="CyberWolf", hashed_password=get_password_hash("test")),
-            models.User(username="GlitchMaster", hashed_password=get_password_hash("test")),
-        ]
-        db.add_all(sample_users)
+        db.add(models.User(username="Admin", hashed_password=get_password_hash("admin"), is_admin=True))
         db.commit()
+
+    # Seed test data only if explicitly requested (dev/testing)
+    if os.getenv("SEED_TEST_DATA", "").lower() in ("1", "true", "yes"):
+        if db.query(models.Game).count() == 0:
+            games = [
+                models.Game(
+                    name="Counter-Strike 2", 
+                    rules="5v5 Competitive",
+                    image_url="/games/cs2.png"
+                ),
+                models.Game(
+                    name="Trackmania", 
+                    rules="Time Attack",
+                    image_url="/games/tm.png"
+                ),
+                models.Game(
+                    name="League of Legends", 
+                    rules="5v5 Summoner's Rift",
+                    image_url="/games/lol.png"
+                )
+            ]
+            db.add_all(games)
+            db.commit()
+
+        if db.query(models.User).count() <= 1:
+            from .auth import get_password_hash
+            sample_users = [
+                models.User(username="xX_DarkSlayer_Xx", hashed_password=get_password_hash("test")),
+                models.User(username="FragMaster2000", hashed_password=get_password_hash("test")),
+                models.User(username="NoobKiller", hashed_password=get_password_hash("test")),
+                models.User(username="ShadowNinja", hashed_password=get_password_hash("test")),
+                models.User(username="PixelHunter", hashed_password=get_password_hash("test")),
+                models.User(username="RocketQueen", hashed_password=get_password_hash("test")),
+                models.User(username="CyberWolf", hashed_password=get_password_hash("test")),
+                models.User(username="GlitchMaster", hashed_password=get_password_hash("test")),
+            ]
+            db.add_all(sample_users)
+            db.commit()
 
     # Start IA Queue workers (1 per enabled Ollama instance, min 1)
     from .ia_queue import queue_manager
