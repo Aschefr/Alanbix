@@ -100,6 +100,19 @@
 		return Object.keys(rounds).sort((a,b) => a-b).map(k => rounds[k]);
 	}
 
+	function getFFAMatchRank(match, scoreIndex, lowerIsBetter) {
+		const score = match.score?.[scoreIndex];
+		if (!score || score <= 0) return null;
+		const validScores = [...match.score].filter(s => s > 0).sort((a, b) => lowerIsBetter ? a - b : b - a);
+		let rank = 1;
+		let prevScore = validScores[0];
+		for (let i = 0; i < validScores.length; i++) {
+			if (validScores[i] !== prevScore) { rank++; prevScore = validScores[i]; }
+			if (validScores[i] === score) return rank;
+		}
+		return null;
+	}
+
 	function viewHasData(viewName) {
 		switch (viewName) {
 			case 'leaderboard': return data.leaderboard.length > 0;
@@ -222,8 +235,8 @@
 				<h1 class="spec-title">🏆 Classement Général</h1>
 				<div class="spec-lb">
 					{#each data.leaderboard as entry, i}
-						<div class="spec-row {i < 3 ? 'spec-top' : ''}">
-							<span class="spec-rank {i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : ''}">{i + 1}</span>
+						<div class="spec-row {entry.rank && entry.rank <= 3 ? 'spec-top' : ''}">
+							<span class="spec-rank {entry.rank === 1 ? 'gold' : entry.rank === 2 ? 'silver' : entry.rank === 3 ? 'bronze' : ''}">{entry.rank || '—'}</span>
 							<span class="spec-name">{entry.username}</span>
 							{#if entry.team_name}<span class="spec-team">{entry.team_name}</span>{/if}
 							<span class="spec-pts">{entry.points} pts</span>
@@ -239,8 +252,8 @@
 				<h1 class="spec-title">👥 Classement Équipes</h1>
 				<div class="spec-lb">
 					{#each teamLeaderboard as team, i}
-						<div class="spec-row {i < 3 ? 'spec-top' : ''}">
-							<span class="spec-rank {i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : ''}">{i + 1}</span>
+						<div class="spec-row {team.rank && team.rank <= 3 ? 'spec-top' : ''}">
+							<span class="spec-rank {team.rank === 1 ? 'gold' : team.rank === 2 ? 'silver' : team.rank === 3 ? 'bronze' : ''}">{team.rank || '—'}</span>
 							<span class="spec-name">{team.team_name}</span>
 							<span class="spec-members">{team.member_count} joueurs</span>
 							<span class="spec-pts">{team.score} pts</span>
@@ -348,8 +361,9 @@
 									</div>
 									<div class="spec-ffa-players">
 										{#each match.p as playerId, pi}
-											<div class="spec-ffa-row {match.score?.[pi] === 1 ? 'gold' : match.score?.[pi] === 2 ? 'silver' : match.score?.[pi] === 3 ? 'bronze' : ''}">
-												<span class="spec-ffa-rank">{#if match.score?.[pi] > 0}#{match.score[pi]}{:else}—{/if}</span>
+											{@const mRank = getFFAMatchRank(match, pi, specLowerIsBetter)}
+											<div class="spec-ffa-row {mRank === 1 ? 'gold' : mRank === 2 ? 'silver' : mRank === 3 ? 'bronze' : ''}">
+												<span class="spec-ffa-rank">{#if mRank}#{mRank}{:else}—{/if}</span>
 												<span class="spec-ffa-name">{getPlayerName(playerId)}</span>
 												{#if match.score?.[pi] > 0}
 													<span class="spec-ffa-score">{match.score[pi]}</span>

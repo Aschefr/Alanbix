@@ -429,6 +429,12 @@
 	function getGame(gid) { return games.find(g => g.id === gid) || games.find(g => String(g.id) === String(gid)); }
 
 	let keepCount = 2;
+	let lastFFARoundId = '';
+	$: currentFFAMatch = (bracketType === 'ffa' && bracketRounds.length > 0) ? bracketRounds[bracketRounds.length - 1][0] : null;
+	$: if (currentFFAMatch && (selectedId + '-' + currentFFAMatch.id.r) !== lastFFARoundId) {
+		lastFFARoundId = selectedId + '-' + currentFFAMatch.id.r;
+		keepCount = Math.max(2, Math.ceil(currentFFAMatch.p.length / 2));
+	}
 
 	function bracketLabel(t) {
 		if (t === 'single_elim') return 'Élimination Directe';
@@ -463,6 +469,19 @@
 		if (userId === 0) return 'TBD';
 		if (userId < 0) return map[String(userId)] || `Équipe #${Math.abs(userId)}`;
 		return map[userId] || `Joueur #${userId}`;
+	}
+
+	function getFFAMatchRank(match, scoreIndex, lowerIsBetter) {
+		const score = match.score?.[scoreIndex];
+		if (!score || score <= 0) return null;
+		const validScores = [...match.score].filter(s => s > 0).sort((a, b) => lowerIsBetter ? a - b : b - a);
+		let rank = 1;
+		let prevScore = validScores[0];
+		for (let i = 0; i < validScores.length; i++) {
+			if (validScores[i] !== prevScore) { rank++; prevScore = validScores[i]; }
+			if (validScores[i] === score) return rank;
+		}
+		return null;
 	}
 
 	// Pan & Zoom (cursor-centered)
@@ -791,15 +810,16 @@
 										</div>
 										<div class="ffa-players">
 											{#each match.p as playerId, pi}
-												<div class="ffa-player-row {match.score?.[pi] === 1 ? 'ffa-gold' : match.score?.[pi] === 2 ? 'ffa-silver' : match.score?.[pi] === 3 ? 'ffa-bronze' : ''}">
+												{@const mRank = getFFAMatchRank(match, pi, lowerIsBetter)}
+												<div class="ffa-player-row {mRank === 1 ? 'ffa-gold' : mRank === 2 ? 'ffa-silver' : mRank === 3 ? 'ffa-bronze' : ''}">
 													<span class="ffa-rank">
-														{#if match.score?.[pi] > 0}#{match.score[pi]}{:else}—{/if}
+														{#if mRank}#{mRank}{:else}—{/if}
 													</span>
 													<span class="ffa-name">{getPlayerName(playerId, nameMap)}</span>
 													{#if playerId > 0 && seatMap[playerId]}<a href="/dashboard/map?highlight={seatMap[playerId]}" class="seat-badge" title="Voir sur le plan">📍{seatMap[playerId]}</a>{/if}
 													{#if canEditPlayerScore(match, pi, myTeamSlotId, isParticipant, currentUser) && isLatest}
-														<input type="number" class="score-input ffa-input" value={match.score?.[pi] || ''} placeholder="Pos."
-															on:change={(e) => updateFFAPlacement(match, pi, e.target.value)} min="1" max={match.p.length} />
+														<input type="number" class="score-input ffa-input" value={match.score?.[pi] || ''} placeholder="Score"
+															on:change={(e) => updateFFAPlacement(match, pi, e.target.value)} min="1" />
 													{:else if isPlayerLocked(match, pi, myTeamSlotId, isParticipant, currentUser)}
 														<span class="score-locked ffa-input" title="Score validé">🔒 {match.score?.[pi]}</span>
 													{:else if match.score?.[pi] > 0}
@@ -1003,8 +1023,8 @@
 						</div>
 						<div class="ls-list">
 							{#each displayStandings as entry, i}
-								<div class="ls-row {i < 3 ? 'ls-top' : ''}">
-									<span class="ls-rank {i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : ''}">{i + 1}</span>
+								<div class="ls-row {entry.rank && entry.rank <= 3 ? 'ls-top' : ''}">
+									<span class="ls-rank {entry.rank === 1 ? 'gold' : entry.rank === 2 ? 'silver' : entry.rank === 3 ? 'bronze' : ''}">{entry.rank || '—'}</span>
 									<div class="ls-info">
 										<span class="ls-name">{entry.name}</span>
 										<div class="ls-breakdown">

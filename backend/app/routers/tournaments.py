@@ -1152,7 +1152,7 @@ async def close_tournament(
         placement = placement_pts_map.get(rank, 0)
         score_pts = round(score_totals.get(entity_id, 0), 1)
         mp = matches_count.get(entity_id, 0)
-        participation = round(pts_participation * max(mp, 1), 1)  # At least 1 if in standings
+        participation = round(pts_participation * mp, 1)  # Strictly matches played
         total = placement + participation + score_pts
         
         if use_teams and entity_id < 0:
@@ -1187,7 +1187,7 @@ async def close_tournament(
         if uid not in placed_uids:
             score_pts = round(score_totals.get(uid, 0), 1)
             mp = matches_count.get(uid, 0)
-            participation = round(pts_participation * max(mp, 1), 1)
+            participation = round(pts_participation * mp, 1)
             total = participation + score_pts
             user = db.query(models.User).filter(models.User.id == uid).first()
             if user:
@@ -1685,10 +1685,18 @@ def _compute_standings(bracket, bracket_type, lower_is_better=False):
         last_match = next((m for m in bracket if m["id"]["r"] == max_r and m["id"]["m"] == 1), None)
         if last_match:
             paired = list(zip(last_match["p"], last_match.get("score", [])))
-            paired.sort(key=lambda x: x[1] if x[1] > 0 else 999)
-            for i, (pid, _) in enumerate(paired):
-                if pid and pid != 0:
-                    standings.append((i + 1, pid))
+            valid_players = [(pid, score) for pid, score in paired if pid and pid != 0 and score and score > 0]
+            
+            # Sort by score. If lower_is_better, ascending (30 beats 48). Else descending (100 beats 50).
+            valid_players.sort(key=lambda x: x[1], reverse=not lower_is_better)
+            
+            prev_score = None
+            current_rank = 0
+            for i, (pid, score) in enumerate(valid_players):
+                if score != prev_score:
+                    current_rank += 1
+                    prev_score = score
+                standings.append((current_rank, pid))
         return standings
     
     if bracket_type == "round_robin":
@@ -1710,8 +1718,13 @@ def _compute_standings(bracket, bracket_type, lower_is_better=False):
                 elif s1 > s0 and p1:
                     win_counts[p1] = win_counts.get(p1, 0) + 1
         sorted_players = sorted(win_counts.items(), key=lambda x: x[1], reverse=True)
-        for i, (pid, _) in enumerate(sorted_players):
-            standings.append((i + 1, pid))
+        prev_wins = None
+        current_rank = 0
+        for i, (pid, wins) in enumerate(sorted_players):
+            if wins != prev_wins:
+                current_rank += 1
+                prev_wins = wins
+            standings.append((current_rank, pid))
         return standings
     
     # Single/Double elim: find final match winner
@@ -1794,7 +1807,7 @@ def _compute_projected_standings(tournament, db):
                 if has_scores and i < len(s):
                     cumulated_scores[pid] += max(0, s[i])
                     matches_played[pid] += 1
-        if len(s) >= 2 and s[0] > 0 and s[1] > 0 and s[0] != s[1]:
+        if bracket_type != "ffa" and len(s) >= 2 and s[0] > 0 and s[1] > 0 and s[0] != s[1]:
             w_idx = (0 if s[0] < s[1] else 1) if lower_is_better else (0 if s[0] > s[1] else 1)
             w_id = p[w_idx] if w_idx < len(p) else None
             if w_id and w_id != 0:
@@ -1828,7 +1841,7 @@ def _compute_projected_standings(tournament, db):
     for eid in all_entities:
         w = wins.get(eid, 0)
         sb = score_bonus.get(eid, 0)
-        rank_score = w * ppw + round(sb, 1)
+        rank_score = w * ppw + sb  # Keep full precision to avoid artificial ties
         ranked.append({"entity_id": eid, "wins": w, "score_bonus": sb, "rank_score": rank_score,
                        "matches_played": matches_played.get(eid, 0),
                        "cumulated_score": cumulated_scores.get(eid, 0)})
@@ -1848,30 +1861,40 @@ def _compute_projected_standings(tournament, db):
             team_member_counts[-t.id] = max(count, 1)
 
     # Step 4: Build results with ex-aequo support
-    # Compute competition-style ranks (1,1,3,3,5...) based on rank_score
+    # Compute dense competition ranks (1,1,2,2,3...) based on rank_score
     exaequo_ranks = []
     prev_score = None
+    current_rank = 0
     for i, entry in enumerate(ranked):
         if entry["rank_score"] != prev_score:
-            current_rank = i + 1
+            current_rank += 1
             prev_score = entry["rank_score"]
         exaequo_ranks.append(current_rank)
 
     results = []
     for i, entry in enumerate(ranked):
         eid = entry["entity_id"]
-        # Use bracket placement for finalized positions (1st/2nd/3rd), else ex-aequo rank
-        rank = bracket_rank_map.get(eid, exaequo_ranks[i])
-        placement_pts = placement_map.get(rank, 0)
-        score_pts = round(entry["score_bonus"], 1)
         mp = entry["matches_played"]
-        participation = round(pts_participation * max(mp, 1), 1)  # At least 1 if in standings
+        has_explicit_rank = eid in bracket_rank_map
+        
+        # Rank and placement points
+        if mp > 0 or has_explicit_rank:
+            rank = bracket_rank_map.get(eid, exaequo_ranks[i])
+            placement_pts = placement_map.get(rank, 0)
+        else:
+            rank = None
+            placement_pts = 0
+            
+        score_pts = round(entry["score_bonus"], 1) if mp > 0 else 0
+        participation = round(pts_participation * mp, 1)  # Strictly matches played
         total = round(placement_pts + participation + score_pts, 1)
+        
         if use_teams and eid < 0:
             name = team_map.get(str(eid), f"Team #{abs(eid)}")
         else:
             user = db.query(models.User).filter(models.User.id == eid).first()
             name = user.username if user else f"#{eid}"
+            
         member_count = team_member_counts.get(eid, 1) if use_teams else 1
         per_member = total  # No division — each member gets full team points
         results.append({
@@ -1879,7 +1902,7 @@ def _compute_projected_standings(tournament, db):
             "placement_pts": placement_pts, "participation_pts": participation,
             "score_pts": score_pts, "total": total, "per_member": per_member,
             "member_count": member_count, "team_name": name if (use_teams and eid < 0) else None,
-            "matches_played": entry["matches_played"], "pts_per_match": pts_per_match,
+            "matches_played": mp, "pts_per_match": pts_per_match,
             "cumulated_score": entry["cumulated_score"]
         })
 
@@ -1894,11 +1917,12 @@ def _compute_projected_standings(tournament, db):
             if p.user_id not in placed_eids:
                 user = db.query(models.User).filter(models.User.id == p.user_id).first()
                 results.append({
-                    "rank": len(results) + 1, "entity_id": p.user_id,
+                    "rank": None, "entity_id": p.user_id,
                     "name": user.username if user else f"#{p.user_id}",
-                    "wins": 0, "placement_pts": 0, "participation_pts": pts_participation,
-                    "score_pts": 0, "total": pts_participation, "per_member": pts_participation,
-                    "member_count": 1, "team_name": None
+                    "wins": 0, "placement_pts": 0, "participation_pts": 0,
+                    "score_pts": 0, "total": 0, "per_member": 0,
+                    "member_count": 1, "team_name": None,
+                    "matches_played": 0, "pts_per_match": pts_per_match, "cumulated_score": 0
                 })
     return results
 

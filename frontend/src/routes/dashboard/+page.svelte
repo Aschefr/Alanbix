@@ -101,6 +101,19 @@
 		return Object.keys(rounds).sort((a,b) => a-b).map(k => rounds[k]);
 	}
 
+	function getFFAMatchRank(match, scoreIndex, lowerIsBetter) {
+		const score = match.score?.[scoreIndex];
+		if (!score || score <= 0) return null;
+		const validScores = [...match.score].filter(s => s > 0).sort((a, b) => lowerIsBetter ? a - b : b - a);
+		let rank = 1;
+		let prevScore = validScores[0];
+		for (let i = 0; i < validScores.length; i++) {
+			if (validScores[i] !== prevScore) { rank++; prevScore = validScores[i]; }
+			if (validScores[i] === score) return rank;
+		}
+		return null;
+	}
+
 	function getRankDelta(username, currentIdx) {
 		if (previousLeaderboard.length === 0) return null;
 		const prevIdx = previousLeaderboard.findIndex(p => p.username === username);
@@ -407,8 +420,9 @@
 									<div class="dash-ffa-round" class:ffa-latest={isLatest}>
 										<div class="dash-ffa-hdr">Manche {ri+1} · {match.p.length} joueurs</div>
 										{#each match.p as pid, pi}
-											<div class="dash-ffa-row {match.score?.[pi] === 1 ? 'gold' : match.score?.[pi] === 2 ? 'silver' : match.score?.[pi] === 3 ? 'bronze' : ''}">
-												<span class="dash-ffa-pos">{match.score?.[pi] > 0 ? '#' + match.score[pi] : '—'}</span>
+											{@const mRank = getFFAMatchRank(match, pi, activeTournament?.config?.lower_score_is_better)}
+											<div class="dash-ffa-row {mRank === 1 ? 'gold' : mRank === 2 ? 'silver' : mRank === 3 ? 'bronze' : ''}">
+												<span class="dash-ffa-pos">{mRank ? '#' + mRank : '—'}</span>
 												<span style="flex:1">{getPlayerName(pid, dashNameMap)}</span>
 												{#if match.score?.[pi] > 0}
 													<span class="dash-ffa-score">{match.score[pi]}</span>
@@ -521,7 +535,7 @@
 
 	/* 3-Column Triptych */
 	.main-triptych { display: grid; grid-template-columns: 280px 1fr 280px; gap: 1.2rem; flex-grow: 1; min-height: 0; }
-	.panel { display: flex; flex-direction: column; border-radius: 16px; overflow: hidden; }
+	.panel { display: flex; flex-direction: column; border-radius: 16px; overflow: hidden; min-height: 0; }
 	.panel-header { padding: 1rem 1.2rem; border-bottom: 1px solid var(--glass-border); display: flex; justify-content: space-between; align-items: flex-start; }
 	.panel-header h2 { font-size: 0.85rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; }
 	.panel-header .subtitle { font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
@@ -572,7 +586,7 @@
 
 	/* Bracket Panel */
 	.bracket-panel { min-width: 0; }
-	.bracket-preview { flex-grow: 1; display: flex; flex-direction: column; padding: 0.8rem; gap: 0.8rem; }
+	.bracket-preview { flex-grow: 1; display: flex; flex-direction: column; padding: 0.8rem; gap: 0.8rem; min-height: 0; }
 	.bracket-info-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem; }
 	.bi-card { display: flex; flex-direction: column; align-items: center; padding: 0.6rem; background: var(--surface-raised); border-radius: 10px; border: 1px solid var(--glass-border); }
 	.bi-val { font-size: 1rem; font-weight: 800; }
@@ -592,7 +606,7 @@
 	.dash-bracket-canvas { transform-origin: 0 0; transition: transform 0.08s ease-out; padding: 1rem; display: inline-block; min-width: 100%; }
 
 	/* Dashboard FFA */
-	.dash-ffa { display: flex; flex-direction: column; gap: 0.5rem; max-height: 300px; overflow-y: auto; padding: 0.25rem; }
+	.dash-ffa { display: flex; flex-direction: column; gap: 0.5rem; flex-grow: 1; min-height: 0; overflow-y: auto; padding: 0.25rem; }
 	.dash-ffa-round { border: 1px solid var(--glass-border); border-radius: 8px; padding: 0.5rem; opacity: 0.5; }
 	.dash-ffa-round.ffa-latest { opacity: 1; background: rgba(59,130,246,0.05); border-color: rgba(59,130,246,0.2); }
 	.dash-ffa-hdr { font-weight: 800; font-size: 0.55rem; text-transform: uppercase; letter-spacing: 1px; color: var(--accent); margin-bottom: 0.3rem; }

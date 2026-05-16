@@ -49,7 +49,7 @@ def get_stats(db: Session = Depends(database.get_db)):
                         goals[pid] += (max_s + 1 - raw)
                     else:
                         goals[pid] += raw
-            if len(s) >= 2 and s[0] > 0 and s[1] > 0 and s[0] != s[1]:
+            if config.get("bracket_type") != "ffa" and len(s) >= 2 and s[0] > 0 and s[1] > 0 and s[0] != s[1]:
                 w_idx = (0 if s[0] < s[1] else 1) if lower_is_better else (0 if s[0] > s[1] else 1)
                 w_id = p[w_idx] if w_idx < len(p) else None
                 if w_id and w_id != 0:
@@ -74,6 +74,15 @@ def get_stats(db: Session = Depends(database.get_db)):
     leaderboard = [{"username": v["username"], "points": round(v["points"], 1), "team_name": v["team_name"]} 
                    for v in user_pts.values() if v["points"] > 0]
     leaderboard.sort(key=lambda x: x["points"], reverse=True)
+    
+    # Compute competition ranks for leaderboard (1, 1, 3...)
+    prev_pts = None
+    for i, entry in enumerate(leaderboard):
+        if entry["points"] != prev_pts:
+            current_rank = i + 1
+            prev_pts = entry["points"]
+        entry["rank"] = current_rank
+    
     leaderboard = leaderboard[:10]
     
     # Participation counts
@@ -148,7 +157,7 @@ def get_team_leaderboard(db: Session = Depends(database.get_db)):
                         goals[pid] += (max_s + 1 - raw)
                     else:
                         goals[pid] += raw
-            if len(s) >= 2 and s[0] > 0 and s[1] > 0 and s[0] != s[1]:
+            if config.get("bracket_type") != "ffa" and len(s) >= 2 and s[0] > 0 and s[1] > 0 and s[0] != s[1]:
                 w_idx = (0 if s[0] < s[1] else 1) if lower_is_better else (0 if s[0] > s[1] else 1)
                 w_id = p[w_idx] if w_idx < len(p) else None
                 if w_id and w_id != 0:
@@ -195,8 +204,16 @@ def get_team_leaderboard(db: Session = Depends(database.get_db)):
             "member_count": count,
             "members": data["members"]
         })
-    
     result.sort(key=lambda x: x["score"], reverse=True)
+    
+    # Compute competition ranks
+    prev_score = None
+    for i, entry in enumerate(result):
+        if entry["score"] != prev_score:
+            current_rank = i + 1
+            prev_score = entry["score"]
+        entry["rank"] = current_rank
+        
     return result
 
 
