@@ -55,10 +55,10 @@ def get_player_points_history(user_id: int, db: Session = Depends(database.get_d
                         "tournament_id": t.id, "tournament_name": t.name,
                         "game_name": game_name, "status": t.status, "live": False,
                         "rank": r.get("rank"),
-                        "placement_pts": r.get("placement_pts", 0),
-                        "participation_pts": r.get("participation_pts", 0),
-                        "score_pts": r.get("score_pts", 0),
-                        "total": r.get("total", 0), "team_name": None
+                        "placement_pts": round(r.get("placement_pts", 0), 1),
+                        "participation_pts": round(r.get("participation_pts", 0), 1),
+                        "score_pts": round(r.get("score_pts", 0), 1),
+                        "total": round(r.get("total", 0), 1), "team_name": None
                     })
                     break
                 elif use_teams and isinstance(eid, int) and eid < 0:
@@ -74,10 +74,10 @@ def get_player_points_history(user_id: int, db: Session = Depends(database.get_d
                             "tournament_id": t.id, "tournament_name": t.name,
                             "game_name": game_name, "status": t.status, "live": False,
                             "rank": r.get("rank"),
-                            "placement_pts": r.get("placement_pts", 0),
-                            "participation_pts": r.get("participation_pts", 0),
-                            "score_pts": r.get("score_pts", 0),
-                            "total": r.get("total", 0), "team_name": r.get("name")
+                            "placement_pts": round(r.get("placement_pts", 0), 1),
+                            "participation_pts": round(r.get("participation_pts", 0), 1),
+                            "score_pts": round(r.get("score_pts", 0), 1),
+                            "total": round(r.get("total", 0), 1), "team_name": r.get("name")
                         })
                         break
         else:

@@ -640,7 +640,7 @@
 				<div class="info-row">
 					<div class="info-card glass"><span class="info-label">Format</span><span class="info-value">{bracketLabel(selected.config?.bracket_type)}</span></div>
 					<div class="info-card glass"><span class="info-label">Mode</span><span class="info-value">{selected.config?.use_teams ? `Équipes (×${selected.config?.team_size || 2})` : 'Solo'}</span></div>
-					<div class="info-card glass"><span class="info-label">Pts / Victoire</span><span class="info-value accent">{selected.points_per_win || 3}</span></div>
+					<div class="info-card glass"><span class="info-label">Points</span><span class="info-value accent" style="font-size:0.85rem">🥇{selected.config?.pts_winner ?? 10} 🥈{selected.config?.pts_second ?? 6} 🥉{selected.config?.pts_third ?? 4} 👤{selected.config?.pts_participation ?? 1}/m ⚡{selected.config?.pts_per_match ?? selected.config?.pts_per_goal ?? 1.0}</span></div>
 					<div class="info-card glass"><span class="info-label">Inscrits</span><span class="info-value">{participants.length}</span></div>
 					{#if selected.config?.lower_score_is_better}
 						<div class="info-card glass"><span class="info-label">Score</span><span class="info-value" style="color:#f59e0b">🔄 Inversé</span></div>
@@ -1138,10 +1138,7 @@
 						<label>Nom</label>
 						<input type="text" bind:value={editConfig.name} />
 					</div>
-					<div class="edit-field narrow">
-						<label>Points / Victoire</label>
-						<input type="number" bind:value={editConfig.points_per_win} min="1" max="100" />
-					</div>
+
 					<div class="edit-field">
 						<label>Mode</label>
 						<div class="edit-toggle-row">

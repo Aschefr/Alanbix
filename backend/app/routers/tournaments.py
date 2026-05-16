@@ -1091,8 +1091,9 @@ async def close_tournament(
     standings = _compute_standings(bracket, bracket_type, config.get("lower_score_is_better", False))
     
     # --- Calculate score bonus via cumulated score normalization ---
-    # Sum raw scores per entity across all matches, normalize min→max,
-    # then bonus = pts_per_match × (1 + normalized)  →  floor=pts_per_match, ceiling=2×pts_per_match
+    # For FFA multi-round: normalize per-round separately so eliminated players
+    # don't unfairly benefit from lower cumulated scores.
+    # For other modes: single-pool normalization across all matches.
     lower_is_better = config.get("lower_score_is_better", False)
     cumulated_scores = {}  # entity_id -> total raw score
     matches_count = {}  # entity_id -> number of scored matches
@@ -1109,7 +1110,36 @@ async def close_tournament(
 
     # Normalize and compute bonus
     score_totals = {}
-    if cumulated_scores:
+    if bracket_type == "ffa" and cumulated_scores:
+        # FFA: normalize per-round, then sum. Each round contributes pts_per_match × (1 + normalized).
+        round_matches = {}
+        for m in bracket:
+            r = m["id"]["r"]
+            if m["id"]["m"] == 1:
+                round_matches[r] = m
+        for r in sorted(round_matches.keys()):
+            m = round_matches[r]
+            players = m.get("p", [])
+            scores = m.get("score", [])
+            if not any(s > 0 for s in scores):
+                continue
+            round_data = [(pid, scores[i]) for i, pid in enumerate(players)
+                          if pid and pid != 0 and i < len(scores) and scores[i] > 0]
+            if not round_data:
+                continue
+            round_scores = [s for _, s in round_data]
+            min_rs = min(round_scores)
+            max_rs = max(round_scores)
+            rng = max_rs - min_rs
+            for pid, sc in round_data:
+                if rng > 0:
+                    # FFA scores are always placements (lower = better)
+                    normalized = (max_rs - sc) / rng
+                else:
+                    normalized = 1.0
+                score_totals[pid] = round(score_totals.get(pid, 0) + pts_per_match * (1 + normalized), 1)
+    elif cumulated_scores:
+        # Non-FFA: single-pool normalization (existing logic)
         scores_list = list(cumulated_scores.values())
         min_cs = min(scores_list)
         max_cs = max(scores_list)
@@ -1122,7 +1152,7 @@ async def close_tournament(
                     normalized = (cs - min_cs) / score_range
             else:
                 normalized = 1.0  # everyone equal → everyone gets full bonus
-            score_totals[eid] = pts_per_match * (1 + normalized)
+            score_totals[eid] = round(pts_per_match * (1 + normalized), 1)
     
     # --- Build results & distribute points ---
     results = []
@@ -1153,7 +1183,7 @@ async def close_tournament(
         score_pts = round(score_totals.get(entity_id, 0), 1)
         mp = matches_count.get(entity_id, 0)
         participation = round(pts_participation * mp, 1)  # Strictly matches played
-        total = placement + participation + score_pts
+        total = round(placement + participation + score_pts, 1)
         
         if use_teams and entity_id < 0:
             # Team: give points to all members
@@ -1188,7 +1218,7 @@ async def close_tournament(
             score_pts = round(score_totals.get(uid, 0), 1)
             mp = matches_count.get(uid, 0)
             participation = round(pts_participation * mp, 1)
-            total = participation + score_pts
+            total = round(participation + score_pts, 1)
             user = db.query(models.User).filter(models.User.id == uid).first()
             if user:
                 user.points = (user.points or 0) + int(total)
@@ -1680,24 +1710,73 @@ def _compute_standings(bracket, bracket_type, lower_is_better=False):
     standings = []
     
     if bracket_type == "ffa":
-        # FFA: use the last round's placements (lower placement = better)
+        # FFA multi-round: rank by survival depth, then by placement within each round.
+        # Players in the LAST round get the best ranks (1st, 2nd, 3rd...).
+        # Players eliminated in earlier rounds are ranked after, ordered by:
+        #   1) Elimination round descending (eliminated later = better)
+        #   2) Their placement/score within that round (lower placement = better)
         max_r = max((m["id"]["r"] for m in bracket), default=0)
-        last_match = next((m for m in bracket if m["id"]["r"] == max_r and m["id"]["m"] == 1), None)
+
+        # Collect all players per round
+        round_matches = {}
+        for m in bracket:
+            r = m["id"]["r"]
+            if m["id"]["m"] == 1:
+                round_matches[r] = m
+
+        # Build: who is in each round, and who was eliminated after each round
+        players_in_round = {}  # round -> set of player ids
+        for r in sorted(round_matches.keys()):
+            m = round_matches[r]
+            players_in_round[r] = set(pid for pid in m["p"] if pid and pid != 0)
+
+        # For each round except the last, eliminated = in this round but NOT in next round
+        eliminated_per_round = {}  # round -> [(pid, score)]
+        for r in sorted(round_matches.keys()):
+            if r == max_r:
+                continue  # Last round players are survivors, not eliminated
+            next_r = r + 1
+            next_players = players_in_round.get(next_r, set())
+            m = round_matches[r]
+            scores = m.get("score", [])
+            for i, pid in enumerate(m["p"]):
+                if pid and pid != 0 and pid not in next_players:
+                    score = scores[i] if i < len(scores) else 0
+                    eliminated_per_round.setdefault(r, []).append((pid, score))
+
+        # Rank last-round players first
+        last_match = round_matches.get(max_r)
+        current_rank = 0
         if last_match:
             paired = list(zip(last_match["p"], last_match.get("score", [])))
-            valid_players = [(pid, score) for pid, score in paired if pid and pid != 0 and score and score > 0]
-            
-            # Sort by score. If lower_is_better, ascending (30 beats 48). Else descending (100 beats 50).
-            valid_players.sort(key=lambda x: x[1], reverse=not lower_is_better)
-            
+            valid = [(pid, s) for pid, s in paired if pid and pid != 0 and s and s > 0]
+            # In FFA, score = placement position (lower = better regardless of config)
+            # because ffa-advance sorts by score ascending to pick top N
+            valid.sort(key=lambda x: x[1])
             prev_score = None
-            current_rank = 0
-            for i, (pid, score) in enumerate(valid_players):
+            for pid, score in valid:
                 if score != prev_score:
                     current_rank += 1
                     prev_score = score
                 standings.append((current_rank, pid))
+
+        # Then rank eliminated players, latest elimination round first
+        for r in sorted(eliminated_per_round.keys(), reverse=True):
+            elim = eliminated_per_round[r]
+            # Sort eliminated: lower score = better (they got a better placement before being cut)
+            elim.sort(key=lambda x: x[1])
+            base_rank = current_rank + 1
+            prev_score = None
+            local_rank = base_rank - 1
+            for pid, score in elim:
+                if score != prev_score:
+                    local_rank += 1
+                    prev_score = score
+                standings.append((local_rank, pid))
+                current_rank = max(current_rank, local_rank)
+
         return standings
+
     
     if bracket_type == "round_robin":
         # Round robin: compute win totals
@@ -1815,21 +1894,50 @@ def _compute_projected_standings(tournament, db):
 
     # Normalize cumulated scores → score bonus
     score_bonus = {}
-    all_cs = [v for v in cumulated_scores.values() if v > 0] or [0]
-    min_cs = min(all_cs)
-    max_cs = max(all_cs)
-    score_range = max_cs - min_cs
-    for eid, cs in cumulated_scores.items():
-        if cs <= 0:
-            score_bonus[eid] = 0
-        elif score_range > 0:
-            if lower_is_better:
-                normalized = (max_cs - cs) / score_range
+    if bracket_type == "ffa":
+        # FFA: normalize per-round separately, then sum
+        round_matches = {}
+        for m in bracket:
+            r = m["id"]["r"]
+            if m["id"]["m"] == 1:
+                round_matches[r] = m
+        for r in sorted(round_matches.keys()):
+            rm = round_matches[r]
+            rp = rm.get("p", [])
+            rs = rm.get("score", [])
+            if not any(v > 0 for v in rs):
+                continue
+            round_data = [(pid, rs[i]) for i, pid in enumerate(rp)
+                          if pid and pid != 0 and i < len(rs) and rs[i] > 0]
+            if not round_data:
+                continue
+            round_scores = [s for _, s in round_data]
+            min_rs = min(round_scores)
+            max_rs = max(round_scores)
+            rng = max_rs - min_rs
+            for pid, sc in round_data:
+                if rng > 0:
+                    normalized = (max_rs - sc) / rng
+                else:
+                    normalized = 1.0
+                score_bonus[pid] = round(score_bonus.get(pid, 0) + pts_per_match * (1 + normalized), 1)
+    else:
+        # Non-FFA: single-pool normalization
+        all_cs = [v for v in cumulated_scores.values() if v > 0] or [0]
+        min_cs = min(all_cs)
+        max_cs = max(all_cs)
+        score_range = max_cs - min_cs
+        for eid, cs in cumulated_scores.items():
+            if cs <= 0:
+                score_bonus[eid] = 0
+            elif score_range > 0:
+                if lower_is_better:
+                    normalized = (max_cs - cs) / score_range
+                else:
+                    normalized = (cs - min_cs) / score_range
+                score_bonus[eid] = round(pts_per_match * (1 + normalized), 1)
             else:
-                normalized = (cs - min_cs) / score_range
-            score_bonus[eid] = pts_per_match * (1 + normalized)
-        else:
-            score_bonus[eid] = pts_per_match * 2  # everyone equal → full bonus
+                score_bonus[eid] = pts_per_match * 2  # everyone equal → full bonus
 
     # Step 2: Bracket-based placement for elimination formats
     bracket_standings = _compute_standings(bracket, bracket_type, lower_is_better)
@@ -1949,6 +2057,10 @@ def get_tournament_standings(tournament_id: int, db: Session = Depends(database.
         for r in tournament.results:
             entry = dict(r)
             eid = entry.get("entity_id")
+            # Sanitize floating-point artifacts from legacy data
+            for k in ("total", "placement_pts", "participation_pts", "score_pts"):
+                if k in entry:
+                    entry[k] = round(entry[k], 1)
             mc = team_member_counts.get(eid, 1) if use_teams else 1
             entry.setdefault("member_count", mc)
             entry.setdefault("per_member", round(entry.get("total", 0) / mc, 1))

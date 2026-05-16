@@ -89,7 +89,7 @@ async def pick_instance(db: Session, model: str = None):
     return instances[0]
 
 @router.get("/models")
-async def list_models(db: Session = Depends(database.get_db)):
+async def list_models(db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
     """Merge models from all enabled instances (deduplicated)."""
     instances = [i for i in get_instances(db) if i.get("enabled", True)]
     seen = set()
@@ -107,7 +107,7 @@ async def list_models(db: Session = Depends(database.get_db)):
     return {"models": all_models}
 
 @router.post("/test-connection")
-async def test_connection(config: dict):
+async def test_connection(config: dict, admin: models.User = Depends(auth.get_current_admin)):
     url = config.get("url") or config.get("ollama_host", "")
     ok, latency, model_names = await _check_instance_health(url, timeout=5.0)
     if ok:
@@ -115,7 +115,7 @@ async def test_connection(config: dict):
     return {"status": "error", "detail": "Connection failed"}
 
 @router.get("/instances/status")
-async def instances_status(db: Session = Depends(database.get_db)):
+async def instances_status(db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
     """Return health status of all configured instances."""
     from ..ia_queue import queue_manager
     instances = get_instances(db)
@@ -144,7 +144,7 @@ async def instances_status(db: Session = Depends(database.get_db)):
     return results
 
 @router.get("/config")
-def get_ia_config(db: Session = Depends(database.get_db)):
+def get_ia_config(db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
     cfg = get_effective_config(db)
     # Include system_prompt from SystemConfig
     sp = db.query(models.SystemConfig).filter(models.SystemConfig.key == "system_prompt").first()

@@ -1,0 +1,4 @@
+# Test dependencies (not needed in production)
+-r requirements.txt
+pytest
+pytest-asyncio

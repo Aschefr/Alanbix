@@ -780,8 +780,7 @@
 									<input type="number" bind:value={config.team_size} min="2" max="16" />
 								{/if}
 
-								<label>Points / Victoire</label>
-								<input type="number" bind:value={config.points_per_win} />
+
 
 								<div class="nav-btns">
 									<button class="btn-secondary" on:click={() => step = 1}>Retour</button>
@@ -910,7 +909,7 @@
 										<span class="status-pill-sm {t.status.toLowerCase()}">{t.status === 'OPEN' ? 'Ouvert' : t.status === 'RUNNING' ? 'En cours' : t.status === 'CLOSED' ? 'Clôturé' : 'Terminé'}</span>
 									</div>
 									<div class="item-meta">
-										{games.find(g => g.id === t.game_id)?.name || '—'} • {t.participants?.length || 0} Joueur{(t.participants?.length || 0) > 1 ? 's' : ''} • {t.points_per_win || 3} pts/victoire
+										{games.find(g => g.id === t.game_id)?.name || '—'} • {t.participants?.length || 0} Joueur{(t.participants?.length || 0) > 1 ? 's' : ''} • 🥇{t.config?.pts_winner ?? 10}/🥈{t.config?.pts_second ?? 6}/🥉{t.config?.pts_third ?? 4} 👤{t.config?.pts_participation ?? 1}/m ⚡{t.config?.pts_per_match ?? t.config?.pts_per_goal ?? 1.0}
 									</div>
 								</div>
 								<div class="item-actions">
@@ -953,7 +952,7 @@
 
 											</div>
 
-											<div class="ie-field" style="max-width:120px"><label>Pts / Victoire</label><input type="number" bind:value={editConfig.points_per_win} min="1" max="100" /></div>
+
 
 											<div class="ie-field"><label>Format</label>
 
