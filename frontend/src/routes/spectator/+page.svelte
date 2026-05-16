@@ -2,8 +2,7 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { wsMessageStore } from '$lib/ws';
 	import { connectWS } from '$lib/ws';
-
-	const API_URL = 'http://localhost:8000';
+	import { API_URL } from '$lib/config';
 
 	const VIEWS = ['leaderboard', 'teams', 'map', 'bracket', 'info'];
 	let currentIdx = 0;

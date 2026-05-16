@@ -4,6 +4,7 @@
 	import Modal from '$lib/components/Modal.svelte';
 	import { marked } from 'marked';
 	import { wsMessageStore } from '$lib/ws';
+	import { API_URL } from '$lib/config';
 
 	// Configure marked for safe rendering
 	marked.setOptions({ breaks: true, gfm: true });
@@ -455,7 +456,7 @@
 
 		try {
 			const token = localStorage.getItem('alanbix_token');
-			const response = await fetch('http://localhost:8000/ia/stream', {
+			const response = await fetch(`${API_URL}/ia/stream`, {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
@@ -699,7 +700,7 @@
 									{/if}
 									{#if msg.image_path}
 										<div class="msg-image">
-											<img src="http://localhost:8000/data/{msg.image_path}" alt="Image jointe" on:click={() => window.open('http://localhost:8000/data/' + msg.image_path, '_blank')} />
+											<img src="{API_URL}/data/{msg.image_path}" alt="Image jointe" on:click={() => window.open(API_URL + '/data/' + msg.image_path, '_blank')} />
 										</div>
 									{/if}
 									{#if msg.content === '' && loading && msg.role === 'bot' && msg.id === messages[messages.length-1].id}

@@ -1,7 +1,6 @@
 import { get } from 'svelte/store';
 import { authStore } from './auth';
-
-const API_URL = 'http://localhost:8000';
+import { API_URL } from './config';
 
 async function request(path: string, options: RequestInit = {}) {
 	const token = get(authStore);

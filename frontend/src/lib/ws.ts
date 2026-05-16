@@ -1,4 +1,5 @@
 import { writable } from 'svelte/store';
+import { WS_URL } from './config';
 
 export const wsMessageStore = writable<any>(null);
 
@@ -7,7 +8,7 @@ let socket: WebSocket | null = null;
 export function connectWS() {
 	if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) return;
 
-	socket = new WebSocket('ws://localhost:8000/ws');
+	socket = new WebSocket(WS_URL);
 
 	socket.onmessage = (event) => {
 		const message = JSON.parse(event.data);

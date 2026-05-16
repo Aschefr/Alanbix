@@ -3,6 +3,7 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { marked } from 'marked';
 	import { wsMessageStore } from '$lib/ws';
+	import { API_URL } from '$lib/config';
 	let wsUnsub = null;
 
 	marked.setOptions({ breaks: true, gfm: true });
@@ -501,12 +502,12 @@
 		formData.append('file', file);
 		try {
 			const token = localStorage.getItem('alanbix_token');
-			const res = await fetch('http://localhost:8000/tournaments/games/upload-image', {
+			const res = await fetch(`${API_URL}/tournaments/games/upload-image`, {
 				method: 'POST', body: formData,
 				headers: { 'Authorization': `Bearer ${token}` }
 			});
 			const data = await res.json();
-			const url = `http://localhost:8000${data.url}`;
+			const url = `${API_URL}${data.url}`;
 			if (target === 'edit') { editGameData.image_url = url; }
 			else { newGame.image_url = url; }
 			toast('Image uploadée !', 'success');
@@ -1865,7 +1866,7 @@
 										<div class="admin-conv-md">{@html parseMd(m.content)}</div>
 										{#if m.image_path}
 											<div style="margin-top:0.4rem">
-												<img src="http://localhost:8000/data/{m.image_path}" alt="" style="max-width:250px;max-height:180px;border-radius:8px;border:1px solid var(--glass-border);cursor:pointer;object-fit:cover" on:click={() => window.open('http://localhost:8000/data/' + m.image_path, '_blank')} />
+												<img src="{API_URL}/data/{m.image_path}" alt="" style="max-width:250px;max-height:180px;border-radius:8px;border:1px solid var(--glass-border);cursor:pointer;object-fit:cover" on:click={() => window.open(API_URL + '/data/' + m.image_path, '_blank')} />
 											</div>
 										{/if}
 									</div>
