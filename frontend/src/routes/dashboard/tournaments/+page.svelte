@@ -3,6 +3,7 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { wsMessageStore } from '$lib/ws';
 	import { page } from '$app/stores';
+	import CreateTournamentWizard from '$lib/components/CreateTournamentWizard.svelte';
 
 	let tournaments = [];
 	let games = [];
@@ -12,6 +13,9 @@
 	let currentUser = null;
 	let editingTournament = false;
 	let editConfig = {};
+
+	// Tournament Creation State
+	let showCreateModal = false;
 	let teams = [];
 	let newTeamName = '';
 	let standingsData = [];
@@ -441,6 +445,10 @@
 		} catch (e) { toast(e.message || 'Erreur', 'error'); }
 	}
 
+	function openCreateTournamentModal() {
+		showCreateModal = true;
+	}
+
 	function getGame(gid) { return games.find(g => g.id === gid) || games.find(g => String(g.id) === String(gid)); }
 
 	let keepCount = 2;
@@ -600,6 +608,13 @@
 			<h2>🏆 Tournois</h2>
 			<span class="t-count">{tournaments.length}</span>
 		</div>
+		{#if currentUser?.is_admin}
+			<div class="sidebar-actions">
+				<button class="add-tournament-btn-full" on:click={openCreateTournamentModal}>
+					➕ Ajouter un tournoi
+				</button>
+			</div>
+		{/if}
 		<div class="t-list">
 			{#each tournaments as t}
 				<button class="t-item {selectedId === t.id ? 'active' : ''} {t.status.toLowerCase()}" on:click={() => selectTournament(t.id)} style="background-image: url({gameMap[t.game_id]?.image_url || ''})">
@@ -1219,6 +1234,30 @@
 	</div>
 {/if}
 
+<!-- Create Modal -->
+{#if showCreateModal}
+	<div class="edit-overlay" use:portal on:click={() => showCreateModal = false}>
+		<div class="edit-modal glass" on:click|stopPropagation>
+			<header class="edit-modal-header">
+				<h3>🏆 Nouveau Tournoi</h3>
+				<button class="close-btn" on:click={() => showCreateModal = false}>✕</button>
+			</header>
+			<div class="edit-modal-body">
+				<CreateTournamentWizard 
+					{games} 
+					onSuccess={async (newT) => {
+						toast('Tournoi créé avec succès !', 'success');
+						showCreateModal = false;
+						tournaments = await api.get('/tournaments');
+						await selectTournament(newT.id);
+					}}
+					onCancel={() => showCreateModal = false}
+				/>
+			</div>
+		</div>
+	</div>
+{/if}
+
 <!-- Toasts -->
 <div class="toast-container" use:portal>
 	{#each toasts as t (t.id)}
@@ -1230,6 +1269,46 @@
 </div>
 
 <style>
+	.sidebar-actions { padding: 0.5rem 0.5rem 0 0.5rem; display: flex; flex-direction: column; }
+	.add-tournament-btn-full {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.4rem;
+		padding: 0.6rem;
+		font-size: 0.8rem;
+		border-radius: 10px;
+		cursor: pointer;
+		font-weight: 700;
+		width: 100%;
+		border: 1px solid var(--glass-border);
+		background: var(--accent-soft);
+		color: var(--accent);
+		transition: all 0.2s;
+	}
+	.add-tournament-btn-full:hover {
+		background: var(--accent);
+		color: white;
+		box-shadow: 0 0 10px var(--accent-glow);
+	}
+	.edit-field input[type="text"],
+	.edit-field input[type="number"],
+	.edit-field select {
+		width: 100%;
+		padding: 0.5rem 0.8rem;
+		border-radius: 8px;
+		border: 1px solid var(--glass-border);
+		background: var(--surface-sunken);
+		color: var(--text-main);
+		font-size: 0.8rem;
+		outline: none;
+		transition: border-color 0.15s;
+	}
+	.edit-field input:focus,
+	.edit-field select:focus {
+		border-color: var(--accent);
+	}
+
 	/* === LAYOUT === */
 	.tournaments-layout { display: flex; height: calc(100vh - 5rem); }
 

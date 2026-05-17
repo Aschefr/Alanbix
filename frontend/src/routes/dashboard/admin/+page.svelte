@@ -1,6 +1,7 @@
 <script>
 	import { api } from '$lib/api';
 	import { onMount, onDestroy } from 'svelte';
+	import CreateTournamentWizard from '$lib/components/CreateTournamentWizard.svelte';
 	import { marked } from 'marked';
 	import { wsMessageStore } from '$lib/ws';
 	import { API_URL } from '$lib/config';
@@ -141,17 +142,6 @@
 			loadData();
 		} catch (e) { toast(e.message, 'error'); }
 	}
-
-	// New Tournament State
-	let step = 1;
-	let config = { 
-		name: '', game_id: null, use_teams: false, team_size: 1, 
-		points_per_win: 3, phases: 'single', group_size: 4, 
-		advancers_count: 2, bracket_type: 'single_elim',
-		pts_winner: defaultPts.pts_winner, pts_second: defaultPts.pts_second, pts_third: defaultPts.pts_third,
-		pts_participation: defaultPts.pts_participation, pts_per_match: defaultPts.pts_per_match,
-		lower_score_is_better: false
-	};
 
 	// New Game State
 	let newGame = { name: '', rules: '', image_url: '' };
@@ -387,7 +377,7 @@
 		await saveIAConfig();
 	}
 
-	let creatingTournament = false;
+
 
 	// Nuke state
 	let nukeConfirm = { tournaments: false, players: false, games: false, images: false, notifications: false };
@@ -446,42 +436,7 @@
 		nukeConfirm.notifications = false;
 	}
 
-	async function saveTournament() {
-		try {
-			creatingTournament = true;
-			const payload = {
-				name: config.name || null,
-				game_id: config.game_id,
-				points_per_win: config.points_per_win,
-				config: {
-					use_teams: config.use_teams,
-					team_size: config.team_size,
-					points_per_win: config.points_per_win,
-					phases: config.phases,
-					group_size: config.group_size,
-					advancers_count: config.advancers_count,
-					bracket_type: config.bracket_type,
-					pts_winner: config.pts_winner,
-					pts_second: config.pts_second,
-					pts_third: config.pts_third,
-					pts_participation: config.pts_participation,
-					pts_per_match: config.pts_per_match,
-					lower_score_is_better: config.lower_score_is_better
-				}
-			};
-			await api.post('/tournaments', payload);
-			toast('Tournoi créé avec succès !', 'success');
-			loadData();
-			setTimeout(() => {
-				step = 1;
-				creatingTournament = false;
-				config = { name: '', game_id: null, use_teams: false, team_size: 1, points_per_win: 3, phases: 'single', group_size: 4, advancers_count: 2, bracket_type: 'single_elim', pts_winner: defaultPts.pts_winner, pts_second: defaultPts.pts_second, pts_third: defaultPts.pts_third, pts_participation: defaultPts.pts_participation, pts_per_match: defaultPts.pts_per_match };
-			}, 1000);
-		} catch (e) { 
-			creatingTournament = false;
-			toast(e.message, 'error'); 
-		}
-	}
+
 
 
 
@@ -761,155 +716,13 @@
 							</div>
 						</div>
 					</div>
-					<div class="steps-indicator" style="margin-top: 0;">
-						<span class={step === 1 ? 'active' : ''}>1. Général</span>
-						<span class={step === 2 ? 'active' : ''}>2. Format</span>
-						<span class={step === 3 ? 'active' : ''}>3. Brackets</span>
-					</div>
-
-					<div class="step-box">
-						{#if step === 1}
-							<div class="flex-col">
-								<label>Nom du Tournoi <span style="font-weight:400;font-size:0.7rem;color:var(--text-muted)">(optionnel — par défaut : nom du jeu)</span></label>
-								<input type="text" bind:value={config.name} placeholder="Nom du jeu par défaut..." />
-								<label>Jeu de Base</label>
-								<select bind:value={config.game_id}>
-									<option value={null}>Sélectionner un jeu...</option>
-									{#each games as g}
-										<option value={g.id}>{g.name}</option>
-									{/each}
-								</select>
-								<div class="nav-btns">
-									<button class="btn-primary" on:click={() => step = 2} disabled={!config.game_id}>Suivant</button>
-								</div>
-							</div>
-						{:else if step === 2}
-							<div class="flex-col">
-								<label>Mode de rencontre</label>
-								<div class="bracket-graphics-grid" style="grid-template-columns: 1fr 1fr;">
-									<button class="graphic-card {!config.use_teams ? 'active' : ''}" on:click={() => config.use_teams = false}>
-										<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-											<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-											<circle cx="12" cy="7" r="4"></circle>
-										</svg>
-										<span>Individuel (Solo)</span>
-									</button>
-									<button class="graphic-card {config.use_teams ? 'active' : ''}" on:click={() => config.use_teams = true}>
-										<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-											<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-											<circle cx="9" cy="7" r="4"></circle>
-											<path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-											<path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-										</svg>
-										<span>Par Équipes</span>
-									</button>
-								</div>
-
-								{#if config.use_teams}
-									<label>Taille d'équipe</label>
-									<input type="number" bind:value={config.team_size} min="2" max="16" />
-								{/if}
-
-
-
-								<div class="nav-btns">
-									<button class="btn-secondary" on:click={() => step = 1}>Retour</button>
-									<button class="btn-primary" on:click={() => step = 3}>Suivant</button>
-								</div>
-								</div>
-						{:else}
-							<div class="flex-col">
-								<label>Structure Globale</label>
-								<select bind:value={config.phases}>
-									<option value="single">Phase finale directe</option>
-									<option value="double">Groupes + Phase finale</option>
-								</select>
-
-								{#if config.phases === 'double'}
-									<div class="glass-inner p-4 mt-2">
-										<div class="grid-2">
-											<div><label>Taille Groupes</label><input type="number" bind:value={config.group_size} /></div>
-											<div><label>Qualifiés</label><input type="number" bind:value={config.advancers_count} /></div>
-										</div>
-									</div>
-								{/if}
-
-								<label>Format de l'Arbre</label>
-								<div class="bracket-graphics-grid">
-									<button class="graphic-card {config.bracket_type === 'single_elim' ? 'active' : ''}" on:click={() => config.bracket_type = 'single_elim'}>
-										<svg viewBox="0 0 100 60" fill="none" stroke="currentColor" stroke-width="3">
-											<path d="M10 10h20v20H10m20-10h20v30H30m20-15h20m-60 30h20"/>
-										</svg>
-										<span>Élimination Directe</span>
-									</button>
-									<button class="graphic-card {config.bracket_type === 'double_elim' ? 'active' : ''}" on:click={() => config.bracket_type = 'double_elim'}>
-										<svg viewBox="0 0 100 60" fill="none" stroke="currentColor" stroke-width="3">
-											<path d="M10 10h20v20H10m20-10h20v20m-20 20h20v-20m-40 30h20m30-30h20"/>
-											<path d="M40 35l10-15" stroke-dasharray="2 2"/>
-										</svg>
-										<span>Double Élimination</span>
-									</button>
-									<button class="graphic-card {config.bracket_type === 'round_robin' ? 'active' : ''}" on:click={() => config.bracket_type = 'round_robin'}>
-										<svg viewBox="0 0 100 60" fill="none" stroke="currentColor" stroke-width="3">
-											<circle cx="50" cy="30" r="15"/>
-											<path d="M30 30a20 20 0 0 1 40 0"/>
-											<path d="M70 30a20 20 0 0 1-40 0" stroke-dasharray="4 4"/>
-										</svg>
-										<span>Championnat</span>
-									</button>
-									<button class="graphic-card {config.bracket_type === 'ffa' ? 'active' : ''}" on:click={() => config.bracket_type = 'ffa'}>
-										<svg viewBox="0 0 100 60" fill="none" stroke="currentColor" stroke-width="3">
-											<rect x="15" y="32" width="14" height="23" rx="2"/>
-											<rect x="43" y="17" width="14" height="38" rx="2"/>
-											<rect x="71" y="40" width="14" height="15" rx="2"/>
-											<circle cx="22" cy="26" r="4"/><circle cx="50" cy="11" r="4"/><circle cx="78" cy="34" r="4"/>
-										</svg>
-										<span>Free For All</span>
-									</button>
-								</div>
-
-								<label class="score-invert-label">
-									<input type="checkbox" bind:checked={config.lower_score_is_better} />
-									🔄 Score inversé <span class="text-dim text-xs">(le plus petit score gagne, ex: placement, golf)</span>
-								</label>
-
-							<details class="pts-config glass-inner" open>
-								<summary>🏅 Répartition des points</summary>
-								<div class="pts-grid">
-									<div class="pts-field">
-										<label>🥇 1er</label>
-										<input type="number" bind:value={config.pts_winner} min="0" />
-									</div>
-									<div class="pts-field">
-										<label>🥈 2ème</label>
-										<input type="number" bind:value={config.pts_second} min="0" />
-									</div>
-									<div class="pts-field">
-										<label>🥉 3ème</label>
-										<input type="number" bind:value={config.pts_third} min="0" />
-									</div>
-									<div class="pts-field">
-										<label>👤 Participation</label>
-										<input type="number" bind:value={config.pts_participation} min="0" />
-									</div>
-									<div class="pts-field">
-										<label>⚡ Bonus/Score</label>
-										<input type="number" bind:value={config.pts_per_match} min="0" step="0.1" />
-									</div>
-								</div>
-								<p class="pts-hint">Bonus/Score = bonus du plancher (valeur saisie) au plafond (2×) selon le score cumulé de chaque joueur/équipe</p>
-							</details>
-
-								<div class="nav-btns">
-									<button class="btn-secondary" on:click={() => step = 2}>Retour</button>
-									<button class="btn-primary {creatingTournament ? 'btn-success-anim' : ''}" on:click={saveTournament} disabled={creatingTournament}>
-										{creatingTournament ? '✨ Distillation...' : 'Lancer le Tournoi'}
-									</button>
-								</div>
-
-							</div>
-						{/if}
-					</div>
+					<CreateTournamentWizard 
+						{games} 
+						onSuccess={() => {
+							toast('Tournoi créé avec succès !', 'success');
+							loadData();
+						}} 
+					/>
 				</section>
 
 				<section class="list glass">
