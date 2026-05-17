@@ -14,8 +14,8 @@
 		try {
 			if (isRegistering) {
 				await api.post('/register', { username, password });
-				isRegistering = false;
-				error = 'Compte créé ! Connecte-toi.';
+				await api.login(username, password);
+				window.location.href = '/dashboard';
 			} else {
 				await api.login(username, password);
 				window.location.href = '/dashboard';

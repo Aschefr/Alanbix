@@ -729,4 +729,117 @@ future_axes:
       il ne doit plus être possible de modifier le score. Seul les admins peuvent modifier les scores.
     priority: medium
 
-    
+  - id: AXE-16
+    title: "Auto log-in après la création d'un compte"
+    status: DONE
+    description: >
+      Permettre une connexion automatique (auto log-in) immédiate de l'utilisateur
+      après la soumission réussie du formulaire de création de compte (/register).
+    priority: medium
+
+  - id: AXE-17
+    title: "Pas de points initiaux pour les joueurs de test"
+    status: DONE
+    description: >
+      Les joueurs générés en pool de test (via le bouton +20 joueurs de l'admin) ne doivent
+      pas avoir de points de tournoi lors de leur insertion en base de données (points=0).
+    priority: low
+
+  - id: AXE-18
+    title: "Fix bug onglet Gestion Joueurs non rafraîchi dans l'Administration"
+    status: DONE
+    description: >
+      Correction du bug d'affichage de la liste des joueurs dans l'onglet 'Gestion Joueurs'
+      lorsqu'on navigue vers une autre page puis revient sur 'Administration'. Un mécanisme
+      réactif (Svelte reactive statement) recharge automatiquement les données correspondantes
+      lors de l'activation des onglets 'Gestion Joueurs' et 'Conversations IA'.
+    priority: high
+
+  - id: AXE-19
+    title: "Liste déroulante d'autocomplétion des équipes existantes dans le Profil"
+    status: DONE
+    description: >
+      Intégration d'une liste déroulante d'autocomplétion via datalist dans le profil joueur
+      permettant de sélectionner rapidement une équipe déjà existante (récupérée dynamiquement
+      depuis un nouvel endpoint FastAPI /players/teams), tout en préservant la possibilité de
+      saisir un tout nouveau nom d'équipe.
+    priority: low
+
+  - id: AXE-20
+    title: "Correction de l'index séquentiel dans la liste d'administration des joueurs"
+    status: DONE
+    description: >
+      Correction de la colonne d'index (#) dans la table de gestion des joueurs en administration.
+      Remplacement de l'utilisation de l'ID brut de la base de données (p.id) par un index
+      séquentiel dynamique (i + 1) lié au parcours de la liste Svelte. Ainsi, les numéros de ligne
+      sont contigus et se mettent à jour automatiquement sans trous en cas de suppression de joueurs.
+    priority: medium
+
+  - id: AXE-21
+    title: "Enrichissement de la vue d'édition et autocomplétion des équipes en Administration"
+    status: DONE
+    description: >
+      Intégration d'un menu d'autocomplétion des équipes existantes dans le formulaire d'ajout
+      et le modal d'édition des joueurs dans l'onglet Administration. De plus, enrichissement
+      de l'interface d'édition pour permettre aux administrateurs de modifier la place attribuée
+      (seat_id), les points cumulés, le rôle administrateur (is_admin) et le statut d'accès à l'IA
+      (ia_blocked) directement au même endroit avec synchronisation en base de données.
+    priority: high
+
+  - id: AXE-22
+    title: "Correction de la fermeture intempestive des modaux lors du glisser-relâcher"
+    status: DONE
+    description: >
+      Correction de l'événement de fermeture 'clic en dehors' des modaux d'administration.
+      L'ancien comportement fermait le modal si un utilisateur sélectionnait du texte (ex: nom d'équipe)
+      et relâchait le clic en dehors du modal. Le nouveau comportement enregistre le point de mousedown
+      et ne ferme le modal que si le mousedown et le mouseup ont tous deux eu lieu directement sur l'overlay.
+    priority: medium
+
+  - id: AXE-23
+    title: "Confirmations en ligne pour la promotion et rétrogradation d'administration"
+    status: DONE
+    description: >
+      Sécurisation des actions administratives de promotion (👑) et de rétrogradation (🛡️) des joueurs
+      via un mécanisme de confirmation en ligne identique à celui de la suppression. Les boutons initiaux
+      se transforment en "Promouvoir ?" ou "Rétrograder ?" avec une option d'annulation (❌) afin d'éviter
+      les mauvaises manipulations accidentelles pendant l'événement.
+    priority: medium
+
+  - id: AXE-24
+    title: "Auto-enregistrement des paramètres et configurations IA"
+    status: DONE
+    description: >
+      Implémentation d'un système d'auto-enregistrement (sauvegarde automatique) pour l'ensemble
+      des éléments de l'onglet "IA & Paramètres". Toute modification sur le nom de la LAN, les points
+      par défaut, les instances Ollama (ajout, modification du label/url/modèle/état, suppression, réordonnancement),
+      les paramètres de température et de fenêtre de contexte, les prompts système et de clôture, ou la base de
+      connaissances RAG déclenche une sauvegarde immédiate et transparente en base de données, permettant
+      de supprimer définitivement les boutons de sauvegarde manuelle superflus.
+    priority: high
+
+  - id: AXE-25
+    title: "Correction des couleurs de dropdown en mode clair"
+    status: DONE
+    description: >
+      Résolution du bug de lisibilité des menus déroulants (select/option) en mode clair, notamment
+      pour le choix des modèles Ollama. Remplacement de la règle CSS spécifique qui forçait un texte blanc/gris
+      très clair (#e2e8f0) par une règle dynamique et adaptative utilisant les variables de thème globales
+      var(--bg-secondary) et var(--text-main). Cette approche garantit une excellente lisibilité
+      dans les deux modes (clair et sombre) et sur tous les navigateurs majeurs (Chrome, Firefox, Safari).
+    priority: high
+
+  - id: AXE-26
+    title: "Correction de la visibilité des notifications (Toasts) lors du scroll"
+    status: DONE
+    description: >
+      Résolution du bug de clipping/invisibilité des notifications (Toasts) lorsque la page
+      est défilée verticalement. Le problème venait du fait que le conteneur des toasts (toast-container)
+      était rendu à l'intérieur d'un conteneur parent (.container.animate-in) doté d'une animation
+      transform (translateY). En CSS, un ancêtre avec transform crée un nouveau bloc de confinement
+      pour les éléments position: fixed, transformant leur comportement en position: absolute.
+      La solution utilise une action Svelte personnalisée ('use:portal') pour détacher dynamiquement le
+      toast-container de son emplacement initial dès qu'il est instancié/rendu (indépendamment des
+      chargements paresseux et blocs conditionnels Svelte #if) et l'insérer directement dans le document.body,
+      assurant un ancrage constant au viewport et un défilement propre.
+    priority: high

@@ -177,13 +177,20 @@ def admin_update_user(user_id: int, data: dict, db: Session = Depends(database.g
         target.username = data["username"].strip()
     if "team_name" in data:
         target.team_name = data["team_name"].strip() if data["team_name"] else None
+    if "seat_id" in data:
+        target.seat_id = data["seat_id"].strip() if data["seat_id"] else None
+    if "points" in data:
+        try:
+            target.points = int(data["points"])
+        except (ValueError, TypeError):
+            pass
     if "is_admin" in data:
         target.is_admin = bool(data["is_admin"])
     if "ia_blocked" in data:
         target.ia_blocked = bool(data["ia_blocked"])
     db.commit()
     db.refresh(target)
-    return {"status": "updated", "id": target.id, "username": target.username, "team_name": target.team_name, "is_admin": target.is_admin, "ia_blocked": target.ia_blocked or False}
+    return {"status": "updated", "id": target.id, "username": target.username, "team_name": target.team_name, "seat_id": target.seat_id, "points": target.points, "is_admin": target.is_admin, "ia_blocked": target.ia_blocked or False}
 
 @router.post("/admin/users/{user_id}/reset-password")
 def admin_reset_password(user_id: int, data: dict, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
@@ -280,7 +287,7 @@ def admin_generate_test_pool(db: Session = Depends(database.get_db), admin: mode
             hashed_password=auth.get_password_hash("test"),
             team_name=team,
             is_admin=False,
-            points=random.randint(0, 120)
+            points=0
         )
         db.add(new_user)
         created.append({"username": pseudo, "team": team})

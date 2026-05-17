@@ -22,6 +22,18 @@
 	// Toast system
 	let toasts = [];
 	let toastId = 0;
+
+	// Svelte portal action to avoid transform container clipping (G-49 / scroll fix)
+	function portal(node) {
+		document.body.appendChild(node);
+		return {
+			destroy() {
+				if (node.parentNode) {
+					node.parentNode.removeChild(node);
+				}
+			}
+		};
+	}
 	function toast(msg, type = 'info') {
 		const id = ++toastId;
 		toasts = [...toasts, { id, message: msg, type, leaving: false }];
@@ -45,6 +57,7 @@
 				await selectTournament(tournaments[0].id);
 			}
 		}
+
 	});
 
 	// WS: re-fetch data when another client modifies tournament state
@@ -101,7 +114,9 @@
 			});
 		}
 	}
-	onDestroy(() => { if (wsUnsub) wsUnsub(); });
+	onDestroy(() => {
+		if (wsUnsub) wsUnsub();
+	});
 
 	async function loadAll() {
 		tournaments = await api.get('/tournaments');
@@ -1126,7 +1141,7 @@
 
 <!-- Edit Modal -->
 {#if editingTournament}
-	<div class="edit-overlay" on:click={() => editingTournament = false}>
+	<div class="edit-overlay" use:portal on:click={() => editingTournament = false}>
 		<div class="edit-modal glass" on:click|stopPropagation>
 			<header class="edit-modal-header">
 				<h3>✏️ Éditer — {selected?.name}</h3>
@@ -1205,7 +1220,7 @@
 {/if}
 
 <!-- Toasts -->
-<div class="toast-container">
+<div class="toast-container" use:portal>
 	{#each toasts as t (t.id)}
 		<div class="toast {t.type} {t.leaving ? 'toast-leave' : 'toast-enter'}">
 			<span>{#if t.type === 'success'}✅{:else if t.type === 'error'}❌{:else}ℹ️{/if}</span>

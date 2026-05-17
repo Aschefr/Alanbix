@@ -14,10 +14,22 @@
 		if (onConfirm) onConfirm();
 		close();
 	}
+
+	// Svelte portal action to avoid transform containing block clipping (G-49 / scroll fix)
+	function portal(node) {
+		document.body.appendChild(node);
+		return {
+			destroy() {
+				if (node.parentNode) {
+					node.parentNode.removeChild(node);
+				}
+			}
+		};
+	}
 </script>
 
 {#if show}
-	<div class="modal-overlay animate-in" on:click={close}>
+	<div class="modal-overlay animate-in" use:portal on:click={close}>
 		<div class="modal-card glass" on:click|stopPropagation>
 			<header class="modal-header {type}">
 				<h3>{title}</h3>

@@ -1,5 +1,5 @@
 <script>
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { api } from '$lib/api';
 	import { page } from '$app/stores';
 
@@ -45,6 +45,18 @@
 	// Toast
 	let toasts = [];
 	let toastId = 0;
+
+	// Svelte portal action to avoid transform container clipping (G-49 / scroll fix)
+	function portal(node) {
+		document.body.appendChild(node);
+		return {
+			destroy() {
+				if (node.parentNode) {
+					node.parentNode.removeChild(node);
+				}
+			}
+		};
+	}
 	function toast(message, type = 'info') {
 		const id = ++toastId;
 		toasts = [...toasts, { id, message, type, leaving: false }];
@@ -95,7 +107,10 @@
 				setTimeout(() => { highlightedSeat = null; }, 5000);
 			}
 		}
+
 	});
+
+
 
 	async function loadUsers() {
 		allUsers = await api.get('/room/users');
@@ -770,7 +785,7 @@
 </div>
 
 <!-- Toasts -->
-<div class="toast-container">
+<div class="toast-container" use:portal>
 	{#each toasts as t (t.id)}
 		<div class="toast {t.type} {t.leaving ? 'toast-leave' : 'toast-enter'}">
 			<span>{#if t.type === 'success'}✅{:else if t.type === 'error'}❌{:else}ℹ️{/if}</span>

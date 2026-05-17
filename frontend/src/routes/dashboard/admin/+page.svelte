@@ -17,14 +17,24 @@
 	let settingsSubTab = (typeof localStorage !== 'undefined' && localStorage.getItem('admin_subtab')) || 'general';
 	$: if (typeof localStorage !== 'undefined') localStorage.setItem('admin_tab', activeTab);
 	$: if (typeof localStorage !== 'undefined') localStorage.setItem('admin_subtab', settingsSubTab);
+	$: if (activeTab === 'players') {
+		loadPlayers();
+	}
+	$: if (activeTab === 'conversations') {
+		loadAdminConversations();
+	}
 
 	// Player Management
 	let allPlayers = [];
+	$: existingTeams = Array.from(new Set(allPlayers.map(p => p.team_name?.trim()).filter(Boolean))).sort();
 	let editingPlayer = null;
 	let editPlayerData = {};
 	let resetPwdPlayer = null;
 	let resetPwdValue = 'lan2025';
+	let overlayMouseDown = false;
 	let deleteConfirmPlayerId = null;
+	let promoteConfirmPlayerId = null;
+	let demoteConfirmPlayerId = null;
 	let showCreatePlayer = false;
 	let newPlayerData = { username: '', password: 'lan2025', team_name: '' };
 	let creatingPlayer = false;
@@ -47,6 +57,18 @@
 	// Toast Notification System
 	let toasts = [];
 	let toastId = 0;
+
+	// Svelte portal action to avoid transform container clipping (G-49 / scroll fix)
+	function portal(node) {
+		document.body.appendChild(node);
+		return {
+			destroy() {
+				if (node.parentNode) {
+					node.parentNode.removeChild(node);
+				}
+			}
+		};
+	}
 
 	function toast(message, type = 'info') {
 		const id = ++toastId;
@@ -171,9 +193,13 @@
 				selectAdminConv(adminActiveConvId);
 			}
 		});
+
 	});
 
-	onDestroy(() => { if (wsUnsub) wsUnsub(); if (iaQueueInterval) clearInterval(iaQueueInterval); });
+	onDestroy(() => {
+		if (wsUnsub) wsUnsub();
+		if (iaQueueInterval) clearInterval(iaQueueInterval);
+	});
 
 	async function loadData() {
 		games = await api.get('/tournaments/games');
@@ -337,25 +363,28 @@
 		}
 	}
 
-	function addInstance() {
+	async function addInstance() {
 		const nextPriority = iaConfig.ollama_instances.length;
 		iaConfig.ollama_instances = [...iaConfig.ollama_instances, { url: 'http://', label: '', model: '', enabled: true, priority: nextPriority }];
+		await saveIAConfig();
 	}
 
-	function removeInstance(idx) {
+	async function removeInstance(idx) {
 		iaConfig.ollama_instances = iaConfig.ollama_instances.filter((_, i) => i !== idx);
 		// Re-number priorities
 		iaConfig.ollama_instances.forEach((inst, i) => inst.priority = i);
 		iaConfig.ollama_instances = iaConfig.ollama_instances;
+		await saveIAConfig();
 	}
 
-	function moveInstance(idx, dir) {
+	async function moveInstance(idx, dir) {
 		const arr = [...iaConfig.ollama_instances];
 		const target = idx + dir;
 		if (target < 0 || target >= arr.length) return;
 		[arr[idx], arr[target]] = [arr[target], arr[idx]];
 		arr.forEach((inst, i) => inst.priority = i);
 		iaConfig.ollama_instances = arr;
+		await saveIAConfig();
 	}
 
 	let creatingTournament = false;
@@ -1183,7 +1212,9 @@
 
 		<!-- Edit Game Modal -->
 		{#if editingGame}
-			<div class="edit-overlay" on:click={() => editingGame = null}>
+			<div class="edit-overlay" use:portal
+				on:mousedown={(e) => { if (e.target === e.currentTarget) overlayMouseDown = true; }} 
+				on:mouseup={(e) => { if (overlayMouseDown && e.target === e.currentTarget) editingGame = null; overlayMouseDown = false; }}>
 				<div class="edit-modal glass" on:click|stopPropagation>
 					<header class="edit-modal-header">
 						<h3>✏️ Éditer — {editingGame.name}</h3>
@@ -1245,6 +1276,11 @@
 
 		{:else if activeTab === 'players'}
 			<div class="players-view glass p-8">
+				<datalist id="admin-existing-teams">
+					{#each existingTeams as team}
+						<option value={team}></option>
+					{/each}
+				</datalist>
 				<div class="flex-row justify-between items-center mb-4">
 					<h3>Joueurs inscrits <span class="t-count">{allPlayers.length}</span></h3>
 					<div class="flex-row gap-2">
@@ -1270,7 +1306,7 @@
 							</div>
 							<div class="edit-field">
 								<label>Équipe</label>
-								<input type="text" bind:value={newPlayerData.team_name} placeholder="Optionnel" />
+								<input type="text" bind:value={newPlayerData.team_name} list="admin-existing-teams" placeholder="Optionnel" />
 							</div>
 							<div class="edit-field cpf-submit">
 								<button class="btn-primary" on:click={createPlayer} disabled={creatingPlayer || !newPlayerData.username.trim() || !newPlayerData.password.trim()}>
@@ -1292,9 +1328,9 @@
 							<span class="pt-col pt-pts">Points</span>
 							<span class="pt-col pt-actions">Actions</span>
 						</div>
-						{#each allPlayers as p}
+						{#each allPlayers as p, i}
 							<div class="pt-row {p.is_admin ? 'is-admin' : ''}">
-								<span class="pt-col pt-id">{p.id}</span>
+								<span class="pt-col pt-id">{i + 1}</span>
 								<span class="pt-col pt-name">
 									{p.username}
 									{#if p.is_admin}<span class="admin-badge">⭐</span>{/if}
@@ -1304,20 +1340,30 @@
 								<span class="pt-col pt-pts">{p.points || 0}</span>
 								<span class="pt-col pt-actions">
 									{#if !p.is_admin}
-										<button class="btn-icon" title="Modifier" on:click={() => { editingPlayer = p; editPlayerData = { username: p.username, team_name: p.team_name || '' }; }}>✏️</button>
+										<button class="btn-icon" title="Modifier" on:click={() => { editingPlayer = p; editPlayerData = { username: p.username, team_name: p.team_name || '', seat_id: p.seat_id || '', points: p.points || 0, is_admin: p.is_admin || false, ia_blocked: p.ia_blocked || false }; }}>✏️</button>
 										<button class="btn-icon" title="Réinitialiser MDP" on:click={() => { resetPwdPlayer = p; resetPwdValue = 'lan2025'; }}>🔑</button>
 										<button class="btn-icon {p.ia_blocked ? 'btn-icon-danger' : ''}" title="{p.ia_blocked ? 'Débloquer IA' : 'Bloquer IA'}" on:click={() => toggleIaBlocked(p)}>
 											{p.ia_blocked ? '🔓' : '🚫'}
 										</button>
-										<button class="btn-icon btn-icon-promote" title="Promouvoir admin" on:click={() => toggleAdmin(p)}>👑</button>
+										{#if promoteConfirmPlayerId === p.id}
+											<button class="btn-primary-sm" on:click={() => { toggleAdmin(p); promoteConfirmPlayerId = null; }}>Promouvoir ?</button>
+											<button class="btn-icon" on:click={() => promoteConfirmPlayerId = null}>❌</button>
+										{:else}
+											<button class="btn-icon btn-icon-promote" title="Promouvoir admin" on:click={() => { promoteConfirmPlayerId = p.id; deleteConfirmPlayerId = null; demoteConfirmPlayerId = null; }}>👑</button>
+										{/if}
 										{#if deleteConfirmPlayerId === p.id}
 											<button class="btn-danger-sm" on:click={() => deletePlayer(p.id)}>Confirmer</button>
 											<button class="btn-icon" on:click={() => deleteConfirmPlayerId = null}>❌</button>
 										{:else}
-											<button class="btn-icon btn-icon-danger" title="Supprimer" on:click={() => deleteConfirmPlayerId = p.id}>🗑️</button>
+											<button class="btn-icon btn-icon-danger" title="Supprimer" on:click={() => { deleteConfirmPlayerId = p.id; promoteConfirmPlayerId = null; demoteConfirmPlayerId = null; }}>🗑️</button>
 										{/if}
 									{:else}
-										<button class="btn-icon btn-icon-demote" title="Rétrograder joueur" on:click={() => toggleAdmin(p)}>🛡️</button>
+										{#if demoteConfirmPlayerId === p.id}
+											<button class="btn-warning-sm" on:click={() => { toggleAdmin(p); demoteConfirmPlayerId = null; }}>Rétrograder ?</button>
+											<button class="btn-icon" on:click={() => demoteConfirmPlayerId = null}>❌</button>
+										{:else}
+											<button class="btn-icon btn-icon-demote" title="Rétrograder joueur" on:click={() => { demoteConfirmPlayerId = p.id; promoteConfirmPlayerId = null; deleteConfirmPlayerId = null; }}>🛡️</button>
+										{/if}
 									{/if}
 								</span>
 							</div>
@@ -1327,7 +1373,9 @@
 			</div>
 
 			{#if editingPlayer}
-				<div class="edit-overlay" on:click={() => editingPlayer = null}>
+				<div class="edit-overlay" use:portal
+					on:mousedown={(e) => { if (e.target === e.currentTarget) overlayMouseDown = true; }} 
+					on:mouseup={(e) => { if (overlayMouseDown && e.target === e.currentTarget) editingPlayer = null; overlayMouseDown = false; }}>
 					<div class="edit-modal glass" on:click|stopPropagation style="max-width: 400px">
 						<header class="edit-modal-header">
 							<h3>✏️ Modifier — {editingPlayer.username}</h3>
@@ -1340,7 +1388,23 @@
 							</div>
 							<div class="edit-field mb-3">
 								<label>Nom d'équipe</label>
-								<input type="text" bind:value={editPlayerData.team_name} placeholder="Aucune équipe" />
+								<input type="text" bind:value={editPlayerData.team_name} list="admin-existing-teams" placeholder="Aucune équipe" />
+							</div>
+							<div class="edit-field mb-3">
+								<label>Place assignée (Poste ID)</label>
+								<input type="text" bind:value={editPlayerData.seat_id} placeholder="Aucun poste (ex: A01)" />
+							</div>
+							<div class="edit-field mb-3">
+								<label>Points cumulés</label>
+								<input type="number" bind:value={editPlayerData.points} placeholder="0" />
+							</div>
+							<div class="edit-field mb-3" style="display: flex; align-items: center; gap: 0.5rem;">
+								<input type="checkbox" id="edit-is-admin" bind:checked={editPlayerData.is_admin} style="width: auto;" />
+								<label for="edit-is-admin" style="margin: 0; cursor: pointer;">Est Administrateur 👑</label>
+							</div>
+							<div class="edit-field mb-3" style="display: flex; align-items: center; gap: 0.5rem;">
+								<input type="checkbox" id="edit-ia-blocked" bind:checked={editPlayerData.ia_blocked} style="width: auto;" />
+								<label for="edit-ia-blocked" style="margin: 0; cursor: pointer;">Bloquer l'accès IA 🚫</label>
 							</div>
 						</div>
 						<footer class="edit-modal-footer">
@@ -1352,7 +1416,9 @@
 			{/if}
 
 			{#if resetPwdPlayer}
-				<div class="edit-overlay" on:click={() => resetPwdPlayer = null}>
+				<div class="edit-overlay" use:portal
+					on:mousedown={(e) => { if (e.target === e.currentTarget) overlayMouseDown = true; }} 
+					on:mouseup={(e) => { if (overlayMouseDown && e.target === e.currentTarget) resetPwdPlayer = null; overlayMouseDown = false; }}>
 					<div class="edit-modal glass" on:click|stopPropagation style="max-width: 400px">
 						<header class="edit-modal-header">
 							<h3>🔑 Réinitialiser MDP — {resetPwdPlayer.username}</h3>
@@ -1397,8 +1463,7 @@
 						</div>
 						<div class="sc-body">
 							<div class="flex-row gap-2">
-								<input type="text" bind:value={eventName} placeholder="Nom de l'événement" style="flex:1" />
-								<button class="btn-primary btn-xs" on:click={saveEventName}>Sauvegarder</button>
+								<input type="text" bind:value={eventName} on:change={saveEventName} placeholder="Nom de l'événement" style="flex:1" />
 							</div>
 						</div>
 					</div>
@@ -1437,13 +1502,12 @@
 						</div>
 						<div class="sc-body">
 							<div class="default-pts-grid">
-								<div class="dpt-field"><label>🥇 1er</label><input type="number" bind:value={defaultPts.pts_winner} min="0" /></div>
-								<div class="dpt-field"><label>🥈 2ème</label><input type="number" bind:value={defaultPts.pts_second} min="0" /></div>
-								<div class="dpt-field"><label>🥉 3ème</label><input type="number" bind:value={defaultPts.pts_third} min="0" /></div>
-								<div class="dpt-field"><label>👤 Parti./match</label><input type="number" bind:value={defaultPts.pts_participation} min="0" /></div>
-								<div class="dpt-field"><label>⚡ Bonus/Score</label><input type="number" bind:value={defaultPts.pts_per_match} min="0" step="0.1" /></div>
+								<div class="dpt-field"><label>🥇 1er</label><input type="number" bind:value={defaultPts.pts_winner} on:change={saveDefaultPts} min="0" /></div>
+								<div class="dpt-field"><label>🥈 2ème</label><input type="number" bind:value={defaultPts.pts_second} on:change={saveDefaultPts} min="0" /></div>
+								<div class="dpt-field"><label>🥉 3ème</label><input type="number" bind:value={defaultPts.pts_third} on:change={saveDefaultPts} min="0" /></div>
+								<div class="dpt-field"><label>👤 Parti./match</label><input type="number" bind:value={defaultPts.pts_participation} on:change={saveDefaultPts} min="0" /></div>
+								<div class="dpt-field"><label>⚡ Bonus/Score</label><input type="number" bind:value={defaultPts.pts_per_match} on:change={saveDefaultPts} min="0" step="0.1" /></div>
 							</div>
-							<button class="btn-primary btn-xs" style="margin-top:0.6rem" on:click={saveDefaultPts}>Sauvegarder</button>
 						</div>
 					</div>
 
@@ -1641,10 +1705,10 @@
 									</div>
 									<div class="inst-status">{status?.online ? '🟢' : '🔴'}</div>
 									<div class="inst-main">
-										<input type="text" class="inst-name" bind:value={inst.label} placeholder="GPU1 — RTX 4090" />
+										<input type="text" class="inst-name" bind:value={inst.label} on:change={saveIAConfig} placeholder="GPU1 — RTX 4090" />
 										<div class="inst-meta">
-											<input type="text" class="inst-url" bind:value={inst.url} placeholder="http://192.168.1.x:11434" />
-											<select bind:value={inst.model} class="inst-model">
+											<input type="text" class="inst-url" bind:value={inst.url} on:change={saveIAConfig} placeholder="http://192.168.1.x:11434" />
+											<select bind:value={inst.model} on:change={saveIAConfig} class="inst-model">
 												<option value="">— Modèle —</option>
 												{#each (status?.available_models || availableModels.map(m => m.name)) as mName}
 													<option value={mName}>{mName}</option>
@@ -1657,7 +1721,7 @@
 									</div>
 									<div class="inst-actions">
 										<label class="toggle-switch">
-											<input type="checkbox" bind:checked={inst.enabled} />
+											<input type="checkbox" bind:checked={inst.enabled} on:change={saveIAConfig} />
 											<span class="toggle-slider"></span>
 										</label>
 										<button class="inst-btn" on:click={() => testInstance(idx)} title="Tester">🔍</button>
@@ -1679,7 +1743,7 @@
 								<span class="param-val">{iaConfig.temperature}</span>
 							</div>
 							<div class="sc-body">
-								<input type="range" bind:value={iaConfig.temperature} min="0" max="1" step="0.1" class="range-accent" />
+								<input type="range" bind:value={iaConfig.temperature} on:change={saveIAConfig} min="0" max="1" step="0.1" class="range-accent" />
 								<div class="range-labels"><span>Précis</span><span>Créatif</span></div>
 							</div>
 						</div>
@@ -1692,10 +1756,10 @@
 							<div class="sc-body">
 								<div class="ctx-presets">
 									{#each [2048, 4096, 8192, 16384, 32768] as val}
-										<button class="ctx-preset {iaConfig.context_window === val ? 'active' : ''}" on:click={() => iaConfig.context_window = val}>{val >= 1024 ? (val/1024) + 'K' : val}</button>
+										<button class="ctx-preset {iaConfig.context_window === val ? 'active' : ''}" on:click={() => { iaConfig.context_window = val; saveIAConfig(); }}>{val >= 1024 ? (val/1024) + 'K' : val}</button>
 									{/each}
 								</div>
-								<input type="number" bind:value={iaConfig.context_window} class="ctx-input" />
+								<input type="number" bind:value={iaConfig.context_window} on:change={saveIAConfig} class="ctx-input" />
 							</div>
 						</div>
 					</div>
@@ -1707,7 +1771,7 @@
 							<h3>Modèle d'Embedding (RAG)</h3>
 						</div>
 						<div class="sc-body">
-							<select bind:value={iaConfig.embedding_model} class="inst-model" style="width:100%">
+							<select bind:value={iaConfig.embedding_model} on:change={saveIAConfig} class="inst-model" style="width:100%">
 								<option value="">— Auto (nomic-embed-text) —</option>
 								{#each availableModels.filter(m => m.name.includes('embed')) as m}
 									<option value={m.name}>{m.name}</option>
@@ -1716,8 +1780,6 @@
 							<p class="text-xs text-dim" style="margin-top:0.4rem">Modèle utilisé pour la recherche vectorielle (RAG). Seuls les modèles d'embedding sont listés.</p>
 						</div>
 					</div>
-
-					<button class="btn-primary" on:click={saveIAConfig} style="align-self:flex-end;">💾 Enregistrer la configuration IA</button>
 
 					<!-- System Prompt -->
 					<div class="sc glass">
@@ -1729,8 +1791,7 @@
 							</div>
 						</div>
 						<div class="sc-body">
-							<textarea bind:value={systemPrompt} rows="4" placeholder="Tu es Alanbix, l'IA de gestion de LAN..." class="prompt-textarea"></textarea>
-							<button class="btn-primary btn-xs" on:click={saveSystemPrompt} style="align-self:flex-end;margin-top:0.5rem;">Sauvegarder le prompt</button>
+							<textarea bind:value={systemPrompt} on:change={saveSystemPrompt} rows="4" placeholder="Tu es Alanbix, l'IA de gestion de LAN..." class="prompt-textarea"></textarea>
 						</div>
 					</div>
 
@@ -1744,9 +1805,8 @@
 							</div>
 						</div>
 						<div class="sc-body">
-							<textarea bind:value={closingPrompt} rows="3" placeholder="Tu es le commentateur sportif surexcité d'une LAN party..." class="prompt-textarea"></textarea>
+							<textarea bind:value={closingPrompt} on:change={saveClosingPrompt} rows="3" placeholder="Tu es le commentateur sportif surexcité d'une LAN party..." class="prompt-textarea"></textarea>
 							<p class="text-xs text-dim" style="margin-top:0.3rem">Laissez vide pour utiliser le prompt par défaut. Ce texte est l'introduction envoyée à l'IA avant les résultats du tournoi.</p>
-							<button class="btn-primary btn-xs" on:click={saveClosingPrompt} style="align-self:flex-end;margin-top:0.5rem;">Sauvegarder le prompt de clôture</button>
 						</div>
 					</div>
 
@@ -1908,7 +1968,7 @@
 
 
 <!-- Toast Notifications -->
-<div class="toast-container">
+<div class="toast-container" use:portal>
 	{#each toasts as t (t.id)}
 		<div class="toast {t.type} {t.leaving ? 'toast-leave' : 'toast-enter'}">
 			<span class="toast-icon">
@@ -2046,7 +2106,7 @@
 	.inst-meta { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.3rem; }
 	.inst-url { flex: 1; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 6px; padding: 0.2rem 0.4rem; color: var(--text-dim); font-size: 0.7rem; font-family: monospace; }
 	.inst-model { background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 6px; padding: 0.2rem 0.4rem; color: var(--text-main); font-size: 0.7rem; max-width: 160px; }
-	.inst-model option { background: var(--bg-primary, #1e293b); color: var(--text-primary, #e2e8f0); }
+	.inst-model option { background: var(--bg-secondary); color: var(--text-main); }
 	.inst-ping { font-size: 0.6rem; color: #10b981; font-weight: 700; padding: 0.1rem 0.35rem; background: rgba(16,185,129,0.1); border-radius: 4px; }
 	.inst-actions { display: flex; align-items: center; gap: 0.3rem; }
 	.inst-btn { background: var(--hover-tint); border: 1px solid var(--glass-border); border-radius: 6px; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 0.7rem; transition: all 0.15s; }
@@ -2188,13 +2248,17 @@
 	.pt-name { flex: 3; min-width: 0; font-weight: 700; display: flex; align-items: center; gap: 0.4rem; }
 	.pt-team { flex: 2; min-width: 0; color: var(--text-dim); }
 	.pt-pts { width: 70px; flex-shrink: 0; text-align: center; font-weight: 800; color: var(--accent); }
-	.pt-actions { width: 180px; flex-shrink: 0; display: flex; gap: 0.3rem; align-items: center; justify-content: flex-end; flex-wrap: nowrap; }
+	.pt-actions { width: 220px; flex-shrink: 0; display: flex; gap: 0.3rem; align-items: center; justify-content: flex-end; flex-wrap: nowrap; }
 	.admin-badge { font-size: 0.6rem; padding: 0.1rem 0.3rem; background: rgba(234,179,8,0.15); color: #eab308; border-radius: 6px; font-weight: 800; }
 	.btn-icon { background: var(--hover-tint); border: 1px solid var(--glass-border); border-radius: 6px; padding: 0.25rem 0.4rem; cursor: pointer; font-size: 0.75rem; transition: all 0.15s; flex-shrink: 0; }
 	.btn-icon:hover { background: var(--accent-soft); border-color: var(--accent); }
 	.btn-icon-danger:hover { border-color: var(--danger, #ef4444); background: rgba(239,68,68,0.15); }
 	.btn-danger-sm { background: rgba(239,68,68,0.2); color: #ef4444; border: 1px solid rgba(239,68,68,0.3); border-radius: 6px; padding: 0.2rem 0.5rem; font-size: 0.65rem; font-weight: 700; cursor: pointer; white-space: nowrap; }
 	.btn-danger-sm:hover { background: rgba(239,68,68,0.35); }
+	.btn-primary-sm { background: rgba(59,130,246,0.2); color: #3b82f6; border: 1px solid rgba(59,130,246,0.3); border-radius: 6px; padding: 0.2rem 0.5rem; font-size: 0.65rem; font-weight: 700; cursor: pointer; white-space: nowrap; }
+	.btn-primary-sm:hover { background: rgba(59,130,246,0.35); }
+	.btn-warning-sm { background: rgba(245,158,11,0.2); color: #f59e0b; border: 1px solid rgba(245,158,11,0.3); border-radius: 6px; padding: 0.2rem 0.5rem; font-size: 0.65rem; font-weight: 700; cursor: pointer; white-space: nowrap; }
+	.btn-warning-sm:hover { background: rgba(245,158,11,0.35); }
 	.mb-3 { margin-bottom: 0.75rem; }
 	.mb-4 { margin-bottom: 1rem; }
 	.t-count { font-size: 0.65rem; background: var(--accent-soft); color: var(--accent); padding: 0.1rem 0.4rem; border-radius: 10px; font-weight: 800; border: 1px solid rgba(59,130,246,0.15); }

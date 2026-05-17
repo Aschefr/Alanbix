@@ -8,6 +8,7 @@
 	let saving = false;
 	let saved = false;
 	let pointsData = null;
+	let existingTeams = [];
 
 	onMount(async () => {
 		user = await api.get('/me');
@@ -15,12 +16,21 @@
 		try {
 			pointsData = await api.get('/me/points-history');
 		} catch { pointsData = { total_points: 0, history: [] }; }
+		try {
+			existingTeams = await api.get('/players/teams');
+		} catch { existingTeams = []; }
 	});
 
 	async function saveProfile() {
 		saving = true;
 		await api.put('/me/profile', { team_name: teamName });
 		user.team_name = teamName;
+		
+		const trimmedTeam = teamName.trim();
+		if (trimmedTeam && !existingTeams.includes(trimmedTeam)) {
+			existingTeams = [...existingTeams, trimmedTeam];
+		}
+		
 		saving = false;
 		saved = true;
 		setTimeout(() => saved = false, 2000);
@@ -63,8 +73,13 @@
 			<div class="input-row">
 				<input 
 					type="text" class="input" placeholder="Nom d'équipe..."
-					bind:value={teamName}
+					bind:value={teamName} list="existing-teams"
 				/>
+				<datalist id="existing-teams">
+					{#each existingTeams as team}
+						<option value={team}></option>
+					{/each}
+				</datalist>
 				<button class="btn-primary" on:click={saveProfile} disabled={saving}>
 					{#if saving}
 						⏳

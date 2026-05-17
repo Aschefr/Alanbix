@@ -26,8 +26,19 @@
 	let pointsHistory = null;
 	let pointsLoading = false;
 
-	// Team collapse state
-	let collapsedTeams = {};
+	// Svelte reactive helper to check if a team's chat channel is currently active
+	function isTeamChatActive(teamName, mode, channelKey) {
+		if (mode !== 'group' || !channelKey || !currentUser) return false;
+		if (currentUser.is_admin || !currentUser.team_name) {
+			return channelKey === `team:${teamName}`;
+		}
+		if (currentUser.team_name === teamName) {
+			return channelKey === `team:${teamName}`;
+		} else {
+			const names = [currentUser.team_name, teamName].sort();
+			return channelKey === `inter:${names[0]}|${names[1]}`;
+		}
+	}
 
 	// Per-player unread counts
 	let unreadMap = {}; // peer_id -> unread count
@@ -211,11 +222,15 @@
 	// --- Group Chat (AXE-12) ---
 	function openTeamChat(e, teamName) {
 		e.stopPropagation();
-		if (!currentUser?.team_name) return;
+		if (!currentUser) return;
+		if (currentUser.is_admin || !currentUser.team_name) {
+			openGroupChat(`team:${teamName}`);
+			return;
+		}
 		const isMyTeam = currentUser.team_name === teamName;
 		if (isMyTeam) {
 			openGroupChat(`team:${teamName}`);
-		} else if (currentUser.team_name) {
+		} else {
 			// Inter-team: sorted alphabetically for deterministic key
 			const names = [currentUser.team_name, teamName].sort();
 			openGroupChat(`inter:${names[0]}|${names[1]}`);
@@ -293,10 +308,7 @@
 		}
 	}
 
-	function toggleTeam(name) {
-		collapsedTeams[name] = !collapsedTeams[name];
-		collapsedTeams = collapsedTeams;
-	}
+
 
 	function timeAgo(dateStr) {
 		if (!dateStr) return '';
@@ -330,11 +342,10 @@
 				<div class="loading-state glass"><span>⏳</span> Chargement...</div>
 			{:else}
 				{#each grouped.teams as [teamName, members]}
-					<div class="team-section glass">
+					<div class="team-section glass" class:active-chat={isTeamChatActive(teamName, chatMode, chatChannelKey)}>
 						<!-- svelte-ignore a11y-click-events-have-key-events -->
 						<!-- svelte-ignore a11y-no-static-element-interactions -->
-						<div class="team-header" on:click={() => toggleTeam(teamName)}>
-							<span class="team-chevron">{collapsedTeams[teamName] ? '▸' : '▾'}</span>
+						<div class="team-header" on:click={(e) => openTeamChat(e, teamName)}>
 							<span class="team-name">
 								{teamName}
 								{#if (teamUnreads[teamName]?.teamCount || 0) > 0}
@@ -345,13 +356,13 @@
 								{/each}
 							</span>
 							<span class="team-count">{members.length}</span>
-							{#if currentUser?.team_name}
+							{#if currentUser}
 								<button
 									class="team-chat-btn"
 									class:has-unread={(teamUnreads[teamName]?.total || 0) > 0}
 									on:click={(e) => openTeamChat(e, teamName)}
 								>
-									{#if currentUser.team_name === teamName}
+									{#if currentUser.is_admin || !currentUser.team_name || currentUser.team_name === teamName}
 										🛡️ Chat équipe
 									{:else}
 										⚔️ Chat inter
@@ -359,56 +370,54 @@
 								</button>
 							{/if}
 						</div>
-						{#if !collapsedTeams[teamName]}
-							<div class="team-members">
-								{#each members as player}
-									<!-- svelte-ignore a11y-click-events-have-key-events -->
-									<!-- svelte-ignore a11y-no-static-element-interactions -->
-									<div class="player-card" class:active-chat={chatPeerId === player.id} class:has-unread={(unreadMap[player.id] || 0) > 0} on:click={() => openChat(player.id)}>
-										<div class="player-main">
-											<div class="player-avatar">
-												{player.username[0].toUpperCase()}
-												{#if (unreadMap[player.id] || 0) > 0}
-													<span class="player-unread-badge">{unreadMap[player.id]}</span>
-												{/if}
-											</div>
-											<div class="player-info">
-												<span class="player-username">{player.username}</span>
-												<span class="player-pts">{player.points} pts</span>
-											</div>
-											<div class="player-actions">
-												{#if player.seat_id}
-													<a href="/dashboard/map?highlight={player.seat_id}" class="action-btn seat" title="Voir siège" on:click|stopPropagation>📍</a>
-												{/if}
-												<button class="action-btn pts" on:click={(e) => togglePoints(e, player.id)} title="Détail des points" class:expanded={expandedPlayerId === player.id}>📊</button>
-											</div>
+						<div class="team-members">
+							{#each members as player}
+								<!-- svelte-ignore a11y-click-events-have-key-events -->
+								<!-- svelte-ignore a11y-no-static-element-interactions -->
+								<div class="player-card" class:active-chat={chatPeerId === player.id} class:has-unread={(unreadMap[player.id] || 0) > 0} on:click={() => openChat(player.id)}>
+									<div class="player-main">
+										<div class="player-avatar">
+											{player.username[0].toUpperCase()}
+											{#if (unreadMap[player.id] || 0) > 0}
+												<span class="player-unread-badge">{unreadMap[player.id]}</span>
+											{/if}
 										</div>
-										{#if expandedPlayerId === player.id}
-											<!-- svelte-ignore a11y-click-events-have-key-events -->
-											<!-- svelte-ignore a11y-no-static-element-interactions -->
-											<div class="points-detail" on:click|stopPropagation>
-												{#if pointsLoading}
-													<span class="pts-loading">⏳</span>
-												{:else if pointsHistory && pointsHistory.history.length > 0}
-													<div class="pts-total">Total : <strong>{pointsHistory.total_points} pts</strong></div>
-													{#each pointsHistory.history as h}
-														<div class="pts-row">
-															<span class="pts-rank">{getRankEmoji(h.rank)}</span>
-															<span class="pts-tourney">{h.tournament_name}</span>
-															{#if h.game_name}<span class="pts-game">{h.game_name}</span>{/if}
-															<span class="pts-val">+{h.total}</span>
-															{#if h.live}<span class="pts-live">LIVE</span>{/if}
-														</div>
-													{/each}
-												{:else}
-													<span class="pts-empty">Aucune participation</span>
-												{/if}
-											</div>
-										{/if}
+										<div class="player-info">
+											<span class="player-username">{player.username}</span>
+											<span class="player-pts">{player.points} pts</span>
+										</div>
+										<div class="player-actions">
+											{#if player.seat_id}
+												<a href="/dashboard/map?highlight={player.seat_id}" class="action-btn seat" title="Voir siège" on:click|stopPropagation>📍</a>
+											{/if}
+											<button class="action-btn pts" on:click={(e) => togglePoints(e, player.id)} title="Détail des points" class:expanded={expandedPlayerId === player.id}>📊</button>
+										</div>
 									</div>
-								{/each}
-							</div>
-						{/if}
+									{#if expandedPlayerId === player.id}
+										<!-- svelte-ignore a11y-click-events-have-key-events -->
+										<!-- svelte-ignore a11y-no-static-element-interactions -->
+										<div class="points-detail" on:click|stopPropagation>
+											{#if pointsLoading}
+												<span class="pts-loading">⏳</span>
+											{:else if pointsHistory && pointsHistory.history.length > 0}
+												<div class="pts-total">Total : <strong>{pointsHistory.total_points} pts</strong></div>
+												{#each pointsHistory.history as h}
+													<div class="pts-row">
+														<span class="pts-rank">{getRankEmoji(h.rank)}</span>
+														<span class="pts-tourney">{h.tournament_name}</span>
+														{#if h.game_name}<span class="pts-game">{h.game_name}</span>{/if}
+														<span class="pts-val">+{h.total}</span>
+														{#if h.live}<span class="pts-live">LIVE</span>{/if}
+													</div>
+												{/each}
+											{:else}
+												<span class="pts-empty">Aucune participation</span>
+											{/if}
+										</div>
+									{/if}
+								</div>
+							{/each}
+						</div>
 					</div>
 				{/each}
 
@@ -576,7 +585,8 @@
 
 	/* Directory — scrollable */
 	.directory-col { overflow-y: auto; display: flex; flex-direction: column; gap: 0.6rem; padding-right: 0.3rem; padding-bottom: 1rem; }
-	.team-section { border-radius: 12px; overflow: visible; flex-shrink: 0; }
+	.team-section { border-radius: 12px; overflow: visible; flex-shrink: 0; border-left: 3px solid transparent !important; transition: all 0.15s; }
+	.team-section.active-chat { background-color: var(--accent-soft) !important; border-left: 3px solid var(--accent) !important; }
 	.team-header { display: flex; align-items: center; gap: 0.6rem; padding: 0.7rem 1rem; cursor: pointer; transition: background 0.15s; user-select: none; }
 	.team-header:hover { background: var(--hover-tint); }
 	.solo-header { cursor: default; }

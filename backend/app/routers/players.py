@@ -18,6 +18,16 @@ def list_players(db: Session = Depends(database.get_db), user: models.User = Dep
     } for u in users]
 
 
+@router.get("/teams")
+def list_global_teams(db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
+    """List all unique team names currently associated with players."""
+    teams = db.query(models.User.team_name).filter(
+        models.User.team_name != None,
+        models.User.team_name != ""
+    ).distinct().all()
+    return [t[0] for t in teams]
+
+
 @router.get("/{user_id}/points-history")
 def get_player_points_history(user_id: int, db: Session = Depends(database.get_db), current: models.User = Depends(auth.get_current_user)):
     """Get point breakdown for any player across tournaments."""
@@ -262,10 +272,10 @@ def _make_channel_key(channel_type: str, team_names: list) -> str:
 
 def _user_can_access_channel(user: models.User, channel: models.GroupChannel) -> bool:
     """Check if user's team_name is in the channel's team_names."""
-    if not user.team_name:
-        return False
     if user.is_admin:
         return True
+    if not user.team_name:
+        return False
     return user.team_name in (channel.team_names or [])
 
 
@@ -439,7 +449,7 @@ def group_read(channel_key: str, db: Session = Depends(database.get_db), user: m
 @router.post("/group/send")
 async def group_send(body: GroupSendMessage, db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
     """Send a message to a group channel (creates channel if needed)."""
-    if not user.team_name:
+    if not user.team_name and not user.is_admin:
         raise HTTPException(400, "You must have a team to use group chat")
 
     if body.channel_type not in ("team", "inter"):
