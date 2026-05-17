@@ -24,7 +24,7 @@ class Game(Base):
     rules = Column(Text, nullable=True)
     default_config = Column(JSON, nullable=True) # e.g. team_size, bracket_type
     
-    tournaments = relationship("Tournament", back_populates="game")
+    tournaments = relationship("Tournament", back_populates="game", cascade="all, delete-orphan")
 
 class Tournament(Base):
     __tablename__ = "tournaments"

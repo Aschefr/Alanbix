@@ -74,10 +74,14 @@ def update_game(game_id: int, game_update: schemas.GameUpdate, db: Session = Dep
     return db_game
 
 @router.delete("/games/{game_id}")
-def delete_game(game_id: int, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
+def delete_game(game_id: int, force: bool = False, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
     game = db.query(models.Game).filter(models.Game.id == game_id).first()
     if not game:
         raise HTTPException(status_code=404, detail="Game not found")
+        
+    if not force and len(game.tournaments) > 0:
+        raise HTTPException(status_code=409, detail=f"Ce jeu est lié à {len(game.tournaments)} tournoi(s). Veuillez confirmer la suppression.", headers={"X-Affected-Tournaments": str(len(game.tournaments))})
+        
     db.delete(game)
     db.commit()
     return {"status": "deleted"}

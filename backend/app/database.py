@@ -48,6 +48,9 @@ def init_db():
         _safe_add_column(conn, "tournaments", "points_per_win", "INTEGER DEFAULT 3")
         _safe_add_column(conn, "tournaments", "bracket", "JSON")
         _safe_add_column(conn, "tournament_teams", "created_by", "INTEGER")
+        
+        # Purge any orphan/legacy tournaments with NULL game_id or missing games (due to previous SQLAlchemy missing cascade behavior)
+        conn.execute(__import__('sqlalchemy').text("DELETE FROM tournaments WHERE game_id IS NULL OR game_id NOT IN (SELECT id FROM games)"))
         conn.commit()
 
 def _safe_add_column(conn, table, column, col_type):

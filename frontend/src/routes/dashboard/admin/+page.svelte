@@ -83,6 +83,8 @@
 	let testingConnection = false;
 	let deleteConfirmTournamentId = null;
 	let deleteConfirmGameId = null;
+	let gameToDeleteWithTournaments = null;
+	let deleteGameCheckboxConfirmed = false;
 
 	// Edit Tournament State
 	let editingTournament = null;
@@ -446,10 +448,30 @@
 		loadData();
 	}
 
-	async function deleteGame(id) {
-		await api.delete(`/tournaments/games/${id}`);
-		deleteConfirmGameId = null;
-		loadData();
+	async function deleteGame(id, force = false) {
+		try {
+			await api.delete(`/tournaments/games/${id}${force ? '?force=true' : ''}`);
+			deleteConfirmGameId = null;
+			gameToDeleteWithTournaments = null;
+			deleteGameCheckboxConfirmed = false;
+			loadData();
+			toast('Jeu supprimé de la bibliothèque.', 'success');
+		} catch (e) {
+			if (e.message && e.message.includes('confirmer la suppression')) {
+				const g = games.find(game => game.id === id);
+				const freshTournaments = await api.get('/tournaments');
+				const affected = freshTournaments.filter(t => t.game_id && Number(t.game_id) === Number(id));
+				gameToDeleteWithTournaments = { game: g, tournaments: affected };
+				deleteGameCheckboxConfirmed = false;
+			} else {
+				toast(e.message || 'Erreur de suppression', 'error');
+			}
+		}
+	}
+
+	function attemptDeleteGame(g) {
+		// Rely on the backend 409 Conflict to trigger the modal.
+		deleteGame(g.id);
 	}
 
 	// Game image modes: 'url' | 'search' | 'upload'
@@ -1005,7 +1027,7 @@
 									<div class="game-card-actions">
 										<button class="game-action-btn edit" on:click={() => openEditGame(g)} title="Éditer">✏️</button>
 										{#if deleteConfirmGameId === g.id}
-											<button class="game-action-btn confirm" on:click={() => deleteGame(g.id)}>✓</button>
+											<button class="game-action-btn confirm" on:click={() => attemptDeleteGame(g)}>✓</button>
 											<button class="game-action-btn cancel" on:click={() => deleteConfirmGameId = null}>✕</button>
 										{:else}
 											<button class="game-action-btn delete" on:click={() => deleteConfirmGameId = g.id} title="Supprimer">🗑</button>
@@ -1022,6 +1044,62 @@
 					</div>
 				</section>
 			</div>
+
+		<!-- Delete Game Double Confirmation Modal -->
+		{#if gameToDeleteWithTournaments}
+			<div class="edit-overlay" use:portal
+				on:mousedown={(e) => { if (e.target === e.currentTarget) overlayMouseDown = true; }} 
+				on:mouseup={(e) => { if (overlayMouseDown && e.target === e.currentTarget) gameToDeleteWithTournaments = null; overlayMouseDown = false; }}>
+				<div class="edit-modal glass" on:click|stopPropagation style="max-width: 480px">
+					<header class="edit-modal-header danger-zone" style="border-bottom: 1px solid rgba(239, 68, 68, 0.25);">
+						<h3>⚠️ Suppression Critique</h3>
+						<button class="close-btn" on:click={() => gameToDeleteWithTournaments = null}>✕</button>
+					</header>
+					<div class="edit-modal-body">
+						<div class="flex-col gap-3">
+							<p class="text-sm">
+								Vous êtes sur le point de supprimer le jeu <strong class="text-accent">{gameToDeleteWithTournaments.game.name}</strong> de la bibliothèque.
+							</p>
+							
+							<div class="danger-warning-box">
+								<strong class="warn-title">⚠️ EFFET EN CASCADE DÉTECTÉ</strong>
+								<p class="text-xs text-dim" style="margin: 0.2rem 0 0.6rem;">
+									Ce jeu est actuellement utilisé par <strong>{gameToDeleteWithTournaments.tournaments.length}</strong> tournoi(s) :
+								</p>
+								<ul>
+									{#each gameToDeleteWithTournaments.tournaments as t}
+										<li>
+											<strong>{t.name}</strong>
+											<span class="status-badge {t.status.toLowerCase()}">
+												{t.status === 'OPEN' ? 'Ouvert' : t.status === 'RUNNING' ? 'En cours' : t.status === 'DONE' ? 'Terminé' : 'Clôturé'}
+											</span>
+										</li>
+									{/each}
+								</ul>
+								<p class="warning-text text-xs">
+									La suppression de ce jeu entraînera la <strong>destruction définitive et irréversible</strong> de ces tournois, incluant :
+								</p>
+								<div class="consequence-badges">
+									<span class="c-badge">👥 Équipes</span>
+									<span class="c-badge">👤 Participants</span>
+									<span class="c-badge">📊 Scores & Brackets</span>
+									<span class="c-badge">⚖️ Conflits</span>
+								</div>
+							</div>
+
+							<label class="confirm-checkbox-label">
+								<input type="checkbox" bind:checked={deleteGameCheckboxConfirmed} />
+								<span>Je confirme vouloir supprimer le jeu et détruire définitivement tous les tournois et scores associés.</span>
+							</label>
+						</div>
+					</div>
+					<footer class="edit-modal-footer">
+						<button class="btn-secondary" on:click={() => gameToDeleteWithTournaments = null}>Annuler</button>
+						<button class="btn-danger-full" on:click={() => deleteGame(gameToDeleteWithTournaments.game.id, true)} disabled={!deleteGameCheckboxConfirmed}>Supprimer définitivement</button>
+					</footer>
+				</div>
+			</div>
+		{/if}
 
 		<!-- Edit Game Modal -->
 		{#if editingGame}
@@ -2183,5 +2261,77 @@
 	}
 	.queue-cancel-btn:hover { background: rgba(239,68,68,0.15); color: #ef4444; border-color: rgba(239,68,68,0.4); }
 	.queue-empty { text-align: center; padding: 1rem; font-size: 0.8rem; color: var(--text-muted); }
+
+	/* Double confirmation delete game modal */
+	.danger-warning-box {
+		background: rgba(239, 68, 68, 0.06);
+		border: 1px solid rgba(239, 68, 68, 0.25);
+		border-radius: 12px;
+		padding: 1.2rem;
+		margin: 1rem 0;
+	}
+	.danger-warning-box strong.warn-title {
+		color: #ef4444;
+		font-size: 0.95rem;
+		display: block;
+		margin-bottom: 0.5rem;
+	}
+	.danger-warning-box ul {
+		margin: 0.8rem 0;
+		padding-left: 1.5rem;
+	}
+	.danger-warning-box li {
+		color: var(--text-main);
+		font-size: 0.8rem;
+		margin-bottom: 0.3rem;
+	}
+	.status-badge {
+		font-size: 0.65rem;
+		font-weight: 700;
+		padding: 0.1rem 0.35rem;
+		border-radius: 4px;
+		text-transform: uppercase;
+		margin-left: 0.3rem;
+	}
+	.status-badge.open { background: rgba(59,130,246,0.15); color: #3b82f6; }
+	.status-badge.running { background: rgba(16,185,129,0.15); color: #10b981; }
+	.status-badge.done { background: rgba(139,92,246,0.15); color: #8b5cf6; }
+	.status-badge.closed { background: rgba(107,114,128,0.15); color: #9ca3af; }
+	
+	.warning-text {
+		font-size: 0.8rem;
+		color: var(--text-dim);
+		margin-top: 0.8rem;
+	}
+	.consequence-badges {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.4rem;
+		margin-top: 0.5rem;
+	}
+	.c-badge {
+		font-size: 0.65rem;
+		font-weight: 700;
+		padding: 0.25rem 0.6rem;
+		border-radius: 6px;
+		background: rgba(239, 68, 68, 0.12);
+		color: #fca5a5;
+		border: 1px solid rgba(239, 68, 68, 0.2);
+	}
+	.confirm-checkbox-label {
+		display: flex;
+		align-items: flex-start;
+		gap: 0.6rem;
+		margin: 1.2rem 0;
+		cursor: pointer;
+		font-size: 0.8rem;
+		color: var(--text-main);
+		user-select: none;
+		line-height: 1.4;
+	}
+	.confirm-checkbox-label input[type="checkbox"] {
+		margin-top: 0.2rem;
+		cursor: pointer;
+	}
 </style>
 

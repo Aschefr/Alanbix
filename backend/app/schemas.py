@@ -44,7 +44,7 @@ class Game(GameBase):
 
 class TournamentBase(BaseModel):
     name: Optional[str] = None
-    game_id: int
+    game_id: Optional[int] = None
     config: Optional[Any] = None
     bracket: Optional[Any] = None
     points_per_win: Optional[int] = 3
@@ -68,7 +68,7 @@ class TournamentParticipant(BaseModel):
 class Tournament(TournamentBase):
     id: int
     status: str
-    points_per_win: int = 3
+    points_per_win: Optional[int] = 3
     participants: List[TournamentParticipant] = []
     model_config = ConfigDict(from_attributes=True)
 
