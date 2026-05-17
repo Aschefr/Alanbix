@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 from typing import List
 from .. import models, schemas, auth, database
+from ..websockets import manager as ws_manager
 
 router = APIRouter(prefix="/room", tags=["Room Map"])
 
@@ -14,7 +15,7 @@ def get_layout(db: Session = Depends(database.get_db)):
     return layout
 
 @router.post("/layout")
-def update_layout(
+async def update_layout(
     layout_data: dict, 
     db: Session = Depends(database.get_db),
     admin: models.User = Depends(auth.get_current_admin)
@@ -28,6 +29,7 @@ def update_layout(
         flag_modified(db_layout, "layout")
     db.commit()
     db.refresh(db_layout)
+    await ws_manager.broadcast({"type": "room_updated"})
     return db_layout
 
 @router.get("/users")
@@ -37,7 +39,7 @@ def list_users_for_assignment(db: Session = Depends(database.get_db)):
     return [{"id": u.id, "username": u.username, "seat_id": u.seat_id, "is_admin": u.is_admin, "team_name": u.team_name} for u in users]
 
 @router.post("/assign-seat")
-def assign_seat(
+async def assign_seat(
     data: dict,
     db: Session = Depends(database.get_db),
     user: models.User = Depends(auth.get_current_user)
@@ -49,19 +51,23 @@ def assign_seat(
     seat_id = data.get("seat_id")
     user.seat_id = seat_id
     db.commit()
+    await ws_manager.broadcast({"type": "room_updated"})
+    await ws_manager.broadcast({"type": "users_updated"})
     return {"status": "assigned", "seat_id": user.seat_id, "username": user.username}
 
 @router.post("/unassign-seat")
-def unassign_seat(
+async def unassign_seat(
     db: Session = Depends(database.get_db),
     user: models.User = Depends(auth.get_current_user)
 ):
     user.seat_id = None
     db.commit()
+    await ws_manager.broadcast({"type": "room_updated"})
+    await ws_manager.broadcast({"type": "users_updated"})
     return {"status": "unassigned"}
 
 @router.post("/admin-assign-seat")
-def admin_assign_seat(
+async def admin_assign_seat(
     data: dict,
     db: Session = Depends(database.get_db),
     admin: models.User = Depends(auth.get_current_admin)
@@ -74,10 +80,12 @@ def admin_assign_seat(
         raise HTTPException(404, "User not found")
     target_user.seat_id = seat_id
     db.commit()
+    await ws_manager.broadcast({"type": "room_updated"})
+    await ws_manager.broadcast({"type": "users_updated"})
     return {"status": "assigned", "username": target_user.username, "seat_id": seat_id}
 
 @router.post("/admin-unassign-seat")
-def admin_unassign_seat(
+async def admin_unassign_seat(
     data: dict,
     db: Session = Depends(database.get_db),
     admin: models.User = Depends(auth.get_current_admin)
@@ -88,10 +96,12 @@ def admin_unassign_seat(
     if target:
         target.seat_id = None
         db.commit()
+        await ws_manager.broadcast({"type": "room_updated"})
+        await ws_manager.broadcast({"type": "users_updated"})
     return {"status": "unassigned"}
 
 @router.post("/admin-unassign-all")
-def admin_unassign_all(
+async def admin_unassign_all(
     db: Session = Depends(database.get_db),
     admin: models.User = Depends(auth.get_current_admin)
 ):
@@ -101,6 +111,8 @@ def admin_unassign_all(
     for u in users:
         u.seat_id = None
     db.commit()
+    await ws_manager.broadcast({"type": "room_updated"})
+    await ws_manager.broadcast({"type": "users_updated"})
     return {"status": "unassigned_all", "count": count}
 
 @router.get("/seating-locked")
@@ -109,7 +121,7 @@ def get_seating_locked(db: Session = Depends(database.get_db)):
     return {"locked": cfg.value == "true" if cfg else False}
 
 @router.post("/seating-locked")
-def set_seating_locked(data: dict, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
+async def set_seating_locked(data: dict, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
     locked = data.get("locked", False)
     cfg = db.query(models.SystemConfig).filter(models.SystemConfig.key == "seating_locked").first()
     if cfg:
@@ -117,4 +129,5 @@ def set_seating_locked(data: dict, db: Session = Depends(database.get_db), admin
     else:
         db.add(models.SystemConfig(key="seating_locked", value="true" if locked else "false"))
     db.commit()
+    await ws_manager.broadcast({"type": "room_updated"})
     return {"locked": locked}

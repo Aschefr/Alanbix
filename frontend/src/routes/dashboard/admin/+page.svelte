@@ -181,8 +181,12 @@
 		loadData();
 		// Listen for user messages during admin override to auto-refresh conv view
 		wsUnsub = wsMessageStore.subscribe(msg => {
-			if (msg && msg.type === 'user_message_during_override' && adminActiveConvId === msg.conversation_id) {
+			if (!msg) return;
+			if (msg.type === 'user_message_during_override' && adminActiveConvId === msg.conversation_id) {
 				selectAdminConv(adminActiveConvId);
+			}
+			if (msg.type === 'users_updated') {
+				loadPlayers();
 			}
 		});
 

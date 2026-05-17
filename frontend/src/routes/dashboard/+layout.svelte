@@ -3,8 +3,9 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { api } from '$lib/api';
 	import { connectWS, wsMessageStore } from '$lib/ws';
-	import { invalidateAll } from '$app/navigation';
+	import { invalidateAll, goto } from '$app/navigation';
 	import { pmUnreadCount, groupUnreadCount, totalMsgUnread, notifUnreadCount } from '$lib/pmStore';
+	import { get } from 'svelte/store';
 
 	let user = { username: '...', is_admin: false };
 	let unsub = null;
@@ -17,8 +18,115 @@
 	let iaQueueSize = 0;
 	let iaQueueActive = 0;
 
+	let browserNotifSupport = false;
+	let browserNotifStatus = 'default';
+
+	function requestBrowserNotifications() {
+		if (!('Notification' in window)) return;
+		Notification.requestPermission().then(perm => {
+			browserNotifStatus = perm;
+			if (perm === 'granted') {
+				showGlobalToast('Notifications du navigateur activées', 'success');
+				if ('serviceWorker' in navigator) {
+					navigator.serviceWorker.getRegistration().then(reg => {
+						if (reg && reg.showNotification) {
+							reg.showNotification('Alanbix', { body: 'Notifications activées avec succès !', icon: '/favicon.svg' });
+						} else {
+							new Notification('Alanbix', { body: 'Notifications activées avec succès !', icon: '/favicon.svg' });
+						}
+					});
+				} else {
+					new Notification('Alanbix', { body: 'Notifications activées avec succès !', icon: '/favicon.svg' });
+				}
+			}
+		});
+	}
+
+	function notifyBrowser(title, body, link = null) {
+		try {
+			if (!('Notification' in window)) return;
+			if (Notification.permission !== 'granted') return;
+			
+			const absoluteLink = link ? new URL(link, window.location.origin).href : null;
+			const tag = 'alanbix-notification';
+
+			const options = {
+				body: body,
+				icon: '/favicon.svg',
+				tag: tag,
+				renotify: true,
+				data: { url: absoluteLink }
+			};
+
+			if ('serviceWorker' in navigator) {
+				navigator.serviceWorker.getRegistration().then(reg => {
+					if (reg && reg.showNotification) {
+						reg.showNotification(title, options);
+					} else {
+						fallbackNotification(title, options, link);
+					}
+				});
+			} else {
+				fallbackNotification(title, options, link);
+			}
+		} catch (err) {
+			console.warn('[Alanbix] Browser notification failed:', err);
+		}
+	}
+
+	function fallbackNotification(title, options, link) {
+		const n = new Notification(title, options);
+		if (link) {
+			n.onclick = function(e) {
+				e.preventDefault();
+				localStorage.setItem('alanbix_notif_nav', link);
+				window.focus();
+				n.close();
+			};
+		}
+	}
+
+	// Navigate to pending notification target when page regains focus
+	function handleNotifNav() {
+		const pendingNav = localStorage.getItem('alanbix_notif_nav');
+		if (pendingNav) {
+			localStorage.removeItem('alanbix_notif_nav');
+			goto(pendingNav);
+		}
+	}
+
+	let globalToasts = [];
+	let gToastId = 0;
+	function showGlobalToast(message, type = 'info', link = null) {
+		const id = ++gToastId;
+		globalToasts = [...globalToasts, { id, message, type, link, leaving: false }];
+		setTimeout(() => {
+			globalToasts = globalToasts.map(t => t.id === id ? { ...t, leaving: true } : t);
+			setTimeout(() => { globalToasts = globalToasts.filter(t => t.id !== id); }, 400);
+		}, 4000);
+	}
+
 	onMount(async () => {
 		isDark = (localStorage.getItem('alanbix_theme') || 'dark') === 'dark';
+		if ('Notification' in window) {
+			browserNotifSupport = true;
+			browserNotifStatus = Notification.permission;
+		}
+		// Listen for page focus to handle notification click navigation
+		window.addEventListener('focus', handleNotifNav);
+		document.addEventListener('visibilitychange', () => {
+			if (document.visibilityState === 'visible') handleNotifNav();
+		});
+
+		// Use BroadcastChannel for reliable SW -> Client communication
+		const channel = new BroadcastChannel('alanbix_sw_channel');
+		channel.onmessage = (event) => {
+			if (event.data && event.data.type === 'alanbix_nav' && event.data.url) {
+				const urlObj = new URL(event.data.url);
+				goto(urlObj.pathname + urlObj.search);
+			}
+		};
+
 		try {
 			user = await api.get('/me');
 			connectWS();
@@ -41,7 +149,13 @@
 					// Update notification badge in real-time
 					if (msg.type === 'notification_new') {
 						api.get('/notifications/unread-count').then(r => {
-							notifUnreadCount.set(r.count || 0);
+							const oldCount = get(notifUnreadCount);
+							const newCount = r.count || 0;
+							notifUnreadCount.set(newCount);
+							if (newCount > oldCount) {
+								showGlobalToast('🔔 Nouvelle notification reçue', 'info', '/dashboard/notifications');
+								notifyBrowser('Alanbix', '🔔 Nouvelle notification reçue', '/dashboard/notifications');
+							}
 							notifBounce = true;
 							setTimeout(() => notifBounce = false, 600);
 						}).catch(() => {});
@@ -53,7 +167,16 @@
 							localStorage.setItem('alanbix_pm_last_sender', String(msg.sender_id));
 						}
 						api.get('/players/messages/unread-count').then(r => {
-							pmUnreadCount.set(r.count || 0);
+							const oldCount = get(pmUnreadCount);
+							const newCount = r.count || 0;
+							pmUnreadCount.set(newCount);
+							if (newCount > oldCount && msg.sender_id !== user.id) {
+								const link = '/dashboard/players' + (msg.sender_id ? '?chat=' + msg.sender_id : '');
+								const senderName = msg.sender_name || 'Quelqu\'un';
+								const preview = msg.preview || '';
+								showGlobalToast(`💬 ${senderName} : ${preview}`, 'pm', link);
+								notifyBrowser(`💬 ${senderName}`, preview, link);
+							}
 							pmBounce = true;
 							setTimeout(() => pmBounce = false, 600);
 						}).catch(() => {});
@@ -61,7 +184,16 @@
 					// AXE-12: Group message notification
 					if (msg.type === 'group_message_new') {
 						api.get('/players/group/unread-count').then(r => {
-							groupUnreadCount.set(r.count || 0);
+							const oldCount = get(groupUnreadCount);
+							const newCount = r.count || 0;
+							groupUnreadCount.set(newCount);
+							if (newCount > oldCount && msg.sender_id !== user.id) {
+								const link = '/dashboard/players?chat=group';
+								const senderName = msg.sender_name || 'Quelqu\'un';
+								const preview = msg.preview || '';
+								showGlobalToast(`👥 ${senderName} : ${preview}`, 'pm', link);
+								notifyBrowser(`👥 ${senderName} (groupe)`, preview, link);
+							}
 							pmBounce = true;
 							setTimeout(() => pmBounce = false, 600);
 						}).catch(() => {});
@@ -202,6 +334,11 @@
 				</div>
 			</a>
 			<div class="footer-actions">
+				{#if browserNotifSupport && browserNotifStatus !== 'granted' && browserNotifStatus !== 'denied'}
+					<button class="theme-toggle" on:click={requestBrowserNotifications} title="Activer les notifications système">
+						<span class="theme-icon">🔔</span>
+					</button>
+				{/if}
 				<button class="theme-toggle" on:click={toggleTheme} title={isDark ? 'Mode clair' : 'Mode sombre'}>
 					<span class="theme-icon" class:spin={true}>{isDark ? '☀️' : '🌙'}</span>
 				</button>
@@ -217,6 +354,18 @@
 			<slot />
 		</div>
 	</main>
+</div>
+
+<!-- Global Toasts -->
+<div class="global-toast-container">
+	{#each globalToasts as t (t.id)}
+		<!-- svelte-ignore a11y-click-events-have-key-events -->
+		<div class="global-toast {t.type} {t.leaving ? 'toast-leave' : 'toast-enter'} {t.link ? 'clickable' : ''}"
+			 on:click={() => { if(t.link) goto(t.link); }}
+			 role={t.link ? "button" : "alert"} tabindex={t.link ? 0 : -1}>
+			<div class="toast-content">{t.message}</div>
+		</div>
+	{/each}
 </div>
 
 
@@ -488,4 +637,56 @@
 	}
 	.ia-queue-icon { font-size: 0.65rem; }
 	.ia-queue-text { font-size: 0.65rem; color: #fbbf24; font-weight: 600; }
+
+	/* Global Toasts */
+	.global-toast-container {
+		position: fixed;
+		bottom: 2rem;
+		right: 2rem;
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+		z-index: 9999;
+		pointer-events: none;
+	}
+	.global-toast {
+		background: var(--bg-secondary);
+		border: 1px solid var(--glass-border);
+		border-radius: var(--radius-md);
+		padding: 1rem 1.5rem;
+		color: var(--text-primary);
+		box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+		backdrop-filter: blur(8px);
+		font-weight: 600;
+		font-size: 0.95rem;
+		pointer-events: auto;
+		transition: transform 0.15s, box-shadow 0.15s;
+	}
+	.global-toast.clickable {
+		cursor: pointer;
+	}
+	.global-toast.clickable:hover {
+		transform: scale(1.02);
+		box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+	}
+	.global-toast.info {
+		border-left: 4px solid var(--accent);
+	}
+	.global-toast.pm {
+		border-left: 4px solid #8b5cf6;
+	}
+	.global-toast.toast-enter {
+		animation: slide-in-right 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+	}
+	.global-toast.toast-leave {
+		animation: slide-out-right 0.4s ease forwards;
+	}
+	@keyframes slide-in-right {
+		from { transform: translateX(120%); opacity: 0; }
+		to { transform: translateX(0); opacity: 1; }
+	}
+	@keyframes slide-out-right {
+		from { transform: translateX(0); opacity: 1; }
+		to { transform: translateX(120%); opacity: 0; }
+	}
 </style>

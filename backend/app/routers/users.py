@@ -4,11 +4,12 @@ from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from datetime import timedelta
 from .. import models, schemas, auth, database
+from ..websockets import manager as ws_manager
 
 router = APIRouter(tags=["Users"])
 
 @router.post("/register", response_model=schemas.User)
-def register_user(user: schemas.UserCreate, db: Session = Depends(database.get_db)):
+async def register_user(user: schemas.UserCreate, db: Session = Depends(database.get_db)):
     db_user = db.query(models.User).filter(models.User.username == user.username).first()
     if db_user:
         raise HTTPException(status_code=400, detail="Username already registered")
@@ -21,6 +22,7 @@ def register_user(user: schemas.UserCreate, db: Session = Depends(database.get_d
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
+    await ws_manager.broadcast({"type": "users_updated"})
     return new_user
 
 @router.post("/token", response_model=schemas.Token)
@@ -43,11 +45,12 @@ async def read_users_me(current_user: models.User = Depends(auth.get_current_use
     return current_user
 
 @router.put("/me/profile")
-def update_profile(data: dict, db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
+async def update_profile(data: dict, db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
     if "team_name" in data:
         user.team_name = data["team_name"]
     db.commit()
     db.refresh(user)
+    await ws_manager.broadcast({"type": "users_updated"})
     return {"status": "updated", "team_name": user.team_name}
 
 @router.get("/me/points-history")
@@ -163,7 +166,7 @@ def admin_list_users(db: Session = Depends(database.get_db), admin: models.User 
     return [{"id": u.id, "username": u.username, "team_name": u.team_name, "is_admin": u.is_admin, "ia_blocked": u.ia_blocked or False, "seat_id": u.seat_id, "points": u.points} for u in users]
 
 @router.put("/admin/users/{user_id}")
-def admin_update_user(user_id: int, data: dict, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
+async def admin_update_user(user_id: int, data: dict, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
     """Admin updates a user's username and/or team_name."""
     target = db.query(models.User).filter(models.User.id == user_id).first()
     if not target:
@@ -190,6 +193,7 @@ def admin_update_user(user_id: int, data: dict, db: Session = Depends(database.g
         target.ia_blocked = bool(data["ia_blocked"])
     db.commit()
     db.refresh(target)
+    await ws_manager.broadcast({"type": "users_updated"})
     return {"status": "updated", "id": target.id, "username": target.username, "team_name": target.team_name, "seat_id": target.seat_id, "points": target.points, "is_admin": target.is_admin, "ia_blocked": target.ia_blocked or False}
 
 @router.post("/admin/users/{user_id}/reset-password")
@@ -204,7 +208,7 @@ def admin_reset_password(user_id: int, data: dict, db: Session = Depends(databas
     return {"status": "password_reset", "username": target.username}
 
 @router.delete("/admin/users/{user_id}")
-def admin_delete_user(user_id: int, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
+async def admin_delete_user(user_id: int, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
     """Admin deletes a user account."""
     target = db.query(models.User).filter(models.User.id == user_id).first()
     if not target:
@@ -215,6 +219,7 @@ def admin_delete_user(user_id: int, db: Session = Depends(database.get_db), admi
     db.query(models.TournamentParticipant).filter(models.TournamentParticipant.user_id == user_id).delete()
     db.delete(target)
     db.commit()
+    await ws_manager.broadcast({"type": "users_updated"})
     return {"status": "deleted", "id": user_id}
 
 @router.get("/admin/config/{key}")
@@ -240,7 +245,7 @@ def admin_set_config(key: str, data: dict, db: Session = Depends(database.get_db
 # --- ADMIN: Create Player ---
 
 @router.post("/admin/users/create")
-def admin_create_user(data: dict, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
+async def admin_create_user(data: dict, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
     """Admin manually creates a player account."""
     username = (data.get("username") or "").strip()
     password = (data.get("password") or "").strip()
@@ -261,10 +266,11 @@ def admin_create_user(data: dict, db: Session = Depends(database.get_db), admin:
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
+    await ws_manager.broadcast({"type": "users_updated"})
     return {"status": "created", "id": new_user.id, "username": new_user.username, "team_name": new_user.team_name}
 
 @router.post("/admin/users/generate-test-pool")
-def admin_generate_test_pool(db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
+async def admin_generate_test_pool(db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
     """Generate 20 test players spread across 4 teams for development."""
     import random
     teams = ["Alpha Wolves", "Neon Vipers", "Shadow Foxes", "Iron Bears"]
@@ -292,6 +298,7 @@ def admin_generate_test_pool(db: Session = Depends(database.get_db), admin: mode
         db.add(new_user)
         created.append({"username": pseudo, "team": team})
     db.commit()
+    await ws_manager.broadcast({"type": "users_updated"})
     return {"status": "generated", "created_count": len(created), "players": created}
 
 # --- ADMIN: Nuke / Reset ---
@@ -312,7 +319,7 @@ def admin_nuke_tournaments(db: Session = Depends(database.get_db), admin: models
     return {"status": "nuked", "deleted_tournaments": count}
 
 @router.delete("/admin/nuke/players")
-def admin_nuke_players(db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
+async def admin_nuke_players(db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
     """Delete ALL non-admin players and their data."""
     non_admins = db.query(models.User).filter(models.User.is_admin == False).all()
     count = len(non_admins)
@@ -333,6 +340,7 @@ def admin_nuke_players(db: Session = Depends(database.get_db), admin: models.Use
         ).delete(synchronize_session=False)
         db.query(models.User).filter(models.User.id.in_(non_admin_ids)).delete(synchronize_session=False)
     db.commit()
+    await ws_manager.broadcast({"type": "users_updated"})
     return {"status": "nuked", "deleted_players": count}
 
 @router.delete("/admin/nuke/games")

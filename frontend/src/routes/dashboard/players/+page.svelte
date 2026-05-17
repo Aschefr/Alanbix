@@ -74,6 +74,9 @@
 
 		wsUnsub = wsMessageStore.subscribe(msg => {
 			if (!msg) return;
+			if (msg.type === 'users_updated') {
+				loadPlayers();
+			}
 			if (msg.type === 'private_message_new') {
 				const peerId = msg.sender_id === currentUser?.id ? msg.receiver_id : msg.sender_id;
 				if (chatMode === 'p2p' && chatPeerId && (msg.sender_id === chatPeerId || msg.receiver_id === chatPeerId)) {

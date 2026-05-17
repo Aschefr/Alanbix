@@ -249,8 +249,10 @@ async def pm_send(peer_id: int, body: SendMessage, db: Session = Depends(databas
     await ws_manager.broadcast({
         "type": "private_message_new",
         "sender_id": user.id,
+        "sender_name": user.username,
         "receiver_id": peer_id,
-        "message_id": msg.id
+        "message_id": msg.id,
+        "preview": content[:100]
     })
 
     return {
@@ -502,7 +504,9 @@ async def group_send(body: GroupSendMessage, db: Session = Depends(database.get_
         "channel_type": channel.channel_type,
         "team_names": channel.team_names or [],
         "sender_id": user.id,
-        "message_id": msg.id
+        "sender_name": user.username,
+        "message_id": msg.id,
+        "preview": content[:100]
     })
 
     return {

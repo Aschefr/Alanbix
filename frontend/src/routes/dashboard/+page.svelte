@@ -36,6 +36,7 @@
 				t === 'tournament_started' || t === 'tournament_closed' ||
 				t === 'score_updated' || t === 'ffa_advanced' ||
 				t === 'participant_joined' || t === 'participant_left' ||
+				t === 'room_updated' || t === 'users_updated' ||
 				t === 'teams_updated') {
 				refreshAll();
 			}

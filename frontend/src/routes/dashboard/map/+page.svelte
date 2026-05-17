@@ -2,6 +2,7 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { api } from '$lib/api';
 	import { page } from '$app/stores';
+	import { wsMessageStore } from '$lib/ws';
 
 	let layout = { seats: [], tables: [], furniture: [] };
 
@@ -24,6 +25,8 @@
 	let editingId = null; // seat/table ID being edited
 	let editIdValue = '';
 	let highlightedSeat = null; // from ?highlight= query param
+
+	let wsUnsub;
 
 	// Interaction state
 	let dragging = null;
@@ -108,9 +111,27 @@
 			}
 		}
 
+		wsUnsub = wsMessageStore.subscribe(msg => {
+			if (!msg) return;
+			if (msg.type === 'room_updated' || msg.type === 'users_updated') {
+				loadUsers();
+				api.get('/room/layout').then(res => {
+					layout = res.layout || { seats: [], tables: [], furniture: [] };
+					if (!layout.tables) layout.tables = [];
+					if (!layout.seats) layout.seats = [];
+					if (!layout.furniture) layout.furniture = [];
+					layout.tables.forEach(t => { if (t.rotation === undefined) t.rotation = 0; });
+					layout.seats.forEach(s => { if (s.rotation === undefined) s.rotation = 0; });
+					layout.furniture.forEach(f => { if (f.rotation === undefined) f.rotation = 0; });
+				}).catch(() => {});
+			}
+		});
+
 	});
 
-
+	onDestroy(() => {
+		if (wsUnsub) wsUnsub();
+	});
 
 	async function loadUsers() {
 		allUsers = await api.get('/room/users');
