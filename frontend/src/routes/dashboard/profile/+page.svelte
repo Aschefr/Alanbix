@@ -112,6 +112,11 @@
 					<span class="info-value">{user.team_name || 'Non définie'}</span>
 				</div>
 			</div>
+			<div style="margin-top: 1.5rem; text-align: right;">
+				<button class="btn-secondary" on:click={() => goto('/dashboard/welcome')} style="font-size: 0.8rem; padding: 0.5rem 1rem;">
+					📖 Revoir le tutoriel d'accueil
+				</button>
+			</div>
 		</section>
 	</div>
 

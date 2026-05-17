@@ -843,3 +843,13 @@ future_axes:
       chargements paresseux et blocs conditionnels Svelte #if) et l'insérer directement dans le document.body,
       assurant un ancrage constant au viewport et un défilement propre.
     priority: high
+
+  - id: AXE-27
+    title: "Wizard d'accueil et tutoriel après inscription"
+    status: TODO
+    description: >
+      Afficher un court wizard (assistant d'accueil) juste après la création du compte d'un joueur.
+      Étape 1 : Demander le nom de son équipe (en réutilisant la logique d'autocomplétion existante de la page profil).
+      Étape 2 : Demander son siège dans le plan de la salle.
+      Étape 3 : Mini-tutoriel expliquant le fonctionnement de l'application (où trouver les conversations avec son équipe, les autres équipes, les tournois, et comment utiliser l'assistant IA).
+    priority: medium

@@ -6,6 +6,7 @@
 	import { invalidateAll, goto } from '$app/navigation';
 	import { pmUnreadCount, groupUnreadCount, totalMsgUnread, notifUnreadCount } from '$lib/pmStore';
 	import { get } from 'svelte/store';
+	import TutorialOverlay from '$lib/components/TutorialOverlay.svelte';
 
 	let user = { username: '...', is_admin: false };
 	let unsub = null;
@@ -355,6 +356,9 @@
 		</div>
 	</main>
 </div>
+
+<!-- Tutorial Overlay -->
+<TutorialOverlay />
 
 <!-- Global Toasts -->
 <div class="global-toast-container">

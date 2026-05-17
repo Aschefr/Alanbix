@@ -15,7 +15,7 @@
 			if (isRegistering) {
 				await api.post('/register', { username, password });
 				await api.login(username, password);
-				window.location.href = '/dashboard';
+				window.location.href = '/dashboard/welcome';
 			} else {
 				await api.login(username, password);
 				window.location.href = '/dashboard';
