@@ -567,7 +567,7 @@ class ScoreUpdate(BaseModel):
     match_s: int
     match_r: int
     match_m: int
-    score: List[int]
+    score: List[Optional[int]]
 
 def _find_match(bracket, s, r, m):
     for match in bracket:
@@ -676,13 +676,16 @@ def _advance_bracket(bracket, scored_match, bracket_type="single_elim", lower_is
     if bracket_type == "round_robin":
         return False
     score = scored_match.get("score", [0, 0])
+    # If any score is None (not yet entered), do not advance
+    if any(s is None for s in score):
+        return False
     if score[0] == score[1]:
         return False
-    # Require both scores > 0 for real matches (not byes)
+    # Require at least one non-zero score for real matches (not byes)
     p0_id = scored_match["p"][0]
     p1_id = scored_match["p"][1]
     is_bye = (p0_id == 0 or p1_id == 0)
-    if not is_bye and (score[0] == 0 or score[1] == 0):
+    if not is_bye and score[0] == 0 and score[1] == 0:
         return False
     mid = scored_match["id"]
     winner_idx = (0 if score[0] < score[1] else 1) if lower_is_better else (0 if score[0] > score[1] else 1)
@@ -798,13 +801,15 @@ def _clear_player(match, player_id):
 def _rollback_advancement(bracket, match, bracket_type, lower_is_better=False):
     """Recursively undo all downstream effects of a previously scored match."""
     old_score = match.get("score", [0, 0])
+    if any(s is None for s in old_score):
+        return  # Partial score, no advancement happened
     if old_score[0] == 0 and old_score[1] == 0:
         return  # Never scored, nothing to rollback
     if old_score[0] == old_score[1]:
         return  # Tie, no advancement happened
-    # If not a bye and one score is 0, no advancement happened
+    # If not a bye and both scores are 0, no advancement happened
     is_bye = (match["p"][0] == 0 or match["p"][1] == 0)
-    if not is_bye and (old_score[0] == 0 or old_score[1] == 0):
+    if not is_bye and old_score[0] == 0 and old_score[1] == 0:
         return
 
     mid = match["id"]
@@ -924,7 +929,7 @@ async def update_match_score(
         if bracket_type in ("single_elim", "double_elim", "round_robin"):
             if len(existing_scores) >= 2:
                 es0, es1 = existing_scores[0], existing_scores[1]
-                if es0 > 0 and es1 > 0 and es0 != es1:
+                if (es0 is not None and es1 is not None) and (es0 != 0 or es1 != 0) and es0 != es1:
                     raise HTTPException(status_code=403, detail="Ce match est terminé. Seul un admin peut modifier le score.")
         elif bracket_type == "ffa":
             if existing_scores and all(s > 0 for s in existing_scores):

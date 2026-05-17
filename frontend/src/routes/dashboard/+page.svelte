@@ -180,6 +180,20 @@
 	// --- Pan/Zoom for bracket preview (CSS transform) ---
 	let brScale = 0.7, brPanX = 0, brPanY = 0;
 	let brDrag = false, brStartX, brStartY;
+	let brViewportEl, brCanvasEl;
+
+	// AXE-29: Clamping
+	const BR_ZOOM_MIN = 0.3, BR_ZOOM_MAX = 2.0;
+	function brClampPan() {
+		if (!brViewportEl || !brCanvasEl) return;
+		const vw = brViewportEl.clientWidth;
+		const vh = brViewportEl.clientHeight;
+		const cw = brCanvasEl.scrollWidth * brScale;
+		const ch = brCanvasEl.scrollHeight * brScale;
+		const margin = 60;
+		brPanX = Math.min(margin, Math.max(brPanX, vw - cw - margin));
+		brPanY = Math.min(margin, Math.max(brPanY, vh - ch - margin));
+	}
 
 	function brWheel(e) {
 		e.preventDefault();
@@ -187,13 +201,22 @@
 		const mx = e.clientX - rect.left, my = e.clientY - rect.top;
 		const old = brScale;
 		brScale *= e.deltaY < 0 ? 1.12 : 0.89;
-		brScale = Math.min(Math.max(0.2, brScale), 3);
+		brScale = Math.min(Math.max(BR_ZOOM_MIN, brScale), BR_ZOOM_MAX);
 		brPanX = mx - (mx - brPanX) * (brScale / old);
 		brPanY = my - (my - brPanY) * (brScale / old);
+		brClampPan();
 	}
 	function brDown(e) { brDrag = true; brStartX = e.clientX - brPanX; brStartY = e.clientY - brPanY; }
-	function brMove(e) { if (!brDrag) return; brPanX = e.clientX - brStartX; brPanY = e.clientY - brStartY; }
+	function brMove(e) { if (!brDrag) return; brPanX = e.clientX - brStartX; brPanY = e.clientY - brStartY; brClampPan(); }
 	function brUp() { brDrag = false; }
+	function brPanTo(dx, dy) { brPanX += dx; brPanY += dy; brClampPan(); }
+
+	// AXE-29: Directional arrows for bracket
+	$: brArrowLeft = brPanX < -10;
+	$: brArrowRight = brViewportEl && brCanvasEl ? (brPanX + brCanvasEl.scrollWidth * brScale > brViewportEl.clientWidth + 10) : false;
+	$: brArrowUp = brPanY < -10;
+	$: brArrowDown = brViewportEl && brCanvasEl ? (brPanY + brCanvasEl.scrollHeight * brScale > brViewportEl.clientHeight + 10) : false;
+	$: if (brPanX !== undefined || brPanY !== undefined || brScale) { brArrowLeft = brPanX < -10; brArrowRight = brViewportEl && brCanvasEl ? (brPanX + brCanvasEl.scrollWidth * brScale > brViewportEl.clientWidth + 10) : false; brArrowUp = brPanY < -10; brArrowDown = brViewportEl && brCanvasEl ? (brPanY + brCanvasEl.scrollHeight * brScale > brViewportEl.clientHeight + 10) : false; }
 </script>
 
 <div class="hq-dashboard">
@@ -437,8 +460,8 @@
 							<!-- Duel bracket -->
 							<div class="bracket-visual">
 								<!-- svelte-ignore a11y-no-static-element-interactions -->
-								<div class="dash-bracket-viewport" on:wheel={brWheel} on:mousedown={brDown} on:mousemove={brMove} on:mouseup={brUp} on:mouseleave={brUp} style="cursor: {brDrag ? 'grabbing' : 'grab'}">
-									<div class="dash-bracket-canvas" style="transform: translate({brPanX}px, {brPanY}px) scale({brScale});">
+								<div class="dash-bracket-viewport" bind:this={brViewportEl} on:wheel={brWheel} on:mousedown={brDown} on:mousemove={brMove} on:mouseup={brUp} on:mouseleave={brUp} style="cursor: {brDrag ? 'grabbing' : 'grab'}">
+									<div class="dash-bracket-canvas" bind:this={brCanvasEl} style="transform: translate({brPanX}px, {brPanY}px) scale({brScale});">
 										<div class="dash-rounds">
 											{#each bracketRounds as roundMatches, ri}
 												<div class="dash-round-col">
@@ -448,12 +471,12 @@
 															<div class="dash-match">
 																<div class="dm-player {match.p[0] ? 'filled' : ''}">
 																	<span>{getPlayerName(match.p[0], dashNameMap)}</span>
-																	<span class="dm-score">{match.score?.[0] ?? 0}</span>
+																	<span class="dm-score">{#if activeTournament?.config?.boolean_mode}{#if (match.score?.[0] ?? 0) > (match.score?.[1] ?? 0)}✅{:else if (match.score?.[0] ?? 0) < (match.score?.[1] ?? 0)}❌{:else if (match.score?.[0] ?? 0) > 0}🤝{:else}—{/if}{:else}{match.score?.[0] ?? 0}{/if}</span>
 																</div>
 																<div class="dm-div"></div>
 																<div class="dm-player {match.p[1] ? 'filled' : ''}">
 																	<span>{getPlayerName(match.p[1], dashNameMap)}</span>
-																	<span class="dm-score">{match.score?.[1] ?? 0}</span>
+																	<span class="dm-score">{#if activeTournament?.config?.boolean_mode}{#if (match.score?.[1] ?? 0) > (match.score?.[0] ?? 0)}✅{:else if (match.score?.[1] ?? 0) < (match.score?.[0] ?? 0)}❌{:else if (match.score?.[1] ?? 0) > 0}🤝{:else}—{/if}{:else}{match.score?.[1] ?? 0}{/if}</span>
 																</div>
 															</div>
 														{/each}
@@ -463,6 +486,10 @@
 										</div>
 									</div>
 								</div>
+								{#if brArrowLeft}<div class="pan-arrow pan-arrow-left" on:click={() => brPanTo(100, 0)}>‹</div>{/if}
+								{#if brArrowRight}<div class="pan-arrow pan-arrow-right" on:click={() => brPanTo(-100, 0)}>›</div>{/if}
+								{#if brArrowUp}<div class="pan-arrow pan-arrow-up" on:click={() => brPanTo(0, 100)}>‹</div>{/if}
+								{#if brArrowDown}<div class="pan-arrow pan-arrow-down" on:click={() => brPanTo(0, -100)}>‹</div>{/if}
 							</div>
 						{/if}
 					{:else}
@@ -534,8 +561,8 @@
 	.pulse { width: 8px; height: 8px; background: var(--success); border-radius: 50%; box-shadow: 0 0 8px var(--success); animation: pulse-g 2s infinite; will-change: opacity; }
 	@keyframes pulse-g { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 
-	/* 3-Column Triptych */
-	.main-triptych { display: grid; grid-template-columns: 280px 1fr 280px; gap: 1.2rem; flex-grow: 1; min-height: 0; }
+	/* 3-Column Triptych — AXE-29: reduced map, wider bracket */
+	.main-triptych { display: grid; grid-template-columns: 280px 1fr 340px; gap: 1.2rem; flex-grow: 1; min-height: 0; }
 	.panel { display: flex; flex-direction: column; border-radius: 16px; overflow: hidden; min-height: 0; }
 	.panel-header { padding: 1rem 1.2rem; border-bottom: 1px solid var(--glass-border); display: flex; justify-content: space-between; align-items: flex-start; }
 	.panel-header h2 { font-size: 0.85rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; }
@@ -602,9 +629,18 @@
 	.rt-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
 
 	/* Bracket visual (CSS transform zoom) */
-	.bracket-visual { flex-grow: 1; display: flex; flex-direction: column; min-height: 0; }
+	.bracket-visual { flex-grow: 1; display: flex; flex-direction: column; min-height: 0; position: relative; }
 	.dash-bracket-viewport { flex-grow: 1; overflow: hidden; border-radius: 8px; border: 1px solid var(--glass-border); background: var(--surface-sunken); min-height: 200px; }
 	.dash-bracket-canvas { transform-origin: 0 0; transition: transform 0.08s ease-out; padding: 1rem; display: inline-block; min-width: 100%; }
+
+	/* AXE-29: Directional pan arrows (dashboard) */
+	.pan-arrow { position: absolute; display: flex; align-items: center; justify-content: center; color: var(--accent); font-size: 1.2rem; font-weight: 900; opacity: 0.6; pointer-events: auto; cursor: pointer; z-index: 5; animation: panArrowPulse 1.5s ease-in-out infinite; transition: opacity 0.15s; }
+	.pan-arrow:hover { opacity: 1; animation: none; }
+	.pan-arrow-left { left: 4px; top: 50%; transform: translateY(-50%); width: 22px; height: 40px; background: linear-gradient(90deg, rgba(59,130,246,0.15), transparent); border-radius: 4px; }
+	.pan-arrow-right { right: 4px; top: 50%; transform: translateY(-50%); width: 22px; height: 40px; background: linear-gradient(-90deg, rgba(59,130,246,0.15), transparent); border-radius: 4px; }
+	.pan-arrow-up { top: 4px; left: 50%; transform: translateX(-50%) rotate(90deg); width: 22px; height: 40px; background: linear-gradient(90deg, rgba(59,130,246,0.15), transparent); border-radius: 4px; }
+	.pan-arrow-down { bottom: 4px; left: 50%; transform: translateX(-50%) rotate(-90deg); width: 22px; height: 40px; background: linear-gradient(90deg, rgba(59,130,246,0.15), transparent); border-radius: 4px; }
+	@keyframes panArrowPulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 0.85; } }
 
 	/* Dashboard FFA */
 	.dash-ffa { display: flex; flex-direction: column; gap: 0.5rem; flex-grow: 1; min-height: 0; overflow-y: auto; padding: 0.25rem; }

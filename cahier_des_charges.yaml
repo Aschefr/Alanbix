@@ -846,10 +846,95 @@ future_axes:
 
   - id: AXE-27
     title: "Wizard d'accueil et tutoriel après inscription"
-    status: TODO
+    status: DONE
     description: >
       Afficher un court wizard (assistant d'accueil) juste après la création du compte d'un joueur.
       Étape 1 : Demander le nom de son équipe (en réutilisant la logique d'autocomplétion existante de la page profil).
       Étape 2 : Demander son siège dans le plan de la salle.
       Étape 3 : Mini-tutoriel expliquant le fonctionnement de l'application (où trouver les conversations avec son équipe, les autres équipes, les tournois, et comment utiliser l'assistant IA).
+    priority: medium
+
+  - id: AXE-28
+    title: "Refonte du flux Login / Register — Détection automatique de pseudo"
+    status: DONE
+    description: >
+      Rendre le processus de connexion/inscription plus intuitif en fusionnant les deux écrans.
+      1. Afficher uniquement le champ pseudo au départ.
+      2. Si le pseudo saisi existe déjà en base → demander le mot de passe (mode connexion classique).
+      3. Si le pseudo n'existe pas → changer la couleur de fond et le texte de l'interface pour
+         signaler visuellement qu'on est en mode création de compte, afficher le champ de création
+         de mot de passe, puis à la validation enchaîner : auto-login + wizard d'accueil (AXE-27).
+      Le changement visuel (fond + texte) doit être suffisamment marqué pour que l'utilisateur
+      comprenne immédiatement qu'il est en train de créer un nouveau compte.
+    priority: high
+
+  - id: AXE-29
+    title: "Améliorations UX de la vue Arbre de Tournois (Bracket)"
+    status: TODO
+    description: >
+      Série d'améliorations ergonomiques sur la vue bracket (arbre de tournoi) :
+      1. Augmenter la taille du texte dans les matchs pour une meilleure lisibilité.
+      2. Ajuster dynamiquement la largeur et la hauteur du bracket jusqu'à un certain
+         seuil pour mieux occuper l'espace disponible.
+      2.5. Afficher une flèche directionnelle pointant vers la partie du tableau qui n'est
+           pas visible à l'écran, incitant l'utilisateur à le déplacer dans cette direction.
+      3. Bloquer le déplacement (pan) du bracket pour empêcher de le sortir complètement
+         de la zone visible (clamping aux bords).
+      4. Bloquer le zoom et le dé-zoom avec des valeurs limites (min/max) pour éviter
+         de rendre le bracket illisible ou trop petit.
+    priority: medium
+
+  - id: AXE-30
+    title: "Liste des participants inscrits & composition des équipes (Tournois)"
+    status: TODO
+    description: >
+      Améliorer le flux de composition des équipes dans la vue détail d'un tournoi :
+      1. Afficher la liste complète des participants inscrits AVANT la section de composition
+         des équipes. Cette liste sert de « pool » de joueurs disponibles.
+      2. Au fur et à mesure que les joueurs se placent (ou sont placés) dans une équipe composée,
+         ils disparaissent de la liste des inscrits (effet de « vidange »).
+      3. Pour les administrateurs, permettre le glisser-déposer (drag & drop) des noms depuis
+         la liste des inscrits directement dans les équipes composées.
+      4. Une fois le match lancé (status RUNNING), masquer la liste des participants inscrits
+         restants (ceux qui ne se sont pas placés dans une équipe) pour ne pas polluer l'affichage
+         pendant le déroulement du tournoi. et gagner en visibilité verticale.
+    priority: high
+
+  - id: AXE-31
+    title: "Correction de la validation des scores (autoriser 1-0)"
+    status: DONE
+    description: >
+      Actuellement, la condition de validation d'un score de match exige que les deux
+      scores soient strictement supérieurs à 0 (s0 > 0 && s1 > 0). Cela empêche de saisir
+      un résultat légitime comme 1-0 ou 3-0.
+      La condition doit être corrigée pour valider un match dès que les deux champs sont
+      renseignés (non vides) et que les scores sont différents, y compris si l'un vaut 0.
+      Impacte : la fonction isMatchFinalized() côté frontend, et potentiellement la logique
+      backend de détermination du vainqueur.
+    priority: high
+
+  - id: AXE-32
+    title: "Mode booléen pour les tournois (Vainqueur / Perdant / Égalité)"
+    status: WIP
+    description: >
+      Ajouter un mode de saisie alternatif « booléen » pour les matchs de tournoi.
+      Quand ce mode est activé dans la configuration du tournoi :
+      1. Les champs de saisie de score numérique sont remplacés par des boutons
+         « Vainqueur », « Perdant » et « Égalité » pour chaque joueur/équipe.
+      2. Un clic sur « Vainqueur » pour le joueur A attribue automatiquement le score 1-0
+         (et inversement pour le joueur B). « Égalité » attribue 1-1 ou un score neutre.
+      3. Le mode booléen est un paramètre de configuration du tournoi (boolean_mode: true),
+         configurable lors de la création ou de l'édition du tournoi. Modifications à effectuer partout où le tournois est configurable.
+      4. L'affichage des résultats passés montre des badges « ✅ Victoire / ❌ Défaite / 🤝 Égalité »
+         au lieu des scores numériques.
+    done:
+      - "Configuration boolean_mode dans le wizard de création et le modal d'édition."
+      - "Boutons V/D/É dans les brackets WB, LB et Round Robin."
+      - "Affichage des badges dans les vues dashboard et spectateur."
+      - "Fonctions setBoolScore() et setBoolDraw() côté frontend."
+    remaining:
+      - "PROBLÈME ÉGALITÉ : Le score 1-1 ne fait pas avancer le bracket car la logique
+         backend exige s0 != s1 pour déterminer un vainqueur. Il faut trouver comment
+         gérer l'égalité en bracket (ex: prolongation, tiebreaker, ou réserver
+         l'égalité au round robin uniquement)."
     priority: medium

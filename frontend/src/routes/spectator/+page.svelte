@@ -380,12 +380,16 @@
 								<div class="spec-rr-round">
 									<div class="spec-round-hdr">Journée {ri + 1}</div>
 									{#each roundMatches as match}
-										{@const s0 = match.score?.[0] ?? 0}
-										{@const s1 = match.score?.[1] ?? 0}
-										{@const isDone = s0 > 0 && s1 > 0 && s0 !== s1}
+										{@const s0 = match.score?.[0] ?? null}
+										{@const s1 = match.score?.[1] ?? null}
+										{@const isDone = s0 !== null && s1 !== null && (s0 !== 0 || s1 !== 0) && s0 !== s1}
 										<div class="spec-rr-match {isDone ? 'done' : ''}">
 											<span class="spec-rr-p {isDone && (specLowerIsBetter ? s0 < s1 : s0 > s1) ? 'winner' : ''}">{getPlayerName(match.p[0])}</span>
-											<span class="spec-rr-score">{s0} - {s1}</span>
+											{#if runningTournament?.config?.boolean_mode}
+												<span class="spec-rr-score">{#if isDone}{(specLowerIsBetter ? (s0??0) < (s1??0) : (s0??0) > (s1??0)) ? '✅' : ((s0??0)===(s1??0) && (s0??0)!==0 ? '🤝' : '❌')} - {(specLowerIsBetter ? (s1??0) < (s0??0) : (s1??0) > (s0??0)) ? '✅' : ((s0??0)===(s1??0) && (s0??0)!==0 ? '🤝' : '❌')}{:else}—{/if}</span>
+											{:else}
+												<span class="spec-rr-score">{s0 ?? 0} - {s1 ?? 0}</span>
+											{/if}
 											<span class="spec-rr-p {isDone && (specLowerIsBetter ? s1 < s0 : s1 > s0) ? 'winner' : ''}">{getPlayerName(match.p[1])}</span>
 										</div>
 									{/each}
@@ -401,21 +405,21 @@
 										<div class="spec-round-hdr">{ri === bracketRounds.length - 1 && bracketRounds.length > 1 ? '🏆 FINALE' : 'ROUND ' + (ri + 1)}</div>
 										<div class="spec-matches">
 											{#each roundMatches as match}
-												{@const s0 = match.score?.[0] ?? 0}
-												{@const s1 = match.score?.[1] ?? 0}
-												{@const isDone = s0 > 0 && s1 > 0 && s0 !== s1}
+												{@const s0 = match.score?.[0] ?? null}
+												{@const s1 = match.score?.[1] ?? null}
+												{@const isDone = s0 !== null && s1 !== null && (s0 !== 0 || s1 !== 0) && s0 !== s1}
 												{@const isBye = match.p[0] === 0 && match.p[1] === 0}
 												{@const isAutoWin = (match.p[0] === 0 || match.p[1] === 0) && (s0 > 0 || s1 > 0)}
 												{#if !isBye && !isAutoWin}
 													<div class="spec-match {isDone ? 'done' : ''}">
 														<div class="spec-player {isDone && (specLowerIsBetter ? s0 < s1 : s0 > s1) ? 'winner' : ''} {isDone && (specLowerIsBetter ? s0 > s1 : s0 < s1) ? 'loser' : ''}">
 															<span class="spec-pname">{getPlayerName(match.p[0])}</span>
-															<span class="spec-pscore">{s0}</span>
+															<span class="spec-pscore">{#if runningTournament?.config?.boolean_mode}{#if isDone && (specLowerIsBetter ? (s0??0) < (s1??0) : (s0??0) > (s1??0))}✅{:else if isDone}❌{:else}{s0 ?? 0}{/if}{:else}{s0 ?? 0}{/if}</span>
 														</div>
 														<div class="spec-match-div"></div>
 														<div class="spec-player {isDone && (specLowerIsBetter ? s1 < s0 : s1 > s0) ? 'winner' : ''} {isDone && (specLowerIsBetter ? s1 > s0 : s1 < s0) ? 'loser' : ''}">
 															<span class="spec-pname">{getPlayerName(match.p[1])}</span>
-															<span class="spec-pscore">{s1}</span>
+															<span class="spec-pscore">{#if runningTournament?.config?.boolean_mode}{#if isDone && (specLowerIsBetter ? (s1??0) < (s0??0) : (s1??0) > (s0??0))}✅{:else if isDone}❌{:else}{s1 ?? 0}{/if}{:else}{s1 ?? 0}{/if}</span>
 														</div>
 													</div>
 												{/if}

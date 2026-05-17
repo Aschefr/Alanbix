@@ -26,6 +26,7 @@
 	let panY = 0;
 	let isDragging = false;
 	let startX, startY;
+	let viewportEl, canvasEl;
 
 	onMount(async () => {
 		loadData();
@@ -102,7 +103,18 @@
 		showModal = true;
 	}
 
-	// Pan & Zoom Handlers
+	// Pan & Zoom Handlers (AXE-29: clamped)
+	const ZOOM_MIN = 0.4, ZOOM_MAX = 2.5;
+	function clampPan() {
+		if (!viewportEl || !canvasEl) return;
+		const vw = viewportEl.clientWidth;
+		const vh = viewportEl.clientHeight;
+		const cw = canvasEl.scrollWidth * scale;
+		const ch = canvasEl.scrollHeight * scale;
+		const margin = 100;
+		panX = Math.min(margin, Math.max(panX, vw - cw - margin));
+		panY = Math.min(margin, Math.max(panY, vh - ch - margin));
+	}
 	function onWheel(e) {
 		e.preventDefault();
 		const zoomIntensity = 0.1;
@@ -111,7 +123,8 @@
 		} else {
 			scale /= (1 + zoomIntensity);
 		}
-		scale = Math.min(Math.max(0.3, scale), 3);
+		scale = Math.min(Math.max(ZOOM_MIN, scale), ZOOM_MAX);
+		clampPan();
 	}
 
 	function onMouseDown(e) {
@@ -124,6 +137,7 @@
 		if (!isDragging) return;
 		panX = e.clientX - startX;
 		panY = e.clientY - startY;
+		clampPan();
 	}
 
 	function onMouseUp() {
@@ -135,6 +149,15 @@
 		panX = 0;
 		panY = 0;
 	}
+
+	function panTo(dx, dy) { panX += dx; panY += dy; clampPan(); }
+
+	// AXE-29: Directional arrows
+	$: arrowLeft = panX < -10;
+	$: arrowRight = viewportEl && canvasEl ? (panX + canvasEl.scrollWidth * scale > viewportEl.clientWidth + 10) : false;
+	$: arrowUp = panY < -10;
+	$: arrowDown = viewportEl && canvasEl ? (panY + canvasEl.scrollHeight * scale > viewportEl.clientHeight + 10) : false;
+	$: if (panX !== undefined || panY !== undefined || scale) { arrowLeft = panX < -10; arrowRight = viewportEl && canvasEl ? (panX + canvasEl.scrollWidth * scale > viewportEl.clientWidth + 10) : false; arrowUp = panY < -10; arrowDown = viewportEl && canvasEl ? (panY + canvasEl.scrollHeight * scale > viewportEl.clientHeight + 10) : false; }
 
 	// Helper to group matches by round
 	function getRounds() {
@@ -178,14 +201,14 @@
 					</div>
 					
 					<!-- svelte-ignore a11y-no-static-element-interactions -->
-					<div class="bracket-viewport" 
+					<div class="bracket-viewport" bind:this={viewportEl}
 						on:wheel={onWheel} 
 						on:mousedown={onMouseDown} 
 						on:mousemove={onMouseMove} 
 						on:mouseup={onMouseUp} 
 						on:mouseleave={onMouseUp}>
 						
-						<div class="bracket-canvas" style="transform: translate({panX}px, {panY}px) scale({scale});">
+						<div class="bracket-canvas" bind:this={canvasEl} style="transform: translate({panX}px, {panY}px) scale({scale});">
 							{#if tournament.config && tournament.config.length > 0}
 								<div class="rounds-container">
 									{#each getRounds() as roundMatches, roundIndex}
@@ -209,6 +232,10 @@
 							{/if}
 						</div>
 					</div>
+					{#if arrowLeft}<div class="pan-arrow pan-arrow-left" on:click={() => panTo(150, 0)}>‹</div>{/if}
+					{#if arrowRight}<div class="pan-arrow pan-arrow-right" on:click={() => panTo(-150, 0)}>›</div>{/if}
+					{#if arrowUp}<div class="pan-arrow pan-arrow-up" on:click={() => panTo(0, 150)}>‹</div>{/if}
+					{#if arrowDown}<div class="pan-arrow pan-arrow-down" on:click={() => panTo(0, -150)}>‹</div>{/if}
 				</div>
 
 				<!-- Unregistered users bar (admin only) -->
@@ -351,9 +378,18 @@
 		content: ''; position: absolute; left: -2rem; top: 25%; bottom: 25%; width: 2px; background: var(--glass-border);
 	}
 
-	.player { padding: 0.6rem 1rem; font-size: 0.9rem; border-bottom: 1px solid var(--glass-border); background: var(--surface-sunken); color: var(--text-muted); }
+	.player { padding: 0.75rem 1.2rem; font-size: 1.0rem; border-bottom: 1px solid var(--glass-border); background: var(--surface-sunken); color: var(--text-muted); }
 	.player:last-child { border-bottom: none; }
 	.player.filled { color: var(--text-main); background: var(--accent-soft); }
+
+	/* AXE-29: Directional pan arrows */
+	.pan-arrow { position: absolute; display: flex; align-items: center; justify-content: center; color: var(--accent); font-size: 1.4rem; font-weight: 900; opacity: 0.6; pointer-events: auto; cursor: pointer; z-index: 5; animation: panArrowPulse 1.5s ease-in-out infinite; transition: opacity 0.15s, transform 0.15s; }
+	.pan-arrow:hover { opacity: 1; animation: none; }
+	.pan-arrow-left { left: 6px; top: 50%; transform: translateY(-50%); width: 28px; height: 50px; background: linear-gradient(90deg, rgba(59,130,246,0.15), transparent); border-radius: 6px; }
+	.pan-arrow-right { right: 6px; top: 50%; transform: translateY(-50%); width: 28px; height: 50px; background: linear-gradient(-90deg, rgba(59,130,246,0.15), transparent); border-radius: 6px; }
+	.pan-arrow-up { top: 6px; left: 50%; transform: translateX(-50%) rotate(90deg); width: 28px; height: 50px; background: linear-gradient(90deg, rgba(59,130,246,0.15), transparent); border-radius: 6px; }
+	.pan-arrow-down { bottom: 6px; left: 50%; transform: translateX(-50%) rotate(-90deg); width: 28px; height: 50px; background: linear-gradient(90deg, rgba(59,130,246,0.15), transparent); border-radius: 6px; }
+	@keyframes panArrowPulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 0.85; } }
 
 	/* Unregistered users bar */
 	.unregistered-bar { margin-top: 1rem; padding: 1rem; border-radius: 12px; }

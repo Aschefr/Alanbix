@@ -2,5 +2,16 @@
   "system_prompt": "Tu es Alanbix, l'IA de gestion de LAN. Résumé du contexte passé : {context_summary}\n\nInfos Knowledge Base :\n{rag_context}\n\nHistorique récent :\n{history_str}\n\nUtilisateur : {prompt}",
   "ia_queue_waiting": "En attente... Position dans la file : {position}",
   "ia_queue_admin_badge": "{waiting} en attente",
-  "ia_queue_concurrency": "Requêtes simultanées max"
+  "ia_queue_concurrency": "Requêtes simultanées max",
+  "login_pseudo_label": "Pseudo",
+  "login_pseudo_placeholder": "Entre ton pseudo...",
+  "login_next": "Suivant",
+  "login_password_label": "Mot de passe",
+  "login_password_placeholder": "••••••••",
+  "login_submit": "Se connecter",
+  "login_change_pseudo": "← Changer de pseudo",
+  "register_subtitle": "Création de ton compte",
+  "register_password_label": "Choisis un mot de passe",
+  "register_submit": "Créer mon compte",
+  "login_checking": "Vérification..."
 }

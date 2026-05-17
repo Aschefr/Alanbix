@@ -49,6 +49,7 @@ reference-projects/
 # === Data (SQLite DB — user data, passwords) ===
 data/
 backend/data/
+*.db
 
 # === User uploads (game images uploaded by admin) ===
 backend/static/uploads/
@@ -56,3 +57,10 @@ backend/static/uploads/
 # === Gemini/AI agent workspace ===
 .gemini/
 Tool_calling_plan.md
+
+# === Scratch / Debug scripts (local dev only) ===
+insert_test.py
+restore_notif.py
+scratch_*.py
+scratch_*.js
+test_force.py

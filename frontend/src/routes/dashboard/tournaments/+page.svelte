@@ -22,6 +22,7 @@
 
 	// Bracket pan/zoom
 	let scale = 1, panX = 0, panY = 0, isDragging = false, startX, startY;
+	let viewportEl, canvasEl;
 
 	// Toast system
 	let toasts = [];
@@ -349,9 +350,19 @@
 	}
 
 	async function updateScore(match, playerIdx, value) {
-		const score = [...(match.score || [0, 0])];
-		score[playerIdx] = parseInt(value) || 0;
+		const score = [...(match.score || [null, null])];
+		const trimmed = String(value).trim();
+		score[playerIdx] = trimmed === '' ? null : (parseInt(trimmed, 10) || 0);
 		scheduleScore(match, playerIdx, score);
+	}
+
+	// AXE-32: Boolean mode score helpers
+	function setBoolScore(match, winnerIdx) {
+		const score = winnerIdx === 0 ? [1, 0] : [0, 1];
+		scheduleScore(match, 0, score);
+	}
+	function setBoolDraw(match) {
+		scheduleScore(match, 0, [1, 1]);
 	}
 
 	async function advanceFFARound() {
@@ -376,12 +387,12 @@
 	function isMatchFinalized(match) {
 		const scores = match.score || [];
 		if (bracketType === 'ffa') {
-			return scores.length > 0 && scores.every(s => s > 0);
+			return scores.length > 0 && scores.every(s => s !== null && s > 0);
 		}
-		// Duel / Round Robin: both scores > 0 and different
+		// Duel / Round Robin: both scores must be explicit numbers (not null), different, at least one > 0
 		if (scores.length >= 2) {
 			const s0 = scores[0], s1 = scores[1];
-			return s0 > 0 && s1 > 0 && s0 !== s1;
+			return s0 !== null && s1 !== null && (s0 !== 0 || s1 !== 0) && s0 !== s1;
 		}
 		return false;
 	}
@@ -424,6 +435,7 @@
 			pts_participation: selected.config?.pts_participation ?? 1,
 			pts_per_match: selected.config?.pts_per_match ?? selected.config?.pts_per_goal ?? 1.0,
 			lower_score_is_better: selected.config?.lower_score_is_better || false,
+			boolean_mode: selected.config?.boolean_mode || false,
 			phases: selected.config?.phases || 'single',
 			group_size: selected.config?.group_size || 4,
 			advancers_count: selected.config?.advancers_count || 2
@@ -436,7 +448,7 @@
 			await api.put(`/tournaments/${selectedId}`, {
 				name: editConfig.name,
 				points_per_win: editConfig.points_per_win,
-				config: { ...selected.config, use_teams: editConfig.use_teams, team_size: editConfig.team_size, bracket_type: editConfig.bracket_type, pts_winner: editConfig.pts_winner, pts_second: editConfig.pts_second, pts_third: editConfig.pts_third, pts_participation: editConfig.pts_participation, pts_per_match: editConfig.pts_per_match, lower_score_is_better: editConfig.lower_score_is_better, phases: editConfig.phases, group_size: editConfig.group_size, advancers_count: editConfig.advancers_count }
+				config: { ...selected.config, use_teams: editConfig.use_teams, team_size: editConfig.team_size, bracket_type: editConfig.bracket_type, pts_winner: editConfig.pts_winner, pts_second: editConfig.pts_second, pts_third: editConfig.pts_third, pts_participation: editConfig.pts_participation, pts_per_match: editConfig.pts_per_match, lower_score_is_better: editConfig.lower_score_is_better, boolean_mode: editConfig.boolean_mode, phases: editConfig.phases, group_size: editConfig.group_size, advancers_count: editConfig.advancers_count }
 			});
 			toast('Tournoi mis à jour !', 'success');
 			editingTournament = false;
@@ -507,21 +519,42 @@
 		return null;
 	}
 
-	// Pan & Zoom (cursor-centered)
+	// Pan & Zoom (cursor-centered) with clamping (AXE-29)
+	const ZOOM_MIN = 0.4, ZOOM_MAX = 2.5;
+	function clampPan() {
+		if (!viewportEl || !canvasEl) return;
+		const vw = viewportEl.clientWidth;
+		const vh = viewportEl.clientHeight;
+		const cw = canvasEl.scrollWidth * scale;
+		const ch = canvasEl.scrollHeight * scale;
+		const margin = 100;
+		panX = Math.min(margin, Math.max(panX, vw - cw - margin));
+		panY = Math.min(margin, Math.max(panY, vh - ch - margin));
+	}
 	function onWheel(e) {
 		e.preventDefault();
 		const rect = e.currentTarget.getBoundingClientRect();
 		const mx = e.clientX - rect.left, my = e.clientY - rect.top;
 		const oldScale = scale;
 		scale *= e.deltaY < 0 ? 1.1 : 0.9;
-		scale = Math.min(Math.max(0.3, scale), 3);
+		scale = Math.min(Math.max(ZOOM_MIN, scale), ZOOM_MAX);
 		panX = mx - (mx - panX) * (scale / oldScale);
 		panY = my - (my - panY) * (scale / oldScale);
+		clampPan();
 	}
 	function onMouseDown(e) { isDragging = true; startX = e.clientX - panX; startY = e.clientY - panY; }
-	function onMouseMove(e) { if (!isDragging) return; panX = e.clientX - startX; panY = e.clientY - startY; }
+	function onMouseMove(e) { if (!isDragging) return; panX = e.clientX - startX; panY = e.clientY - startY; clampPan(); }
 	function onMouseUp() { isDragging = false; }
 	function resetZoom() { scale = 1; panX = 0; panY = 0; }
+	function panTo(dx, dy) { panX += dx; panY += dy; clampPan(); }
+
+	// AXE-29: Directional arrows state
+	$: arrowLeft = panX < -10;
+	$: arrowRight = viewportEl && canvasEl ? (panX + canvasEl.scrollWidth * scale > viewportEl.clientWidth + 10) : false;
+	$: arrowUp = panY < -10;
+	$: arrowDown = viewportEl && canvasEl ? (panY + canvasEl.scrollHeight * scale > viewportEl.clientHeight + 10) : false;
+	// Force re-evaluation when pan/scale changes
+	$: if (panX !== undefined || panY !== undefined || scale) { arrowLeft = panX < -10; arrowRight = viewportEl && canvasEl ? (panX + canvasEl.scrollWidth * scale > viewportEl.clientWidth + 10) : false; arrowUp = panY < -10; arrowDown = viewportEl && canvasEl ? (panY + canvasEl.scrollHeight * scale > viewportEl.clientHeight + 10) : false; }
 
 	// Player hover tracking for bracket path highlight
 	let hoveredPlayerId = null;
@@ -542,6 +575,7 @@
 	$: myTeamSlotId = (useTeams && myTeam) ? -myTeam.id : null;
 	$: bracketType = selected?.config?.bracket_type || 'single_elim';
 	$: lowerIsBetter = selected?.config?.lower_score_is_better || false;
+	$: booleanMode = selected?.config?.boolean_mode || false;
 	$: unassignedPlayers = useTeams ? participants.filter(p => !teams.some(t => t.members?.some(m => m.user_id === p.user_id))) : [];
 	$: groupedParticipants = (() => {
 		const groups = {};
@@ -567,8 +601,8 @@
 		// Filter: keep only rounds that have at least one visible match
 		const hasVisible = roundMatches.some(m => {
 			const isBye = m.p[0] === 0 && m.p[1] === 0;
-			const s0 = m.score?.[0] ?? 0, s1 = m.score?.[1] ?? 0;
-			const isDone = s0 > 0 && s1 > 0 && s0 !== s1;
+			const s0 = m.score?.[0] ?? null, s1 = m.score?.[1] ?? null;
+			const isDone = s0 !== null && s1 !== null && (s0 !== 0 || s1 !== 0) && s0 !== s1;
 			const isAutoWin = (m.p[0] === 0 || m.p[1] === 0) && (s0 > 0 || s1 > 0);
 			return !isBye && !isAutoWin;
 		});
@@ -718,6 +752,7 @@
 							{#if selected.status !== 'CLOSED'}
 								<button class="admin-btn edit" on:click={openEdit}>✏️ Éditer</button>
 							{/if}
+
 						</div>
 					</div>
 				{/if}
@@ -879,26 +914,42 @@
 									<div class="rr-round">
 										<div class="rr-round-hdr">Journée {ri + 1}</div>
 										{#each roundMatches as match}
-											{@const s0 = match.score?.[0] ?? 0}
-											{@const s1 = match.score?.[1] ?? 0}
-											{@const isDone = s0 > 0 && s1 > 0 && s0 !== s1}
+											{@const s0 = match.score?.[0] ?? null}
+											{@const s1 = match.score?.[1] ?? null}
+											{@const isDone = s0 !== null && s1 !== null && (s0 !== 0 || s1 !== 0) && s0 !== s1}
 											<div class="rr-match {isDone ? 'match-done' : ''}">
 												<span class="rr-p {isDone && (lowerIsBetter ? s0 < s1 : s0 > s1) ? 'winner' : ''}">{getPlayerName(match.p[0], nameMap)}{#if match.p[0] > 0 && seatMap[match.p[0]]}<a href="/dashboard/map?highlight={seatMap[match.p[0]]}" class="seat-badge" title="Voir sur le plan">📍{seatMap[match.p[0]]}</a>{/if}</span>
 												<div class="rr-scores">
-													{#if canEditPlayerScore(match, 0, myTeamSlotId, isParticipant, currentUser)}
-														<input type="number" class="score-input" value={s0 || ''} placeholder="—" on:change={(e) => updateScore(match, 0, e.target.value)} min="0" disabled={match.p[0] === 0 || match.p[1] === 0} />
-													{:else if isPlayerLocked(match, 0, myTeamSlotId, isParticipant, currentUser)}
-														<span class="score-locked" title="Score validé">🔒 {s0}</span>
+													{#if booleanMode}
+														{#if isDone}
+															<span class="bool-badge {(lowerIsBetter ? (s0 ?? 0) < (s1 ?? 0) : (s0 ?? 0) > (s1 ?? 0)) ? 'win' : ((s0 ?? 0) === (s1 ?? 0) && (s0 ?? 0) !== 0 ? 'draw' : 'lose')}">{(lowerIsBetter ? (s0 ?? 0) < (s1 ?? 0) : (s0 ?? 0) > (s1 ?? 0)) ? '✅' : ((s0 ?? 0) === (s1 ?? 0) && (s0 ?? 0) !== 0 ? '🤝' : '❌')}</span>
+															<span class="rr-vs">-</span>
+															<span class="bool-badge {(lowerIsBetter ? (s1 ?? 0) < (s0 ?? 0) : (s1 ?? 0) > (s0 ?? 0)) ? 'win' : ((s0 ?? 0) === (s1 ?? 0) && (s0 ?? 0) !== 0 ? 'draw' : 'lose')}">{(lowerIsBetter ? (s1 ?? 0) < (s0 ?? 0) : (s1 ?? 0) > (s0 ?? 0)) ? '✅' : ((s0 ?? 0) === (s1 ?? 0) && (s0 ?? 0) !== 0 ? '🤝' : '❌')}</span>
+														{:else if canEditPlayerScore(match, 0, myTeamSlotId, isParticipant, currentUser)}
+															<div class="bool-btns-rr">
+																<button class="bool-btn bool-win" on:click={() => setBoolScore(match, 0)} title="Victoire {getPlayerName(match.p[0], nameMap)}">✅</button>
+																<button class="bool-btn bool-draw" on:click={() => setBoolDraw(match)} title="Égalité">🤝</button>
+																<button class="bool-btn bool-win" on:click={() => setBoolScore(match, 1)} title="Victoire {getPlayerName(match.p[1], nameMap)}">✅</button>
+															</div>
+														{:else}
+															<span class="rr-score">—</span><span class="rr-vs">-</span><span class="rr-score">—</span>
+														{/if}
 													{:else}
-														<span class="rr-score">{s0}</span>
-													{/if}
-													<span class="rr-vs">-</span>
-													{#if canEditPlayerScore(match, 1, myTeamSlotId, isParticipant, currentUser)}
-														<input type="number" class="score-input" value={s1 || ''} placeholder="—" on:change={(e) => updateScore(match, 1, e.target.value)} min="0" disabled={match.p[0] === 0 || match.p[1] === 0} />
-													{:else if isPlayerLocked(match, 1, myTeamSlotId, isParticipant, currentUser)}
-														<span class="score-locked" title="Score validé">🔒 {s1}</span>
-													{:else}
-														<span class="rr-score">{s1}</span>
+														{#if canEditPlayerScore(match, 0, myTeamSlotId, isParticipant, currentUser)}
+															<input type="number" class="score-input" value={s0 || ''} placeholder="—" on:change={(e) => updateScore(match, 0, e.target.value)} min="0" disabled={match.p[0] === 0 || match.p[1] === 0} />
+														{:else if isPlayerLocked(match, 0, myTeamSlotId, isParticipant, currentUser)}
+															<span class="score-locked" title="Score validé">🔒 {s0 ?? 0}</span>
+														{:else}
+															<span class="rr-score">{s0 ?? 0}</span>
+														{/if}
+														<span class="rr-vs">-</span>
+														{#if canEditPlayerScore(match, 1, myTeamSlotId, isParticipant, currentUser)}
+															<input type="number" class="score-input" value={s1 || ''} placeholder="—" on:change={(e) => updateScore(match, 1, e.target.value)} min="0" disabled={match.p[0] === 0 || match.p[1] === 0} />
+														{:else if isPlayerLocked(match, 1, myTeamSlotId, isParticipant, currentUser)}
+															<span class="score-locked" title="Score validé">🔒 {s1 ?? 0}</span>
+														{:else}
+															<span class="rr-score">{s1 ?? 0}</span>
+														{/if}
 													{/if}
 												</div>
 												<span class="rr-p {isDone && (lowerIsBetter ? s1 < s0 : s1 > s0) ? 'winner' : ''}">{getPlayerName(match.p[1], nameMap)}{#if match.p[1] > 0 && seatMap[match.p[1]]}<a href="/dashboard/map?highlight={seatMap[match.p[1]]}" class="seat-badge" title="Voir sur le plan">📍{seatMap[match.p[1]]}</a>{/if}</span>
@@ -917,8 +968,9 @@
 						{:else}
 							<!-- Duel Bracket (single/double) -->
 							<!-- svelte-ignore a11y-no-static-element-interactions -->
-							<div class="bracket-viewport" on:wheel={onWheel} on:mousedown={onMouseDown} on:mousemove={onMouseMove} on:mouseup={onMouseUp} on:mouseleave={onMouseUp}>
-								<div class="bracket-canvas" style="transform: translate({panX}px, {panY}px) scale({scale});">
+							<div class="bracket-viewport-wrapper">
+							<div class="bracket-viewport" bind:this={viewportEl} on:wheel={onWheel} on:mousedown={onMouseDown} on:mousemove={onMouseMove} on:mouseup={onMouseUp} on:mouseleave={onMouseUp}>
+								<div class="bracket-canvas" bind:this={canvasEl} style="transform: translate({panX}px, {panY}px) scale({scale});">
 									{#if bracketType === 'double_elim' && lbRounds.length > 0}
 										<div class="de-label">Winners Bracket</div>
 									{/if}
@@ -928,9 +980,9 @@
 												<div class="round-header {bracketType === 'double_elim' && ri === wbRounds.length - 1 ? 'finale-header' : ''}">{bracketType === 'double_elim' && ri === wbRounds.length - 1 ? '🏆 FINALE' : 'R' + (ri + 1)}</div>
 												<div class="matches-col">
 													{#each roundMatches as match}
-														{@const s0 = match.score?.[0] ?? 0}
-														{@const s1 = match.score?.[1] ?? 0}
-														{@const isDone = s0 > 0 && s1 > 0 && s0 !== s1}
+														{@const s0 = match.score?.[0] ?? null}
+														{@const s1 = match.score?.[1] ?? null}
+														{@const isDone = s0 !== null && s1 !== null && (s0 !== 0 || s1 !== 0) && s0 !== s1}
 														{@const isBye = match.p[0] === 0 && match.p[1] === 0}
 														{@const isAutoWin = (match.p[0] === 0 || match.p[1] === 0) && (s0 > 0 || s1 > 0)}
 														{#if !isBye && !isAutoWin}
@@ -939,12 +991,26 @@
 															<div class="player-row {match.p[0] ? 'filled' : ''} {isDone && (lowerIsBetter ? s0 < s1 : s0 > s1) ? 'winner' : ''} {isDone && (lowerIsBetter ? s0 > s1 : s0 < s1) ? 'loser' : ''}" on:mouseenter={() => { if(match.p[0]) hoveredPlayerId = match.p[0]; }} on:mouseleave={() => hoveredPlayerId = null}>
 																<span class="player-name">{getPlayerName(match.p[0], nameMap)}</span>
 																{#if match.p[0] > 0 && seatMap[match.p[0]]}<a href="/dashboard/map?highlight={seatMap[match.p[0]]}" class="seat-badge" title="Voir sur le plan">📍{seatMap[match.p[0]]}</a>{/if}
-																{#if canEditPlayerScore(match, 0, myTeamSlotId, isParticipant, currentUser)}
-																	<input type="number" class="score-input" value={s0 || ''} placeholder="—" on:change={(e) => updateScore(match, 0, e.target.value)} min="0" disabled={match.p[0] === 0 || match.p[1] === 0} />
-																{:else if isPlayerLocked(match, 0, myTeamSlotId, isParticipant, currentUser)}
-																	<span class="score-locked" title="Score validé — modification admin uniquement">🔒 {s0}</span>
+																{#if booleanMode}
+																	{#if canEditPlayerScore(match, 0, myTeamSlotId, isParticipant, currentUser) && !isDone}
+																		<div class="bool-btns">
+																			<button class="bool-btn bool-win" on:click={() => setBoolScore(match, 0)} title="Vainqueur">✅</button>
+																			<button class="bool-btn bool-draw" on:click={() => setBoolDraw(match)} title="Égalité">🤝</button>
+																			<button class="bool-btn bool-lose" on:click={() => setBoolScore(match, 1)} title="Perdant">❌</button>
+																		</div>
+																	{:else if isDone}
+																		<span class="bool-badge {(lowerIsBetter ? (s0 ?? 0) < (s1 ?? 0) : (s0 ?? 0) > (s1 ?? 0)) ? 'win' : (s0 === s1 ? 'draw' : 'lose')}">{(lowerIsBetter ? (s0 ?? 0) < (s1 ?? 0) : (s0 ?? 0) > (s1 ?? 0)) ? '✅' : (s0 === s1 ? '🤝' : '❌')}</span>
+																	{:else}
+																		<span class="score-display">—</span>
+																	{/if}
 																{:else}
-																	<span class="score-display">{s0 || '—'}</span>
+																	{#if canEditPlayerScore(match, 0, myTeamSlotId, isParticipant, currentUser)}
+																		<input type="number" class="score-input" value={s0 || ''} placeholder="—" on:change={(e) => updateScore(match, 0, e.target.value)} min="0" disabled={match.p[0] === 0 || match.p[1] === 0} />
+																	{:else if isPlayerLocked(match, 0, myTeamSlotId, isParticipant, currentUser)}
+																		<span class="score-locked" title="Score validé — modification admin uniquement">🔒 {s0 ?? 0}</span>
+																	{:else}
+																		<span class="score-display">{s0 || '—'}</span>
+																	{/if}
 																{/if}
 															</div>
 															<div class="match-divider"></div>
@@ -952,12 +1018,26 @@
 															<div class="player-row {match.p[1] ? 'filled' : ''} {isDone && (lowerIsBetter ? s1 < s0 : s1 > s0) ? 'winner' : ''} {isDone && (lowerIsBetter ? s1 > s0 : s1 < s0) ? 'loser' : ''}" on:mouseenter={() => { if(match.p[1]) hoveredPlayerId = match.p[1]; }} on:mouseleave={() => hoveredPlayerId = null}>
 																<span class="player-name">{getPlayerName(match.p[1], nameMap)}</span>
 																{#if match.p[1] > 0 && seatMap[match.p[1]]}<a href="/dashboard/map?highlight={seatMap[match.p[1]]}" class="seat-badge" title="Voir sur le plan">📍{seatMap[match.p[1]]}</a>{/if}
-																{#if canEditPlayerScore(match, 1, myTeamSlotId, isParticipant, currentUser)}
-																	<input type="number" class="score-input" value={s1 || ''} placeholder="—" on:change={(e) => updateScore(match, 1, e.target.value)} min="0" disabled={match.p[0] === 0 || match.p[1] === 0} />
-																{:else if isPlayerLocked(match, 1, myTeamSlotId, isParticipant, currentUser)}
-																	<span class="score-locked" title="Score validé — modification admin uniquement">🔒 {s1}</span>
+																{#if booleanMode}
+																	{#if canEditPlayerScore(match, 1, myTeamSlotId, isParticipant, currentUser) && !isDone}
+																		<div class="bool-btns">
+																			<button class="bool-btn bool-win" on:click={() => setBoolScore(match, 1)} title="Vainqueur">✅</button>
+																			<button class="bool-btn bool-draw" on:click={() => setBoolDraw(match)} title="Égalité">🤝</button>
+																			<button class="bool-btn bool-lose" on:click={() => setBoolScore(match, 0)} title="Perdant">❌</button>
+																		</div>
+																	{:else if isDone}
+																		<span class="bool-badge {(lowerIsBetter ? (s1 ?? 0) < (s0 ?? 0) : (s1 ?? 0) > (s0 ?? 0)) ? 'win' : (s0 === s1 ? 'draw' : 'lose')}">{(lowerIsBetter ? (s1 ?? 0) < (s0 ?? 0) : (s1 ?? 0) > (s0 ?? 0)) ? '✅' : (s0 === s1 ? '🤝' : '❌')}</span>
+																	{:else}
+																		<span class="score-display">—</span>
+																	{/if}
 																{:else}
-																	<span class="score-display">{s1 || '—'}</span>
+																	{#if canEditPlayerScore(match, 1, myTeamSlotId, isParticipant, currentUser)}
+																		<input type="number" class="score-input" value={s1 || ''} placeholder="—" on:change={(e) => updateScore(match, 1, e.target.value)} min="0" disabled={match.p[0] === 0 || match.p[1] === 0} />
+																	{:else if isPlayerLocked(match, 1, myTeamSlotId, isParticipant, currentUser)}
+																		<span class="score-locked" title="Score validé — modification admin uniquement">🔒 {s1 ?? 0}</span>
+																	{:else}
+																		<span class="score-display">{s1 || '—'}</span>
+																	{/if}
 																{/if}
 															</div>
 															{#if getPendingProgress(match, 0, pendingTick) !== null || getPendingProgress(match, 1, pendingTick) !== null}
@@ -981,9 +1061,9 @@
 													<div class="round-header lb-hdr">{ri === lbRounds.length - 1 ? 'LB Finale' : 'LB R' + (lbRound.originalIndex + 1)}</div>
 													<div class="matches-col">
 														{#each lbRound.matches as match}
-															{@const s0 = match.score?.[0] ?? 0}
-															{@const s1 = match.score?.[1] ?? 0}
-															{@const isDone = s0 > 0 && s1 > 0 && s0 !== s1}
+															{@const s0 = match.score?.[0] ?? null}
+															{@const s1 = match.score?.[1] ?? null}
+															{@const isDone = s0 !== null && s1 !== null && (s0 !== 0 || s1 !== 0) && s0 !== s1}
 															{@const isBye = match.p[0] === 0 && match.p[1] === 0}
 															{@const isAutoWin = (match.p[0] === 0 || match.p[1] === 0) && (s0 > 0 || s1 > 0)}
 															{#if !isBye && !isAutoWin}
@@ -992,12 +1072,24 @@
 																<div class="player-row {match.p[0] ? 'filled' : ''} {isDone && (lowerIsBetter ? s0 < s1 : s0 > s1) ? 'winner' : ''} {isDone && (lowerIsBetter ? s0 > s1 : s0 < s1) ? 'loser' : ''}" on:mouseenter={() => { if(match.p[0]) hoveredPlayerId = match.p[0]; }} on:mouseleave={() => hoveredPlayerId = null}>
 																	<span class="player-name">{getPlayerName(match.p[0], nameMap)}</span>
 																	{#if match.p[0] > 0 && seatMap[match.p[0]]}<a href="/dashboard/map?highlight={seatMap[match.p[0]]}" class="seat-badge" title="Voir sur le plan">📍{seatMap[match.p[0]]}</a>{/if}
-																	{#if canEditPlayerScore(match, 0, myTeamSlotId, isParticipant, currentUser)}
-																		<input type="number" class="score-input" value={s0 || ''} placeholder="—" on:change={(e) => updateScore(match, 0, e.target.value)} min="0" disabled={match.p[0] === 0 || match.p[1] === 0} />
-																	{:else if isPlayerLocked(match, 0, myTeamSlotId, isParticipant, currentUser)}
-																		<span class="score-locked" title="Score validé">🔒 {s0}</span>
+																	{#if booleanMode}
+																		{#if canEditPlayerScore(match, 0, myTeamSlotId, isParticipant, currentUser) && !isDone}
+																			<div class="bool-btns">
+																				<button class="bool-btn bool-win" on:click={() => setBoolScore(match, 0)} title="Vainqueur">✅</button>
+																				<button class="bool-btn bool-draw" on:click={() => setBoolDraw(match)} title="Égalité">🤝</button>
+																				<button class="bool-btn bool-lose" on:click={() => setBoolScore(match, 1)} title="Perdant">❌</button>
+																			</div>
+																		{:else if isDone}
+																			<span class="bool-badge {(lowerIsBetter ? (s0??0) < (s1??0) : (s0??0) > (s1??0)) ? 'win' : ((s0??0)===(s1??0) && (s0??0)!==0 ? 'draw' : 'lose')}">{(lowerIsBetter ? (s0??0) < (s1??0) : (s0??0) > (s1??0)) ? '✅' : ((s0??0)===(s1??0) && (s0??0)!==0 ? '🤝' : '❌')}</span>
+																		{:else}<span class="score-display">—</span>{/if}
 																	{:else}
-																		<span class="score-display">{s0 || '—'}</span>
+																		{#if canEditPlayerScore(match, 0, myTeamSlotId, isParticipant, currentUser)}
+																			<input type="number" class="score-input" value={s0 || ''} placeholder="—" on:change={(e) => updateScore(match, 0, e.target.value)} min="0" disabled={match.p[0] === 0 || match.p[1] === 0} />
+																		{:else if isPlayerLocked(match, 0, myTeamSlotId, isParticipant, currentUser)}
+																			<span class="score-locked" title="Score validé">🔒 {s0 ?? 0}</span>
+																		{:else}
+																			<span class="score-display">{s0 || '—'}</span>
+																		{/if}
 																	{/if}
 																</div>
 																<div class="match-divider"></div>
@@ -1005,12 +1097,24 @@
 																<div class="player-row {match.p[1] ? 'filled' : ''} {isDone && (lowerIsBetter ? s1 < s0 : s1 > s0) ? 'winner' : ''} {isDone && (lowerIsBetter ? s1 > s0 : s1 < s0) ? 'loser' : ''}" on:mouseenter={() => { if(match.p[1]) hoveredPlayerId = match.p[1]; }} on:mouseleave={() => hoveredPlayerId = null}>
 																	<span class="player-name">{getPlayerName(match.p[1], nameMap)}</span>
 																	{#if match.p[1] > 0 && seatMap[match.p[1]]}<a href="/dashboard/map?highlight={seatMap[match.p[1]]}" class="seat-badge" title="Voir sur le plan">📍{seatMap[match.p[1]]}</a>{/if}
-																	{#if canEditPlayerScore(match, 1, myTeamSlotId, isParticipant, currentUser)}
-																		<input type="number" class="score-input" value={s1 || ''} placeholder="—" on:change={(e) => updateScore(match, 1, e.target.value)} min="0" disabled={match.p[0] === 0 || match.p[1] === 0} />
-																	{:else if isPlayerLocked(match, 1, myTeamSlotId, isParticipant, currentUser)}
-																		<span class="score-locked" title="Score validé">🔒 {s1}</span>
+																	{#if booleanMode}
+																		{#if canEditPlayerScore(match, 1, myTeamSlotId, isParticipant, currentUser) && !isDone}
+																			<div class="bool-btns">
+																				<button class="bool-btn bool-win" on:click={() => setBoolScore(match, 1)} title="Vainqueur">✅</button>
+																				<button class="bool-btn bool-draw" on:click={() => setBoolDraw(match)} title="Égalité">🤝</button>
+																				<button class="bool-btn bool-lose" on:click={() => setBoolScore(match, 0)} title="Perdant">❌</button>
+																			</div>
+																		{:else if isDone}
+																			<span class="bool-badge {(lowerIsBetter ? (s1??0) < (s0??0) : (s1??0) > (s0??0)) ? 'win' : ((s0??0)===(s1??0) && (s0??0)!==0 ? 'draw' : 'lose')}">{(lowerIsBetter ? (s1??0) < (s0??0) : (s1??0) > (s0??0)) ? '✅' : ((s0??0)===(s1??0) && (s0??0)!==0 ? '🤝' : '❌')}</span>
+																		{:else}<span class="score-display">—</span>{/if}
 																	{:else}
-																		<span class="score-display">{s1 || '—'}</span>
+																		{#if canEditPlayerScore(match, 1, myTeamSlotId, isParticipant, currentUser)}
+																			<input type="number" class="score-input" value={s1 || ''} placeholder="—" on:change={(e) => updateScore(match, 1, e.target.value)} min="0" disabled={match.p[0] === 0 || match.p[1] === 0} />
+																		{:else if isPlayerLocked(match, 1, myTeamSlotId, isParticipant, currentUser)}
+																			<span class="score-locked" title="Score validé">🔒 {s1 ?? 0}</span>
+																		{:else}
+																			<span class="score-display">{s1 || '—'}</span>
+																		{/if}
 																	{/if}
 																</div>
 																{#if getPendingProgress(match, 0, pendingTick) !== null || getPendingProgress(match, 1, pendingTick) !== null}
@@ -1030,9 +1134,14 @@
 									{/if}
 
 								</div>
-							</div>
-						{/if}
-					{:else}
+					</div>
+					{#if arrowLeft}<div class="pan-arrow pan-arrow-left" on:click={() => panTo(150, 0)}>‹</div>{/if}
+					{#if arrowRight}<div class="pan-arrow pan-arrow-right" on:click={() => panTo(-150, 0)}>›</div>{/if}
+					{#if arrowUp}<div class="pan-arrow pan-arrow-up" on:click={() => panTo(0, 150)}>‹</div>{/if}
+					{#if arrowDown}<div class="pan-arrow pan-arrow-down" on:click={() => panTo(0, -150)}>‹</div>{/if}
+					</div>
+				{/if}
+				{:else}
 						<div class="bracket-empty">
 							<span class="bracket-empty-icon">🏟️</span>
 							<p>Le bracket sera généré au lancement du tournoi.</p>
@@ -1195,6 +1304,12 @@
 						<label class="edit-toggle-label">
 							<input type="checkbox" bind:checked={editConfig.lower_score_is_better} />
 							🔄 Score inversé <span class="edit-hint">(le plus petit score gagne, ex: placement, golf)</span>
+						</label>
+					</div>
+					<div class="edit-field full-width">
+						<label class="edit-toggle-label">
+							<input type="checkbox" bind:checked={editConfig.boolean_mode} />
+							🎯 Mode Victoire/Défaite <span class="edit-hint">(boutons V/D/É au lieu de scores numériques)</span>
 						</label>
 					</div>
 					<div class="edit-field full-width">
@@ -1396,17 +1511,18 @@
 	/* === BRACKET === */
 	.bracket-section { padding: 1rem; border-radius: 14px; display: flex; flex-direction: column; }
 	.bracket-section.bracket-expanded { flex-grow: 1; min-height: 400px; }
-	.bracket-viewport { flex-grow: 1; min-height: 300px; overflow: hidden; cursor: grab; background: var(--surface-sunken); border-radius: 10px; border: 1px solid var(--glass-border); }
+	.bracket-viewport-wrapper { position: relative; flex-grow: 1; min-height: 450px; }
+	.bracket-viewport { position: absolute; inset: 0; overflow: hidden; cursor: grab; background: var(--surface-sunken); border-radius: 10px; border: 1px solid var(--glass-border); }
 	.bracket-viewport:active { cursor: grabbing; }
 	.bracket-canvas { transform-origin: 0 0; transition: transform 0.1s ease-out; padding: 2rem; display: inline-block; min-width: 100%; min-height: 100%; }
 	.rounds-container { display: flex; gap: 3rem; }
 	.round-col.finale-col { margin-left: 2rem; }
 	.finale-header { font-size: 0.85rem !important; color: #fbbf24 !important; }
 	.round-col { display: flex; flex-direction: column; gap: 0.75rem; }
-	.round-header { text-align: center; font-weight: 700; color: var(--accent); text-transform: uppercase; font-size: 0.7rem; letter-spacing: 1px; margin-bottom: 0.5rem; }
+	.round-header { text-align: center; font-weight: 700; color: var(--accent); text-transform: uppercase; font-size: 0.8rem; letter-spacing: 1px; margin-bottom: 0.5rem; }
 	.matches-col { display: flex; flex-direction: column; justify-content: space-around; flex-grow: 1; gap: 1.5rem; position: relative; }
 	.bracket-match { width: 240px; background: var(--hover-tint); border: 1px solid var(--glass-border); border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.15); }
-	.player-row { display: flex; align-items: center; justify-content: space-between; padding: 0.45rem 0.7rem; font-size: 0.78rem; background: var(--surface-sunken); color: var(--text-muted); }
+	.player-row { display: flex; align-items: center; justify-content: space-between; padding: 0.55rem 0.85rem; font-size: 0.85rem; background: var(--surface-sunken); color: var(--text-muted); }
 	.player-row.filled { color: var(--text-main); background: var(--accent-soft); }
 	.player-row.winner { background: rgba(34,197,94,0.15); color: #4ade80; }
 	.player-row.winner .score-input, .player-row.winner .score-display { color: #4ade80; }
@@ -1415,16 +1531,25 @@
 	.bracket-match.player-highlight { border-color: rgba(56,189,248,0.7); box-shadow: 0 0 12px rgba(56,189,248,0.4), inset 0 0 8px rgba(56,189,248,0.05); transform: scale(1.03); z-index: 10; }
 	.bracket-match { transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s; }
 	.player-row { cursor: default; }
-	.player-name { flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+	.player-name { flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; font-size: 0.85rem; }
 	.seat-badge { flex-shrink: 0; display: inline-flex; align-items: center; padding: 0.1rem 0.35rem; margin-left: 0.3rem; font-size: 0.55rem; font-weight: 700; color: var(--accent); background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.25); border-radius: 4px; text-decoration: none; white-space: nowrap; transition: all 0.15s; vertical-align: middle; }
 	.seat-badge:hover { background: rgba(59,130,246,0.25); color: #93c5fd; border-color: rgba(59,130,246,0.5); transform: translateY(-1px); }
 	.match-divider { height: 1px; background: var(--glass-border); }
 	.score-input { width: 42px; padding: 0.2rem 0.3rem; text-align: center; font-size: 0.75rem; font-weight: 700; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 4px; color: var(--accent); -moz-appearance: textfield; }
 	.score-input::-webkit-inner-spin-button, .score-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 	.score-input:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 6px var(--accent-glow); }
-	.score-display { font-size: 0.75rem; font-weight: 700; color: var(--accent); min-width: 20px; text-align: center; }
-	.score-locked { font-size: 0.7rem; color: var(--text-muted); opacity: 0.7; cursor: not-allowed; transition: opacity 0.2s; display: flex; align-items: center; gap: 0.15rem; }
+	.score-display { font-size: 0.82rem; font-weight: 700; color: var(--accent); min-width: 20px; text-align: center; }
+	.score-locked { font-size: 0.75rem; color: var(--text-muted); opacity: 0.7; cursor: not-allowed; transition: opacity 0.2s; display: flex; align-items: center; gap: 0.15rem; }
 	.score-locked:hover { opacity: 1; }
+
+	/* AXE-29: Directional pan arrows */
+	.pan-arrow { position: absolute; display: flex; align-items: center; justify-content: center; color: var(--accent); font-size: 1.4rem; font-weight: 900; opacity: 0.6; pointer-events: auto; cursor: pointer; z-index: 5; animation: panArrowPulse 1.5s ease-in-out infinite; transition: opacity 0.15s, transform 0.15s; }
+	.pan-arrow:hover { opacity: 1; animation: none; }
+	.pan-arrow-left { left: 6px; top: 50%; transform: translateY(-50%); width: 28px; height: 50px; background: linear-gradient(90deg, rgba(59,130,246,0.15), transparent); border-radius: 6px; }
+	.pan-arrow-right { right: 6px; top: 50%; transform: translateY(-50%); width: 28px; height: 50px; background: linear-gradient(-90deg, rgba(59,130,246,0.15), transparent); border-radius: 6px; }
+	.pan-arrow-up { top: 6px; left: 50%; transform: translateX(-50%) rotate(90deg); width: 28px; height: 50px; background: linear-gradient(90deg, rgba(59,130,246,0.15), transparent); border-radius: 6px; }
+	.pan-arrow-down { bottom: 6px; left: 50%; transform: translateX(-50%) rotate(-90deg); width: 28px; height: 50px; background: linear-gradient(90deg, rgba(59,130,246,0.15), transparent); border-radius: 6px; }
+	@keyframes panArrowPulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 0.85; } }
 	/* Score countdown progress bar */
 	.score-pending { position: relative; width: 100%; height: 16px; background: rgba(0,0,0,0.2); border-radius: 0 0 8px 8px; overflow: hidden; display: flex; align-items: center; }
 	.score-pending-bar { position: absolute; left: 0; top: 0; height: 100%; background: linear-gradient(90deg, #3b82f6, #60a5fa); border-radius: 0 0 0 8px; transition: width 0.1s linear; }
@@ -1629,4 +1754,23 @@
 	.ls-bp-place { color: #fbbf24; background: rgba(251,191,36,0.1); }
 	.ls-bp-score { color: #818cf8; background: rgba(129,140,248,0.1); }
 	.ls-bp-parti { color: var(--text-muted); background: var(--surface-sunken); }
+
+	/* AXE-32: Boolean Mode */
+	.bool-btns { display: flex; gap: 0.2rem; align-items: center; }
+	.bool-btn {
+		padding: 0.15rem 0.35rem; border-radius: 6px; border: 1px solid var(--glass-border);
+		background: transparent; cursor: pointer; font-size: 0.85rem;
+		transition: all 0.15s; opacity: 0.5; line-height: 1;
+	}
+	.bool-btn:hover { opacity: 1; transform: scale(1.15); border-color: rgba(59,130,246,0.4); }
+	.bool-btn.bool-win:hover { border-color: rgba(34,197,94,0.5); background: rgba(34,197,94,0.1); }
+	.bool-btn.bool-draw:hover { border-color: rgba(245,158,11,0.5); background: rgba(245,158,11,0.1); }
+	.bool-btn.bool-lose:hover { border-color: rgba(239,68,68,0.5); background: rgba(239,68,68,0.1); }
+
+	.bool-badge { font-size: 0.85rem; min-width: 1.5rem; text-align: center; }
+	.bool-badge.win { filter: none; }
+	.bool-badge.lose { opacity: 0.5; }
+	.bool-badge.draw { filter: none; }
+
+	.bool-btns-rr { display: flex; gap: 0.3rem; align-items: center; justify-content: center; }
 </style>

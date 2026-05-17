@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
@@ -7,6 +7,23 @@ from .. import models, schemas, auth, database
 from ..websockets import manager as ws_manager
 
 router = APIRouter(tags=["Users"])
+
+# --- Rate-limiting for check-username (anti-spam) ---
+import time as _time
+_check_username_last_call: dict[str, float] = {}
+_CHECK_USERNAME_COOLDOWN = 0.2  # 200ms
+
+@router.get("/check-username/{username}")
+def check_username_exists(username: str, request: Request, db: Session = Depends(database.get_db)):
+    """Check if a username already exists. Public endpoint for login/register flow."""
+    client_ip = request.client.host if request.client else "unknown"
+    now = _time.monotonic()
+    last = _check_username_last_call.get(client_ip, 0)
+    if now - last < _CHECK_USERNAME_COOLDOWN:
+        raise HTTPException(status_code=429, detail="Too many requests")
+    _check_username_last_call[client_ip] = now
+    return {"exists": db.query(models.User).filter(models.User.username == username).first() is not None}
+
 
 @router.post("/register", response_model=schemas.User)
 async def register_user(user: schemas.UserCreate, db: Session = Depends(database.get_db)):
