@@ -989,9 +989,13 @@ future_axes:
 
   - id: AXE-36
     title: "Génération de l'historique des Releases GitHub & Rappel de versioning"
-    status: TODO
+    status: DONE
     description: >
       1. Générer toutes les releases historiques (de v1.0.0 à v1.7.0) via GitHub CLI basées sur les commits originaux.
       2. Mettre à jour la version courante (backend/VERSION) à v1.7.0.
       3. Créer un hook Git pre-push pour rappeler à l'administrateur de créer une release et de mettre à jour le changelog après de nouvelles fonctionnalités.
+    done:
+      - "Les 8 releases historiques ont été publiées sur GitHub via 'gh release create'."
+      - "backend/VERSION et main.py ont été incrémentés à v1.7.0."
+      - "Le hook .git/hooks/pre-push a été configuré pour relancer un rappel élégant à chaque 'git push'."
     priority: medium
