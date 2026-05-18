@@ -870,7 +870,7 @@ future_axes:
 
   - id: AXE-29
     title: "Améliorations UX de la vue Arbre de Tournois (Bracket)"
-    status: TODO
+    status: DONE
     description: >
       Série d'améliorations ergonomiques sur la vue bracket (arbre de tournoi) :
       1. Augmenter la taille du texte dans les matchs pour une meilleure lisibilité.
@@ -886,7 +886,7 @@ future_axes:
 
   - id: AXE-30
     title: "Liste des participants inscrits & composition des équipes (Tournois)"
-    status: TODO
+    status: DONE
     description: >
       Améliorer le flux de composition des équipes dans la vue détail d'un tournoi :
       1. Afficher la liste complète des participants inscrits AVANT la section de composition

@@ -552,11 +552,20 @@ async def randomize_teams(tournament_id: int, db: Session = Depends(database.get
     participants = db.query(models.TournamentParticipant).filter(models.TournamentParticipant.tournament_id == tournament_id).all()
     user_ids = [p.user_id for p in participants]
     random.shuffle(user_ids)
+    team_counts = {t.id: 0 for t in teams}
     team_idx = 0
     for uid in user_ids:
-        team = teams[team_idx % len(teams)]
-        db.add(models.TournamentTeamMember(team_id=team.id, user_id=uid))
-        team_idx += 1
+        assigned = False
+        for _ in range(len(teams)):
+            team = teams[team_idx % len(teams)]
+            team_idx += 1
+            if team_counts[team.id] < max_size:
+                db.add(models.TournamentTeamMember(team_id=team.id, user_id=uid))
+                team_counts[team.id] += 1
+                assigned = True
+                break
+        if not assigned:
+            break  # All teams are full, stop assigning
     db.commit()
     await manager.broadcast({"type": "teams_updated", "tournament_id": tournament_id})
     return {"status": "randomized"}

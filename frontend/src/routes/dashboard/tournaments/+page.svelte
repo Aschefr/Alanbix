@@ -626,6 +626,22 @@
 			return a.localeCompare(b);
 		});
 	})();
+	
+	// Pool of players available to be assigned to teams (with drain effect)
+	$: poolPlayers = useTeams ? unassignedPlayers : participants;
+	$: groupedPoolPlayers = (() => {
+		const groups = {};
+		poolPlayers.forEach(p => {
+			const key = p.team_name || '';
+			if (!groups[key]) groups[key] = [];
+			groups[key].push(p);
+		});
+		return Object.entries(groups).sort(([a], [b]) => {
+			if (!a) return 1;
+			if (!b) return -1;
+			return a.localeCompare(b);
+		});
+	})();
 	$: groupedUnassigned = (() => {
 		const g = {};
 		unassignedPlayers.forEach(p => { const k = p.team_name || ''; if (!g[k]) g[k] = []; g[k].push(p); });
@@ -820,6 +836,61 @@
 					</div>
 
 				{/if}
+				<!-- Participants / Pool -->
+				{#if !useTeams || selected.status === 'OPEN' || isAdmin}
+				<div class="participants-section glass">
+					<div class="section-title">
+						<h3>👥 {useTeams ? 'Pool des inscrits' : 'Participants inscrits'} <span class="part-count">{participants.length} total{#if useTeams && participants.length > 0}, {poolPlayers.length} dispo{/if}</span></h3>
+						{#if isAdmin && selected.status === 'OPEN'}
+							<div class="part-bulk-actions">
+								{#if confirmJoinAll}
+									<span class="inline-confirm">
+										<span class="inline-confirm-label">Tout inscrire ?</span>
+										<button class="admin-btn confirm-yes" on:click={joinAllPlayers}>✓</button>
+										<button class="admin-btn confirm-no" on:click={() => confirmJoinAll = false}>✕</button>
+									</span>
+								{:else}
+									<button class="admin-btn start btn-xs" on:click={() => confirmJoinAll = true} disabled={unregisteredUsers.length === 0}>📥 Inscrire tout le monde</button>
+								{/if}
+								{#if confirmLeaveAll}
+									<span class="inline-confirm">
+										<span class="inline-confirm-label">Tout désinscrire ?</span>
+										<button class="admin-btn confirm-yes" on:click={leaveAllPlayers}>✓</button>
+										<button class="admin-btn confirm-no" on:click={() => confirmLeaveAll = false}>✕</button>
+									</span>
+								{:else}
+									<button class="admin-btn stop btn-xs" on:click={() => confirmLeaveAll = true} disabled={participants.length === 0}>📤 Désinscrire tout</button>
+								{/if}
+							</div>
+						{/if}
+					</div>
+					{#if poolPlayers.length === 0}
+						<span class="text-dim text-sm">{useTeams && participants.length > 0 ? 'Tous les joueurs sont placés dans une équipe.' : 'Aucun inscrit pour le moment.'}</span>
+					{:else}
+						<div class="part-cards-grid">
+							{#each groupedPoolPlayers as [teamName, members]}
+								<div class="part-card glass">
+									<div class="part-card-header">
+										<span class="part-card-name">{teamName || 'Sans équipe'}</span>
+										<span class="part-card-count">{members.length}</span>
+									</div>
+									<div class="part-card-members">
+										{#each members as p}
+											<div class="part-member-row pool-badge" draggable={isAdmin && selected.status === 'OPEN' && useTeams} on:dragstart={(e) => { e.dataTransfer.setData('userId', p.user_id); e.target.classList.add('dragging'); }} on:dragend={(e) => e.target.classList.remove('dragging')}>
+												<span>👤 {p.username}</span>
+												{#if isAdmin && selected.status === 'OPEN'}
+													<button class="part-member-remove" on:click={() => forceRemovePlayer(p.user_id)} title="Désinscrire {p.username}">✕</button>
+												{/if}
+											</div>
+										{/each}
+									</div>
+								</div>
+							{/each}
+						</div>
+					{/if}
+				</div>
+				{/if}
+
 				<!-- Team Composition (always visible in team mode) -->
 				{#if useTeams}
 					<div class="teams-section glass">
@@ -839,7 +910,17 @@
 						{/if}
 						<div class="teams-grid">
 							{#each teams as team}
-								<div class="team-card glass">
+								<div class="team-card glass"
+									on:dragover|preventDefault={(e) => { if(isAdmin && selected.status === 'OPEN') e.currentTarget.classList.add('drag-over'); }}
+									on:dragleave={(e) => e.currentTarget.classList.remove('drag-over')}
+									on:drop|preventDefault={(e) => {
+										e.currentTarget.classList.remove('drag-over');
+										if(isAdmin && selected.status === 'OPEN') {
+											const uid = e.dataTransfer.getData('userId');
+											if(uid) addMemberToTeam(team.id, parseInt(uid));
+										}
+									}}>
+
 									<div class="team-card-header">
 										<span class="team-name">{team.name}</span>
 										<div style="display:flex;gap:0.3rem;align-items:center;">
@@ -1238,58 +1319,6 @@
 					</div>
 				{/if}
 
-				<!-- Participants -->
-				<div class="participants-section glass">
-					<div class="section-title">
-						<h3>👥 Participants inscrits <span class="part-count">{participants.length}</span></h3>
-						{#if isAdmin && selected.status === 'OPEN'}
-							<div class="part-bulk-actions">
-								{#if confirmJoinAll}
-									<span class="inline-confirm">
-										<span class="inline-confirm-label">Tout inscrire ?</span>
-										<button class="admin-btn confirm-yes" on:click={joinAllPlayers}>✓</button>
-										<button class="admin-btn confirm-no" on:click={() => confirmJoinAll = false}>✕</button>
-									</span>
-								{:else}
-									<button class="admin-btn start btn-xs" on:click={() => confirmJoinAll = true} disabled={unregisteredUsers.length === 0}>📥 Inscrire tout le monde</button>
-								{/if}
-								{#if confirmLeaveAll}
-									<span class="inline-confirm">
-										<span class="inline-confirm-label">Tout désinscrire ?</span>
-										<button class="admin-btn confirm-yes" on:click={leaveAllPlayers}>✓</button>
-										<button class="admin-btn confirm-no" on:click={() => confirmLeaveAll = false}>✕</button>
-									</span>
-								{:else}
-									<button class="admin-btn stop btn-xs" on:click={() => confirmLeaveAll = true} disabled={participants.length === 0}>📤 Désinscrire tout</button>
-								{/if}
-							</div>
-						{/if}
-					</div>
-					{#if participants.length === 0}
-						<span class="text-dim text-sm">Aucun inscrit pour le moment.</span>
-					{:else}
-						<div class="part-cards-grid">
-							{#each groupedParticipants as [teamName, members]}
-								<div class="part-card glass">
-									<div class="part-card-header">
-										<span class="part-card-name">{teamName || 'Sans équipe'}</span>
-										<span class="part-card-count">{members.length}</span>
-									</div>
-									<div class="part-card-members">
-										{#each members as p}
-											<div class="part-member-row">
-												<span>👤 {p.username}</span>
-												{#if isAdmin && selected.status === 'OPEN'}
-													<button class="part-member-remove" on:click={() => forceRemovePlayer(p.user_id)} title="Désinscrire {p.username}">✕</button>
-												{/if}
-											</div>
-										{/each}
-									</div>
-								</div>
-							{/each}
-						</div>
-					{/if}
-				</div>
 
 				<!-- Admin: unregistered users -->
 				{#if currentUser?.is_admin && selected.status === 'OPEN' && unregisteredUsers.length > 0}
@@ -1755,6 +1784,14 @@
 	.team-add-select { width: 100%; padding: 0.35rem; border-radius: 6px; border: 1px solid var(--glass-border); background: var(--input-bg); color: var(--input-color); font-size: 0.7rem; appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23888'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 0.5rem center; padding-right: 1.5rem; cursor: pointer; }
 	.team-add-select option { background: var(--bg-secondary); color: var(--text-main); padding: 0.4rem; }
 	.unassigned-hint { margin-top: 0.75rem; padding: 0.5rem 0.75rem; background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.2); border-radius: 8px; color: #f59e0b; font-size: 0.75rem; font-weight: 600; }
+	
+	/* AXE-30: Drag & Drop */
+	.pool-badge[draggable="true"] { cursor: grab; transition: opacity 0.2s, transform 0.2s; }
+	.pool-badge[draggable="true"]:active { cursor: grabbing; }
+	.pool-badge.dragging { opacity: 0.4; transform: scale(0.95); }
+	.team-card { transition: border-color 0.2s, box-shadow 0.2s, background 0.2s, transform 0.2s; }
+	.team-card.drag-over { border-color: rgba(6, 182, 212, 0.8); box-shadow: 0 0 15px rgba(6, 182, 212, 0.4), inset 0 0 10px rgba(6, 182, 212, 0.1); background: rgba(6, 182, 212, 0.05); transform: scale(1.02); }
+
 
 	/* === ROUND ROBIN === */
 	.rr-container { padding: 0.5rem; display: flex; flex-wrap: wrap; gap: 1rem; overflow-y: auto; max-height: 50vh; }
