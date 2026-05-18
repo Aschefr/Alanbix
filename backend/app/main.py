@@ -91,9 +91,18 @@ async def shutdown():
     await queue_manager.stop()
 
 @app.get("/health")
-
 def health_check():
-    return {"status": "ok", "version": "1.0.0"}
+    import os
+    version = "1.5.0"
+    for path in ["VERSION", "../VERSION", "/app/VERSION", "/VERSION"]:
+        if os.path.exists(path):
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    version = f.read().strip()
+                    break
+            except Exception:
+                pass
+    return {"status": "ok", "version": version}
 
 app.include_router(users.router)
 app.include_router(tournaments.router)

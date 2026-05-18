@@ -955,3 +955,34 @@ future_axes:
       - "Transition de translate fluide CSS 3D (Z-axis force pour GPU) à vitesse contrôlée."
       - "Synchronisation robuste des timeouts Svelte (attente haut + défilement + attente bas + transition)."
     priority: high
+
+  - id: AXE-34
+    title: "Système de versioning et patch notes GitHub"
+    status: DONE
+    description: >
+      Ajouter un badge de version SemVer dans l'interface et un modal cliquable
+      qui récupère l'historique des patch notes depuis l'API GitHub.
+      1. Endpoint backend `/health` dynamique lisant le fichier VERSION.
+      2. Montage du fichier VERSION dans le conteneur backend.
+      3. Badge de version cliquable `v{version}` dans le menu latéral.
+      4. Modal en glassmorphisme avec effet de flou pour lister les releases GitHub.
+    done:
+      - "Endpoint backend dynamique /health configuré."
+      - "Fichier VERSION monté via docker-compose."
+      - "Badge cliquable dans la barre latérale."
+      - "Modal glassmorphic avec requêtage dynamique de l'API GitHub des releases."
+    priority: medium
+
+  - id: AXE-35
+    title: "Amélioration de la réactivité (Responsiveness) et gestion du débordement vertical"
+    status: DONE
+    description: >
+      Résoudre le problème de débordement du menu latéral gauche sur les écrans à hauteur de viewport limitée.
+      1. Empêcher tout débordement en dehors du conteneur en verre (.side-nav.glass).
+      2. Ajouter un défilement vertical fluide sur le conteneur de la barre latérale.
+      3. Créer une scrollbar premium minimaliste translucide de 4px d'épaisseur.
+    done:
+      - "Ajout de l'overflow-y: auto et overflow-x: hidden sur le conteneur de la barre latérale."
+      - "Mise en place d'une barre de défilement personnalisée ultra-fine et transparente (W3C/Webkit)."
+      - "Validation du comportement de défilement sous viewport restreint sans débordement de la boîte en verre."
+    priority: high
