@@ -93,7 +93,7 @@ async def shutdown():
 @app.get("/health")
 def health_check():
     import os
-    version = "1.5.0"
+    version = "1.7.0"
     for path in ["VERSION", "../VERSION", "/app/VERSION", "/VERSION"]:
         if os.path.exists(path):
             try:

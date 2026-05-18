@@ -986,3 +986,12 @@ future_axes:
       - "Mise en place d'une barre de défilement personnalisée ultra-fine et transparente (W3C/Webkit)."
       - "Validation du comportement de défilement sous viewport restreint sans débordement de la boîte en verre."
     priority: high
+
+  - id: AXE-36
+    title: "Génération de l'historique des Releases GitHub & Rappel de versioning"
+    status: TODO
+    description: >
+      1. Générer toutes les releases historiques (de v1.0.0 à v1.7.0) via GitHub CLI basées sur les commits originaux.
+      2. Mettre à jour la version courante (backend/VERSION) à v1.7.0.
+      3. Créer un hook Git pre-push pour rappeler à l'administrateur de créer une release et de mettre à jour le changelog après de nouvelles fonctionnalités.
+    priority: medium
