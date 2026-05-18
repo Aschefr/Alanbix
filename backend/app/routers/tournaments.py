@@ -929,7 +929,12 @@ async def update_match_score(
         if bracket_type in ("single_elim", "double_elim", "round_robin"):
             if len(existing_scores) >= 2:
                 es0, es1 = existing_scores[0], existing_scores[1]
-                if (es0 is not None and es1 is not None) and (es0 != 0 or es1 != 0) and es0 != es1:
+                is_locked = (es0 is not None and es1 is not None) and (
+                    (es0 != es1 and (es0 != 0 or es1 != 0)) or (
+                        es0 == es1 and es0 != 0 and bracket_type == "round_robin" and config.get("allow_draws")
+                    )
+                )
+                if is_locked:
                     raise HTTPException(status_code=403, detail="Ce match est terminé. Seul un admin peut modifier le score.")
         elif bracket_type == "ffa":
             if existing_scores and all(s > 0 for s in existing_scores):

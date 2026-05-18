@@ -436,6 +436,7 @@
 			pts_per_match: selected.config?.pts_per_match ?? selected.config?.pts_per_goal ?? 1.0,
 			lower_score_is_better: selected.config?.lower_score_is_better || false,
 			boolean_mode: selected.config?.boolean_mode || false,
+			allow_draws: selected.config?.allow_draws || false,
 			phases: selected.config?.phases || 'single',
 			group_size: selected.config?.group_size || 4,
 			advancers_count: selected.config?.advancers_count || 2
@@ -448,7 +449,7 @@
 			await api.put(`/tournaments/${selectedId}`, {
 				name: editConfig.name,
 				points_per_win: editConfig.points_per_win,
-				config: { ...selected.config, use_teams: editConfig.use_teams, team_size: editConfig.team_size, bracket_type: editConfig.bracket_type, pts_winner: editConfig.pts_winner, pts_second: editConfig.pts_second, pts_third: editConfig.pts_third, pts_participation: editConfig.pts_participation, pts_per_match: editConfig.pts_per_match, lower_score_is_better: editConfig.lower_score_is_better, boolean_mode: editConfig.boolean_mode, phases: editConfig.phases, group_size: editConfig.group_size, advancers_count: editConfig.advancers_count }
+				config: { ...selected.config, use_teams: editConfig.use_teams, team_size: editConfig.team_size, bracket_type: editConfig.bracket_type, pts_winner: editConfig.pts_winner, pts_second: editConfig.pts_second, pts_third: editConfig.pts_third, pts_participation: editConfig.pts_participation, pts_per_match: editConfig.pts_per_match, lower_score_is_better: editConfig.lower_score_is_better, boolean_mode: editConfig.boolean_mode, allow_draws: editConfig.allow_draws, phases: editConfig.phases, group_size: editConfig.group_size, advancers_count: editConfig.advancers_count }
 			});
 			toast('Tournoi mis à jour !', 'success');
 			editingTournament = false;
@@ -916,7 +917,7 @@
 										{#each roundMatches as match}
 											{@const s0 = match.score?.[0] ?? null}
 											{@const s1 = match.score?.[1] ?? null}
-											{@const isDone = s0 !== null && s1 !== null && (s0 !== 0 || s1 !== 0) && s0 !== s1}
+											{@const isDone = s0 !== null && s1 !== null && (s0 !== 0 || s1 !== 0) && (s0 !== s1 || selected?.config?.allow_draws)}
 											<div class="rr-match {isDone ? 'match-done' : ''}">
 												<span class="rr-p {isDone && (lowerIsBetter ? s0 < s1 : s0 > s1) ? 'winner' : ''}">{getPlayerName(match.p[0], nameMap)}{#if match.p[0] > 0 && seatMap[match.p[0]]}<a href="/dashboard/map?highlight={seatMap[match.p[0]]}" class="seat-badge" title="Voir sur le plan">📍{seatMap[match.p[0]]}</a>{/if}</span>
 												<div class="rr-scores">
@@ -928,7 +929,9 @@
 														{:else if canEditPlayerScore(match, 0, myTeamSlotId, isParticipant, currentUser)}
 															<div class="bool-btns-rr">
 																<button class="bool-btn bool-win" on:click={() => setBoolScore(match, 0)} title="Victoire {getPlayerName(match.p[0], nameMap)}">✅</button>
-																<button class="bool-btn bool-draw" on:click={() => setBoolDraw(match)} title="Égalité">🤝</button>
+																{#if selected?.config?.allow_draws}
+																	<button class="bool-btn bool-draw" on:click={() => setBoolDraw(match)} title="Égalité">🤝</button>
+																{/if}
 																<button class="bool-btn bool-win" on:click={() => setBoolScore(match, 1)} title="Victoire {getPlayerName(match.p[1], nameMap)}">✅</button>
 															</div>
 														{:else}
@@ -995,7 +998,6 @@
 																	{#if canEditPlayerScore(match, 0, myTeamSlotId, isParticipant, currentUser) && !isDone}
 																		<div class="bool-btns">
 																			<button class="bool-btn bool-win" on:click={() => setBoolScore(match, 0)} title="Vainqueur">✅</button>
-																			<button class="bool-btn bool-draw" on:click={() => setBoolDraw(match)} title="Égalité">🤝</button>
 																			<button class="bool-btn bool-lose" on:click={() => setBoolScore(match, 1)} title="Perdant">❌</button>
 																		</div>
 																	{:else if isDone}
@@ -1022,7 +1024,6 @@
 																	{#if canEditPlayerScore(match, 1, myTeamSlotId, isParticipant, currentUser) && !isDone}
 																		<div class="bool-btns">
 																			<button class="bool-btn bool-win" on:click={() => setBoolScore(match, 1)} title="Vainqueur">✅</button>
-																			<button class="bool-btn bool-draw" on:click={() => setBoolDraw(match)} title="Égalité">🤝</button>
 																			<button class="bool-btn bool-lose" on:click={() => setBoolScore(match, 0)} title="Perdant">❌</button>
 																		</div>
 																	{:else if isDone}
@@ -1076,7 +1077,6 @@
 																		{#if canEditPlayerScore(match, 0, myTeamSlotId, isParticipant, currentUser) && !isDone}
 																			<div class="bool-btns">
 																				<button class="bool-btn bool-win" on:click={() => setBoolScore(match, 0)} title="Vainqueur">✅</button>
-																				<button class="bool-btn bool-draw" on:click={() => setBoolDraw(match)} title="Égalité">🤝</button>
 																				<button class="bool-btn bool-lose" on:click={() => setBoolScore(match, 1)} title="Perdant">❌</button>
 																			</div>
 																		{:else if isDone}
@@ -1101,7 +1101,6 @@
 																		{#if canEditPlayerScore(match, 1, myTeamSlotId, isParticipant, currentUser) && !isDone}
 																			<div class="bool-btns">
 																				<button class="bool-btn bool-win" on:click={() => setBoolScore(match, 1)} title="Vainqueur">✅</button>
-																				<button class="bool-btn bool-draw" on:click={() => setBoolDraw(match)} title="Égalité">🤝</button>
 																				<button class="bool-btn bool-lose" on:click={() => setBoolScore(match, 0)} title="Perdant">❌</button>
 																			</div>
 																		{:else if isDone}
@@ -1312,6 +1311,14 @@
 							🎯 Mode Victoire/Défaite <span class="edit-hint">(boutons V/D/É au lieu de scores numériques)</span>
 						</label>
 					</div>
+					{#if editConfig.bracket_type === 'round_robin'}
+					<div class="edit-field full-width">
+						<label class="edit-toggle-label">
+							<input type="checkbox" bind:checked={editConfig.allow_draws} />
+							🤝 Autoriser les égalités <span class="edit-hint">(uniquement en mode Championnat / Round Robin)</span>
+						</label>
+					</div>
+					{/if}
 					<div class="edit-field full-width">
 						<label>Structure Globale</label>
 						<div class="edit-toggle-row">

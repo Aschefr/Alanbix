@@ -915,7 +915,7 @@ future_axes:
 
   - id: AXE-32
     title: "Mode booléen pour les tournois (Vainqueur / Perdant / Égalité)"
-    status: WIP
+    status: DONE
     description: >
       Ajouter un mode de saisie alternatif « booléen » pour les matchs de tournoi.
       Quand ce mode est activé dans la configuration du tournoi :
@@ -932,9 +932,6 @@ future_axes:
       - "Boutons V/D/É dans les brackets WB, LB et Round Robin."
       - "Affichage des badges dans les vues dashboard et spectateur."
       - "Fonctions setBoolScore() et setBoolDraw() côté frontend."
-    remaining:
-      - "PROBLÈME ÉGALITÉ : Le score 1-1 ne fait pas avancer le bracket car la logique
-         backend exige s0 != s1 pour déterminer un vainqueur. Il faut trouver comment
-         gérer l'égalité en bracket (ex: prolongation, tiebreaker, ou réserver
-         l'égalité au round robin uniquement)."
+      - "Résolution du problème de l'égalité : réservée uniquement au mode Championnat (Round Robin) via l'option 'allow_draws'."
+      - "Retrait des boutons Égalité des brackets WB/LB pour forcer un vainqueur unique."
     priority: medium

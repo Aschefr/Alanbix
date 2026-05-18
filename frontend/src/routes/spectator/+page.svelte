@@ -382,7 +382,7 @@
 									{#each roundMatches as match}
 										{@const s0 = match.score?.[0] ?? null}
 										{@const s1 = match.score?.[1] ?? null}
-										{@const isDone = s0 !== null && s1 !== null && (s0 !== 0 || s1 !== 0) && s0 !== s1}
+										{@const isDone = s0 !== null && s1 !== null && (s0 !== 0 || s1 !== 0) && (s0 !== s1 || runningTournament?.config?.allow_draws)}
 										<div class="spec-rr-match {isDone ? 'done' : ''}">
 											<span class="spec-rr-p {isDone && (specLowerIsBetter ? s0 < s1 : s0 > s1) ? 'winner' : ''}">{getPlayerName(match.p[0])}</span>
 											{#if runningTournament?.config?.boolean_mode}

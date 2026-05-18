@@ -28,7 +28,8 @@
 		pts_participation: defaultPts.pts_participation, 
 		pts_per_match: defaultPts.pts_per_match,
 		lower_score_is_better: false,
-		boolean_mode: false
+		boolean_mode: false,
+		allow_draws: false
 	};
 
 	onMount(async () => {
@@ -74,14 +75,15 @@
 					pts_participation: Number(config.pts_participation),
 					pts_per_match: Number(config.pts_per_match),
 					lower_score_is_better: config.lower_score_is_better,
-					boolean_mode: config.boolean_mode
+					boolean_mode: config.boolean_mode,
+					allow_draws: config.allow_draws
 				}
 			};
 			const res = await api.post('/tournaments', payload);
 			onSuccess(res);
 			setTimeout(() => {
 				step = 1;
-				config = { name: '', game_id: games.length > 0 ? games[0].id : null, use_teams: false, team_size: 2, points_per_win: 3, phases: 'single', group_size: 4, advancers_count: 2, bracket_type: 'single_elim', pts_winner: defaultPts.pts_winner, pts_second: defaultPts.pts_second, pts_third: defaultPts.pts_third, pts_participation: defaultPts.pts_participation, pts_per_match: defaultPts.pts_per_match, lower_score_is_better: false, boolean_mode: false };
+				config = { name: '', game_id: games.length > 0 ? games[0].id : null, use_teams: false, team_size: 2, points_per_win: 3, phases: 'single', group_size: 4, advancers_count: 2, bracket_type: 'single_elim', pts_winner: defaultPts.pts_winner, pts_second: defaultPts.pts_second, pts_third: defaultPts.pts_third, pts_participation: defaultPts.pts_participation, pts_per_match: defaultPts.pts_per_match, lower_score_is_better: false, boolean_mode: false, allow_draws: false };
 			}, 1000);
 		} catch (e) {
 			errorMsg = e.message || 'Erreur lors de la création';
@@ -218,6 +220,13 @@
 				<input type="checkbox" bind:checked={config.boolean_mode} />
 				🎯 Mode Victoire/Défaite <span class="text-dim text-xs">(boutons V/D/É au lieu de scores numériques)</span>
 			</label>
+
+			{#if config.bracket_type === 'round_robin'}
+			<label class="score-invert-label">
+				<input type="checkbox" bind:checked={config.allow_draws} />
+				🤝 Autoriser les égalités <span class="text-dim text-xs">(uniquement en mode Championnat / Round Robin)</span>
+			</label>
+			{/if}
 
 			<details class="pts-config glass-inner" open>
 				<summary>🏅 Répartition des points</summary>
