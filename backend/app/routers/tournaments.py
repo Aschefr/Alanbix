@@ -418,7 +418,7 @@ async def start_tournament(
     
     bracket_data = []
     for m in engine.matches:
-        bracket_data.append({"id": {"s": m.id.s, "r": m.id.r, "m": m.id.m}, "p": list(m.p), "score": [0] * len(m.p)})
+        bracket_data.append({"id": {"s": m.id.s, "r": m.id.r, "m": m.id.m}, "p": list(m.p), "score": [None] * len(m.p)})
     
     if bracket_type not in ("round_robin", "ffa"):
         # Multi-pass BYE resolution using feeder-aware check
@@ -428,7 +428,7 @@ async def start_tournament(
             for match in bracket_data:
                 p0, p1 = match["p"][0], match["p"][1]
                 s0, s1 = match["score"][0], match["score"][1]
-                if (s0 != 0 or s1 != 0):
+                if s0 is not None or s1 is not None:
                     continue
                 if p0 != 0 and p1 == 0 and _is_genuine_bye(bracket_data, match):
                     match["score"] = [1, 0]
@@ -668,7 +668,7 @@ def _is_genuine_bye(bd, match):
     # For LB: check if scored
     if mid["s"] == 2:
         fs = feeder["score"]
-        if fs[0] == 0 and fs[1] == 0:
+        if any(s is None for s in fs) or (fs[0] == 0 and fs[1] == 0):
             return False  # Not scored yet → wait
     return False
 
@@ -794,8 +794,7 @@ def _clear_player(match, player_id):
         if match["p"][i] == player_id:
             match["p"][i] = 0
             # Also reset score if clearing
-            if all(p == 0 for p in match["p"]):
-                match["score"] = [0] * len(match["score"])
+            match["score"] = [None] * len(match["score"])
 
 
 def _rollback_advancement(bracket, match, bracket_type, lower_is_better=False):
@@ -878,7 +877,7 @@ def _rollback_advancement(bracket, match, bracket_type, lower_is_better=False):
             _rollback_advancement(bracket, nm, bracket_type, lower_is_better)
             # Then clear the player and reset the match score
             _clear_player(nm, player_id)
-            nm["score"] = [0] * len(nm["score"])
+            nm["score"] = [None] * len(nm["score"])
 
 @router.put("/{tournament_id}/score")
 async def update_match_score(
@@ -1037,7 +1036,7 @@ async def ffa_advance_round(
     
     # Create next round
     next_r = max_r + 1
-    new_match = {"id": {"s": 1, "r": next_r, "m": 1}, "p": advancing, "score": [0] * len(advancing)}
+    new_match = {"id": {"s": 1, "r": next_r, "m": 1}, "p": advancing, "score": [None] * len(advancing)}
     bracket.append(new_match)
     
     tournament.bracket = bracket
@@ -1828,8 +1827,10 @@ def _compute_standings(bracket, bracket_type, lower_is_better=False):
     
     if final:
         s = final.get("score", [0, 0])
-        if s[0] != s[1]:
-            w_idx = 0 if s[0] > s[1] else 1
+        s0 = s[0] if len(s) > 0 and s[0] is not None else 0
+        s1 = s[1] if len(s) > 1 and s[1] is not None else 0
+        if s0 != s1:
+            w_idx = 0 if s0 > s1 else 1
             l_idx = 1 - w_idx
             standings.append((1, final["p"][w_idx]))  # 1st
             standings.append((2, final["p"][l_idx]))  # 2nd
@@ -1840,8 +1841,10 @@ def _compute_standings(bracket, bracket_type, lower_is_better=False):
         lb_final = next((m for m in bracket if m["id"]["s"] == 2 and m["id"]["r"] == max_lb and m["id"]["m"] == 1), None)
         if lb_final:
             s = lb_final.get("score", [0, 0])
-            if s[0] != s[1]:
-                l_idx = 1 if s[0] > s[1] else 0
+            s0 = s[0] if len(s) > 0 and s[0] is not None else 0
+            s1 = s[1] if len(s) > 1 and s[1] is not None else 0
+            if s0 != s1:
+                l_idx = 1 if s0 > s1 else 0
                 loser_id = lb_final["p"][l_idx]
                 if loser_id and loser_id != 0 and loser_id not in [x[1] for x in standings]:
                     standings.append((3, loser_id))
@@ -1850,8 +1853,10 @@ def _compute_standings(bracket, bracket_type, lower_is_better=False):
         semis = [m for m in bracket if m["id"]["s"] == 1 and m["id"]["r"] == max_wb - 1]
         for semi in semis:
             s = semi.get("score", [0, 0])
-            if s[0] != s[1]:
-                l_idx = 1 if s[0] > s[1] else 0
+            s0 = s[0] if len(s) > 0 and s[0] is not None else 0
+            s1 = s[1] if len(s) > 1 and s[1] is not None else 0
+            if s0 != s1:
+                l_idx = 1 if s0 > s1 else 0
                 loser_id = semi["p"][l_idx]
                 if loser_id and loser_id != 0 and loser_id not in [x[1] for x in standings]:
                     standings.append((3, loser_id))
@@ -1893,17 +1898,20 @@ def _compute_projected_standings(tournament, db):
         s = m.get("score", [])
         if 0 in p:
             continue
-        has_scores = any(v > 0 for v in s)
+        has_scores = any(v is not None and v > 0 for v in s)
         for i, pid in enumerate(p):
             if pid and pid != 0:
                 wins.setdefault(pid, 0)
                 cumulated_scores.setdefault(pid, 0)
                 matches_played.setdefault(pid, 0)
                 if has_scores and i < len(s):
-                    cumulated_scores[pid] += max(0, s[i])
+                    val = s[i] if s[i] is not None else 0
+                    cumulated_scores[pid] += max(0, val)
                     matches_played[pid] += 1
-        if bracket_type != "ffa" and len(s) >= 2 and s[0] > 0 and s[1] > 0 and s[0] != s[1]:
-            w_idx = (0 if s[0] < s[1] else 1) if lower_is_better else (0 if s[0] > s[1] else 1)
+        s0 = s[0] if len(s) > 0 and s[0] is not None else 0
+        s1 = s[1] if len(s) > 1 and s[1] is not None else 0
+        if bracket_type != "ffa" and len(s) >= 2 and s0 > 0 and s1 > 0 and s0 != s1:
+            w_idx = (0 if s0 < s1 else 1) if lower_is_better else (0 if s0 > s1 else 1)
             w_id = p[w_idx] if w_idx < len(p) else None
             if w_id and w_id != 0:
                 wins[w_id] = wins.get(w_id, 0) + 1
@@ -1921,10 +1929,10 @@ def _compute_projected_standings(tournament, db):
             rm = round_matches[r]
             rp = rm.get("p", [])
             rs = rm.get("score", [])
-            if not any(v > 0 for v in rs):
+            if not any(v is not None and v > 0 for v in rs):
                 continue
             round_data = [(pid, rs[i]) for i, pid in enumerate(rp)
-                          if pid and pid != 0 and i < len(rs) and rs[i] > 0]
+                          if pid and pid != 0 and i < len(rs) and rs[i] is not None and rs[i] > 0]
             if not round_data:
                 continue
             round_scores = [s for _, s in round_data]

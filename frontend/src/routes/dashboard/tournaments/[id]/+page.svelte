@@ -145,9 +145,32 @@
 	}
 
 	function resetZoom() {
-		scale = 1;
-		panX = 0;
-		panY = 0;
+		if (!viewportEl || !canvasEl) return;
+		const vw = viewportEl.clientWidth;
+		const vh = viewportEl.clientHeight;
+		const cw = canvasEl.scrollWidth;
+		const ch = canvasEl.scrollHeight;
+		if (cw === 0 || ch === 0) {
+			scale = 1;
+			panX = 0;
+			panY = 0;
+			return;
+		}
+
+		// Calculate optimal scale factor to fit within viewport with margins
+		const scaleX = (vw - 40) / cw;
+		const scaleY = (vh - 40) / ch;
+		let optimalScale = Math.min(scaleX, scaleY);
+
+		// Clamp optimalScale so that text remains readable (min 0.55, max 1.25)
+		optimalScale = Math.max(0.55, Math.min(optimalScale, 1.25));
+		scale = optimalScale;
+
+		// Center the bracket canvas in the viewport
+		panX = (vw - cw * scale) / 2;
+		panY = (vh - ch * scale) / 2;
+
+		clampPan();
 	}
 
 	function panTo(dx, dy) { panX += dx; panY += dy; clampPan(); }
@@ -158,6 +181,11 @@
 	$: arrowUp = panY < -10;
 	$: arrowDown = viewportEl && canvasEl ? (panY + canvasEl.scrollHeight * scale > viewportEl.clientHeight + 10) : false;
 	$: if (panX !== undefined || panY !== undefined || scale) { arrowLeft = panX < -10; arrowRight = viewportEl && canvasEl ? (panX + canvasEl.scrollWidth * scale > viewportEl.clientWidth + 10) : false; arrowUp = panY < -10; arrowDown = viewportEl && canvasEl ? (panY + canvasEl.scrollHeight * scale > viewportEl.clientHeight + 10) : false; }
+
+	// Auto-fit and center bracket on load
+	$: if (tournament && viewportEl) {
+		setTimeout(() => resetZoom(), 150);
+	}
 
 	// Helper to group matches by round
 	function getRounds() {

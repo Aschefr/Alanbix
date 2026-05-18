@@ -43,13 +43,13 @@ def get_stats(db: Session = Depends(database.get_db)):
                 if pid and pid != 0:
                     wins.setdefault(pid, 0)
                     goals.setdefault(pid, 0)
-                    raw = max(0, s[i] if i < len(s) else 0)
+                    raw = max(0, s[i] if (i < len(s) and s[i] is not None) else 0)
                     if lower_is_better and raw > 0:
-                        max_s = max((v for v in s if v > 0), default=0)
+                        max_s = max((v for v in s if v is not None and v > 0), default=0)
                         goals[pid] += (max_s + 1 - raw)
                     else:
                         goals[pid] += raw
-            if config.get("bracket_type") != "ffa" and len(s) >= 2 and s[0] > 0 and s[1] > 0 and s[0] != s[1]:
+            if config.get("bracket_type") != "ffa" and len(s) >= 2 and s[0] is not None and s[1] is not None and s[0] > 0 and s[1] > 0 and s[0] != s[1]:
                 w_idx = (0 if s[0] < s[1] else 1) if lower_is_better else (0 if s[0] > s[1] else 1)
                 w_id = p[w_idx] if w_idx < len(p) else None
                 if w_id and w_id != 0:
@@ -151,13 +151,13 @@ def get_team_leaderboard(db: Session = Depends(database.get_db)):
                 if pid and pid != 0:
                     wins.setdefault(pid, 0)
                     goals.setdefault(pid, 0)
-                    raw = max(0, s[i] if i < len(s) else 0)
+                    raw = max(0, s[i] if (i < len(s) and s[i] is not None) else 0)
                     if lower_is_better and raw > 0:
-                        max_s = max((v for v in s if v > 0), default=0)
+                        max_s = max((v for v in s if v is not None and v > 0), default=0)
                         goals[pid] += (max_s + 1 - raw)
                     else:
                         goals[pid] += raw
-            if config.get("bracket_type") != "ffa" and len(s) >= 2 and s[0] > 0 and s[1] > 0 and s[0] != s[1]:
+            if config.get("bracket_type") != "ffa" and len(s) >= 2 and s[0] is not None and s[1] is not None and s[0] > 0 and s[1] > 0 and s[0] != s[1]:
                 w_idx = (0 if s[0] < s[1] else 1) if lower_is_better else (0 if s[0] > s[1] else 1)
                 w_id = p[w_idx] if w_idx < len(p) else None
                 if w_id and w_id != 0:

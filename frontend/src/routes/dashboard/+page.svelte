@@ -190,9 +190,21 @@
 		const vh = brViewportEl.clientHeight;
 		const cw = brCanvasEl.scrollWidth * brScale;
 		const ch = brCanvasEl.scrollHeight * brScale;
-		const margin = 60;
-		brPanX = Math.min(margin, Math.max(brPanX, vw - cw - margin));
-		brPanY = Math.min(margin, Math.max(brPanY, vh - ch - margin));
+		const margin = 40;
+		if (cw <= vw) {
+			const minX = -margin;
+			const maxX = vw - cw + margin;
+			brPanX = Math.min(maxX, Math.max(brPanX, minX));
+		} else {
+			brPanX = Math.min(margin, Math.max(brPanX, vw - cw - margin));
+		}
+		if (ch <= vh) {
+			const minY = -margin;
+			const maxY = vh - ch + margin;
+			brPanY = Math.min(maxY, Math.max(brPanY, minY));
+		} else {
+			brPanY = Math.min(margin, Math.max(brPanY, vh - ch - margin));
+		}
 	}
 
 	function brWheel(e) {
@@ -217,6 +229,67 @@
 	$: brArrowUp = brPanY < -10;
 	$: brArrowDown = brViewportEl && brCanvasEl ? (brPanY + brCanvasEl.scrollHeight * brScale > brViewportEl.clientHeight + 10) : false;
 	$: if (brPanX !== undefined || brPanY !== undefined || brScale) { brArrowLeft = brPanX < -10; brArrowRight = brViewportEl && brCanvasEl ? (brPanX + brCanvasEl.scrollWidth * brScale > brViewportEl.clientWidth + 10) : false; brArrowUp = brPanY < -10; brArrowDown = brViewportEl && brCanvasEl ? (brPanY + brCanvasEl.scrollHeight * brScale > brViewportEl.clientHeight + 10) : false; }
+
+	// AXE-29: Smart active round centering algorithms
+	function getMostAdvancedRoundIndex(rounds) {
+		if (!rounds || rounds.length === 0) return 0;
+		let maxRi = 0;
+		// First pass: find the highest round index with an active (unplayed but has actual players) match
+		for (let ri = 0; ri < rounds.length; ri++) {
+			const hasActive = rounds[ri].some(m => {
+				const s0 = m.score?.[0] ?? null;
+				const s1 = m.score?.[1] ?? null;
+				const isDone = s0 !== null && s1 !== null && (s0 !== 0 || s1 !== 0);
+				const hasPlayers = m.p && m.p[0] > 0 && m.p[1] > 0;
+				return hasPlayers && !isDone;
+			});
+			if (hasActive) maxRi = ri;
+		}
+		if (maxRi > 0) return maxRi;
+
+		// Second pass: if no active matches, find the highest round with any played match
+		for (let ri = 0; ri < rounds.length; ri++) {
+			const hasPlayed = rounds[ri].some(m => {
+				const s0 = m.score?.[0] ?? null;
+				const s1 = m.score?.[1] ?? null;
+				return s0 !== null && s1 !== null && (s0 !== 0 || s1 !== 0);
+			});
+			if (hasPlayed) maxRi = ri;
+		}
+		return maxRi;
+	}
+
+	function focusAdvancedRound() {
+		if (!brViewportEl || !brCanvasEl || bracketRounds.length === 0) return;
+		const ri = getMostAdvancedRoundIndex(bracketRounds);
+		const vw = brViewportEl.clientWidth || 340;
+		const vh = brViewportEl.clientHeight || 280;
+
+		// Focus "en gros": set scale to 0.75 so it's clearly readable and fits well in the dashboard card!
+		brScale = 0.75;
+
+		// Column width is 150px, gap is 24px (1.5rem)
+		const colWidth = 150;
+		const gap = 24;
+
+		// Center on the active round and the preceding round if possible, to show the transition/context
+		const startRi = Math.max(0, ri - 1);
+		const endRi = ri;
+		const centerIndex = (startRi + endRi) / 2;
+		const colCenter = centerIndex * (colWidth + gap) + (colWidth / 2);
+		brPanX = (vw / 2) - (colCenter * brScale);
+
+		// Center vertically as well
+		const canvasHeight = brCanvasEl.scrollHeight || 250;
+		brPanY = (vh / 2) - ((canvasHeight * brScale) / 2);
+
+		brClampPan();
+	}
+
+	// Auto-focus on the most advanced round on load / update
+	$: if (bracketRounds && brViewportEl) {
+		setTimeout(() => focusAdvancedRound(), 150);
+	}
 </script>
 
 <div class="hq-dashboard">
@@ -468,15 +541,23 @@
 													<div class="dash-round-hdr">R{ri + 1}</div>
 													<div class="dash-matches-col">
 														{#each roundMatches as match}
+															{@const s0 = match.score?.[0] ?? null}
+															{@const s1 = match.score?.[1] ?? null}
+															{@const isDone = s0 !== null && s1 !== null && (s0 !== 0 || s1 !== 0) && s0 !== s1}
+															{@const lowerIsBetter = activeTournament?.config?.lower_score_is_better}
+															{@const p0Winner = isDone && (lowerIsBetter ? s0 < s1 : s0 > s1)}
+															{@const p0Loser = isDone && (lowerIsBetter ? s0 > s1 : s0 < s1)}
+															{@const p1Winner = isDone && (lowerIsBetter ? s1 < s0 : s1 > s0)}
+															{@const p1Loser = isDone && (lowerIsBetter ? s1 > s0 : s1 < s0)}
 															<div class="dash-match">
-																<div class="dm-player {match.p[0] ? 'filled' : ''}">
+																<div class="dm-player {match.p[0] ? 'filled' : ''} {p0Winner ? 'winner' : ''} {p0Loser ? 'loser' : ''}">
 																	<span>{getPlayerName(match.p[0], dashNameMap)}</span>
-																	<span class="dm-score">{#if activeTournament?.config?.boolean_mode}{#if (match.score?.[0] ?? 0) > (match.score?.[1] ?? 0)}✅{:else if (match.score?.[0] ?? 0) < (match.score?.[1] ?? 0)}❌{:else if (match.score?.[0] ?? 0) > 0}🤝{:else}—{/if}{:else}{match.score?.[0] ?? 0}{/if}</span>
+																	<span class="dm-score">{#if activeTournament?.config?.boolean_mode}{#if s0 > s1}✅{:else if s0 < s1}❌{:else if s0 !== null && s0 > 0}🤝{:else}—{/if}{:else}{s0 ?? 0}{/if}</span>
 																</div>
 																<div class="dm-div"></div>
-																<div class="dm-player {match.p[1] ? 'filled' : ''}">
+																<div class="dm-player {match.p[1] ? 'filled' : ''} {p1Winner ? 'winner' : ''} {p1Loser ? 'loser' : ''}">
 																	<span>{getPlayerName(match.p[1], dashNameMap)}</span>
-																	<span class="dm-score">{#if activeTournament?.config?.boolean_mode}{#if (match.score?.[1] ?? 0) > (match.score?.[0] ?? 0)}✅{:else if (match.score?.[1] ?? 0) < (match.score?.[0] ?? 0)}❌{:else if (match.score?.[1] ?? 0) > 0}🤝{:else}—{/if}{:else}{match.score?.[1] ?? 0}{/if}</span>
+																	<span class="dm-score">{#if activeTournament?.config?.boolean_mode}{#if s1 > s0}✅{:else if s1 < s0}❌{:else if s1 !== null && s1 > 0}🤝{:else}—{/if}{:else}{s1 ?? 0}{/if}</span>
 																</div>
 															</div>
 														{/each}
@@ -661,6 +742,9 @@
 	.dash-match { width: 150px; background: var(--surface-raised); border: 1px solid var(--glass-border); border-radius: 6px; overflow: hidden; }
 	.dm-player { display: flex; justify-content: space-between; padding: 0.3rem 0.5rem; font-size: 0.6rem; color: var(--text-muted); background: var(--surface-sunken); }
 	.dm-player.filled { color: var(--text-main); background: var(--accent-soft); }
+	.dm-player.winner { background: rgba(34, 197, 94, 0.18) !important; color: #4ade80 !important; font-weight: 700; }
+	.dm-player.winner .dm-score { color: #4ade80 !important; }
+	.dm-player.loser { opacity: 0.65; }
 	.dm-player span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 	.dm-score { font-weight: 800; color: var(--accent); min-width: 14px; text-align: right; flex-shrink: 0; }
 	.dm-div { height: 1px; background: var(--glass-border); }
