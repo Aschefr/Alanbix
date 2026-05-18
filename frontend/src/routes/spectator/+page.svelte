@@ -24,6 +24,8 @@
 	let isAnimating = false;
 	let scrollDuration = 0;
 	let hasStartedScrollForCurrent = false;
+	let lastView = '';
+	let lastTourneyIdx = -1;
 	let transClass = 'slide-in';
 
 	async function fetchPublic(path) {
@@ -230,6 +232,8 @@
 
 		if (currentView !== 'bracket') return;
 
+		console.log('[AutoScroll] roundsHeight:', roundsHeight, 'viewportHeight:', viewportHeight);
+
 		// Wait a small delay for Svelte to bind clientHeights after DOM rendering
 		bracketScrollTimeout = setTimeout(() => {
 			if (roundsHeight > viewportHeight + 10) {
@@ -239,6 +243,7 @@
 				const overflowY = roundsHeight - viewportHeight;
 				// Scroll at 35px per second for incredibly smooth reading speed
 				scrollDuration = Math.max(3, overflowY / 35);
+				console.log('[AutoScroll] Starting scroll, duration:', scrollDuration, 'overflowY:', overflowY);
 				
 				// Initial wait: 3 seconds to read the top matches
 				bracketScrollTimeout = setTimeout(() => {
@@ -252,6 +257,9 @@
 					}, totalWait);
 				}, 3000);
 			} else {
+				if (hasStartedScrollForCurrent) return;
+				hasStartedScrollForCurrent = true;
+				console.log('[AutoScroll] Bracket fits perfectly. Scheduling normal slide transition.');
 				// If it fits, just schedule the normal slide duration (12 seconds)
 				startSlideshow(12000);
 			}
@@ -259,21 +267,37 @@
 	}
 
 	// Reactive slideshow scheduler
-	$: if (currentView !== undefined || bracketTourneyIdx !== undefined || paused !== undefined) {
-		// Reset scroll state on view or tournament change
-		hasStartedScrollForCurrent = false;
-		translateY = 0;
-		isAnimating = false;
-		scrollDuration = 0;
-
-		clearTimeout(slideTimeout);
-		clearTimeout(bracketScrollTimeout);
+	$: if (currentView !== undefined || bracketTourneyIdx !== undefined || paused !== undefined || roundsHeight !== undefined || viewportHeight !== undefined) {
 		if (!paused) {
 			if (currentView === 'bracket') {
-				handleBracketAutoScroll();
+				if (currentView !== lastView || bracketTourneyIdx !== lastTourneyIdx) {
+					// Reset scroll state on tournament or view change
+					hasStartedScrollForCurrent = false;
+					translateY = 0;
+					isAnimating = false;
+					scrollDuration = 0;
+					clearTimeout(bracketScrollTimeout);
+					clearTimeout(slideTimeout);
+					lastView = currentView;
+					lastTourneyIdx = bracketTourneyIdx;
+					console.log('[AutoScroll] View/tournament changed to bracket, resetting scroll state.');
+				}
+				if (!hasStartedScrollForCurrent) {
+					handleBracketAutoScroll();
+				}
 			} else {
+				hasStartedScrollForCurrent = false;
+				translateY = 0;
+				isAnimating = false;
+				scrollDuration = 0;
+				clearTimeout(bracketScrollTimeout);
 				startSlideshow(12000);
+				lastView = currentView;
+				lastTourneyIdx = bracketTourneyIdx;
 			}
+		} else {
+			clearTimeout(slideTimeout);
+			clearTimeout(bracketScrollTimeout);
 		}
 	}
 </script>
@@ -536,15 +560,15 @@
 	.nav-dot.active { background: var(--accent, #3b82f6); opacity: 1; box-shadow: 0 0 10px rgba(59,130,246,0.5); transform: scale(1.3); border-color: transparent; }
 	.pause-badge { font-size: 0.6rem; font-weight: 800; color: #fbbf24; background: rgba(251,191,36,0.1); padding: 0.2rem 0.6rem; border-radius: 20px; border: 1px solid rgba(251,191,36,0.2); }
 
-	.spec-content { flex-grow: 1; display: flex; align-items: center; justify-content: center; padding: 2rem 4rem; }
-	.bracket-active .spec-content { padding: 1rem; align-items: stretch; }
+	.spec-content { flex-grow: 1; display: flex; align-items: center; justify-content: center; padding: 2rem 4rem; min-height: 0; }
+	.bracket-active .spec-content { padding: 1rem; align-items: stretch; min-height: 0; height: 0; }
 	.spec-content.slide-in { animation: specSlideIn 0.6s cubic-bezier(0.16,1,0.3,1) forwards; }
 	@keyframes specSlideIn { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
 
 	.spec-view { width: 100%; max-width: 1100px; }
-	.spec-view-wide { max-width: 100%; display: flex; flex-direction: column; height: 100%; }
+	.spec-view-wide { max-width: 100%; display: flex; flex-direction: column; height: 100%; min-height: 0; }
 
-	.spec-bracket-viewport { width: 100%; flex-grow: 1; overflow: hidden; position: relative; display: flex; flex-direction: column; }
+	.spec-bracket-viewport { width: 100%; flex-grow: 1; overflow: hidden; position: relative; display: flex; flex-direction: column; min-height: 0; }
 	.spec-bracket-content { width: 100%; display: flex; flex-direction: column; transform-origin: top center; }
 	.spec-title { font-size: 3rem; font-weight: 800; text-align: center; margin-bottom: 2.5rem; background: linear-gradient(135deg, var(--title-gradient-from, white) 0%, var(--title-gradient-to, rgba(255,255,255,0.6)) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
 

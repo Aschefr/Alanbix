@@ -935,3 +935,23 @@ future_axes:
       - "Résolution du problème de l'égalité : réservée uniquement au mode Championnat (Round Robin) via l'option 'allow_draws'."
       - "Retrait des boutons Égalité des brackets WB/LB pour forcer un vainqueur unique."
     priority: medium
+
+  - id: AXE-33
+    title: "Défilement vertical automatique pour brackets géants (Vue Projecteur)"
+    status: DONE
+    description: >
+      Permettre une lecture intégrale des arbres de tournois (Duel, FFA, Championnat)
+      qui dépassent en hauteur sur l'écran du projecteur.
+      1. Si le bracket est plus grand que le viewport vertical de l'écran :
+         a. Suspendre le défilement automatique du diaporama.
+         b. Attendre 3 secondes tout en haut du bracket.
+         c. Effectuer une transition de translation verticale fluide vers le bas (GPU-accelerated CSS translateY) à une vitesse de 35px/s.
+         d. Attendre 3 secondes tout en bas du bracket.
+         e. Passer à la slide suivante et réactiver le diaporama.
+      2. Le défilement ne doit pas boucler ou se bloquer indéfiniment.
+    done:
+      - "Détection automatique du débordement en hauteur (roundsHeight > viewportHeight)."
+      - "Verrouillage anti-boucle (hasStartedScrollForCurrent) pour éviter les boucles infinies lors de la liaison de hauteur de Svelte."
+      - "Transition de translate fluide CSS 3D (Z-axis force pour GPU) à vitesse contrôlée."
+      - "Synchronisation robuste des timeouts Svelte (attente haut + défilement + attente bas + transition)."
+    priority: high
