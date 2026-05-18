@@ -364,6 +364,9 @@
 	function setBoolDraw(match) {
 		scheduleScore(match, 0, [1, 1]);
 	}
+	function resetBoolScore(match) {
+		scheduleScore(match, 0, [null, null]);
+	}
 
 	async function advanceFFARound() {
 		try {
@@ -923,9 +926,14 @@
 												<div class="rr-scores">
 													{#if booleanMode}
 														{#if isDone}
-															<span class="bool-badge {(lowerIsBetter ? (s0 ?? 0) < (s1 ?? 0) : (s0 ?? 0) > (s1 ?? 0)) ? 'win' : ((s0 ?? 0) === (s1 ?? 0) && (s0 ?? 0) !== 0 ? 'draw' : 'lose')}">{(lowerIsBetter ? (s0 ?? 0) < (s1 ?? 0) : (s0 ?? 0) > (s1 ?? 0)) ? '✅' : ((s0 ?? 0) === (s1 ?? 0) && (s0 ?? 0) !== 0 ? '🤝' : '❌')}</span>
-															<span class="rr-vs">-</span>
-															<span class="bool-badge {(lowerIsBetter ? (s1 ?? 0) < (s0 ?? 0) : (s1 ?? 0) > (s0 ?? 0)) ? 'win' : ((s0 ?? 0) === (s1 ?? 0) && (s0 ?? 0) !== 0 ? 'draw' : 'lose')}">{(lowerIsBetter ? (s1 ?? 0) < (s0 ?? 0) : (s1 ?? 0) > (s0 ?? 0)) ? '✅' : ((s0 ?? 0) === (s1 ?? 0) && (s0 ?? 0) !== 0 ? '🤝' : '❌')}</span>
+															<div class="bool-badge-container">
+																<span class="bool-badge {(lowerIsBetter ? (s0 ?? 0) < (s1 ?? 0) : (s0 ?? 0) > (s1 ?? 0)) ? 'win' : ((s0 ?? 0) === (s1 ?? 0) && (s0 ?? 0) !== 0 ? 'draw' : 'lose')}">{(lowerIsBetter ? (s0 ?? 0) < (s1 ?? 0) : (s0 ?? 0) > (s1 ?? 0)) ? '✅' : ((s0 ?? 0) === (s1 ?? 0) && (s0 ?? 0) !== 0 ? '🤝' : '❌')}</span>
+																<span class="rr-vs">-</span>
+																<span class="bool-badge {(lowerIsBetter ? (s1 ?? 0) < (s0 ?? 0) : (s1 ?? 0) > (s0 ?? 0)) ? 'win' : ((s0 ?? 0) === (s1 ?? 0) && (s0 ?? 0) !== 0 ? 'draw' : 'lose')}">{(lowerIsBetter ? (s1 ?? 0) < (s0 ?? 0) : (s1 ?? 0) > (s0 ?? 0)) ? '✅' : ((s0 ?? 0) === (s1 ?? 0) && (s0 ?? 0) !== 0 ? '🤝' : '❌')}</span>
+																{#if isAdmin}
+																	<button class="bool-reset-btn" on:click={() => resetBoolScore(match)} title="Annuler le score (revenir en arrière)">↩️</button>
+																{/if}
+															</div>
 														{:else if canEditPlayerScore(match, 0, myTeamSlotId, isParticipant, currentUser)}
 															<div class="bool-btns-rr">
 																<button class="bool-btn bool-win" on:click={() => setBoolScore(match, 0)} title="Victoire {getPlayerName(match.p[0], nameMap)}">✅</button>
@@ -1001,7 +1009,12 @@
 																			<button class="bool-btn bool-lose" on:click={() => setBoolScore(match, 1)} title="Perdant">❌</button>
 																		</div>
 																	{:else if isDone}
-																		<span class="bool-badge {(lowerIsBetter ? (s0 ?? 0) < (s1 ?? 0) : (s0 ?? 0) > (s1 ?? 0)) ? 'win' : (s0 === s1 ? 'draw' : 'lose')}">{(lowerIsBetter ? (s0 ?? 0) < (s1 ?? 0) : (s0 ?? 0) > (s1 ?? 0)) ? '✅' : (s0 === s1 ? '🤝' : '❌')}</span>
+																		<div class="bool-badge-container">
+																			<span class="bool-badge {(lowerIsBetter ? (s0 ?? 0) < (s1 ?? 0) : (s0 ?? 0) > (s1 ?? 0)) ? 'win' : (s0 === s1 ? 'draw' : 'lose')}">{(lowerIsBetter ? (s0 ?? 0) < (s1 ?? 0) : (s0 ?? 0) > (s1 ?? 0)) ? '✅' : (s0 === s1 ? '🤝' : '❌')}</span>
+																			{#if isAdmin}
+																				<button class="bool-reset-btn" on:click={() => resetBoolScore(match)} title="Annuler le score (revenir en arrière)">↩️</button>
+																			{/if}
+																		</div>
 																	{:else}
 																		<span class="score-display">—</span>
 																	{/if}
@@ -1027,7 +1040,12 @@
 																			<button class="bool-btn bool-lose" on:click={() => setBoolScore(match, 0)} title="Perdant">❌</button>
 																		</div>
 																	{:else if isDone}
-																		<span class="bool-badge {(lowerIsBetter ? (s1 ?? 0) < (s0 ?? 0) : (s1 ?? 0) > (s0 ?? 0)) ? 'win' : (s0 === s1 ? 'draw' : 'lose')}">{(lowerIsBetter ? (s1 ?? 0) < (s0 ?? 0) : (s1 ?? 0) > (s0 ?? 0)) ? '✅' : (s0 === s1 ? '🤝' : '❌')}</span>
+																		<div class="bool-badge-container">
+																			<span class="bool-badge {(lowerIsBetter ? (s1 ?? 0) < (s0 ?? 0) : (s1 ?? 0) > (s0 ?? 0)) ? 'win' : (s0 === s1 ? 'draw' : 'lose')}">{(lowerIsBetter ? (s1 ?? 0) < (s0 ?? 0) : (s1 ?? 0) > (s0 ?? 0)) ? '✅' : (s0 === s1 ? '🤝' : '❌')}</span>
+																			{#if isAdmin}
+																				<button class="bool-reset-btn" on:click={() => resetBoolScore(match)} title="Annuler le score (revenir en arrière)">↩️</button>
+																			{/if}
+																		</div>
 																	{:else}
 																		<span class="score-display">—</span>
 																	{/if}
@@ -1080,7 +1098,12 @@
 																				<button class="bool-btn bool-lose" on:click={() => setBoolScore(match, 1)} title="Perdant">❌</button>
 																			</div>
 																		{:else if isDone}
-																			<span class="bool-badge {(lowerIsBetter ? (s0??0) < (s1??0) : (s0??0) > (s1??0)) ? 'win' : ((s0??0)===(s1??0) && (s0??0)!==0 ? 'draw' : 'lose')}">{(lowerIsBetter ? (s0??0) < (s1??0) : (s0??0) > (s1??0)) ? '✅' : ((s0??0)===(s1??0) && (s0??0)!==0 ? '🤝' : '❌')}</span>
+																			<div class="bool-badge-container">
+																				<span class="bool-badge {(lowerIsBetter ? (s0??0) < (s1??0) : (s0??0) > (s1??0)) ? 'win' : ((s0??0)===(s1??0) && (s0??0)!==0 ? 'draw' : 'lose')}">{(lowerIsBetter ? (s0??0) < (s1??0) : (s0??0) > (s1??0)) ? '✅' : ((s0??0)===(s1??0) && (s0??0)!==0 ? '🤝' : '❌')}</span>
+																				{#if isAdmin}
+																					<button class="bool-reset-btn" on:click={() => resetBoolScore(match)} title="Annuler le score (revenir en arrière)">↩️</button>
+																				{/if}
+																			</div>
 																		{:else}<span class="score-display">—</span>{/if}
 																	{:else}
 																		{#if canEditPlayerScore(match, 0, myTeamSlotId, isParticipant, currentUser)}
@@ -1104,7 +1127,12 @@
 																				<button class="bool-btn bool-lose" on:click={() => setBoolScore(match, 0)} title="Perdant">❌</button>
 																			</div>
 																		{:else if isDone}
-																			<span class="bool-badge {(lowerIsBetter ? (s1??0) < (s0??0) : (s1??0) > (s0??0)) ? 'win' : ((s0??0)===(s1??0) && (s0??0)!==0 ? 'draw' : 'lose')}">{(lowerIsBetter ? (s1??0) < (s0??0) : (s1??0) > (s0??0)) ? '✅' : ((s0??0)===(s1??0) && (s0??0)!==0 ? '🤝' : '❌')}</span>
+																			<div class="bool-badge-container">
+																				<span class="bool-badge {(lowerIsBetter ? (s1??0) < (s0??0) : (s1??0) > (s0??0)) ? 'win' : ((s0??0)===(s1??0) && (s0??0)!==0 ? 'draw' : 'lose')}">{(lowerIsBetter ? (s1??0) < (s0??0) : (s1??0) > (s0??0)) ? '✅' : ((s0??0)===(s1??0) && (s0??0)!==0 ? '🤝' : '❌')}</span>
+																				{#if isAdmin}
+																					<button class="bool-reset-btn" on:click={() => resetBoolScore(match)} title="Annuler le score (revenir en arrière)">↩️</button>
+																				{/if}
+																			</div>
 																		{:else}<span class="score-display">—</span>{/if}
 																	{:else}
 																		{#if canEditPlayerScore(match, 1, myTeamSlotId, isParticipant, currentUser)}
@@ -1780,4 +1808,11 @@
 	.bool-badge.draw { filter: none; }
 
 	.bool-btns-rr { display: flex; gap: 0.3rem; align-items: center; justify-content: center; }
+	.bool-badge-container { display: inline-flex; align-items: center; gap: 0.25rem; }
+	.bool-reset-btn {
+		background: transparent; border: none; cursor: pointer; font-size: 0.8rem;
+		padding: 0.1rem; border-radius: 4px; transition: all 0.15s; opacity: 0.5;
+		line-height: 1; display: inline-flex; align-items: center; justify-content: center;
+	}
+	.bool-reset-btn:hover { opacity: 1; transform: scale(1.2); }
 </style>

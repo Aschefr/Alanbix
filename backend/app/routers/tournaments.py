@@ -968,7 +968,7 @@ async def update_match_score(
     
     tournament_done = False
     if bracket_type == "round_robin":
-        all_scored = all((m["score"][0] != 0 or m["score"][1] != 0) for m in bracket)
+        all_scored = all((m["score"][0] is not None and m["score"][1] is not None and (m["score"][0] != 0 or m["score"][1] != 0)) for m in bracket)
         if all_scored:
             tournament_done = True
     elif bracket_type == "ffa":
@@ -1800,6 +1800,8 @@ def _compute_standings(bracket, bracket_type, lower_is_better=False):
             s0, s1 = m.get("score", [0, 0])[0], m.get("score", [0, 0])[1]
             if p0: win_counts.setdefault(p0, 0)
             if p1: win_counts.setdefault(p1, 0)
+            if s0 is None or s1 is None:
+                continue
             if lower_is_better:
                 if s0 < s1 and s0 > 0 and p0:
                     win_counts[p0] = win_counts.get(p0, 0) + 1
