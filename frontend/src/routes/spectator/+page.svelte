@@ -16,7 +16,14 @@
 	let participants = [];
 	let specTeams = [];
 	let spectatorInfo = '';
-	let interval;
+	let slideTimeout;
+	let bracketScrollTimeout;
+	let viewportHeight = 0;
+	let roundsHeight = 0;
+	let translateY = 0;
+	let isAnimating = false;
+	let scrollDuration = 0;
+	let hasStartedScrollForCurrent = false;
 	let transClass = 'slide-in';
 
 	async function fetchPublic(path) {
@@ -172,16 +179,15 @@
 		connectWS();
 		refreshData();
 
-		interval = setInterval(() => {
-			if (!paused) nextView();
-		}, 12000);
+		startSlideshow(12000);
 
 		const unsubscribe = wsMessageStore.subscribe(msg => {
 			if (msg) refreshData();
 		});
 
 		return () => {
-			clearInterval(interval);
+			clearTimeout(slideTimeout);
+			clearTimeout(bracketScrollTimeout);
 			unsubscribe();
 		};
 	});
@@ -209,6 +215,67 @@
 		const maxY = Math.max(...items.map(i => i.y + i.h)) + pad;
 		return `${minX} ${minY} ${maxX - minX} ${maxY - minY}`;
 	})();
+
+	function startSlideshow(delay = 12000) {
+		clearTimeout(slideTimeout);
+		if (paused) return;
+		slideTimeout = setTimeout(() => {
+			nextView();
+		}, delay);
+	}
+
+	function handleBracketAutoScroll() {
+		clearTimeout(bracketScrollTimeout);
+		clearTimeout(slideTimeout);
+
+		if (currentView !== 'bracket') return;
+
+		// Wait a small delay for Svelte to bind clientHeights after DOM rendering
+		bracketScrollTimeout = setTimeout(() => {
+			if (roundsHeight > viewportHeight + 10) {
+				if (hasStartedScrollForCurrent) return;
+				hasStartedScrollForCurrent = true;
+
+				const overflowY = roundsHeight - viewportHeight;
+				// Scroll at 35px per second for incredibly smooth reading speed
+				scrollDuration = Math.max(3, overflowY / 35);
+				
+				// Initial wait: 3 seconds to read the top matches
+				bracketScrollTimeout = setTimeout(() => {
+					isAnimating = true;
+					translateY = -overflowY;
+
+					// Wait for scroll to complete + 3 seconds to read the bottom matches
+					const totalWait = (scrollDuration * 1000) + 3000;
+					bracketScrollTimeout = setTimeout(() => {
+						nextView();
+					}, totalWait);
+				}, 3000);
+			} else {
+				// If it fits, just schedule the normal slide duration (12 seconds)
+				startSlideshow(12000);
+			}
+		}, 450);
+	}
+
+	// Reactive slideshow scheduler
+	$: if (currentView !== undefined || bracketTourneyIdx !== undefined || paused !== undefined) {
+		// Reset scroll state on view or tournament change
+		hasStartedScrollForCurrent = false;
+		translateY = 0;
+		isAnimating = false;
+		scrollDuration = 0;
+
+		clearTimeout(slideTimeout);
+		clearTimeout(bracketScrollTimeout);
+		if (!paused) {
+			if (currentView === 'bracket') {
+				handleBracketAutoScroll();
+			} else {
+				startSlideshow(12000);
+			}
+		}
+	}
 </script>
 
 <svelte:window on:keydown={handleKey} />
@@ -347,89 +414,93 @@
 					{#if runningGame}<span class="hero-game-name">{runningGame.name}</span>{/if}
 				</div>
 				{#if bracketRounds.length > 0}
-					{#if bracketType === 'ffa'}
-						<!-- FFA View -->
-						<div class="spec-ffa-area">
-							{#each bracketRounds as roundMatches, ri}
-								{@const match = roundMatches[0]}
-								{@const isLatest = ri === bracketRounds.length - 1}
-								<div class="spec-ffa-round {isLatest ? 'current' : 'past'}">
-									<div class="spec-ffa-hdr">
-										<span>Manche {ri + 1}</span>
-										<span class="spec-ffa-count">{match.p.length} joueurs</span>
-									</div>
-									<div class="spec-ffa-players">
-										{#each match.p as playerId, pi}
-											{@const mRank = getFFAMatchRank(match, pi, specLowerIsBetter)}
-											<div class="spec-ffa-row {mRank === 1 ? 'gold' : mRank === 2 ? 'silver' : mRank === 3 ? 'bronze' : ''}">
-												<span class="spec-ffa-rank">{#if mRank}#{mRank}{:else}—{/if}</span>
-												<span class="spec-ffa-name">{getPlayerName(playerId)}</span>
-												{#if match.score?.[pi] > 0}
-													<span class="spec-ffa-score">{match.score[pi]}</span>
-												{/if}
+					<div class="spec-bracket-viewport" bind:clientHeight={viewportHeight}>
+						<div class="spec-bracket-content" bind:clientHeight={roundsHeight} style="transform: translateY({translateY}px) translateZ(0); transition: {isAnimating ? 'transform ' + scrollDuration + 's linear' : 'none'};">
+							{#if bracketType === 'ffa'}
+								<!-- FFA View -->
+								<div class="spec-ffa-area">
+									{#each bracketRounds as roundMatches, ri}
+										{@const match = roundMatches[0]}
+										{@const isLatest = ri === bracketRounds.length - 1}
+										<div class="spec-ffa-round {isLatest ? 'current' : 'past'}">
+											<div class="spec-ffa-hdr">
+												<span>Manche {ri + 1}</span>
+												<span class="spec-ffa-count">{match.p.length} joueurs</span>
+											</div>
+											<div class="spec-ffa-players">
+												{#each match.p as playerId, pi}
+													{@const mRank = getFFAMatchRank(match, pi, specLowerIsBetter)}
+													<div class="spec-ffa-row {mRank === 1 ? 'gold' : mRank === 2 ? 'silver' : mRank === 3 ? 'bronze' : ''}">
+														<span class="spec-ffa-rank">{#if mRank}#{mRank}{:else}—{/if}</span>
+														<span class="spec-ffa-name">{getPlayerName(playerId)}</span>
+														{#if match.score?.[pi] > 0}
+															<span class="spec-ffa-score">{match.score[pi]}</span>
+														{/if}
+													</div>
+												{/each}
+											</div>
+										</div>
+									{/each}
+								</div>
+							{:else if bracketType === 'round_robin'}
+								<!-- Round Robin -->
+								<div class="spec-rr-area">
+									{#each bracketRounds as roundMatches, ri}
+										<div class="spec-rr-round">
+											<div class="spec-round-hdr">Journée {ri + 1}</div>
+											{#each roundMatches as match}
+												{@const s0 = match.score?.[0] ?? null}
+												{@const s1 = match.score?.[1] ?? null}
+												{@const isDone = s0 !== null && s1 !== null && (s0 !== 0 || s1 !== 0) && (s0 !== s1 || runningTournament?.config?.allow_draws)}
+												<div class="spec-rr-match {isDone ? 'done' : ''}">
+													<span class="spec-rr-p {isDone && (specLowerIsBetter ? s0 < s1 : s0 > s1) ? 'winner' : ''}">{getPlayerName(match.p[0])}</span>
+													{#if runningTournament?.config?.boolean_mode}
+														<span class="spec-rr-score">{#if isDone}{(specLowerIsBetter ? (s0??0) < (s1??0) : (s0??0) > (s1??0)) ? '✅' : ((s0??0)===(s1??0) && (s0??0)!==0 ? '🤝' : '❌')} - {(specLowerIsBetter ? (s1??0) < (s0??0) : (s1??0) > (s0??0)) ? '✅' : ((s0??0)===(s1??0) && (s0??0)!==0 ? '🤝' : '❌')}{:else}—{/if}</span>
+													{:else}
+														<span class="spec-rr-score">{s0 ?? 0} - {s1 ?? 0}</span>
+													{/if}
+													<span class="spec-rr-p {isDone && (specLowerIsBetter ? s1 < s0 : s1 > s0) ? 'winner' : ''}">{getPlayerName(match.p[1])}</span>
+												</div>
+											{/each}
+										</div>
+									{/each}
+								</div>
+							{:else}
+								<!-- Duel bracket (single/double elim) -->
+								<div class="spec-bracket-area">
+									<div class="spec-rounds">
+										{#each bracketRounds as roundMatches, ri}
+											<div class="spec-round-col">
+												<div class="spec-round-hdr">{ri === bracketRounds.length - 1 && bracketRounds.length > 1 ? '🏆 FINALE' : 'ROUND ' + (ri + 1)}</div>
+												<div class="spec-matches">
+													{#each roundMatches as match}
+														{@const s0 = match.score?.[0] ?? null}
+														{@const s1 = match.score?.[1] ?? null}
+														{@const isDone = s0 !== null && s1 !== null && (s0 !== 0 || s1 !== 0) && s0 !== s1}
+														{@const isBye = match.p[0] === 0 && match.p[1] === 0}
+														{@const isAutoWin = (match.p[0] === 0 || match.p[1] === 0) && (s0 > 0 || s1 > 0)}
+														{#if !isBye && !isAutoWin}
+															<div class="spec-match {isDone ? 'done' : ''}">
+																<div class="spec-player {isDone && (specLowerIsBetter ? s0 < s1 : s0 > s1) ? 'winner' : ''} {isDone && (specLowerIsBetter ? s0 > s1 : s0 < s1) ? 'loser' : ''}">
+																	<span class="spec-pname">{getPlayerName(match.p[0])}</span>
+																	<span class="spec-pscore">{#if runningTournament?.config?.boolean_mode}{#if isDone && (specLowerIsBetter ? (s0??0) < (s1??0) : (s0??0) > (s1??0))}✅{:else if isDone}❌{:else}{s0 ?? 0}{/if}{:else}{s0 ?? 0}{/if}</span>
+																</div>
+																<div class="spec-match-div"></div>
+																<div class="spec-player {isDone && (specLowerIsBetter ? s1 < s0 : s1 > s0) ? 'winner' : ''} {isDone && (specLowerIsBetter ? s1 > s0 : s1 < s0) ? 'loser' : ''}">
+																	<span class="spec-pname">{getPlayerName(match.p[1])}</span>
+																	<span class="spec-pscore">{#if runningTournament?.config?.boolean_mode}{#if isDone && (specLowerIsBetter ? (s1??0) < (s0??0) : (s1??0) > (s0??0))}✅{:else if isDone}❌{:else}{s1 ?? 0}{/if}{:else}{s1 ?? 0}{/if}</span>
+																</div>
+															</div>
+														{/if}
+													{/each}
+												</div>
 											</div>
 										{/each}
 									</div>
 								</div>
-							{/each}
+							{/if}
 						</div>
-					{:else if bracketType === 'round_robin'}
-						<!-- Round Robin -->
-						<div class="spec-rr-area">
-							{#each bracketRounds as roundMatches, ri}
-								<div class="spec-rr-round">
-									<div class="spec-round-hdr">Journée {ri + 1}</div>
-									{#each roundMatches as match}
-										{@const s0 = match.score?.[0] ?? null}
-										{@const s1 = match.score?.[1] ?? null}
-										{@const isDone = s0 !== null && s1 !== null && (s0 !== 0 || s1 !== 0) && (s0 !== s1 || runningTournament?.config?.allow_draws)}
-										<div class="spec-rr-match {isDone ? 'done' : ''}">
-											<span class="spec-rr-p {isDone && (specLowerIsBetter ? s0 < s1 : s0 > s1) ? 'winner' : ''}">{getPlayerName(match.p[0])}</span>
-											{#if runningTournament?.config?.boolean_mode}
-												<span class="spec-rr-score">{#if isDone}{(specLowerIsBetter ? (s0??0) < (s1??0) : (s0??0) > (s1??0)) ? '✅' : ((s0??0)===(s1??0) && (s0??0)!==0 ? '🤝' : '❌')} - {(specLowerIsBetter ? (s1??0) < (s0??0) : (s1??0) > (s0??0)) ? '✅' : ((s0??0)===(s1??0) && (s0??0)!==0 ? '🤝' : '❌')}{:else}—{/if}</span>
-											{:else}
-												<span class="spec-rr-score">{s0 ?? 0} - {s1 ?? 0}</span>
-											{/if}
-											<span class="spec-rr-p {isDone && (specLowerIsBetter ? s1 < s0 : s1 > s0) ? 'winner' : ''}">{getPlayerName(match.p[1])}</span>
-										</div>
-									{/each}
-								</div>
-							{/each}
-						</div>
-					{:else}
-						<!-- Duel bracket (single/double elim) -->
-						<div class="spec-bracket-area">
-							<div class="spec-rounds">
-								{#each bracketRounds as roundMatches, ri}
-									<div class="spec-round-col">
-										<div class="spec-round-hdr">{ri === bracketRounds.length - 1 && bracketRounds.length > 1 ? '🏆 FINALE' : 'ROUND ' + (ri + 1)}</div>
-										<div class="spec-matches">
-											{#each roundMatches as match}
-												{@const s0 = match.score?.[0] ?? null}
-												{@const s1 = match.score?.[1] ?? null}
-												{@const isDone = s0 !== null && s1 !== null && (s0 !== 0 || s1 !== 0) && s0 !== s1}
-												{@const isBye = match.p[0] === 0 && match.p[1] === 0}
-												{@const isAutoWin = (match.p[0] === 0 || match.p[1] === 0) && (s0 > 0 || s1 > 0)}
-												{#if !isBye && !isAutoWin}
-													<div class="spec-match {isDone ? 'done' : ''}">
-														<div class="spec-player {isDone && (specLowerIsBetter ? s0 < s1 : s0 > s1) ? 'winner' : ''} {isDone && (specLowerIsBetter ? s0 > s1 : s0 < s1) ? 'loser' : ''}">
-															<span class="spec-pname">{getPlayerName(match.p[0])}</span>
-															<span class="spec-pscore">{#if runningTournament?.config?.boolean_mode}{#if isDone && (specLowerIsBetter ? (s0??0) < (s1??0) : (s0??0) > (s1??0))}✅{:else if isDone}❌{:else}{s0 ?? 0}{/if}{:else}{s0 ?? 0}{/if}</span>
-														</div>
-														<div class="spec-match-div"></div>
-														<div class="spec-player {isDone && (specLowerIsBetter ? s1 < s0 : s1 > s0) ? 'winner' : ''} {isDone && (specLowerIsBetter ? s1 > s0 : s1 < s0) ? 'loser' : ''}">
-															<span class="spec-pname">{getPlayerName(match.p[1])}</span>
-															<span class="spec-pscore">{#if runningTournament?.config?.boolean_mode}{#if isDone && (specLowerIsBetter ? (s1??0) < (s0??0) : (s1??0) > (s0??0))}✅{:else if isDone}❌{:else}{s1 ?? 0}{/if}{:else}{s1 ?? 0}{/if}</span>
-														</div>
-													</div>
-												{/if}
-											{/each}
-										</div>
-									</div>
-								{/each}
-							</div>
-						</div>
-					{/if}
+					</div>
 				{:else}
 					<p class="spec-empty">Aucun bracket actif</p>
 				{/if}
@@ -466,12 +537,15 @@
 	.pause-badge { font-size: 0.6rem; font-weight: 800; color: #fbbf24; background: rgba(251,191,36,0.1); padding: 0.2rem 0.6rem; border-radius: 20px; border: 1px solid rgba(251,191,36,0.2); }
 
 	.spec-content { flex-grow: 1; display: flex; align-items: center; justify-content: center; padding: 2rem 4rem; }
-	.bracket-active .spec-content { padding: 1rem; align-items: flex-start; }
+	.bracket-active .spec-content { padding: 1rem; align-items: stretch; }
 	.spec-content.slide-in { animation: specSlideIn 0.6s cubic-bezier(0.16,1,0.3,1) forwards; }
 	@keyframes specSlideIn { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
 
 	.spec-view { width: 100%; max-width: 1100px; }
-	.spec-view-wide { max-width: 100%; }
+	.spec-view-wide { max-width: 100%; display: flex; flex-direction: column; height: 100%; }
+
+	.spec-bracket-viewport { width: 100%; flex-grow: 1; overflow: hidden; position: relative; display: flex; flex-direction: column; }
+	.spec-bracket-content { width: 100%; display: flex; flex-direction: column; transform-origin: top center; }
 	.spec-title { font-size: 3rem; font-weight: 800; text-align: center; margin-bottom: 2.5rem; background: linear-gradient(135deg, var(--title-gradient-from, white) 0%, var(--title-gradient-to, rgba(255,255,255,0.6)) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
 
 	/* Leaderboard */
