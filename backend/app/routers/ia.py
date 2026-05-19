@@ -27,11 +27,16 @@ _active_requests = {}  # url -> int (active generation count)
 def get_effective_config(db: Session):
     db_config = db.query(models.SystemConfig).filter(models.SystemConfig.key == "ia_settings").first()
     if db_config:
-        return db_config.value
+        # Assurer la compatibilité rétroactive des anciens réglages en BDD
+        val = db_config.value
+        if "network_tools_enabled" not in val:
+            val["network_tools_enabled"] = True
+        return val
     return {
         "ollama_host": os.getenv("OLLAMA_HOST", "http://host.docker.internal:11434"),
         "model": "llama3",
-        "rag_enabled": True
+        "rag_enabled": True,
+        "network_tools_enabled": True
     }
 
 def get_instances(db: Session):
@@ -238,7 +243,7 @@ def get_messages(conv_id: int, db: Session = Depends(database.get_db), user: mod
     
     return {
         "messages": [
-            {"id": m.id, "role": m.role, "content": m.content, "image_path": m.image_path, "timestamp": m.timestamp.isoformat()}
+            {"id": m.id, "role": m.role, "content": m.content, "image_path": m.image_path, "timestamp": m.timestamp.isoformat(), "meta": m.meta}
             for m in messages
         ],
         "usage": {"estimated_tokens": est_tokens},
@@ -506,12 +511,22 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
     # ── Enqueue into AI Queue (G-52) ──
     from ..ia_queue import queue_manager, QueueEntry
     from ..ia_tools import TOOL_DEFINITIONS
+    
+    # Filtrer les outils optionnels de diagnostic réseau
+    enabled_tools = []
+    network_tool_names = {"ping_host", "traceroute_host", "dns_lookup", "check_server_health", "scan_local_network"}
+    network_enabled = ia_cfg.get("network_tools_enabled", True)
+    for tool in TOOL_DEFINITIONS:
+        if tool["function"]["name"] in network_tool_names and not network_enabled:
+            continue
+        enabled_tools.append(tool)
+        
     req_data = {
         "model": model_to_use,
         "messages": ollama_messages,
         "stream": True,
         "options": {"temperature": ia_cfg.get('temperature', 0.2), "num_ctx": ia_cfg.get('context_window', 4096)},
-        "tools": TOOL_DEFINITIONS,
+        "tools": enabled_tools,
     }
     queue_entry = QueueEntry(
         priority=0 if user.is_admin else 10,
@@ -525,6 +540,7 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
             "req_data": req_data,
             "conversation_id": request.conversation_id,
             "raw_request": raw_request,
+            "model_info": {"model": model_to_use, "instance": instance.get('label', 'Default') if instance else 'Default'},
         }
     )
     queue_entry, position = await queue_manager.enqueue(queue_entry)
@@ -532,6 +548,8 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
     async def event_generator():
         _active_requests[ollama_host] = _active_requests.get(ollama_host, 0) + 1
         try:
+            # Yield model info immediately so frontend knows who we are querying
+            yield f"data: {json.dumps({'model_info': {'model': model_to_use, 'instance': instance.get('label', 'Default') if instance else 'Default'}})}\n\n"
             # ── Phase 1: Queue wait (send position updates via SSE) ──
             if position > 0:
                 yield f"data: {json.dumps({'queued': True, 'position': position, 'estimated_wait': round(position * queue_manager._avg_duration)})}\n\n"
@@ -565,6 +583,10 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
                     yield f"data: {json.dumps({'text': '❌ Requête annulée.', 'done': True})}\n\n"
                     break
 
+                if chunk.get("status"):
+                    yield f"data: {json.dumps(chunk)}\n\n"
+                    continue
+
                 if chunk.get("text") and not chunk.get("done"):
                     full_response += chunk["text"]
                     yield f"data: {json.dumps({'text': chunk['text']})}\n\n"
@@ -582,10 +604,19 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
                     if not worker_response:
                         worker_response = full_response
 
+                    meta_val = chunk.get("meta") or {
+                        "model_info": {"model": model_to_use, "instance": instance.get('label', 'Default') if instance else 'Default'},
+                        "used_tools": chunk.get("meta", {}).get("used_tools", [])
+                    }
                     with database.SessionLocal() as s:
                         # Only save if the worker hasn't already persisted the message
                         if not chunk.get("saved_by_worker"):
-                            ai_msg = models.ChatMessage(conversation_id=request.conversation_id, role="bot", content=worker_response)
+                            ai_msg = models.ChatMessage(
+                                conversation_id=request.conversation_id, 
+                                role="bot", 
+                                content=worker_response,
+                                meta=meta_val
+                            )
                             s.add(ai_msg)
                             s.commit()
                         # Compute updated token estimate for frontend
@@ -624,7 +655,7 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
                                 except Exception:
                                     pass
                         
-                    done_payload = {'done': True, 'estimated_tokens': est_tokens}
+                    done_payload = {'done': True, 'estimated_tokens': est_tokens, 'meta': meta_val}
                     if generated_title:
                         done_payload['title'] = generated_title
                     yield f"data: {json.dumps(done_payload)}\n\n"
@@ -754,7 +785,7 @@ async def admin_get_messages(conv_id: int, db: Session = Depends(database.get_db
             "admin_override": conv.admin_override or False
         },
         "messages": [
-            {"id": m.id, "role": m.role, "content": m.content, "image_path": m.image_path, "timestamp": m.timestamp.isoformat()}
+            {"id": m.id, "role": m.role, "content": m.content, "image_path": m.image_path, "timestamp": m.timestamp.isoformat(), "meta": m.meta}
             for m in messages
         ]
     }

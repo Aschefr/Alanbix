@@ -999,3 +999,47 @@ future_axes:
       - "backend/VERSION et main.py ont été incrémentés à v1.7.0."
       - "Le hook .git/hooks/pre-push a été configuré pour relancer un rappel élégant à chaque 'git push'."
     priority: medium
+
+  - id: AXE-37
+    title: "Défilement automatique intelligent du Chat IA (Smart Scroll)"
+    status: DONE
+    description: >
+      Lorsqu'une réponse de l'assistant IA est en cours de streaming, le chat doit défiler
+      automatiquement vers le bas. Cependant, si l'utilisateur remonte manuellement
+      l'ascenseur (scroll) de la conversation, l'auto-défilement doit être désactivé
+      pour lui permettre de lire à son rythme. Dès que l'utilisateur ramène l'ascenseur
+      tout en bas de la conversation, le défilement automatique doit reprendre.
+    done:
+      - "Détection du scroll manuel via un gestionnaire d'événement on:scroll sur le conteneur."
+      - "Contrôle dynamique du défilement automatique via un indicateur réactif autoScrollEnabled."
+      - "Mécanisme de verrouillage temporaire (isAutoScrolling) pour isoler les défilements programmés des actions de l'utilisateur."
+    priority: medium
+
+  - id: AXE-38
+    title: "Indicateur d'État et Pensée du LLM (Thinking/Tool/Generating)"
+    status: DONE
+    description: >
+      Permettre de différencier clairement les états du modèle d'IA : modèle/instance interrogé,
+      réception des données/exécution d'outils, réflexion de fond (blocs <think>), et début de
+      la génération de réponse finale.
+    done:
+      - "Emission immédiate des métadonnées model_info (modèle et instance sélectionnés) au début du flux SSE."
+      - "Implémentation d'un relai de paquets de statut (status: tool_call, thinking, generating) depuis le worker vers le routeur et le client."
+      - "Détection et extraction en temps réel des blocs de réflexion <think>...</think> pour les diffuser en chunks dédiés vers le client."
+      - "Affichage frontend dynamique avec des badges premium (.bot-meta) et un bloc de raisonnement collapsible (.think-details) synchronisé en direct."
+    priority: high
+
+  - id: AXE-39
+    title: "Outils de Diagnostic LAN/Système et Accès Règles/Notes pour l'IA"
+    status: DONE
+    description: >
+      Doter l'assistant IA de vraies capacités de diagnostic réseau (ping, traceroute, dns,
+      état de santé du serveur, scan de la table ARP) et d'un accès complet aux règles et
+      notes de jeux de la LAN (non tronquées). Ajouter un paramètre administrateur pour
+      rendre optionnel l'usage de ces outils réseau par l'IA.
+    done:
+      - "Installation des paquets système (ping, traceroute, nslookup, arp) dans le Dockerfile backend."
+      - "Définition et implémentation sécurisée (avec sanitization anti-injection) des outils IA (ping_host, traceroute_host, dns_lookup, check_server_health, scan_local_network, get_game_rules)."
+      - "Ajout d'un toggle d'activation 'Outils Réseau & Diagnostics' dans les paramètres IA de l'Administration."
+      - "Filtrage dynamique des déclarations d'outils et blocage de l'exécution côté backend si désactivés."
+    priority: high

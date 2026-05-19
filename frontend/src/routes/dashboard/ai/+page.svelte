@@ -30,6 +30,15 @@
 	let iaConfig = { context_window: 4096 };
 	let query = '';
 	let loading = false;
+	let autoScrollEnabled = true;
+	let isAutoScrolling = false;
+
+	function handleScroll() {
+		if (isAutoScrolling || !chatContainer) return;
+		const threshold = 50;
+		const isAtBottom = chatContainer.scrollHeight - chatContainer.scrollTop - chatContainer.clientHeight < threshold;
+		autoScrollEnabled = isAtBottom;
+	}
 
 	// Live token counting — only count messages that Ollama will actually receive
 	// +1300 tokens overhead for system prompt + user identity + tool definitions
@@ -60,7 +69,7 @@
 	function dismissNotification() { adminNotification = null; }
 	function goToNotifiedConv() {
 		if (adminNotification) {
-			selectConversation(adminNotification.conversation_id);
+			selectConversation(adminNotification.conversation_id, true);
 			adminNotification = null;
 		}
 	}
@@ -157,8 +166,15 @@
 
 
 	async function scrollToBottom() {
+		if (!autoScrollEnabled) return;
 		await tick();
-		if (chatContainer) chatContainer.scrollTop = chatContainer.scrollHeight;
+		if (chatContainer) {
+			isAutoScrolling = true;
+			chatContainer.scrollTop = chatContainer.scrollHeight;
+			setTimeout(() => {
+				isAutoScrolling = false;
+			}, 50);
+		}
 	}
 
 	let showModal = false;
@@ -204,13 +220,17 @@
 		}
 	}
 
-	async function selectConversation(id) {
+	async function selectConversation(id, forceScroll = false) {
+		const isNew = id !== activeId;
 		activeId = id;
 		const res = await api.get(`/ia/conversations/${id}/messages`);
 		messages = res.messages;
 		usage = res.usage || { estimated_tokens: 0 };
 		compression = res.compression || { mode: null };
 		adminOverride = res.admin_override || false;
+		if (isNew || forceScroll) {
+			autoScrollEnabled = true;
+		}
 		scrollToBottom();
 
 		// Check if user has an active/queued AI request FOR THIS conversation
@@ -291,7 +311,11 @@
 			// Scroll to the compression block so the user sees it immediately
 			await tick();
 			const ctxEl = chatContainer?.querySelector('.context-block');
-			if (ctxEl) ctxEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+			if (ctxEl) {
+				isAutoScrolling = true;
+				ctxEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+				setTimeout(() => { isAutoScrolling = false; }, 500);
+			}
 			autoCompressNotif = true;
 			setTimeout(() => { autoCompressNotif = false; }, 5000);
 			// If there was a pending message deferred by the context check, send it now
@@ -451,7 +475,16 @@
 		queueEntryId = null;
 
 		let botMsgIdx = messages.length;
-		messages = [...messages, { id: Date.now()+1, role: 'bot', content: '' }];
+		messages = [...messages, { 
+			id: Date.now()+1, 
+			role: 'bot', 
+			content: '', 
+			think_content: '', 
+			status: 'thinking', 
+			model_info: null, 
+			active_tool: null 
+		}];
+		autoScrollEnabled = true;
 		scrollToBottom();
 
 		try {
@@ -483,31 +516,67 @@
 						const dataStr = line.replace('data: ', '');
 						try {
 							const data = JSON.parse(dataStr);
+							// Model and instance metadata
+							if (data.model_info) {
+								messages[botMsgIdx].model_info = data.model_info;
+								messages = messages;
+								continue;
+							}
 							// Queue events (G-52)
 							if (data.queued) {
 								queued = true;
 								queuePosition = data.position || 1;
 								queueEstWait = data.estimated_wait || 0;
 								queueEntryId = data.entry_id || null;
+								messages[botMsgIdx].status = 'queued';
+								messages = messages;
 								continue;
 							}
 							if (data.position !== undefined && !data.done) {
 								queuePosition = data.position;
 								queueEstWait = data.estimated_wait || 0;
+								messages[botMsgIdx].status = 'queued';
+								messages = messages;
 								continue;
 							}
 							if (data.processing) {
 								queued = false;
 								queuePosition = 0;
+								messages[botMsgIdx].status = 'thinking';
+								messages = messages;
+								continue;
+							}
+							// Status updates (thinking, Qwen reasoning stream, tool execution)
+							if (data.status) {
+								messages[botMsgIdx].status = data.status;
+								if (data.status === 'tool_call') {
+									messages[botMsgIdx].active_tool = data.tool_name;
+									if (!messages[botMsgIdx].used_tools) {
+										messages[botMsgIdx].used_tools = [];
+									}
+									if (!messages[botMsgIdx].used_tools.includes(data.tool_name)) {
+										messages[botMsgIdx].used_tools.push(data.tool_name);
+									}
+								}
+								if (data.status === 'thinking' && data.think_chunk) {
+									messages[botMsgIdx].think_content = (messages[botMsgIdx].think_content || '') + data.think_chunk;
+								}
+								messages = messages;
+								scrollToBottom();
 								continue;
 							}
 							// Normal token streaming
 							if (data.text) {
+								if (messages[botMsgIdx].status === 'thinking' || messages[botMsgIdx].status === 'queued') {
+									messages[botMsgIdx].status = 'generating';
+								}
 								messages[botMsgIdx].content += data.text;
 								messages = messages; // trigger Svelte reactivity
 								scrollToBottom();
 							}
 							if (data.done) {
+								messages[botMsgIdx].status = 'done';
+								messages = messages;
 								// Update token estimate from server
 								if (data.estimated_tokens) {
 									usage = { estimated_tokens: data.estimated_tokens };
@@ -553,7 +622,7 @@
 		<div class="conv-list">
 			{#each conversations as conv}
 				<div class="conv-item {activeId === conv.id ? 'active' : ''}">
-					<button class="conv-btn" on:click={() => selectConversation(conv.id)}>
+					<button class="conv-btn" on:click={() => selectConversation(conv.id, true)}>
 						<span class="icon">💬</span>
 						<span class="title">{conv.title}</span>
 					</button>
@@ -641,7 +710,7 @@
 				</div>
 			{/if}
 
-			<div class="messages-container" bind:this={chatContainer}>
+			<div class="messages-container" bind:this={chatContainer} on:scroll={handleScroll}>
 				{#if autoCompressNotif}
 					<div class="auto-compress-notif">
 						<span>🗜️</span>
@@ -685,6 +754,27 @@
 								{#if msg.role === 'admin'}
 									<div class="admin-badge">Admin</div>
 								{/if}
+								{#if msg.role === 'bot'}
+									{@const modelInfo = msg.model_info || (msg.meta && msg.meta.model_info)}
+									{@const usedTools = msg.used_tools || (msg.meta && msg.meta.used_tools)}
+									<div class="bot-meta">
+										{#if modelInfo}
+											<span class="model-badge">🤖 {modelInfo.model} ({modelInfo.instance})</span>
+										{/if}
+										{#if msg.status === 'queued'}
+											<span class="status-badge queued">⏳ File d'attente...</span>
+										{:else if msg.status === 'tool_call'}
+											<span class="status-badge tool">🔍 Outil en cours : {msg.active_tool || 'Consultation'}</span>
+										{:else if msg.status === 'thinking'}
+											<span class="status-badge thinking">🧠 Réflexion...</span>
+										{/if}
+										{#if usedTools && usedTools.length > 0}
+											{#each usedTools as tool}
+												<span class="status-badge tool finished">🛠️ {tool}</span>
+											{/each}
+										{/if}
+									</div>
+								{/if}
 								{#if editingMsgId === msg.id}
 									<textarea class="edit-textarea" bind:value={editingMsgContent} rows="3"></textarea>
 									<div class="edit-actions">
@@ -693,8 +783,18 @@
 										<button class="btn-xs-cancel" on:click={cancelEdit}>✕</button>
 									</div>
 								{:else}
+									{#if msg.role === 'bot' && msg.think_content}
+										<details class="think-details" open={msg.status === 'thinking'}>
+											<summary class="think-summary">
+												<span>🧠 Cheminement de pensée</span>
+											</summary>
+											<div class="think-text">{msg.think_content}</div>
+										</details>
+									{/if}
 									{#if msg.role === 'bot' || msg.role === 'admin'}
-										<div class="markdown-body">{@html parseMd(msg.content)}</div>
+										{#if msg.content}
+											<div class="markdown-body">{@html parseMd(msg.content)}</div>
+										{/if}
 									{:else}
 										<div class="markdown-body user-text">{@html escapeHtml(msg.content).replace(/\n/g, '<br>')}</div>
 									{/if}
@@ -947,6 +1047,95 @@
 	.msg-row.admin { flex-direction: row; }
 	.admin-msg { background: rgba(168,85,247,0.12) !important; border-color: rgba(168,85,247,0.3) !important; border-radius: 12px !important; }
 	.admin-badge { font-size: 0.65rem; font-weight: 700; color: #a855f7; text-transform: uppercase; letter-spacing: 0.5px; background: rgba(168,85,247,0.15); border: 1px solid rgba(168,85,247,0.3); border-radius: 0.5rem; padding: 0.1rem 0.5rem; display: inline-block; margin-bottom: 0.3rem; }
+
+	/* Bot status & thinking details */
+	.bot-meta {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+		font-size: 0.72rem;
+		margin-bottom: 0.5rem;
+		align-items: center;
+	}
+	.model-badge {
+		background: rgba(255, 255, 255, 0.05);
+		padding: 0.15rem 0.45rem;
+		border-radius: 6px;
+		border: 1px solid rgba(255, 255, 255, 0.1);
+		color: var(--text-muted);
+		font-weight: 500;
+	}
+	.status-badge {
+		padding: 0.15rem 0.45rem;
+		border-radius: 6px;
+		font-weight: 600;
+		font-size: 0.7rem;
+		text-transform: uppercase;
+		letter-spacing: 0.3px;
+	}
+	.status-badge.queued {
+		background: rgba(245, 158, 11, 0.12);
+		color: #f59e0b;
+		border: 1px solid rgba(245, 158, 11, 0.25);
+	}
+	.status-badge.tool {
+		background: rgba(59, 130, 246, 0.12);
+		color: #3b82f6;
+		border: 1px solid rgba(59, 130, 246, 0.25);
+	}
+	.status-badge.tool.finished {
+		background: rgba(16, 185, 129, 0.08);
+		color: #10b981;
+		border: 1px solid rgba(16, 185, 129, 0.2);
+	}
+	.status-badge.thinking {
+		background: rgba(168, 85, 247, 0.12);
+		color: #a855f7;
+		border: 1px solid rgba(168, 85, 247, 0.25);
+	}
+	.think-details {
+		width: 100%;
+		margin: 0.6rem 0;
+		border-left: 3px solid rgba(168, 85, 247, 0.45);
+		background: rgba(0, 0, 0, 0.15);
+		border-radius: 0 8px 8px 0;
+	}
+	.think-details summary {
+		list-style: none;
+		cursor: pointer;
+		outline: none;
+		user-select: none;
+	}
+	.think-details summary::-webkit-details-marker {
+		display: none;
+	}
+	.think-summary {
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+		padding: 0.4rem 0.7rem;
+		font-size: 0.75rem;
+		color: #a855f7;
+		font-weight: 600;
+	}
+	.think-summary::before {
+		content: '▶';
+		font-size: 0.55rem;
+		color: #a855f7;
+		transition: transform 0.2s;
+	}
+	.think-details[open] .think-summary::before {
+		transform: rotate(90deg);
+	}
+	.think-text {
+		padding: 0.5rem 0.7rem;
+		font-size: 0.8rem;
+		font-family: var(--font-mono, monospace);
+		white-space: pre-wrap;
+		color: var(--text-dim);
+		line-height: 1.45;
+		border-top: 1px solid rgba(255, 255, 255, 0.05);
+	}
 
 	/* Markdown body styles */
 	.markdown-body { line-height: 1.6; word-break: break-word; }

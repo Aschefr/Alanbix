@@ -81,6 +81,8 @@ class ChatMessageBase(BaseModel):
 class ChatMessage(ChatMessageBase):
     id: int
     timestamp: datetime
+    image_path: Optional[str] = None
+    meta: Optional[Any] = None
     model_config = ConfigDict(from_attributes=True)
 
 class ConversationBase(BaseModel):

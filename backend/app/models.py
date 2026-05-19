@@ -135,6 +135,7 @@ class ChatMessage(Base):
     content = Column(Text)
     image_path = Column(String, nullable=True)  # Relative path to attached image
     timestamp = Column(DateTime, default=datetime.datetime.utcnow)
+    meta = Column(JSON, nullable=True)
     
     conversation = relationship("Conversation", back_populates="messages")
 

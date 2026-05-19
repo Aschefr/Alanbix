@@ -166,6 +166,104 @@ TOOL_DEFINITIONS = [
                 "required": []
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "ping_host",
+            "description": "Effectuer un ping ICMP réel vers une machine (IP ou nom de domaine) pour mesurer la latence et la perte de paquets. Utilise cette fonction quand l'utilisateur te demande de pinguer un hôte, de tester la latence, de faire un diagnostic réseau, ou de vérifier si une machine répond.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "host": {
+                        "type": "string",
+                        "description": "L'adresse IP ou le nom de domaine à pinguer (ex: 8.8.8.8, google.com)"
+                    },
+                    "count": {
+                        "type": "integer",
+                        "description": "Le nombre de paquets ICMP à envoyer (optionnel, défaut: 4, max: 10)",
+                        "minimum": 1,
+                        "maximum": 10
+                    }
+                },
+                "required": ["host"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "traceroute_host",
+            "description": "Effectuer un traceroute réel vers une machine (IP ou nom de domaine) pour visualiser les sauts réseau (hops) et localiser d'éventuels ralentissements. Utilise cette fonction quand l'utilisateur demande un diagnostic réseau approfondi ou de retracer le chemin vers un hôte.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "host": {
+                        "type": "string",
+                        "description": "L'adresse IP ou le nom de domaine cible"
+                    }
+                },
+                "required": ["host"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "dns_lookup",
+            "description": "Effectuer une résolution DNS réelle (lookup/nslookup) sur un nom de domaine pour vérifier son adresse IP associée. Utilise cette fonction quand l'utilisateur demande l'adresse IP d'un domaine ou des infos de résolution DNS.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "domain": {
+                        "type": "string",
+                        "description": "Le nom de domaine à résoudre (ex: google.com)"
+                    }
+                },
+                "required": ["domain"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "check_server_health",
+            "description": "Vérifier la santé du serveur (charge CPU, utilisation de la mémoire RAM, et espace disque restant). Utilise cette fonction quand l'utilisateur demande si le serveur va bien, quelle est la charge machine, ou les ressources disponibles.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "scan_local_network",
+            "description": "Scanner le réseau local (table ARP) pour détecter et lister les hôtes/adresses IP et MAC actuellement actifs sur la LAN. Utilise cette fonction quand l'utilisateur demande de scanner le réseau local ou de voir les machines connectées.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_game_rules",
+            "description": "Obtenir les règles COMPLÈTES non tronquées et la configuration d'un jeu spécifique de la LAN. Utilise cette fonction quand l'utilisateur demande les détails précis, les notes, ou les règles complètes d'un jeu particulier.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "game_name": {
+                        "type": "string",
+                        "description": "Le nom du jeu à rechercher (ex: Trackmania, Counter-Strike)"
+                    }
+                },
+                "required": ["game_name"]
+            }
+        }
     }
 ]
 
@@ -177,15 +275,21 @@ def execute_tool(name: str, arguments: Dict[str, Any], user_id: int = 0) -> str:
     """Execute a tool by name with given arguments. Returns JSON string result.
     user_id is the ID of the user making the request (for personalized tools).
     """
-    # Tools that don't need DB
-    if name == "get_current_datetime":
-        return _tool_get_current_datetime(arguments)
-
     from .database import SessionLocal
     from . import models
 
     with SessionLocal() as db:
-        if name == "get_tournaments":
+        # Check if it's a network tool and network tools are disabled
+        network_tool_names = {"ping_host", "traceroute_host", "dns_lookup", "check_server_health", "scan_local_network"}
+        if name in network_tool_names:
+            from .routers.ia import get_effective_config
+            ia_cfg = get_effective_config(db)
+            if not ia_cfg.get("network_tools_enabled", True):
+                return json.dumps({"error": f"L'outil '{name}' est désactivé par l'administrateur dans les paramètres de l'IA."})
+
+        if name == "get_current_datetime":
+            return _tool_get_current_datetime(arguments)
+        elif name == "get_tournaments":
             return _tool_get_tournaments(db, models, arguments)
         elif name == "get_tournament_standings":
             return _tool_get_tournament_standings(db, models, arguments)
@@ -203,6 +307,18 @@ def execute_tool(name: str, arguments: Dict[str, Any], user_id: int = 0) -> str:
             return _tool_get_notifications(db, models, arguments, user_id)
         elif name == "get_player_seat":
             return _tool_get_player_seat(db, models, arguments, user_id)
+        elif name == "ping_host":
+            return _tool_ping_host(arguments)
+        elif name == "traceroute_host":
+            return _tool_traceroute_host(arguments)
+        elif name == "dns_lookup":
+            return _tool_dns_lookup(arguments)
+        elif name == "check_server_health":
+            return _tool_check_server_health()
+        elif name == "scan_local_network":
+            return _tool_scan_local_network()
+        elif name == "get_game_rules":
+            return _tool_get_game_rules(db, models, arguments)
         else:
             return json.dumps({"error": f"Outil inconnu: {name}"})
 
@@ -593,8 +709,225 @@ def _tool_get_player_seat(db, models, args: dict, user_id: int) -> str:
     }, ensure_ascii=False)
 
 # ---------------------------------------------------------------------------
-# Helpers
+# Helpers & Network Diagnostics
 # ---------------------------------------------------------------------------
+import re
+
+def _sanitize_host(host: str) -> bool:
+    """Return True if host is a valid IPv4, IPv6, or domain name without injection characters."""
+    if not host or not isinstance(host, str):
+        return False
+    # Only allow characters standard for domain names or IP addresses
+    # (letters, numbers, dots, hyphens)
+    return bool(re.match(r"^[a-zA-Z0-9.-]+$", host))
+
+
+def _tool_ping_host(args: dict) -> str:
+    import subprocess
+    host = args.get("host", "").strip()
+    if not _sanitize_host(host):
+        return json.dumps({"error": f"Nom d'hôte ou IP invalide: '{host}'."}, ensure_ascii=False)
+    
+    count = args.get("count", 4)
+    try:
+        count = int(count)
+        if count < 1: count = 1
+        if count > 10: count = 10
+    except:
+        count = 4
+        
+    try:
+        res = subprocess.run(
+            ["ping", "-c", str(count), "-W", "2", host],
+            capture_output=True, text=True, timeout=15
+        )
+        return json.dumps({
+            "host": host,
+            "success": res.returncode == 0,
+            "stdout": res.stdout,
+            "stderr": res.stderr
+        }, ensure_ascii=False)
+    except subprocess.TimeoutExpired:
+        return json.dumps({"error": "Le test de ping a expiré (timeout)."}, ensure_ascii=False)
+    except Exception as e:
+        return json.dumps({"error": f"Erreur lors du ping: {str(e)}"}, ensure_ascii=False)
+
+
+def _tool_traceroute_host(args: dict) -> str:
+    import subprocess
+    host = args.get("host", "").strip()
+    if not _sanitize_host(host):
+        return json.dumps({"error": f"Nom d'hôte ou IP invalide: '{host}'."}, ensure_ascii=False)
+        
+    try:
+        res = subprocess.run(
+            ["traceroute", "-m", "15", "-q", "1", host],
+            capture_output=True, text=True, timeout=20
+        )
+        return json.dumps({
+            "host": host,
+            "stdout": res.stdout,
+            "stderr": res.stderr
+        }, ensure_ascii=False)
+    except subprocess.TimeoutExpired:
+        return json.dumps({"error": "Le traceroute a expiré."}, ensure_ascii=False)
+    except Exception as e:
+        return json.dumps({"error": f"Erreur lors du traceroute: {str(e)}"}, ensure_ascii=False)
+
+
+def _tool_dns_lookup(args: dict) -> str:
+    import socket
+    domain = args.get("domain", "").strip()
+    if not _sanitize_host(domain):
+        return json.dumps({"error": f"Nom de domaine invalide: '{domain}'."}, ensure_ascii=False)
+        
+    try:
+        name, aliases, addresses = socket.gethostbyname_ex(domain)
+        return json.dumps({
+            "domain": domain,
+            "canonical_name": name,
+            "aliases": aliases,
+            "ips": addresses
+        }, ensure_ascii=False)
+    except Exception as e:
+        import subprocess
+        try:
+            res = subprocess.run(
+                ["nslookup", domain],
+                capture_output=True, text=True, timeout=5
+            )
+            return json.dumps({
+                "domain": domain,
+                "stdout": res.stdout,
+                "stderr": res.stderr
+            }, ensure_ascii=False)
+        except Exception as shell_err:
+            return json.dumps({"error": f"Impossible de résoudre le domaine: {str(e)} (nslookup err: {str(shell_err)})"}, ensure_ascii=False)
+
+
+def _tool_check_server_health() -> str:
+    import shutil
+    import os
+    
+    health = {}
+    
+    # 1. CPU load average
+    try:
+        if os.path.exists("/proc/loadavg"):
+            with open("/proc/loadavg", "r") as f:
+                load = f.read().strip().split()
+                if len(load) >= 3:
+                    health["cpu_load_1m"] = float(load[0])
+                    health["cpu_load_5m"] = float(load[1])
+                    health["cpu_load_15m"] = float(load[2])
+        else:
+            loadavg = os.getloadavg()
+            health["cpu_load_1m"] = loadavg[0]
+            health["cpu_load_5m"] = loadavg[1]
+            health["cpu_load_15m"] = loadavg[2]
+    except Exception as e:
+        health["cpu_load_error"] = str(e)
+        
+    # 2. Memory RAM Info
+    try:
+        if os.path.exists("/proc/meminfo"):
+            mem_total = 0
+            mem_free = 0
+            mem_available = 0
+            with open("/proc/meminfo", "r") as f:
+                for line in f:
+                    parts = line.split()
+                    if len(parts) >= 2:
+                        key = parts[0].replace(":", "")
+                        val = int(parts[1])
+                        if key == "MemTotal":
+                            mem_total = val
+                        elif key == "MemFree":
+                            mem_free = val
+                        elif key == "MemAvailable":
+                            mem_available = val
+            health["ram_total_mb"] = round(mem_total / 1024)
+            health["ram_free_mb"] = round(mem_free / 1024)
+            health["ram_available_mb"] = round(mem_available / 1024)
+            health["ram_used_mb"] = round((mem_total - mem_available) / 1024) if mem_available else round((mem_total - mem_free) / 1024)
+        else:
+            health["ram_note"] = "Info de RAM non disponible via /proc/meminfo"
+    except Exception as e:
+        health["ram_error"] = str(e)
+        
+    # 3. Disk space
+    try:
+        total, used, free = shutil.disk_usage("/")
+        health["disk_total_gb"] = round(total / (1024**3), 1)
+        health["disk_used_gb"] = round(used / (1024**3), 1)
+        health["disk_free_gb"] = round(free / (1024**3), 1)
+        health["disk_use_percent"] = round((used / total) * 100, 1)
+    except Exception as e:
+        health["disk_error"] = str(e)
+        
+    return json.dumps(health, ensure_ascii=False)
+
+
+def _tool_scan_local_network() -> str:
+    import os
+    hosts = []
+    try:
+        if os.path.exists("/proc/net/arp"):
+            with open("/proc/net/arp", "r") as f:
+                lines = f.readlines()
+                for line in lines[1:]:
+                    parts = line.split()
+                    if len(parts) >= 6:
+                        ip = parts[0]
+                        mac = parts[3]
+                        device = parts[5]
+                        if mac != "00:00:00:00:00:00":
+                            hosts.append({
+                                "ip": ip,
+                                "mac": mac,
+                                "interface": device
+                            })
+        else:
+            import subprocess
+            res = subprocess.run(["arp", "-a"], capture_output=True, text=True, timeout=5)
+            for line in res.stdout.splitlines():
+                if "at" in line:
+                    parts = line.split()
+                    try:
+                        ip = parts[1].strip("()")
+                        mac = parts[3]
+                        hosts.append({"ip": ip, "mac": mac})
+                    except:
+                        pass
+    except Exception as e:
+        return json.dumps({"error": f"Erreur lors du scan réseau: {str(e)}"}, ensure_ascii=False)
+        
+    return json.dumps({
+        "hosts": hosts,
+        "count": len(hosts),
+        "note": "Affiche les machines connectées découvertes dans la table ARP du serveur."
+    }, ensure_ascii=False)
+
+
+def _tool_get_game_rules(db, models, args: dict) -> str:
+    game_name = args.get("game_name", "").strip()
+    if not game_name:
+        return json.dumps({"error": "Nom du jeu requis"}, ensure_ascii=False)
+        
+    game = db.query(models.Game).filter(models.Game.name.ilike(game_name)).first()
+    if not game:
+        game = db.query(models.Game).filter(models.Game.name.ilike(f"%{game_name}%")).first()
+        
+    if not game:
+        return json.dumps({"error": f"Jeu '{game_name}' introuvable dans la bibliothèque"}, ensure_ascii=False)
+        
+    return json.dumps({
+        "name": game.name,
+        "rules": game.rules or "Aucune règle spécifique de configurée pour ce jeu.",
+        "default_config": game.default_config or {}
+    }, ensure_ascii=False)
+
+
 def _resolve_entity_name(db, models, entity_id, use_teams: bool, tournament_id: int) -> str:
     """Resolve a player or team entity_id to a human-readable name."""
     if not entity_id:

@@ -348,7 +348,8 @@ def test_double_elim_8_players_lb_dropout(client, db_session):
         unscored = [
             m for m in bracket
             if m["p"][0] != 0 and m["p"][1] != 0
-            and m["score"][0] == 0 and m["score"][1] == 0
+            and (m["score"][0] is None or m["score"][0] == 0)
+            and (m["score"][1] is None or m["score"][1] == 0)
         ]
         if not unscored:
             break
@@ -495,13 +496,13 @@ def test_single_elim_score_correction(client, db_session):
     # ── Play through to finale with corrected bracket ──
     # Score remaining R1 matches
     for m in [_find(bracket, 1, 1, i) for i in range(2, 5)]:
-        if m and m["score"][0] == 0:
+        if m and (m["score"][0] is None or m["score"][0] == 0):
             _score(client, t_id, m, [3, 1])
 
     # Score R2
     bracket = _get_bracket(client, t_id)
     for m in [_find(bracket, 1, 2, i) for i in range(1, 3)]:
-        if m and m["p"][0] != 0 and m["p"][1] != 0 and m["score"][0] == 0:
+        if m and m["p"][0] != 0 and m["p"][1] != 0 and (m["score"][0] is None or m["score"][0] == 0):
             _score(client, t_id, m, [3, 1])
 
     # Score Finale

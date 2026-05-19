@@ -279,6 +279,7 @@ class IAQueueManager:
         raw_request = payload.get("raw_request")
 
         client = httpx.AsyncClient()
+        used_tools = []
         try:
             # ── Phase 1: Check for tool calls (non-streaming first call) ──
             tool_messages = list(req_data.get("messages", []))
@@ -295,8 +296,8 @@ class IAQueueManager:
                     "content": (
                         "Tu as accès à des outils (tools/functions) pour répondre aux questions. "
                         "Tu DOIS utiliser les outils disponibles pour obtenir des données factuelles "
-                        "(heure, date, tournois, scores, classement, joueurs, jeux, notifications, infos). "
-                        "N'invente JAMAIS de données. Appelle toujours l'outil approprié."
+                        "(heure, date, tournois, scores, classement, joueurs, jeux, notifications, infos, règles de jeux complètes, diagnostics réseau et serveur). "
+                        "N'invente/n'hallucine JAMAIS de données réseau ou de mesures de latence. Appelle toujours l'outil approprié."
                     )
                 }
 
@@ -346,7 +347,10 @@ class IAQueueManager:
                         fn_name = fn.get("name", "")
                         fn_args = fn.get("arguments", {})
                         # Notify user that a tool is being called
+                        await entry.result_stream.put({"status": "tool_call", "tool_name": fn_name})
                         await entry.result_stream.put({"text": f"🔍 *Consultation des données : {fn_name}...*\n\n"})
+                        if fn_name not in used_tools:
+                            used_tools.append(fn_name)
                         try:
                             result = execute_tool(fn_name, fn_args, user_id=entry.user_id)
                         except Exception as e:
@@ -368,6 +372,11 @@ class IAQueueManager:
 
             full_response = ""
             in_think_block = False
+            first_token = True
+            
+            # Send initial thinking status (waiting for first token / prompt processing)
+            await entry.result_stream.put({"status": "thinking"})
+            
             async with client.stream("POST", f"{ollama_host}/api/chat",
                                      json=stream_req,
                                      timeout=httpx.Timeout(connect=10.0, read=300.0, write=10.0, pool=10.0)) as response:
@@ -387,22 +396,52 @@ class IAQueueManager:
                         token = data.get("message", {}).get("content", "")
                         if token:
                             full_response += token
-                            # Filter <think>...</think> blocks (Qwen3 etc.)
+                            
+                            # Check for start of think block
                             if "<think>" in token:
                                 in_think_block = True
-                            if not in_think_block:
+                                await entry.result_stream.put({"status": "thinking", "think": True})
+                                parts = token.split("<think>", 1)
+                                if parts[0]:
+                                    if first_token:
+                                        first_token = False
+                                        await entry.result_stream.put({"status": "generating"})
+                                    await entry.result_stream.put({"text": parts[0]})
+                                token = parts[1]
+                                
+                            if in_think_block:
+                                # Check for end of think block
+                                if "</think>" in token:
+                                    parts = token.split("</think>", 1)
+                                    if parts[0]:
+                                        await entry.result_stream.put({"status": "thinking", "think_chunk": parts[0]})
+                                    in_think_block = False
+                                    await entry.result_stream.put({"status": "generating"})
+                                    if parts[1]:
+                                        first_token = False
+                                        await entry.result_stream.put({"text": parts[1]})
+                                else:
+                                    await entry.result_stream.put({"status": "thinking", "think_chunk": token})
+                            else:
+                                if first_token:
+                                    first_token = False
+                                    await entry.result_stream.put({"status": "generating"})
                                 await entry.result_stream.put({"text": token})
-                            if "</think>" in token:
-                                in_think_block = False
+                                
                         if data.get("done"):
                             # Strip think blocks from saved response
                             import re
                             clean_response = re.sub(r'<think>.*?</think>', '', full_response, flags=re.DOTALL).strip()
-                            saved_msg_id = self._save_bot_message(conversation_id, clean_response)
+                            meta = {
+                                "model_info": entry.payload.get("model_info"),
+                                "used_tools": used_tools
+                            }
+                            saved_msg_id = self._save_bot_message(conversation_id, clean_response, meta=meta)
                             await entry.result_stream.put({
                                 "done": True,
                                 "full_response": clean_response,
                                 "saved_by_worker": saved_msg_id is not None,
+                                "meta": meta,
                             })
                             break
                     except json.JSONDecodeError:
@@ -413,7 +452,7 @@ class IAQueueManager:
         finally:
             await client.aclose()
 
-    def _save_bot_message(self, conversation_id: int, content: str):
+    def _save_bot_message(self, conversation_id: int, content: str, meta: dict = None):
         """Save bot message to DB. Returns message ID or None."""
         if not content or not conversation_id:
             return None
@@ -424,7 +463,8 @@ class IAQueueManager:
                 ai_msg = models.ChatMessage(
                     conversation_id=conversation_id,
                     role="bot",
-                    content=content
+                    content=content,
+                    meta=meta
                 )
                 s.add(ai_msg)
                 s.commit()

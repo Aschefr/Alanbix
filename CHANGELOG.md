@@ -1,5 +1,30 @@
 # Changelog
 
+## [1.8.0] - 2026-05-19
+
+### ✨ Nouvelles fonctionnalités
+
+- **Défilement automatique intelligent (Smart Scroll) (AXE-37)** : Défilement automatique du Chat IA pendant la génération, avec désactivation automatique si l'utilisateur scrolle vers le haut manuellement et réactivation lorsqu'il revient au bas du chat.
+- **Indicateur d'État & Pensée du LLM (AXE-38)** : Rendu réactif en temps réel de la progression du modèle (file d'attente, réflexion, appel d'outil, génération) avec affichage du cheminement de pensée (`<think>`) collapsible.
+- **Outils de Diagnostic LAN/Réseau & Règles de Jeux (AXE-39)** : Nouveaux outils IA (`ping_host`, `traceroute_host`, `dns_lookup`, `check_server_health`, `scan_local_network`, `get_game_rules`) permettant à l'IA d'analyser le serveur et le réseau local, activables ou désactivables depuis les options IA de l'Administration.
+
+### 🐛 Corrections de bugs
+
+- **Intégrité du scoring de tournoi** : Correction d'erreurs `TypeError: '>' not supported between instances of 'NoneType' and 'int'` lors de la fermeture des tournois ou de l'avancement des manches de tournois FFA ayant des scores non saisis ou effacés (`None`).
+- **Fiabilité des suites de tests unitaires** : Correction du script de test pour gérer les scores `None` au lieu de `0` lors de la simulation de scoring, rendant la suite de tests backend 100% passante.
+
+---
+
+## [1.7.0] - 2026-05-18
+
+### ✨ Nouvelles fonctionnalités
+
+- **Système de Versioning Automatisé (AXE-30)** : Centralisation du suivi des versions sur un seul fichier `VERSION` racine et suppression des fichiers redondants pour éviter les désynchronisations.
+- **Hook Git Pre-Push** : Automatisation d'un rappel push pour forcer la publication des releases et des tags correspondants sur GitHub.
+- **Badge de Version en Direct** : Intégration du badge dans la barre latérale du dashboard se mettant à jour via l'endpoint `/health`.
+
+---
+
 ## [1.6.0] - 2026-05-16
 
 ### ✨ Nouvelles fonctionnalités

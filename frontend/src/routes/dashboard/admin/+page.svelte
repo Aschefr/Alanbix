@@ -150,7 +150,7 @@
 
 	// IA Settings
 	let iaConfig = { 
-		ollama_host: '', model: '', rag_enabled: true, 
+		ollama_host: '', model: '', rag_enabled: true, network_tools_enabled: true,
 		temperature: 0.7, context_window: 4096,
 		ollama_instances: [], embedding_model: ''
 	};
@@ -1705,6 +1705,23 @@
 						</div>
 					</div>
 
+					<!-- Outils Réseau & Diagnostic Toggle -->
+					<div class="sc glass">
+						<div class="sc-head" style="align-items: center; justify-content: space-between;">
+							<div style="display: flex; align-items: center; gap: 0.8rem; flex: 1;">
+								<div class="sc-icon">🛠️</div>
+								<div style="flex:1">
+									<h3>Outils Réseau & Diagnostics</h3>
+									<p class="sc-sub">Autoriser l'IA à effectuer de vrais pings, traceroutes et vérifications de santé du serveur</p>
+								</div>
+							</div>
+							<label class="toggle-switch">
+								<input type="checkbox" bind:checked={iaConfig.network_tools_enabled} on:change={saveIAConfig} />
+								<span class="toggle-slider"></span>
+							</label>
+						</div>
+					</div>
+
 					<!-- RAG -->
 					<div class="sc glass">
 						<div class="sc-head">
@@ -1816,14 +1833,19 @@
 							{#each adminConvMessages as m}
 								<div style="display:flex;gap:0.5rem;{m.role === 'user' ? 'flex-direction:row-reverse' : ''}">
 									<div style="font-size:1.1rem">{m.role === 'bot' ? '🤖' : m.role === 'admin' ? '🛡️' : '👤'}</div>
-									<div style="padding:0.6rem 0.8rem;border-radius:12px;max-width:80%;font-size:0.85rem;line-height:1.4;{m.role === 'user' ? 'background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.3)' : m.role === 'admin' ? 'background:rgba(168,85,247,0.12);border:1px solid rgba(168,85,247,0.3)' : 'background:var(--hover-tint);border:1px solid var(--glass-border)'}">
-										{#if m.role === 'admin'}<span style="font-size:0.65rem;font-weight:700;color:#a855f7;text-transform:uppercase;margin-bottom:0.2rem;display:block">Admin</span>{/if}
-										<div class="admin-conv-md">{@html parseMd(m.content)}</div>
-										{#if m.image_path}
-											<div style="margin-top:0.4rem">
-												<img src="{API_URL}/data/{m.image_path}" alt="" style="max-width:250px;max-height:180px;border-radius:8px;border:1px solid var(--glass-border);cursor:pointer;object-fit:cover" on:click={() => window.open(API_URL + '/data/' + m.image_path, '_blank')} />
-											</div>
+									<div style="display:flex;flex-direction:column;max-width:80%;align-items:{m.role === 'user' ? 'flex-end' : 'flex-start'}">
+										{#if m.role === 'user'}
+											<span style="font-size:0.7rem;color:var(--text-muted);margin-bottom:2px;font-weight:600;">{adminConvInfo.username}</span>
 										{/if}
+										<div style="padding:0.6rem 0.8rem;border-radius:12px;font-size:0.85rem;line-height:1.4;{m.role === 'user' ? 'background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.3)' : m.role === 'admin' ? 'background:rgba(168,85,247,0.12);border:1px solid rgba(168,85,247,0.3)' : 'background:var(--hover-tint);border:1px solid var(--glass-border)'}">
+											{#if m.role === 'admin'}<span style="font-size:0.65rem;font-weight:700;color:#a855f7;text-transform:uppercase;margin-bottom:0.2rem;display:block">Admin</span>{/if}
+											<div class="admin-conv-md">{@html parseMd(m.content)}</div>
+											{#if m.image_path}
+												<div style="margin-top:0.4rem">
+													<img src="{API_URL}/data/{m.image_path}" alt="" style="max-width:250px;max-height:180px;border-radius:8px;border:1px solid var(--glass-border);cursor:pointer;object-fit:cover" on:click={() => window.open(API_URL + '/data/' + m.image_path, '_blank')} />
+												</div>
+											{/if}
+										</div>
 									</div>
 								</div>
 							{/each}

@@ -945,7 +945,7 @@ async def update_match_score(
                 if is_locked:
                     raise HTTPException(status_code=403, detail="Ce match est terminé. Seul un admin peut modifier le score.")
         elif bracket_type == "ffa":
-            if existing_scores and all(s > 0 for s in existing_scores):
+            if existing_scores and all(s is not None and s > 0 for s in existing_scores):
                 raise HTTPException(status_code=403, detail="Cette manche est terminée. Seul un admin peut modifier les classements.")
     # Rollback previous advancement if match was already scored (score correction)
     lower_is_better = config.get("lower_score_is_better", False)
@@ -1030,7 +1030,7 @@ async def ffa_advance_round(
     # Validate scores exist
     scores = current.get("score", [])
     players = current.get("p", [])
-    if not all(s > 0 for s in scores):
+    if not all(s is not None and s > 0 for s in scores):
         raise HTTPException(status_code=400, detail="All placements must be entered before advancing")
     
     if body.keep_count < 2:
@@ -1122,7 +1122,7 @@ async def close_tournament(
     for match in bracket:
         players = match.get("p", [])
         scores = match.get("score", [])
-        has_scores = any(s > 0 for s in scores)
+        has_scores = any(s is not None and s > 0 for s in scores)
         if not has_scores:
             continue
         for i, pid in enumerate(players):
@@ -1143,7 +1143,7 @@ async def close_tournament(
             m = round_matches[r]
             players = m.get("p", [])
             scores = m.get("score", [])
-            if not any(s > 0 for s in scores):
+            if not any(s is not None and s > 0 for s in scores):
                 continue
             round_data = [(pid, scores[i]) for i, pid in enumerate(players)
                           if pid and pid != 0 and i < len(scores) and scores[i] > 0]
