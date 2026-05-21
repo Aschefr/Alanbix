@@ -1043,3 +1043,11 @@ future_axes:
       - "Ajout d'un toggle d'activation 'Outils Réseau & Diagnostics' dans les paramètres IA de l'Administration."
       - "Filtrage dynamique des déclarations d'outils et blocage de l'exécution côté backend si désactivés."
     priority: high
+
+  - id: AXE-40
+    title: "FFA: Autoriser la progression de tous les joueurs"
+    status: TODO
+    description: >
+      En mode FFA, autoriser de garder TOUS les joueurs pour la manche suivante.
+      Actuellement il est nécessaire d'éliminer au moins 1 personne.
+    priority: medium

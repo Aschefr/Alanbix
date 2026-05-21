@@ -49,7 +49,7 @@ def get_stats(db: Session = Depends(database.get_db)):
                         goals[pid] += (max_s + 1 - raw)
                     else:
                         goals[pid] += raw
-            if config.get("bracket_type") != "ffa" and len(s) >= 2 and s[0] is not None and s[1] is not None and s[0] > 0 and s[1] > 0 and s[0] != s[1]:
+            if config.get("bracket_type") != "ffa" and len(s) >= 2 and s[0] is not None and s[1] is not None and s[0] != s[1]:
                 w_idx = (0 if s[0] < s[1] else 1) if lower_is_better else (0 if s[0] > s[1] else 1)
                 w_id = p[w_idx] if w_idx < len(p) else None
                 if w_id and w_id != 0:
@@ -157,7 +157,7 @@ def get_team_leaderboard(db: Session = Depends(database.get_db)):
                         goals[pid] += (max_s + 1 - raw)
                     else:
                         goals[pid] += raw
-            if config.get("bracket_type") != "ffa" and len(s) >= 2 and s[0] is not None and s[1] is not None and s[0] > 0 and s[1] > 0 and s[0] != s[1]:
+            if config.get("bracket_type") != "ffa" and len(s) >= 2 and s[0] is not None and s[1] is not None and s[0] != s[1]:
                 w_idx = (0 if s[0] < s[1] else 1) if lower_is_better else (0 if s[0] > s[1] else 1)
                 w_id = p[w_idx] if w_idx < len(p) else None
                 if w_id and w_id != 0:

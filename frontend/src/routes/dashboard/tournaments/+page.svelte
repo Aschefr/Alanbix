@@ -1049,11 +1049,11 @@
 															</div>
 														{:else if canEditPlayerScore(match, 0, myTeamSlotId, isParticipant, currentUser)}
 															<div class="bool-btns-rr">
-																<button class="bool-btn bool-win" on:click={() => setBoolScore(match, 0)} title="Victoire {getPlayerName(match.p[0], nameMap)}">✅</button>
+																<button class="bool-btn bool-check" on:click={() => setBoolScore(match, 0)} title="Victoire {getPlayerName(match.p[0], nameMap)}"><span class="bool-default">☐</span><span class="bool-hover">✅</span></button>
 																{#if selected?.config?.allow_draws}
 																	<button class="bool-btn bool-draw" on:click={() => setBoolDraw(match)} title="Égalité">🤝</button>
 																{/if}
-																<button class="bool-btn bool-win" on:click={() => setBoolScore(match, 1)} title="Victoire {getPlayerName(match.p[1], nameMap)}">✅</button>
+																<button class="bool-btn bool-check" on:click={() => setBoolScore(match, 1)} title="Victoire {getPlayerName(match.p[1], nameMap)}"><span class="bool-default">☐</span><span class="bool-hover">✅</span></button>
 															</div>
 														{:else}
 															<span class="rr-score">—</span><span class="rr-vs">-</span><span class="rr-score">—</span>
@@ -1118,8 +1118,7 @@
 																{#if booleanMode}
 																	{#if canEditPlayerScore(match, 0, myTeamSlotId, isParticipant, currentUser) && !isDone}
 																		<div class="bool-btns">
-																			<button class="bool-btn bool-win" on:click={() => setBoolScore(match, 0)} title="Vainqueur">✅</button>
-																			<button class="bool-btn bool-lose" on:click={() => setBoolScore(match, 1)} title="Perdant">❌</button>
+																			<button class="bool-btn bool-check" on:click={() => setBoolScore(match, 0)} title="Vainqueur"><span class="bool-default">☐</span><span class="bool-hover">✅</span></button>
 																		</div>
 																	{:else if isDone}
 																		<div class="bool-badge-container">
@@ -1149,8 +1148,7 @@
 																{#if booleanMode}
 																	{#if canEditPlayerScore(match, 1, myTeamSlotId, isParticipant, currentUser) && !isDone}
 																		<div class="bool-btns">
-																			<button class="bool-btn bool-win" on:click={() => setBoolScore(match, 1)} title="Vainqueur">✅</button>
-																			<button class="bool-btn bool-lose" on:click={() => setBoolScore(match, 0)} title="Perdant">❌</button>
+																			<button class="bool-btn bool-check" on:click={() => setBoolScore(match, 1)} title="Vainqueur"><span class="bool-default">☐</span><span class="bool-hover">✅</span></button>
 																		</div>
 																	{:else if isDone}
 																		<div class="bool-badge-container">
@@ -1207,8 +1205,7 @@
 																	{#if booleanMode}
 																		{#if canEditPlayerScore(match, 0, myTeamSlotId, isParticipant, currentUser) && !isDone}
 																			<div class="bool-btns">
-																				<button class="bool-btn bool-win" on:click={() => setBoolScore(match, 0)} title="Vainqueur">✅</button>
-																				<button class="bool-btn bool-lose" on:click={() => setBoolScore(match, 1)} title="Perdant">❌</button>
+																				<button class="bool-btn bool-check" on:click={() => setBoolScore(match, 0)} title="Vainqueur"><span class="bool-default">☐</span><span class="bool-hover">✅</span></button>
 																			</div>
 																		{:else if isDone}
 																			<div class="bool-badge-container">
@@ -1236,8 +1233,7 @@
 																	{#if booleanMode}
 																		{#if canEditPlayerScore(match, 1, myTeamSlotId, isParticipant, currentUser) && !isDone}
 																			<div class="bool-btns">
-																				<button class="bool-btn bool-win" on:click={() => setBoolScore(match, 1)} title="Vainqueur">✅</button>
-																				<button class="bool-btn bool-lose" on:click={() => setBoolScore(match, 0)} title="Perdant">❌</button>
+																				<button class="bool-btn bool-check" on:click={() => setBoolScore(match, 1)} title="Vainqueur"><span class="bool-default">☐</span><span class="bool-hover">✅</span></button>
 																			</div>
 																		{:else if isDone}
 																			<div class="bool-badge-container">
@@ -1867,9 +1863,13 @@
 		transition: all 0.15s; opacity: 0.5; line-height: 1;
 	}
 	.bool-btn:hover { opacity: 1; transform: scale(1.15); border-color: rgba(59,130,246,0.4); }
-	.bool-btn.bool-win:hover { border-color: rgba(34,197,94,0.5); background: rgba(34,197,94,0.1); }
 	.bool-btn.bool-draw:hover { border-color: rgba(245,158,11,0.5); background: rgba(245,158,11,0.1); }
-	.bool-btn.bool-lose:hover { border-color: rgba(239,68,68,0.5); background: rgba(239,68,68,0.1); }
+	/* Checkbox style: ☐ default → ✅ on hover */
+	.bool-btn.bool-check .bool-hover { display: none; }
+	.bool-btn.bool-check .bool-default { display: inline; }
+	.bool-btn.bool-check:hover .bool-hover { display: inline; }
+	.bool-btn.bool-check:hover .bool-default { display: none; }
+	.bool-btn.bool-check:hover { border-color: rgba(34,197,94,0.5); background: rgba(34,197,94,0.1); }
 
 	.bool-badge { font-size: 0.85rem; min-width: 1.5rem; text-align: center; }
 	.bool-badge.win { filter: none; }

@@ -1803,6 +1803,7 @@ def _compute_standings(bracket, bracket_type, lower_is_better=False):
     if bracket_type == "round_robin":
         # Round robin: compute win totals
         win_counts = {}
+        played_matches = {}  # Track which players have actually played a scored match
         for m in bracket:
             p0, p1 = m["p"][0], m["p"][1]
             s0, s1 = m.get("score", [0, 0])[0], m.get("score", [0, 0])[1]
@@ -1810,6 +1811,11 @@ def _compute_standings(bracket, bracket_type, lower_is_better=False):
             if p1: win_counts.setdefault(p1, 0)
             if s0 is None or s1 is None:
                 continue
+            # Check if this match has been scored (at least one non-zero score or a draw)
+            match_scored = (s0 != 0 or s1 != 0) or (s0 == s1 and s0 != 0)
+            if match_scored:
+                if p0: played_matches[p0] = played_matches.get(p0, 0) + 1
+                if p1: played_matches[p1] = played_matches.get(p1, 0) + 1
             if lower_is_better:
                 if s0 < s1 and s0 > 0 and p0:
                     win_counts[p0] = win_counts.get(p0, 0) + 1
@@ -1820,7 +1826,9 @@ def _compute_standings(bracket, bracket_type, lower_is_better=False):
                     win_counts[p0] = win_counts.get(p0, 0) + 1
                 elif s1 > s0 and p1:
                     win_counts[p1] = win_counts.get(p1, 0) + 1
-        sorted_players = sorted(win_counts.items(), key=lambda x: x[1], reverse=True)
+        # Only rank players who have played at least one scored match
+        active_players = {pid: w for pid, w in win_counts.items() if played_matches.get(pid, 0) > 0}
+        sorted_players = sorted(active_players.items(), key=lambda x: x[1], reverse=True)
         prev_wins = None
         current_rank = 0
         for i, (pid, wins) in enumerate(sorted_players):
@@ -1917,10 +1925,8 @@ def _compute_projected_standings(tournament, db):
                     val = s[i] if s[i] is not None else 0
                     cumulated_scores[pid] += max(0, val)
                     matches_played[pid] += 1
-        s0 = s[0] if len(s) > 0 and s[0] is not None else 0
-        s1 = s[1] if len(s) > 1 and s[1] is not None else 0
-        if bracket_type != "ffa" and len(s) >= 2 and s0 > 0 and s1 > 0 and s0 != s1:
-            w_idx = (0 if s0 < s1 else 1) if lower_is_better else (0 if s0 > s1 else 1)
+        if bracket_type != "ffa" and len(s) >= 2 and s[0] is not None and s[1] is not None and s[0] != s[1]:
+            w_idx = (0 if s[0] < s[1] else 1) if lower_is_better else (0 if s[0] > s[1] else 1)
             w_id = p[w_idx] if w_idx < len(p) else None
             if w_id and w_id != 0:
                 wins[w_id] = wins.get(w_id, 0) + 1

@@ -708,3 +708,53 @@ def test_ffa_multiround_eliminated_ranked(client, db_session):
     # Verify placement points
     assert rank1[0]["placement_pts"] == 10, f"1st: expected 10 placement pts, got {rank1[0]['placement_pts']}"
     assert rank2[0]["placement_pts"] == 6, f"2nd: expected 6 placement pts, got {rank2[0]['placement_pts']}"
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# TEST 10 — Live Leaderboard: Zero Scores count towards wins
+# ═══════════════════════════════════════════════════════════════════════════
+
+def test_live_leaderboard_zero_scores(client, db_session):
+    """Verify that matches ending in a zero score (e.g. 1-0) correctly count wins in live leaderboard."""
+    game = _create_game(db_session, "Live Zero RR", "round_robin")
+    t_id = _create_tournament(client, "Zero League", game.id, {
+        "bracket_type": "round_robin",
+        "lower_score_is_better": False,
+        "pts_winner": 3, "pts_second": 0, "pts_third": 0,
+        "pts_participation": 0, "pts_per_match": 0,
+        "pts_per_win": 3, "pts_per_goal": 1
+    })
+
+    user_ids = _get_user_ids(db_session, 2)
+    _join_players(client, t_id, user_ids)
+    _start(client, t_id)
+
+    # Score the first match as 1 - 0
+    bracket = _get_bracket(client, t_id)
+    match = bracket[0]
+    p0, p1 = match["p"][0], match["p"][1]
+    
+    _score(client, t_id, match, [1, 0])
+
+    # Call the /dashboard/stats endpoint to verify wins and goals
+    res = client.get("/dashboard/stats")
+    assert res.status_code == 200
+    stats = res.json()
+    
+    # Check that leaderboard stats contain players and count the win
+    leaderboard = stats.get("leaderboard", [])
+    assert len(leaderboard) > 0, "Leaderboard should not be empty"
+    
+    # p0 should have 1 win and 1 goal (points = 3 (win) + 1 (goal) = 4)
+    p0_user = db_session.query(models.User).filter(models.User.id == p0).first()
+    p0_entry = next((e for e in leaderboard if e["username"] == p0_user.username), None)
+    assert p0_entry is not None, "p0 should be in the leaderboard"
+    assert p0_entry["points"] == 4, f"p0 should have 4 points (3 for win, 1 for goal), got {p0_entry['points']}"
+
+    # Also verify that projected standings count 1 win for p0
+    standings = _standings(client, t_id)
+    p0_standing = next((s for s in standings if s["entity_id"] == p0), None)
+    assert p0_standing is not None
+    assert p0_standing["wins"] == 1, "Projected standings should count 1 win for p0"
+
+

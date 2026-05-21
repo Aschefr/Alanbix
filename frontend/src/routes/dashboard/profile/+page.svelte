@@ -1,7 +1,8 @@
 <script>
 	import { api } from '$lib/api';
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { goto } from '$app/navigation';
+	import { wsMessageStore } from '$lib/ws';
 
 	let user = null;
 	let teamName = '';
@@ -9,6 +10,7 @@
 	let saved = false;
 	let pointsData = null;
 	let existingTeams = [];
+	let wsUnsub = null;
 
 	onMount(async () => {
 		user = await api.get('/me');
@@ -19,6 +21,20 @@
 		try {
 			existingTeams = await api.get('/players/teams');
 		} catch { existingTeams = []; }
+
+		wsUnsub = wsMessageStore.subscribe(async msg => {
+			if (!msg) return;
+			if (msg.type === 'tournament_closed' || msg.type === 'tournament_reopened' || msg.type === 'users_updated') {
+				try {
+					user = await api.get('/me');
+					pointsData = await api.get('/me/points-history');
+				} catch {}
+			}
+		});
+	});
+
+	onDestroy(() => {
+		if (wsUnsub) wsUnsub();
 	});
 
 	async function saveProfile() {

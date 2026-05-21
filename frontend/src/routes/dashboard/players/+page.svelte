@@ -72,10 +72,15 @@
 			}
 		}
 
-		wsUnsub = wsMessageStore.subscribe(msg => {
+		wsUnsub = wsMessageStore.subscribe(async msg => {
 			if (!msg) return;
-			if (msg.type === 'users_updated') {
-				loadPlayers();
+			if (msg.type === 'users_updated' || msg.type === 'tournament_closed' || msg.type === 'tournament_reopened') {
+				await loadPlayers();
+				if (expandedPlayerId) {
+					try {
+						pointsHistory = await api.get(`/players/${expandedPlayerId}/points-history`);
+					} catch { pointsHistory = null; }
+				}
 			}
 			if (msg.type === 'private_message_new') {
 				const peerId = msg.sender_id === currentUser?.id ? msg.receiver_id : msg.sender_id;
