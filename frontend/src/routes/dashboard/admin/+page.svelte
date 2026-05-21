@@ -157,6 +157,11 @@
 	let newDocContent = '';
 	let instanceStatuses = [];
 	let knowledgeDocs = [];
+	let editingDocId = null;
+	let editDocContent = '';
+	let editDocLoading = false;
+	let editDocSaving = false;
+	let uploadingDoc = false;
 
 	// AI Queue admin state (G-52)
 	let iaQueueData = { pending: [], active: [], queue_size: 0, active_count: 0, avg_duration: 15 };
@@ -184,6 +189,16 @@
 			if (!msg) return;
 			if (msg.type === 'user_message_during_override' && adminActiveConvId === msg.conversation_id) {
 				selectAdminConv(adminActiveConvId);
+			}
+			if (msg.type === 'chat_updated') {
+				// Refresh active conversation view if we're watching this conversation
+				if (adminActiveConvId && adminActiveConvId === msg.conversation_id) {
+					selectAdminConv(adminActiveConvId);
+				}
+				// Refresh conversation list to update message counts / latest activity
+				if (activeTab === 'conversations') {
+					loadAdminConversations();
+				}
 			}
 			if (msg.type === 'users_updated') {
 				loadPlayers();
@@ -296,14 +311,52 @@
 		} catch (e) { toast(e.message || 'Erreur suppression', 'error'); }
 	}
 
+	async function editKnowledge(docId) {
+		if (editingDocId === docId) { editingDocId = null; return; }
+		editDocLoading = true;
+		editingDocId = docId;
+		try {
+			const doc = await api.get(`/ia/knowledge/${docId}`);
+			editDocContent = doc.content;
+		} catch (e) { toast('Erreur chargement du document', 'error'); editingDocId = null; }
+		editDocLoading = false;
+	}
+
+	async function saveKnowledgeEdit() {
+		if (!editDocContent.trim() || !editingDocId) return;
+		editDocSaving = true;
+		try {
+			const res = await api.put(`/ia/knowledge/${editingDocId}`, { content: editDocContent });
+			if (res.warning) {
+				toast(`⚠️ ${res.warning}`, 'error');
+			} else if (res.chunks > 1) {
+				toast(`Document re-vectorisé en ${res.chunks} chunks (${res.content_length} car.)`, 'success');
+			} else {
+				toast('Document mis à jour et re-vectorisé.', 'success');
+			}
+			editingDocId = null;
+			editDocContent = '';
+			loadKnowledge();
+		} catch (e) { toast(e.message || 'Erreur mise à jour', 'error'); }
+		editDocSaving = false;
+	}
+
 	async function uploadRagDoc() {
 		if (!newDocContent.trim()) return;
+		uploadingDoc = true;
 		try {
-			await api.post('/ia/upload-document', { content: newDocContent });
+			const res = await api.post('/ia/upload-document', { content: newDocContent });
 			newDocContent = '';
-			toast('Document vectorisé et ajouté à la base RAG.', 'success');
+			if (res.warning) {
+				toast(`⚠️ ${res.warning}`, 'error');
+			} else if (res.chunks > 1) {
+				toast(`Document vectorisé en ${res.chunks} chunks (${res.content_length} car.) et ajouté à la base RAG.`, 'success');
+			} else {
+				toast('Document vectorisé et ajouté à la base RAG.', 'success');
+			}
 			loadKnowledge();
 		} catch (e) { toast(e.message || 'Erreur vectorisation', 'error'); }
+		uploadingDoc = false;
 	}
 
 	async function fetchModels() {
@@ -1737,7 +1790,7 @@
 							{#if knowledgeDocs.length > 0}
 								<div class="rag-list">
 									{#each knowledgeDocs as doc}
-										<div class="rag-item">
+										<div class="rag-item {editingDocId === doc.id ? 'rag-item-editing' : ''}">
 											<div class="rag-item-main">
 												<div class="rag-item-header">
 													<span class="rag-id">#{doc.id}</span>
@@ -1748,9 +1801,32 @@
 														<span class="rag-embed-badge no">⚠️ Non vectorisé</span>
 													{/if}
 												</div>
-												<p class="rag-preview">{doc.content}</p>
+												{#if editingDocId === doc.id}
+													{#if editDocLoading}
+														<div class="rag-edit-loading">⏳ Chargement...</div>
+													{:else}
+														<textarea class="rag-edit-textarea" bind:value={editDocContent} rows="8" disabled={editDocSaving}></textarea>
+														{#if editDocSaving}
+															<div class="rag-vectorize-anim">
+																<div class="rag-vectorize-bar"></div>
+																<span class="rag-vectorize-label">🧬 Re-vectorisation en cours…</span>
+															</div>
+														{:else}
+															<div class="rag-edit-actions">
+																<span class="rag-edit-chars">{editDocContent.length} car.</span>
+																<button class="btn-secondary btn-xs" on:click={() => { editingDocId = null; editDocContent = ''; }}>✕ Annuler</button>
+																<button class="btn-primary btn-xs" on:click={saveKnowledgeEdit} disabled={!editDocContent.trim()}>💾 Sauvegarder & Re-vectoriser</button>
+															</div>
+														{/if}
+													{/if}
+												{:else}
+													<p class="rag-preview">{doc.content}</p>
+												{/if}
 											</div>
-											<button class="btn-icon btn-icon-danger" title="Supprimer" on:click={() => deleteKnowledge(doc.id)}>🗑️</button>
+											<div class="rag-item-actions">
+												<button class="btn-icon" title="Éditer" on:click={() => editKnowledge(doc.id)}>{editingDocId === doc.id ? '✕' : '✏️'}</button>
+												<button class="btn-icon btn-icon-danger" title="Supprimer" on:click={() => deleteKnowledge(doc.id)}>🗑️</button>
+											</div>
 										</div>
 									{/each}
 								</div>
@@ -1763,8 +1839,15 @@
 
 							<!-- Add new document -->
 							<div class="rag-add-section">
-								<textarea bind:value={newDocContent} placeholder="Copiez-collez ici vos tutoriels, patchnotes ou règles spécifiques..." class="prompt-textarea" rows="3"></textarea>
-								<button class="btn-primary btn-xs" on:click={uploadRagDoc} style="align-self:flex-end;margin-top:0.5rem;" disabled={!newDocContent.trim()}>🚀 Vectoriser & Ajouter</button>
+								<textarea bind:value={newDocContent} placeholder="Copiez-collez ici vos tutoriels, patchnotes ou règles spécifiques..." class="prompt-textarea" rows="3" disabled={uploadingDoc}></textarea>
+								{#if uploadingDoc}
+									<div class="rag-vectorize-anim">
+										<div class="rag-vectorize-bar"></div>
+										<span class="rag-vectorize-label">🧬 Vectorisation en cours… ({newDocContent.length} car.)</span>
+									</div>
+								{:else}
+									<button class="btn-primary btn-xs" on:click={uploadRagDoc} style="align-self:flex-end;margin-top:0.5rem;" disabled={!newDocContent.trim()}>🚀 Vectoriser & Ajouter</button>
+								{/if}
 							</div>
 						</div>
 					</div>
@@ -2252,6 +2335,37 @@
 	.rag-embed-badge { font-size: 0.55rem; font-weight: 700; padding: 0.1rem 0.35rem; border-radius: 4px; background: rgba(16,185,129,0.1); color: #10b981; }
 	.rag-embed-badge.no { background: rgba(245,158,11,0.1); color: #f59e0b; }
 	.rag-preview { font-size: 0.7rem; color: var(--text-dim); line-height: 1.4; margin: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; word-break: break-word; }
+	.rag-item-actions { display: flex; flex-direction: column; gap: 0.2rem; }
+	.rag-item-editing { border-color: rgba(59,130,246,0.3); background: rgba(59,130,246,0.05); }
+	.rag-edit-textarea { width: 100%; min-height: 120px; resize: vertical; border-radius: 6px; border: 1px solid var(--glass-border); background: var(--bg-secondary); color: var(--text-main); padding: 0.5rem; font-size: 0.75rem; font-family: inherit; line-height: 1.5; margin-top: 0.3rem; }
+	.rag-edit-textarea:focus { outline: none; border-color: var(--accent); }
+	.rag-edit-actions { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.4rem; justify-content: flex-end; }
+	.rag-edit-chars { font-size: 0.6rem; color: var(--text-muted); margin-right: auto; }
+	.rag-edit-loading { font-size: 0.75rem; color: var(--text-muted); padding: 0.5rem 0; }
+	.rag-vectorize-anim {
+		position: relative; margin-top: 0.5rem; padding: 0.6rem 0.8rem;
+		border-radius: 8px; overflow: hidden;
+		background: rgba(99,102,241,0.06); border: 1px solid rgba(99,102,241,0.15);
+	}
+	.rag-vectorize-bar {
+		position: absolute; top: 0; left: 0; height: 100%; width: 40%;
+		background: linear-gradient(90deg, transparent, rgba(99,102,241,0.15), rgba(139,92,246,0.2), rgba(99,102,241,0.15), transparent);
+		animation: rag-sweep 1.8s ease-in-out infinite;
+		border-radius: 8px;
+	}
+	.rag-vectorize-label {
+		position: relative; z-index: 1; font-size: 0.72rem; font-weight: 600;
+		color: #a78bfa; display: flex; align-items: center; gap: 0.4rem;
+		animation: rag-pulse-text 2s ease-in-out infinite;
+	}
+	@keyframes rag-sweep {
+		0%   { left: -40%; }
+		100% { left: 100%; }
+	}
+	@keyframes rag-pulse-text {
+		0%, 100% { opacity: 0.7; }
+		50%      { opacity: 1; }
+	}
 	.rag-empty { display: flex; flex-direction: column; align-items: center; gap: 0.3rem; padding: 1.5rem; color: var(--text-muted); font-size: 0.8rem; }
 	.rag-empty span { font-size: 1.5rem; opacity: 0.5; }
 	.rag-empty p { margin: 0; }

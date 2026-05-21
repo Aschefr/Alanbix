@@ -14,7 +14,7 @@ from typing import List, Optional
 from pydantic import BaseModel
 from ..websockets import manager as ws_manager
 from .. import models, schemas, auth, database
-from ..ia_utils import get_embedding, search_similar
+from ..ia_utils import get_embedding, get_embedding_chunked, search_similar
 from starlette.requests import Request as StarletteRequest
 from ..ia_compression import run_truncation, run_compaction, run_summary
 
@@ -450,10 +450,11 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
         history_query = history_query.filter(models.ChatMessage.timestamp > conv.compressed_at)
     history = history_query.order_by(models.ChatMessage.timestamp.asc()).all()
     
-    # Save user message immediately
     user_msg = models.ChatMessage(conversation_id=request.conversation_id, role="user", content=request.prompt, image_path=request.image_path)
     db.add(user_msg)
     db.commit()
+    # Notify admin monitoring panel in real-time
+    await ws_manager.broadcast({"type": "chat_updated", "conversation_id": request.conversation_id, "user_id": conv.user_id})
     
     # Build system prompt — read from SystemConfig, fallback to fr.json, then default
     system_prompt = "Tu es Alanbix, l'IA de gestion de LAN."
@@ -619,6 +620,8 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
                             )
                             s.add(ai_msg)
                             s.commit()
+                        # Notify admin monitoring panel that AI response is ready
+                        await ws_manager.broadcast({"type": "chat_updated", "conversation_id": request.conversation_id, "user_id": conv.user_id})
                         # Compute updated token estimate for frontend
                         conv_obj = s.query(models.Conversation).filter(models.Conversation.id == request.conversation_id).first()
                         post_msgs = s.query(models.ChatMessage).filter(
@@ -630,34 +633,40 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
                         ctx_chars = len(conv_obj.compressed_context or "") if conv_obj else 0
                         est_tokens = int((sum(len(m.content) for m in post_msgs) + ctx_chars) / 3.5) + 1300  # +system overhead
                         
-                        # ── Inline auto-title (G-50) ──
-                        generated_title = None
+                        # ── Auto-title: fire-and-forget background task (G-50) ──
                         if conv_obj and conv_obj.title in ("Nouvelle discussion", ""):
                             first_user_msg = s.query(models.ChatMessage).filter(
                                 models.ChatMessage.conversation_id == request.conversation_id,
                                 models.ChatMessage.role == "user"
                             ).order_by(models.ChatMessage.timestamp.asc()).first()
                             if first_user_msg:
-                                try:
-                                    async with httpx.AsyncClient() as title_client:
-                                        title_res = await title_client.post(f"{ollama_host}/api/chat", json={
-                                            "model": model_to_use,
-                                            "messages": [{"role": "user", "content": f"Génère un titre COURT (max 5 mots) pour cette conversation. Réponds UNIQUEMENT avec le titre, sans guillemets ni ponctuation finale.\n\nQuestion: {first_user_msg.content}"}],
-                                            "stream": False,
-                                            "options": {"temperature": 0.3}
-                                        }, timeout=20.0)
-                                        if title_res.status_code == 200:
-                                            title_text = title_res.json().get("message", {}).get("content", "").strip().strip('"\'')
-                                            if title_text and len(title_text) < 60:
-                                                conv_obj.title = title_text
-                                                s.commit()
-                                                generated_title = title_text
-                                except Exception:
-                                    pass
+                                _first_content = first_user_msg.content
+                                _conv_id = request.conversation_id
+                                _ollama_host = ollama_host
+                                _model = model_to_use
+                                async def _bg_title():
+                                    try:
+                                        async with httpx.AsyncClient() as tc:
+                                            tr = await tc.post(f"{_ollama_host}/api/chat", json={
+                                                "model": _model,
+                                                "messages": [{"role": "user", "content": f"Génère un titre COURT (max 5 mots) pour cette conversation. Réponds UNIQUEMENT avec le titre, sans guillemets ni ponctuation finale.\n\nQuestion: {_first_content}"}],
+                                                "stream": False,
+                                                "options": {"temperature": 0.3}
+                                            }, timeout=20.0)
+                                            if tr.status_code == 200:
+                                                tt = tr.json().get("message", {}).get("content", "").strip().strip('"\'')
+                                                if tt and len(tt) < 60:
+                                                    with database.SessionLocal() as ts:
+                                                        c = ts.query(models.Conversation).filter(models.Conversation.id == _conv_id).first()
+                                                        if c:
+                                                            c.title = tt
+                                                            ts.commit()
+                                                    await ws_manager.broadcast({"type": "conv_title_updated", "conversation_id": _conv_id, "title": tt})
+                                    except Exception:
+                                        pass
+                                asyncio.create_task(_bg_title())
                         
                     done_payload = {'done': True, 'estimated_tokens': est_tokens, 'meta': meta_val}
-                    if generated_title:
-                        done_payload['title'] = generated_title
                     yield f"data: {json.dumps(done_payload)}\n\n"
                     break
         except Exception as stream_err:
@@ -855,13 +864,19 @@ class UploadDocumentRequest(BaseModel):
 async def upload_document(req: UploadDocumentRequest, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
     instance = await pick_instance(db)
     host = instance["url"] if instance else get_effective_config(db).get('ollama_host', 'http://localhost:11434')
-    embedding = await get_embedding(req.content, ollama_host=host)
+    embedding, num_chunks = await get_embedding_chunked(req.content, ollama_host=host)
     embedding_str = json.dumps(embedding) if embedding else None
     doc = models.KnowledgeBase(content=req.content, metadata_json=req.metadata, embedding_json=embedding_str)
     db.add(doc)
     db.commit()
     db.refresh(doc)
-    return {"status": "uploaded", "id": doc.id}
+    result = {"status": "uploaded", "id": doc.id, "content_length": len(req.content), "chunks": num_chunks}
+    if not embedding:
+        result["warning"] = "Le document a été sauvegardé mais la vectorisation a échoué. Vérifiez qu'une instance Ollama est en ligne avec un modèle d'embedding."
+        result["has_embedding"] = False
+    else:
+        result["has_embedding"] = True
+    return result
 
 @router.get("/knowledge")
 async def list_knowledge(db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
@@ -884,6 +899,48 @@ async def delete_knowledge(doc_id: int, db: Session = Depends(database.get_db), 
     db.delete(doc)
     db.commit()
     return {"status": "deleted", "id": doc_id}
+
+@router.get("/knowledge/{doc_id}")
+async def get_knowledge_doc(doc_id: int, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
+    """Get full content of a knowledge base entry."""
+    doc = db.query(models.KnowledgeBase).filter(models.KnowledgeBase.id == doc_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return {
+        "id": doc.id,
+        "content": doc.content,
+        "content_length": len(doc.content),
+        "has_embedding": doc.embedding_json is not None and len(doc.embedding_json or "") > 10,
+        "metadata": doc.metadata_json
+    }
+
+class UpdateDocumentRequest(BaseModel):
+    content: str
+    metadata: dict = {}
+
+@router.put("/knowledge/{doc_id}")
+async def update_knowledge_doc(doc_id: int, req: UpdateDocumentRequest, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
+    """Update a knowledge base entry: replace content and re-vectorize."""
+    doc = db.query(models.KnowledgeBase).filter(models.KnowledgeBase.id == doc_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    
+    instance = await pick_instance(db)
+    host = instance["url"] if instance else get_effective_config(db).get('ollama_host', 'http://localhost:11434')
+    embedding, num_chunks = await get_embedding_chunked(req.content, ollama_host=host)
+    
+    doc.content = req.content
+    doc.metadata_json = req.metadata if req.metadata else doc.metadata_json
+    doc.embedding_json = json.dumps(embedding) if embedding else None
+    db.commit()
+    
+    result = {"status": "updated", "id": doc.id, "content_length": len(req.content), "chunks": num_chunks}
+    if not embedding:
+        result["warning"] = "Le contenu a été mis à jour mais la re-vectorisation a échoué."
+        result["has_embedding"] = False
+    else:
+        result["has_embedding"] = True
+    return result
 
 @router.delete("/admin/nuke-images")
 async def admin_nuke_images(db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):

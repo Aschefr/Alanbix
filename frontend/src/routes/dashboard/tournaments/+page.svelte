@@ -1014,7 +1014,7 @@
 											<div class="ffa-actions">
 												<div class="ffa-advance-row">
 													<span>Garder les</span>
-													<input type="number" class="ffa-keep-input" bind:value={keepCount} min="2" max={match.p.length - 1} />
+													<input type="number" class="ffa-keep-input" bind:value={keepCount} min="2" max={match.p.length} />
 													<span>premiers</span>
 													<button class="admin-btn start" on:click={advanceFFARound}>▶ Manche suivante</button>
 												</div>
@@ -1100,8 +1100,8 @@
 									{/if}
 									<div class="rounds-container">
 										{#each wbRounds as roundMatches, ri}
-											<div class="round-col {bracketType === 'double_elim' && ri === wbRounds.length - 1 ? 'finale-col' : ''}">
-												<div class="round-header {bracketType === 'double_elim' && ri === wbRounds.length - 1 ? 'finale-header' : ''}">{bracketType === 'double_elim' && ri === wbRounds.length - 1 ? '🏆 FINALE' : 'R' + (ri + 1)}</div>
+											<div class="round-col {ri === wbRounds.length - 1 && wbRounds.length > 1 ? 'finale-col' : ''}">
+												<div class="round-header {ri === wbRounds.length - 1 && wbRounds.length > 1 ? 'finale-header' : ''}">{ri === wbRounds.length - 1 && wbRounds.length > 1 ? '🏆 FINALE' : 'R' + (ri + 1)}</div>
 												<div class="matches-col">
 													{#each roundMatches as match}
 														{@const s0 = match.score?.[0] ?? null}

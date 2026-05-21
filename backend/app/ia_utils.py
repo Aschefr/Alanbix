@@ -6,6 +6,11 @@ import numpy as np
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://host.docker.internal:11434")
 DEFAULT_EMBED_MODEL = "nomic-embed-text"
 
+# Chunking config
+CHUNK_SIZE = 2000       # ~500 tokens per chunk
+CHUNK_OVERLAP = 200     # overlap between consecutive chunks for context continuity
+CHUNK_THRESHOLD = 3000  # texts shorter than this are embedded as-is (no chunking)
+
 def _get_embed_model():
     """Read embedding model from SystemConfig, fallback to default."""
     try:
@@ -22,8 +27,55 @@ def _get_embed_model():
         pass
     return DEFAULT_EMBED_MODEL
 
-async def get_embedding(text: str, ollama_host: str = None):
-    """Get embedding vector from Ollama."""
+
+def chunk_text(text: str, chunk_size: int = CHUNK_SIZE, overlap: int = CHUNK_OVERLAP) -> list[str]:
+    """Split text into overlapping chunks for embedding.
+    
+    Tries to split on paragraph/sentence boundaries when possible.
+    Returns a list of text chunks.
+    """
+    if not text or len(text) <= chunk_size:
+        return [text] if text else []
+    
+    chunks = []
+    start = 0
+    while start < len(text):
+        end = start + chunk_size
+        
+        if end < len(text):
+            # Try to break at a paragraph boundary first
+            para_break = text.rfind('\n\n', start + chunk_size // 2, end)
+            if para_break > start:
+                end = para_break + 2  # include the double newline
+            else:
+                # Try sentence boundary (. ! ? followed by space/newline)
+                best_break = -1
+                for sep in ['. ', '.\n', '! ', '!\n', '? ', '?\n']:
+                    pos = text.rfind(sep, start + chunk_size // 2, end)
+                    if pos > best_break:
+                        best_break = pos
+                if best_break > start:
+                    end = best_break + 2
+                else:
+                    # Try word boundary
+                    space = text.rfind(' ', start + chunk_size // 2, end)
+                    if space > start:
+                        end = space + 1
+        else:
+            end = len(text)
+        
+        chunk = text[start:end].strip()
+        if chunk:
+            chunks.append(chunk)
+        
+        # Next chunk starts with overlap
+        start = max(start + 1, end - overlap)
+    
+    return chunks
+
+
+async def get_embedding(text: str, ollama_host: str = None, timeout: float = 60.0):
+    """Get embedding vector from Ollama for a single text."""
     host = ollama_host or OLLAMA_HOST
     embed_model = _get_embed_model()
     try:
@@ -34,12 +86,58 @@ async def get_embedding(text: str, ollama_host: str = None):
                     "model": embed_model,
                     "prompt": text
                 },
-                timeout=30.0
+                timeout=timeout
             )
             return response.json()["embedding"]
     except Exception as e:
         print(f"Embedding error: {e}")
         return None
+
+
+async def get_embedding_chunked(text: str, ollama_host: str = None) -> tuple[list | None, int]:
+    """Get embedding for a text, chunking if necessary.
+    
+    For short texts (< CHUNK_THRESHOLD), embeds directly.
+    For long texts, splits into chunks, embeds each, and averages the vectors.
+    
+    Returns:
+        (embedding_vector, num_chunks) — embedding is None on failure.
+    """
+    if not text or not text.strip():
+        return None, 0
+    
+    text = text.strip()
+    
+    # Short text: embed directly
+    if len(text) < CHUNK_THRESHOLD:
+        emb = await get_embedding(text, ollama_host=ollama_host)
+        return emb, 1
+    
+    # Long text: chunk and average
+    chunks = chunk_text(text)
+    if not chunks:
+        return None, 0
+    
+    print(f"RAG chunking: {len(text)} chars → {len(chunks)} chunks")
+    
+    embeddings = []
+    for i, chunk in enumerate(chunks):
+        emb = await get_embedding(chunk, ollama_host=ollama_host, timeout=120.0)
+        if emb:
+            embeddings.append(emb)
+        else:
+            print(f"  Chunk {i+1}/{len(chunks)} failed to embed ({len(chunk)} chars)")
+    
+    if not embeddings:
+        return None, len(chunks)
+    
+    # Average all chunk embeddings (normalized)
+    avg = np.mean(np.array(embeddings, dtype=np.float32), axis=0)
+    norm = np.linalg.norm(avg)
+    if norm > 0:
+        avg = avg / norm  # L2 normalize the averaged vector
+    
+    return avg.tolist(), len(chunks)
 
 
 def cosine_similarity(a, b):

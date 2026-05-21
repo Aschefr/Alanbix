@@ -208,6 +208,14 @@
 				// Auto-dismiss after 10s
 				setTimeout(() => { if (adminNotification && adminNotification.message_id === msg.message_id) adminNotification = null; }, 10000);
 			}
+			// Auto-title arrives asynchronously via background task
+			if (msg && msg.type === 'conv_title_updated') {
+				const conv = conversations.find(c => c.id === msg.conversation_id);
+				if (conv) {
+					conv.title = msg.title;
+					conversations = conversations;
+				}
+			}
 		});
 	});
 
@@ -580,12 +588,6 @@
 								// Update token estimate from server
 								if (data.estimated_tokens) {
 									usage = { estimated_tokens: data.estimated_tokens };
-								}
-								// Auto-title: backend generates title inline in SSE stream (G-50)
-								if (data.title) {
-									const conv = conversations.find(c => c.id === activeId);
-									if (conv) conv.title = data.title;
-									conversations = conversations;
 								}
 							}
 						} catch (e) {}

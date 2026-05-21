@@ -1046,8 +1046,11 @@ future_axes:
 
   - id: AXE-40
     title: "FFA: Autoriser la progression de tous les joueurs"
-    status: TODO
+    status: DONE
     description: >
       En mode FFA, autoriser de garder TOUS les joueurs pour la manche suivante.
       Actuellement il est nécessaire d'éliminer au moins 1 personne.
+    done:
+      - "Backend: condition `keep_count >= len(players)` changée en `keep_count > len(players)` dans ffa_advance_round."
+      - "Frontend: max de l'input keepCount passé de `match.p.length - 1` à `match.p.length`."
     priority: medium

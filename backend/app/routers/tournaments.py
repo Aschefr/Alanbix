@@ -962,8 +962,8 @@ async def update_match_score(
             for m in bracket:
                 p0, p1 = m["p"][0], m["p"][1]
                 s0, s1 = m["score"][0], m["score"][1]
-                already_scored = (s0 != 0 or s1 != 0)
-                if already_scored:
+                # Skip matches already scored (but not unscored [None,None] or [0,0])
+                if s0 is not None and s1 is not None and (s0 != 0 or s1 != 0):
                     continue
                 if p0 != 0 and p1 == 0 and _is_genuine_bye(bracket, m):
                     m["score"] = [1, 0]
@@ -1035,8 +1035,8 @@ async def ffa_advance_round(
     
     if body.keep_count < 2:
         raise HTTPException(status_code=400, detail="Must keep at least 2 players")
-    if body.keep_count >= len(players):
-        raise HTTPException(status_code=400, detail="Must eliminate at least 1 player")
+    if body.keep_count > len(players):
+        raise HTTPException(status_code=400, detail="Cannot keep more players than are in the round")
     
     # Sort by placement (score = ranking position, lower = better)
     paired = list(zip(players, scores))
