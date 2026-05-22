@@ -9,6 +9,7 @@ services:
     volumes:
       - ./backend:/app
       - ./VERSION:/app/VERSION
+      - ./CHANGELOG.md:/app/CHANGELOG.md:ro
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
