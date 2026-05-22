@@ -169,7 +169,7 @@ def update_ia_config(config_data: dict, db: Session = Depends(database.get_db), 
     # Hot-restart queue workers to match new instance count (G-52)
     instances = config_data.get("ollama_instances", [])
     enabled_count = max(1, sum(1 for inst in instances if inst.get("enabled", True)))
-    from .ia_queue import queue_manager
+    from ..ia_queue import queue_manager
     asyncio.create_task(queue_manager.restart_workers(enabled_count))
 
     return {"status": "updated"}
