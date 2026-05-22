@@ -1054,3 +1054,31 @@ future_axes:
       - "Backend: condition `keep_count >= len(players)` changée en `keep_count > len(players)` dans ffa_advance_round."
       - "Frontend: max de l'input keepCount passé de `match.p.length - 1` à `match.p.length`."
     priority: medium
+
+  - id: AXE-41
+    title: "Indicateur discret de progression et durée moyenne par instance"
+    status: DONE
+    description: >
+      Barre de progression intégrée discrètement au fond des bulles du chat IA, pulsation quand la durée dépasse la moyenne,
+      affichage permanent de la durée totale en haut à gauche, exclusion du temps d'exécution des outils, calcul de la durée
+      basé sur le Time to First Token (TTFT), stockage de l'historique (limité aux 10 derniers) et affichage de la moyenne par instance sur la page Administration.
+    done:
+      - "Intégration CSS/Svelte de la barre de progression en fond de bulle de chat."
+      - "Calcul des moyennes de temps de réponse par instance d'Ollama avec persistance en base de données."
+      - "Exclusion du temps de calcul/exécution des outils tiers et pulsation lors du dépassement ou de l'appel d'outils."
+      - "Affichage du badge temps réel et de la moyenne dans l'Administration par instance."
+    priority: high
+
+  - id: AXE-42
+    title: "Modération IA, XML Fallback & Autofocus du Chat"
+    status: DONE
+    description: >
+      Outil d'auto-modération ('block_user_from_ia') pour bloquer temporairement l'accès à l'IA d'un joueur abusif.
+      Mise en place d'un analyseur de secours (fallback) basé sur des balises XML de format <tool_call> pour les modèles comme DeepSeek-R1.
+      Toggle admin optionnel pour l'auto-modération. Autofocus automatique du champ de saisie utilisateur après génération et au changement de salon.
+    done:
+      - "Création de l'outil 'block_user_from_ia' protégeant les admins et ciblant uniquement l'utilisateur courant."
+      - "Développement d'un parser XML de secours pour l'extraction et l'exécution d'outils avec modèles textuels/raisonnement."
+      - "Toggle optionnel 'Auto-modération (Anti-abus)' dans l'onglet des paramètres IA."
+      - "Réactivation automatique (autofocus) du champ de saisie du chat dès la fin de la génération."
+    priority: high

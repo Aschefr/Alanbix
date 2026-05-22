@@ -31,12 +31,15 @@ def get_effective_config(db: Session):
         val = db_config.value
         if "network_tools_enabled" not in val:
             val["network_tools_enabled"] = True
+        if "auto_moderation_enabled" not in val:
+            val["auto_moderation_enabled"] = True
         return val
     return {
         "ollama_host": os.getenv("OLLAMA_HOST", "http://host.docker.internal:11434"),
         "model": "llama3",
         "rag_enabled": True,
-        "network_tools_enabled": True
+        "network_tools_enabled": True,
+        "auto_moderation_enabled": True
     }
 
 def get_instances(db: Session):
@@ -135,6 +138,9 @@ async def instances_status(db: Session = Depends(database.get_db), admin: models
         inst_url = inst["url"].rstrip("/")
         ok, latency, model_names = await _check_instance_health(inst["url"])
         is_busy = inst_url in active_urls
+        avg_dur = queue_manager._instance_avg_durations.get(inst["url"], None)
+        if avg_dur is None:
+            avg_dur = queue_manager._instance_avg_durations.get(inst_url, None)
         results.append({
             "url": inst["url"],
             "label": inst.get("label", ""),
@@ -144,7 +150,8 @@ async def instances_status(db: Session = Depends(database.get_db), admin: models
             "latency_ms": latency,
             "available_models": model_names,
             "busy": is_busy,
-            "active_requests": 1 if is_busy else 0
+            "active_requests": 1 if is_busy else 0,
+            "avg_duration": round(avg_dur, 1) if avg_dur is not None else None
         })
     return results
 
@@ -514,12 +521,15 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
     from ..ia_queue import queue_manager, QueueEntry
     from ..ia_tools import TOOL_DEFINITIONS
     
-    # Filtrer les outils optionnels de diagnostic réseau
+    # Filtrer les outils optionnels de diagnostic réseau et de modération
     enabled_tools = []
     network_tool_names = {"ping_host", "traceroute_host", "dns_lookup", "check_server_health", "scan_local_network"}
     network_enabled = ia_cfg.get("network_tools_enabled", True)
+    moderation_enabled = ia_cfg.get("auto_moderation_enabled", True)
     for tool in TOOL_DEFINITIONS:
         if tool["function"]["name"] in network_tool_names and not network_enabled:
+            continue
+        if tool["function"]["name"] == "block_user_from_ia" and not moderation_enabled:
             continue
         enabled_tools.append(tool)
         
@@ -550,11 +560,12 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
     async def event_generator():
         _active_requests[ollama_host] = _active_requests.get(ollama_host, 0) + 1
         try:
+            avg_dur = queue_manager._instance_avg_durations.get(ollama_host, queue_manager._avg_duration)
             # Yield model info immediately so frontend knows who we are querying
-            yield f"data: {json.dumps({'model_info': {'model': model_to_use, 'instance': instance.get('label', 'Default') if instance else 'Default'}})}\n\n"
+            yield f"data: {json.dumps({'model_info': {'model': model_to_use, 'instance': instance.get('label', 'Default') if instance else 'Default'}, 'avg_duration': round(avg_dur, 1)})}\n\n"
             # ── Phase 1: Queue wait (send position updates via SSE) ──
             if position > 0:
-                yield f"data: {json.dumps({'queued': True, 'position': position, 'estimated_wait': round(position * queue_manager._avg_duration)})}\n\n"
+                yield f"data: {json.dumps({'queued': True, 'position': position, 'estimated_wait': round(position * avg_dur), 'avg_duration': round(avg_dur, 1)})}\n\n"
                 # Wait for worker to pick us up, sending position updates
                 while not queue_entry.processing_event.is_set():
                     try:
@@ -569,7 +580,7 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
                         # Send updated position
                         new_pos = queue_manager._get_position(queue_entry.id)
                         if new_pos > 0:
-                            yield f"data: {json.dumps({'position': new_pos, 'estimated_wait': round(new_pos * queue_manager._avg_duration)})}\n\n"
+                            yield f"data: {json.dumps({'position': new_pos, 'estimated_wait': round(new_pos * avg_dur), 'avg_duration': round(avg_dur, 1)})}\n\n"
                 yield f"data: {json.dumps({'processing': True})}\n\n"
 
             # ── Phase 2: Stream tokens from worker ──

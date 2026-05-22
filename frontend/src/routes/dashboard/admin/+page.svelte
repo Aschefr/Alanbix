@@ -158,6 +158,7 @@
 	// IA Settings
 	let iaConfig = { 
 		ollama_host: '', model: '', rag_enabled: true, network_tools_enabled: true,
+		auto_moderation_enabled: true,
 		temperature: 0.7, context_window: 4096,
 		ollama_instances: [], embedding_model: ''
 	};
@@ -1706,6 +1707,9 @@
 											{#if status?.online}
 												<span class="inst-ping">{status.latency_ms}ms</span>
 											{/if}
+											{#if status?.avg_duration !== undefined && status?.avg_duration !== null}
+												<span class="inst-ping" style="background: rgba(139, 92, 246, 0.15); color: #c084fc; border-color: rgba(139, 92, 246, 0.35);">⏱️ {status.avg_duration}s</span>
+											{/if}
 										</div>
 									</div>
 									<div class="inst-actions">
@@ -1787,6 +1791,15 @@
 								<span class="compact-label" style="font-weight: 600;">Outils Réseau & Diagnostic</span>
 								<label class="toggle-switch-mini">
 									<input type="checkbox" bind:checked={iaConfig.network_tools_enabled} on:change={saveIAConfig} />
+									<span class="toggle-slider"></span>
+								</label>
+							</div>
+
+							<!-- Auto-moderation -->
+							<div style="display: flex; align-items: center; justify-content: space-between; padding-top: 0.4rem; border-top: 1px solid var(--glass-border);">
+								<span class="compact-label" style="font-weight: 600;">Auto-modération (Anti-abus)</span>
+								<label class="toggle-switch-mini">
+									<input type="checkbox" bind:checked={iaConfig.auto_moderation_enabled} on:change={saveIAConfig} />
 									<span class="toggle-slider"></span>
 								</label>
 							</div>

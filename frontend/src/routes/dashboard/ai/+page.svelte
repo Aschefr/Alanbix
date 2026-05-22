@@ -32,6 +32,7 @@
 	let loading = false;
 	let autoScrollEnabled = true;
 	let isAutoScrolling = false;
+	let textareaRef;
 
 	function handleScroll() {
 		if (isAutoScrolling || !chatContainer) return;
@@ -93,6 +94,51 @@
 	let queueEntryId = null;
 	let queued = false;
 	let busyOtherConv = false; // true when user has active request in ANOTHER conversation
+
+	// Generation progress bar metrics
+	let avgDuration = 15;
+	let elapsedTime = 0;
+	let progressInterval = null;
+	let lastLoading = false;
+
+	$: if (loading && !lastLoading) {
+		elapsedTime = 0;
+		lastLoading = true;
+	} else if (!loading) {
+		if (lastLoading) {
+			tick().then(() => {
+				if (textareaRef) textareaRef.focus();
+			});
+		}
+		lastLoading = false;
+	}
+
+	$: if (activeId) {
+		tick().then(() => {
+			if (textareaRef) textareaRef.focus();
+		});
+	}
+
+	$: currentStatus = messages[messages.length - 1]?.role === 'bot' ? messages[messages.length - 1]?.status : null;
+	$: if (loading && !queued && !compressing && currentStatus !== 'done' && currentStatus !== 'generating') {
+		if (currentStatus === 'tool_call') {
+			if (progressInterval) {
+				clearInterval(progressInterval);
+				progressInterval = null;
+			}
+		} else {
+			if (!progressInterval) {
+				progressInterval = setInterval(() => {
+					elapsedTime += 0.1;
+				}, 100);
+			}
+		}
+	} else {
+		if (progressInterval) {
+			clearInterval(progressInterval);
+			progressInterval = null;
+		}
+	}
 
 	// Rotating typing messages (Astérix/Alanbix themed)
 	const typingMessages = [
@@ -195,6 +241,12 @@
 		await loadConversations();
 		iaConfig = await api.get('/ia/config');
 		try { const me = await api.get('/me'); iaBlocked = !!me.ia_blocked; } catch(e) {}
+		try {
+			const qs = await api.get('/ia/queue/status');
+			if (qs && qs.avg_duration !== undefined) {
+				avgDuration = qs.avg_duration;
+			}
+		} catch {}
 
 		// Listen for admin intervention via WebSocket
 		unsub = wsMessageStore.subscribe(msg => {
@@ -219,7 +271,10 @@
 		});
 	});
 
-	onDestroy(() => { if (unsub) unsub(); });
+	onDestroy(() => {
+		if (unsub) unsub();
+		if (progressInterval) clearInterval(progressInterval);
+	});
 
 	async function loadConversations() {
 		conversations = await api.get('/ia/conversations');
@@ -245,6 +300,9 @@
 		busyOtherConv = false;
 		try {
 			const qs = await api.get('/ia/queue/status');
+			if (qs && qs.avg_duration !== undefined) {
+				avgDuration = qs.avg_duration;
+			}
 			if (qs && (qs.status === 'processing' || qs.status === 'queued')) {
 				if (qs.conversation_id === id) {
 					loading = true;
@@ -266,6 +324,9 @@
 						try {
 							const fresh = await api.get(`/ia/conversations/${id}/messages`);
 							const qsNow = await api.get('/ia/queue/status');
+							if (qsNow && qsNow.avg_duration !== undefined) {
+								avgDuration = qsNow.avg_duration;
+							}
 							if (qsNow && qsNow.status === 'queued') {
 								queuePosition = qsNow.position || 0;
 								queueEstWait = qsNow.estimated_wait || 0;
@@ -524,6 +585,9 @@
 						const dataStr = line.replace('data: ', '');
 						try {
 							const data = JSON.parse(dataStr);
+							if (data.avg_duration !== undefined) {
+								avgDuration = data.avg_duration;
+							}
 							// Model and instance metadata
 							if (data.model_info) {
 								messages[botMsgIdx].model_info = data.model_info;
@@ -584,6 +648,9 @@
 							}
 							if (data.done) {
 								messages[botMsgIdx].status = 'done';
+								if (data.meta) {
+									messages[botMsgIdx].meta = data.meta;
+								}
 								messages = messages;
 								// Update token estimate from server
 								if (data.estimated_tokens) {
@@ -766,14 +833,23 @@
 					<div class="msg-wrapper {msg.role}">
 						<div class="msg-row {msg.role}">
 							<div class="avatar">{msg.role === 'bot' ? '🤖' : msg.role === 'admin' ? '🛡️' : '👤'}</div>
-							<div class="msg-content glass {msg.role === 'admin' ? 'admin-msg' : ''}">
+							<div class="msg-content glass {msg.role === 'admin' ? 'admin-msg' : ''}"
+								class:thinking-active={msg.role === 'bot' && idx === messages.length - 1 && loading && !queued && !compressing && (msg.status === 'thinking' || msg.status === 'tool_call')}
+								class:pulse-progress={msg.role === 'bot' && idx === messages.length - 1 && loading && !queued && !compressing && ((msg.status === 'thinking' && elapsedTime >= avgDuration) || msg.status === 'tool_call')}
+								style="--progress-percent: {Math.min(100, (elapsedTime / (avgDuration || 15)) * 100)}%;">
 								{#if msg.role === 'admin'}
 									<div class="admin-badge">Admin</div>
 								{/if}
 								{#if msg.role === 'bot'}
 									{@const modelInfo = msg.model_info || (msg.meta && msg.meta.model_info)}
 									{@const usedTools = msg.used_tools || (msg.meta && msg.meta.used_tools)}
+									{@const msgDuration = msg.meta?.duration}
 									<div class="bot-meta">
+										{#if idx === messages.length - 1 && loading && !queued && !compressing && (msg.status === 'thinking' || msg.status === 'tool_call')}
+											<span class="status-badge timer-badge">⏱️ {elapsedTime.toFixed(1)}s / {avgDuration.toFixed(1)}s</span>
+										{:else if msgDuration !== undefined && msgDuration !== null}
+											<span class="status-badge timer-badge" title="Temps de réponse du LLM (jusqu'au premier token)">⏱️ {msgDuration.toFixed(1)}s</span>
+										{/if}
 										{#if modelInfo}
 											<span class="model-badge">🤖 {modelInfo.model} ({modelInfo.instance})</span>
 										{/if}
@@ -892,6 +968,7 @@
 					<input type="file" accept="image/*" bind:this={fileInput} on:change={handleFileSelect} style="display:none" />
 					<button type="button" class="btn-attach" on:click={() => fileInput?.click()} title="Joindre une image" disabled={iaBlocked || loading || busyOtherConv}>📎</button>
 					<textarea
+						bind:this={textareaRef}
 						bind:value={query}
 						placeholder={iaBlocked ? 'Accès IA suspendu...' : busyOtherConv ? 'IA occupée dans une autre conversation…' : loading ? 'Alanbix rédige une réponse…' : 'Posez une question… (Maj+Entrée pour un retour à la ligne)'}
 						disabled={loading || iaBlocked || busyOtherConv}
@@ -1313,5 +1390,28 @@
 	@keyframes queueSlide {
 		0% { transform: translateX(-100%); }
 		100% { transform: translateX(350%); }
+	}
+
+	.status-badge.timer-badge {
+		background: rgba(139, 92, 246, 0.15);
+		color: #c084fc;
+		border: 1px solid rgba(139, 92, 246, 0.35);
+		font-family: var(--font-mono, monospace);
+		font-size: 0.68rem;
+		text-transform: none;
+		letter-spacing: 0;
+	}
+
+	.bot .msg-content.thinking-active {
+		background: linear-gradient(90deg, rgba(139, 92, 246, 0.08) var(--progress-percent), var(--glass-bg) var(--progress-percent)) !important;
+		border-color: rgba(139, 92, 246, 0.25) !important;
+	}
+
+	@keyframes pulseProgress {
+		0%, 100% { border-color: rgba(139, 92, 246, 0.25); box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+		50% { border-color: rgba(139, 92, 246, 0.65); box-shadow: 0 4px 15px rgba(0,0,0,0.1), inset 0 0 0 9999px rgba(139, 92, 246, 0.16); }
+	}
+	.pulse-progress {
+		animation: pulseProgress 2s infinite ease-in-out !important;
 	}
 </style>

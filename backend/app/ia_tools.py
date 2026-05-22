@@ -264,6 +264,23 @@ TOOL_DEFINITIONS = [
                 "required": ["game_name"]
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "block_user_from_ia",
+            "description": "Bloquer immédiatement et définitivement l'accès de l'utilisateur courant à l'assistant IA. Cette fonction DOIT être appelée sur ta propre initiative uniquement si l'utilisateur est grossier, vulgaire, insultant, agressif, harcelant, ou s'il fait des demandes inappropriées et abusives répétées. Le blocage est appliqué instantanément.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "reason": {
+                        "type": "string",
+                        "description": "La raison précise du blocage (ex: insultes répétées, propos injurieux ou vulgaires, harcèlement, demandes inappropriées)"
+                    }
+                },
+                "required": ["reason"]
+            }
+        }
     }
 ]
 
@@ -286,6 +303,12 @@ def execute_tool(name: str, arguments: Dict[str, Any], user_id: int = 0) -> str:
             ia_cfg = get_effective_config(db)
             if not ia_cfg.get("network_tools_enabled", True):
                 return json.dumps({"error": f"L'outil '{name}' est désactivé par l'administrateur dans les paramètres de l'IA."})
+
+        if name == "block_user_from_ia":
+            from .routers.ia import get_effective_config
+            ia_cfg = get_effective_config(db)
+            if not ia_cfg.get("auto_moderation_enabled", True):
+                return json.dumps({"error": "L'outil d'auto-modération est désactivé par l'administrateur dans les paramètres de l'IA."})
 
         if name == "get_current_datetime":
             return _tool_get_current_datetime(arguments)
@@ -319,6 +342,8 @@ def execute_tool(name: str, arguments: Dict[str, Any], user_id: int = 0) -> str:
             return _tool_scan_local_network()
         elif name == "get_game_rules":
             return _tool_get_game_rules(db, models, arguments)
+        elif name == "block_user_from_ia":
+            return _tool_block_user_from_ia(db, models, arguments, user_id)
         else:
             return json.dumps({"error": f"Outil inconnu: {name}"})
 
@@ -925,6 +950,50 @@ def _tool_get_game_rules(db, models, args: dict) -> str:
         "name": game.name,
         "rules": game.rules or "Aucune règle spécifique de configurée pour ce jeu.",
         "default_config": game.default_config or {}
+    }, ensure_ascii=False)
+
+
+def _tool_block_user_from_ia(db, models, args: dict, user_id: int) -> str:
+    """Block the user from using the AI assistant."""
+    reason = args.get("reason", "Comportement inapproprié ou abusif envers l'assistant IA").strip()
+    if not user_id:
+        return json.dumps({"error": "Impossible d'identifier l'utilisateur à bloquer."})
+
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        return json.dumps({"error": "Utilisateur introuvable."})
+
+    if user.is_admin:
+        return json.dumps({"error": "L'administrateur ne peut pas être bloqué."})
+
+    user.ia_blocked = True
+    
+    # Create notification for the user
+    notif = models.Notification(
+        user_id=user.id,
+        type="system",
+        title="Accès IA Révoqué",
+        content=f"Votre accès à l'assistant IA a été bloqué pour comportement inapproprié : {reason}."
+    )
+    db.add(notif)
+    
+    # Notify all administrators
+    admins = db.query(models.User).filter(models.User.is_admin == True).all()
+    for admin in admins:
+        admin_notif = models.Notification(
+            user_id=admin.id,
+            type="admin_message",
+            title="Joueur Bloqué de l'IA",
+            content=f"L'assistant IA a automatiquement bloqué '{user.username}' pour le motif suivant : {reason}."
+        )
+        db.add(admin_notif)
+        
+    db.commit()
+
+    return json.dumps({
+        "success": True,
+        "username": user.username,
+        "message": f"Le joueur {user.username} a été bloqué avec succès de l'assistant IA pour la raison suivante : {reason}."
     }, ensure_ascii=False)
 
 

@@ -55,14 +55,70 @@ class IAQueueManager:
         self._active: Dict[str, QueueEntry] = {}         # entry_id -> entry being processed
         self._workers: List[asyncio.Task] = []
         self._running = False
-        # Rolling average of request duration (last 20)
-        self._durations: deque = deque(maxlen=20)
+        # Rolling average of request duration (last 10)
+        self._durations: deque = deque(maxlen=10)
         self._avg_duration: float = 15.0  # initial guess: 15s
+        # Per-instance rolling average of request duration (last 10)
+        self._instance_durations: Dict[str, deque] = {}
+        self._instance_avg_durations: Dict[str, float] = {}
+
+    def load_persisted_durations(self):
+        """Load average durations history from database."""
+        try:
+            from .database import SessionLocal
+            from .models import SystemConfig
+            with SessionLocal() as db:
+                # 1. Global durations
+                g_cfg = db.query(SystemConfig).filter(SystemConfig.key == "global_durations_history").first()
+                if g_cfg and isinstance(g_cfg.value, list):
+                    self._durations = deque(g_cfg.value, maxlen=10)
+                    if self._durations:
+                        self._avg_duration = sum(self._durations) / len(self._durations)
+                
+                # 2. Per-instance durations
+                i_cfg = db.query(SystemConfig).filter(SystemConfig.key == "instance_durations_history").first()
+                if i_cfg and isinstance(i_cfg.value, dict):
+                    for host, durs in i_cfg.value.items():
+                        if isinstance(durs, list):
+                            self._instance_durations[host] = deque(durs, maxlen=10)
+                            if durs:
+                                self._instance_avg_durations[host] = sum(durs) / len(durs)
+            print("[IA Queue] Loaded response durations from database")
+        except Exception as e:
+            print(f"[IA Queue] Failed to load persisted durations: {e}")
+
+    def persist_durations(self):
+        """Save average durations history to database."""
+        try:
+            from .database import SessionLocal
+            from .models import SystemConfig
+            with SessionLocal() as db:
+                # 1. Global durations
+                g_cfg = db.query(SystemConfig).filter(SystemConfig.key == "global_durations_history").first()
+                if not g_cfg:
+                    g_cfg = SystemConfig(key="global_durations_history", value=list(self._durations))
+                    db.add(g_cfg)
+                else:
+                    g_cfg.value = list(self._durations)
+                
+                # 2. Per-instance durations
+                i_cfg = db.query(SystemConfig).filter(SystemConfig.key == "instance_durations_history").first()
+                inst_dict = {host: list(durs) for host, durs in self._instance_durations.items()}
+                if not i_cfg:
+                    i_cfg = SystemConfig(key="instance_durations_history", value=inst_dict)
+                    db.add(i_cfg)
+                else:
+                    i_cfg.value = inst_dict
+                
+                db.commit()
+        except Exception as e:
+            print(f"[IA Queue] Failed to persist durations: {e}")
 
     # --- Lifecycle ---
 
     async def start(self, num_workers: int = 1):
         """Start N worker coroutines."""
+        self.load_persisted_durations()
         self._running = True
         for i in range(num_workers):
             task = asyncio.create_task(self._worker(i))
@@ -167,18 +223,23 @@ class IAQueueManager:
             # Check if user is being actively processed
             for e in self._active.values():
                 if e.user_id == user_id:
-                    return {"position": 0, "estimated_wait": 0, "entry_id": e.id, "status": "processing", "conversation_id": e.conversation_id}
+                    host = e.payload.get("ollama_host", "default")
+                    avg_dur = self._instance_avg_durations.get(host, self._avg_duration)
+                    return {"position": 0, "estimated_wait": 0, "entry_id": e.id, "status": "processing", "conversation_id": e.conversation_id, "avg_duration": round(avg_dur, 1)}
             return None
         pos = self._get_position(entry.id)
+        host = entry.payload.get("ollama_host", "default")
+        avg_dur = self._instance_avg_durations.get(host, self._avg_duration)
         # If position is 0 or entry is in _active, it's being processed
         if pos == 0 or entry.id in self._active:
-            return {"position": 0, "estimated_wait": 0, "entry_id": entry.id, "status": "processing", "conversation_id": entry.conversation_id}
+            return {"position": 0, "estimated_wait": 0, "entry_id": entry.id, "status": "processing", "conversation_id": entry.conversation_id, "avg_duration": round(avg_dur, 1)}
         return {
             "position": pos,
-            "estimated_wait": round(pos * self._avg_duration),
+            "estimated_wait": round(pos * avg_dur),
             "entry_id": entry.id,
             "status": "queued",
-            "conversation_id": entry.conversation_id
+            "conversation_id": entry.conversation_id,
+            "avg_duration": round(avg_dur, 1)
         }
 
     def get_full_status(self) -> dict:
@@ -188,6 +249,8 @@ class IAQueueManager:
         # Rebuild ordered list from internal tracking
         entries = sorted(self._pending.values(), key=lambda e: (e.priority, e.created_at))
         for i, entry in enumerate(entries):
+            host = entry.payload.get("ollama_host", "default")
+            avg_dur = self._instance_avg_durations.get(host, self._avg_duration)
             pending.append({
                 "id": entry.id,
                 "position": i + 1,
@@ -196,7 +259,7 @@ class IAQueueManager:
                 "task_type": entry.task_type,
                 "priority": entry.priority,
                 "waiting_since": round(now - entry.created_at),
-                "estimated_wait": round((i + 1) * self._avg_duration),
+                "estimated_wait": round((i + 1) * avg_dur),
             })
         active = []
         for entry in self._active.values():
@@ -213,6 +276,7 @@ class IAQueueManager:
             "queue_size": len(self._pending),
             "active_count": len(self._active),
             "avg_duration": round(self._avg_duration, 1),
+            "instance_avg_durations": {h: round(v, 1) for h, v in self._instance_avg_durations.items()}
         }
 
     # --- Worker ---
@@ -244,35 +308,53 @@ class IAQueueManager:
             await self._broadcast_all_positions()
 
             t0 = time.time()
+            tool_time = 0.0
+            response_time = 0.0
             try:
-                await self._process_entry(entry, worker_id)
+                res = await self._process_entry(entry, worker_id)
+                if isinstance(res, tuple):
+                    tool_time, response_time = res
+                else:
+                    tool_time = res or 0.0
             except Exception as e:
                 error_msg = f"Erreur IA ({type(e).__name__}): {str(e)[:200]}"
                 await entry.result_stream.put({"text": error_msg, "done": True, "error": True})
             finally:
-                duration = time.time() - t0
+                if response_time > 0.0:
+                    duration = response_time
+                else:
+                    duration = max(0.1, (time.time() - t0) - tool_time)
                 self._durations.append(duration)
                 self._avg_duration = sum(self._durations) / len(self._durations)
+
+                host = entry.payload.get("ollama_host", "default")
+                if host not in self._instance_durations:
+                    self._instance_durations[host] = deque(maxlen=10)
+                self._instance_durations[host].append(duration)
+                self._instance_avg_durations[host] = sum(self._instance_durations[host]) / len(self._instance_durations[host])
+
+                self.persist_durations()
 
                 self._cleanup_entry(entry)
                 entry.done_event.set()
                 self._queue.task_done()
                 await self._broadcast_queue_state()
 
-    async def _process_entry(self, entry: QueueEntry, worker_id: int):
-        """Execute the Ollama request and stream results."""
+    async def _process_entry(self, entry: QueueEntry, worker_id: int) -> tuple[float, float]:
+        """Execute the Ollama request and stream results. Returns (total tool execution time, response time)."""
         payload = entry.payload
         task_type = entry.task_type
 
         if task_type == "chat":
-            await self._process_chat(entry, payload)
+            return await self._process_chat(entry, payload)
         elif task_type == "compress":
             await self._process_compress(entry, payload)
         elif task_type == "notification":
             await self._process_notification(entry, payload)
+        return 0.0, 0.0
 
-    async def _process_chat(self, entry: QueueEntry, payload: dict):
-        """Process a chat streaming request, with tool-calling support."""
+    async def _process_chat(self, entry: QueueEntry, payload: dict) -> tuple[float, float]:
+        """Process a chat streaming request, with tool-calling support. Returns (total tool execution time, response time)."""
         ollama_host = payload["ollama_host"]
         req_data = payload["req_data"]
         conversation_id = payload["conversation_id"]
@@ -280,6 +362,9 @@ class IAQueueManager:
 
         client = httpx.AsyncClient()
         used_tools = []
+        tool_time = 0.0
+        response_time = 0.0
+        t_start = time.time()
         try:
             # ── Phase 1: Check for tool calls (non-streaming first call) ──
             tool_messages = list(req_data.get("messages", []))
@@ -290,6 +375,17 @@ class IAQueueManager:
             if tools:
                 from .ia_tools import execute_tool
 
+                has_moderation = any(t.get("function", {}).get("name") == "block_user_from_ia" for t in tools)
+                moderation_instruction = ""
+                if has_moderation:
+                    moderation_instruction = (
+                        " Si l'utilisateur est grossier, vulgaire, insultant, agressif ou s'il fait des demandes inappropriées ou abusives répétées, "
+                        "ou si l'utilisateur te demande explicitement de le bloquer ou de tester la fonction de blocage, "
+                        "tu DOIS impérativement appeler l'outil 'block_user_from_ia' avec une raison explicite. "
+                        "Note que cet outil bloque uniquement l'utilisateur courant avec qui tu discutes. "
+                        "Tu ne peux pas l'utiliser pour bloquer d'autres joueurs (comme TurboGamer ou des PNJ test) car l'outil n'a pas de paramètre pour spécifier un autre joueur."
+                    )
+
                 # Inject tool-use instruction for the model
                 tool_instruction = {
                     "role": "system",
@@ -297,7 +393,16 @@ class IAQueueManager:
                         "Tu as accès à des outils (tools/functions) pour répondre aux questions. "
                         "Tu DOIS utiliser les outils disponibles pour obtenir des données factuelles "
                         "(heure, date, tournois, scores, classement, joueurs, jeux, notifications, infos, règles de jeux complètes, diagnostics réseau et serveur). "
-                        "N'invente/n'hallucine JAMAIS de données réseau ou de mesures de latence. Appelle toujours l'outil approprié."
+                        "N'invente/n'hallucine JAMAIS de données réseau ou de mesures de latence. Appelle toujours l'outil approprié.\n"
+                        "IMPORTANT: Si ton API ne supporte pas l'appel d'outil natif ou si tu décides d'appeler un outil, "
+                        "tu DOIS impérativement l'écrire sous ce format XML exact dans ta réponse :\n"
+                        "<tool_call name=\"nom_de_l_outil\">\n"
+                        "{\n"
+                        "  \"nom_parametre\": \"valeur\"\n"
+                        "}\n"
+                        "</tool_call>\n"
+                        "N'écris pas de texte décrivant l'action sans inclure cette balise XML, sinon l'action ne sera pas exécutée !\n"
+                        + moderation_instruction
                     )
                 }
 
@@ -325,11 +430,38 @@ class IAQueueManager:
                     msg = tool_data.get("message", {})
                     tool_calls = msg.get("tool_calls")
                     direct_content = msg.get("content", "")
+                    thinking_content = msg.get("thinking", "")
 
-                    print(f"[ToolCall] Round {tool_round}: tool_calls={bool(tool_calls)}, content_len={len(direct_content)}, keys={list(msg.keys())}", flush=True)
+                    is_xml_fallback = False
+                    if not tool_calls:
+                        # Fallback: check content and thinking for XML tool call tags
+                        text_to_search = direct_content + "\n" + (thinking_content or "")
+                        found_calls = []
+                        import re
+                        for match in re.finditer(r'<tool_call name="([^"]+)">\s*(.*?)\s*</tool_call>', text_to_search, re.DOTALL):
+                            name = match.group(1)
+                            args_str = match.group(2)
+                            try:
+                                args = json.loads(args_str)
+                            except Exception:
+                                try:
+                                    args = json.loads(args_str.replace("'", '"'))
+                                except Exception:
+                                    args = {}
+                            found_calls.append({
+                                "function": {
+                                    "name": name,
+                                    "arguments": args
+                                }
+                            })
+                        if found_calls:
+                            tool_calls = found_calls
+                            is_xml_fallback = True
+
+                    print(f"[ToolCall] Round {tool_round}: tool_calls={bool(tool_calls)} (xml_fallback={is_xml_fallback}), content_len={len(direct_content)}, keys={list(msg.keys())}", flush=True)
                     print(f"[ToolCall] Content: {direct_content[:300]}", flush=True)
                     print(f"[ToolCall] Full msg keys/types: { {k: type(v).__name__ for k,v in msg.items()} }", flush=True)
-                    if tool_calls:
+                    if tool_calls and not is_xml_fallback:
                         print(f"[ToolCall] Calls: {json.dumps(tool_calls, default=str)[:500]}", flush=True)
 
                     if not tool_calls:
@@ -338,9 +470,14 @@ class IAQueueManager:
                         break
 
                     # Execute each tool call
-                    # Add assistant message with tool_calls to BOTH lists
-                    tool_messages.append({"role": "assistant", "tool_calls": tool_calls})
-                    tool_detect_msgs.append({"role": "assistant", "tool_calls": tool_calls})
+                    if is_xml_fallback:
+                        # For text-based models, append the actual assistant response text
+                        tool_messages.append({"role": "assistant", "content": direct_content})
+                        tool_detect_msgs.append({"role": "assistant", "content": direct_content})
+                    else:
+                        # Add assistant message with tool_calls to BOTH lists
+                        tool_messages.append({"role": "assistant", "tool_calls": tool_calls})
+                        tool_detect_msgs.append({"role": "assistant", "tool_calls": tool_calls})
 
                     for tc in tool_calls:
                         fn = tc.get("function", {})
@@ -351,12 +488,20 @@ class IAQueueManager:
                         await entry.result_stream.put({"text": f"🔍 *Consultation des données : {fn_name}...*\n\n"})
                         if fn_name not in used_tools:
                             used_tools.append(fn_name)
+                        t_tool_start = time.time()
                         try:
                             result = execute_tool(fn_name, fn_args, user_id=entry.user_id)
                         except Exception as e:
                             result = json.dumps({"error": str(e)})
-                        tool_messages.append({"role": "tool", "content": result})
-                        tool_detect_msgs.append({"role": "tool", "content": result})
+                        tool_time += (time.time() - t_tool_start)
+
+                        if is_xml_fallback:
+                            # For XML fallback, send the result back as a user response
+                            tool_messages.append({"role": "user", "content": f"Résultat de l'outil {fn_name}: {result}"})
+                            tool_detect_msgs.append({"role": "user", "content": f"Résultat de l'outil {fn_name}: {result}"})
+                        else:
+                            tool_messages.append({"role": "tool", "content": result})
+                            tool_detect_msgs.append({"role": "tool", "content": result})
 
                     # Continue loop to check if model wants more tool calls
 
@@ -395,6 +540,8 @@ class IAQueueManager:
                         data = json.loads(chunk)
                         token = data.get("message", {}).get("content", "")
                         if token:
+                            if first_token and response_time == 0.0:
+                                response_time = max(0.1, (time.time() - t_start) - tool_time)
                             full_response += token
                             
                             # Check for start of think block
@@ -429,12 +576,16 @@ class IAQueueManager:
                                 await entry.result_stream.put({"text": token})
                                 
                         if data.get("done"):
+                            # If no tokens were streamed (e.g. empty or instant response), set response_time now
+                            if response_time == 0.0:
+                                response_time = max(0.1, (time.time() - t_start) - tool_time)
                             # Strip think blocks from saved response
                             import re
                             clean_response = re.sub(r'<think>.*?</think>', '', full_response, flags=re.DOTALL).strip()
                             meta = {
                                 "model_info": entry.payload.get("model_info"),
-                                "used_tools": used_tools
+                                "used_tools": used_tools,
+                                "duration": response_time
                             }
                             saved_msg_id = self._save_bot_message(conversation_id, clean_response, meta=meta)
                             await entry.result_stream.put({
@@ -451,6 +602,7 @@ class IAQueueManager:
             await entry.result_stream.put({"text": error_msg, "done": True, "error": True})
         finally:
             await client.aclose()
+        return tool_time, response_time
 
     def _save_bot_message(self, conversation_id: int, content: str, meta: dict = None):
         """Save bot message to DB. Returns message ID or None."""
@@ -551,12 +703,20 @@ class IAQueueManager:
 
     async def _broadcast_user_position(self, user_id: int, position: int):
         """Broadcast position update to a specific user."""
+        entry = self._by_user.get(user_id)
+        if entry:
+            host = entry.payload.get("ollama_host", "default")
+            avg_dur = self._instance_avg_durations.get(host, self._avg_duration)
+        else:
+            avg_dur = self._avg_duration
+
         try:
             await ws_manager.broadcast({
                 "type": "ia_queue_position",
                 "user_id": user_id,
                 "position": position,
-                "estimated_wait": round(position * self._avg_duration),
+                "estimated_wait": round(position * avg_dur),
+                "avg_duration": round(avg_dur, 1),
             })
         except Exception:
             pass

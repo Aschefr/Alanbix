@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.10.0] - 2026-05-22
+
+### Nouvelles fonctionnalites
+
+- **Barre de progression discrete & Chronometre (AXE-41)** -- Integration visuelle de la progression dans la couleur de fond des bulles du chat, avec affichage en haut a gauche du temps de reponse calcule a partir du Time to First Token (TTFT) pour une meilleure precision.
+- **Persistance des statistiques par instance** -- Sauvegarde permanente des deques de durees moyennes par instance Ollama en base de donnees via la configuration systeme, avec affichage des badges de performance dans l'onglet des instances d'administration.
+- **Outil d'auto-moderation IA (Anti-abus) (AXE-42)** -- Ajout de l'outil `block_user_from_ia` permettant a l'IA de bloquer de sa propre initiative les utilisateurs abusifs ou grossiers (tout en exemptant automatiquement les comptes administrateurs de cette sanction).
+- **XML Fallback pour l'appel d'outils** -- Developpement d'un parser robuste d'extraction et d'execution d'outils base sur des balises XML de secours `<tool_call>`, rendant le support des outils tiers pleinement fonctionnel sur les modeles comme DeepSeek-R1 ou les petits modeles ne supportant pas Ollama tool-calling nativement.
+- **Autofocus automatique** -- Focus automatique du champ de texte du chat des la fin de la generation ou lors du changement de salon de discussion.
+
+### Ameliorations
+
+- **Option auto-moderation** -- Toggle d'activation granularise ("Auto-moderation (Anti-abus)") integre dans les parametres IA de l'Administration pour rendre l'outil optionnel.
+- **Robustesse du temps de reponse** -- Pause du chronometre de progression et soustraction automatique de la duree d'execution des outils pour ne pas fausser les statistiques de latence de l'IA.
+
+---
+
 ## [1.9.2] - 2026-05-22
 
 ### Nouvelles fonctionnalites
