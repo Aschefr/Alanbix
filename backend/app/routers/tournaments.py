@@ -1262,7 +1262,7 @@ async def close_tournament(
     
     try:
         from .users import sync_automatic_awards
-        sync_automatic_awards(db)
+        await sync_automatic_awards(db)
     except Exception as e:
         print(f"Error syncing awards on close: {e}")
     
@@ -1332,7 +1332,7 @@ async def reopen_tournament(
 
     try:
         from .users import sync_automatic_awards
-        sync_automatic_awards(db)
+        await sync_automatic_awards(db)
     except Exception as e:
         print(f"Error syncing awards on reopen: {e}")
 

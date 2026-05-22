@@ -777,7 +777,7 @@ def _compute_awards_suggestions(db: Session) -> dict:
         "lb": lb_suggestion
     }
 
-def sync_automatic_awards(db: Session):
+async def sync_automatic_awards(db: Session):
     """Synchronize stats-driven automatic awards with user assignments and handle notifications."""
     suggestions = _compute_awards_suggestions(db)
     for category, meta in AWARD_METADATA.items():
@@ -849,7 +849,7 @@ def sync_automatic_awards(db: Session):
                 db.add(notif)
                 
                 # WS Broadcast trigger
-                asyncio.create_task(ws_manager.broadcast({"type": "notification_new", "user_id": uid}))
+                await ws_manager.broadcast({"type": "notification_new", "user_id": uid})
             db.commit()
         else:
             # Only update title/description texts if changed
@@ -860,10 +860,10 @@ def sync_automatic_awards(db: Session):
             db.commit()
 
 @router.get("/admin/awards")
-def admin_list_awards(db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
+async def admin_list_awards(db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
     """List all categories of awards with statistics, recipient details, and editable templates."""
     # Ensure database is up to date before serving
-    sync_automatic_awards(db)
+    await sync_automatic_awards(db)
     
     suggestions = _compute_awards_suggestions(db)
     
@@ -926,7 +926,7 @@ async def admin_update_award_text(
     db.commit()
     
     # Re-sync to propagate changes instantly
-    sync_automatic_awards(db)
+    await sync_automatic_awards(db)
     db.commit()
     
     await ws_manager.broadcast({"type": "users_updated"})
@@ -946,7 +946,7 @@ async def admin_delete_award_text(
     db.commit()
     
     # Re-sync to propagate defaults
-    sync_automatic_awards(db)
+    await sync_automatic_awards(db)
     db.commit()
     
     await ws_manager.broadcast({"type": "users_updated"})
@@ -960,7 +960,7 @@ async def admin_nuke_awards(db: Session = Depends(database.get_db), admin: model
     db.commit()
     
     # Re-sync back to default awards
-    sync_automatic_awards(db)
+    await sync_automatic_awards(db)
     db.commit()
     
     await ws_manager.broadcast({"type": "users_updated"})
