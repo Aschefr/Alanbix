@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 from .. import models, database, auth
 import os
+from .tournaments import _compute_projected_standings
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
@@ -23,53 +24,24 @@ def get_stats(db: Session = Depends(database.get_db)):
     # Add live points from running tournaments
     running = db.query(models.Tournament).filter(models.Tournament.status.in_(["RUNNING", "DONE"])).all()
     for t in running:
-        bracket = t.bracket or []
-        if not bracket:
-            continue
         config = t.config or {}
         use_teams = config.get("use_teams", False)
-        ppw = t.points_per_win or 3
-        ppg = config.get("pts_per_goal", 0)
-        lower_is_better = config.get("lower_score_is_better", False)
-        
-        wins = {}
-        goals = {}
-        for m in bracket:
-            p = m.get("p", [])
-            s = m.get("score", [])
-            if 0 in p:
-                continue
-            for i, pid in enumerate(p):
-                if pid and pid != 0:
-                    wins.setdefault(pid, 0)
-                    goals.setdefault(pid, 0)
-                    raw = max(0, s[i] if (i < len(s) and s[i] is not None) else 0)
-                    if lower_is_better and raw > 0:
-                        max_s = max((v for v in s if v is not None and v > 0), default=0)
-                        goals[pid] += (max_s + 1 - raw)
-                    else:
-                        goals[pid] += raw
-            if config.get("bracket_type") != "ffa" and len(s) >= 2 and s[0] is not None and s[1] is not None and s[0] != s[1]:
-                w_idx = (0 if s[0] < s[1] else 1) if lower_is_better else (0 if s[0] > s[1] else 1)
-                w_id = p[w_idx] if w_idx < len(p) else None
-                if w_id and w_id != 0:
-                    wins[w_id] = wins.get(w_id, 0) + 1
-        
-        # Map entity pts to user pts
+        standings = _compute_projected_standings(t, db)
         if use_teams:
             teams_db = db.query(models.TournamentTeam).filter(models.TournamentTeam.tournament_id == t.id).all()
             for team in teams_db:
                 entity_id = -team.id
-                entity_pts = wins.get(entity_id, 0) * ppw + round(goals.get(entity_id, 0) * ppg, 1)
-                if entity_pts > 0:
+                entry = next((item for item in standings if item["entity_id"] == entity_id), None)
+                if entry and entry["total"] > 0:
                     members = db.query(models.TournamentTeamMember).filter(models.TournamentTeamMember.team_id == team.id).all()
                     for mem in members:
                         if mem.user_id in user_pts:
-                            user_pts[mem.user_id]["points"] += entity_pts
+                            user_pts[mem.user_id]["points"] += entry["total"]
         else:
-            for eid, w in wins.items():
-                if eid > 0 and eid in user_pts:
-                    user_pts[eid]["points"] += w * ppw + round(goals.get(eid, 0) * ppg, 1)
+            for entry in standings:
+                eid = entry["entity_id"]
+                if eid > 0 and eid in user_pts and entry["total"] > 0:
+                    user_pts[eid]["points"] += entry["total"]
     
     leaderboard = [{"username": v["username"], "points": round(v["points"], 1), "team_name": v["team_name"]} 
                    for v in user_pts.values() if v["points"] > 0]
@@ -131,51 +103,23 @@ def get_team_leaderboard(db: Session = Depends(database.get_db)):
     live_pts = {}
     running = db.query(models.Tournament).filter(models.Tournament.status.in_(["RUNNING", "DONE"])).all()
     for t in running:
-        bracket = t.bracket or []
-        if not bracket:
-            continue
         config = t.config or {}
         use_teams_t = config.get("use_teams", False)
-        ppw = t.points_per_win or 3
-        ppg = config.get("pts_per_goal", 0)
-        lower_is_better = config.get("lower_score_is_better", False)
-        
-        wins = {}
-        goals = {}
-        for m in bracket:
-            p = m.get("p", [])
-            s = m.get("score", [])
-            if 0 in p:
-                continue
-            for i, pid in enumerate(p):
-                if pid and pid != 0:
-                    wins.setdefault(pid, 0)
-                    goals.setdefault(pid, 0)
-                    raw = max(0, s[i] if (i < len(s) and s[i] is not None) else 0)
-                    if lower_is_better and raw > 0:
-                        max_s = max((v for v in s if v is not None and v > 0), default=0)
-                        goals[pid] += (max_s + 1 - raw)
-                    else:
-                        goals[pid] += raw
-            if config.get("bracket_type") != "ffa" and len(s) >= 2 and s[0] is not None and s[1] is not None and s[0] != s[1]:
-                w_idx = (0 if s[0] < s[1] else 1) if lower_is_better else (0 if s[0] > s[1] else 1)
-                w_id = p[w_idx] if w_idx < len(p) else None
-                if w_id and w_id != 0:
-                    wins[w_id] = wins.get(w_id, 0) + 1
-        
+        standings = _compute_projected_standings(t, db)
         if use_teams_t:
             teams_db = db.query(models.TournamentTeam).filter(models.TournamentTeam.tournament_id == t.id).all()
             for team_t in teams_db:
                 entity_id = -team_t.id
-                entity_pts = wins.get(entity_id, 0) * ppw + round(goals.get(entity_id, 0) * ppg, 1)
-                if entity_pts > 0:
+                entry = next((item for item in standings if item["entity_id"] == entity_id), None)
+                if entry and entry["total"] > 0:
                     members = db.query(models.TournamentTeamMember).filter(models.TournamentTeamMember.team_id == team_t.id).all()
                     for mem in members:
-                        live_pts[mem.user_id] = live_pts.get(mem.user_id, 0) + entity_pts
+                        live_pts[mem.user_id] = live_pts.get(mem.user_id, 0) + entry["total"]
         else:
-            for eid, w in wins.items():
-                if eid > 0:
-                    live_pts[eid] = live_pts.get(eid, 0) + w * ppw + round(goals.get(eid, 0) * ppg, 1)
+            for entry in standings:
+                eid = entry["entity_id"]
+                if eid > 0 and entry["total"] > 0:
+                    live_pts[eid] = live_pts.get(eid, 0) + entry["total"]
     
     # Group by team_name with combined pts
     teams = {}
