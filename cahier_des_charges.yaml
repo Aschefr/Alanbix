@@ -1109,3 +1109,17 @@ future_axes:
       - "Toggle optionnel 'Auto-modération (Anti-abus)' dans l'onglet des paramètres IA."
       - "Réactivation automatique (autofocus) du champ de saisie du chat dès la fin de la génération."
     priority: high
+
+  - id: AXE-43
+    title: "Moteur de Prix Automatisés & Notifications Différées"
+    status: DONE
+    description: >
+      Transitionner le système d'attribution de prix vers un calcul automatique basé sur les statistiques réelles des tournois (12 catégories).
+      Permettre aux administrateurs de personnaliser les titres et les descriptions de chaque distinction (avec variables dynamiques).
+      Empêcher l'envoi immédiat de notifications aux joueurs, et ajouter un bouton de diffusion manuelle des prix en fin de LAN.
+    done:
+      - "Implémentation d'un moteur de suggestions basé sur 12 catégories statistiques (marathonien, passoire, chouchou, etc.)."
+      - "Support des variables dynamiques ({points}, {wins}, etc.) avec sauvegarde des templates dans SystemConfig."
+      - "Création d'un endpoint POST /admin/awards/notify pour déclencher l'envoi groupé des notifications avec détection des doublons."
+      - "Refonte de l'interface d'administration avec une grille de personnalisation des prix et un bouton explicite de diffusion."
+    priority: high

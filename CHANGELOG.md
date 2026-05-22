@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.13.0] - 2026-05-22
+
+### Nouvelles fonctionnalites
+
+- **Notifications de Prix Différées & Bouton de Diffusion** -- Les notifications ne sont plus envoyées immédiatement aux joueurs lors du calcul automatique ou de la mise à jour des prix. Un bouton dédié **📢 Diffuser les Prix aux Joueurs** a été ajouté sur la page d'administration centrale pour permettre aux organisateurs de contrôler précisément le moment de l'annonce officielle (par exemple, lors de la cérémonie de clôture de la LAN).
+- **Endpoint de Notification Groupée** -- Implémentation de `POST /admin/awards/notify` pour créer toutes les notifications et diffuser les événements WebSocket en une seule fois, incluant une vérification de doublons pour éviter les renvois multiples involontaires.
+
+---
+
 ## [1.12.0] - 2026-05-22
 
 ### Nouvelles fonctionnalites

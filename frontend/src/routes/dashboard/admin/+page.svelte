@@ -875,6 +875,18 @@
 			awardsLoading = false;
 		}
 	}
+
+	async function sendAwardsNotifications() {
+		awardsLoading = true;
+		try {
+			const res = await api.post('/admin/awards/notify');
+			toast(`Notifications envoyées à ${res.notified_players_count} joueur(s) !`, 'success');
+		} catch (e) {
+			toast(e.message || "Erreur lors de l'envoi des notifications", 'error');
+		} finally {
+			awardsLoading = false;
+		}
+	}
 </script>
 
 {#if authorized}
@@ -2128,10 +2140,17 @@
 						<p class="text-dim text-xs" style="border-left: 2px solid var(--accent); padding-left: 0.5rem;">
 							💡 Les descriptions supportent l'interpolation de variables de statistiques liées au vainqueur (ex: <code>{"{"}points{"}"}</code>, <code>{"{"}wins{"}"}</code>, <code>{"{"}matches_played{"}"}</code>, <code>{"{"}team_name{"}"}</code>).
 						</p>
+						<p class="text-dim text-xs" style="border-left: 2px solid var(--success); padding-left: 0.5rem; margin-top: 0.2rem;">
+							📢 Les notifications de prix ne sont <strong>pas envoyées automatiquement</strong> aux joueurs lors du calcul. Effectuez vos réglages puis cliquez sur "Diffuser les Prix" pour les notifier.
+						</p>
 					</div>
 
 					<button class="btn-primary" style="margin-top: 1.5rem; width: 100%; padding: 0.6rem 1rem;" on:click={triggerSync} disabled={awardsLoading}>
 						🔄 Recalculer & Synchroniser
+					</button>
+
+					<button class="btn-success" style="margin-top: 1rem; width: 100%; padding: 0.6rem 1rem;" on:click={sendAwardsNotifications} disabled={awardsLoading}>
+						📢 Diffuser les Prix aux Joueurs
 					</button>
 				</section>
 

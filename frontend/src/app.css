@@ -261,6 +261,28 @@ h1, h2, h3, h4, h5, h6 {
   transform: translateY(0);
 }
 
+.btn-success {
+  background: var(--success);
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 14px 0 var(--success-glow);
+}
+
+.btn-success:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px 0 var(--success-glow);
+  filter: brightness(1.1);
+}
+
+.btn-success:active {
+  transform: translateY(0);
+}
+
 .btn-secondary {
   background: var(--bg-tertiary);
   color: white;
@@ -417,7 +439,7 @@ body::before,
 .glass,
 .title-premium,
 input, select, textarea,
-.btn-primary, .btn-secondary {
+.btn-primary, .btn-secondary, .btn-success {
   transition: background 0.35s ease, color 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease;
 }
 
@@ -443,6 +465,6 @@ select option {
 }
 
 /* Fix "color: white" elements that become invisible in light mode */
-[data-theme="light"] .btn-primary {
+[data-theme="light"] .btn-primary, [data-theme="light"] .btn-success {
   color: #fff;
 }

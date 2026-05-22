@@ -838,18 +838,6 @@ async def sync_automatic_awards(db: Session):
                     description=description
                 )
                 db.add(new_award)
-                
-                # Notification
-                notif = models.Notification(
-                    user_id=uid,
-                    type="award",
-                    title=f"🏆 Prix obtenu : {title} !",
-                    content=description
-                )
-                db.add(notif)
-                
-                # WS Broadcast trigger
-                await ws_manager.broadcast({"type": "notification_new", "user_id": uid})
             db.commit()
         else:
             # Only update title/description texts if changed
@@ -965,3 +953,36 @@ async def admin_nuke_awards(db: Session = Depends(database.get_db), admin: model
     
     await ws_manager.broadcast({"type": "users_updated"})
     return {"status": "nuked"}
+
+@router.post("/admin/awards/notify")
+async def admin_notify_awards(db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
+    """Send notifications to all players who have been awarded a prize."""
+    awards = db.query(models.Award).all()
+    notified_users = set()
+    
+    for a in awards:
+        # Check if notification already exists to avoid duplicates
+        title = f"🏆 Prix obtenu : {a.title} !"
+        existing = db.query(models.Notification).filter(
+            models.Notification.user_id == a.user_id,
+            models.Notification.type == "award",
+            models.Notification.title == title
+        ).first()
+        
+        if not existing:
+            notif = models.Notification(
+                user_id=a.user_id,
+                type="award",
+                title=title,
+                content=a.description
+            )
+            db.add(notif)
+            notified_users.add(a.user_id)
+            
+    db.commit()
+    
+    # Broadcast via WebSockets
+    for uid in notified_users:
+        await ws_manager.broadcast({"type": "notification_new", "user_id": uid})
+        
+    return {"status": "success", "notified_players_count": len(notified_users)}

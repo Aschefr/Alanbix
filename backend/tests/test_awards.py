@@ -47,3 +47,39 @@ def test_awards_nuke(client, db_session):
     res = client.delete("/admin/nuke/awards")
     assert res.status_code == 200
     assert res.json()["status"] == "nuked"
+
+def test_awards_notifications_flow(client, db_session):
+    # 1. Clear any existing awards
+    client.delete("/admin/nuke/awards")
+
+    # Give Player1 some points to trigger the "premier" award suggestion
+    p1 = db_session.query(models.User).filter(models.User.username == "Player1").first()
+    p1.points = 50
+    db_session.commit()
+
+    # 2. Trigger calculation and verify awards table is populated
+    res = client.get("/admin/awards")
+    assert res.status_code == 200
+
+    # Verify that the award is created in the database
+    awards_count = db_session.query(models.Award).count()
+    assert awards_count > 0
+
+    # 3. Verify that NO notifications of type "award" have been created yet (they are delayed)
+    notif_count = db_session.query(models.Notification).filter(models.Notification.type == "award").count()
+    assert notif_count == 0
+
+    # 4. Trigger the notification endpoint POST /admin/awards/notify
+    res = client.post("/admin/awards/notify")
+    assert res.status_code == 200
+    assert res.json()["status"] == "success"
+    assert res.json()["notified_players_count"] > 0
+
+    # 5. Verify that notifications of type "award" now exist in the database
+    notif_count = db_session.query(models.Notification).filter(models.Notification.type == "award").count()
+    assert notif_count > 0
+
+    # 6. Trigger again, verify duplicate check prevents double-notification
+    res2 = client.post("/admin/awards/notify")
+    assert res2.status_code == 200
+    assert res2.json()["notified_players_count"] == 0
