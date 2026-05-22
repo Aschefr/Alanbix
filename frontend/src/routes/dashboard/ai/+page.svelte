@@ -604,6 +604,20 @@
 			await selectConversation(activeId);
 		}
 	}
+
+	function handleInputKeydown(e) {
+		if (e.key === 'Enter' && !e.shiftKey) {
+			e.preventDefault();
+			send();
+		}
+	}
+
+	function autoResizeTextarea(e) {
+		const el = e.target;
+		el.style.height = 'auto';
+		const maxHeight = 6 * 1.5 * 16; // ~6 lines
+		el.style.height = Math.min(el.scrollHeight, maxHeight) + 'px';
+	}
 </script>
 
 <div class="ai-page flex-row">
@@ -877,7 +891,17 @@
 				<div class="input-row">
 					<input type="file" accept="image/*" bind:this={fileInput} on:change={handleFileSelect} style="display:none" />
 					<button type="button" class="btn-attach" on:click={() => fileInput?.click()} title="Joindre une image" disabled={iaBlocked || loading || busyOtherConv}>📎</button>
-					<input type="text" bind:value={query} placeholder="{iaBlocked ? 'Accès IA suspendu...' : busyOtherConv ? 'IA occupée dans une autre conversation…' : loading ? 'Alanbix rédige une réponse…' : 'Posez une question sur la LAN, les règles, le planning...'}" disabled={loading || iaBlocked || busyOtherConv} title={busyOtherConv ? 'Une requête IA est déjà en cours dans une autre conversation' : loading ? 'Veuillez patienter — l\'IA génère une réponse' : ''} on:paste={handlePaste} />
+					<textarea
+						bind:value={query}
+						placeholder={iaBlocked ? 'Accès IA suspendu...' : busyOtherConv ? 'IA occupée dans une autre conversation…' : loading ? 'Alanbix rédige une réponse…' : 'Posez une question… (Maj+Entrée pour un retour à la ligne)'}
+						disabled={loading || iaBlocked || busyOtherConv}
+						title={busyOtherConv ? 'Une requête IA est déjà en cours dans une autre conversation' : loading ? 'Veuillez patienter — l\'IA génère une réponse' : ''}
+						on:paste={handlePaste}
+						on:keydown={handleInputKeydown}
+						on:input={autoResizeTextarea}
+						rows="1"
+						class="chat-textarea"
+					></textarea>
 					{#if loading}
 						<button class="btn-stop" type="button" on:click={cancelQueue} title="Interrompre la génération">⏹ Arrêter</button>
 					{:else if busyOtherConv}
@@ -992,8 +1016,8 @@
 
 	.input-area { padding: 1.5rem 2rem; display: flex; gap: 1rem; border-top: 1px solid var(--glass-border); transition: opacity 0.3s; }
 	.input-area.input-disabled { opacity: 0.55; }
-	.input-area.input-disabled input { cursor: not-allowed; background: var(--surface-sunken); }
-	.input-area input { flex-grow: 1; }
+	.input-area.input-disabled .chat-textarea { cursor: not-allowed; background: var(--surface-sunken); }
+	.input-area .chat-textarea { flex-grow: 1; }
 	.btn-stop {
 		padding: 0.6rem 1.2rem; font-size: 0.85rem; font-weight: 700;
 		color: #ef4444; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.35);
@@ -1194,8 +1218,18 @@
 	.preview-clear { position: absolute; top: -6px; right: -6px; width: 22px; height: 22px; border-radius: 50%; background: rgba(239,68,68,0.9); color: white; border: none; cursor: pointer; font-size: 0.7rem; display: flex; align-items: center; justify-content: center; }
 
 	/* Input row with attach button */
-	.input-row { display: flex; gap: 0.5rem; align-items: center; width: 100%; }
-	.input-row input[type="text"] { flex: 1; }
+	.input-row { display: flex; gap: 0.5rem; align-items: flex-end; width: 100%; }
+	.chat-textarea {
+		flex: 1; resize: none; overflow-y: auto;
+		min-height: 40px; max-height: 144px; /* ~6 lines */
+		padding: 0.6rem 0.8rem; font-size: 0.95rem; line-height: 1.5;
+		border: 1px solid var(--glass-border); border-radius: var(--radius-md);
+		background: var(--bg-secondary); color: var(--text-main);
+		font-family: inherit; outline: none; transition: border-color 0.2s;
+	}
+	.chat-textarea:focus { border-color: var(--accent); }
+	.chat-textarea:disabled { cursor: not-allowed; background: var(--surface-sunken); opacity: 0.7; }
+	.chat-textarea::placeholder { color: var(--text-muted); }
 	.btn-attach { background: var(--hover-tint); border: 1px solid var(--glass-border); color: var(--text-dim); width: 40px; height: 40px; border-radius: 8px; cursor: pointer; font-size: 1.1rem; display: flex; align-items: center; justify-content: center; transition: all 0.2s; flex-shrink: 0; }
 	.btn-attach:hover { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 
