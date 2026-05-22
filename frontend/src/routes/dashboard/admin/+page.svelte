@@ -1482,7 +1482,7 @@
 						</div>
 					</div>
 
-					<div class="sc glass">
+					<div class="sc glass sc-full">
 						<div class="sc-head">
 							<div class="sc-icon">🏆</div>
 							<div>
@@ -1502,7 +1502,7 @@
 					</div>
 
 					<!-- Danger Zone -->
-					<div class="sc danger-zone">
+					<div class="sc danger-zone sc-full">
 						<div class="sc-head">
 							<div class="sc-icon">☢️</div>
 							<div>
@@ -1682,7 +1682,7 @@
 								<h3>Instances Ollama</h3>
 								<p class="sc-sub">Serveurs distribués pour les requêtes IA — triés par priorité</p>
 							</div>
-							<button class="btn-add" on:click={addInstance}>+ Ajouter</button>
+							<button class="btn-add btn-xs" on:click={addInstance}>+ Ajouter</button>
 						</div>
 						<div class="sc-body">
 							{#each iaConfig.ollama_instances as inst, idx}
@@ -1695,10 +1695,10 @@
 									</div>
 									<div class="inst-status">{status?.online ? '🟢' : '🔴'}</div>
 									<div class="inst-main">
-										<input type="text" class="inst-name" bind:value={inst.label} on:change={saveIAConfig} placeholder="GPU1 — RTX 4090" />
+										<input type="text" class="inst-name-input" bind:value={inst.label} on:change={saveIAConfig} placeholder="GPU1 — Nom" />
 										<div class="inst-meta">
-											<input type="text" class="inst-url" bind:value={inst.url} on:change={saveIAConfig} placeholder="http://192.168.1.x:11434" />
-											<select bind:value={inst.model} on:change={saveIAConfig} class="inst-model">
+											<input type="text" class="inst-url-input" bind:value={inst.url} on:change={saveIAConfig} placeholder="http://..." />
+											<select bind:value={inst.model} on:change={saveIAConfig} class="inst-model-select">
 												<option value="">— Modèle —</option>
 												{#each (status?.available_models || availableModels.map(m => m.name)) as mName}
 													<option value={mName}>{mName}</option>
@@ -1710,12 +1710,12 @@
 										</div>
 									</div>
 									<div class="inst-actions">
-										<label class="toggle-switch">
+										<label class="toggle-switch-mini">
 											<input type="checkbox" bind:checked={inst.enabled} on:change={saveIAConfig} />
 											<span class="toggle-slider"></span>
 										</label>
-										<button class="inst-btn" on:click={() => testInstance(idx)} title="Tester">🔍</button>
-										<button class="inst-btn danger" on:click={() => removeInstance(idx)} title="Supprimer">✕</button>
+										<button class="inst-btn-mini" on:click={() => testInstance(idx)} title="Tester">🔍</button>
+										<button class="inst-btn-mini danger" on:click={() => removeInstance(idx)} title="Supprimer">✕</button>
 									</div>
 								</div>
 							{:else}
@@ -1724,101 +1724,101 @@
 						</div>
 					</div>
 
-					<!-- Model Parameters -->
-					<div class="sc-row-2">
-						<div class="sc glass">
-							<div class="sc-head compact">
-								<div class="sc-icon sm">🌡️</div>
-								<h3>Température</h3>
-								<span class="param-val">{iaConfig.temperature}</span>
-							</div>
-							<div class="sc-body">
-								<input type="range" bind:value={iaConfig.temperature} on:change={saveIAConfig} min="0" max="1" step="0.1" class="range-accent" />
-								<div class="range-labels"><span>Précis</span><span>Créatif</span></div>
-							</div>
-						</div>
-						<div class="sc glass">
-							<div class="sc-head compact">
-								<div class="sc-icon sm">📐</div>
-								<h3>Fenêtre Contexte</h3>
-								<span class="param-val">{iaConfig.context_window}</span>
-							</div>
-							<div class="sc-body">
-								<div class="ctx-presets">
-									{#each [2048, 4096, 8192, 16384, 32768] as val}
-										<button class="ctx-preset {iaConfig.context_window === val ? 'active' : ''}" on:click={() => { iaConfig.context_window = val; saveIAConfig(); }}>{val >= 1024 ? (val/1024) + 'K' : val}</button>
-									{/each}
-								</div>
-								<input type="number" bind:value={iaConfig.context_window} on:change={saveIAConfig} class="ctx-input" />
-							</div>
-						</div>
-					</div>
-
-					<!-- Embedding Model -->
+					<!-- Configuration du Modèle -->
 					<div class="sc glass">
 						<div class="sc-head compact">
-							<div class="sc-icon sm">🔗</div>
-							<h3>Modèle d'Embedding (RAG)</h3>
-						</div>
-						<div class="sc-body">
-							<select bind:value={iaConfig.embedding_model} on:change={saveIAConfig} class="inst-model" style="width:100%">
-								<option value="">— Auto (nomic-embed-text) —</option>
-								{#each availableModels.filter(m => m.name.includes('embed')) as m}
-									<option value={m.name}>{m.name}</option>
-								{/each}
-							</select>
-							<p class="text-xs text-dim" style="margin-top:0.4rem">Modèle utilisé pour la recherche vectorielle (RAG). Seuls les modèles d'embedding sont listés.</p>
-						</div>
-					</div>
-
-					<!-- System Prompt -->
-					<div class="sc glass">
-						<div class="sc-head">
-							<div class="sc-icon">💬</div>
-							<div>
-								<h3>Prompt Système</h3>
-								<p class="sc-sub">Personnalité et instructions injectées dans chaque conversation</p>
+							<div class="sc-icon sm">⚙️</div>
+							<div style="flex:1">
+								<h3>Configuration du Modèle</h3>
+								<p class="sc-sub">Paramètres fins du comportement et du contexte de l'IA</p>
 							</div>
 						</div>
-						<div class="sc-body">
-							<textarea bind:value={systemPrompt} on:change={saveSystemPrompt} on:input={() => debounceSave('systemPrompt', saveSystemPrompt)} rows="4" placeholder="Tu es Alanbix, l'IA de gestion de LAN..." class="prompt-textarea"></textarea>
-						</div>
-					</div>
-
-					<!-- Tournament Closing Prompt -->
-					<div class="sc glass">
-						<div class="sc-head">
-							<div class="sc-icon">📣</div>
+						<div class="sc-body" style="gap: 0.8rem;">
+							<!-- Temperature -->
 							<div>
-								<h3>Prompt Clôture Tournoi</h3>
-								<p class="sc-sub">Personnalité et ton utilisés pour les messages IA de fin de tournoi</p>
+								<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem;">
+									<label class="compact-label">Température: <strong>{iaConfig.temperature}</strong></label>
+									<span class="range-hint text-xs" style="color: var(--text-muted); font-size: 0.65rem;">
+										{iaConfig.temperature <= 0.3 ? 'Précis' : iaConfig.temperature >= 0.7 ? 'Créatif' : 'Équilibré'}
+									</span>
+								</div>
+								<input type="range" bind:value={iaConfig.temperature} on:change={saveIAConfig} min="0" max="1" step="0.1" class="range-accent" style="width: 100%;" />
 							</div>
-						</div>
-						<div class="sc-body">
-							<textarea bind:value={closingPrompt} on:change={saveClosingPrompt} on:input={() => debounceSave('closingPrompt', saveClosingPrompt)} rows="3" placeholder="Tu es le commentateur sportif surexcité d'une LAN party..." class="prompt-textarea"></textarea>
-							<p class="text-xs text-dim" style="margin-top:0.3rem">Laissez vide pour utiliser le prompt par défaut. Ce texte est l'introduction envoyée à l'IA avant les résultats du tournoi.</p>
-						</div>
-					</div>
 
-					<!-- Outils Réseau & Diagnostic Toggle -->
-					<div class="sc glass">
-						<div class="sc-head" style="align-items: center; justify-content: space-between;">
-							<div style="display: flex; align-items: center; gap: 0.8rem; flex: 1;">
-								<div class="sc-icon">🛠️</div>
-								<div style="flex:1">
-									<h3>Outils Réseau & Diagnostics</h3>
-									<p class="sc-sub">Autoriser l'IA à effectuer de vrais pings, traceroutes et vérifications de santé du serveur</p>
+							<!-- Context Window -->
+							<div>
+								<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem;">
+									<label class="compact-label">Contexte: <strong>{iaConfig.context_window} tokens</strong></label>
+									<input 
+										type="number" 
+										bind:value={iaConfig.context_window} 
+										on:change={saveIAConfig} 
+										min="512" 
+										step="256"
+										style="width: 80px; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 6px; padding: 0.15rem 0.4rem; color: var(--text-main); font-size: 0.72rem; font-weight: 700; text-align: right;" 
+									/>
+								</div>
+								<div class="ctx-presets-grid" style="display: flex; gap: 0.25rem;">
+									{#each [2048, 4096, 8192, 16384, 32768] as size}
+										<button 
+											type="button"
+											class="ctx-preset-mini-btn" 
+											class:active={iaConfig.context_window === size}
+											on:click={() => { iaConfig.context_window = size; saveIAConfig(); }}
+										>
+											{size >= 1024 ? (size / 1024) + 'K' : size}
+										</button>
+									{/each}
 								</div>
 							</div>
-							<label class="toggle-switch">
-								<input type="checkbox" bind:checked={iaConfig.network_tools_enabled} on:change={saveIAConfig} />
-								<span class="toggle-slider"></span>
-							</label>
+
+							<!-- Embedding Model -->
+							<div>
+								<label class="compact-label" style="margin-bottom: 0.2rem; display: block;">Modèle d'Embedding (RAG)</label>
+								<select bind:value={iaConfig.embedding_model} on:change={saveIAConfig} class="inst-model-select-wide">
+									<option value="">— Auto (nomic-embed-text) —</option>
+									{#each availableModels.filter(m => m.name.includes('embed')) as m}
+										<option value={m.name}>{m.name}</option>
+									{/each}
+								</select>
+							</div>
+
+							<!-- Network Tools -->
+							<div style="display: flex; align-items: center; justify-content: space-between; padding-top: 0.4rem; border-top: 1px solid var(--glass-border);">
+								<span class="compact-label" style="font-weight: 600;">Outils Réseau & Diagnostic</span>
+								<label class="toggle-switch-mini">
+									<input type="checkbox" bind:checked={iaConfig.network_tools_enabled} on:change={saveIAConfig} />
+									<span class="toggle-slider"></span>
+								</label>
+							</div>
+						</div>
+					</div>
+
+					<!-- Prompts de l'IA -->
+					<div class="sc glass">
+						<div class="sc-head compact">
+							<div class="sc-icon sm">💬</div>
+							<div style="flex:1">
+								<h3>Prompts de l'IA</h3>
+								<p class="sc-sub">Définissez la personnalité et les règles de réponse de l'IA</p>
+							</div>
+						</div>
+						<div class="sc-body" style="gap: 0.75rem;">
+							<div class="prompts-container">
+								<div style="display: flex; flex-direction: column; gap: 0.3rem; min-width: 0;">
+									<label class="compact-label">Prompt Système</label>
+									<textarea class="prompt-textarea-compact" bind:value={systemPrompt} on:change={saveSystemPrompt} on:input={() => debounceSave('systemPrompt', saveSystemPrompt)} placeholder="Tu es Alanbix, l'IA..." rows="4"></textarea>
+								</div>
+								<div style="display: flex; flex-direction: column; gap: 0.3rem; min-width: 0;">
+									<label class="compact-label">Prompt Clôture Tournoi</label>
+									<textarea class="prompt-textarea-compact" bind:value={closingPrompt} on:change={saveClosingPrompt} on:input={() => debounceSave('closingPrompt', saveClosingPrompt)} placeholder="Félicitations aux vainqueurs..." rows="3"></textarea>
+								</div>
+							</div>
 						</div>
 					</div>
 
 					<!-- RAG -->
-					<div class="sc glass">
+					<div class="sc glass sc-full">
 						<div class="sc-head">
 							<div class="sc-icon">📚</div>
 							<div style="flex:1">
@@ -2118,22 +2118,33 @@
 	.stab:hover { color: var(--text-main); background: var(--hover-tint); }
 	.stab.active { background: rgba(59,130,246,0.12); color: var(--accent); box-shadow: 0 0 12px rgba(59,130,246,0.1); }
 	.stab-icon { font-size: 1rem; }
-	.stab-content { display: flex; flex-direction: column; gap: 1.2rem; animation: fadeIn 0.2s ease; }
+	.stab-content {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr);
+		gap: 1rem;
+		align-items: start;
+		animation: fadeIn 0.2s ease;
+	}
+	@media (min-width: 800px) {
+		.stab-content {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+	}
 	@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 
 	/* Settings Card */
-	.sc { border-radius: 16px; padding: 0; overflow: hidden; border: 1px solid var(--glass-border); }
-	.sc-head { display: flex; align-items: center; gap: 0.8rem; padding: 1rem 1.2rem; border-bottom: 1px solid var(--glass-border); background: var(--hover-tint); }
-	.sc-head.compact { padding: 0.7rem 1rem; }
-	.sc-head h3 { font-size: 0.95rem; color: var(--text-main); margin: 0; }
-	.sc-icon { font-size: 1.3rem; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; background: rgba(59,130,246,0.08); border-radius: 10px; flex-shrink: 0; }
-	.sc-icon.sm { font-size: 1rem; width: 28px; height: 28px; border-radius: 8px; }
-	.sc-sub { font-size: 0.7rem; color: var(--text-muted); margin: 0.15rem 0 0; }
-	.sc-body { padding: 1rem 1.2rem; display: flex; flex-direction: column; }
-	.sc-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+	.sc { border-radius: 12px; padding: 0; overflow: hidden; border: 1px solid var(--glass-border); }
+	.sc.sc-full { grid-column: 1 / -1; }
+	.sc-head { display: flex; align-items: center; gap: 0.6rem; padding: 0.75rem 1rem; border-bottom: 1px solid var(--glass-border); background: var(--hover-tint); }
+	.sc-head.compact { padding: 0.5rem 0.8rem; }
+	.sc-head h3 { font-size: 0.9rem; color: var(--text-main); margin: 0; }
+	.sc-icon { font-size: 1rem; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; background: rgba(59,130,246,0.08); border-radius: 8px; flex-shrink: 0; }
+	.sc-icon.sm { font-size: 0.85rem; width: 22px; height: 22px; border-radius: 6px; }
+	.sc-sub { font-size: 0.68rem; color: var(--text-muted); margin: 0.1rem 0 0; }
+	.sc-body { padding: 0.8rem 1rem; display: flex; flex-direction: column; }
 
 	/* Instance rows */
-	.inst-row { display: flex; align-items: center; gap: 0.6rem; padding: 0.7rem 0.8rem; border-radius: 10px; background: var(--hover-tint); border: 1px solid transparent; transition: all 0.2s; margin-bottom: 0.4rem; }
+	.inst-row { display: flex; align-items: center; gap: 0.6rem; padding: 0.6rem 0.8rem; border-radius: 10px; background: var(--hover-tint); border: 1px solid transparent; transition: all 0.2s; margin-bottom: 0.4rem; }
 	.inst-row:hover { background: var(--accent-soft); border-color: var(--glass-border); }
 	.inst-row.disabled { opacity: 0.4; }
 	.inst-prio { display: flex; flex-direction: column; align-items: center; gap: 1px; }
@@ -2143,22 +2154,23 @@
 	.reorder-btn:disabled { opacity: 0.15; cursor: default; }
 	.inst-status { font-size: 0.65rem; }
 	.inst-main { flex: 1; min-width: 0; }
-	.inst-name { width: 100%; background: transparent; border: none; border-bottom: 1px solid var(--glass-border); color: var(--text-main); font-size: 0.85rem; font-weight: 700; padding: 0.15rem 0; }
-	.inst-name:focus { border-color: var(--accent); outline: none; }
+	.inst-name-input { width: 100%; background: transparent; border: none; border-bottom: 1px solid var(--glass-border); color: var(--text-main); font-size: 0.8rem; font-weight: 700; padding: 0.1rem 0; }
+	.inst-name-input:focus { border-color: var(--accent); outline: none; }
 	.inst-meta { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.3rem; }
-	.inst-url { flex: 1; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 6px; padding: 0.2rem 0.4rem; color: var(--text-dim); font-size: 0.7rem; font-family: monospace; }
-	.inst-model { background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 6px; padding: 0.2rem 0.4rem; color: var(--text-main); font-size: 0.7rem; max-width: 160px; }
-	.inst-model option { background: var(--bg-secondary); color: var(--text-main); }
+	.inst-url-input { flex: 1; min-width: 80px; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 6px; padding: 0.2rem 0.4rem; color: var(--text-dim); font-size: 0.7rem; font-family: monospace; }
+	.inst-model-select { background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 6px; padding: 0.2rem 0.4rem; color: var(--text-main); font-size: 0.7rem; max-width: 120px; min-width: 80px; }
+	.inst-model-select option { background: var(--bg-secondary); color: var(--text-main); }
 	.inst-ping { font-size: 0.6rem; color: #10b981; font-weight: 700; padding: 0.1rem 0.35rem; background: rgba(16,185,129,0.1); border-radius: 4px; }
 	.inst-actions { display: flex; align-items: center; gap: 0.3rem; }
-	.inst-btn { background: var(--hover-tint); border: 1px solid var(--glass-border); border-radius: 6px; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 0.7rem; transition: all 0.15s; }
-	.inst-btn:hover { background: rgba(59,130,246,0.15); border-color: var(--accent); }
-	.inst-btn.danger:hover { background: rgba(239,68,68,0.2); border-color: var(--danger); }
+	.inst-btn-mini { background: var(--hover-tint); border: 1px solid var(--glass-border); border-radius: 6px; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 0.65rem; transition: all 0.15s; }
+	.inst-btn-mini:hover { background: rgba(59,130,246,0.15); border-color: var(--accent); }
+	.inst-btn-mini.danger:hover { background: rgba(239,68,68,0.2); border-color: var(--danger); }
 	.inst-empty { text-align: center; padding: 1.5rem; color: var(--text-muted); font-size: 0.8rem; }
 	.btn-add { background: rgba(59,130,246,0.1); border: 1px dashed rgba(59,130,246,0.3); color: var(--accent); border-radius: 8px; padding: 0.35rem 0.8rem; font-size: 0.75rem; font-weight: 700; cursor: pointer; transition: all 0.2s; }
 	.btn-add:hover { background: rgba(59,130,246,0.2); border-style: solid; }
+	.btn-add.btn-xs { padding: 0.2rem 0.5rem; font-size: 0.65rem; border-radius: 6px; }
 
-	/* Toggle switch */
+	/* Toggle switch & Mini version */
 	.toggle-switch { position: relative; display: inline-block; width: 32px; height: 18px; cursor: pointer; }
 	.toggle-switch input { opacity: 0; width: 0; height: 0; }
 	.toggle-slider { position: absolute; inset: 0; background: var(--surface-sunken); border-radius: 9px; transition: 0.2s; }
@@ -2166,8 +2178,15 @@
 	.toggle-switch input:checked + .toggle-slider { background: rgba(59,130,246,0.35); }
 	.toggle-switch input:checked + .toggle-slider::before { transform: translateX(14px); background: var(--accent); }
 
+	.toggle-switch-mini { position: relative; display: inline-block; width: 28px; height: 16px; cursor: pointer; }
+	.toggle-switch-mini input { opacity: 0; width: 0; height: 0; }
+	.toggle-switch-mini .toggle-slider { position: absolute; inset: 0; background: var(--surface-sunken); border-radius: 8px; transition: 0.2s; }
+	.toggle-switch-mini .toggle-slider::before { content: ''; position: absolute; height: 12px; width: 12px; left: 2px; bottom: 2px; background: var(--text-dim); border-radius: 50%; transition: 0.2s; }
+	.toggle-switch-mini input:checked + .toggle-slider { background: rgba(59,130,246,0.35); }
+	.toggle-switch-mini input:checked + .toggle-slider::before { transform: translateX(12px); background: var(--accent); }
+
 	/* Scoring toggle */
-	.scoring-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+	.scoring-toggle { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.6rem; }
 	.score-opt { display: flex; flex-direction: column; align-items: center; gap: 0.2rem; padding: 0.8rem; background: var(--hover-tint); border: 1px solid var(--glass-border); border-radius: 12px; cursor: pointer; transition: all 0.2s; color: var(--text-main); }
 	.score-opt:hover { border-color: rgba(59,130,246,0.3); background: rgba(59,130,246,0.04); }
 	.score-opt.active { border-color: var(--accent); background: rgba(59,130,246,0.1); box-shadow: 0 0 15px rgba(59,130,246,0.1); }
@@ -2176,7 +2195,7 @@
 	.score-opt-desc { font-size: 0.65rem; color: var(--text-muted); }
 
 	/* Default Points Grid */
-	.default-pts-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.5rem; }
+	.default-pts-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0.5rem; }
 	.dpt-field { display: flex; flex-direction: column; gap: 0.25rem; }
 	.dpt-field label { font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-align: center; }
 	.dpt-field input { background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 8px; padding: 0.4rem; color: var(--text-main); font-size: 0.9rem; font-weight: 700; text-align: center; width: 100%; transition: border-color 0.2s; }
@@ -2185,11 +2204,19 @@
 	.param-val { margin-left: auto; font-size: 0.85rem; font-weight: 800; color: var(--accent); background: rgba(59,130,246,0.1); padding: 0.15rem 0.5rem; border-radius: 6px; }
 	.range-accent { width: 100%; accent-color: var(--accent); }
 	.range-labels { display: flex; justify-content: space-between; font-size: 0.6rem; color: var(--text-muted); margin-top: 0.2rem; }
-	.ctx-input { width: 100%; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 8px; padding: 0.4rem 0.6rem; color: var(--text-main); font-size: 0.85rem; font-weight: 600; margin-top: 0.5rem; }
-	.ctx-presets { display: flex; gap: 0.3rem; }
-	.ctx-preset { flex: 1; padding: 0.35rem 0; background: var(--hover-tint); border: 1px solid var(--glass-border); border-radius: 8px; color: var(--text-dim); font-size: 0.7rem; font-weight: 700; cursor: pointer; transition: all 0.15s; }
-	.ctx-preset:hover { border-color: rgba(59,130,246,0.3); color: var(--text-main); }
-	.ctx-preset.active { background: rgba(59,130,246,0.15); border-color: var(--accent); color: var(--accent); }
+
+	.compact-label { font-size: 0.72rem; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; margin: 0; }
+	.ctx-preset-mini-btn { flex: 1; padding: 0.25rem 0.5rem; font-size: 0.68rem; font-weight: 600; border: 1px solid var(--glass-border); border-radius: 6px; background: var(--hover-tint); color: var(--text-dim); cursor: pointer; transition: all 0.15s; text-align: center; }
+	.ctx-preset-mini-btn:hover { border-color: var(--accent); background: rgba(59,130,246,0.05); }
+	.ctx-preset-mini-btn.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); box-shadow: 0 0 8px var(--accent-glow); }
+	.inst-model-select-wide { width: 100%; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 8px; padding: 0.35rem 0.5rem; color: var(--text-main); font-size: 0.75rem; transition: all 0.2s; }
+	.inst-model-select-wide:focus { border-color: var(--accent); outline: none; }
+	.prompt-textarea-compact { width: 100%; max-width: 100%; box-sizing: border-box; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 8px; padding: 0.5rem; color: var(--text-main); font-size: 0.75rem; resize: vertical; font-family: inherit; line-height: 1.4; min-height: 70px; }
+	.prompt-textarea-compact:focus { outline: none; border-color: var(--accent); }
+	.prompts-container { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.8rem; width: 100%; }
+	@media (min-width: 1024px) {
+		.prompts-container { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+	}
 	.prompt-textarea { width: 100%; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 10px; padding: 0.7rem; color: var(--text-main); font-size: 0.8rem; resize: vertical; font-family: inherit; line-height: 1.5; min-height: 80px; }
 	.prompt-textarea:focus { border-color: var(--accent); outline: none; }
 
