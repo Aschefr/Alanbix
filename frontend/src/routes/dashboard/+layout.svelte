@@ -30,9 +30,7 @@
 		loadingChangelog = true;
 		changelogError = null;
 		try {
-			const res = await fetch('https://api.github.com/repos/Aschefr/Alanbix/releases');
-			if (!res.ok) throw new Error('Impossible de charger les releases');
-			changelogData = await res.json();
+			changelogData = await api.get('/changelog');
 		} catch (e) {
 			changelogError = e.message || "Erreur lors de la récupération des notes de mise à jour.";
 		} finally {

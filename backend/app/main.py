@@ -104,6 +104,48 @@ def health_check():
                 pass
     return {"status": "ok", "version": version}
 
+@app.get("/changelog")
+def get_changelog():
+    import os
+    import re
+    
+    changelog_path = None
+    for path in ["CHANGELOG.md", "../CHANGELOG.md", "/app/CHANGELOG.md", "/CHANGELOG.md"]:
+        if os.path.exists(path):
+            changelog_path = path
+            break
+            
+    if not changelog_path:
+        return []
+        
+    try:
+        with open(changelog_path, "r", encoding="utf-8") as f:
+            content = f.read()
+            
+        pattern = r"##\s*\[([^\]]+)\]\s*-\s*([^\n]+)"
+        matches = list(re.finditer(pattern, content))
+        releases = []
+        
+        for i, match in enumerate(matches):
+            tag_name = f"v{match.group(1)}"
+            published_at = match.group(2).strip()
+            
+            start_idx = match.end()
+            end_idx = matches[i+1].start() if i + 1 < len(matches) else len(content)
+            
+            body = content[start_idx:end_idx].strip()
+            body = re.sub(r"\n+---+\s*$", "", body).strip()
+            
+            releases.append({
+                "tag_name": tag_name,
+                "published_at": published_at,
+                "name": f"Version {match.group(1)}",
+                "body": body
+            })
+        return releases
+    except Exception:
+        return []
+
 app.include_router(users.router)
 app.include_router(tournaments.router)
 app.include_router(room.router)
