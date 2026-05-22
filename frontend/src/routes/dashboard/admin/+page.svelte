@@ -253,12 +253,15 @@
 	});
 
 	async function loadData() {
-		games = await api.get('/tournaments/games');
-		tournaments = await api.get('/tournaments');
-		iaConfig = await api.get('/ia/config');
-		if (!iaConfig.ollama_instances) iaConfig.ollama_instances = [];
-		fetchModels();
-		loadInstanceStatuses();
+		try { games = await api.get('/tournaments/games'); } catch {}
+		try { tournaments = await api.get('/tournaments'); } catch {}
+		try {
+			iaConfig = await api.get('/ia/config');
+			if (!iaConfig.ollama_instances) iaConfig.ollama_instances = [];
+			systemPrompt = iaConfig.system_prompt || "Tu es Alanbix, l'IA de gestion de LAN.";
+			fetchModels();
+			loadInstanceStatuses();
+		} catch {}
 		loadKnowledge();
 		loadQueueAdmin();
 		try {
@@ -273,14 +276,10 @@
 				}
 			} catch {}
 			config = { ...config, pts_winner: defaultPts.pts_winner, pts_second: defaultPts.pts_second, pts_third: defaultPts.pts_third, pts_participation: defaultPts.pts_participation, pts_per_match: defaultPts.pts_per_match };
-			try {
-				const spCfg = await api.get('/ia/config');
-				systemPrompt = spCfg.system_prompt || "Tu es Alanbix, l'IA de gestion de LAN.";
-			} catch {}
-			try {
-				const cpCfg = await api.get('/admin/config/tournament_closing_prompt');
-				closingPrompt = cpCfg?.value || '';
-			} catch {}
+		} catch {}
+		try {
+			const cpCfg = await api.get('/admin/config/tournament_closing_prompt');
+			closingPrompt = cpCfg?.value || '';
 		} catch {}
 	}
 
