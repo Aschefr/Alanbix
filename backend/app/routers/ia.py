@@ -157,7 +157,7 @@ def get_ia_config(db: Session = Depends(database.get_db), admin: models.User = D
     return cfg
 
 @router.post("/config")
-def update_ia_config(config_data: dict, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
+async def update_ia_config(config_data: dict, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
     config = db.query(models.SystemConfig).filter(models.SystemConfig.key == "ia_settings").first()
     if not config:
         config = models.SystemConfig(key="ia_settings", value=config_data)
