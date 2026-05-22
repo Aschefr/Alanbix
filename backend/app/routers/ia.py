@@ -172,6 +172,7 @@ async def update_ia_config(config_data: dict, db: Session = Depends(database.get
     from ..ia_queue import queue_manager
     asyncio.create_task(queue_manager.restart_workers(enabled_count))
 
+    await ws_manager.broadcast({"type": "ia_config_updated"})
     return {"status": "updated"}
 
 @router.get("/conversations", response_model=List[schemas.Conversation])
@@ -870,6 +871,7 @@ async def upload_document(req: UploadDocumentRequest, db: Session = Depends(data
     db.add(doc)
     db.commit()
     db.refresh(doc)
+    await ws_manager.broadcast({"type": "knowledge_updated"})
     result = {"status": "uploaded", "id": doc.id, "content_length": len(req.content), "chunks": num_chunks}
     if not embedding:
         result["warning"] = "Le document a été sauvegardé mais la vectorisation a échoué. Vérifiez qu'une instance Ollama est en ligne avec un modèle d'embedding."
@@ -898,6 +900,7 @@ async def delete_knowledge(doc_id: int, db: Session = Depends(database.get_db), 
         raise HTTPException(status_code=404, detail="Document not found")
     db.delete(doc)
     db.commit()
+    await ws_manager.broadcast({"type": "knowledge_updated"})
     return {"status": "deleted", "id": doc_id}
 
 @router.get("/knowledge/{doc_id}")
@@ -933,6 +936,7 @@ async def update_knowledge_doc(doc_id: int, req: UpdateDocumentRequest, db: Sess
     doc.metadata_json = req.metadata if req.metadata else doc.metadata_json
     doc.embedding_json = json.dumps(embedding) if embedding else None
     db.commit()
+    await ws_manager.broadcast({"type": "knowledge_updated"})
     
     result = {"status": "updated", "id": doc.id, "content_length": len(req.content), "chunks": num_chunks}
     if not embedding:

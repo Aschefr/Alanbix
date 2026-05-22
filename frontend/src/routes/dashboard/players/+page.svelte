@@ -74,7 +74,9 @@
 
 		wsUnsub = wsMessageStore.subscribe(async msg => {
 			if (!msg) return;
-			if (msg.type === 'users_updated' || msg.type === 'tournament_closed' || msg.type === 'tournament_reopened') {
+			if (msg.type === 'users_updated' || msg.type === 'tournament_closed' || msg.type === 'tournament_reopened' ||
+				msg.type === 'tournament_created' || msg.type === 'tournament_updated' || msg.type === 'tournament_deleted' ||
+				msg.type === 'tournament_started') {
 				await loadPlayers();
 				if (expandedPlayerId) {
 					try {

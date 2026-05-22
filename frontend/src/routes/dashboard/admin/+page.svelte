@@ -80,6 +80,13 @@
 		}, 3000);
 	}
 
+	// Debounce helper — auto-saves after user stops typing
+	let _debounceTimers = {};
+	function debounceSave(key, fn, delay = 1200) {
+		if (_debounceTimers[key]) clearTimeout(_debounceTimers[key]);
+		_debounceTimers[key] = setTimeout(fn, delay);
+	}
+
 	let testingConnection = false;
 	let deleteConfirmTournamentId = null;
 	let deleteConfirmGameId = null;
@@ -202,6 +209,39 @@
 			}
 			if (msg.type === 'users_updated') {
 				loadPlayers();
+			}
+			if (msg.type === 'games_updated') {
+				api.get('/tournaments/games').then(res => { games = res; }).catch(() => {});
+			}
+			if (msg.type === 'tournament_created' || msg.type === 'tournament_updated' || msg.type === 'tournament_deleted' || msg.type === 'tournament_started' || msg.type === 'tournament_closed' || msg.type === 'tournament_reopened') {
+				api.get('/tournaments').then(res => { tournaments = res; }).catch(() => {});
+			}
+			if (msg.type === 'knowledge_updated') {
+				loadKnowledge();
+			}
+			if (msg.type === 'config_updated') {
+				api.get('/dashboard/stats').then(stats => {
+					teamScoringMode = stats.team_scoring_mode || 'weighted';
+					eventName = stats.event_name || 'Alanbix LAN';
+				}).catch(() => {});
+				api.get('/admin/config/default_tournament_pts').then(dpCfg => {
+					if (dpCfg?.value) {
+						const parsed = typeof dpCfg.value === 'string' ? JSON.parse(dpCfg.value) : dpCfg.value;
+						defaultPts = { ...defaultPts, ...parsed };
+					}
+				}).catch(() => {});
+				api.get('/admin/config/tournament_closing_prompt').then(cpCfg => {
+					closingPrompt = cpCfg?.value || '';
+				}).catch(() => {});
+			}
+			if (msg.type === 'ia_config_updated') {
+				api.get('/ia/config').then(res => {
+					iaConfig = res;
+					if (!iaConfig.ollama_instances) iaConfig.ollama_instances = [];
+					systemPrompt = iaConfig.system_prompt || "Tu es Alanbix, l'IA de gestion de LAN.";
+					fetchModels();
+					loadInstanceStatuses();
+				}).catch(() => {});
 			}
 		});
 
@@ -605,8 +645,10 @@
 	}
 
 	async function saveIAConfig() {
-		await api.post('/ia/config', iaConfig);
-		toast('Configuration IA sauvegardée.', 'success');
+		try {
+			await api.post('/ia/config', iaConfig);
+			toast('Configuration IA sauvegardée.', 'success');
+		} catch (e) { toast(e.message || 'Erreur sauvegarde IA', 'error'); }
 	}
 
 	// --- Player Management ---
@@ -1411,7 +1453,7 @@
 						</div>
 						<div class="sc-body">
 							<div class="flex-row gap-2">
-								<input type="text" bind:value={eventName} on:change={saveEventName} placeholder="Nom de l'événement" style="flex:1" />
+								<input type="text" bind:value={eventName} on:change={saveEventName} on:input={() => debounceSave('eventName', saveEventName)} placeholder="Nom de l'événement" style="flex:1" />
 							</div>
 						</div>
 					</div>
@@ -1739,7 +1781,7 @@
 							</div>
 						</div>
 						<div class="sc-body">
-							<textarea bind:value={systemPrompt} on:change={saveSystemPrompt} rows="4" placeholder="Tu es Alanbix, l'IA de gestion de LAN..." class="prompt-textarea"></textarea>
+							<textarea bind:value={systemPrompt} on:change={saveSystemPrompt} on:input={() => debounceSave('systemPrompt', saveSystemPrompt)} rows="4" placeholder="Tu es Alanbix, l'IA de gestion de LAN..." class="prompt-textarea"></textarea>
 						</div>
 					</div>
 
@@ -1753,7 +1795,7 @@
 							</div>
 						</div>
 						<div class="sc-body">
-							<textarea bind:value={closingPrompt} on:change={saveClosingPrompt} rows="3" placeholder="Tu es le commentateur sportif surexcité d'une LAN party..." class="prompt-textarea"></textarea>
+							<textarea bind:value={closingPrompt} on:change={saveClosingPrompt} on:input={() => debounceSave('closingPrompt', saveClosingPrompt)} rows="3" placeholder="Tu es le commentateur sportif surexcité d'une LAN party..." class="prompt-textarea"></textarea>
 							<p class="text-xs text-dim" style="margin-top:0.3rem">Laissez vide pour utiliser le prompt par défaut. Ce texte est l'introduction envoyée à l'IA avant les résultats du tournoi.</p>
 						</div>
 					</div>

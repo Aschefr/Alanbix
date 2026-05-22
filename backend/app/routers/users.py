@@ -248,7 +248,7 @@ def admin_get_config(key: str, db: Session = Depends(database.get_db), admin: mo
     return {"key": key, "value": config.value}
 
 @router.put("/admin/config/{key}")
-def admin_set_config(key: str, data: dict, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
+async def admin_set_config(key: str, data: dict, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
     """Admin sets a system config value."""
     config = db.query(models.SystemConfig).filter(models.SystemConfig.key == key).first()
     if config:
@@ -257,6 +257,7 @@ def admin_set_config(key: str, data: dict, db: Session = Depends(database.get_db
         config = models.SystemConfig(key=key, value=data.get("value"))
         db.add(config)
     db.commit()
+    await ws_manager.broadcast({"type": "config_updated"})
     return {"status": "updated", "key": key, "value": data.get("value")}
 
 # --- ADMIN: Create Player ---

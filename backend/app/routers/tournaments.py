@@ -47,7 +47,7 @@ def list_games(db: Session = Depends(database.get_db)):
     return db.query(models.Game).all()
 
 @router.post("/games", response_model=schemas.Game)
-def create_game(game: schemas.GameCreate, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
+async def create_game(game: schemas.GameCreate, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
     data = game.model_dump()
     if data.get("image_url"):
         data["image_url"] = _localize_image_url(data["image_url"])
@@ -55,10 +55,11 @@ def create_game(game: schemas.GameCreate, db: Session = Depends(database.get_db)
     db.add(db_game)
     db.commit()
     db.refresh(db_game)
+    await manager.broadcast({"type": "games_updated"})
     return db_game
 
 @router.put("/games/{game_id}", response_model=schemas.Game)
-def update_game(game_id: int, game_update: schemas.GameUpdate, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
+async def update_game(game_id: int, game_update: schemas.GameUpdate, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
     db_game = db.query(models.Game).filter(models.Game.id == game_id).first()
     if not db_game:
         raise HTTPException(status_code=404, detail="Game not found")
@@ -71,10 +72,11 @@ def update_game(game_id: int, game_update: schemas.GameUpdate, db: Session = Dep
         
     db.commit()
     db.refresh(db_game)
+    await manager.broadcast({"type": "games_updated"})
     return db_game
 
 @router.delete("/games/{game_id}")
-def delete_game(game_id: int, force: bool = False, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
+async def delete_game(game_id: int, force: bool = False, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
     game = db.query(models.Game).filter(models.Game.id == game_id).first()
     if not game:
         raise HTTPException(status_code=404, detail="Game not found")
@@ -84,10 +86,11 @@ def delete_game(game_id: int, force: bool = False, db: Session = Depends(databas
         
     db.delete(game)
     db.commit()
+    await manager.broadcast({"type": "games_updated"})
     return {"status": "deleted"}
 
 @router.post("/games/localize-images")
-def localize_all_images(db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
+async def localize_all_images(db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
     """Download all external game images to local storage."""
     games = db.query(models.Game).all()
     count = 0
@@ -98,6 +101,8 @@ def localize_all_images(db: Session = Depends(database.get_db), admin: models.Us
                 g.image_url = new_url
                 count += 1
     db.commit()
+    if count > 0:
+        await manager.broadcast({"type": "games_updated"})
     return {"status": "ok", "localized": count}
 
 @router.post("/games/upload-image")
