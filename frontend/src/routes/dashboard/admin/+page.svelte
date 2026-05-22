@@ -1452,7 +1452,7 @@
 						</div>
 						<div class="sc-body">
 							<div class="flex-row gap-2">
-								<input type="text" bind:value={eventName} on:change={saveEventName} on:input={() => debounceSave('eventName', saveEventName)} placeholder="Nom de l'événement" style="flex:1" />
+								<input type="text" bind:value={eventName} on:input={() => debounceSave('eventName', saveEventName)} placeholder="Nom de l'événement" style="flex:1" />
 							</div>
 						</div>
 					</div>
@@ -1806,11 +1806,11 @@
 							<div class="prompts-container">
 								<div style="display: flex; flex-direction: column; gap: 0.3rem; min-width: 0;">
 									<label class="compact-label">Prompt Système</label>
-									<textarea class="prompt-textarea-compact" bind:value={systemPrompt} on:change={saveSystemPrompt} on:input={() => debounceSave('systemPrompt', saveSystemPrompt)} placeholder="Tu es Alanbix, l'IA..." rows="4"></textarea>
+									<textarea class="prompt-textarea-compact" bind:value={systemPrompt} on:input={() => debounceSave('systemPrompt', saveSystemPrompt)} placeholder="Tu es Alanbix, l'IA..." rows="4"></textarea>
 								</div>
 								<div style="display: flex; flex-direction: column; gap: 0.3rem; min-width: 0;">
 									<label class="compact-label">Prompt Clôture Tournoi</label>
-									<textarea class="prompt-textarea-compact" bind:value={closingPrompt} on:change={saveClosingPrompt} on:input={() => debounceSave('closingPrompt', saveClosingPrompt)} placeholder="Félicitations aux vainqueurs..." rows="3"></textarea>
+									<textarea class="prompt-textarea-compact" bind:value={closingPrompt} on:input={() => debounceSave('closingPrompt', saveClosingPrompt)} placeholder="Félicitations aux vainqueurs..." rows="3"></textarea>
 								</div>
 							</div>
 						</div>
