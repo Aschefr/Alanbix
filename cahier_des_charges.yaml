@@ -116,6 +116,33 @@ core_features_deep_dive:
       details: >
         Le panel Leaderboard du dashboard principal possède un toggle Joueurs | Équipes.
         Les deux vues partagent le même design (lb-row) avec adaptation couleur (violet pour équipes).
+    - mechanism: "Système de Prix & Distinctions (Implémenté)"
+      details: >
+        Les distinctions de fin de LAN sont calculées et assignées de manière entièrement automatique à partir des statistiques réelles de jeu.
+        - Stockage : Table `awards` (id, user_id, title, description, award_key, created_at).
+        - Catégories de Statistiques :
+          Le moteur calcule automatiquement 12 distinctions basées sur les données de tous les brackets :
+          1. Premier de la LAN (1er dans les standings cumulés).
+          2. Équipe première de la LAN (1ère équipe dans le classement).
+          3. Le Bourreau (joueur ayant infligé le plus de défaites aux autres).
+          4. Le Roi du Coop (joueur ayant le plus de victoires en mode équipes).
+          5. Loup Solitaire (joueur ayant le plus de victoires en mode individuel 1v1).
+          6. Le Marathonien (joueur ayant disputé le plus de matchs dans toute la LAN).
+          7. Gâchette Facile (joueur ayant le score cumulé le plus élevé).
+          8. La Passoire (joueur ayant le score cumulé le plus bas).
+          9. Chouchou des BYE (joueur ayant bénéficié du plus grand nombre de BYE dans les tournois).
+          10. Le Suisse (joueur ayant fait le plus de matchs nuls / draws).
+          11. Survivant du Losers Bracket (joueur ayant joué le plus de matchs dans le LB).
+          12. L'Important c'est de participer (joueur ayant le moins de victoires parmi ceux ayant joué au moins 2 matchs).
+        - Pipeline de Synchronisation :
+          Les attributions de prix sont automatiquement synchronisées à chaque clôture (close) ou réouverture (reopen) de tournoi.
+        - Personnalisation & Overrides :
+          Depuis l'onglet d'administration, les admins peuvent modifier en temps réel le titre et la description par défaut de chaque distinction (sauvegardé en configuration). Les descriptions supportent l'interpolation dynamique de variables (ex: {points}, {wins}, {matches_played}, {team_name}).
+        - Notifications :
+          À chaque changement de récipiendaire d'une distinction, une notification de type "award" (icône 🎁) est automatiquement envoyée en temps réel via WebSockets au joueur concerné.
+        - Profils Joueurs :
+          Les distinctions reçues par un joueur sont affichées dans l'historique des points de sa fiche de profil avec un effet de survol dynamique.
+
 
   spectator_mode:
     - mechanism: "Vue Projecteur 4 Slides — Skip Vues Vides (Implémenté)"

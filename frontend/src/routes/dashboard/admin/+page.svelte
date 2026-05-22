@@ -24,6 +24,9 @@
 	$: if (activeTab === 'conversations') {
 		loadAdminConversations();
 	}
+	$: if (activeTab === 'awards') {
+		loadAwardsTab();
+	}
 
 	// Player Management
 	let allPlayers = [];
@@ -479,8 +482,19 @@
 
 
 	// Nuke state
-	let nukeConfirm = { tournaments: false, players: false, games: false, images: false, notifications: false };
-	let nuking = { tournaments: false, players: false, games: false, images: false, notifications: false };
+	let nukeConfirm = { tournaments: false, players: false, games: false, images: false, notifications: false, awards: false };
+	let nuking = { tournaments: false, players: false, games: false, images: false, notifications: false, awards: false };
+
+	async function nukeAwards() {
+		nuking.awards = true;
+		try {
+			const res = await api.delete('/admin/nuke/awards');
+			toast(`${res.deleted_awards} prix supprimé(s)`, 'success');
+			if (activeTab === 'awards') await loadAwardsTab();
+		} catch (e) { toast(e.message, 'error'); }
+		nuking.awards = false;
+		nukeConfirm.awards = false;
+	}
 
 	async function nukeTournaments() {
 		nuking.tournaments = true;
@@ -809,6 +823,58 @@
 			await loadAdminConversations();
 		} catch (e) { toast(e.message, 'error'); }
 	}
+
+	// --- Awards & Prizes ---
+	let awardsList = [];
+	let awardsLoading = false;
+
+	async function loadAwardsTab() {
+		awardsLoading = true;
+		try {
+			await loadPlayers();
+			awardsList = await api.get('/admin/awards');
+		} catch (e) {
+			toast(e.message || "Erreur lors du chargement des prix", 'error');
+		} finally {
+			awardsLoading = false;
+		}
+	}
+
+	async function saveAwardText(key, title, description) {
+		if (!title.trim()) { toast("Le titre ne peut pas être vide", "error"); return; }
+		try {
+			await api.put(`/admin/awards/${key}`, {
+				title: title.trim(),
+				description: description.trim()
+			});
+			toast("Prix enregistré avec succès !", 'success');
+			await loadAwardsTab();
+		} catch (e) {
+			toast(e.message || "Erreur lors de l'enregistrement du prix", 'error');
+		}
+	}
+
+	async function restoreDefaultText(key) {
+		try {
+			await api.delete(`/admin/awards/${key}/text`);
+			toast("Texte par défaut restauré !", 'success');
+			await loadAwardsTab();
+		} catch (e) {
+			toast(e.message || "Erreur lors de la restauration", 'error');
+		}
+	}
+
+	async function triggerSync() {
+		awardsLoading = true;
+		try {
+			awardsList = await api.get('/admin/awards');
+			toast("Distinctions recalculées et synchronisées !", 'success');
+		} catch (e) {
+			toast(e.message || "Erreur de synchronisation", 'error');
+		} finally {
+			awardsLoading = false;
+		}
+	}
 </script>
 
 {#if authorized}
@@ -821,6 +887,7 @@
 			<button class={activeTab === 'players' ? 'active' : ''} on:click={() => { activeTab = 'players'; loadPlayers(); }}>Gestion Joueurs</button>
 			<button class={activeTab === 'settings' ? 'active' : ''} on:click={() => activeTab = 'settings'}>IA & Paramètres</button>
 			<button class={activeTab === 'conversations' ? 'active' : ''} on:click={() => { activeTab = 'conversations'; loadAdminConversations(); }}>Conversations IA</button>
+			<button class={activeTab === 'awards' ? 'active' : ''} on:click={() => activeTab = 'awards'}>🏆 Prix & Distinctions</button>
 		</div>
 	</header>
 
@@ -1620,6 +1687,28 @@
 										<button class="btn-outline-danger" on:click={() => nukeConfirm.notifications = true}>Purger les notifications</button>
 									{/if}
 								</div>
+
+								<!-- Nuke Awards -->
+								<div class="nuke-card">
+									<div class="nuke-info">
+										<span class="nuke-icon">🏆</span>
+										<div>
+											<strong>Purger les prix & distinctions</strong>
+											<p>Supprime tous les prix et distinctions décernés aux joueurs</p>
+										</div>
+									</div>
+									{#if nukeConfirm.awards}
+										<div class="nuke-confirm">
+											<span class="text-danger text-xs font-bold">⚠️ Tous les prix seront supprimés !</span>
+											<button class="btn-danger-sm" on:click={nukeAwards} disabled={nuking.awards}>
+												{nuking.awards ? '⏳...' : '☢️ Tout supprimer'}
+											</button>
+											<button class="btn-secondary btn-xs" on:click={() => nukeConfirm.awards = false}>Annuler</button>
+										</div>
+									{:else}
+										<button class="btn-outline-danger" on:click={() => nukeConfirm.awards = true}>Purger les prix</button>
+									{/if}
+								</div>
 							</div>
 						</div>
 					</div>
@@ -2013,6 +2102,115 @@
 							<p>Sélectionnez une conversation</p>
 						</div>
 					{/if}
+				</section>
+			</div>
+		{:else if activeTab === 'awards'}
+			<div class="admin-grid">
+				<!-- Explanation and Sync controls -->
+				<section class="wizard glass" style="max-height: 85vh; overflow-y: auto;">
+					<div class="list-header">
+						<div class="flex-row items-center gap-3">
+							<div class="list-icon">🎁</div>
+							<div>
+								<h2 class="text-accent" style="margin:0">Système de Prix</h2>
+								<span class="text-xs text-dim">Attribution automatique par statistiques</span>
+							</div>
+						</div>
+					</div>
+
+					<div style="display: flex; flex-direction: column; gap: 1rem; margin-top: 1rem;" class="text-sm">
+						<p>
+							Les distinctions de fin de LAN sont calculées en temps réel d'après les statistiques de jeu des tournois (en cours ou terminés).
+						</p>
+						<p>
+							Vous pouvez personnaliser le <strong>titre</strong> et la <strong>description</strong> de chaque catégorie.
+						</p>
+						<p class="text-dim text-xs" style="border-left: 2px solid var(--accent); padding-left: 0.5rem;">
+							💡 Les descriptions supportent l'interpolation de variables de statistiques liées au vainqueur (ex: <code>{"{"}points{"}"}</code>, <code>{"{"}wins{"}"}</code>, <code>{"{"}matches_played{"}"}</code>, <code>{"{"}team_name{"}"}</code>).
+						</p>
+					</div>
+
+					<button class="btn-primary" style="margin-top: 1.5rem; width: 100%; padding: 0.6rem 1rem;" on:click={triggerSync} disabled={awardsLoading}>
+						🔄 Recalculer & Synchroniser
+					</button>
+				</section>
+
+				<!-- List of automated awards -->
+				<section class="list glass" style="max-height: 85vh; overflow-y: auto;">
+					<div class="list-header">
+						<div class="flex-row items-center gap-3">
+							<div class="list-icon">🏆</div>
+							<div>
+								<h2 style="margin:0">Distinctions</h2>
+								<span class="text-xs text-dim">Liste des distinctions calculées</span>
+							</div>
+						</div>
+						<span class="badge-count">{awardsList.length}</span>
+					</div>
+
+					<div class="item-list" style="display: flex; flex-direction: column; gap: 1.2rem;">
+						{#each awardsList as award}
+							<div class="award-card-editor glass" style="padding: 1.2rem; border-radius: 12px; border: 1px solid var(--glass-border); background: var(--hover-tint); display: flex; flex-direction: column; gap: 1rem;">
+								
+								<!-- Title Row -->
+								<div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem;">
+									<div style="flex: 1;">
+										<h3 class="text-accent" style="margin: 0; font-size: 1rem; font-weight: 700;">{award.title}</h3>
+										<p class="text-xs text-dim" style="margin: 0.2rem 0 0; font-style: italic;">Critère : {award.criteria}</p>
+									</div>
+									
+									<!-- Recipient Badge -->
+									<div style="text-align: right; display: flex; flex-direction: column; align-items: flex-end; min-width: 120px;">
+										{#if award.has_recipient}
+											<span class="status-pill-sm running" style="font-size: 0.75rem; padding: 0.25rem 0.6rem; font-weight: 700;">
+												👤 {award.recipient_name}
+											</span>
+											{#if award.stats_label}
+												<span class="text-xs text-accent" style="font-weight: 700; margin-top: 0.15rem;">
+													{award.stats_label}
+												</span>
+											{/if}
+										{:else}
+											<span class="status-pill-sm closed" style="font-size: 0.75rem; padding: 0.25rem 0.6rem; opacity: 0.6;">
+												Aucun qualifié
+											</span>
+										{/if}
+									</div>
+								</div>
+
+								<!-- Input Forms -->
+								<div style="display: flex; flex-direction: column; gap: 0.8rem;">
+									<div class="edit-field full-width" style="margin: 0;">
+										<label class="compact-label" style="font-weight: 700; font-size: 0.75rem; color: var(--text-dim);">Modifier le titre</label>
+										<input type="text" bind:value={award.title} placeholder={award.default_title} style="width: 100%; padding: 0.4rem 0.6rem; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 8px; color: var(--text-main); font-size: 0.85rem;" />
+									</div>
+									
+									<div class="edit-field full-width" style="margin: 0;">
+										<label class="compact-label" style="font-weight: 700; font-size: 0.75rem; color: var(--text-dim);">Modifier la description (Supporte les variables)</label>
+										<textarea bind:value={award.description} placeholder={award.default_description} rows="2" style="width: 100%; padding: 0.4rem 0.6rem; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 8px; color: var(--text-main); font-size: 0.85rem; font-family: inherit; resize: vertical;"></textarea>
+									</div>
+								</div>
+
+								<!-- Action Row -->
+								<div style="display: flex; justify-content: flex-end; gap: 0.5rem; align-items: center;">
+									{#if award.custom_title !== null || award.custom_description !== null}
+										<button class="btn-secondary btn-xs" style="font-size: 0.75rem; padding: 0.3rem 0.6rem;" on:click={() => restoreDefaultText(award.key)}>
+											Restaurer par défaut
+										</button>
+									{/if}
+									<button class="btn-primary btn-xs" style="font-size: 0.75rem; padding: 0.3rem 0.8rem;" on:click={() => saveAwardText(award.key, award.title, award.description)}>
+										Enregistrer
+									</button>
+								</div>
+
+							</div>
+						{:else}
+							<div class="empty-list">
+								<span class="empty-icon">📭</span>
+								<p>Aucune distinction disponible pour le moment</p>
+							</div>
+						{/each}
+					</div>
 				</section>
 			</div>
 		{/if}

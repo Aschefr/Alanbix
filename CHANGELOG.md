@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.12.0] - 2026-05-22
+
+### Nouvelles fonctionnalites
+
+- **Systeme de Prix Statistiques Automatiques** -- Transition complete vers un pipeline 100% stats-driven et automatise pour les prix de fin de LAN. Les 12 categories de distinctions (Premier de la LAN, Loup Solitaire, Marathonien, Bourreau, etc.) sont dorenavant calculees en temps reel d'apres les brackets de jeu.
+- **Personnalisation & Templates de Prix** -- Interface d'administration entierement revue permettant de modifier en direct les titres et descriptions de chaque categorie, avec support des variables dynamiques d'interpolation (ex: `{points}`, `{wins}`). Option de restauration simple des textes par defaut.
+- **Integration et Declenchement Automatique** -- Synchronisation automatique complete lors de la cloture (close) ou de la reouverture (reopen) de tournois, assurant que les notifications en temps reel (trophees remportes) sont instantanement transmises aux joueurs concernes en cas de changement de recipiendaire.
+
+---
+
+## [1.11.0] - 2026-05-22
+
+### Nouvelles fonctionnalites
+
+- **Systeme de Prix & Distinctions (Prix de fin de LAN) (AXE-43)** -- Ajout d'un systeme complet permettant aux administrateurs de decerner des prix classiques ou humoristiques a la fin de l'evenement.
+- **Moteur de Suggestions Statistiques** -- Algorithme automatique analysant les brackets pour suggerer 12 distinctions differentes basees sur les performances reelles des joueurs (Meilleur joueur, Meilleure equipe, Loup solitaire, Marathonien, Passoire, Survivant du LB, L'Important c'est de participer, etc.).
+- **Notifications & Profils** -- Creation de notifications temps reel de type "award" (icone 🎁) et affichage anime des trophees remportes sur la page de profil et dans l'historique des points des joueurs.
+- **Purge de la base de donnees** -- Option de purge globale des prix et distinctions ajoutee dans la Zone de Danger de la page d'administration.
+
+---
+
 ## [1.10.0] - 2026-05-22
 
 ### Nouvelles fonctionnalites

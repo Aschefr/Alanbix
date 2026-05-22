@@ -409,19 +409,37 @@
 										<div class="points-detail" on:click|stopPropagation>
 											{#if pointsLoading}
 												<span class="pts-loading">⏳</span>
-											{:else if pointsHistory && pointsHistory.history.length > 0}
-												<div class="pts-total">Total : <strong>{pointsHistory.total_points} pts</strong></div>
-												{#each pointsHistory.history as h}
-													<div class="pts-row">
-														<span class="pts-rank">{getRankEmoji(h.rank)}</span>
-														<span class="pts-tourney">{h.tournament_name}</span>
-														{#if h.game_name}<span class="pts-game">{h.game_name}</span>{/if}
-														<span class="pts-val">+{h.total}</span>
-														{#if h.live}<span class="pts-live">LIVE</span>{/if}
-													</div>
-												{/each}
 											{:else}
-												<span class="pts-empty">Aucune participation</span>
+												{#if pointsHistory && pointsHistory.history && pointsHistory.history.length > 0}
+													<div class="pts-total">Total : <strong>{pointsHistory.total_points} pts</strong></div>
+													{#each pointsHistory.history as h}
+														<div class="pts-row">
+															<span class="pts-rank">{getRankEmoji(h.rank)}</span>
+															<span class="pts-tourney">{h.tournament_name}</span>
+															{#if h.game_name}<span class="pts-game">{h.game_name}</span>{/if}
+															<span class="pts-val">+{h.total}</span>
+															{#if h.live}<span class="pts-live">LIVE</span>{/if}
+														</div>
+													{/each}
+												{:else}
+													<span class="pts-empty">Aucune participation</span>
+												{/if}
+												{#if pointsHistory && pointsHistory.awards && pointsHistory.awards.length > 0}
+													<div class="awards-section">
+														<div class="awards-title">🏆 Prix & Distinctions</div>
+														{#each pointsHistory.awards as award}
+															<div class="award-chip" title={award.description}>
+																<span class="award-emoji">🎁</span>
+																<div class="award-text">
+																	<span class="award-name">{award.title}</span>
+																	{#if award.description}
+																		<span class="award-desc">{award.description}</span>
+																	{/if}
+																</div>
+															</div>
+														{/each}
+													</div>
+												{/if}
 											{/if}
 										</div>
 									{/if}
@@ -466,23 +484,41 @@
 										<div class="points-detail" on:click|stopPropagation>
 											{#if pointsLoading}
 												<span class="pts-loading">⏳</span>
-											{:else if pointsHistory && pointsHistory.history.length > 0}
-												<div class="pts-total">Total : <strong>{pointsHistory.total_points} pts</strong></div>
-												{#each pointsHistory.history as h}
-													<div class="pts-row">
-									<span class="pts-rank">{getRankEmoji(h.rank)}</span>
-									<span class="pts-tourney">{h.tournament_name}</span>
-									<div class="pts-bp-wrap">
-										{#if h.placement_pts > 0}<span class="pts-bp pts-bp-place" title="Placement">🏅{h.placement_pts}</span>{/if}
-										<span class="pts-bp pts-bp-parti" title="Participation">👤{h.participation_pts}</span>
-										{#if h.score_pts > 0}<span class="pts-bp pts-bp-score" title="Bonus/Score — distribué selon le score cumulé">⚡{h.score_pts}</span>{/if}
-									</div>
-									<span class="pts-val">{h.live ? '~' : '+'}{h.total}</span>
-									{#if h.live}<span class="pts-live">LIVE</span>{/if}
-								</div>
-												{/each}
 											{:else}
-												<span class="pts-empty">Aucune participation</span>
+												{#if pointsHistory && pointsHistory.history && pointsHistory.history.length > 0}
+													<div class="pts-total">Total : <strong>{pointsHistory.total_points} pts</strong></div>
+													{#each pointsHistory.history as h}
+														<div class="pts-row">
+															<span class="pts-rank">{getRankEmoji(h.rank)}</span>
+															<span class="pts-tourney">{h.tournament_name}</span>
+															<div class="pts-bp-wrap">
+																{#if h.placement_pts > 0}<span class="pts-bp pts-bp-place" title="Placement">🏅{h.placement_pts}</span>{/if}
+																<span class="pts-bp pts-bp-parti" title="Participation">👤{h.participation_pts}</span>
+																{#if h.score_pts > 0}<span class="pts-bp pts-bp-score" title="Bonus/Score — distribué selon le score cumulé">⚡{h.score_pts}</span>{/if}
+															</div>
+															<span class="pts-val">{h.live ? '~' : '+'}{h.total}</span>
+															{#if h.live}<span class="pts-live">LIVE</span>{/if}
+														</div>
+													{/each}
+												{:else}
+													<span class="pts-empty">Aucune participation</span>
+												{/if}
+												{#if pointsHistory && pointsHistory.awards && pointsHistory.awards.length > 0}
+													<div class="awards-section">
+														<div class="awards-title">🏆 Prix & Distinctions</div>
+														{#each pointsHistory.awards as award}
+															<div class="award-chip" title={award.description}>
+																<span class="award-emoji">🎁</span>
+																<div class="award-text">
+																	<span class="award-name">{award.title}</span>
+																	{#if award.description}
+																		<span class="award-desc">{award.description}</span>
+																	{/if}
+																</div>
+															</div>
+														{/each}
+													</div>
+												{/if}
 											{/if}
 										</div>
 									{/if}
@@ -742,4 +778,12 @@
 		display: block; font-size: 0.55rem; font-weight: 800; color: #8b5cf6;
 		margin-bottom: 0.15rem; text-transform: uppercase; letter-spacing: 0.03em;
 	}
+	.awards-section { margin-top: 0.8rem; border-top: 1px dashed var(--glass-border); padding-top: 0.6rem; display: flex; flex-direction: column; gap: 0.35rem; }
+	.awards-title { font-size: 0.7rem; font-weight: 800; color: #fbbf24; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.2rem; }
+	.award-chip { display: flex; align-items: flex-start; gap: 0.5rem; background: rgba(251, 191, 36, 0.06); border: 1px solid rgba(251, 191, 36, 0.2); padding: 0.4rem 0.6rem; border-radius: 8px; transition: all 0.2s; text-align: left; }
+	.award-chip:hover { background: rgba(251, 191, 36, 0.1); border-color: rgba(251, 191, 36, 0.4); transform: scale(1.02); }
+	.award-emoji { font-size: 0.9rem; flex-shrink: 0; }
+	.award-text { display: flex; flex-direction: column; gap: 0.05rem; }
+	.award-name { font-size: 0.72rem; font-weight: 700; color: var(--text-main); }
+	.award-desc { font-size: 0.62rem; color: var(--text-muted); line-height: 1.3; }
 </style>

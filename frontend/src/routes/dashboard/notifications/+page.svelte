@@ -61,6 +61,7 @@
 		if (type === 'tournament_closed') return '🏆';
 		if (type === 'admin_message') return '🛡️';
 		if (type === 'system') return '⚠️';
+		if (type === 'award') return '🎁';
 		return '📢';
 	}
 

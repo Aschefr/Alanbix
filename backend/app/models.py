@@ -188,3 +188,15 @@ class GroupMessageRead(Base):
     channel_id = Column(Integer, ForeignKey("group_channels.id", ondelete="CASCADE"))
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
     last_read_message_id = Column(Integer, default=0)
+
+class Award(Base):
+    """Prix loufoques et classiques de fin de LAN."""
+    __tablename__ = "awards"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    award_key = Column(String, nullable=True)
+    title = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+    user = relationship("User", backref="awards")

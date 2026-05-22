@@ -1258,8 +1258,13 @@ async def close_tournament(
     tournament.results = results
     tournament.status = "CLOSED"
     from sqlalchemy.orm.attributes import flag_modified
-    flag_modified(tournament, "results")
     db.commit()
+    
+    try:
+        from .users import sync_automatic_awards
+        sync_automatic_awards(db)
+    except Exception as e:
+        print(f"Error syncing awards on close: {e}")
     
     await manager.broadcast({"type": "tournament_closed", "tournament_id": tournament_id})
 
@@ -1323,9 +1328,13 @@ async def reopen_tournament(
 
     tournament.results = None
     tournament.status = "DONE"
-    from sqlalchemy.orm.attributes import flag_modified
-    flag_modified(tournament, "results")
     db.commit()
+
+    try:
+        from .users import sync_automatic_awards
+        sync_automatic_awards(db)
+    except Exception as e:
+        print(f"Error syncing awards on reopen: {e}")
 
     await manager.broadcast({"type": "tournament_reopened", "tournament_id": tournament_id})
     return {"status": "reopened", "rolled_back_users": len(rolled_back_uids)}

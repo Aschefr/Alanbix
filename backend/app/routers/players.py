@@ -137,7 +137,16 @@ def get_player_points_history(user_id: int, db: Session = Depends(database.get_d
                     "score_pts": 0, "total": 0, "team_name": None
                 })
 
-    return {"total_points": target.points or 0, "history": history}
+    # Fetch awards for target user
+    awards = db.query(models.Award).filter(models.Award.user_id == user_id).order_by(models.Award.created_at.desc()).all()
+    awards_list = [{
+        "id": a.id,
+        "title": a.title,
+        "description": a.description,
+        "created_at": a.created_at.isoformat() if a.created_at else None
+    } for a in awards]
+
+    return {"total_points": target.points or 0, "history": history, "awards": awards_list}
 
 
 # --- Private Messaging ---

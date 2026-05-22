@@ -745,11 +745,11 @@ def test_live_leaderboard_zero_scores(client, db_session):
     leaderboard = stats.get("leaderboard", [])
     assert len(leaderboard) > 0, "Leaderboard should not be empty"
     
-    # p0 should have 1 win and 1 goal (points = 3 (win) + 1 (goal) = 4)
+    # p0 should have 1 win and 0 goal/match points (points = 3 (win) + 0 (score bonus) = 3)
     p0_user = db_session.query(models.User).filter(models.User.id == p0).first()
     p0_entry = next((e for e in leaderboard if e["username"] == p0_user.username), None)
     assert p0_entry is not None, "p0 should be in the leaderboard"
-    assert p0_entry["points"] == 4, f"p0 should have 4 points (3 for win, 1 for goal), got {p0_entry['points']}"
+    assert p0_entry["points"] == 3, f"p0 should have 3 points (3 for win, 0 for goal), got {p0_entry['points']}"
 
     # Also verify that projected standings count 1 win for p0
     standings = _standings(client, t_id)
