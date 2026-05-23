@@ -156,7 +156,7 @@ async def instances_status(db: Session = Depends(database.get_db), admin: models
     return results
 
 @router.get("/config")
-def get_ia_config(db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
+def get_ia_config(db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
     cfg = get_effective_config(db)
     # Include system_prompt from SystemConfig
     sp = db.query(models.SystemConfig).filter(models.SystemConfig.key == "system_prompt").first()
