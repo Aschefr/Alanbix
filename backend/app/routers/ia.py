@@ -279,9 +279,12 @@ async def compress_context(conv_id: int, req: CompressRequest, db: Session = Dep
         return {"status": "ok"}
         
     ia_cfg = get_effective_config(db)
-    instance = await pick_instance(db)
+    model_to_use = conv.model or ia_cfg.get('model', 'llama3')
+    instance = await pick_instance(db, model=model_to_use)
     url = instance["url"] if instance else ia_cfg.get('ollama_host', 'http://localhost:11434')
-    model = ia_cfg.get('model', 'llama3')
+    if not conv.model and instance and instance.get("model"):
+        model_to_use = instance["model"]
+    model = model_to_use
     
     if req.mode == "truncate":
         dropped, kept = run_truncation(messages_to_process, max_tokens=4096)
@@ -317,6 +320,7 @@ async def compress_context(conv_id: int, req: CompressRequest, db: Session = Dep
             "model": model,
             "mode": req.mode,
             "text": text_to_compress,
+            "num_ctx": ia_cfg.get("context_window", 4096)
         }
     )
     entry, position = await queue_manager.enqueue(entry)

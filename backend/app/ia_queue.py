@@ -630,14 +630,15 @@ class IAQueueManager:
         model = payload["model"]
         mode = payload["mode"]
         text = payload["text"]
+        num_ctx = payload.get("num_ctx", 4096)
 
         from .ia_compression import run_compaction, run_summary
 
         try:
             if mode == "compact":
-                result = await run_compaction(text, url, model)
+                result = await run_compaction(text, url, model, num_ctx=num_ctx)
             elif mode == "summary":
-                result = await run_summary(text, url, model)
+                result = await run_summary(text, url, model, num_ctx=num_ctx)
             else:
                 result = ""
             await entry.result_stream.put({"done": True, "result": result})
