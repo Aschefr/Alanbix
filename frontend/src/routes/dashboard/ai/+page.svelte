@@ -252,38 +252,46 @@
 
 		// Listen for admin intervention and chat updates via WebSocket
 		unsub = wsMessageStore.subscribe(msg => {
-			if (msg && msg.type === 'admin_message') {
-				// If the user is viewing this conversation, refresh messages live and mark read
-				if (activeId === msg.conversation_id) {
-					selectConversation(activeId);
-				} else {
-					// Otherwise, mark conversation as having unread messages
-					const conv = conversations.find(c => c.id === msg.conversation_id);
-					if (conv) {
-						conv.has_new_messages = true;
-						conv.unread_count = (conv.unread_count || 0) + 1;
-						conversations = conversations;
+			if (msg && msg.user_id !== undefined) {
+				// Only process messages targeting this user (unless it's an admin listening, but here we are on the player page)
+				// Get active user ID if we fetched it
+				api.get('/me').then(me => {
+					if (msg.user_id !== me.id) return;
+					
+					if (msg.type === 'admin_message') {
+						// If the user is viewing this conversation, refresh messages live and mark read
+						if (activeId === msg.conversation_id) {
+							selectConversation(activeId);
+						} else {
+							// Otherwise, mark conversation as having unread messages
+							const conv = conversations.find(c => c.id === msg.conversation_id);
+							if (conv) {
+								conv.has_new_messages = true;
+								conv.unread_count = (conv.unread_count || 0) + 1;
+								conversations = conversations;
+							}
+						}
+						// Show notification
+						adminNotification = msg;
+						// Auto-dismiss after 10s
+						setTimeout(() => { if (adminNotification && adminNotification.message_id === msg.message_id) adminNotification = null; }, 10000);
 					}
-				}
-				// Show notification
-				adminNotification = msg;
-				// Auto-dismiss after 10s
-				setTimeout(() => { if (adminNotification && adminNotification.message_id === msg.message_id) adminNotification = null; }, 10000);
-			}
-			if (msg && msg.type === 'chat_updated' && msg.role === 'bot') {
-				// Bot/AI finished writing or responded
-				if (activeId === msg.conversation_id) {
-					selectConversation(activeId);
-				} else {
-					const conv = conversations.find(c => c.id === msg.conversation_id);
-					if (conv) {
-						conv.has_new_messages = true;
-						conv.unread_count = (conv.unread_count || 0) + 1;
-						conversations = conversations;
+					if (msg && msg.type === 'chat_updated' && msg.role === 'bot') {
+						// Bot/AI finished writing or responded
+						if (activeId === msg.conversation_id) {
+							selectConversation(activeId);
+						} else {
+							const conv = conversations.find(c => c.id === msg.conversation_id);
+							if (conv) {
+								conv.has_new_messages = true;
+								conv.unread_count = (conv.unread_count || 0) + 1;
+								conversations = conversations;
+							}
+						}
 					}
-				}
+				}).catch(() => {});
 			}
-			// Auto-title arrives asynchronously via background task
+			// Auto-title arrives asynchronously via background task (no user_id filter required as conversation_id is unique)
 			if (msg && msg.type === 'conv_title_updated') {
 				const conv = conversations.find(c => c.id === msg.conversation_id);
 				if (conv) {
