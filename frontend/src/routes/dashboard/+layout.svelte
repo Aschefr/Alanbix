@@ -9,6 +9,7 @@
 	import TutorialOverlay from '$lib/components/TutorialOverlay.svelte';
 
 	let user = { username: '...', is_admin: false };
+	let loading = true;
 	let unsub = null;
 	let isDark = true;
 	let notifBounce = false;
@@ -253,6 +254,7 @@
 			});
 		} catch (e) {
 			window.location.href = '/';
+			return;
 		}
 		// Fetch SemVer version
 		try {
@@ -267,6 +269,7 @@
 			pollIaStatus();
 			iaInterval = setInterval(pollIaStatus, 30000);
 		}
+		loading = false;
 	});
 
 	async function pollIaStatus() {
@@ -296,6 +299,16 @@
 	}
 </script>
 
+{#if loading}
+	<div class="app-loading-screen" style="display:flex;align-items:center;justify-content:center;height:100vh;width:100vw;background:var(--bg-primary);color:var(--text-main);font-weight:700">
+		<div style="display:flex;flex-direction:column;align-items:center;gap:1.5rem">
+			<div class="logo-alambic" style="width:48px;height:48px;transform:none">
+				<div class="liquid" style="height:70%"></div>
+			</div>
+			<span style="font-size:0.95rem;opacity:0.8;letter-spacing:0.15em;color:var(--accent)">ALANBIX...</span>
+		</div>
+	</div>
+{:else}
 <div class="dashboard-layout">
 	<nav class="side-nav glass">
 		<div class="nav-brand">
@@ -475,6 +488,7 @@
 		</div>
 	{/each}
 </div>
+{/if}
 
 
 <style>

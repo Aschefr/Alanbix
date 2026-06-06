@@ -173,13 +173,18 @@ def get_points_history(db: Session = Depends(database.get_db), user: models.User
                 })
 
     # Fetch awards for current user
-    awards = db.query(models.Award).filter(models.Award.user_id == user.id).order_by(models.Award.created_at.desc()).all()
-    awards_list = [{
-        "id": a.id,
-        "title": a.title,
-        "description": a.description,
-        "created_at": a.created_at.isoformat() if a.created_at else None
-    } for a in awards]
+    awards_diffused_config = db.query(models.SystemConfig).filter(models.SystemConfig.key == "awards_diffused").first()
+    is_diffused = awards_diffused_config.value if awards_diffused_config else False
+
+    awards_list = []
+    if is_diffused:
+        awards = db.query(models.Award).filter(models.Award.user_id == user.id).order_by(models.Award.created_at.desc()).all()
+        awards_list = [{
+            "id": a.id,
+            "title": a.title,
+            "description": a.description,
+            "created_at": a.created_at.isoformat() if a.created_at else None
+        } for a in awards]
 
     return {"total_points": user.points or 0, "history": history, "awards": awards_list}
 
@@ -945,6 +950,7 @@ async def admin_nuke_awards(db: Session = Depends(database.get_db), admin: model
     """Delete all custom configurations and assigned awards, resetting everything to defaults."""
     db.query(models.Award).delete()
     db.query(models.SystemConfig).filter(models.SystemConfig.key.like("award_text_%")).delete()
+    db.query(models.SystemConfig).filter(models.SystemConfig.key == "awards_diffused").delete()
     db.commit()
     
     # Re-sync back to default awards
@@ -957,6 +963,15 @@ async def admin_nuke_awards(db: Session = Depends(database.get_db), admin: model
 @router.post("/admin/awards/notify")
 async def admin_notify_awards(db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
     """Send notifications to all players who have been awarded a prize."""
+    # Set awards_diffused to True
+    config_row = db.query(models.SystemConfig).filter(models.SystemConfig.key == "awards_diffused").first()
+    if config_row:
+        config_row.value = True
+    else:
+        config_row = models.SystemConfig(key="awards_diffused", value=True)
+        db.add(config_row)
+    db.commit()
+
     awards = db.query(models.Award).all()
     notified_users = set()
     

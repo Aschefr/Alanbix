@@ -116,6 +116,13 @@ core_features_deep_dive:
       details: >
         Le panel Leaderboard du dashboard principal possède un toggle Joueurs | Équipes.
         Les deux vues partagent le même design (lb-row) avec adaptation couleur (violet pour équipes).
+    - mechanism: "Modale de Statistiques des Joueurs (Implémenté)"
+      details: >
+        Clic sur un joueur dans le leaderboard (ou dans la liste des membres d'une équipe) ouvre une modale opaque (var(--bg-secondary))
+        affichant ses statistiques détaillées :
+        - Un résumé de ses statistiques clés (points totaux, participations, trophées).
+        - La liste de ses tournois et inscriptions avec leur état (badge d'état: INSCRIT, EN COURS, TERMINE), son classement, son total de points et le détail du calcul (placement, participation, score).
+        - La liste de ses trophées et distinctions (awards) remportés.
     - mechanism: "Système de Prix & Distinctions (Implémenté)"
       details: >
         Les distinctions de fin de LAN sont calculées et assignées de manière entièrement automatique à partir des statistiques réelles de jeu.
@@ -1122,4 +1129,19 @@ future_axes:
       - "Support des variables dynamiques ({points}, {wins}, etc.) avec sauvegarde des templates dans SystemConfig."
       - "Création d'un endpoint POST /admin/awards/notify pour déclencher l'envoi groupé des notifications avec détection des doublons."
       - "Refonte de l'interface d'administration avec une grille de personnalisation des prix et un bouton explicite de diffusion."
+    priority: high
+
+  - id: AXE-44
+    title: "Amélioration de l'onglet Conversations IA (Monitoring Admin)"
+    status: DONE
+    description: >
+      Permettre à l'administrateur d'identifier rapidement les conversations récentes, d'avoir des indicateurs
+      sur les nouveaux messages, de voir l'aperçu du dernier échange, d'obtenir le temps de réponse précis de l'IA,
+      ainsi que le détail des outils utilisés pour chaque réponse du bot.
+    done:
+      - "Backend: enrichissement de l'endpoint d'administration des conversations avec la date/heure de dernière activité, aperçu du message et indicateur has_new_messages."
+      - "Frontend: tri des conversations par dernière activité, ajout de bordures de statuts colorées (vert pour nouveau message, violet pour admin override) et badges Nouveau."
+      - "Frontend: intégration des métadonnées du modèle IA (nom, instance GPU, outils exécutés, temps de réponse) sous chaque message bot."
+      - "Frontend: affichage de l'horodatage complet pour tous les messages du chat."
+      - "Frontend: application d'un fond opaque sur la modale de compression de contexte (.modal-content) pour garantir la lisibilité du texte par-dessus la discussion."
     priority: high

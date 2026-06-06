@@ -1109,7 +1109,7 @@
 	.center { align-items: center; }
 
 	.modal-overlay { position: absolute; inset: 0; background: var(--overlay-bg); z-index: 100; display: flex; align-items: center; justify-content: center; }
-	.modal-content { width: 450px; padding: 2rem; border-radius: var(--radius-xl); border: 1px solid var(--glass-border); }
+	.modal-content { width: 450px; padding: 2rem; border-radius: var(--radius-xl); border: 1px solid var(--glass-border); background: var(--bg-secondary) !important; }
 	.comp-btn { 
 		display: flex; flex-direction: column; align-items: flex-start; gap: 0.2rem; 
 		padding: 0.8rem 1rem; background: var(--hover-tint); border: 1px solid var(--glass-border);

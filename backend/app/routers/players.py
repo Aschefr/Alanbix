@@ -38,7 +38,7 @@ def get_player_points_history(user_id: int, db: Session = Depends(database.get_d
         raise HTTPException(404, "User not found")
 
     tournaments = db.query(models.Tournament).filter(
-        models.Tournament.status.in_(["RUNNING", "DONE", "CLOSED"])
+        models.Tournament.status.in_(["OPEN", "RUNNING", "DONE", "CLOSED"])
     ).all()
     history = []
 
@@ -55,6 +55,15 @@ def get_player_points_history(user_id: int, db: Session = Depends(database.get_d
             models.TournamentParticipant.user_id == user_id
         ).first()
         if not participant:
+            continue
+
+        if t.status == "OPEN":
+            history.append({
+                "tournament_id": t.id, "tournament_name": t.name,
+                "game_name": game_name, "status": t.status, "live": False,
+                "rank": None, "placement_pts": 0.0, "participation_pts": 0.0,
+                "score_pts": 0.0, "total": 0.0, "team_name": participant.team_name
+            })
             continue
 
         if t.status == "CLOSED" and t.results:
@@ -138,15 +147,21 @@ def get_player_points_history(user_id: int, db: Session = Depends(database.get_d
                 })
 
     # Fetch awards for target user
-    awards = db.query(models.Award).filter(models.Award.user_id == user_id).order_by(models.Award.created_at.desc()).all()
-    awards_list = [{
-        "id": a.id,
-        "title": a.title,
-        "description": a.description,
-        "created_at": a.created_at.isoformat() if a.created_at else None
-    } for a in awards]
+    awards_diffused_config = db.query(models.SystemConfig).filter(models.SystemConfig.key == "awards_diffused").first()
+    is_diffused = awards_diffused_config.value if awards_diffused_config else False
 
-    return {"total_points": target.points or 0, "history": history, "awards": awards_list}
+    awards_list = []
+    if is_diffused:
+        awards = db.query(models.Award).filter(models.Award.user_id == user_id).order_by(models.Award.created_at.desc()).all()
+        awards_list = [{
+            "id": a.id,
+            "title": a.title,
+            "description": a.description,
+            "created_at": a.created_at.isoformat() if a.created_at else None
+        } for a in awards]
+
+    calculated_total = round(sum(h["total"] for h in history), 1)
+    return {"total_points": calculated_total, "history": history, "awards": awards_list}
 
 
 # --- Private Messaging ---

@@ -776,11 +776,22 @@ async def auto_title(conv_id: int, db: Session = Depends(database.get_db), user:
 @router.get("/admin/conversations")
 async def admin_list_conversations(db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
     """List ALL conversations across all users (admin only)."""
-    convs = db.query(models.Conversation).order_by(models.Conversation.created_at.desc()).all()
+    convs = db.query(models.Conversation).all()
     results = []
     for c in convs:
         user = db.query(models.User).filter(models.User.id == c.user_id).first()
+        
+        # Get the last message in this conversation
+        last_msg = db.query(models.ChatMessage).filter(
+            models.ChatMessage.conversation_id == c.id
+        ).order_by(models.ChatMessage.timestamp.desc()).first()
+        
         msg_count = db.query(models.ChatMessage).filter(models.ChatMessage.conversation_id == c.id).count()
+        
+        last_message_at = last_msg.timestamp if last_msg else c.created_at
+        last_message_role = last_msg.role if last_msg else None
+        last_message_preview = last_msg.content[:60] + "..." if last_msg and len(last_msg.content) > 60 else (last_msg.content if last_msg else None)
+        
         results.append({
             "id": c.id,
             "title": c.title,
@@ -788,8 +799,15 @@ async def admin_list_conversations(db: Session = Depends(database.get_db), admin
             "username": user.username if user else "?",
             "created_at": c.created_at.isoformat() if c.created_at else None,
             "message_count": msg_count,
-            "admin_override": c.admin_override or False
+            "admin_override": c.admin_override or False,
+            "last_message_at": last_message_at.isoformat() if last_message_at else None,
+            "last_message_role": last_message_role,
+            "last_message_preview": last_message_preview,
+            "has_new_messages": last_message_role == "user"
         })
+        
+    # Sort by last message time descending (recent first)
+    results.sort(key=lambda x: x["last_message_at"] or "", reverse=True)
     return results
 
 @router.get("/admin/conversations/{conv_id}/messages")

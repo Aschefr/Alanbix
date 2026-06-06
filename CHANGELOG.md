@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.15.0] - 2026-06-06
+
+### Nouvelles fonctionnalités
+
+- **Modale de statistiques des joueurs (Leaderboard)** -- Clic sur un joueur dans le leaderboard (ou dans la liste des membres d'une équipe) ouvre une modale opaque affichant ses statistiques détaillées :
+  - **Résumé des stats** : Points totaux accumulés, nombre de participations à des tournois et nombre de trophées remportés.
+  - **Tournois & Inscriptions** : Liste des tournois auxquels le joueur participe ou est inscrit, avec badge d'état (`INSCRIT`, `EN COURS`, `TERMINE`), rang final, et répartition détaillée des points (participation, placement, score/bonus).
+  - **Trophées & Distinctions** : Liste des récompenses spéciales (awards) décernées au joueur.
+- **Amélioration du monitoring de l'onglet "Conversations IA" (Administration)** -- Ajout d'indicateurs d'état et d'activité des conversations pour les administrateurs :
+  - **Dernière activité & Tri** : Affichage de la date et de l'heure du dernier message avec tri automatique par ordre de récurrence (récentes en premier).
+  - **Aperçu du dernier message** : Affichage d'un court extrait du dernier message précédé de l'icône de l'auteur dans la liste latérale.
+  - **Badge de nouveau message** : Un badge `Nouveau` et une bordure verte distincte s'affichent sur les conversations en attente de réponse (dernier message envoyé par le joueur).
+  - **Détails d'exécution de l'IA (Métadonnées)** : Affichage du modèle/instance utilisé, du temps de réponse en secondes (`⏱️`) et des outils exécutés (`🛠️`) sous chaque réponse du bot.
+  - **Horodatage complet** : Horodatage précis au format `JJ/MM/AAAA HH:MM:SS` pour chaque message dans la vue détaillée.
+
+### Corrections de bugs
+
+- **Suppression du flash du Dashboard pour les sessions expirées** -- Implémentation d'un écran de chargement translucide pendant la vérification d'authentification (`api.get('/me')`) au chargement du layout principal du dashboard. Cela empêche l'affichage transitoire du menu d'administration et du dashboard avant la redirection vers la page de connexion lorsque la session a expiré.
+- **Modale de gestion du contexte opaque** -- Ajout d'un fond opaque (`var(--bg-secondary) !important`) sur la modale `.modal-content` de l'assistant IA, empêchant la discussion en arrière-plan d'apparaître par transparence et garantissant une lisibilité parfaite des options de compression.
+
+---
+
 ## [1.13.0] - 2026-05-22
 
 ### Nouvelles fonctionnalites

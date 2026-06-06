@@ -2026,16 +2026,24 @@
 					</div>
 					<div class="item-list">
 						{#each adminConversations as c}
-							<div class="admin-item-card glass-hover {adminActiveConvId === c.id ? 'editing-expanded' : ''}" style="cursor:pointer;flex-direction:column;align-items:stretch" on:click={() => selectAdminConv(c.id)}>
+							<div class="admin-item-card glass-hover {adminActiveConvId === c.id ? 'editing-expanded' : ''}" style="cursor:pointer;flex-direction:column;align-items:stretch;border-left: 4px solid {c.has_new_messages ? '#22c55e' : (c.admin_override ? '#a855f7' : 'rgba(255,255,255,0.05)')}" on:click={() => selectAdminConv(c.id)}>
 								<div class="card-top-row" style="display:flex;justify-content:space-between;align-items:center">
 									<div class="item-info">
-										<div class="flex-row items-center gap-2">
+										<div class="flex-row items-center gap-2" style="flex-wrap:wrap">
 											<span class="item-name">{c.title}</span>
+											{#if c.has_new_messages}
+												<span class="status-pill-sm open" style="background:rgba(34,197,94,0.15);color:#22c55e;border:1px solid rgba(34,197,94,0.3)">Nouveau</span>
+											{/if}
 											{#if c.admin_override}
 												<span class="status-pill-sm" style="background:rgba(168,85,247,0.2);color:#a855f7;border:1px solid #a855f7">🛡️ Admin</span>
 											{/if}
 										</div>
-										<div class="item-meta">👤 {c.username} • {c.message_count} msg • {c.created_at ? new Date(c.created_at).toLocaleDateString('fr-FR') : ''}</div>
+										<div class="item-meta">👤 {c.username} • {c.message_count} msg • Actif : {c.last_message_at ? new Date(c.last_message_at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}</div>
+										{#if c.last_message_preview}
+											<div class="last-msg-preview" style="font-size:0.75rem;color:var(--text-dim);margin-top:0.3rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:320px;opacity:0.8">
+												<strong>{c.last_message_role === 'user' ? '👤' : c.last_message_role === 'admin' ? '🛡️' : '🤖'}:</strong> {c.last_message_preview}
+											</div>
+										{/if}
 									</div>
 								</div>
 							</div>
@@ -2084,6 +2092,24 @@
 												</div>
 											{/if}
 										</div>
+										
+										{#if m.role === 'bot' && m.meta}
+											<div class="msg-meta-row" style="display:flex;flex-wrap:wrap;gap:0.4rem;font-size:0.65rem;color:var(--text-dim);margin-top:0.2rem;padding:0 0.2rem;opacity:0.8">
+												{#if m.meta.model_info}
+													<span title="Modèle / Instance" style="background:rgba(255,255,255,0.05);padding:1px 4px;border-radius:4px;border:1px solid var(--glass-border)">🤖 {m.meta.model_info.model || 'Modèle'} ({m.meta.model_info.instance || 'Default'})</span>
+												{/if}
+												{#if m.meta.duration}
+													<span title="Temps de réponse" style="background:rgba(255,255,255,0.05);padding:1px 4px;border-radius:4px;border:1px solid var(--glass-border)">⏱️ {m.meta.duration.toFixed(1)}s</span>
+												{/if}
+												{#if m.meta.used_tools && m.meta.used_tools.length > 0}
+													<span title="Outils utilisés: {m.meta.used_tools.join(', ')}" style="background:rgba(59,130,246,0.1);color:var(--accent);padding:1px 4px;border-radius:4px;border:1px solid rgba(59,130,246,0.2)">🛠️ {m.meta.used_tools.join(', ')}</span>
+												{/if}
+											</div>
+										{/if}
+										
+										<span style="font-size:0.62rem;color:var(--text-muted);margin-top:0.15rem;align-self:{m.role === 'user' ? 'flex-end' : 'flex-start'};padding:0 0.25rem">
+											{m.timestamp ? new Date(m.timestamp).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }) : ''}
+										</span>
 									</div>
 								</div>
 							{/each}
@@ -2152,6 +2178,26 @@
 					<button class="btn-success" style="margin-top: 1rem; width: 100%; padding: 0.6rem 1rem;" on:click={sendAwardsNotifications} disabled={awardsLoading}>
 						📢 Diffuser les Prix aux Joueurs
 					</button>
+
+					<div style="margin-top: 2rem; border-top: 1px solid rgba(239, 68, 68, 0.2); padding-top: 1rem;">
+						{#if nukeConfirm.awards}
+							<div class="flex-column gap-2" style="background: rgba(239, 68, 68, 0.08); padding: 0.8rem; border-radius: 8px; border: 1px solid var(--danger);">
+								<span class="text-xs text-dim" style="display:block; margin-bottom: 0.5rem; text-align: center; color: var(--danger) !important; font-weight: bold;">⚠️ Confirmer la purge complète des prix ?</span>
+								<div style="display: flex; gap: 0.5rem;">
+									<button class="btn-danger btn-xs" style="flex:1" on:click={nukeAwards} disabled={nuking.awards}>
+										{nuking.awards ? 'Purge en cours...' : 'Oui, Purger'}
+									</button>
+									<button class="btn-secondary btn-xs" style="flex:1" on:click={() => nukeConfirm.awards = false}>
+										Annuler
+									</button>
+								</div>
+							</div>
+						{:else}
+							<button class="btn-danger" style="width: 100%; padding: 0.6rem 1rem;" on:click={() => nukeConfirm.awards = true} disabled={awardsLoading}>
+								💀 Purger & Réinitialiser les Prix
+							</button>
+						{/if}
+					</div>
 				</section>
 
 				<!-- List of automated awards -->
