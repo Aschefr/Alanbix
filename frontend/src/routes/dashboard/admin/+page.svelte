@@ -738,6 +738,7 @@
 
 	// --- Admin Conversation Monitoring ---
 	let adminConversations = [];
+	$: adminUnreadConvsCount = adminConversations.reduce((sum, c) => sum + (c.unread_count || 0), 0);
 	let adminActiveConvId = null;
 	let adminConvMessages = [];
 	let adminConvInfo = null;
@@ -792,6 +793,7 @@
 			adminConvMessages = res.messages;
 			adminConvInfo = res.conversation;
 			adminScrollToBottom();
+			await loadAdminConversations();
 		} catch (e) { toast(e.message, 'error'); }
 	}
 
@@ -898,7 +900,12 @@
 			<button class={activeTab === 'games' ? 'active' : ''} on:click={() => activeTab = 'games'}>Bibliothèque Jeux</button>
 			<button class={activeTab === 'players' ? 'active' : ''} on:click={() => { activeTab = 'players'; loadPlayers(); }}>Gestion Joueurs</button>
 			<button class={activeTab === 'settings' ? 'active' : ''} on:click={() => activeTab = 'settings'}>IA & Paramètres</button>
-			<button class={activeTab === 'conversations' ? 'active' : ''} on:click={() => { activeTab = 'conversations'; loadAdminConversations(); }}>Conversations IA</button>
+			<button class={activeTab === 'conversations' ? 'active' : ''} on:click={() => { activeTab = 'conversations'; loadAdminConversations(); }}>
+				Conversations IA
+				{#if adminUnreadConvsCount > 0}
+					<span class="tab-unread-badge" style="background:#22c55e;color:white;padding:0.1rem 0.4rem;border-radius:10px;font-size:0.65rem;font-weight:bold;margin-left:0.4rem">{adminUnreadConvsCount}</span>
+				{/if}
+			</button>
 			<button class={activeTab === 'awards' ? 'active' : ''} on:click={() => activeTab = 'awards'}>🏆 Prix & Distinctions</button>
 		</div>
 	</header>
@@ -2032,7 +2039,7 @@
 										<div class="flex-row items-center gap-2" style="flex-wrap:wrap">
 											<span class="item-name">{c.title}</span>
 											{#if c.has_new_messages}
-												<span class="status-pill-sm open" style="background:rgba(34,197,94,0.15);color:#22c55e;border:1px solid rgba(34,197,94,0.3)">Nouveau</span>
+												<span class="status-pill-sm open" style="background:rgba(34,197,94,0.15);color:#22c55e;border:1px solid rgba(34,197,94,0.3)">{c.unread_count} nouveau{c.unread_count > 1 ? 'x' : ''}</span>
 											{/if}
 											{#if c.admin_override}
 												<span class="status-pill-sm" style="background:rgba(168,85,247,0.2);color:#a855f7;border:1px solid #a855f7">🛡️ Admin</span>

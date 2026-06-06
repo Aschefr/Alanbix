@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.15.1] - 2026-06-06
+
+### Nouvelles fonctionnalités
+
+- **Compteur et suivi des messages non lus (Administration - Conversations IA)** :
+  - **Badge sur l'onglet** : Affichage dynamique du nombre total de messages non lus par l'administrateur à côté de l'intitulé d'onglet "Conversations IA".
+  - **Détails par discussion** : Indication du nombre exact de nouveaux messages non lus (ex: `2 nouveaux`) sur chaque carte de conversation de la liste latérale.
+  - **Highlight dynamique** : Conservation de la bordure verte d'accentuation sur les conversations tant que l'administrateur ne les a pas lue.
+  - **Marquage comme lu automatique** : Une conversation est automatiquement marquée comme lue au moment où l'administrateur clique pour l'ouvrir.
+
 ## [1.15.0] - 2026-06-06
 
 ### Nouvelles fonctionnalités

@@ -792,6 +792,12 @@ async def admin_list_conversations(db: Session = Depends(database.get_db), admin
         last_message_role = last_msg.role if last_msg else None
         last_message_preview = last_msg.content[:60] + "..." if last_msg and len(last_msg.content) > 60 else (last_msg.content if last_msg else None)
         
+        unread_count = db.query(models.ChatMessage).filter(
+            models.ChatMessage.conversation_id == c.id,
+            models.ChatMessage.id > (c.admin_last_read_message_id or 0),
+            models.ChatMessage.role == "user"
+        ).count()
+        
         results.append({
             "id": c.id,
             "title": c.title,
@@ -803,7 +809,8 @@ async def admin_list_conversations(db: Session = Depends(database.get_db), admin
             "last_message_at": last_message_at.isoformat() if last_message_at else None,
             "last_message_role": last_message_role,
             "last_message_preview": last_message_preview,
-            "has_new_messages": last_message_role == "user"
+            "has_new_messages": unread_count > 0,
+            "unread_count": unread_count
         })
         
     # Sort by last message time descending (recent first)
@@ -819,6 +826,11 @@ async def admin_get_messages(conv_id: int, db: Session = Depends(database.get_db
     messages = db.query(models.ChatMessage).filter(
         models.ChatMessage.conversation_id == conv_id
     ).order_by(models.ChatMessage.timestamp.asc()).all()
+    
+    if messages:
+        conv.admin_last_read_message_id = messages[-1].id
+        db.commit()
+        
     user = db.query(models.User).filter(models.User.id == conv.user_id).first()
     return {
         "conversation": {
