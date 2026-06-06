@@ -17,7 +17,7 @@ services:
     build: ./frontend
     container_name: alanbix_frontend
     ports:
-      - "8080:5173"
+      - "41481:5173"
     environment:
       - VITE_API_URL=http://localhost:8000
     volumes:

@@ -1,40 +1,35 @@
 /**
  * Central configuration for API/WebSocket URLs.
  *
- * Uses VITE_API_URL env var if set, otherwise auto-detects from the current
- * browser hostname — perfect for LAN deployments where the backend port
- * is the only thing that differs from the frontend port.
+ * In production (standalone Docker), the frontend and backend share the same origin,
+ * so we use relative paths (empty string).
+ * In development (Vite), they run on different ports, so we use localhost:8000.
  */
 
-const BACKEND_PORT = '8000';
-
 function resolveApiUrl(): string {
-	// 1. Explicit env var (set in docker-compose / .env)
-	const envUrl = import.meta.env.VITE_API_URL;
-	if (envUrl && envUrl !== '' && typeof window === 'undefined') {
-		return envUrl.replace(/\/$/, '');
+	// In development, the Vite dev server runs on 5173 but API is on 8000
+	if (import.meta.env.DEV) {
+		return 'http://localhost:8000';
 	}
 
-	// 2. Browser auto-detect: same hostname, backend port
-	if (typeof window !== 'undefined') {
-		if (envUrl && envUrl !== '') {
-			// If VITE_API_URL looks like it uses localhost, swap in the actual browser hostname
-			// so that remote clients hit the right machine
-			try {
-				const parsed = new URL(envUrl);
-				if (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1') {
-					return `${parsed.protocol}//${window.location.hostname}:${parsed.port}`;
-				}
-			} catch { /* fallback below */ }
-			return envUrl.replace(/\/$/, '');
-		}
-		return `${window.location.protocol}//${window.location.hostname}:${BACKEND_PORT}`;
-	}
-
-	// 3. SSR fallback
-	return `http://localhost:${BACKEND_PORT}`;
+	// In production (the unified Docker container), API is served from the same origin
+	// Returning an empty string makes all fetch requests relative to the current host:port
+	return '';
 }
 
 export const API_URL = resolveApiUrl();
 
-export const WS_URL = API_URL.replace(/^http/, 'ws') + '/ws';
+// For WebSockets, we need absolute URLs, so if API_URL is empty, we construct it from window.location
+function resolveWsUrl(): string {
+	if (import.meta.env.DEV) {
+		return 'ws://localhost:8000/ws';
+	}
+	
+	if (typeof window !== 'undefined') {
+		const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+		return `${protocol}//${window.location.host}/ws`;
+	}
+	return 'ws://localhost:8000/ws';
+}
+
+export const WS_URL = resolveWsUrl();

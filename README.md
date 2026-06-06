@@ -158,7 +158,7 @@ Configurez les instances Ollama, ajustez les limites de contexte et gérez les p
 - [Docker](https://docs.docker.com/get-docker/) & [Docker Compose](https://docs.docker.com/compose/install/)
 - *(Optionnel)* [Ollama](https://ollama.ai/) pour les fonctionnalités de chat IA.
 
-### Installation
+### Installation (Serveur ou Local)
 
 ```bash
 git clone https://github.com/Aschefr/Alanbix.git
@@ -166,8 +166,17 @@ cd Alanbix
 docker compose up -d --build
 ```
 
+### Installation (Unraid OS)
+
+Alanbix dispose d'un template officiel pour Unraid.
+1. Depuis l'onglet **Docker** d'Unraid, cliquez sur **Add Container**.
+2. Dans le menu déroulant **Template**, sélectionnez **User Templates > Alanbix**.
+3. (Si le template n'apparaît pas, copiez le fichier `unraid-template.xml` de ce dépôt dans `/boot/config/plugins/dockerMan/templates-user/alanbix.xml` sur votre clé USB Unraid).
+4. Cliquez sur **Apply** ! L'image unifiée (backend + frontend) sera téléchargée et lancée.
+
+
 L'application sera disponible sur :
-- **Interface Joueurs (Frontend)** : http://localhost:8080
+- **Interface Joueurs (Frontend)** : http://localhost:41481
 - **API Backend** : http://localhost:8000
 - **Documentation API** : http://localhost:8000/docs
 

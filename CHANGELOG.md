@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.15.5] - 2026-06-06
+
+### Corrections de bugs
+
+- **Synchronisation des versions** : Alignement complet des numéros de version (v1.15.5) entre le code (package.json), le fichier système et l'affichage de l'interface.
+- **Affichage des notes de mise à jour (Unraid)** : Correction du `Dockerfile` qui ne copiait pas les fichiers métadonnées, empêchant la lecture du CHANGELOG dans l'image de production unifiée.
+
+
 ## [1.15.4] - 2026-06-06
 
 ### Nouvelles fonctionnalités & Améliorations

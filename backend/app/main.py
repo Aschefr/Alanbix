@@ -179,4 +179,31 @@ async def websocket_endpoint(websocket: WebSocket):
     except WebSocketDisconnect:
         manager.disconnect(websocket)
 
+# SPA Fallback for Frontend
+from fastapi.responses import FileResponse
+
+@app.get("/{full_path:path}")
+async def serve_spa(full_path: str):
+    import os
+    base_dir = os.environ.get("FRONTEND_DIST_DIR", "/app/frontend_dist")
+    
+    # Handle empty path (root)
+    if not full_path:
+        full_path = "index.html"
+        
+    path = os.path.join(base_dir, full_path)
+    
+    # Security check to prevent path traversal
+    if not os.path.abspath(path).startswith(os.path.abspath(base_dir)):
+        return FileResponse(os.path.join(base_dir, "index.html"))
+
+    if os.path.isfile(path):
+        return FileResponse(path)
+        
+    # Fallback to index.html for SPA routing
+    index_path = os.path.join(base_dir, "index.html")
+    if os.path.isfile(index_path):
+        return FileResponse(index_path)
+        
+    return {"error": "Frontend not built or not found"}
 

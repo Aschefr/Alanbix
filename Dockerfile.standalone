@@ -1,0 +1,43 @@
+# Stage 1: Build Frontend
+FROM node:20-alpine AS frontend-build
+WORKDIR /app/frontend
+
+# Installer les dependances
+COPY frontend/package*.json ./
+RUN npm install
+
+# Copier le code source et compiler
+COPY frontend/ .
+RUN npm run build
+
+# Stage 2: Build Backend & Serve
+FROM python:3.11-slim
+WORKDIR /app
+
+# Installer les dependances systemes
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Installer les dependances Python
+COPY backend/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copier le code backend ainsi que les métadonnées
+COPY VERSION CHANGELOG.md ./
+COPY backend/ .
+
+# Copier les fichiers statiques du frontend depuis l'etape 1
+COPY --from=frontend-build /app/frontend/build /app/frontend_dist
+
+# Dossier de donnees persistant (Important pour Unraid)
+VOLUME ["/app/data"]
+
+# Port expose par FastAPI (41481 = ALABI en leetspeak)
+EXPOSE 41481
+
+# Variable d'environnement pour indiquer ou se trouve le frontend compilé
+ENV FRONTEND_DIST_DIR=/app/frontend_dist
+
+# Lancer l'API
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "41481"]
