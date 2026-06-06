@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.15.3] - 2026-06-06
+
+### Nouvelles fonctionnalités
+
+- **Suivi et notifications des réponses IA / Admin pour le joueur** :
+  - **Badge sur le lien de navigation** : Un compteur rouge s'affiche à côté de l'onglet « Assistant IA » dans la barre latérale pour notifier le joueur lorsqu'une réponse de l'IA (ou une intervention d'un administrateur) est reçue s'il se trouve sur une autre page.
+  - **Highlight et badge Nouveau en temps réel** : Dans l'interface de l'IA, les conversations contenant des réponses non lues sont mises en évidence par une bordure verte et un badge « Nouveau ».
+  - **Gestion en temps réel** : La mise à jour s'effectue instantanément via WebSocket (aucun F5 requis), et l'état lu est réinitialisé dès que le joueur sélectionne ou charge la conversation concernée.
+  - **Pas de doublons** : L'envoi d'un message par l'admin n'affiche plus de double toast (la notification système se chargeant du message classique).
+
 ## [1.15.2] - 2026-06-06
 
 ### Corrections de bugs
