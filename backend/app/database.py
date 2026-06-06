@@ -51,6 +51,7 @@ def init_db():
         _safe_add_column(conn, "tournament_teams", "created_by", "INTEGER")
         _safe_add_column(conn, "awards", "award_key", "VARCHAR")
         _safe_add_column(conn, "conversations", "admin_last_read_message_id", "INTEGER DEFAULT 0")
+        _safe_add_column(conn, "conversations", "player_last_read_message_id", "INTEGER DEFAULT 0")
         
         # Purge any orphan/legacy tournaments with NULL game_id or missing games (due to previous SQLAlchemy missing cascade behavior)
         conn.execute(__import__('sqlalchemy').text("DELETE FROM tournaments WHERE game_id IS NULL OR game_id NOT IN (SELECT id FROM games)"))
