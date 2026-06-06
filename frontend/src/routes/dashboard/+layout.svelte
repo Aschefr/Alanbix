@@ -252,18 +252,18 @@
 						iaQueueActive = msg.active_count || 0;
 					}
 					// AI response arrived: badge on Assistant IA nav link
-					// Only if the player is not currently on the /dashboard/ai page
+					// Only if the player is not currently on the /dashboard/ai page and matches user_id
 					if (msg.type === 'chat_updated' && msg.role === 'bot') {
-						if (!window.location.pathname.startsWith('/dashboard/ai')) {
+						if (msg.user_id === user.id && !window.location.pathname.startsWith('/dashboard/ai')) {
 							aiUnreadCount.update(n => n + 1);
 							aiBounce = true;
 							setTimeout(() => aiBounce = false, 600);
 						}
 					}
 					// Admin message: the notification already exists via notification_new,
-					// so we only add the AI nav badge (no duplicate toast).
+					// so we only add the AI nav badge (no duplicate toast) and match user_id
 					if (msg.type === 'admin_message') {
-						if (!window.location.pathname.startsWith('/dashboard/ai')) {
+						if (msg.user_id === user.id && !window.location.pathname.startsWith('/dashboard/ai')) {
 							aiUnreadCount.update(n => n + 1);
 							aiBounce = true;
 							setTimeout(() => aiBounce = false, 600);
