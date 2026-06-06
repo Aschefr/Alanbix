@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.15.2] - 2026-06-06
+
+### Corrections de bugs
+
+- **Badges non lus en temps réel (Admin - Conversations IA)** :
+  - **Aucun F5 nécessaire** : Les badges « Nouveau » et le compteur de l'onglet « Conversations IA » se mettent à jour en temps réel via WebSocket, sans rechargement de page.
+  - **Disparition immédiate au clic** : Le badge vert et le highlight d'une conversation disparaissent instantanément quand l'administrateur clique dessus (mise à jour optimiste locale avant l'appel API).
+  - **Anti-réintroduction** : `loadAdminConversations()` préserve maintenant l'état lu de la conversation active, empêchant le serveur de réintroduire le badge après un rafraîchissement de liste.
+  - **Distinction user vs bot** : Le backend envoie maintenant un champ `role` dans les événements WebSocket `chat_updated` ; seuls les messages de rôle `user` incrémentent le compteur non lu pour l'administrateur (pas les réponses de l'IA).
+  - **Badge dès le chargement** : Le badge de l'onglet « Conversations IA » est calculé dès le chargement de la page d'administration, sans avoir à cliquer sur l'onglet.
+
 ## [1.15.1] - 2026-06-06
 
 ### Nouvelles fonctionnalités
