@@ -5,6 +5,7 @@
 	import { marked } from 'marked';
 	import { wsMessageStore } from '$lib/ws';
 	import { API_URL } from '$lib/config';
+	import { aiUnreadCount } from '$lib/pmStore';
 
 	// Configure marked for safe rendering
 	marked.setOptions({ breaks: true, gfm: true });
@@ -236,8 +237,6 @@
 		modalConfirmCallback = callback;
 		showModal = true;
 	}
-
-	import { aiUnreadCount } from '$lib/pmStore';
 
 	onMount(async () => {
 		aiUnreadCount.set(0);
