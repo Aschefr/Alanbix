@@ -465,8 +465,8 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
     user_msg = models.ChatMessage(conversation_id=request.conversation_id, role="user", content=request.prompt, image_path=request.image_path)
     db.add(user_msg)
     db.commit()
-    # Notify admin monitoring panel in real-time
-    await ws_manager.broadcast({"type": "chat_updated", "conversation_id": request.conversation_id, "user_id": conv.user_id})
+    # Notify admin monitoring panel in real-time that a user message was sent
+    await ws_manager.broadcast({"type": "chat_updated", "conversation_id": request.conversation_id, "user_id": conv.user_id, "role": "user"})
     
     # Build system prompt — read from SystemConfig, fallback to fr.json, then default
     system_prompt = "Tu es Alanbix, l'IA de gestion de LAN."
@@ -636,8 +636,8 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
                             )
                             s.add(ai_msg)
                             s.commit()
-                        # Notify admin monitoring panel that AI response is ready
-                        await ws_manager.broadcast({"type": "chat_updated", "conversation_id": request.conversation_id, "user_id": conv.user_id})
+                        # Notify admin monitoring panel that AI response is ready (bot role = not new unread for admin)
+                        await ws_manager.broadcast({"type": "chat_updated", "conversation_id": request.conversation_id, "user_id": conv.user_id, "role": "bot"})
                         # Compute updated token estimate for frontend
                         conv_obj = s.query(models.Conversation).filter(models.Conversation.id == request.conversation_id).first()
                         post_msgs = s.query(models.ChatMessage).filter(

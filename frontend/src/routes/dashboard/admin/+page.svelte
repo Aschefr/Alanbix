@@ -198,17 +198,47 @@
 		// Listen for user messages during admin override to auto-refresh conv view
 		wsUnsub = wsMessageStore.subscribe(msg => {
 			if (!msg) return;
-			if (msg.type === 'user_message_during_override' && adminActiveConvId === msg.conversation_id) {
-				selectAdminConv(adminActiveConvId);
+			if (msg.type === 'user_message_during_override') {
+				if (adminActiveConvId === msg.conversation_id) {
+					// Admin is watching this conv: refresh messages directly
+					selectAdminConv(adminActiveConvId);
+				} else {
+					// Mark conversation as having a new message in real-time
+					const existing = adminConversations.find(c => c.id === msg.conversation_id);
+					if (existing) {
+						adminConversations = adminConversations.map(c =>
+							c.id === msg.conversation_id
+								? { ...c, has_new_messages: true, unread_count: (c.unread_count || 0) + 1 }
+								: c
+						);
+					} else {
+						loadAdminConversations();
+					}
+				}
 			}
 			if (msg.type === 'chat_updated') {
-				// Refresh active conversation view if we're watching this conversation
+				// msg.role: 'user' = player message (unread for admin), 'bot' = AI response (not unread)
 				if (adminActiveConvId && adminActiveConvId === msg.conversation_id) {
+					// Admin is watching this conversation — refresh messages view without marking as unread
+					// selectAdminConv preserves read state (clears unread before loading)
 					selectAdminConv(adminActiveConvId);
-				}
-				// Refresh conversation list to update message counts / latest activity
-				if (activeTab === 'conversations') {
-					loadAdminConversations();
+				} else {
+					// Different conversation from what admin is currently watching
+					if (msg.role === 'user') {
+						// Only user messages count as unread for the admin
+						const existing = adminConversations.find(c => c.id === msg.conversation_id);
+						if (existing) {
+							adminConversations = adminConversations.map(c =>
+								c.id === msg.conversation_id
+									? { ...c, has_new_messages: true, unread_count: (c.unread_count || 0) + 1 }
+									: c
+							);
+						} else {
+							// Unknown conversation (new one) — do a full reload
+							loadAdminConversations();
+						}
+					}
+					// For bot responses to other conversations: no unread badge update needed
 				}
 			}
 			if (msg.type === 'users_updated') {
@@ -285,6 +315,7 @@
 			const cpCfg = await api.get('/admin/config/tournament_closing_prompt');
 			closingPrompt = cpCfg?.value || '';
 		} catch {}
+		loadAdminConversations();
 	}
 
 	async function saveTeamScoringMode() {
@@ -783,16 +814,32 @@
 	}
 
 	async function loadAdminConversations() {
-		try { adminConversations = await api.get('/ia/admin/conversations'); } catch (e) { toast('Erreur chargement conversations', 'error'); }
+		try {
+			const fresh = await api.get('/ia/admin/conversations');
+			// Preserve the read state of the currently active conversation
+			// to avoid the server re-introducing the unread badge immediately after click.
+			if (adminActiveConvId) {
+				adminConversations = fresh.map(c =>
+					c.id === adminActiveConvId ? { ...c, has_new_messages: false, unread_count: 0 } : c
+				);
+			} else {
+				adminConversations = fresh;
+			}
+		} catch (e) { toast('Erreur chargement conversations', 'error'); }
 	}
 
 	async function selectAdminConv(id) {
 		adminActiveConvId = id;
+		// Immediately clear unread badge for instant visual feedback
+		adminConversations = adminConversations.map(c =>
+			c.id === id ? { ...c, has_new_messages: false, unread_count: 0 } : c
+		);
 		try {
 			const res = await api.get(`/ia/admin/conversations/${id}/messages`);
 			adminConvMessages = res.messages;
 			adminConvInfo = res.conversation;
 			adminScrollToBottom();
+			// Refresh list but keep the active conv as read
 			await loadAdminConversations();
 		} catch (e) { toast(e.message, 'error'); }
 	}
