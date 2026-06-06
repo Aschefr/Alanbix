@@ -858,7 +858,7 @@
 
 	/* Bracket visual (CSS transform zoom) */
 	.bracket-visual { flex-grow: 1; display: flex; flex-direction: column; min-height: 0; position: relative; }
-	.dash-bracket-viewport { flex-grow: 1; overflow: hidden; border-radius: 8px; border: 1px solid var(--glass-border); background: var(--surface-sunken); min-height: 200px; }
+	.dash-bracket-viewport { flex-grow: 1; overflow: hidden; border-radius: 8px; border: 1px solid var(--glass-border); background: var(--surface-sunken); min-height: 200px; user-select: none; -webkit-user-select: none; }
 	.dash-bracket-canvas { transform-origin: 0 0; transition: transform 0.08s ease-out; padding: 1rem; display: inline-block; min-width: 100%; }
 
 	/* AXE-29: Directional pan arrows (dashboard) */

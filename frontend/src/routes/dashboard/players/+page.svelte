@@ -26,6 +26,36 @@
 	let pointsHistory = null;
 	let pointsLoading = false;
 
+	// Resizer state
+	let chatWidth = 380;
+	let isResizing = false;
+
+	function startResize(e) {
+		isResizing = true;
+		document.body.style.cursor = 'col-resize';
+		document.body.style.userSelect = 'none';
+		window.addEventListener('mousemove', doResize);
+		window.addEventListener('mouseup', stopResize);
+	}
+
+	function doResize(e) {
+		if (!isResizing) return;
+		const newWidth = window.innerWidth - e.clientX - 30;
+		const maxAllowedWidth = window.innerWidth * 0.70;
+		if (newWidth >= 250 && newWidth <= maxAllowedWidth) {
+			chatWidth = newWidth;
+		}
+	}
+
+	function stopResize() {
+		isResizing = false;
+		document.body.style.cursor = '';
+		document.body.style.userSelect = '';
+		localStorage.setItem('alanbix_chat_width', chatWidth);
+		window.removeEventListener('mousemove', doResize);
+		window.removeEventListener('mouseup', stopResize);
+	}
+
 	// Svelte reactive helper to check if a team's chat channel is currently active
 	function isTeamChatActive(teamName, mode, channelKey) {
 		if (mode !== 'group' || !channelKey || !currentUser) return false;
@@ -53,6 +83,10 @@
 		await loadPlayers();
 		await loadUnreadMap();
 		await loadGroupUnreadMap();
+
+		// Restore chat width
+		const savedWidth = localStorage.getItem('alanbix_chat_width');
+		if (savedWidth) chatWidth = parseInt(savedWidth);
 
 		// Restore last selected chat from localStorage
 		const savedPeer = localStorage.getItem('alanbix_players_chat');
@@ -100,7 +134,13 @@
 		});
 	});
 
-	onDestroy(() => { if (wsUnsub) wsUnsub(); });
+	onDestroy(() => { 
+		if (wsUnsub) wsUnsub(); 
+		if (typeof window !== 'undefined') {
+			window.removeEventListener('mousemove', doResize);
+			window.removeEventListener('mouseup', stopResize);
+		}
+	});
 
 	async function loadPlayers() {
 		loading = true;
@@ -322,7 +362,10 @@
 
 	function timeAgo(dateStr) {
 		if (!dateStr) return '';
-		const diff = (Date.now() - new Date(dateStr).getTime()) / 1000;
+		let dStr = dateStr.replace(' ', 'T');
+		if (!dStr.endsWith('Z')) dStr += 'Z';
+		let diff = (Date.now() - new Date(dStr).getTime()) / 1000;
+		if (diff < 0) diff = 0;
 		if (diff < 60) return "à l'instant";
 		if (diff < 3600) return `${Math.floor(diff / 60)} min`;
 		if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
@@ -345,7 +388,7 @@
 		<span class="player-count">{players.length} inscrit{players.length > 1 ? 's' : ''}</span>
 	</header>
 
-	<div class="players-layout">
+	<div class="players-layout" style="grid-template-columns: minmax(0, 1fr) 8px {chatWidth}px;">
 		<!-- LEFT: Player directory -->
 		<div class="directory-col">
 			{#if loading}
@@ -530,6 +573,10 @@
 			{/if}
 		</div>
 
+		<!-- CENTER: Resizer -->
+		<!-- svelte-ignore a11y-no-static-element-interactions -->
+		<div class="resizer" class:active={isResizing} on:mousedown={startResize}></div>
+
 		<!-- RIGHT: Chat panel -->
 		<div class="chat-col glass">
 			{#if !chatMode}
@@ -627,7 +674,7 @@
 	.player-count { font-size: 0.75rem; font-weight: 700; padding: 0.25rem 0.8rem; border-radius: 20px; background: rgba(59,130,246,0.1); color: var(--accent); border: 1px solid rgba(59,130,246,0.25); }
 
 	/* Layout — fill remaining height, both columns scroll independently */
-	.players-layout { display: grid; grid-template-columns: 1fr 380px; gap: 1rem; flex: 1; min-height: 0; overflow: hidden; }
+	.players-layout { display: grid; gap: 0.5rem; flex: 1; min-height: 0; overflow: hidden; }
 
 	/* Directory — scrollable */
 	.directory-col { overflow-y: auto; display: flex; flex-direction: column; gap: 0.6rem; padding-right: 0.3rem; padding-bottom: 1rem; }
@@ -703,8 +750,11 @@
 	.pts-bp-score { color: #818cf8; background: rgba(129,140,248,0.1); }
 	.pts-bp-parti { color: var(--text-muted); background: var(--surface-sunken); }
 
-	/* Chat column */
-	.chat-col { border-radius: 16px; display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
+	/* Resizer and Chat column */
+	.resizer { width: 8px; cursor: col-resize; border-radius: 4px; transition: background 0.2s; position: relative; z-index: 10; margin: 0 -4px; }
+	.resizer:hover, .resizer.active { background: var(--accent); opacity: 0.5; }
+
+	.chat-col { display: flex; flex-direction: column; overflow: hidden; border-radius: 12px; min-width: 0; }
 	.chat-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; gap: 0.5rem; color: var(--text-muted); font-size: 0.85rem; }
 	.chat-empty-icon { font-size: 2.5rem; opacity: 0.3; }
 

@@ -1604,7 +1604,7 @@
 	.bracket-section { padding: 1rem; border-radius: 14px; display: flex; flex-direction: column; }
 	.bracket-section.bracket-expanded { flex-grow: 1; min-height: 400px; }
 	.bracket-viewport-wrapper { position: relative; flex-grow: 1; min-height: 450px; }
-	.bracket-viewport { position: absolute; inset: 0; overflow: hidden; cursor: grab; background: var(--surface-sunken); border-radius: 10px; border: 1px solid var(--glass-border); }
+	.bracket-viewport { position: absolute; inset: 0; overflow: hidden; cursor: grab; background: var(--surface-sunken); border-radius: 10px; border: 1px solid var(--glass-border); user-select: none; -webkit-user-select: none; }
 	.bracket-viewport:active { cursor: grabbing; }
 	.bracket-canvas { transform-origin: 0 0; transition: transform 0.1s ease-out; padding: 2rem; display: inline-block; min-width: 100%; min-height: 100%; }
 	.rounds-container { display: flex; gap: 3rem; }

@@ -384,7 +384,7 @@
 	/* Bracket Pan/Zoom Styles */
 	.bracket-wrapper { position: relative; flex-grow: 1; min-height: 500px; overflow: hidden; border-radius: 12px; display: flex; flex-direction: column; }
 	.bracket-controls { position: absolute; top: 1rem; left: 1rem; z-index: 10; display: flex; align-items: center; gap: 1rem; background: var(--glass-bg); padding: 0.5rem; border-radius: 8px; backdrop-filter: blur(4px); }
-	.bracket-viewport { flex-grow: 1; overflow: hidden; cursor: grab; background: var(--surface-sunken); }
+	.bracket-viewport { flex-grow: 1; overflow: hidden; cursor: grab; background: var(--surface-sunken); user-select: none; -webkit-user-select: none; }
 	.bracket-viewport:active { cursor: grabbing; }
 	.bracket-canvas { transform-origin: 0 0; transition: transform 0.1s ease-out; padding: 4rem; display: inline-block; min-width: 100%; min-height: 100%; }
 	

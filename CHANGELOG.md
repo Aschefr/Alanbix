@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.15.4] - 2026-06-06
+
+### Nouvelles fonctionnalités & Améliorations
+
+- **Redimensionnement du chat (Joueurs)** : Ajout d'une barre de redimensionnement permettant d'élargir le panneau de conversation jusqu'à 70% de la largeur de l'écran. L'ajustement est sauvegardé de manière persistante.
+- **Animation de l'écran de chargement** : Ajout d'une animation dynamique de "distillation" (logo incliné, bulles, effet de pulsation) sur l'écran de chargement principal.
+- **Interface Admin (IA)** : Augmentation de la taille des champs de saisie pour les prompts de l'IA. La hauteur des encarts s'ajuste désormais parfaitement entre les différentes colonnes.
+
+### Corrections de bugs
+
+- **Arbres de tournois** : Désactivation de la sélection de texte lors du glisser-déposer à la souris pour éviter les comportements inattendus lors du déplacement sur la page.
+- **Affichage des dates (TimeAgo)** : Correction du calcul du décalage horaire pour les notifications et les messages de discussion. Les dates retournées par le serveur sont maintenant correctement interprétées en UTC afin de refléter l'heure locale exacte de l'utilisateur.
+
+
 ## [1.15.3] - 2026-06-06
 
 ### Nouvelles fonctionnalités

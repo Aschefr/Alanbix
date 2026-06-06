@@ -1970,15 +1970,15 @@
 								<p class="sc-sub">Définissez la personnalité et les règles de réponse de l'IA</p>
 							</div>
 						</div>
-						<div class="sc-body" style="gap: 0.75rem;">
-							<div class="prompts-container">
-								<div style="display: flex; flex-direction: column; gap: 0.3rem; min-width: 0;">
+						<div class="sc-body" style="gap: 0.75rem; flex: 1; display: flex; flex-direction: column;">
+							<div class="prompts-container" style="flex: 1;">
+								<div style="display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; flex: 1;">
 									<label class="compact-label">Prompt Système</label>
-									<textarea class="prompt-textarea-compact" bind:value={systemPrompt} on:input={() => debounceSave('systemPrompt', saveSystemPrompt)} placeholder="Tu es Alanbix, l'IA..." rows="4"></textarea>
+									<textarea class="prompt-textarea-compact" bind:value={systemPrompt} on:input={() => debounceSave('systemPrompt', saveSystemPrompt)} placeholder="Tu es Alanbix, l'IA..." rows="8" style="flex: 1; height: 100%; resize: none;"></textarea>
 								</div>
-								<div style="display: flex; flex-direction: column; gap: 0.3rem; min-width: 0;">
+								<div style="display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; flex: 1;">
 									<label class="compact-label">Prompt Clôture Tournoi</label>
-									<textarea class="prompt-textarea-compact" bind:value={closingPrompt} on:input={() => debounceSave('closingPrompt', saveClosingPrompt)} placeholder="Félicitations aux vainqueurs..." rows="3"></textarea>
+									<textarea class="prompt-textarea-compact" bind:value={closingPrompt} on:input={() => debounceSave('closingPrompt', saveClosingPrompt)} placeholder="Félicitations aux vainqueurs..." rows="6" style="flex: 1; height: 100%; resize: none;"></textarea>
 								</div>
 							</div>
 						</div>
@@ -2451,7 +2451,7 @@
 		display: grid;
 		grid-template-columns: minmax(0, 1fr);
 		gap: 1rem;
-		align-items: start;
+		align-items: stretch;
 		animation: fadeIn 0.2s ease;
 	}
 	@media (min-width: 800px) {
@@ -2462,7 +2462,7 @@
 	@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 
 	/* Settings Card */
-	.sc { border-radius: 12px; padding: 0; overflow: hidden; border: 1px solid var(--glass-border); }
+	.sc { display: flex; flex-direction: column; height: 100%; border-radius: 12px; padding: 0; overflow: hidden; border: 1px solid var(--glass-border); }
 	.sc.sc-full { grid-column: 1 / -1; }
 	.sc-head { display: flex; align-items: center; gap: 0.6rem; padding: 0.75rem 1rem; border-bottom: 1px solid var(--glass-border); background: var(--hover-tint); }
 	.sc-head.compact { padding: 0.5rem 0.8rem; }
@@ -2470,7 +2470,7 @@
 	.sc-icon { font-size: 1rem; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; background: rgba(59,130,246,0.08); border-radius: 8px; flex-shrink: 0; }
 	.sc-icon.sm { font-size: 0.85rem; width: 22px; height: 22px; border-radius: 6px; }
 	.sc-sub { font-size: 0.68rem; color: var(--text-muted); margin: 0.1rem 0 0; }
-	.sc-body { padding: 0.8rem 1rem; display: flex; flex-direction: column; }
+	.sc-body { flex: 1; padding: 0.8rem 1rem; display: flex; flex-direction: column; }
 
 	/* Instance rows */
 	.inst-row { display: flex; align-items: center; gap: 0.6rem; padding: 0.6rem 0.8rem; border-radius: 10px; background: var(--hover-tint); border: 1px solid transparent; transition: all 0.2s; margin-bottom: 0.4rem; }
@@ -2540,7 +2540,7 @@
 	.ctx-preset-mini-btn.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); box-shadow: 0 0 8px var(--accent-glow); }
 	.inst-model-select-wide { width: 100%; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 8px; padding: 0.35rem 0.5rem; color: var(--text-main); font-size: 0.75rem; transition: all 0.2s; }
 	.inst-model-select-wide:focus { border-color: var(--accent); outline: none; }
-	.prompt-textarea-compact { width: 100%; max-width: 100%; box-sizing: border-box; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 8px; padding: 0.5rem; color: var(--text-main); font-size: 0.75rem; resize: vertical; font-family: inherit; line-height: 1.4; min-height: 70px; }
+	.prompt-textarea-compact { width: 100%; max-width: 100%; box-sizing: border-box; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 8px; padding: 0.5rem; color: var(--text-main); font-size: 0.75rem; resize: vertical; font-family: inherit; line-height: 1.4; min-height: 140px; }
 	.prompt-textarea-compact:focus { outline: none; border-color: var(--accent); }
 	.prompts-container { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.8rem; width: 100%; }
 	@media (min-width: 1024px) {

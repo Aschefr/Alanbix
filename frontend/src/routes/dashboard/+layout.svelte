@@ -321,10 +321,13 @@
 {#if loading}
 	<div class="app-loading-screen" style="display:flex;align-items:center;justify-content:center;height:100vh;width:100vw;background:var(--bg-primary);color:var(--text-main);font-weight:700">
 		<div style="display:flex;flex-direction:column;align-items:center;gap:1.5rem">
-			<div class="logo-alambic" style="width:48px;height:48px;transform:none">
-				<div class="liquid" style="height:70%"></div>
+			<div class="logo-alambic loading-logo" style="width:64px;height:64px;">
+				<div class="liquid boiling-liquid" style="height:70%"></div>
+				<div class="bubble b1"></div>
+				<div class="bubble b2"></div>
+				<div class="bubble b3"></div>
 			</div>
-			<span style="font-size:0.95rem;opacity:0.8;letter-spacing:0.15em;color:var(--accent)">ALANBIX...</span>
+			<span class="loading-text" style="font-size:0.95rem;opacity:0.8;letter-spacing:0.15em;color:var(--accent)">DISTILLATION...</span>
 		</div>
 	</div>
 {:else}
@@ -579,6 +582,50 @@
 		background: var(--accent);
 		opacity: 0.6;
 		box-shadow: 0 0 10px var(--accent-glow);
+	}
+
+	/* Loading screen animations */
+	.loading-logo {
+		animation: pulse-alambic 2s ease-in-out infinite alternate;
+	}
+	@keyframes pulse-alambic {
+		0% { box-shadow: 0 0 10px var(--accent-glow); transform: rotate(-15deg) scale(1); }
+		100% { box-shadow: 0 0 35px var(--accent-glow); transform: rotate(-15deg) scale(1.1); }
+	}
+
+	.boiling-liquid {
+		animation: boiling 1.5s infinite alternate ease-in-out;
+	}
+	@keyframes boiling {
+		0% { height: 60%; }
+		100% { height: 80%; }
+	}
+
+	.bubble {
+		position: absolute;
+		bottom: 10%;
+		background: rgba(255, 255, 255, 0.8);
+		border-radius: 50%;
+		animation: rise 1s infinite ease-in;
+		opacity: 0;
+	}
+	.b1 { width: 8px; height: 8px; left: 30%; animation-duration: 1.2s; animation-delay: 0s; }
+	.b2 { width: 6px; height: 6px; left: 55%; animation-duration: 0.9s; animation-delay: 0.3s; }
+	.b3 { width: 10px; height: 10px; left: 70%; animation-duration: 1.5s; animation-delay: 0.6s; }
+
+	@keyframes rise {
+		0% { bottom: 10%; opacity: 0; transform: scale(0.5); }
+		20% { opacity: 1; transform: scale(1); }
+		80% { opacity: 1; }
+		100% { bottom: 85%; opacity: 0; transform: scale(1.5); }
+	}
+
+	.loading-text {
+		animation: pulse-text 1.5s infinite alternate ease-in-out;
+	}
+	@keyframes pulse-text {
+		0% { opacity: 0.5; text-shadow: 0 0 0px var(--accent-glow); }
+		100% { opacity: 1; text-shadow: 0 0 8px var(--accent-glow); }
 	}
 
 	.brand-name {

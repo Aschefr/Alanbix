@@ -85,7 +85,10 @@
 
 	function timeAgo(dateStr) {
 		if (!dateStr) return '';
-		const diff = (Date.now() - new Date(dateStr).getTime()) / 1000;
+		let dStr = dateStr.replace(' ', 'T');
+		if (!dStr.endsWith('Z')) dStr += 'Z';
+		let diff = (Date.now() - new Date(dStr).getTime()) / 1000;
+		if (diff < 0) diff = 0;
 		if (diff < 60) return "à l'instant";
 		if (diff < 3600) return `il y a ${Math.floor(diff / 60)} min`;
 		if (diff < 86400) return `il y a ${Math.floor(diff / 3600)}h`;
