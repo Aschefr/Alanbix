@@ -14,3 +14,7 @@ export const totalMsgUnread = derived(
 
 /** Shared store for general notifications. */
 export const notifUnreadCount = writable(0);
+
+/** Shared store for unread AI responses (bot reply or admin message not yet seen).
+ *  Incremented in +layout.svelte via WS, reset in /dashboard/ai on mount. */
+export const aiUnreadCount = writable(0);

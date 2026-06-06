@@ -182,9 +182,26 @@ async def update_ia_config(config_data: dict, db: Session = Depends(database.get
     await ws_manager.broadcast({"type": "ia_config_updated"})
     return {"status": "updated"}
 
-@router.get("/conversations", response_model=List[schemas.Conversation])
+@router.get("/conversations")
 def list_conversations(db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
-    return db.query(models.Conversation).filter(models.Conversation.user_id == user.id).order_by(models.Conversation.created_at.desc()).all()
+    convs = db.query(models.Conversation).filter(models.Conversation.user_id == user.id).order_by(models.Conversation.created_at.desc()).all()
+    results = []
+    for c in convs:
+        unread_count = db.query(models.ChatMessage).filter(
+            models.ChatMessage.conversation_id == c.id,
+            models.ChatMessage.id > (c.player_last_read_message_id or 0),
+            models.ChatMessage.role.in_(["bot", "admin"])
+        ).count()
+        results.append({
+            "id": c.id,
+            "title": c.title,
+            "user_id": c.user_id,
+            "created_at": c.created_at.isoformat() if c.created_at else None,
+            "model": c.model,
+            "unread_count": unread_count,
+            "has_new_messages": unread_count > 0
+        })
+    return results
 
 @router.post("/conversations", response_model=schemas.Conversation)
 def create_conversation(conv: schemas.ConversationBase, db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
@@ -237,6 +254,9 @@ def delete_conversation(conv_id: int, db: Session = Depends(database.get_db), us
 def get_messages(conv_id: int, db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
     conv = db.query(models.Conversation).filter(models.Conversation.id == conv_id).first()
     messages = db.query(models.ChatMessage).filter(models.ChatMessage.conversation_id == conv_id).order_by(models.ChatMessage.timestamp.asc()).all()
+    if messages:
+        conv.player_last_read_message_id = messages[-1].id
+        db.commit()
     
     # Estimate tokens — only count messages that Ollama will see (post-compression) + compressed context
     # Add overhead for system prompt + user identity + tool definitions (~1300 tokens)

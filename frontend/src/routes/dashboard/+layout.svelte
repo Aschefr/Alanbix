@@ -4,7 +4,7 @@
 	import { api } from '$lib/api';
 	import { connectWS, wsMessageStore } from '$lib/ws';
 	import { invalidateAll, goto } from '$app/navigation';
-	import { pmUnreadCount, groupUnreadCount, totalMsgUnread, notifUnreadCount } from '$lib/pmStore';
+	import { pmUnreadCount, groupUnreadCount, totalMsgUnread, notifUnreadCount, aiUnreadCount } from '$lib/pmStore';
 	import { get } from 'svelte/store';
 	import TutorialOverlay from '$lib/components/TutorialOverlay.svelte';
 
@@ -13,6 +13,7 @@
 	let unsub = null;
 	let isDark = true;
 	let notifBounce = false;
+	let aiBounce = false;
 	let pmBounce = false;
 	let lastPmSender = null;
 	let iaInstances = [];
@@ -250,6 +251,24 @@
 						iaQueueSize = msg.queue_size || 0;
 						iaQueueActive = msg.active_count || 0;
 					}
+					// AI response arrived: badge on Assistant IA nav link
+					// Only if the player is not currently on the /dashboard/ai page
+					if (msg.type === 'chat_updated' && msg.role === 'bot') {
+						if (!window.location.pathname.startsWith('/dashboard/ai')) {
+							aiUnreadCount.update(n => n + 1);
+							aiBounce = true;
+							setTimeout(() => aiBounce = false, 600);
+						}
+					}
+					// Admin message: the notification already exists via notification_new,
+					// so we only add the AI nav badge (no duplicate toast).
+					if (msg.type === 'admin_message') {
+						if (!window.location.pathname.startsWith('/dashboard/ai')) {
+							aiUnreadCount.update(n => n + 1);
+							aiBounce = true;
+							setTimeout(() => aiBounce = false, 600);
+						}
+					}
 				}
 			});
 		} catch (e) {
@@ -350,9 +369,12 @@
 					<span class="notif-count-badge" class:bounce={notifBounce}>{$notifUnreadCount}</span>
 				{/if}
 			</a>
-			<a href="/dashboard/ai" class="nav-item">
+			<a href="/dashboard/ai" class="nav-item ai-nav" on:click={() => aiUnreadCount.set(0)}>
 				<span class="icon">🤖</span>
 				<span class="label">Assistant IA</span>
+				{#if $aiUnreadCount > 0}
+					<span class="ai-count-badge" class:bounce={aiBounce}>{$aiUnreadCount}</span>
+				{/if}
 			</a>
 			<a href="/dashboard/map" class="nav-item">
 
@@ -755,6 +777,21 @@
 		animation: notif-bounce 0.6s ease;
 	}
 
+	/* AI response unread badge */
+	.ai-nav { position: relative; }
+	.ai-count-badge {
+		position: absolute; top: 4px; right: 8px;
+		min-width: 18px; height: 18px; line-height: 18px;
+		padding: 0 5px; border-radius: 10px;
+		background: var(--accent); color: white;
+		font-size: 0.6rem; font-weight: 800; text-align: center;
+		box-shadow: 0 0 8px var(--accent-glow);
+		animation: notif-pulse 2s ease-in-out infinite;
+		will-change: opacity;
+	}
+	.ai-count-badge.bounce {
+		animation: notif-bounce 0.6s ease;
+	}
 	/* IA Status Widget */
 	.ia-status-widget {
 		padding: 0.6rem 0.8rem; border-radius: var(--radius-md);

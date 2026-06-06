@@ -237,7 +237,10 @@
 		showModal = true;
 	}
 
+	import { aiUnreadCount } from '$lib/pmStore';
+
 	onMount(async () => {
+		aiUnreadCount.set(0);
 		await loadConversations();
 		iaConfig = await api.get('/ia/config');
 		try { const me = await api.get('/me'); iaBlocked = !!me.ia_blocked; } catch(e) {}
@@ -248,17 +251,38 @@
 			}
 		} catch {}
 
-		// Listen for admin intervention via WebSocket
+		// Listen for admin intervention and chat updates via WebSocket
 		unsub = wsMessageStore.subscribe(msg => {
 			if (msg && msg.type === 'admin_message') {
-				// If the user is viewing this conversation, refresh messages live
+				// If the user is viewing this conversation, refresh messages live and mark read
 				if (activeId === msg.conversation_id) {
 					selectConversation(activeId);
+				} else {
+					// Otherwise, mark conversation as having unread messages
+					const conv = conversations.find(c => c.id === msg.conversation_id);
+					if (conv) {
+						conv.has_new_messages = true;
+						conv.unread_count = (conv.unread_count || 0) + 1;
+						conversations = conversations;
+					}
 				}
 				// Show notification
 				adminNotification = msg;
 				// Auto-dismiss after 10s
 				setTimeout(() => { if (adminNotification && adminNotification.message_id === msg.message_id) adminNotification = null; }, 10000);
+			}
+			if (msg && msg.type === 'chat_updated' && msg.role === 'bot') {
+				// Bot/AI finished writing or responded
+				if (activeId === msg.conversation_id) {
+					selectConversation(activeId);
+				} else {
+					const conv = conversations.find(c => c.id === msg.conversation_id);
+					if (conv) {
+						conv.has_new_messages = true;
+						conv.unread_count = (conv.unread_count || 0) + 1;
+						conversations = conversations;
+					}
+				}
 			}
 			// Auto-title arrives asynchronously via background task
 			if (msg && msg.type === 'conv_title_updated') {
@@ -704,10 +728,18 @@
 		<button class="btn-primary w-full" on:click={newConversation} disabled={iaBlocked}>+ Nouvelle Discussion</button>
 		<div class="conv-list">
 			{#each conversations as conv}
-				<div class="conv-item {activeId === conv.id ? 'active' : ''}">
-					<button class="conv-btn" on:click={() => selectConversation(conv.id, true)}>
+				<div class="conv-item {activeId === conv.id ? 'active' : ''}" class:unread={conv.has_new_messages}>
+					<button class="conv-btn" on:click={() => {
+						conv.has_new_messages = false;
+						conv.unread_count = 0;
+						conversations = conversations;
+						selectConversation(conv.id, true);
+					}}>
 						<span class="icon">💬</span>
 						<span class="title">{conv.title}</span>
+						{#if conv.has_new_messages}
+							<span class="unread-badge">Nouveau</span>
+						{/if}
 					</button>
 					<button class="btn-icon delete-btn" on:click={() => deleteConversation(conv.id)}>❌</button>
 				</div>
@@ -1019,6 +1051,14 @@
 	}
 	.conv-item:hover { background: var(--accent-soft); }
 	.conv-item.active { background: var(--accent-soft); border-color: var(--accent); color: var(--text-main); }
+	.conv-item.unread {
+		border-color: rgba(16, 185, 129, 0.4);
+		background: rgba(16, 185, 129, 0.05);
+		color: var(--text-main);
+	}
+	.conv-item.unread:hover {
+		background: rgba(16, 185, 129, 0.1);
+	}
 	
 	.conv-btn { 
 		display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem; 
@@ -1026,6 +1066,19 @@
 	}
 	.conv-btn .title { font-size: 0.82rem; white-space: normal; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.3; }
 	
+	.unread-badge {
+		background: var(--success);
+		color: white;
+		font-size: 0.65rem;
+		font-weight: 700;
+		padding: 0.15rem 0.4rem;
+		border-radius: 4px;
+		text-transform: uppercase;
+		letter-spacing: 0.5px;
+		margin-left: auto;
+		flex-shrink: 0;
+	}
+
 	.delete-btn { opacity: 0; padding: 0.5rem; font-size: 0.8rem; flex-shrink: 0; }
 	.conv-item:hover .delete-btn { opacity: 1; }
 

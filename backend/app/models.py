@@ -123,6 +123,7 @@ class Conversation(Base):
     auto_compression_mode = Column(String, nullable=True)
     admin_override = Column(Boolean, default=False)  # When True, admin controls responses
     admin_last_read_message_id = Column(Integer, default=0)
+    player_last_read_message_id = Column(Integer, default=0)
 
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     
