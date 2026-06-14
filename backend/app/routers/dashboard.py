@@ -19,7 +19,7 @@ def get_stats(db: Session = Depends(database.get_db)):
     
     # Leaderboard: DB points + live projected points from RUNNING tournaments
     all_users = db.query(models.User).all()
-    user_pts = {u.id: {"username": u.username, "points": u.points or 0, "team_name": u.team_name} for u in all_users}
+    user_pts = {u.id: {"username": u.username, "points": u.points or 0, "team_name": u.team_name, "avatar_url": u.avatar_url, "avatar_shape": u.avatar_shape} for u in all_users}
     
     # Add live points from running tournaments
     running = db.query(models.Tournament).filter(models.Tournament.status.in_(["RUNNING", "DONE"])).all()
@@ -43,7 +43,7 @@ def get_stats(db: Session = Depends(database.get_db)):
                 if eid > 0 and eid in user_pts and entry["total"] > 0:
                     user_pts[eid]["points"] += entry["total"]
     
-    leaderboard = [{"username": v["username"], "points": round(v["points"], 1), "team_name": v["team_name"]} 
+    leaderboard = [{"username": v["username"], "points": round(v["points"], 1), "team_name": v["team_name"], "avatar_url": v.get("avatar_url"), "avatar_shape": v.get("avatar_shape")} 
                    for v in user_pts.values() if v["points"] > 0]
     leaderboard.sort(key=lambda x: x["points"], reverse=True)
     

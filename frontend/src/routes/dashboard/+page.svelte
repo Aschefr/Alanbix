@@ -373,7 +373,13 @@
 				{#each stats.leaderboard as entry, i}
 					<div class="lb-row {i < 3 ? 'top-3' : ''} clickable" on:click={() => openPlayerStats(entry.username)}>
 						<span class="lb-rank {i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : ''}">{i + 1}</span>
-						<div class="lb-avatar">{entry.username[0].toUpperCase()}</div>
+						<div class="lb-avatar avatar-shape-{entry.avatar_shape || 'circle'}">
+							{#if entry.avatar_url}
+								<img src={entry.avatar_url} alt="" class="lb-avatar-img" />
+							{:else}
+								{entry.username[0].toUpperCase()}
+							{/if}
+						</div>
 						<div class="lb-info">
 							<span class="lb-name">{entry.username}</span>
 							<span class="lb-sub">{entry.team_name || 'GamerTag'}</span>
@@ -484,19 +490,44 @@
 								<rect x={seat.x + 2} y={seat.y} width="46" height="50"/>
 							</clipPath>
 							<g clip-path="url(#dclip-{seat.id})">
-								<text x={scx} y={seat.y + 13} text-anchor="middle" fill="var(--text-muted)" font-size="6" font-weight="800">{seat.id}</text>
 								{#if occ}
-									<text x={scx} y={seat.y + 28} text-anchor="middle" fill="var(--map-seat-player-fill)" font-size="7" font-weight="700"
-										textLength={occ.username.length > 7 ? 44 : null}
-										lengthAdjust="spacingAndGlyphs"
-									>{occ.username}</text>
-									{#if occ.team_name}
-										<text x={scx} y={seat.y + 38} text-anchor="middle" fill="var(--accent)" font-size="5" opacity="0.7"
-											textLength={occ.team_name.length > 8 ? 42 : null}
+									{#if occ.avatar_url}
+										<text x={scx} y={seat.y + 9} text-anchor="middle" fill="var(--text-muted)" font-size="5" font-weight="800">{seat.id}</text>
+										<clipPath id="davatar-clip-{seat.id}">
+											{#if occ.avatar_shape === 'rounded'}
+												<rect x={scx - 9} y={seat.y + 11} width="18" height="18" rx="3" ry="3" />
+											{:else if occ.avatar_shape === 'square'}
+												<rect x={scx - 9} y={seat.y + 11} width="18" height="18" />
+											{:else}
+												<circle cx={scx} cy={seat.y + 20} r="9" />
+											{/if}
+										</clipPath>
+										<image href={occ.avatar_url} x={scx - 9} y={seat.y + 11} width="18" height="18" clip-path="url(#davatar-clip-{seat.id})" />
+										<text x={scx} y={seat.y + 39} text-anchor="middle" fill="var(--map-seat-player-fill)" font-size="6" font-weight="700"
+											textLength={occ.username.length > 7 ? 44 : null}
 											lengthAdjust="spacingAndGlyphs"
-										>{occ.team_name}</text>
+										>{occ.username}</text>
+										{#if occ.team_name}
+											<text x={scx} y={seat.y + 46} text-anchor="middle" fill="var(--accent)" font-size="4.5" opacity="0.7"
+												textLength={occ.team_name.length > 8 ? 42 : null}
+												lengthAdjust="spacingAndGlyphs"
+											>{occ.team_name}</text>
+										{/if}
+									{:else}
+										<text x={scx} y={seat.y + 13} text-anchor="middle" fill="var(--text-muted)" font-size="6" font-weight="800">{seat.id}</text>
+										<text x={scx} y={seat.y + 28} text-anchor="middle" fill="var(--map-seat-player-fill)" font-size="7" font-weight="700"
+											textLength={occ.username.length > 7 ? 44 : null}
+											lengthAdjust="spacingAndGlyphs"
+										>{occ.username}</text>
+										{#if occ.team_name}
+											<text x={scx} y={seat.y + 38} text-anchor="middle" fill="var(--accent)" font-size="5" opacity="0.7"
+												textLength={occ.team_name.length > 8 ? 42 : null}
+												lengthAdjust="spacingAndGlyphs"
+											>{occ.team_name}</text>
+										{/if}
 									{/if}
 								{:else}
+									<text x={scx} y={seat.y + 13} text-anchor="middle" fill="var(--text-muted)" font-size="6" font-weight="800">{seat.id}</text>
 									<text x={scx} y={seat.y + 32} text-anchor="middle" fill="var(--text-muted)" font-size="7">Libre</text>
 								{/if}
 							</g>
@@ -671,8 +702,12 @@
 		<div class="player-modal-card glass" on:click|stopPropagation>
 			<header class="player-modal-header">
 				<div class="player-modal-profile">
-					<div class="player-modal-avatar">
-						{selectedPlayerStats?.username ? selectedPlayerStats.username[0].toUpperCase() : '?'}
+					<div class="player-modal-avatar avatar-shape-{allUsers.find(u => u.username === selectedPlayerStats?.username)?.avatar_shape || 'circle'}">
+						{#if allUsers.find(u => u.username === selectedPlayerStats?.username)?.avatar_url}
+							<img src={allUsers.find(u => u.username === selectedPlayerStats?.username).avatar_url} alt="" class="player-modal-avatar-img" />
+						{:else}
+							{selectedPlayerStats?.username ? selectedPlayerStats.username[0].toUpperCase() : '?'}
+						{/if}
 					</div>
 					<div class="player-modal-identity">
 						<h3>{selectedPlayerStats?.username || 'Chargement...'}</h3>
@@ -1219,5 +1254,23 @@
 		font-style: italic;
 		margin: 1rem 0;
 		text-align: center;
+	}
+	.lb-avatar {
+		overflow: hidden;
+	}
+	.lb-avatar-img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		border-radius: 50%;
+	}
+	.player-modal-avatar {
+		overflow: hidden;
+	}
+	.player-modal-avatar-img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		border-radius: 50%;
 	}
 </style>

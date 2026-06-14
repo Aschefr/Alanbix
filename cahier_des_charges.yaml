@@ -1145,3 +1145,22 @@ future_axes:
       - "Frontend: affichage de l'horodatage complet pour tous les messages du chat."
       - "Frontend: application d'un fond opaque sur la modale de compression de contexte (.modal-content) pour garantir la lisibilité du texte par-dessus la discussion."
     priority: high
+
+  - id: AXE-45
+    title: "Éditeur d'Avatar Joueur, Formes de Masques & Arrière-plans"
+    status: DONE
+    description: >
+      Ajouter un mini éditeur visuel d'avatar lors de l'importation de l'image (zoom, recadrage, choix du masque).
+      Remplir le fond transparent des images PNG par une couleur choisie.
+      Propager la forme de l'avatar sélectionnée (cercle, carré arrondi, carré) partout sur le site.
+      Optimiser la performance en enlevant le backdrop-filter des modales au profit d'un assombrissement complet de la page.
+      Adapter le plan de salle 2D pour conserver le nom des équipes sous les avatars.
+    done:
+      - "Développement du mini éditeur visuel d'avatar avec zoom (0.5x à 4x) et positionnement par drag-and-drop."
+      - "Intégration d'un sélecteur de forme d'avatar (cercle, carré, carré arrondi) enregistré dans la base de données."
+      - "Ajout du choix de couleur d'arrière-plan pour remplir les transparences des PNG."
+      - "Propagation globale du masque d'avatar sur toutes les vues (sidebar, leaderboard, chat, projecteur, brackets)."
+      - "Correction ergonomique empêchant la sélection de texte lors du glissement dans l'éditeur."
+      - "Ajustement du plan de salle SVG avec clipPath dynamique et réduction des avatars à 18px pour conserver le nom de l'équipe."
+      - "Optimisation de l'overlay de modale avec un fond sombre opaque au lieu d'un floutage de fond."
+    priority: high

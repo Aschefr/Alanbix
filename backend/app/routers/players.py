@@ -14,7 +14,8 @@ def list_players(db: Session = Depends(database.get_db), user: models.User = Dep
     users = db.query(models.User).all()
     return [{
         "id": u.id, "username": u.username, "team_name": u.team_name,
-        "seat_id": u.seat_id, "points": u.points or 0, "is_admin": u.is_admin
+        "seat_id": u.seat_id, "points": u.points or 0, "is_admin": u.is_admin,
+        "avatar_url": u.avatar_url, "avatar_shape": u.avatar_shape
     } for u in users]
 
 

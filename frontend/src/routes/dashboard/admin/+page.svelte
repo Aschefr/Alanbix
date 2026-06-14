@@ -710,6 +710,20 @@
 		} catch (e) { toast(e.message, 'error'); }
 	}
 
+	async function adminDeleteAvatar(playerId) {
+		if (confirm("Supprimer l'avatar de ce joueur ?")) {
+			try {
+				await api.delete(`/admin/users/${playerId}/avatar`);
+				toast("Avatar supprimé", "success");
+				if (editingPlayer && editingPlayer.id === playerId) {
+					editingPlayer.avatar_url = null;
+					editingPlayer = { ...editingPlayer };
+				}
+				await loadPlayers();
+			} catch (e) { toast("Erreur: " + e.message, "error"); }
+		}
+	}
+
 	async function resetPassword() {
 		try {
 			await api.post(`/admin/users/${resetPwdPlayer.id}/reset-password`, { password: resetPwdValue });
@@ -1454,8 +1468,11 @@
 						{#each allPlayers as p, i}
 							<div class="pt-row {p.is_admin ? 'is-admin' : ''}">
 								<span class="pt-col pt-id">{i + 1}</span>
-								<span class="pt-col pt-name">
-									{p.username}
+								<span class="pt-col pt-name" style="display: flex; align-items: center; gap: 0.4rem;">
+									{#if p.avatar_url}
+										<div class="admin-avatar-small avatar-shape-{p.avatar_shape || 'circle'}"><img src={p.avatar_url} alt="" /></div>
+									{/if}
+									<span>{p.username}</span>
 									{#if p.is_admin}<span class="admin-badge">⭐</span>{/if}
 									{#if p.ia_blocked}<span class="ia-blocked-badge" title="IA bloquée">🚫</span>{/if}
 								</span>
@@ -1505,6 +1522,14 @@
 							<button class="close-btn" on:click={() => editingPlayer = null}>✕</button>
 						</header>
 						<div class="edit-modal-body">
+							{#if editingPlayer.avatar_url}
+								<div class="edit-field mb-3" style="display: flex; align-items: center; gap: 1rem;">
+									<div class="admin-avatar-lg avatar-shape-{editingPlayer.avatar_shape || 'circle'}">
+										<img src={editingPlayer.avatar_url} alt="" />
+									</div>
+									<button class="btn-danger-sm" type="button" on:click={() => adminDeleteAvatar(editingPlayer.id)}>Supprimer l'avatar</button>
+								</div>
+							{/if}
 							<div class="edit-field mb-3">
 								<label>Pseudo</label>
 								<input type="text" bind:value={editPlayerData.username} />
@@ -2870,6 +2895,34 @@
 	.confirm-checkbox-label input[type="checkbox"] {
 		margin-top: 0.2rem;
 		cursor: pointer;
+	}
+	.admin-avatar-small {
+		width: 24px;
+		height: 24px;
+		border-radius: 50%;
+		overflow: hidden;
+		flex-shrink: 0;
+		border: 1px solid var(--glass-border);
+	}
+	.admin-avatar-small img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		border-radius: 50%;
+	}
+	.admin-avatar-lg {
+		width: 50px;
+		height: 50px;
+		border-radius: 50%;
+		overflow: hidden;
+		flex-shrink: 0;
+		border: 1px solid var(--accent-soft);
+	}
+	.admin-avatar-lg img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		border-radius: 50%;
 	}
 </style>
 

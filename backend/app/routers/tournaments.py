@@ -283,10 +283,10 @@ def get_tournament_participants(
 ):
     participants = db.query(models.TournamentParticipant).filter(models.TournamentParticipant.tournament_id == tournament_id).all()
     users = db.query(models.User).filter(models.User.id.in_([p.user_id for p in participants])).all()
-    user_map = {u.id: {"username": u.username, "team_name": u.team_name} for u in users}
+    user_map = {u.id: {"username": u.username, "team_name": u.team_name, "avatar_url": u.avatar_url, "avatar_shape": u.avatar_shape} for u in users}
     
     return [
-        {"id": p.id, "user_id": p.user_id, "username": user_map.get(p.user_id, {}).get("username", "Unknown"), "team_name": user_map.get(p.user_id, {}).get("team_name")} 
+        {"id": p.id, "user_id": p.user_id, "username": user_map.get(p.user_id, {}).get("username", "Unknown"), "team_name": user_map.get(p.user_id, {}).get("team_name"), "avatar_url": user_map.get(p.user_id, {}).get("avatar_url"), "avatar_shape": user_map.get(p.user_id, {}).get("avatar_shape")} 
         for p in participants
     ]
 

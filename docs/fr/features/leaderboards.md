@@ -37,11 +37,22 @@ Cliquer sur une ligne d'équipe dans le classement déploie instantanément un p
 
 ---
 
-## 🗂️ Fiche Joueur & Modale de Statistiques
+## 🗂️ Fiche Joueur, Profil & Avatars Personnalisés
 Cliquer sur le nom d'un joueur n'importe où sur l'application (leaderboards, annuaire, arbre de tournoi) ouvre une modale de profil complète (fond opaque `var(--bg-secondary)`) qui affiche :
 1. **Statistiques Clés** : Score total, nombre de tournois disputés, et trophées remportés.
 2. **Historique des Matchs** : La liste complète des tournois auxquels le joueur a participé. Pour chaque tournoi, un badge couleur indique le statut (**INSCRIT**, **EN COURS**, **TERMINE**), sa place finale, et le détail du calcul des points obtenus (ex: +10 victoire, +1 participation, +1.5 buts).
 3. **Vitrine de Trophées** : Les distinctions automatiques décernées au joueur.
+
+### 🎨 Éditeur d'Avatar Intégré
+Depuis leur page Profil, les joueurs peuvent uploader leur propre avatar. Un mini-éditeur visuel (Canvas) s'ouvre à l'importation de l'image pour permettre de :
+* **Zoomer / Dézoomer** : Ajuster la taille de l'image (0.5x à 4x) à l'aide d'un curseur.
+* **Recadrer / Glisser** : Repositionner l'image au pixel près à la souris ou au doigt (sur smartphone).
+* **Couleur de fond (transparence)** : Remplir l'arrière-plan des images PNG transparentes par une couleur pleine (Transparent, Blanc, Noir, Bleu Alanbix, Sombre ou couleur personnalisée).
+* **Choix de la forme** : Configurer la forme du masque de rendu de l'avatar :
+  * **Cercle** (par défaut)
+  * **Arrondi** (carré aux angles adoucis)
+  * **Carré** (carré pur sans arrondi)
+* **Propagation globale** : La forme choisie par l'utilisateur est stockée en base de données et appliquée dynamiquement sur l'ensemble de l'interface de l'application (Sidebar, Leaderboard, Boîtes de chat, Brackets de Tournois, Plan de salle 2D, Mode Projecteur et Panel Admin).
 
 ![Profil Joueur](../../../screenshots/alanbix_profile_joueur.png)
 

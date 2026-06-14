@@ -341,7 +341,13 @@
 						{#each participants as p}
 							<div class="player-card glass-inner flex-row justify-between items-center p-4">
 								<div class="flex-row items-center gap-3">
-									<div class="avatar-small">👤</div>
+									<div class="avatar-small avatar-shape-{p.avatar_shape || 'circle'}">
+										{#if p.avatar_url}
+											<img src={p.avatar_url} alt="" class="avatar-small-img" />
+										{:else}
+											👤
+										{/if}
+									</div>
 									<span class="font-bold">{p.username}</span>
 								</div>
 								<button class="btn-danger-sm" on:click={() => removePlayer(p.user_id, p.username)}>Expulser</button>
@@ -379,7 +385,8 @@
 	.confirm-box { background: rgba(239, 68, 68, 0.05); border: 1px dashed var(--danger); border-radius: 8px; }
 	.flex-grow { flex-grow: 1; }
 
-	.avatar-small { width: 32px; height: 32px; background: var(--surface-raised); border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+	.avatar-small { width: 32px; height: 32px; background: var(--surface-raised); border-radius: 50%; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+	.avatar-small-img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
 
 	/* Bracket Pan/Zoom Styles */
 	.bracket-wrapper { position: relative; flex-grow: 1; min-height: 500px; overflow: hidden; border-radius: 12px; display: flex; flex-direction: column; }

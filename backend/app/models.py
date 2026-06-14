@@ -13,6 +13,8 @@ class User(Base):
     team_name = Column(String, nullable=True) # Nom d'équipe
     ia_blocked = Column(Boolean, default=False) # Admin can block user from AI chat
     points = Column(Integer, default=0) # Accumulated tournament points
+    avatar_url = Column(String, nullable=True) # URL / path of user avatar
+    avatar_shape = Column(String, default="circle") # Display shape: circle, rounded, square
     
     tournaments = relationship("TournamentParticipant", back_populates="user")
 

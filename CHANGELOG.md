@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.16.0] - 2026-06-14
+
+### Nouvelles fonctionnalités & Améliorations
+
+- **Éditeur d'Avatar Visuel (Canvas)** : Ajout d'une interface modale interactive à l'importation de l'image de l'avatar (zoom 0.5x à 4x, et recadrage/déplacement par glisser-déposer sur PC et mobile).
+- **Couleur de fond personnalisée** : Option de choix d'une couleur de fond (Transparent, Blanc, Noir, Bleu Alanbix, Sombre ou Couleur personnalisée via un color picker) pour remplir les parties transparentes des images PNG à l'importation.
+- **Sélecteur de format d'affichage** : Option permettant de choisir le format de rendu de l'avatar (Cercle, Carré arrondi, Carré pur) enregistré en base de données.
+- **Propagation globale du masque d'avatar** : La forme de l'avatar choisie par chaque joueur est répercutée partout où son icône est affichée (Sidebar, Dashboard Leaderboard, Trophées de profil, Messagerie instantanée, Chat IA, Brackets de Tournois, Plan de salle 2D et Mode Projecteur public).
+- **Optimisations de performances** : Remplacement des filtres de flou lourds (`backdrop-filter`) par un assombrissement opaque (`rgba(0, 0, 0, 0.9)`) pour économiser les ressources processeur des utilisateurs.
+- **Ergonomie** : Blocage automatique de la sélection de texte durant le déplacement de l'image de l'avatar pour éviter les comportements confus.
+- **Plan de salle optimisé** : Réduction légère de la taille des icônes d'avatars de la carte 2D (de 22px à 18px) pour conserver l'affichage du nom de l'équipe même lorsqu'un avatar est présent.
+
 ## [1.15.5] - 2026-06-06
 
 ### Corrections de bugs

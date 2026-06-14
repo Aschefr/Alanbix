@@ -14,6 +14,8 @@ class User(UserBase):
     ia_blocked: Optional[bool] = False
     seat_id: Optional[str] = None
     team_name: Optional[str] = None
+    avatar_url: Optional[str] = None
+    avatar_shape: Optional[str] = "circle"
     model_config = ConfigDict(from_attributes=True)
 
 class Token(BaseModel):

@@ -11,6 +11,283 @@
 	let pointsData = null;
 	let existingTeams = [];
 	let wsUnsub = null;
+	let uploadingAvatar = false;
+
+	let pendingFile = null;
+	let showCropModal = false;
+	let cropZoom = 1.0;
+	let cropX = 0;
+	let cropY = 0;
+	let isDraggingCrop = false;
+	let dragStartX = 0;
+	let dragStartY = 0;
+	let selectedShape = 'circle';
+	let cropCanvasElement;
+	let cropImageObj = null;
+	let bgColor = 'transparent';
+
+	async function handleAvatarUpload(event) {
+		const file = event.target.files[0];
+		if (!file) return;
+
+		if (file.size > 10 * 1024 * 1024) {
+			alert("L'image est trop grande (max 10 Mo)");
+			return;
+		}
+
+		pendingFile = file;
+		
+		const reader = new FileReader();
+		reader.onload = (e) => {
+			cropImageObj = new Image();
+			cropImageObj.onload = () => {
+				cropZoom = 1.0;
+				cropX = 0;
+				cropY = 0;
+				bgColor = 'transparent';
+				selectedShape = user.avatar_shape || 'circle';
+				showCropModal = true;
+				setTimeout(drawCropCanvas, 50);
+			};
+			cropImageObj.src = e.target.result;
+		};
+		reader.readAsDataURL(file);
+	}
+
+	function drawCropCanvas() {
+		if (!cropCanvasElement || !cropImageObj) return;
+		const ctx = cropCanvasElement.getContext('2d');
+		const width = cropCanvasElement.width;
+		const height = cropCanvasElement.height;
+		
+		ctx.clearRect(0, 0, width, height);
+		
+		const centerX = width / 2;
+		const centerY = height / 2;
+		const r = width / 2 - 10;
+
+		// 1. Draw solid background color clipped to shape
+		if (bgColor !== 'transparent') {
+			ctx.save();
+			ctx.beginPath();
+			if (selectedShape === 'circle') {
+				ctx.arc(centerX, centerY, r, 0, Math.PI * 2);
+			} else if (selectedShape === 'rounded') {
+				const rx = centerX - r;
+				const ry = centerY - r;
+				const size = r * 2;
+				const radius = 16;
+				ctx.moveTo(rx + radius, ry);
+				ctx.arcTo(rx + size, ry, rx + size, ry + size, radius);
+				ctx.arcTo(rx + size, ry + size, rx, ry + size, radius);
+				ctx.arcTo(rx, ry + size, rx, ry, radius);
+				ctx.arcTo(rx, ry, rx + size, ry, radius);
+			} else {
+				const rx = centerX - r;
+				const ry = centerY - r;
+				const size = r * 2;
+				ctx.rect(rx, ry, size, size);
+			}
+			ctx.closePath();
+			ctx.fillStyle = bgColor;
+			ctx.fill();
+			ctx.restore();
+		}
+		
+		// 2. Draw the image (clipped to the shape as well)
+		ctx.save();
+		ctx.beginPath();
+		if (selectedShape === 'circle') {
+			ctx.arc(centerX, centerY, r, 0, Math.PI * 2);
+		} else if (selectedShape === 'rounded') {
+			const rx = centerX - r;
+			const ry = centerY - r;
+			const size = r * 2;
+			const radius = 16;
+			ctx.moveTo(rx + radius, ry);
+			ctx.arcTo(rx + size, ry, rx + size, ry + size, radius);
+			ctx.arcTo(rx + size, ry + size, rx, ry + size, radius);
+			ctx.arcTo(rx, ry + size, rx, ry, radius);
+			ctx.arcTo(rx, ry, rx + size, ry, radius);
+		} else {
+			const rx = centerX - r;
+			const ry = centerY - r;
+			const size = r * 2;
+			ctx.rect(rx, ry, size, size);
+		}
+		ctx.closePath();
+		ctx.clip();
+		
+		const imgRatio = cropImageObj.width / cropImageObj.height;
+		let imgW = width;
+		let imgH = height;
+		if (cropImageObj.width > cropImageObj.height) {
+			imgH = width / imgRatio;
+		} else {
+			imgW = height * imgRatio;
+		}
+		
+		const sw = imgW * cropZoom;
+		const sh = imgH * cropZoom;
+		const x = centerX - sw / 2 + cropX;
+		const y = centerY - sh / 2 + cropY;
+		
+		ctx.drawImage(cropImageObj, x, y, sw, sh);
+		ctx.restore();
+		
+		// 3. Draw semi-transparent overlay outside the shape
+		ctx.fillStyle = 'rgba(15, 23, 42, 0.7)';
+		ctx.beginPath();
+		ctx.rect(width, 0, -width, height);
+		
+		if (selectedShape === 'circle') {
+			ctx.arc(centerX, centerY, r, 0, Math.PI * 2, false);
+		} else if (selectedShape === 'rounded') {
+			const rx = centerX - r;
+			const ry = centerY - r;
+			const size = r * 2;
+			const radius = 16;
+			ctx.moveTo(rx + radius, ry);
+			ctx.arcTo(rx + size, ry, rx + size, ry + size, radius);
+			ctx.arcTo(rx + size, ry + size, rx, ry + size, radius);
+			ctx.arcTo(rx, ry + size, rx, ry, radius);
+			ctx.arcTo(rx, ry, rx + size, ry, radius);
+		} else {
+			const rx = centerX - r;
+			const ry = centerY - r;
+			const size = r * 2;
+			ctx.rect(rx, ry, size, size);
+		}
+		ctx.closePath();
+		ctx.fill();
+		
+		ctx.strokeStyle = '#3b82f6';
+		ctx.lineWidth = 2;
+		ctx.beginPath();
+		if (selectedShape === 'circle') {
+			ctx.arc(centerX, centerY, r, 0, Math.PI * 2);
+		} else if (selectedShape === 'rounded') {
+			const rx = centerX - r;
+			const ry = centerY - r;
+			const size = r * 2;
+			const radius = 16;
+			ctx.moveTo(rx + radius, ry);
+			ctx.arcTo(rx + size, ry, rx + size, ry + size, radius);
+			ctx.arcTo(rx + size, ry + size, rx, ry + size, radius);
+			ctx.arcTo(rx, ry + size, rx, ry, radius);
+			ctx.arcTo(rx, ry, rx + size, ry, radius);
+		} else {
+			const rx = centerX - r;
+			const ry = centerY - r;
+			const size = r * 2;
+			ctx.rect(rx, ry, size, size);
+		}
+		ctx.stroke();
+	}
+
+	function handleMouseDown(e) {
+		e.preventDefault();
+		isDraggingCrop = true;
+		dragStartX = e.clientX - cropX;
+		dragStartY = e.clientY - cropY;
+	}
+	function handleMouseMove(e) {
+		if (!isDraggingCrop) return;
+		cropX = e.clientX - dragStartX;
+		cropY = e.clientY - dragStartY;
+		drawCropCanvas();
+	}
+	function handleMouseUp() {
+		isDraggingCrop = false;
+	}
+	function handleTouchStart(e) {
+		if (e.touches.length === 1) {
+			isDraggingCrop = true;
+			dragStartX = e.touches[0].clientX - cropX;
+			dragStartY = e.touches[0].clientY - cropY;
+		}
+	}
+	function handleTouchMove(e) {
+		if (!isDraggingCrop || e.touches.length !== 1) return;
+		cropX = e.touches[0].clientX - dragStartX;
+		cropY = e.touches[0].clientY - dragStartY;
+		drawCropCanvas();
+	}
+
+	function generateCroppedBlob() {
+		return new Promise((resolve, reject) => {
+			const exportCanvas = document.createElement('canvas');
+			exportCanvas.width = 128;
+			exportCanvas.height = 128;
+			const ctx = exportCanvas.getContext('2d');
+			
+			// Fill background color if not transparent
+			if (bgColor !== 'transparent') {
+				ctx.fillStyle = bgColor;
+				ctx.fillRect(0, 0, 128, 128);
+			}
+			
+			const scaleFactor = 128 / 280;
+			const imgRatio = cropImageObj.width / cropImageObj.height;
+			let imgW = 300;
+			let imgH = 300;
+			if (cropImageObj.width > cropImageObj.height) {
+				imgH = 300 / imgRatio;
+			} else {
+				imgW = 300 * imgRatio;
+			}
+			
+			const sw = imgW * cropZoom * scaleFactor;
+			const sh = imgH * cropZoom * scaleFactor;
+			const x = 64 - sw / 2 + cropX * scaleFactor;
+			const y = 64 - sh / 2 + cropY * scaleFactor;
+			
+			ctx.drawImage(cropImageObj, x, y, sw, sh);
+			
+			exportCanvas.toBlob((blob) => {
+				if (blob) resolve(blob);
+				else reject(new Error("Export failed"));
+			}, 'image/png');
+		});
+	}
+
+	async function saveCroppedAvatar() {
+		uploadingAvatar = true;
+		showCropModal = false;
+		try {
+			const croppedBlob = await generateCroppedBlob();
+			const formData = new FormData();
+			const filename = pendingFile.name.split('.').slice(0, -1).join('.') + '.png';
+			formData.append('file', croppedBlob, filename);
+			
+			const uploadRes = await api.upload('/me/avatar', formData);
+			await api.put('/me/profile', { avatar_shape: selectedShape });
+			
+			user.avatar_url = uploadRes.avatar_url;
+			user.avatar_shape = selectedShape;
+			user = { ...user };
+			
+			window.dispatchEvent(new CustomEvent('user-updated'));
+		} catch (err) {
+			alert("Erreur lors de l'enregistrement de l'avatar : " + err.message);
+		} finally {
+			uploadingAvatar = false;
+			pendingFile = null;
+		}
+	}
+
+	async function deleteAvatar() {
+		if (confirm("Supprimer ton avatar ?")) {
+			try {
+				await api.delete('/me/avatar');
+				user.avatar_url = null;
+				user = { ...user };
+				window.dispatchEvent(new CustomEvent('user-updated'));
+			} catch (err) {
+				alert("Erreur lors de la suppression de l'avatar: " + err.message);
+			}
+		}
+	}
 
 	onMount(async () => {
 		user = await api.get('/me');
@@ -67,7 +344,22 @@
 {#if user}
 <div class="profile-page animate-in">
 	<header class="profile-header glass">
-		<div class="avatar-lg">{user.username[0].toUpperCase()}</div>
+		<div class="avatar-container">
+			<div class="avatar-lg avatar-shape-{user.avatar_shape || 'circle'}">
+				{#if user.avatar_url}
+					<img src={user.avatar_url} alt={user.username} class="avatar-img" />
+				{:else}
+					{user.username[0].toUpperCase()}
+				{/if}
+				<label class="avatar-upload-overlay" class:uploading={uploadingAvatar}>
+					<span>{uploadingAvatar ? '⏳...' : '✏️'}</span>
+					<input type="file" accept="image/*" on:change={handleAvatarUpload} style="display: none;" disabled={uploadingAvatar} />
+				</label>
+			</div>
+			{#if user.avatar_url}
+				<button class="btn-danger-icon" on:click={deleteAvatar} title="Supprimer l'avatar" type="button">🗑️</button>
+			{/if}
+		</div>
 		<div class="header-info">
 			<h1 class="title-premium">{user.username}</h1>
 			<span class="role-badge {user.is_admin ? 'admin' : 'player'}">
@@ -195,7 +487,14 @@
 <style>
 	.profile-page { display: flex; flex-direction: column; gap: 1.5rem; }
 	.profile-header { display: flex; align-items: center; gap: 1.5rem; padding: 2rem; border-radius: 16px; }
-	.avatar-lg { width: 64px; height: 64px; background: var(--bg-tertiary); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; font-weight: 800; color: var(--accent); border: 2px solid var(--accent-soft); }
+	.avatar-container { display: flex; align-items: center; gap: 1rem; position: relative; }
+	.avatar-lg { width: 64px; height: 64px; background: var(--bg-tertiary); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; font-weight: 800; color: var(--accent); border: 2px solid var(--accent-soft); position: relative; overflow: hidden; cursor: pointer; }
+	.avatar-img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+	.avatar-upload-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.6); color: white; font-size: 0.75rem; font-weight: 700; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.2s; border-radius: 50%; cursor: pointer; pointer-events: none; }
+	.avatar-upload-overlay.uploading { opacity: 1; pointer-events: auto; }
+	.avatar-lg:hover .avatar-upload-overlay { opacity: 1; pointer-events: auto; }
+	.btn-danger-icon { background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); color: #ef4444; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.15s; font-size: 0.9rem; margin-left: -0.5rem; }
+	.btn-danger-icon:hover { background: rgba(239, 68, 68, 0.2); transform: scale(1.08); }
 	.header-info { flex: 1; }
 	.header-info h1 { margin-bottom: 0.3rem; }
 	.role-badge { display: inline-block; padding: 0.3rem 0.8rem; border-radius: 20px; font-size: 0.75rem; font-weight: 700; }
@@ -251,4 +550,314 @@
 	.ph-bp-place { color: #fbbf24; background: rgba(251,191,36,0.1); }
 	.ph-bp-score { color: #818cf8; background: rgba(129,140,248,0.1); }
 	.ph-bp-parti { color: var(--text-muted); background: var(--surface-sunken); }
+
+	/* Crop Modal Styling */
+	.crop-modal-overlay {
+		position: fixed;
+		top: 0; left: 0; right: 0; bottom: 0;
+		background: rgba(0, 0, 0, 0.9);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		z-index: 1000;
+		user-select: none;
+		-webkit-user-select: none;
+		-moz-user-select: none;
+		-ms-user-select: none;
+	}
+	.crop-modal-content {
+		padding: 2rem;
+		border-radius: var(--radius-xl);
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 1.5rem;
+		max-width: 400px;
+		width: 90%;
+		border: 1px solid var(--glass-border);
+		box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+	}
+	.crop-modal-title {
+		font-size: 1.25rem;
+		font-weight: 800;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		background: linear-gradient(135deg, #fff 0%, var(--accent) 100%);
+		-webkit-background-clip: text;
+		-webkit-text-fill-color: transparent;
+		margin: 0;
+	}
+	.canvas-wrapper {
+		background: #090d16;
+		border-radius: var(--radius-lg);
+		overflow: hidden;
+		border: 2px solid var(--glass-border);
+		box-shadow: inset 0 0 20px rgba(0,0,0,0.6);
+		width: 300px;
+		height: 300px;
+	}
+	.crop-controls {
+		width: 100%;
+		display: flex;
+		flex-direction: column;
+		gap: 1.2rem;
+	}
+	.control-group {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+	.control-group label {
+		font-size: 0.75rem;
+		font-weight: 800;
+		text-transform: uppercase;
+		color: var(--text-dim);
+		letter-spacing: 0.05em;
+	}
+	.control-group input[type="range"] {
+		width: 100%;
+		accent-color: var(--accent);
+		background: var(--surface-sunken);
+		height: 6px;
+		border-radius: 3px;
+		outline: none;
+		border: none;
+		padding: 0;
+	}
+	.shape-selector {
+		display: grid;
+		grid-template-columns: 1fr 1fr 1fr;
+		gap: 0.5rem;
+	}
+	.shape-btn {
+		background: var(--surface-sunken);
+		border: 1px solid var(--glass-border);
+		color: var(--text-dim);
+		padding: 0.6rem 0.3rem;
+		border-radius: var(--radius-md);
+		cursor: pointer;
+		font-size: 0.75rem;
+		font-weight: 700;
+		transition: all 0.2s;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.3rem;
+	}
+	.shape-btn:hover {
+		background: var(--hover-tint);
+		color: var(--text-main);
+		border-color: var(--text-muted);
+	}
+	.shape-btn.active {
+		background: var(--accent-soft);
+		border-color: var(--accent);
+		color: var(--accent);
+		box-shadow: 0 0 10px rgba(59, 130, 246, 0.2);
+	}
+	.crop-actions {
+		display: flex;
+		gap: 1rem;
+		width: 100%;
+		margin-top: 0.5rem;
+	}
+	.crop-actions button {
+		flex: 1;
+		padding: 0.8rem;
+		font-weight: 700;
+	}
+	.bg-color-selector {
+		display: flex;
+		align-items: center;
+		gap: 0.6rem;
+		flex-wrap: wrap;
+	}
+	.color-btn {
+		width: 32px;
+		height: 32px;
+		border-radius: 50%;
+		border: 2px solid var(--glass-border);
+		cursor: pointer;
+		padding: 0;
+		transition: all 0.2s;
+		box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+	}
+	.color-btn:hover {
+		transform: scale(1.1);
+		border-color: var(--text-muted);
+	}
+	.color-btn.active {
+		transform: scale(1.1);
+		border-color: var(--accent);
+		box-shadow: 0 0 10px var(--accent-glow);
+	}
+	.transparent-btn {
+		background: #eee;
+		color: #555;
+		font-size: 1.1rem;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+	.color-picker-label {
+		width: 32px;
+		height: 32px;
+		border-radius: 50%;
+		border: 2px solid var(--glass-border);
+		background: var(--surface-sunken);
+		cursor: pointer;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 1.1rem;
+		position: relative;
+		transition: all 0.2s;
+		box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+	}
+	.color-picker-label:hover {
+		transform: scale(1.1);
+		border-color: var(--text-muted);
+	}
+	.color-picker-input {
+		position: absolute;
+		opacity: 0;
+		width: 100%;
+		height: 100%;
+		cursor: pointer;
+		top: 0;
+		left: 0;
+		padding: 0;
+		border: none;
+	}
 </style>
+
+{#if showCropModal}
+<div class="crop-modal-overlay">
+	<div class="crop-modal-content glass animate-in">
+		<h3 class="crop-modal-title">Éditer l'Avatar</h3>
+		
+		<div class="canvas-wrapper">
+			<canvas 
+				bind:this={cropCanvasElement}
+				width="300"
+				height="300"
+				on:mousedown={handleMouseDown}
+				on:mousemove={handleMouseMove}
+				on:mouseup={handleMouseUp}
+				on:mouseleave={handleMouseUp}
+				on:touchstart|preventDefault={handleTouchStart}
+				on:touchmove|preventDefault={handleTouchMove}
+				on:touchend={handleMouseUp}
+				style="cursor: move;"
+			></canvas>
+		</div>
+		
+		<div class="crop-controls">
+			<div class="control-group">
+				<label for="zoom-slider">🔎 Zoom</label>
+				<input 
+					type="range" 
+					id="zoom-slider"
+					min="0.5" 
+					max="4" 
+					step="0.05" 
+					bind:value={cropZoom}
+					on:input={drawCropCanvas}
+				/>
+			</div>
+			
+			<div class="control-group">
+				<label>Forme d'affichage</label>
+				<div class="shape-selector">
+					<button 
+						class="shape-btn" 
+						class:active={selectedShape === 'circle'} 
+						on:click={() => { selectedShape = 'circle'; drawCropCanvas(); }}
+						type="button"
+					>
+						⚪ Cercle
+					</button>
+					<button 
+						class="shape-btn" 
+						class:active={selectedShape === 'rounded'} 
+						on:click={() => { selectedShape = 'rounded'; drawCropCanvas(); }}
+						type="button"
+					>
+						⬜ Arrondi
+					</button>
+					<button 
+						class="shape-btn" 
+						class:active={selectedShape === 'square'} 
+						on:click={() => { selectedShape = 'square'; drawCropCanvas(); }}
+						type="button"
+					>
+						⬛ Carré
+					</button>
+				</div>
+			</div>
+
+			<div class="control-group">
+				<label>Couleur de fond (transparence)</label>
+				<div class="bg-color-selector">
+					<button 
+						class="color-btn transparent-btn" 
+						class:active={bgColor === 'transparent'} 
+						on:click={() => { bgColor = 'transparent'; drawCropCanvas(); }}
+						type="button"
+						title="Transparent"
+					>
+						🏁
+					</button>
+					<button 
+						class="color-btn" 
+						class:active={bgColor === '#ffffff'} 
+						style="background-color: #ffffff;"
+						on:click={() => { bgColor = '#ffffff'; drawCropCanvas(); }}
+						type="button"
+						title="Blanc"
+					></button>
+					<button 
+						class="color-btn" 
+						class:active={bgColor === '#000000'} 
+						style="background-color: #000000;"
+						on:click={() => { bgColor = '#000000'; drawCropCanvas(); }}
+						type="button"
+						title="Noir"
+					></button>
+					<button 
+						class="color-btn" 
+						class:active={bgColor === '#3b82f6'} 
+						style="background-color: #3b82f6;"
+						on:click={() => { bgColor = '#3b82f6'; drawCropCanvas(); }}
+						type="button"
+						title="Bleu Alanbix"
+					></button>
+					<button 
+						class="color-btn" 
+						class:active={bgColor === '#1e293b'} 
+						style="background-color: #1e293b;"
+						on:click={() => { bgColor = '#1e293b'; drawCropCanvas(); }}
+						type="button"
+						title="Sombre"
+					></button>
+					
+					<label class="color-picker-label" title="Personnalisé">
+						🎨
+						<input 
+							type="color" 
+							bind:value={bgColor} 
+							on:input={drawCropCanvas}
+							class="color-picker-input"
+						/>
+					</label>
+				</div>
+			</div>
+		</div>
+		
+		<div class="crop-actions">
+			<button class="btn-secondary" on:click={() => showCropModal = false} type="button">Annuler</button>
+			<button class="btn-primary" on:click={saveCroppedAvatar} type="button">Valider</button>
+		</div>
+	</div>
+</div>
+{/if}

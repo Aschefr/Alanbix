@@ -28,6 +28,7 @@
 	let messages = [];
 	let usage = { estimated_tokens: 0 };
 	let compression = { mode: null, auto_mode: null, compressed_at: null, context: null };
+	let userObj = null;
 	let iaConfig = { context_window: 4096 };
 	let query = '';
 	let loading = false;
@@ -242,7 +243,7 @@
 		aiUnreadCount.set(0);
 		await loadConversations();
 		iaConfig = await api.get('/ia/config');
-		try { const me = await api.get('/me'); iaBlocked = !!me.ia_blocked; } catch(e) {}
+		try { userObj = await api.get('/me'); iaBlocked = !!userObj.ia_blocked; } catch(e) {}
 		try {
 			const qs = await api.get('/ia/queue/status');
 			if (qs && qs.avg_duration !== undefined) {
@@ -871,7 +872,17 @@
 					{/if}
 					<div class="msg-wrapper {msg.role}">
 						<div class="msg-row {msg.role}">
-							<div class="avatar">{msg.role === 'bot' ? '🤖' : msg.role === 'admin' ? '🛡️' : '👤'}</div>
+							<div class="avatar avatar-shape-{userObj?.avatar_shape || 'circle'}">
+								{#if msg.role === 'bot'}
+									🤖
+								{:else if msg.role === 'admin'}
+									🛡️
+								{:else if msg.role === 'user' && userObj?.avatar_url}
+									<img src={userObj.avatar_url} alt="" class="avatar-img" />
+								{:else}
+									👤
+								{/if}
+							</div>
 							<div class="msg-content glass {msg.role === 'admin' ? 'admin-msg' : ''}"
 								class:thinking-active={msg.role === 'bot' && idx === messages.length - 1 && loading && !queued && !compressing && (msg.status === 'thinking' || msg.status === 'tool_call')}
 								class:pulse-progress={msg.role === 'bot' && idx === messages.length - 1 && loading && !queued && !compressing && ((msg.status === 'thinking' && elapsedTime >= avgDuration) || msg.status === 'tool_call')}
@@ -1137,7 +1148,8 @@
 	.msg-row { display: flex; gap: 1rem; }
 	.msg-row.user { flex-direction: row-reverse; }
 	
-	.avatar { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; }
+	.avatar { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; overflow: hidden; border-radius: 50%; }
+	.avatar-img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
 	.msg-content { padding: 1rem 1.25rem; font-size: 0.95rem; line-height: 1.5; white-space: pre-wrap; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
 	.user .msg-content { background: linear-gradient(135deg, var(--accent), #2563eb); color: white; border-radius: 18px 18px 2px 18px; border: 1px solid rgba(255,255,255,0.1); }
 	.bot .msg-content { background: var(--glass-bg); border-radius: 18px 18px 18px 2px; border: 1px solid var(--glass-border); color: var(--text-main); }

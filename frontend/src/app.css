@@ -468,3 +468,14 @@ select option {
 [data-theme="light"] .btn-primary, [data-theme="light"] .btn-success {
   color: #fff;
 }
+
+/* Global Avatar Shape Classes */
+.avatar-shape-circle, .avatar-shape-circle img, .avatar-shape-circle .avatar-img {
+  border-radius: 50% !important;
+}
+.avatar-shape-rounded, .avatar-shape-rounded img, .avatar-shape-rounded .avatar-img {
+  border-radius: 8px !important;
+}
+.avatar-shape-square, .avatar-shape-square img, .avatar-shape-square .avatar-img {
+  border-radius: 0% !important;
+}

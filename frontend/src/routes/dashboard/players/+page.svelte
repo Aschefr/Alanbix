@@ -429,8 +429,12 @@
 								<!-- svelte-ignore a11y-no-static-element-interactions -->
 								<div class="player-card" class:active-chat={chatPeerId === player.id} class:has-unread={(unreadMap[player.id] || 0) > 0} on:click={() => openChat(player.id)}>
 									<div class="player-main">
-										<div class="player-avatar">
-											{player.username[0].toUpperCase()}
+										<div class="player-avatar avatar-shape-{player.avatar_shape || 'circle'}">
+											{#if player.avatar_url}
+												<img src={player.avatar_url} alt="" class="player-avatar-img" />
+											{:else}
+												{player.username[0].toUpperCase()}
+											{/if}
 											{#if (unreadMap[player.id] || 0) > 0}
 												<span class="player-unread-badge">{unreadMap[player.id]}</span>
 											{/if}
@@ -504,8 +508,12 @@
 								<!-- svelte-ignore a11y-no-static-element-interactions -->
 								<div class="player-card" class:active-chat={chatPeerId === player.id} class:has-unread={(unreadMap[player.id] || 0) > 0} on:click={() => openChat(player.id)}>
 									<div class="player-main">
-										<div class="player-avatar solo">
-											{player.username[0].toUpperCase()}
+										<div class="player-avatar solo avatar-shape-{player.avatar_shape || 'circle'}">
+											{#if player.avatar_url}
+												<img src={player.avatar_url} alt="" class="player-avatar-img" />
+											{:else}
+												{player.username[0].toUpperCase()}
+											{/if}
 											{#if (unreadMap[player.id] || 0) > 0}
 												<span class="player-unread-badge">{unreadMap[player.id]}</span>
 											{/if}
@@ -588,7 +596,13 @@
 				<div class="chat-empty"><span>⏳</span> Chargement...</div>
 			{:else if chatMode === 'p2p'}
 				<div class="chat-header">
-					<div class="chat-peer-avatar">{chatPeer?.username?.[0]?.toUpperCase() || '?'}</div>
+					<div class="chat-peer-avatar avatar-shape-{chatPeer?.avatar_shape || 'circle'}">
+						{#if chatPeer?.avatar_url}
+							<img src={chatPeer.avatar_url} alt="" class="chat-peer-avatar-img" />
+						{:else}
+							{chatPeer?.username?.[0]?.toUpperCase() || '?'}
+						{/if}
+					</div>
 					<div class="chat-peer-info">
 						<span class="chat-peer-name">{chatPeer?.username || '?'}</span>
 						{#if chatPeer?.team_name}<span class="chat-peer-team">{chatPeer.team_name}</span>{/if}
@@ -836,4 +850,22 @@
 	.award-text { display: flex; flex-direction: column; gap: 0.05rem; }
 	.award-name { font-size: 0.72rem; font-weight: 700; color: var(--text-main); }
 	.award-desc { font-size: 0.62rem; color: var(--text-muted); line-height: 1.3; }
+	.player-avatar {
+		overflow: hidden;
+	}
+	.player-avatar-img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		border-radius: 50%;
+	}
+	.chat-peer-avatar {
+		overflow: hidden;
+	}
+	.chat-peer-avatar-img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		border-radius: 50%;
+	}
 </style>

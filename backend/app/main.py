@@ -164,6 +164,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 DATA_DIR = os.path.dirname(os.getenv("DATABASE_PATH", "/app/data/alanbix.db"))
 os.makedirs(os.path.join(DATA_DIR, "chat_images"), exist_ok=True)
 os.makedirs(os.path.join(DATA_DIR, "info_files"), exist_ok=True)
+os.makedirs(os.path.join(DATA_DIR, "avatars"), exist_ok=True)
 app.mount("/data", StaticFiles(directory=DATA_DIR), name="data")
 
 

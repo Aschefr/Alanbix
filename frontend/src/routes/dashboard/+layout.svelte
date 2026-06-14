@@ -166,6 +166,9 @@
 			if (document.visibilityState === 'visible') handleNotifNav();
 		});
 
+		// Listen for profile changes to update sidebar without F5
+		window.addEventListener('user-updated', handleUserUpdateEvent);
+
 		// Use BroadcastChannel for reliable SW -> Client communication
 		const channel = new BroadcastChannel('alanbix_sw_channel');
 		channel.onmessage = (event) => {
@@ -278,9 +281,9 @@
 		// Fetch SemVer version
 		try {
 			const res = await api.get('/health');
-			version = res.version || '1.13.0';
+			version = res.version || '1.16.0';
 		} catch {
-			version = '1.13.0';
+			version = '1.16.0';
 		}
 
 		// Admin: poll IA status
@@ -290,6 +293,12 @@
 		}
 		loading = false;
 	});
+
+	async function handleUserUpdateEvent() {
+		try {
+			user = await api.get('/me');
+		} catch {}
+	}
 
 	async function pollIaStatus() {
 		try { iaInstances = await api.get('/ia/instances/status'); } catch { iaInstances = []; }
@@ -303,6 +312,9 @@
 	onDestroy(() => {
 		if (unsub) unsub();
 		if (iaInterval) clearInterval(iaInterval);
+		if (typeof window !== 'undefined') {
+			window.removeEventListener('user-updated', handleUserUpdateEvent);
+		}
 	});
 
 	function toggleTheme() {
@@ -424,7 +436,13 @@
 				</div>
 			{/if}
 			<a href="/dashboard/profile" class="user-profile">
-				<div class="avatar">{user.username[0].toUpperCase()}</div>
+				<div class="avatar avatar-shape-{user.avatar_shape || 'circle'}">
+					{#if user.avatar_url}
+						<img src={user.avatar_url} alt={user.username} />
+					{:else}
+						{user.username[0].toUpperCase()}
+					{/if}
+				</div>
 				<div class="info">
 					<div class="username">{user.username}</div>
 					<div class="role">{user.is_admin ? 'Administrateur' : 'Joueur'}</div>
@@ -707,6 +725,13 @@
 		font-weight: 700;
 		color: var(--accent);
 		border: 1px solid var(--accent-soft);
+		overflow: hidden;
+	}
+	.avatar img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		border-radius: 50%;
 	}
 
 	.username {

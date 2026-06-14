@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status, UploadFile, File
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from datetime import timedelta
+import os
 from .. import models, schemas, auth, database
 from ..websockets import manager as ws_manager
 
@@ -65,10 +66,12 @@ async def read_users_me(current_user: models.User = Depends(auth.get_current_use
 async def update_profile(data: dict, db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
     if "team_name" in data:
         user.team_name = data["team_name"]
+    if "avatar_shape" in data:
+        user.avatar_shape = data["avatar_shape"]
     db.commit()
     db.refresh(user)
     await ws_manager.broadcast({"type": "users_updated"})
-    return {"status": "updated", "team_name": user.team_name}
+    return {"status": "updated", "team_name": user.team_name, "avatar_shape": user.avatar_shape}
 
 @router.get("/me/points-history")
 def get_points_history(db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
@@ -194,7 +197,7 @@ def get_points_history(db: Session = Depends(database.get_db), user: models.User
 def admin_list_users(db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
     """List all users with details for admin management."""
     users = db.query(models.User).all()
-    return [{"id": u.id, "username": u.username, "team_name": u.team_name, "is_admin": u.is_admin, "ia_blocked": u.ia_blocked or False, "seat_id": u.seat_id, "points": u.points} for u in users]
+    return [{"id": u.id, "username": u.username, "team_name": u.team_name, "is_admin": u.is_admin, "ia_blocked": u.ia_blocked or False, "seat_id": u.seat_id, "points": u.points, "avatar_url": u.avatar_url, "avatar_shape": u.avatar_shape} for u in users]
 
 @router.put("/admin/users/{user_id}")
 async def admin_update_user(user_id: int, data: dict, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
@@ -225,7 +228,7 @@ async def admin_update_user(user_id: int, data: dict, db: Session = Depends(data
     db.commit()
     db.refresh(target)
     await ws_manager.broadcast({"type": "users_updated"})
-    return {"status": "updated", "id": target.id, "username": target.username, "team_name": target.team_name, "seat_id": target.seat_id, "points": target.points, "is_admin": target.is_admin, "ia_blocked": target.ia_blocked or False}
+    return {"status": "updated", "id": target.id, "username": target.username, "team_name": target.team_name, "seat_id": target.seat_id, "points": target.points, "is_admin": target.is_admin, "ia_blocked": target.ia_blocked or False, "avatar_url": target.avatar_url, "avatar_shape": target.avatar_shape}
 
 @router.post("/admin/users/{user_id}/reset-password")
 def admin_reset_password(user_id: int, data: dict, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
@@ -246,6 +249,15 @@ async def admin_delete_user(user_id: int, db: Session = Depends(database.get_db)
         raise HTTPException(status_code=404, detail="User not found")
     if target.is_admin:
         raise HTTPException(status_code=400, detail="Cannot delete an admin account")
+    # Clean up avatar file from disk
+    if target.avatar_url:
+        DATA_DIR = os.path.dirname(os.getenv("DATABASE_PATH", "/app/data/alanbix.db"))
+        avatar_path = os.path.join(DATA_DIR, "avatars", os.path.basename(target.avatar_url))
+        if os.path.exists(avatar_path):
+            try:
+                os.remove(avatar_path)
+            except Exception:
+                pass
     # Remove tournament participations
     db.query(models.TournamentParticipant).filter(models.TournamentParticipant.user_id == user_id).delete()
     db.delete(target)
@@ -357,6 +369,17 @@ async def admin_nuke_players(db: Session = Depends(database.get_db), admin: mode
     count = len(non_admins)
     non_admin_ids = [u.id for u in non_admins]
     if non_admin_ids:
+        # Clean up avatar files from disk
+        DATA_DIR = os.path.dirname(os.getenv("DATABASE_PATH", "/app/data/alanbix.db"))
+        avatars_dir = os.path.join(DATA_DIR, "avatars")
+        for u in non_admins:
+            if u.avatar_url:
+                avatar_path = os.path.join(avatars_dir, os.path.basename(u.avatar_url))
+                if os.path.exists(avatar_path):
+                    try:
+                        os.remove(avatar_path)
+                    except Exception:
+                        pass
         # Clean up participations, team memberships, conversations, chat messages
         db.query(models.TournamentTeamMember).filter(models.TournamentTeamMember.user_id.in_(non_admin_ids)).delete(synchronize_session=False)
         db.query(models.TournamentParticipant).filter(models.TournamentParticipant.user_id.in_(non_admin_ids)).delete(synchronize_session=False)
@@ -1001,3 +1024,97 @@ async def admin_notify_awards(db: Session = Depends(database.get_db), admin: mod
         await ws_manager.broadcast({"type": "notification_new", "user_id": uid})
         
     return {"status": "success", "notified_players_count": len(notified_users)}
+
+@router.post("/me/avatar")
+async def upload_my_avatar(
+    file: UploadFile = File(...),
+    db: Session = Depends(database.get_db),
+    user: models.User = Depends(auth.get_current_user)
+):
+    await file.seek(0)
+    size = 0
+    while True:
+        chunk = await file.read(1024 * 1024)
+        if not chunk:
+            break
+        size += len(chunk)
+        if size > 10 * 1024 * 1024:
+            raise HTTPException(status_code=400, detail="L'image est trop grande (max 10 Mo)")
+    await file.seek(0)
+
+    if not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="Le fichier doit être une image")
+
+    ext = file.filename.split(".")[-1] if "." in file.filename else "png"
+    ext = "".join(c for c in ext if c.isalnum())[:5]
+
+    DATA_DIR = os.path.dirname(os.getenv("DATABASE_PATH", "/app/data/alanbix.db"))
+    avatars_dir = os.path.join(DATA_DIR, "avatars")
+    os.makedirs(avatars_dir, exist_ok=True)
+
+    if user.avatar_url:
+        old_filename = os.path.basename(user.avatar_url)
+        old_file_path = os.path.join(avatars_dir, old_filename)
+        if os.path.exists(old_file_path):
+            try:
+                os.remove(old_file_path)
+            except Exception:
+                pass
+
+    filename = f"{user.id}_avatar.{ext}"
+    filepath = os.path.join(avatars_dir, filename)
+    with open(filepath, "wb") as f:
+        content = await file.read()
+        f.write(content)
+
+    user.avatar_url = f"/data/avatars/{filename}"
+    db.commit()
+    db.refresh(user)
+    await ws_manager.broadcast({"type": "users_updated"})
+    return {"status": "success", "avatar_url": user.avatar_url}
+
+@router.delete("/me/avatar")
+async def delete_my_avatar(
+    db: Session = Depends(database.get_db),
+    user: models.User = Depends(auth.get_current_user)
+):
+    if user.avatar_url:
+        DATA_DIR = os.path.dirname(os.getenv("DATABASE_PATH", "/app/data/alanbix.db"))
+        avatars_dir = os.path.join(DATA_DIR, "avatars")
+        filename = os.path.basename(user.avatar_url)
+        filepath = os.path.join(avatars_dir, filename)
+        if os.path.exists(filepath):
+            try:
+                os.remove(filepath)
+            except Exception:
+                pass
+        user.avatar_url = None
+        db.commit()
+        db.refresh(user)
+        await ws_manager.broadcast({"type": "users_updated"})
+    return {"status": "success"}
+
+@router.delete("/admin/users/{user_id}/avatar")
+async def admin_delete_user_avatar(
+    user_id: int,
+    db: Session = Depends(database.get_db),
+    admin: models.User = Depends(auth.get_current_admin)
+):
+    target = db.query(models.User).filter(models.User.id == user_id).first()
+    if not target:
+        raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
+    if target.avatar_url:
+        DATA_DIR = os.path.dirname(os.getenv("DATABASE_PATH", "/app/data/alanbix.db"))
+        avatars_dir = os.path.join(DATA_DIR, "avatars")
+        filename = os.path.basename(target.avatar_url)
+        filepath = os.path.join(avatars_dir, filename)
+        if os.path.exists(filepath):
+            try:
+                os.remove(filepath)
+            except Exception:
+                pass
+        target.avatar_url = None
+        db.commit()
+        db.refresh(target)
+        await ws_manager.broadcast({"type": "users_updated"})
+    return {"status": "success"}

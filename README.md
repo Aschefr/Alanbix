@@ -38,6 +38,7 @@ Nommé en clin d'œil à *Alambix* de l'univers d'Astérix — une machinerie co
 - **Badges de notifications intelligents** : Compteurs de messages non-lus globaux et par joueur, mis à jour instantanément via WebSocket.
 - **Messagerie de groupe** : Chat d'équipe privé (🛡️) et chat inter-équipes (⚔️) avec badges non-lus distincts, boutons avec pulse violet, et channels déterministes.
 - **Actions rapides** : Raccourcis en un clic pour voir l'historique des points d'un joueur ou localiser son siège sur le plan interactif.
+- **Avatars personnalisés** : Importation d'une image de profil avec un mini-éditeur visuel intégré (zoom, rognage/déplacement, couleur de fond pour les PNG transparents et choix de la forme de l'avatar : cercle, carré arrondi ou carré pur). La forme choisie est automatiquement propagée à travers toutes les pages du projet (sidebar, chats, brackets, plan 2D, etc.).
 
 ### 📽️ Mode Spectateur (Projecteur)
 - **Cycle automatique 4 vues** : Leaderboard → Équipes → Plan de salle → Bracket.

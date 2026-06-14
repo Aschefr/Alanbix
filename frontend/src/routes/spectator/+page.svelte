@@ -327,6 +327,11 @@
 					{#each data.leaderboard as entry, i}
 						<div class="spec-row {entry.rank && entry.rank <= 3 ? 'spec-top' : ''}">
 							<span class="spec-rank {entry.rank === 1 ? 'gold' : entry.rank === 2 ? 'silver' : entry.rank === 3 ? 'bronze' : ''}">{entry.rank || '—'}</span>
+							{#if entry.avatar_url}
+								<div class="spec-avatar avatar-shape-{entry.avatar_shape || 'circle'}"><img src={entry.avatar_url} alt="" /></div>
+							{:else}
+								<div class="spec-avatar avatar-shape-{entry.avatar_shape || 'circle'}">{entry.username[0].toUpperCase()}</div>
+							{/if}
 							<span class="spec-name">{entry.username}</span>
 							{#if entry.team_name}<span class="spec-team">{entry.team_name}</span>{/if}
 							<span class="spec-pts">{entry.points} pts</span>
@@ -396,18 +401,43 @@
 								stroke={occ ? 'var(--accent)' : 'var(--map-seat-stroke)'} stroke-width="1.5"/>
 							<g clip-path="url(#spec-clip-{seat.id})">
 								{#if occ}
-									<text x={scx} y={seat.y + 13} text-anchor="middle" fill="var(--text-muted)" font-size="7" font-weight="800">{seat.id}</text>
-									<text x={scx} y={seat.y + 27} text-anchor="middle" fill="var(--map-seat-player-fill)" font-size="9" font-weight="700"
-										textLength={occ.username.length > 7 ? 44 : null}
-										lengthAdjust="spacingAndGlyphs"
-									>{occ.username}</text>
-									{#if occ.team_name}
-										<text x={scx} y={seat.y + 38} text-anchor="middle" fill="var(--accent)" font-size="7" font-weight="600"
-											textLength={occ.team_name.length > 8 ? 42 : null}
+									{#if occ.avatar_url}
+										<text x={scx} y={seat.y + 9} text-anchor="middle" fill="var(--text-muted)" font-size="5" font-weight="800">{seat.id}</text>
+										<clipPath id="spec-avatar-clip-{seat.id}">
+											{#if occ.avatar_shape === 'rounded'}
+												<rect x={scx - 9} y={seat.y + 11} width="18" height="18" rx="3" ry="3" />
+											{:else if occ.avatar_shape === 'square'}
+												<rect x={scx - 9} y={seat.y + 11} width="18" height="18" />
+											{:else}
+												<circle cx={scx} cy={seat.y + 20} r="9" />
+											{/if}
+										</clipPath>
+										<image href={occ.avatar_url} x={scx - 9} y={seat.y + 11} width="18" height="18" clip-path="url(#spec-avatar-clip-{seat.id})" />
+										<text x={scx} y={seat.y + 39} text-anchor="middle" fill="var(--map-seat-player-fill)" font-size="6" font-weight="700"
+											textLength={occ.username.length > 7 ? 44 : null}
 											lengthAdjust="spacingAndGlyphs"
-										>{occ.team_name}</text>
+										>{occ.username}</text>
+										{#if occ.team_name}
+											<text x={scx} y={seat.y + 46} text-anchor="middle" fill="var(--accent)" font-size="4.5" opacity="0.7"
+												textLength={occ.team_name.length > 8 ? 42 : null}
+												lengthAdjust="spacingAndGlyphs"
+											>{occ.team_name}</text>
+										{/if}
+									{:else}
+										<text x={scx} y={seat.y + 13} text-anchor="middle" fill="var(--text-muted)" font-size="7" font-weight="800">{seat.id}</text>
+										<text x={scx} y={seat.y + 27} text-anchor="middle" fill="var(--map-seat-player-fill)" font-size="9" font-weight="700"
+											textLength={occ.username.length > 7 ? 44 : null}
+											lengthAdjust="spacingAndGlyphs"
+										>{occ.username}</text>
+										{#if occ.team_name}
+											<text x={scx} y={seat.y + 38} text-anchor="middle" fill="var(--accent)" font-size="7" font-weight="600"
+												textLength={occ.team_name.length > 8 ? 42 : null}
+												lengthAdjust="spacingAndGlyphs"
+											>{occ.team_name}</text>
+										{/if}
 									{/if}
 								{:else}
+									<text x={scx} y={seat.y + 13} text-anchor="middle" fill="var(--text-muted)" font-size="7" font-weight="800">{seat.id}</text>
 									<text x={scx} y={scy + 4} text-anchor="middle" fill="var(--text-muted)" font-size="8">Libre</text>
 								{/if}
 							</g>
@@ -651,5 +681,25 @@
 		max-width: 800px; margin: 0 auto;
 		font-size: 1.8rem; line-height: 1.6; color: var(--text-main, white);
 		text-align: center; padding: 0 2rem;
+	}
+	.spec-avatar {
+		width: 48px;
+		height: 48px;
+		border-radius: 50%;
+		background: var(--bg-tertiary, rgba(255,255,255,0.05));
+		border: 1px solid var(--accent-soft, rgba(59,130,246,0.2));
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-weight: 800;
+		color: var(--accent, #3b82f6);
+		overflow: hidden;
+		flex-shrink: 0;
+	}
+	.spec-avatar img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		border-radius: 50%;
 	}
 </style>

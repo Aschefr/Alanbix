@@ -36,7 +36,7 @@ async def update_layout(
 def list_users_for_assignment(db: Session = Depends(database.get_db)):
     """List all users with their seat assignments for the map."""
     users = db.query(models.User).all()
-    return [{"id": u.id, "username": u.username, "seat_id": u.seat_id, "is_admin": u.is_admin, "team_name": u.team_name} for u in users]
+    return [{"id": u.id, "username": u.username, "seat_id": u.seat_id, "is_admin": u.is_admin, "team_name": u.team_name, "avatar_url": u.avatar_url, "avatar_shape": u.avatar_shape} for u in users]
 
 @router.post("/assign-seat")
 async def assign_seat(
