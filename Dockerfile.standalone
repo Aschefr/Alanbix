@@ -23,9 +23,11 @@ RUN apt-get update && apt-get install -y \
 COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copier le code backend ainsi que les métadonnées
-COPY VERSION CHANGELOG.md ./
+# Copier le code backend
 COPY backend/ .
+
+# Copier les métadonnées de la racine (pour écraser tout placeholder temporaire de dev)
+COPY VERSION CHANGELOG.md ./
 
 # Copier les fichiers statiques du frontend depuis l'etape 1
 COPY --from=frontend-build /app/frontend/build /app/frontend_dist

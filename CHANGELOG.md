@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.16.2] - 2026-06-14
+
+### Corrections de bugs
+
+- **Historique des versions (Docker Hub / Unraid)** : Correction de la séquence de copie dans le `Dockerfile.standalone` qui provoquait l'écrasement du `CHANGELOG.md` par un fichier vide temporaire lors de la génération de l'image de production.
+
 ## [1.16.1] - 2026-06-14
 
 ### Corrections de bugs & Résilience
