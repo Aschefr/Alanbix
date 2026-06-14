@@ -13,7 +13,7 @@ Alanbix gère les flux de discussion via des connexions WebSocket persistantes (
 * Les messages sont stockés dans la table SQLite `messages`.
 * Le système génère automatiquement des badges de notification rouges avec un compteur de messages non-lus sur le nom de l'expéditeur dans l'annuaire et sur l'onglet messagerie global de la barre latérale.
 
-![Annuaire et Chat](../../screenshots/alanbix_joueurs.png)
+![Annuaire et Chat](../../../screenshots/alanbix_joueurs.png)
 
 ### 2. Canaux de Groupe d'Équipe Déterministes (G-53)
 Pour les besoins tactiques et communautaires de la LAN, Alanbix intègre un système de salons de groupe dont les clés d'identification sont calculées de manière déterministe côté serveur :
@@ -30,7 +30,7 @@ Pour les besoins tactiques et communautaires de la LAN, Alanbix intègre un syst
 
 L'icône en forme de Cloche dans la barre latérale permet d'ouvrir le centre de notifications (table SQL `notifications`).
 
-![Centre de Notifications](../../screenshots/alanbix_notifications.png)
+![Centre de Notifications](../../../screenshots/alanbix_notifications.png)
 
 ### Les Différents Types de Notifications
 1. **Notifications Admin (`admin`)** : Envoyées lorsqu'un organisateur publie une annonce générale ou répond manuellement à une conversation technique.

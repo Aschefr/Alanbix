@@ -43,7 +43,7 @@ Cliquer sur le nom d'un joueur n'importe où sur l'application (leaderboards, an
 2. **Historique des Matchs** : La liste complète des tournois auxquels le joueur a participé. Pour chaque tournoi, un badge couleur indique le statut (**INSCRIT**, **EN COURS**, **TERMINE**), sa place finale, et le détail du calcul des points obtenus (ex: +10 victoire, +1 participation, +1.5 buts).
 3. **Vitrine de Trophées** : Les distinctions automatiques décernées au joueur.
 
-![Profil Joueur](../../screenshots/alanbix_profile_joueur.png)
+![Profil Joueur](../../../screenshots/alanbix_profile_joueur.png)
 
 ---
 

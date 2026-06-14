@@ -10,8 +10,8 @@ Alanbix intègre un assistant IA auto-hébergé sophistiqué basé sur Ollama, c
 * Pour éviter des temps d'attente frustrants aux joueurs, le backend FastAPI renvoie les mots générés par le LLM au fur et à mesure (streaming) via des connexions Server-Sent Events (SSE).
 * Le frontend SvelteKit consomme ce flux en direct à l'aide d'un décodeur de texte (`TextDecoder`) pour un rendu fluide mot-à-mot.
 
-![Question IA](../../screenshots/alanbix_assistant_ia_question.png)
-![Réponse IA](../../screenshots/alanbix_assistant_ia_reponse.png)
+![Question IA](../../../screenshots/alanbix_assistant_ia_question.png)
+![Réponse IA](../../../screenshots/alanbix_assistant_ia_reponse.png)
 
 ### Moteur de RAG Native (Calcul NumPy)
 Afin d'éviter l'infrastructure complexe d'une base de données vectorielle dédiée (comme pgvector/PostgreSQL), Alanbix embarque un moteur RAG matriciel codé en Python natif avec NumPy :
@@ -57,7 +57,7 @@ Si un joueur discute avec l'IA et que celle-ci commence à s'embrouiller, l'admi
 * L'admin peut **saisir une réponse manuellement** à la place de l'IA.
 * Côté joueur, le message apparaît sous forme de message système distinct : *"L'administrateur a pris le contrôle de cette réponse"*, pour un support technique humain immédiat.
 
-![AI Takeover](../../screenshots/alanbix_administration_conversation_ia_prendre_la_main.png)
+![AI Takeover](../../../screenshots/alanbix_administration_conversation_ia_prendre_la_main.png)
 
 ### 3. Édition et Retry Inline (G-36)
 * **Bouton Crayon (✏️)** : Tout message utilisateur peut être édité inline. La modification supprime la branche de discussion ultérieure pour éviter les paradoxes de conversation et relance le flux.

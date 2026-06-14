@@ -15,7 +15,7 @@ Vous pouvez faire glisser par Drag & Drop (Glisser-Déposer) les éléments suiv
 * **Éléments Structurels** : Murs, Portes, Racks Techniques, Écrans de projection.
 * **Éléments de Vie** : Coin Cuisine, Bar de ravitaillement, Sanitaires (WC).
 
-![Éditeur de Salle](../../screenshots/alanbix_plan_salle_editeur.png)
+![Éditeur de Salle](../../../screenshots/alanbix_plan_salle_editeur.png)
 
 ### Actions sur les Éléments du Canevas
 * **Sélection et Déplacement** : Cliquez sur un élément et maintenez enfoncé pour le repositionner.
@@ -34,7 +34,7 @@ Le système gère l'association entre les comptes utilisateurs et les identifian
 * Son pseudo et son avatar apparaissent immédiatement sur le plan pour tous les autres utilisateurs grâce à la synchronisation WebSocket.
 * Si le joueur change d'avis, il peut cliquer sur son propre siège pour "Libérer la place".
 
-![Plan de Salle Zoom](../../screenshots/alanbix_plan_salle_zoom.png)
+![Plan de Salle Zoom](../../../screenshots/alanbix_plan_salle_zoom.png)
 
 ### Administration et Assignation Manuelle
 * L'administrateur peut cliquer sur n'importe quel siège et utiliser un menu déroulant contenant la liste des joueurs inscrits pour affecter manuellement un participant à un poste.

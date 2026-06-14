@@ -71,7 +71,7 @@ Alanbix attribue automatiquement les droits d'administration globale au **premie
 3. Remplissez le formulaire (nom d'utilisateur et mot de passe).
 4. Une fois connecté, vous verrez apparaître l'onglet **Administration** (🛡️) dans votre menu latéral gauche.
 
-![Alanbix Dashboard](../screenshots/alanbix_dashboard.png)
+![Alanbix Dashboard](../../screenshots/alanbix_dashboard.png)
 
 ---
 

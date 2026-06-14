@@ -2,7 +2,7 @@
 
 La page d'informations d'Alanbix (route `/dashboard/info`) centralise les annonces, plannings, règlements de la LAN et liens de téléchargements utiles.
 
-![Page d'Informations](../../screenshots/alanbix_informations.png)
+![Page d'Informations](../../../screenshots/alanbix_informations.png)
 
 ---
 
@@ -30,7 +30,21 @@ Dans le cadre d'une LAN locale, il est fréquent que les organisateurs partagent
 
 ---
 
-## 📁 Gestionnaire de Fichiers Téléchargeables
+---
 
-En complément des liens réseau, les administrateurs peuvent directement téléverser (uploader) des fichiers physiques sur le serveur Alanbix depuis le panneau d'administration.
-* Ces fichiers (fichiers de configuration réseau, patchs de jeux) sont stockés dans le dossier `/app/data/info_files` et sont directement téléchargeables en HTTP par les joueurs en cliquant sur les boutons dédiés affichés sur la page d'informations.
+## 📁 Le Gestionnaire de Fichiers Téléchargeables (File Manager)
+
+En complément des liens réseau, Alanbix intègre un gestionnaire de fichiers physiques dédié permettant aux organisateurs d'héberger directement sur le serveur des fichiers utiles (torrents, patchs de jeux, utilitaires de configuration réseau, fichiers `.cfg`).
+
+### Interface d'Administration (Upload & Gestion)
+Depuis l'onglet **Administration > Fichiers** :
+* **Bouton Sélectionner un fichier / Glisser-Déposer** : Permet de choisir un fichier sur son ordinateur (limité à 100 Mo max par fichier).
+* **Bouton "🚀 Téléverser"** : Envoie le fichier au serveur. Le backend applique la fonction de sécurisation `_sanitize_filename` pour supprimer les caractères spéciaux ou espaces problématiques.
+* **Sécurité Anti-Écrasement** : Si un fichier avec le même nom existe déjà, le serveur ajoute automatiquement un suffixe incrémental (ex: `patch_1.exe`, `patch_2.exe`) plutôt que d'écraser le fichier d'origine.
+* **Bouton Corbeille (✕)** (à côté de chaque fichier) : Supprime définitivement le fichier du stockage du serveur.
+* **Bouton de Purge Globale ("Nuke Fichiers")** : Permet de supprimer en masse tous les fichiers téléversés du serveur (après confirmation de sécurité).
+
+### Côté Joueurs (Téléchargement)
+* Les fichiers téléversés apparaissent automatiquement sous forme de **cartes cliquables** dans une section dédiée au bas de la page d'informations (`/dashboard/info`).
+* Chaque carte indique le **nom du fichier**, sa **taille formatée** (Ko, Mo) et la **date de modification**.
+* Un clic gauche télécharge instantanément le fichier en HTTP direct depuis le dossier statique `/data/info_files/` du serveur, même si la LAN est totalement coupée d'Internet.

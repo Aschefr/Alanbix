@@ -13,7 +13,7 @@ Accessible via l'onglet **Administration > Joueurs**.
 * **Édition & Réinitialisation** : Possibilité de modifier le pseudo, de réinitialiser le mot de passe d'un participant (en cas d'oubli), d'éditer son nom d'équipe globale, ou de lui attribuer les privilèges d'administrateur.
 * **Modération IA** : L'administrateur peut révoquer l'accès à l'assistant IA pour un joueur s'il en abuse (ce qui masque le chat IA de son interface).
 
-![Gestion des Joueurs](../../screenshots/alanbix_administration_joueurs.png)
+![Gestion des Joueurs](../../../screenshots/alanbix_administration_joueurs.png)
 
 ### Génération d'un Pool de Test (G-46)
 Pour valider le bon fonctionnement des brackets de tournoi ou de la messagerie sans avoir à créer manuellement 20 comptes :
@@ -29,7 +29,7 @@ Pour associer une image et un règlement aux tournois, les administrateurs gère
 * **Recherche de jaquette automatique** : Pour éviter d'avoir à télécharger et héberger vous-même l'image d'un jeu, saisissez le nom du jeu et cliquez sur le bouton Loupe de recherche. Le serveur interroge en arrière-plan un moteur SearXNG (proxy local) pour récupérer l'image officielle et l'enregistrer localement dans `static/uploads/games/` afin de garantir l'offline-first de la LAN.
 * **Upload manuel** : L'administration permet également de téléverser une image de couverture directement depuis le disque dur du PC de l'administrateur.
 
-![Gestion de la Bibliothèque de Jeux](../../screenshots/alanbix_administration_jeux.png)
+![Gestion de la Bibliothèque de Jeux](../../../screenshots/alanbix_administration_jeux.png)
 
 ---
 
@@ -38,7 +38,7 @@ Pour associer une image et un règlement aux tournois, les administrateurs gère
 * **Pas de modale disruptive** : Conformément à la charte d'ergonomie d'Alanbix, les fenêtres d'édition de paramètres (comme l'édition de la configuration d'un tournoi ou des informations système) s'affichent sous forme de panneaux dépliables inline (en accordéon) directement au niveau de la fiche concernée, plutôt que dans une fenêtre modale qui bloquerait l'écran. Un seul élément peut être édité à la fois (singleton `inlineEditId`).
 * **Renommage de la LAN** : L'administrateur peut modifier le nom de l'événement. Le changement est sauvegardé via `PUT /admin/config/event_name` et se met à jour en temps réel sur les dashboards de tous les participants grâce au WebSocket.
 
-![Paramètres d'Administration](../../screenshots/alanbix_administration_param%C3%A8tres.png)
+![Paramètres d'Administration](../../../screenshots/alanbix_administration_param%C3%A8tres.png)
 
 ---
 
@@ -49,6 +49,7 @@ Pour faciliter le nettoyage de la base de données entre deux événements ou ap
 * **Nuke Tournois** : Supprime tous les tournois, brackets, historiques de matchs et équipes associées.
 * **Nuke Joueurs** : Supprime tous les comptes de joueurs (sauf l'administrateur actuellement connecté).
 * **Nuke Jeux** : Vide la bibliothèque de jeux et supprime les fichiers d'images associés du disque.
+* **Nuke Fichiers** : Supprime en masse tous les fichiers physiques téléversés par le gestionnaire de fichiers.
 * **Nuke Notifications & Messages** : Efface l'intégralité de l'historique des discussions privées, des canaux d'équipes et des notifications générées.
 
 ### Ergonomie de Sécurité (Pas de window.confirm)
@@ -57,3 +58,12 @@ Pour éviter les suppressions accidentelles tout en conservant une interface soi
 2. À la place, le bouton passe à l'état `delete_pending` local.
 3. Le texte du bouton se transforme dynamiquement pour afficher **"Êtes-vous sûr ?"** avec un changement de couleur vers le rouge vif et démarre un court compte à rebours de sécurité.
 4. L'administrateur doit cliquer une seconde fois pour confirmer définitivement l'action de purge massive.
+
+---
+
+## 📚 Base de Connaissances IA (RAG)
+
+Pour alimenter la mémoire de l'assistant IA local (RAG) :
+* **Zone de Saisie de Document** : Un champ de texte volumineux (TextArea) est présent sous **Administration > Assistant IA > Base de connaissances**.
+* **Bouton `🚀 Vectoriser & Ajouter`** : Découpe le texte saisi, l'envoie à l'instance d'Ollama active pour en extraire des vecteurs sémantiques (embeddings) et les stocke dans la table `rag_documents` afin qu'ils soient immédiatement exploitables dans les discussions des joueurs.
+* **Boutons de Gestion des Documents** : Permet de lister et de supprimer unitairement des blocs de connaissances indexés.

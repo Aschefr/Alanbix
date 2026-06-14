@@ -37,7 +37,7 @@ graph LR
 * La **Grande Finale (GF)** oppose le gagnant invaincu du Winners Bracket au vainqueur rescapé du Losers Bracket.
 * *Note d'affichage* : Le round de la Grande Finale est labellisé `🏆 FINALE` avec un style doré et une marge d'espacement accrue pour le distinguer visuellement. Les rounds Losers vides sont automatiquement masqués du DOM.
 
-![Double Élimination](../../screenshots/alanbix_tournois_double_elimination.png)
+![Double Élimination](../../../screenshots/alanbix_tournois_double_elimination.png)
 
 ### 3. Championnat / Tout contre tous (`round_robin`)
 * Pas d'arbre d'élimination. Chaque participant affronte tous les autres participants à tour de rôle.
@@ -49,7 +49,7 @@ graph LR
 * Une manche se compose d'une seule série de placements.
 * L'administrateur saisit le classement final de la manche dans l'interface, puis définit par configuration combien de joueurs avancent à la manche suivante.
 
-![FFA](../../screenshots/alanbix_tournois_FFA.png)
+![FFA](../../../screenshots/alanbix_tournois_FFA.png)
 
 ---
 
@@ -96,3 +96,25 @@ Si un tournoi a été clôturé par erreur :
 1. L'admin clique sur **Réouvrir** (Reopen).
 2. Le backend récupère l'historique des points distribués stocké dans le champ `results` (JSON) du tournoi.
 3. Le serveur soustrait exactement ces deltas de points des profils des joueurs concernés, ramenant le tournoi à l'état **RUNNING** sans corrompre le classement global.
+
+---
+
+## 🎛️ Lexique des Boutons & Actions Clés
+
+### Côté Administrateur (🛡️)
+* **Bouton `Démarrer le tournoi`** : Génère le bracket initial à partir des participants inscrits. Passe le statut de `OPEN` à `RUNNING`.
+* **Bouton `🎲 Répartir` (🎲 Distribute)** : (Seulement en mode Équipes, statut `OPEN`) Répartit aléatoirement tous les joueurs inscrits dans des équipes créées pour atteindre la taille configurée.
+* **Bouton `Inscrire tous les joueurs`** (Bulk Join) : Inscrit en une fois tous les comptes de la base SQLite au tournoi.
+* **Bouton `Désinscrire tout le monde`** (Bulk Leave) : Vide la liste des participants et supprime toutes les équipes créées pour ce tournoi.
+* **Bouton `Clôturer le Tournoi`** : Calcule les podiums, attribue les points globaux et met à jour le statut en `CLOSED`.
+* **Bouton `Réouvrir le Tournoi`** : Annule la clôture et lance la soustraction automatique des points distribués.
+* **Forçage de Score (Saisie Admin)** : En cliquant sur un match du bracket (même s'il est verrouillé 🔒), l'admin accède à un panneau d'édition prioritaire pour corriger n'importe quel score.
+* **Bouton `Supprimer` (Icône Corbeille)** : Après confirmation de sécurité, supprime définitivement le tournoi et toutes ses données associées (participants, équipes).
+
+### Côté Joueur (👥)
+* **Boutons `S'inscrire` / `Se désinscrire`** : Permet de rejoindre ou quitter la liste des participants au tournoi (uniquement lorsque le statut est `OPEN`).
+* **Bouton `Créer une équipe`** : (Seulement si le mode équipe est activé, statut `OPEN`) Crée une structure d'équipe vide. Le joueur en devient le propriétaire (`created_by`).
+* **Bouton `⭐ Rejoindre`** : Permet à un joueur inscrit de rejoindre une équipe incomplète d'un autre joueur.
+* **Bouton `Quitter l'équipe`** : Retire le joueur de son équipe actuelle.
+* **Bouton `Dissoudre l'équipe`** : (Propriétaire uniquement) Supprime l'équipe et libère tous ses membres.
+* **Bouton `Saisir le score`** (sur un match actif) : Ouvre le panneau de saisie des scores (soumis au cooldown de validation de 5s).
