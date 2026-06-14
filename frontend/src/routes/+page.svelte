@@ -66,14 +66,31 @@
 		document.documentElement.setAttribute('data-theme', theme);
 	}
 
+	let isCheckingAuth = true;
+
 	onMount(() => {
 		isDark = (localStorage.getItem('alanbix_theme') || 'dark') === 'dark';
 		if ($authStore) {
 			window.location.href = '/dashboard';
+		} else {
+			isCheckingAuth = false;
 		}
 	});
 </script>
 
+{#if isCheckingAuth}
+	<div class="app-loading-screen" style="display:flex;align-items:center;justify-content:center;height:100vh;width:100vw;background:var(--bg-primary);color:var(--text-main);font-weight:700">
+		<div style="display:flex;flex-direction:column;align-items:center;gap:1.5rem">
+			<div class="logo-alambic loading-logo" style="width:64px;height:64px;">
+				<div class="liquid boiling-liquid" style="height:70%"></div>
+				<div class="bubble b1"></div>
+				<div class="bubble b2"></div>
+				<div class="bubble b3"></div>
+			</div>
+			<span class="loading-text" style="font-size:0.95rem;opacity:0.8;letter-spacing:0.15em;color:var(--accent)">DISTILLATION...</span>
+		</div>
+	</div>
+{:else}
 <main class="login-page">
 	<button class="login-theme-toggle" on:click={toggleTheme} title={isDark ? 'Mode clair' : 'Mode sombre'}>
 		{isDark ? '☀️' : '🌙'}
@@ -142,6 +159,7 @@
 		{/if}
 	</div>
 </main>
+{/if}
 
 <style>
 	.login-page {

@@ -10,6 +10,7 @@
 
 	let user = { username: '...', is_admin: false };
 	let loading = true;
+	let connectionError = '';
 	let unsub = null;
 	let isDark = true;
 	let notifBounce = false;
@@ -154,30 +155,7 @@
 		}, 4000);
 	}
 
-	onMount(async () => {
-		isDark = (localStorage.getItem('alanbix_theme') || 'dark') === 'dark';
-		if ('Notification' in window) {
-			browserNotifSupport = true;
-			browserNotifStatus = Notification.permission;
-		}
-		// Listen for page focus to handle notification click navigation
-		window.addEventListener('focus', handleNotifNav);
-		document.addEventListener('visibilitychange', () => {
-			if (document.visibilityState === 'visible') handleNotifNav();
-		});
-
-		// Listen for profile changes to update sidebar without F5
-		window.addEventListener('user-updated', handleUserUpdateEvent);
-
-		// Use BroadcastChannel for reliable SW -> Client communication
-		const channel = new BroadcastChannel('alanbix_sw_channel');
-		channel.onmessage = (event) => {
-			if (event.data && event.data.type === 'alanbix_nav' && event.data.url) {
-				const urlObj = new URL(event.data.url);
-				goto(urlObj.pathname + urlObj.search);
-			}
-		};
-
+	async function initApp() {
 		try {
 			user = await api.get('/me');
 			connectWS();
@@ -194,6 +172,8 @@
 				const gc = await api.get('/players/group/unread-count');
 				groupUnreadCount.set(gc.count || 0);
 			} catch {}
+			
+			if (unsub) unsub();
 			unsub = wsMessageStore.subscribe(msg => {
 				if (msg && msg.type) {
 					invalidateAll();
@@ -274,24 +254,61 @@
 					}
 				}
 			});
-		} catch (e) {
-			window.location.href = '/';
-			return;
-		}
-		// Fetch SemVer version
-		try {
-			const res = await api.get('/health');
-			version = res.version || '1.16.0';
-		} catch {
-			version = '1.16.0';
-		}
 
-		// Admin: poll IA status
-		if (user.is_admin) {
-			pollIaStatus();
-			iaInterval = setInterval(pollIaStatus, 30000);
+			// Fetch SemVer version
+			try {
+				const res = await api.get('/health');
+				version = res.version || '1.16.1';
+			} catch {
+				version = '1.16.1';
+			}
+
+			// Admin: poll IA status
+			if (user.is_admin) {
+				if (iaInterval) clearInterval(iaInterval);
+				pollIaStatus();
+				iaInterval = setInterval(pollIaStatus, 30000);
+			}
+
+			connectionError = '';
+			loading = false;
+		} catch (e) {
+			console.error("[Alanbix] App init error:", e);
+			// Check if we got logged out (401 response cleared authStore)
+			if (!get(authStore)) {
+				window.location.href = '/';
+				return;
+			}
+			connectionError = "Serveur hors ligne. Tentative de connexion...";
+			setTimeout(initApp, 3000);
 		}
-		loading = false;
+	}
+
+	onMount(async () => {
+		isDark = (localStorage.getItem('alanbix_theme') || 'dark') === 'dark';
+		if ('Notification' in window) {
+			browserNotifSupport = true;
+			browserNotifStatus = Notification.permission;
+		}
+		// Listen for page focus to handle notification click navigation
+		window.addEventListener('focus', handleNotifNav);
+		document.addEventListener('visibilitychange', () => {
+			if (document.visibilityState === 'visible') handleNotifNav();
+		});
+
+		// Listen for profile changes to update sidebar without F5
+		window.addEventListener('user-updated', handleUserUpdateEvent);
+
+		// Use BroadcastChannel for reliable SW -> Client communication
+		const channel = new BroadcastChannel('alanbix_sw_channel');
+		channel.onmessage = (event) => {
+			if (event.data && event.data.type === 'alanbix_nav' && event.data.url) {
+				const urlObj = new URL(event.data.url);
+				goto(urlObj.pathname + urlObj.search);
+			}
+		};
+
+		await initApp();
 	});
 
 	async function handleUserUpdateEvent() {
@@ -339,7 +356,18 @@
 				<div class="bubble b2"></div>
 				<div class="bubble b3"></div>
 			</div>
-			<span class="loading-text" style="font-size:0.95rem;opacity:0.8;letter-spacing:0.15em;color:var(--accent)">DISTILLATION...</span>
+			<span class="loading-text" style="font-size:0.95rem;opacity:0.8;letter-spacing:0.15em;color:var(--accent)">
+				{#if connectionError}
+					{connectionError}
+				{:else}
+					DISTILLATION...
+				{/if}
+			</span>
+			{#if connectionError}
+				<button on:click={() => { connectionError = ''; initApp(); }} class="btn-retry">
+					🔄 RÉESSAYER
+				</button>
+			{/if}
 		</div>
 	</div>
 {:else}
@@ -581,70 +609,7 @@
 		padding-left: 0.3rem;
 	}
 
-	.logo-alambic {
-		width: 32px;
-		height: 32px;
-		border: 2px solid var(--accent);
-		border-radius: 50% 50% 50% 10%;
-		transform: rotate(-15deg);
-		position: relative;
-		overflow: hidden;
-		flex-shrink: 0;
-	}
 
-	.liquid {
-		position: absolute;
-		bottom: 0;
-		width: 100%;
-		height: 60%;
-		background: var(--accent);
-		opacity: 0.6;
-		box-shadow: 0 0 10px var(--accent-glow);
-	}
-
-	/* Loading screen animations */
-	.loading-logo {
-		animation: pulse-alambic 2s ease-in-out infinite alternate;
-	}
-	@keyframes pulse-alambic {
-		0% { box-shadow: 0 0 10px var(--accent-glow); transform: rotate(-15deg) scale(1); }
-		100% { box-shadow: 0 0 35px var(--accent-glow); transform: rotate(-15deg) scale(1.1); }
-	}
-
-	.boiling-liquid {
-		animation: boiling 1.5s infinite alternate ease-in-out;
-	}
-	@keyframes boiling {
-		0% { height: 60%; }
-		100% { height: 80%; }
-	}
-
-	.bubble {
-		position: absolute;
-		bottom: 10%;
-		background: rgba(255, 255, 255, 0.8);
-		border-radius: 50%;
-		animation: rise 1s infinite ease-in;
-		opacity: 0;
-	}
-	.b1 { width: 8px; height: 8px; left: 30%; animation-duration: 1.2s; animation-delay: 0s; }
-	.b2 { width: 6px; height: 6px; left: 55%; animation-duration: 0.9s; animation-delay: 0.3s; }
-	.b3 { width: 10px; height: 10px; left: 70%; animation-duration: 1.5s; animation-delay: 0.6s; }
-
-	@keyframes rise {
-		0% { bottom: 10%; opacity: 0; transform: scale(0.5); }
-		20% { opacity: 1; transform: scale(1); }
-		80% { opacity: 1; }
-		100% { bottom: 85%; opacity: 0; transform: scale(1.5); }
-	}
-
-	.loading-text {
-		animation: pulse-text 1.5s infinite alternate ease-in-out;
-	}
-	@keyframes pulse-text {
-		0% { opacity: 0.5; text-shadow: 0 0 0px var(--accent-glow); }
-		100% { opacity: 1; text-shadow: 0 0 8px var(--accent-glow); }
-	}
 
 	.brand-name {
 		font-size: 1.2rem;

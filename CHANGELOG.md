@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.16.1] - 2026-06-14
+
+### Corrections de bugs & Résilience
+
+- **Résilience de démarrage (Redirect Loop)** : Résolution d'une boucle infinie de redirection clignotante entre la page de connexion et le tableau de bord en cas de serveur injoignable, hors ligne ou en cours de redémarrage.
+- **Écran de chargement unifié** : La page de connexion reste sur l'écran de chargement avec le logo animé tant que la vérification de session n'est pas finalisée, évitant tout clignotement ou affichage prématuré du formulaire.
+- **Retry automatique & Manuel** : Ajout d'une relance automatique de connexion toutes les 3 secondes en cas de défaillance réseau, accompagnée d'un bouton de tentative manuelle "🔄 RÉESSAYER".
+
 ## [1.16.0] - 2026-06-14
 
 ### Nouvelles fonctionnalités & Améliorations

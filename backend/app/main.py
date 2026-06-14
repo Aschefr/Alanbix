@@ -95,7 +95,7 @@ def health_check():
     import os
     version = "1.11.0"
     for path in ["VERSION", "../VERSION", "/app/VERSION", "/VERSION"]:
-        if os.path.exists(path):
+        if os.path.exists(path) and os.path.getsize(path) > 0:
             try:
                 with open(path, "r", encoding="utf-8") as f:
                     version = f.read().strip()
@@ -111,7 +111,7 @@ def get_changelog():
     
     changelog_path = None
     for path in ["CHANGELOG.md", "../CHANGELOG.md", "/app/CHANGELOG.md", "/CHANGELOG.md"]:
-        if os.path.exists(path):
+        if os.path.exists(path) and os.path.getsize(path) > 0:
             changelog_path = path
             break
             
