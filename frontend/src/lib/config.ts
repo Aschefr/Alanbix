@@ -9,6 +9,12 @@
 function resolveApiUrl(): string {
 	// In development, the Vite dev server runs on 5173 but API is on 8000
 	if (import.meta.env.DEV) {
+		if (typeof window !== 'undefined') {
+			const hostname = window.location.hostname;
+			if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+				return `http://${hostname}:8000`;
+			}
+		}
 		return 'http://localhost:8000';
 	}
 
@@ -22,6 +28,12 @@ export const API_URL = resolveApiUrl();
 // For WebSockets, we need absolute URLs, so if API_URL is empty, we construct it from window.location
 function resolveWsUrl(): string {
 	if (import.meta.env.DEV) {
+		if (typeof window !== 'undefined') {
+			const hostname = window.location.hostname;
+			if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+				return `ws://${hostname}:8000/ws`;
+			}
+		}
 		return 'ws://localhost:8000/ws';
 	}
 	
