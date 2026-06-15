@@ -7,6 +7,12 @@
  */
 
 function resolveApiUrl(): string {
+	// 1. If an explicit VITE_API_URL is provided in the environment, use it.
+	const envApiUrl = import.meta.env.VITE_API_URL;
+	if (envApiUrl && envApiUrl !== 'undefined') {
+		return envApiUrl;
+	}
+
 	// In development, the Vite dev server runs on 5173 but API is on 8000
 	if (import.meta.env.DEV) {
 		if (typeof window !== 'undefined') {
@@ -27,6 +33,23 @@ export const API_URL = resolveApiUrl();
 
 // For WebSockets, we need absolute URLs, so if API_URL is empty, we construct it from window.location
 function resolveWsUrl(): string {
+	// 1. If VITE_API_URL is set, we can derive the WebSocket URL from it.
+	const envApiUrl = import.meta.env.VITE_API_URL;
+	if (envApiUrl && envApiUrl !== 'undefined') {
+		try {
+			const url = new URL(envApiUrl);
+			const protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+			return `${protocol}//${url.host}/ws`;
+		} catch (e) {
+			// Fallback: simple string replacement
+			let wsUrl = envApiUrl.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:');
+			if (!wsUrl.endsWith('/ws')) {
+				wsUrl = wsUrl.replace(/\/$/, '') + '/ws';
+			}
+			return wsUrl;
+		}
+	}
+
 	if (import.meta.env.DEV) {
 		if (typeof window !== 'undefined') {
 			const hostname = window.location.hostname;
