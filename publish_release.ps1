@@ -22,6 +22,9 @@ $CleanVersion = $NewVersion -replace '^v', ''
 # Update root VERSION file
 $CleanVersion | Out-File -Encoding utf8 -FilePath VERSION
 
+# Update backend VERSION file
+$CleanVersion | Out-File -Encoding utf8 -FilePath backend/VERSION
+
 Write-Host "Nouvelle version : v$CleanVersion" -ForegroundColor Green
 
 Write-Host "Construction de l'image Docker (Architecture courante, generalement x86_64)..." -ForegroundColor Cyan

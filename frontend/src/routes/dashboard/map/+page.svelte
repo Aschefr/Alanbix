@@ -1,4 +1,6 @@
 <script>
+	import { t } from '$lib/i18nStore';
+	import { get } from 'svelte/store';
 	import { onMount, onDestroy } from 'svelte';
 	import { api } from '$lib/api';
 	import { page } from '$app/stores';
@@ -8,13 +10,13 @@
 
 	// AXE-09: Furniture type presets
 	const FURNITURE_TYPES = [
-		{ type: 'door', icon: '🚪', label: 'Porte', w: 80, h: 40 },
-		{ type: 'kitchen', icon: '🍳', label: 'Cuisine', w: 160, h: 100 },
-		{ type: 'bar', icon: '🍺', label: 'Bar', w: 200, h: 60 },
-		{ type: 'wc', icon: '🚻', label: 'WC', w: 80, h: 80 },
-		{ type: 'rack', icon: '🖥️', label: 'Rack', w: 60, h: 80 },
-		{ type: 'screen', icon: '📺', label: 'Écran', w: 160, h: 40 },
-		{ type: 'generic', icon: '📦', label: 'Élément', w: 100, h: 80 },
+		{ type: 'door', icon: '🚪', label: get(t)('map_furniture_door'), w: 80, h: 40 },
+		{ type: 'kitchen', icon: '🍳', label: get(t)('map_furniture_kitchen'), w: 160, h: 100 },
+		{ type: 'bar', icon: '🍺', label: get(t)('map_furniture_bar'), w: 200, h: 60 },
+		{ type: 'wc', icon: '🚻', label: get(t)('map_furniture_wc'), w: 80, h: 80 },
+		{ type: 'rack', icon: '🖥️', label: get(t)('map_furniture_rack'), w: 60, h: 80 },
+		{ type: 'screen', icon: '📺', label: get(t)('map_furniture_screen'), w: 160, h: 40 },
+		{ type: 'generic', icon: '📦', label: get(t)('map_furniture_generic'), w: 100, h: 80 },
 	];
 	let selectedFurnitureType = 'door';
 	let user = null;
@@ -280,7 +282,7 @@
 
 	async function saveLayout() {
 		await api.post('/room/layout', layout);
-		toast('Plan sauvegardé !', 'success');
+		toast($t('map_save_success'), 'success');
 	}
 
 	// --- Drag handlers ---
@@ -439,12 +441,12 @@
 
 	async function claimSeat(seatId) {
 		if (editMode) return;
-		if (seatingLocked && !user?.is_admin) { toast('Le placement est verrouillé par l\'admin.', 'error'); return; }
+		if (seatingLocked && !user?.is_admin) { toast($t('map_lock_error_admin'), 'error'); return; }
 		try {
 			await api.post('/room/assign-seat', { seat_id: seatId });
 			selectedSeat = seatId;
 			await loadUsers();
-			toast('Place réservée !', 'success');
+			toast($t('map_assign_success'), 'success');
 		} catch (e) { toast(e.message, 'error'); }
 	}
 
@@ -452,21 +454,21 @@
 		await api.post('/room/unassign-seat', {});
 		selectedSeat = null;
 		await loadUsers();
-		toast('Place libérée.', 'info');
+		toast($t('map_release_success'), 'info');
 	}
 
 	async function adminAssign(seatId, userId) {
 		await api.post('/room/admin-assign-seat', { seat_id: seatId, user_id: userId });
 		assigningSeatId = null;
 		await loadUsers();
-		toast('Place assignée !', 'success');
+		toast($t('map_assign_success'), 'success');
 	}
 
 	async function adminUnassign(seatId) {
 		await api.post('/room/admin-unassign-seat', { seat_id: seatId });
 		assigningSeatId = null;
 		await loadUsers();
-		toast('Place libérée.', 'info');
+		toast($t('map_release_success'), 'info');
 	}
 
 	// Admin drag-drop: drop a player badge onto a seat
@@ -475,14 +477,14 @@
 		await api.post('/room/admin-assign-seat', { seat_id: seatId, user_id: draggingUserId });
 		draggingUserId = null;
 		await loadUsers();
-		toast('Place assignée !', 'success');
+		toast($t('map_assign_success'), 'success');
 	}
 
 	async function toggleSeatingLock() {
 		seatingLocked = !seatingLocked;
 		try {
 			await api.post('/room/seating-locked', { locked: seatingLocked });
-			toast(seatingLocked ? 'Placement verrouillé 🔒' : 'Placement déverrouillé 🔓', 'success');
+			toast(seatingLocked ? $t('map_lock_status_locked') : $t('map_lock_status_unlocked'), 'success');
 		} catch (e) { toast(e.message, 'error'); seatingLocked = !seatingLocked; }
 	}
 
@@ -490,7 +492,7 @@
 		try {
 			const res = await api.post('/room/admin-unassign-all', {});
 			await loadUsers();
-			toast(`${res.count} place(s) libérée(s) !`, 'success');
+			toast($t('map_unassign_confirm', { count: res.count }), 'success');
 		} catch (e) { toast(e.message, 'error'); }
 	}
 
@@ -500,22 +502,22 @@
 <div class="map-page">
 	<header class="flex-row justify-between items-center mb-4">
 		<div>
-			<h1 class="title-premium">📍 Plan de Salle</h1>
+			<h1 class="title-premium"><span class="title-icon">📍</span> {$t("map_title")}</h1>
 			<p class="text-dim text-sm">
 				{#if editMode}
-					Glissez pour déplacer. Coins = redimensionner. Poignée = rotation (45°). Molette = zoom. Clic-milieu/droit = déplacer la vue.
+					{$t('map_edit_instructions')}
 				{:else if selectedSeat}
-					Tu es sur le poste <strong>{selectedSeat}</strong>. 
-					<button class="btn-link" on:click={releaseSeat}>Libérer ma place</button>
+					{@html $t('map_seat_info', { seat: selectedSeat })} 
+					<button class="btn-link" on:click={releaseSeat}>{$t('map_seat_free')}</button>
 				{:else}
-					{seatingLocked && !user?.is_admin ? '🔒 Le placement est verrouillé par l\'administrateur.' : 'Clique sur un poste libre pour t\'y installer.'} Glissez pour naviguer.
+					seatingLocked && !user?.is_admin ? $t('map_instructions_view_locked') : $t('map_instructions_view_click') + $t('map_instructions_view_pan')
 				{/if}
 			</p>
 		</div>
 		{#if user?.is_admin}
 			<div class="flex-row gap-2 flex-wrap">
 				{#if !editMode}
-					<button class="btn-secondary" on:click={() => { editMode = true; assigningSeatId = null; }}>✏️ Éditer</button>
+					<button class="btn-secondary" on:click={() => { editMode = true; assigningSeatId = null; }}>✏️ {$t("map_btn_edit")}</button>
 				{/if}
 				{#if editMode}
 					<button class="btn-secondary" on:click={addTable}>+ Table</button>
@@ -524,25 +526,25 @@
 							<option value={t.id}>{t.id} — {t.label}</option>
 						{/each}
 					</select>
-					<button class="btn-secondary" on:click={addSeat}>+ Poste</button>
+					<button class="btn-secondary" on:click={addSeat}>{$t("map_btn_add_seat")}</button>
 					<span class="toolbar-sep">|</span>
 					<select class="table-select" bind:value={selectedFurnitureType}>
 						{#each FURNITURE_TYPES as ft}
 							<option value={ft.type}>{ft.icon} {ft.label}</option>
 						{/each}
 					</select>
-					<button class="btn-secondary" on:click={addFurniture}>+ Élément</button>
-					<button class="btn-primary" on:click={saveLayout}>💾 Sauvegarder</button>
-					<button class="btn-secondary" on:click={() => { editMode = false; assigningSeatId = null; }}>🔒 Fermer éditeur</button>
+					<button class="btn-secondary" on:click={addFurniture}>{$t("map_btn_add_element")}</button>
+					<button class="btn-primary" on:click={saveLayout}>{$t("map_btn_save")}</button>
+					<button class="btn-secondary" on:click={() => { editMode = false; assigningSeatId = null; }}>{$t("map_btn_close_editor")}</button>
 				{/if}
 				{#if !editMode}
-					<button class="btn-secondary" on:click={toggleSeatingLock}>{seatingLocked ? '🔓 Débloquer' : '🔒 Verrouiller'}</button>
-					<button class="btn-secondary" on:click={unassignAll} style="color:var(--danger);border-color:rgba(239,68,68,0.3)">🔄 Libérer tout</button>
+					<button class="btn-secondary" on:click={toggleSeatingLock}>{seatingLocked ? $t('map_edit_mode_lock_toggle_unlocked') : $t('map_edit_mode_lock_toggle_locked')}</button>
+					<button class="btn-secondary" on:click={unassignAll} style="color:var(--danger);border-color:rgba(239,68,68,0.3)">{$t("map_btn_free_all")}</button>
 				{/if}
-				<button class="btn-secondary" on:click={resetView}>⊕ Recentrer</button>
+				<button class="btn-secondary" on:click={resetView}>{$t("map_btn_recenter")}</button>
 			</div>
 		{:else}
-			<button class="btn-secondary" on:click={resetView}>⊕ Recentrer</button>
+			<button class="btn-secondary" on:click={resetView}>{$t("map_btn_recenter")}</button>
 		{/if}
 	</header>
 
@@ -629,8 +631,12 @@
 						style="cursor: {editMode ? 'grab' : 'default'}"
 						on:mousedown={(e) => startDragTable(e, furn, 'move')}
 					/>
-					<text x={fcx} y={fcy - 2} text-anchor="middle" class="furniture-icon" style="pointer-events:none">{furn.icon}</text>
-					<text x={fcx} y={fcy + 12} text-anchor="middle" class="furniture-label">{furn.label}</text>
+					<foreignObject x={furn.x} y={furn.y} width={furn.w} height={furn.h} style="pointer-events:none">
+						<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;height:100%;line-height:1.1;">
+							<span style="font-size: {furn.h <= 40 ? '18px' : '26px'};">{furn.icon}</span>
+							<span style="font-size: {furn.h <= 40 ? '10px' : '12px'};font-weight:700;color:#f59e0b;margin-top:2px;text-align:center;word-break:break-all;padding:0 4px;">{furn.label}</span>
+						</div>
+					</foreignObject>
 
 					{#if editMode}
 						<!-- Resize handles -->
@@ -710,7 +716,7 @@
 								>{occupant.team_name}</text>
 							{/if}
 						{:else}
-							<text x={scx} y={seat.y + 32} text-anchor="middle" class="seat-free">Libre</text>
+							<text x={scx} y={seat.y + 32} text-anchor="middle" class="seat-free">{$t("map_legend_free")}</text>
 						{/if}
 					</g>
 
@@ -749,15 +755,15 @@
 	{#if assigningSeatId && user?.is_admin}
 		<div class="assign-panel glass">
 			<div class="flex-row justify-between items-center mb-2">
-				<h3 class="text-accent">Assigner {assigningSeatId}</h3>
+				<h3 class="text-accent">{$t("map_assign_title", { seat: assigningSeatId })}</h3>
 				<button class="btn-link text-dim" on:click={() => assigningSeatId = null}>✕</button>
 			</div>
 			{#if getOccupant(assigningSeatId)}
-				<p class="text-sm mb-2">Occupé par <strong>{getOccupant(assigningSeatId).username}</strong></p>
-				<button class="btn-danger-sm mb-2" on:click={() => adminUnassign(assigningSeatId)}>Libérer cette place</button>
+				<p class="text-sm mb-2">{@html $t("map_assign_occupied_by", { user: getOccupant(assigningSeatId).username })}</p>
+				<button class="btn-danger-sm mb-2" on:click={() => adminUnassign(assigningSeatId)}>{$t("map_assign_release_btn")}</button>
 				<hr style="border-color: var(--glass-border); margin: 0.5rem 0;"/>
 			{/if}
-			<p class="text-xs text-dim mb-1">Assigner à :</p>
+			<p class="text-xs text-dim mb-1">{$t("map_assign_to_lbl")}</p>
 			<div class="user-list">
 				{#each unassignedUsers as u}
 					<button class="user-option" on:click={() => adminAssign(assigningSeatId, u.id)}>
@@ -765,7 +771,7 @@
 					</button>
 				{/each}
 				{#if unassignedUsers.length === 0}
-					<p class="text-xs text-dim">Tous les utilisateurs sont déjà assignés.</p>
+					<p class="text-xs text-dim">{$t("map_assign_all_occupied")}</p>
 				{/if}
 			</div>
 		</div>
@@ -773,17 +779,17 @@
 
 	<!-- Legend -->
 	<div class="legend">
-		<div class="legend-item"><span class="dot mine-dot"></span> Ta place</div>
-		<div class="legend-item"><span class="dot free-dot"></span> Libre</div>
-		<div class="legend-item"><span class="dot occupied-dot"></span> Occupé</div>
+		<div class="legend-item"><span class="dot mine-dot"></span> {$t("map_legend_yourseat")}</div>
+		<div class="legend-item"><span class="dot free-dot"></span> {$t("map_legend_free")}</div>
+		<div class="legend-item"><span class="dot occupied-dot"></span> {$t("map_legend_occupied")}</div>
 		<div class="legend-item"><span class="dot table-dot"></span> Table</div>
-		<div class="legend-item"><span class="dot furniture-dot"></span> Élément</div>
+		<div class="legend-item"><span class="dot furniture-dot"></span> {$t("map_legend_element")}</div>
 	</div>
 
 	<!-- Admin: Player badge bar for drag-drop -->
 	{#if user?.is_admin && !editMode}
 		<div class="player-badge-bar glass">
-			<span class="badge-label">Joueurs :</span>
+			<span class="badge-label">{$t("map_players_list")}</span>
 			{#each unassignedUsers as u}
 				<!-- svelte-ignore a11y-no-static-element-interactions -->
 				<span 
@@ -796,7 +802,7 @@
 			{/each}
 			{#if draggingUserId}
 				<!-- svelte-ignore a11y-no-static-element-interactions -->
-				<button class="badge-cancel" on:click={() => draggingUserId = null}>✕ Annuler</button>
+				<button class="badge-cancel" on:click={() => draggingUserId = null}>✕ {$t("info_btn_cancel")}</button>
 			{/if}
 			{#if unassignedUsers.length === 0}
 				<span class="text-xs text-dim">Tous assignés ✓</span>

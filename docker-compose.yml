@@ -8,6 +8,7 @@ services:
       - OLLAMA_HOST=http://host.docker.internal:11434
     volumes:
       - ./backend:/app
+      - ./data:/app/data
       - ./VERSION:/app/VERSION
       - ./CHANGELOG.md:/app/CHANGELOG.md:ro
     extra_hosts:
@@ -20,6 +21,7 @@ services:
       - "41481:5173"
     environment:
       - VITE_API_URL=http://localhost:8000
+      - VITE_SSR_API_URL=http://backend:8000
     volumes:
       - ./frontend:/app
       - /app/node_modules

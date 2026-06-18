@@ -2,6 +2,7 @@
 	import { api } from '$lib/api';
 	import { onMount, onDestroy, tick } from 'svelte';
 	import { marked } from 'marked';
+	import { t } from '$lib/i18nStore';
 
 	let content = '';
 	let spectatorContent = '';
@@ -234,12 +235,12 @@
 
 <div class="info-page">
 	<div class="info-header">
-		<h1>📋 Informations</h1>
+		<h1>{$t('info_title')}</h1>
 		{#if saveMsg}
 			<span class="save-msg" class:error={saveMsg.startsWith('✕')}>{saveMsg}</span>
 		{/if}
 		{#if isAdmin && !editing}
-			<button class="btn-edit" on:click={startEdit}>✏️ Éditer</button>
+			<button class="btn-edit" on:click={startEdit}>{$t('info_btn_edit')}</button>
 		{/if}
 	</div>
 
@@ -247,10 +248,10 @@
 		<div class="editor-area">
 			<div class="editor-tabs">
 				<button class="tab" class:active={activeTab === 'main'} on:click={() => switchTab('main')}>
-					📄 Contenu Principal
+					{$t('info_tab_main')}
 				</button>
 				<button class="tab" class:active={activeTab === 'spectator'} on:click={() => switchTab('spectator')}>
-					📺 Contenu Projecteur
+					{$t('info_tab_projector')}
 				</button>
 			</div>
 
@@ -264,9 +265,9 @@
 
 			<div class="editor-actions">
 				<button class="btn-save" on:click={save} disabled={saving}>
-					{saving ? '⏳ Sauvegarde...' : '✓ Sauvegarder'}
+					{saving ? $t('info_saving') : $t('info_btn_save')}
 				</button>
-				<button class="btn-cancel" on:click={cancelEdit}>✕ Annuler</button>
+				<button class="btn-cancel" on:click={cancelEdit}>{$t('info_btn_cancel')}</button>
 			</div>
 		</div>
 	{:else}
@@ -277,18 +278,18 @@
 					{@html parseMd(content)}
 				</div>
 				{#if copyToast}
-					<div class="copy-toast">📋 Chemin copié : <strong>{copyToast}</strong></div>
+					<div class="copy-toast">{@html $t('info_toast_copied', { path: copyToast })}</div>
 				{/if}
 			{:else}
 				<div class="empty-state">
 					<div class="empty-icon">📋</div>
 					{#if isAdmin}
-						<p>Aucune information publiée.</p>
-						<p class="empty-hint">Cliquez sur <strong>✏️ Éditer</strong> pour rédiger le contenu de cette page en Markdown.</p>
-						<button class="btn-edit" on:click={startEdit}>✏️ Commencer à rédiger</button>
+						<p>{$t('info_empty_no_info')}</p>
+						<p class="empty-hint">{@html $t('info_empty_edit_hint')}</p>
+						<button class="btn-edit" on:click={startEdit}>{$t('info_empty_start_writing')}</button>
 					{:else}
-						<p>Aucune information publiée pour le moment.</p>
-						<p class="empty-hint">L'organisateur n'a pas encore publié d'informations.</p>
+						<p>{$t('info_empty_no_info_yet')}</p>
+						<p class="empty-hint">{$t('info_empty_organizer_hint')}</p>
 					{/if}
 				</div>
 			{/if}
@@ -299,11 +300,11 @@
 	{#if files.length > 0 || isAdmin}
 		<div class="files-section glass">
 			<div class="files-header">
-				<h2>📦 Fichiers utiles</h2>
+				<h2>{$t('info_files_title')}</h2>
 				{#if isAdmin}
 					<div class="files-admin-btns">
 						<label class="btn-upload" class:uploading>
-							{uploading ? '⏳ Upload...' : '➕ Ajouter un fichier'}
+							{uploading ? '⏳ Upload...' : $t('info_files_add')}
 							<input type="file" bind:this={fileInput} on:change={uploadFile} style="display:none" />
 						</label>
 						{#if files.length > 0}
@@ -311,30 +312,30 @@
 								<button class="btn-nuke confirm" on:click={nukeFiles}>✓ Confirmer ({files.length})</button>
 								<button class="btn-nuke cancel" on:click={() => nukeConfirm = false}>✕</button>
 							{:else}
-								<button class="btn-nuke" on:click={() => nukeConfirm = true} title="Supprimer tous les fichiers">☢️ Nuke</button>
+								<button class="btn-nuke" on:click={() => nukeConfirm = true} title={$t('info_files_nuke_tooltip')}>☢️ Nuke</button>
 							{/if}
 						{/if}
 					</div>
 				{/if}
 			</div>
 			{#if files.length === 0}
-				<p class="files-empty">Aucun fichier uploadé.</p>
+				<p class="files-empty">{$t('info_files_empty')}</p>
 			{:else}
 				<div class="files-list">
 					{#each files as f}
 						<div class="file-card">
 							<span class="file-icon">{fileIcon(f.name)}</span>
 							<div class="file-info">
-								<a href="{f.url}" download class="file-name" title="Télécharger {f.name}">{f.name}</a>
+								<a href="{f.url}" download class="file-name" title="{$t('info_files_download_tooltip')} {f.name}">{f.name}</a>
 								<span class="file-size">{formatSize(f.size)}</span>
 							</div>
-							<a href="{f.url}" download class="file-dl" title="Télécharger">⬇️</a>
+							<a href="{f.url}" download class="file-dl" title={$t('info_files_download_tooltip')}>⬇️</a>
 							{#if isAdmin}
 								{#if deleteConfirm === f.name}
 									<button class="file-del confirm" on:click={() => deleteFile(f.name)}>✓ Confirmer</button>
 									<button class="file-del cancel" on:click={() => deleteConfirm = null}>✕</button>
 								{:else}
-									<button class="file-del" on:click={() => deleteConfirm = f.name} title="Supprimer">🗑️</button>
+									<button class="file-del" on:click={() => deleteConfirm = f.name} title={$t('info_files_delete_tooltip')}>🗑️</button>
 								{/if}
 							{/if}
 						</div>

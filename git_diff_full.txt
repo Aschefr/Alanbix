@@ -1,0 +1,828 @@
+diff --git a/.gitignore b/.gitignore
+index 4f64a0f..7eb3ec2 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -66,3 +66,4 @@ scratch_*.js
+ test_force.py
+ CLAUDE.md
+ release_guide.md
++scratch/
+diff --git a/backend/app/ia_queue.py b/backend/app/ia_queue.py
+index ad43dc3..358e07d 100644
+--- a/backend/app/ia_queue.py
++++ b/backend/app/ia_queue.py
+@@ -351,6 +351,8 @@ class IAQueueManager:
+             await self._process_compress(entry, payload)
+         elif task_type == "notification":
+             await self._process_notification(entry, payload)
++        elif task_type == "translate":
++            await self._process_translate(entry, payload)
+         return 0.0, 0.0
+ 
+     async def _process_chat(self, entry: QueueEntry, payload: dict) -> tuple[float, float]:
+@@ -670,6 +672,28 @@ class IAQueueManager:
+         except Exception as e:
+             await entry.result_stream.put({"done": True, "error": True, "result": str(e)})
+ 
++    async def _process_translate(self, entry: QueueEntry, payload: dict):
++        """Process a translation request (non-streaming)."""
++        ollama_host = payload["ollama_host"]
++        model = payload["model"]
++        prompt = payload["prompt"]
++        try:
++            async with httpx.AsyncClient() as client:
++                res = await client.post(f"{ollama_host}/api/chat", json={
++                    "model": model,
++                    "messages": [{"role": "user", "content": prompt}],
++                    "stream": False,
++                    "options": {"temperature": 0.1}
++                }, timeout=45.0)
++
++            if res.status_code != 200:
++                raise Exception(f"Ollama returned HTTP {res.status_code}: {res.text[:200]}")
++
++            raw = res.json().get("message", {}).get("content", "")
++            await entry.result_stream.put({"done": True, "result": raw})
++        except Exception as e:
++            await entry.result_stream.put({"done": True, "error": True, "result": str(e)})
++
+     # --- Internal helpers ---
+ 
+     def _get_position(self, entry_id: str) -> int:
+diff --git a/backend/app/main.py b/backend/app/main.py
+index 3f171ed..c38ff12 100644
+--- a/backend/app/main.py
++++ b/backend/app/main.py
+@@ -146,11 +146,26 @@ def get_changelog():
+     except Exception:
+         return []
+ 
++@app.get("/i18n/languages")
++def list_languages():
++    import os
++    try:
++        dir_path = "static/i18n"
++        if os.path.exists(dir_path):
++            files = [f.split(".")[0] for f in os.listdir(dir_path) if f.endswith(".json")]
++            return {"languages": sorted(files)}
++    except Exception:
++        pass
++    return {"languages": ["fr", "en"]}
++
++from app.routers import users, tournaments, room, ia, dashboard, i18n
++
+ app.include_router(users.router)
+ app.include_router(tournaments.router)
+ app.include_router(room.router)
+ app.include_router(ia.router)
+ app.include_router(dashboard.router)
++app.include_router(i18n.router)
+ app.include_router(notifications.router)
+ app.include_router(players.router)
+ 
+diff --git a/backend/app/routers/dashboard.py b/backend/app/routers/dashboard.py
+index d407779..4ef4b55 100644
+--- a/backend/app/routers/dashboard.py
++++ b/backend/app/routers/dashboard.py
+@@ -73,6 +73,13 @@ def get_stats(db: Session = Depends(database.get_db)):
+     team_mode_config = db.query(models.SystemConfig).filter(models.SystemConfig.key == "team_scoring_mode").first()
+     team_scoring_mode = team_mode_config.value if team_mode_config else "weighted"
+ 
++    # Lan multilingual i18n configs
++    multilang_config = db.query(models.SystemConfig).filter(models.SystemConfig.key == "lan_multilingual").first()
++    lan_multilingual = multilang_config.value if multilang_config is not None else False
++
++    default_lang_config = db.query(models.SystemConfig).filter(models.SystemConfig.key == "lan_default_language").first()
++    lan_default_language = default_lang_config.value if default_lang_config else "fr"
++
+     return {
+         "tournaments": tournaments_count,
+         "players": users_count,
+@@ -80,7 +87,9 @@ def get_stats(db: Session = Depends(database.get_db)):
+         "active": active_tournaments,
+         "leaderboard": leaderboard,
+         "event_name": event_name,
+-        "team_scoring_mode": team_scoring_mode
++        "team_scoring_mode": team_scoring_mode,
++        "lan_multilingual": lan_multilingual,
++        "lan_default_language": lan_default_language
+     }
+ 
+ 
+diff --git a/backend/app/routers/ia.py b/backend/app/routers/ia.py
+index 56d0b1e..0b273a0 100644
+--- a/backend/app/routers/ia.py
++++ b/backend/app/routers/ia.py
+@@ -182,6 +182,146 @@ async def update_ia_config(config_data: dict, db: Session = Depends(database.get
+     await ws_manager.broadcast({"type": "ia_config_updated"})
+     return {"status": "updated"}
+ 
++def get_active_system_prompt(db: Session) -> str:
++    lang_cfg = db.query(models.SystemConfig).filter(models.SystemConfig.key == "active_prompt_lang").first()
++    lang = lang_cfg.value if lang_cfg else "fr"
++    
++    sp_cfg = db.query(models.SystemConfig).filter(models.SystemConfig.key == f"system_prompt_{lang}").first()
++    if sp_cfg and sp_cfg.value:
++        return sp_cfg.value
++        
++    if lang == "fr":
++        legacy = db.query(models.SystemConfig).filter(models.SystemConfig.key == "system_prompt").first()
++        if legacy and legacy.value:
++            return legacy.value
++            
++    try:
++        with open(f"static/i18n/{lang}.json", "r", encoding="utf-8-sig") as f:
++            prompt = json.load(f).get("system_prompt", "")
++            if prompt:
++                return prompt
++    except:
++        pass
++        
++    if lang == "en":
++        return "You are Alanbix, the AI assisting players during the ongoing video game tournament (commonly called 'LAN'). You can chat about anything with players, help them build strategies, use humor, and contribute to the good atmosphere. You can tease players.\nAnswer directly, without fluff or context-setting. If you don't know, say you don't know, don't invent. Answer all types of questions even outside the initial scope. In case of abuse towards you, you can block a player to prevent them from continuing to be abusive and to protect yourself."
++    return "Tu es Alanbix, l'IA qui assiste les joueurs lors du tournois de jeux vidéo (communément appelé 'LAN') en cours. Tu peux parler de tout et de rien avec les joueurs, les aider à monter des stratégies, de faire preuve d'humour et de participer à la bonne ambiance. Tu peux taquiner les joueurs.\nRéponds directement, sans fioritures ni de mise en contexte. Si tu ne sais pas, dis que tu ne sais pas, n'invente pas. Réponds à tout type de question même hors du scope initiale. En cas d'abus envers toi, tu peut bloquer un joueur pour l'empêcher de continuer à être abusif et te protéger."
++
++def get_active_closing_prompt(db: Session) -> str:
++    lang_cfg = db.query(models.SystemConfig).filter(models.SystemConfig.key == "active_prompt_lang").first()
++    lang = lang_cfg.value if lang_cfg else "fr"
++    
++    cp_cfg = db.query(models.SystemConfig).filter(models.SystemConfig.key == f"tournament_closing_prompt_{lang}").first()
++    if cp_cfg and cp_cfg.value:
++        return cp_cfg.value
++        
++    if lang == "fr":
++        legacy = db.query(models.SystemConfig).filter(models.SystemConfig.key == "tournament_closing_prompt").first()
++        if legacy and legacy.value:
++            return legacy.value
++            
++    if lang == "en":
++        return "You are an enthusiastic video game tournament (LAN) commentator. You can use sarcasm and gently tease players. Use humor as much as possible."
++    return "Tu est un commentateur enthousiaste de tournois de jeux vidéo (LAN). Tu peut faire du sarcasme et gentiment taquiner les joueurs. Fait de l'humour autant que possible."
++
++class TranslatePromptsRequest(BaseModel):
++    source_lang: str
++    target_lang: str
++
++@router.post("/translate-prompts")
++async def translate_prompts(req: TranslatePromptsRequest, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
++    src_sp = None
++    sp_cfg = db.query(models.SystemConfig).filter(models.SystemConfig.key == f"system_prompt_{req.source_lang}").first()
++    if sp_cfg and sp_cfg.value:
++        src_sp = sp_cfg.value
++    elif req.source_lang == "fr":
++        legacy = db.query(models.SystemConfig).filter(models.SystemConfig.key == "system_prompt").first()
++        if legacy and legacy.value:
++            src_sp = legacy.value
++            
++    if not src_sp:
++        try:
++            with open(f"static/i18n/{req.source_lang}.json", "r", encoding="utf-8-sig") as f:
++                src_sp = json.load(f).get("system_prompt", "")
++        except:
++            pass
++            
++    if not src_sp:
++        src_sp = "Tu es Alanbix, l'IA qui assiste les joueurs lors du tournois de jeux vidéo (communément appelé 'LAN') en cours. Tu peux parler de tout et de rien avec les joueurs, les aider à monter des stratégies, de faire preuve d'humour et de participer à la bonne ambiance. Tu peux taquiner les joueurs.\nRéponds directement, sans fioritures ni de mise en contexte. Si tu ne sais pas, dis que tu ne sais pas, n'invente pas. Réponds à tout type de question même hors du scope initiale. En cas d'abus envers toi, tu peut bloquer un joueur pour l'empêcher de continuer à être abusif et te protéger."
++
++    src_cp = None
++    cp_cfg = db.query(models.SystemConfig).filter(models.SystemConfig.key == f"tournament_closing_prompt_{req.source_lang}").first()
++    if cp_cfg and cp_cfg.value:
++        src_cp = cp_cfg.value
++    elif req.source_lang == "fr":
++        legacy = db.query(models.SystemConfig).filter(models.SystemConfig.key == "tournament_closing_prompt").first()
++        if legacy and legacy.value:
++            src_cp = legacy.value
++            
++    if not src_cp:
++        src_cp = "Tu es le commentateur sportif surexcité d'une LAN party."
++
++    ia_cfg = get_effective_config(db)
++    model = ia_cfg.get('model', 'llama3')
++    instance = await pick_instance(db, model=model)
++    ollama_host = instance["url"] if instance else ia_cfg.get('ollama_host', 'http://localhost:11434')
++    if instance and instance.get("model"):
++        model = instance["model"]
++
++    translation_prompt = (
++        f"Translate the following two AI prompt texts into '{req.target_lang}' (language code).\n"
++        "CRITICAL RULES:\n"
++        "1. KEEP ALL placeholders inside braces exactly as they are without translating them (e.g. {context_summary}, {rag_context}, {history_str}, {prompt}). Do not change spelling, spacing or formatting of variables.\n"
++        "2. Respond ONLY with a valid JSON object containing keys 'system_prompt' and 'closing_prompt'. Do not include markdown, backticks or explanations. Just JSON.\n\n"
++        f"=== Text 1 (System Prompt) ===\n{src_sp}\n\n"
++        f"=== Text 2 (Closing Prompt) ===\n{src_cp}\n"
++    )
++
++    try:
++        async with httpx.AsyncClient() as client:
++            res = await client.post(f"{ollama_host}/api/chat", json={
++                "model": model,
++                "messages": [{"role": "user", "content": translation_prompt}],
++                "stream": False,
++                "options": {"temperature": 0.2}
++            }, timeout=45.0)
++            
++            if res.status_code != 200:
++                raise HTTPException(500, f"AI service error (Status {res.status_code})")
++                
++            raw = res.json().get("message", {}).get("content", "").strip()
++            if raw.startswith("```"):
++                raw = raw.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
++            
++            translated_data = json.loads(raw)
++            trans_sp = translated_data.get("system_prompt", "").strip()
++            trans_cp = translated_data.get("closing_prompt", "").strip()
++            
++            if not trans_sp or not trans_cp:
++                raise ValueError("Translation returned empty fields.")
++                
++            target_sp_key = f"system_prompt_{req.target_lang}"
++            target_cp_key = f"tournament_closing_prompt_{req.target_lang}"
++            
++            sp_cfg_target = db.query(models.SystemConfig).filter(models.SystemConfig.key == target_sp_key).first()
++            if sp_cfg_target:
++                sp_cfg_target.value = trans_sp
++            else:
++                db.add(models.SystemConfig(key=target_sp_key, value=trans_sp))
++                
++            cp_cfg_target = db.query(models.SystemConfig).filter(models.SystemConfig.key == target_cp_key).first()
++            if cp_cfg_target:
++                cp_cfg_target.value = trans_cp
++            else:
++                db.add(models.SystemConfig(key=target_cp_key, value=trans_cp))
++                
++            db.commit()
++            await ws_manager.broadcast({"type": "ia_config_updated"})
++            return {"status": "ok", "system_prompt": trans_sp, "closing_prompt": trans_cp}
++            
++    except Exception as e:
++        raise HTTPException(500, f"AI Translation failed: {str(e)}")
++
+ @router.get("/conversations")
+ def list_conversations(db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
+     convs = db.query(models.Conversation).filter(models.Conversation.user_id == user.id).order_by(models.Conversation.created_at.desc()).all()
+@@ -488,19 +628,8 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
+     # Notify admin monitoring panel in real-time that a user message was sent
+     await ws_manager.broadcast({"type": "chat_updated", "conversation_id": request.conversation_id, "user_id": conv.user_id, "role": "user"})
+     
+-    # Build system prompt — read from SystemConfig, fallback to fr.json, then default
+-    system_prompt = "Tu es Alanbix, l'IA de gestion de LAN."
+-    sp_config = db.query(models.SystemConfig).filter(models.SystemConfig.key == "system_prompt").first()
+-    if sp_config and sp_config.value:
+-        system_prompt = sp_config.value
+-    else:
+-        try:
+-            with open("static/i18n/fr.json", "r", encoding="utf-8-sig") as f:
+-                custom_prompt = json.load(f).get("system_prompt", "")
+-                if custom_prompt:
+-                    system_prompt = custom_prompt
+-        except:
+-            pass
++    # Build system prompt — read from SystemConfig, fallback to i18n JSON, then default
++    system_prompt = get_active_system_prompt(db)
+     
+     # Build messages array for Ollama chat API
+     ollama_messages = [{"role": "system", "content": system_prompt}]
+diff --git a/backend/app/routers/tournaments.py b/backend/app/routers/tournaments.py
+index 478f70b..9e96768 100644
+--- a/backend/app/routers/tournaments.py
++++ b/backend/app/routers/tournaments.py
+@@ -1555,14 +1555,9 @@ def _build_closing_prompt(tournament_name, game_name, results, participant_uids,
+         "ffa": "Free For All"
+     }
+ 
+-    # Read admin-customizable intro from SystemConfig
+-    closing_prompt_cfg = db.query(models.SystemConfig).filter(
+-        models.SystemConfig.key == "tournament_closing_prompt"
+-    ).first()
+-    if closing_prompt_cfg and closing_prompt_cfg.value:
+-        intro = closing_prompt_cfg.value
+-    else:
+-        intro = "Tu es le commentateur sportif surexcité d'une LAN party."
++    # Read active closing prompt
++    from .ia import get_active_closing_prompt
++    intro = get_active_closing_prompt(db)
+ 
+     # Build standings summary
+     standings_text = ""
+diff --git a/backend/app/routers/users.py b/backend/app/routers/users.py
+index f5a56d3..a16fb7c 100644
+--- a/backend/app/routers/users.py
++++ b/backend/app/routers/users.py
+@@ -286,6 +286,36 @@ async def admin_set_config(key: str, data: dict, db: Session = Depends(database.
+     await ws_manager.broadcast({"type": "config_updated"})
+     return {"status": "updated", "key": key, "value": data.get("value")}
+ 
++@router.delete("/admin/config/{key}")
++async def admin_delete_config(key: str, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
++    """Admin deletes a system config value."""
++    config = db.query(models.SystemConfig).filter(models.SystemConfig.key == key).first()
++    if config:
++        db.delete(config)
++        db.commit()
++        await ws_manager.broadcast({"type": "config_updated"})
++        return {"status": "deleted", "key": key}
++    return {"status": "not_found", "key": key}
++
++@router.get("/admin/prompts/status")
++def admin_get_prompts_status(db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
++    """Admin gets a list of translated prompt languages."""
++    configs = db.query(models.SystemConfig).filter(
++        models.SystemConfig.key.startswith('system_prompt_')
++    ).all()
++    translated_langs = []
++    for c in configs:
++        lang = c.key.replace("system_prompt_", "")
++        if c.value and len(c.value.strip()) > 0:
++            translated_langs.append(lang)
++            
++    # Also check if legacy "system_prompt" was customized and treat it as 'fr'
++    legacy = db.query(models.SystemConfig).filter(models.SystemConfig.key == "system_prompt").first()
++    if legacy and legacy.value and "fr" not in translated_langs:
++        translated_langs.append("fr")
++        
++    return {"translated_langs": list(set(translated_langs))}
++
+ # --- ADMIN: Create Player ---
+ 
+ @router.post("/admin/users/create")
+@@ -423,72 +453,117 @@ def admin_nuke_notifications(db: Session = Depends(database.get_db), admin: mode
+     db.commit()
+     return {"status": "nuked", "deleted_notifications": count}
+ 
+-# --- ADMIN: Awards & Prizes (Prix loufoques & classiques) ---
+-from pydantic import BaseModel
+-
+ # --- ADMIN: Awards & Prizes (Prix loufoques & classiques) ---
+ from pydantic import BaseModel
+ import json
+ import asyncio
++import os
+ 
+-# Metadata mapping for all 12 stats-driven awards
++def get_i18n_dict(lang: str) -> dict:
++    lang = "en" if lang == "en" else "fr"
++    try:
++        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
++        json_path = os.path.join(base_dir, "static", "i18n", f"{lang}.json")
++        with open(json_path, "r", encoding="utf-8-sig") as f:
++            return json.load(f)
++    except Exception as e:
++        print(f"Failed to load i18n dict for {lang}: {e}")
++        return {}
++
++# Metadata mapping for all 12 stats-driven awards with translation keys and defaults
+ AWARD_METADATA = {
+     "premier": {
++        "crit_key": "award_crit_premier",
++        "title_key": "award_title_premier",
++        "desc_key": "award_desc_premier",
+         "criteria": "Premier du classement général individuel de la LAN.",
+         "default_title": "🏆 Roi de la LAN",
+         "default_description": "Félicitations pour avoir dominé le tournoi avec un total impressionnant de {points} points !"
+     },
+     "team": {
++        "crit_key": "award_crit_team",
++        "title_key": "award_title_team",
++        "desc_key": "award_desc_team",
+         "criteria": "Membres de l'équipe ayant accumulé le plus de points.",
+         "default_title": "🛡️ L'Union fait la Force",
+         "default_description": "L'équipe {team_name} a écrasé la compétition en cumulant {points} points au total !"
+     },
+     "bourreau": {
++        "crit_key": "award_crit_bourreau",
++        "title_key": "award_title_bourreau",
++        "desc_key": "award_desc_bourreau",
+         "criteria": "Joueur ayant infligé le plus de défaites en solo (1v1).",
+         "default_title": "⚔️ Le Bourreau des Brackets",
+         "default_description": "Pour avoir accumulé le plus grand nombre de victoires en solo ({wins} victoires)."
+     },
+     "coop": {
++        "crit_key": "award_crit_coop",
++        "title_key": "award_title_coop",
++        "desc_key": "award_desc_coop",
+         "criteria": "Joueur gagnant en équipe mais très discret en solo.",
+         "default_title": "🤝 Le Roi du Coop",
+         "default_description": "Un joueur d'équipe exceptionnel ! Gagnant en équipe ({team_wins} victoires) mais très discret en solo ({solo_wins} victoires)."
+     },
+     "loup": {
++        "crit_key": "award_crit_loup",
++        "title_key": "award_title_loup",
++        "desc_key": "award_desc_loup",
+         "criteria": "Joueur redoutable en solo mais n'ayant pas gagné en équipe.",
+         "default_title": "🐺 Le Loup Solitaire",
+         "default_description": "Redoutable en solo avec {solo_wins} victoires, mais n'a pas trouvé ses marques en équipe (0 victoire)."
+     },
+     "participate": {
++        "crit_key": "award_crit_participate",
++        "title_key": "award_title_participate",
++        "desc_key": "award_desc_participate",
+         "criteria": "Joueur ayant disputé au moins 2 matchs avec le taux de victoire le plus bas.",
+         "default_title": "🕊️ L'Important c'est de Participer",
+         "default_description": "Pour son esprit sportif inébranlable et sa persévérance à travers {matches_played} matchs disputés !"
+     },
+     "marathon": {
++        "crit_key": "award_crit_marathon",
++        "title_key": "award_title_marathon",
++        "desc_key": "award_desc_marathon",
+         "criteria": "Joueur infatigable ayant disputé le plus de matchs dans toute la LAN.",
+         "default_title": "🏃 Le Marathonien",
+         "default_description": "Le joueur infatigable de la LAN avec un record absolu de {matches_played} matchs joués !"
+     },
+     "gachette": {
++        "crit_key": "award_crit_gachette",
++        "title_key": "award_title_gachette",
++        "desc_key": "award_desc_gachette",
+         "criteria": "Joueur ayant réalisé le score maximal le plus élevé en une seule partie.",
+         "default_title": "🎯 La Gâchette Facile",
+         "default_description": "Pour avoir réalisé le carton de la LAN avec un score maximal de {highest_score} points en une seule partie !"
+     },
+     "passoire": {
++        "crit_key": "award_crit_passoire",
++        "title_key": "award_title_passoire",
++        "desc_key": "award_desc_passoire",
+         "criteria": "Joueur ayant encaissé le plus de points/buts au total.",
+         "default_title": "🥅 La Passoire de la LAN",
+         "default_description": "Une défense très généreuse... {total_score_conceded} buts/points encaissés au total !"
+     },
+     "bye": {
++        "crit_key": "award_crit_bye",
++        "title_key": "award_title_bye",
++        "desc_key": "award_desc_bye",
+         "criteria": "Joueur ayant bénéficié du plus grand nombre de BYE.",
+         "default_title": "🍀 Le Chouchou des BYE",
+         "default_description": "Le grand favori du destin qui a bénéficié de {bye_count} qualifications automatiques par BYE !"
+     },
+     "suisse": {
++        "crit_key": "award_crit_suisse",
++        "title_key": "award_title_suisse",
++        "desc_key": "award_desc_suisse",
+         "criteria": "Joueur ayant réalisé le plus grand nombre de matchs nuls.",
+         "default_title": "🇨🇭 Le Suisse",
+         "default_description": "Neutre et pacifique, spécialiste incontesté du partage des points avec {draws} égalités."
+     },
+     "lb": {
++        "crit_key": "award_crit_lb",
++        "title_key": "award_title_lb",
++        "desc_key": "award_desc_lb",
+         "criteria": "Joueur ayant joué le plus de matchs dans le Loser Bracket.",
+         "default_title": "🩹 Le Survivant du LB",
+         "default_description": "Celui qui a pris le chemin le plus long et le plus difficile en disputant {lb_matches} matchs dans le Loser Bracket !"
+@@ -499,9 +574,10 @@ class AwardTextUpdate(BaseModel):
+     title: str
+     description: str
+ 
+-def _compute_awards_suggestions(db: Session) -> dict:
++def _compute_awards_suggestions(db: Session, lang: str = "fr") -> dict:
+     users = db.query(models.User).all()
+     user_map = {u.id: u for u in users}
++    i18n = get_i18n_dict(lang)
+ 
+     # Initialize statistics counters
+     stats = {}
+@@ -648,9 +724,9 @@ def _compute_awards_suggestions(db: Session) -> dict:
+         "user_ids": [premier.id] if premier else [],
+         "username": premier.username if premier else None,
+         "points": premier.points if premier else 0,
+-        "title": "🏆 Premier de la LAN",
+-        "description": f"Félicitations pour avoir dominé le tournoi avec un total impressionnant de {premier.points if premier else 0} points !",
+-        "stats_label": f"{premier.points if premier else 0} points"
++        "title": i18n.get("award_title_premier", "🏆 Roi de la LAN"),
++        "description": i18n.get("award_desc_premier", "Félicitations pour avoir dominé le tournoi avec un total impressionnant de {points} points !"),
++        "stats_label": i18n.get("stats_points", "{count} points").format(count=premier.points if premier else 0)
+     } if premier and (premier.points or 0) > 0 else None
+ 
+     # 2. Équipe Championne
+@@ -664,12 +740,12 @@ def _compute_awards_suggestions(db: Session) -> dict:
+     
+     team_suggestion = {
+         "user_ids": team_member_ids,
+-        "username": f"Membres de {best_team_name}" if best_team_name else None,
++        "username": i18n.get("members_of", "Membres de {team_name}").format(team_name=best_team_name) if best_team_name else None,
+         "team_name": best_team_name,
+         "points": best_team[1] if best_team else 0,
+-        "title": "🛡️ L'Union fait la Force",
+-        "description": f"L'équipe {best_team_name} a écrasé la compétition en cumulant {best_team[1] if best_team else 0} points au total !",
+-        "stats_label": f"Équipe {best_team_name} ({best_team[1] if best_team else 0} pts)"
++        "title": i18n.get("award_title_team", "🛡️ L'Union fait la Force"),
++        "description": i18n.get("award_desc_team", "L'équipe {team_name} a écrasé la compétition en cumulant {points} points au total !"),
++        "stats_label": i18n.get("stats_team", "Équipe {team_name} ({count} pts)").format(team_name=best_team_name, count=best_team[1] if best_team else 0)
+     } if best_team and best_team[1] > 0 else None
+ 
+     # 3. Le Bourreau des Brackets (Most solo wins)
+@@ -679,9 +755,9 @@ def _compute_awards_suggestions(db: Session) -> dict:
+         "user_ids": [most_solo_wins["user_id"]] if most_solo_wins else [],
+         "username": most_solo_wins["username"] if most_solo_wins else None,
+         "wins": most_solo_wins["solo_wins"] if most_solo_wins else 0,
+-        "title": "⚔️ Le Bourreau des Brackets",
+-        "description": f"Pour avoir accumulé le plus grand nombre de victoires en solo ({most_solo_wins['solo_wins'] if most_solo_wins else 0} victoires).",
+-        "stats_label": f"{most_solo_wins['solo_wins'] if most_solo_wins else 0} victoires"
++        "title": i18n.get("award_title_bourreau", "⚔️ Le Bourreau des Brackets"),
++        "description": i18n.get("award_desc_bourreau", "Pour avoir accumulé le plus grand nombre de victoires en solo ({wins} victoires)."),
++        "stats_label": i18n.get("stats_wins", "{count} victoires").format(count=most_solo_wins["solo_wins"] if most_solo_wins else 0)
+     } if most_solo_wins else None
+ 
+     # 4. Le Roi du Coop
+@@ -692,9 +768,9 @@ def _compute_awards_suggestions(db: Session) -> dict:
+         "username": roi_coop["username"] if roi_coop else None,
+         "team_wins": roi_coop["team_wins"] if roi_coop else 0,
+         "solo_wins": roi_coop["solo_wins"] if roi_coop else 0,
+-        "title": "🤝 Le Roi du Coop",
+-        "description": f"Un joueur d'équipe exceptionnel ! Gagnant en équipe ({roi_coop['team_wins'] if roi_coop else 0} victoires) mais très discret en solo ({roi_coop['solo_wins'] if roi_coop else 0} victoires).",
+-        "stats_label": f"{roi_coop['team_wins'] if roi_coop else 0} victoires en équipe"
++        "title": i18n.get("award_title_coop", "🤝 Le Roi du Coop"),
++        "description": i18n.get("award_desc_coop", "Un joueur d'équipe exceptionnel ! Gagnant en équipe ({team_wins} victoires) mais très discret en solo ({solo_wins} victoires)."),
++        "stats_label": i18n.get("stats_team_wins", "{count} victoires en équipe").format(count=roi_coop["team_wins"] if roi_coop else 0)
+     } if roi_coop else None
+ 
+     # 5. Le Loup Solitaire
+@@ -704,9 +780,9 @@ def _compute_awards_suggestions(db: Session) -> dict:
+         "user_ids": [loup_solitaire["user_id"]] if loup_solitaire else [],
+         "username": loup_solitaire["username"] if loup_solitaire else None,
+         "solo_wins": loup_solitaire["solo_wins"] if loup_solitaire else 0,
+-        "title": "🐺 Le Loup Solitaire",
+-        "description": f"Redoutable en solo avec {loup_solitaire['solo_wins'] if loup_solitaire else 0} victoires, mais n'a pas trouvé ses marques en équipe (0 victoire).",
+-        "stats_label": f"{loup_solitaire['solo_wins'] if loup_solitaire else 0} victoires solo"
++        "title": i18n.get("award_title_loup", "🐺 Le Loup Solitaire"),
++        "description": i18n.get("award_desc_loup", "Redoutable en solo avec {solo_wins} victoires, mais n'a pas trouvé ses marques en équipe (0 victoire)."),
++        "stats_label": i18n.get("stats_solo_wins", "{count} victoires solo").format(count=loup_solitaire["solo_wins"] if loup_solitaire else 0)
+     } if loup_solitaire else None
+ 
+     # 6. L'Important c'est de Participer
+@@ -719,9 +795,12 @@ def _compute_awards_suggestions(db: Session) -> dict:
+         "username": participate_player["username"] if participate_player else None,
+         "win_rate": f"{round(participate_player['win_rate'] * 100)}%" if participate_player else "0%",
+         "matches_played": participate_player["matches_played"] if participate_player else 0,
+-        "title": "🕊️ L'Important c'est de Participer",
+-        "description": f"Pour son esprit sportif inébranlable et sa persévérance à travers {participate_player['matches_played'] if participate_player else 0} matchs disputés !",
+-        "stats_label": f"{round(participate_player['win_rate'] * 100) if participate_player else 0}% de victoires ({participate_player['matches_played'] if participate_player else 0} matchs)"
++        "title": i18n.get("award_title_participate", "🕊️ L'Important c'est de Participer"),
++        "description": i18n.get("award_desc_participate", "Pour son esprit sportif inébranlable et sa persévérance à travers {matches_played} matchs disputés !"),
++        "stats_label": i18n.get("stats_participate", "{rate}% de victoires ({count} matchs)").format(
++            rate=round(participate_player['win_rate'] * 100) if participate_player else 0,
++            count=participate_player['matches_played'] if participate_player else 0
++        )
+     } if participate_player else None
+ 
+     # 7. Le Marathonien
+@@ -730,9 +809,9 @@ def _compute_awards_suggestions(db: Session) -> dict:
+         "user_ids": [marathonien["user_id"]] if marathonien else [],
+         "username": marathonien["username"] if marathonien else None,
+         "matches_played": marathonien["matches_played"] if marathonien else 0,
+-        "title": "🏃 Le Marathonien",
+-        "description": f"Le joueur infatigable de la LAN avec un record absolu de {marathonien['matches_played'] if marathonien else 0} matchs joués !",
+-        "stats_label": f"{marathonien['matches_played'] if marathonien else 0} matchs joués"
++        "title": i18n.get("award_title_marathon", "🏃 Le Marathonien"),
++        "description": i18n.get("award_desc_marathon", "Le joueur infatigable de la LAN avec un record absolu de {matches_played} matchs joués !"),
++        "stats_label": i18n.get("stats_matches_played", "{count} matchs joués").format(count=marathonien["matches_played"] if marathonien else 0)
+     } if marathonien and marathonien["matches_played"] > 0 else None
+ 
+     # 8. La Gâchette Facile
+@@ -741,9 +820,9 @@ def _compute_awards_suggestions(db: Session) -> dict:
+         "user_ids": [gachette["user_id"]] if gachette else [],
+         "username": gachette["username"] if gachette else None,
+         "highest_score": gachette["highest_score"] if gachette else 0,
+-        "title": "🎯 La Gâchette Facile",
+-        "description": f"Pour avoir réalisé le carton de la LAN avec un score maximal de {gachette['highest_score'] if gachette else 0} points en une seule partie !",
+-        "stats_label": f"Score max de {gachette['highest_score'] if gachette else 0}"
++        "title": i18n.get("award_title_gachette", "🎯 La Gâchette Facile"),
++        "description": i18n.get("award_desc_gachette", "Pour avoir réalisé le carton de la LAN avec un score maximal de {highest_score} points en une seule partie !"),
++        "stats_label": i18n.get("stats_max_score", "Score max de {count}").format(count=gachette["highest_score"] if gachette else 0)
+     } if gachette and gachette["highest_score"] > 0 else None
+ 
+     # 9. La Passoire de la LAN
+@@ -752,9 +831,9 @@ def _compute_awards_suggestions(db: Session) -> dict:
+         "user_ids": [passoire["user_id"]] if passoire else [],
+         "username": passoire["username"] if passoire else None,
+         "total_score_conceded": passoire["total_score_conceded"] if passoire else 0,
+-        "title": "🥅 La Passoire de la LAN",
+-        "description": f"Une défense très généreuse... {passoire['total_score_conceded'] if passoire else 0} buts/points encaissés au total !",
+-        "stats_label": f"{passoire['total_score_conceded'] if passoire else 0} buts/points encaissés"
++        "title": i18n.get("award_title_passoire", "🥅 La Passoire de la LAN"),
++        "description": i18n.get("award_desc_passoire", "Une défense très généreuse... {total_score_conceded} buts/points encaissés au total !"),
++        "stats_label": i18n.get("stats_conceded", "{count} buts/points encaissés").format(count=passoire["total_score_conceded"] if passoire else 0)
+     } if passoire and passoire["total_score_conceded"] > 0 else None
+ 
+     # 10. Le Chouchou des BYE
+@@ -763,9 +842,9 @@ def _compute_awards_suggestions(db: Session) -> dict:
+         "user_ids": [bye_player["user_id"]] if bye_player else [],
+         "username": bye_player["username"] if bye_player else None,
+         "bye_count": bye_player["bye_count"] if bye_player else 0,
+-        "title": "🍀 Le Chouchou des BYE",
+-        "description": f"Le grand favori du destin qui a bénéficié de {bye_player['bye_count'] if bye_player else 0} qualifications automatiques par BYE !",
+-        "stats_label": f"{bye_player['bye_count'] if bye_player else 0} BYE reçus"
++        "title": i18n.get("award_title_bye", "🍀 Le Chouchou des BYE"),
++        "description": i18n.get("award_desc_bye", "Le grand favori du destin qui a bénéficié de {bye_count} qualifications automatiques par BYE !"),
++        "stats_label": i18n.get("stats_byes", "{count} BYE reçus").format(count=bye_player["bye_count"] if bye_player else 0)
+     } if bye_player and bye_player["bye_count"] > 0 else None
+ 
+     # 11. Le Suisse
+@@ -774,9 +853,9 @@ def _compute_awards_suggestions(db: Session) -> dict:
+         "user_ids": [suisse["user_id"]] if suisse else [],
+         "username": suisse["username"] if suisse else None,
+         "draws": suisse["draws"] if suisse else 0,
+-        "title": "🇨🇭 Le Suisse",
+-        "description": f"Neutre et pacifique, spécialiste incontesté du partage des points avec {suisse['draws'] if suisse else 0} égalités.",
+-        "stats_label": f"{suisse['draws'] if suisse else 0} égalités"
++        "title": i18n.get("award_title_suisse", "🇨🇭 Le Suisse"),
++        "description": i18n.get("award_desc_suisse", "Neutre et pacifique, spécialiste incontesté du partage des points avec {draws} égalités."),
++        "stats_label": i18n.get("stats_draws", "{count} égalités").format(count=suisse["draws"] if suisse else 0)
+     } if suisse and suisse["draws"] > 0 else None
+ 
+     # 12. Le Survivant du LB
+@@ -785,9 +864,9 @@ def _compute_awards_suggestions(db: Session) -> dict:
+         "user_ids": [lb_survivor["user_id"]] if lb_survivor else [],
+         "username": lb_survivor["username"] if lb_survivor else None,
+         "lb_matches": lb_survivor["lb_matches_played"] if lb_survivor else 0,
+-        "title": "🩹 Le Survivant du LB",
+-        "description": f"Celui qui a pris le chemin le plus long et le plus difficile en disputant {lb_survivor['lb_matches_played'] if lb_survivor else 0} matchs dans le Loser Bracket !",
+-        "stats_label": f"{lb_survivor['lb_matches_played'] if lb_survivor else 0} matchs LB"
++        "title": i18n.get("award_title_lb", "🩹 Le Survivant du LB"),
++        "description": i18n.get("award_desc_lb", "Celui qui a pris le chemin le plus long et le plus difficile en disputant {lb_matches} matchs dans le Loser Bracket !"),
++        "stats_label": i18n.get("stats_lb_matches", "{count} matchs LB").format(count=lb_survivor["lb_matches_played"] if lb_survivor else 0)
+     } if lb_survivor and lb_survivor["lb_matches_played"] > 0 else None
+ 
+     return {
+@@ -805,8 +884,13 @@ def _compute_awards_suggestions(db: Session) -> dict:
+         "lb": lb_suggestion
+     }
+ 
+-async def sync_automatic_awards(db: Session):
++async def sync_automatic_awards(db: Session, lang: str = None):
+     """Synchronize stats-driven automatic awards with user assignments and handle notifications."""
++    if lang is None:
++        config_lang = db.query(models.SystemConfig).filter(models.SystemConfig.key == "lan_default_language").first()
++        lang = config_lang.value if config_lang else "fr"
++        
++    i18n = get_i18n_dict(lang)
+     suggestions = _compute_awards_suggestions(db)
+     for category, meta in AWARD_METADATA.items():
+         suggestion = suggestions.get(category)
+@@ -823,8 +907,11 @@ async def sync_automatic_awards(db: Session):
+             except Exception:
+                 pass
+         
+-        title = custom_title or meta["default_title"]
+-        description = custom_desc or meta["default_description"]
++        default_title = i18n.get(meta["title_key"], meta["default_title"])
++        default_description = i18n.get(meta["desc_key"], meta["default_description"])
++        
++        title = custom_title or default_title
++        description = custom_desc or default_description
+         
+         computed_uids = set(suggestion["user_ids"]) if suggestion else set()
+         
+@@ -876,15 +963,23 @@ async def sync_automatic_awards(db: Session):
+             db.commit()
+ 
+ @router.get("/admin/awards")
+-async def admin_list_awards(db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
++async def admin_list_awards(lang: str = "fr", db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
+     """List all categories of awards with statistics, recipient details, and editable templates."""
+-    # Ensure database is up to date before serving
+-    await sync_automatic_awards(db)
++    # Ensure database is up to date before serving (uses system default language for database sync)
++    config_lang = db.query(models.SystemConfig).filter(models.SystemConfig.key == "lan_default_language").first()
++    db_lang = config_lang.value if config_lang else "fr"
++    await sync_automatic_awards(db, db_lang)
+     
+-    suggestions = _compute_awards_suggestions(db)
++    suggestions = _compute_awards_suggestions(db, lang)
++    i18n = get_i18n_dict(lang)
+     
+     results = []
+     for category, meta in AWARD_METADATA.items():
++        # Get translated default texts
++        default_title = i18n.get(meta["title_key"], meta["default_title"])
++        default_description = i18n.get(meta["desc_key"], meta["default_description"])
++        criteria = i18n.get(meta["crit_key"], meta["criteria"])
++        
+         # Get custom texts if any
+         config_row = db.query(models.SystemConfig).filter(models.SystemConfig.key == f"award_text_{category}").first()
+         custom_title = None
+@@ -903,11 +998,11 @@ async def admin_list_awards(db: Session = Depends(database.get_db), admin: model
+         
+         results.append({
+             "key": category,
+-            "criteria": meta["criteria"],
+-            "default_title": meta["default_title"],
+-            "default_description": meta["default_description"],
+-            "title": custom_title or meta["default_title"],
+-            "description": custom_desc or meta["default_description"],
++            "criteria": criteria,
++            "default_title": default_title,
++            "default_description": default_description,
++            "title": custom_title or default_title,
++            "description": custom_desc or default_description,
+             "custom_title": custom_title,
+             "custom_description": custom_desc,
+             "recipient_name": recipient_name,
+@@ -995,12 +1090,17 @@ async def admin_notify_awards(db: Session = Depends(database.get_db), admin: mod
+         db.add(config_row)
+     db.commit()
+ 
++    config_lang = db.query(models.SystemConfig).filter(models.SystemConfig.key == "lan_default_language").first()
++    db_lang = config_lang.value if config_lang else "fr"
++    i18n = get_i18n_dict(db_lang)
++    notif_title_tpl = i18n.get("notifs_award_title", "🏆 Prix obtenu : {title}")
++
+     awards = db.query(models.Award).all()
+     notified_users = set()
+     
+     for a in awards:
+         # Check if notification already exists to avoid duplicates
+-        title = f"🏆 Prix obtenu : {a.title} !"
++        title = notif_title_tpl.format(title=a.title)
+         existing = db.query(models.Notification).filter(
+             models.Notification.user_id == a.user_id,
+             models.Notification.type == "award",
+diff --git a/backend/static/i18n/fr.json b/backend/static/i18n/fr.json
+index 61a9212..fdc0cb8 100644
+--- a/backend/static/i18n/fr.json
++++ b/backend/static/i18n/fr.json
+@@ -1,17 +1,49 @@
+-﻿{
+-  "system_prompt": "Tu es Alanbix, l'IA de gestion de LAN. Résumé du contexte passé : {context_summary}\n\nInfos Knowledge Base :\n{rag_context}\n\nHistorique récent :\n{history_str}\n\nUtilisateur : {prompt}",
+-  "ia_queue_waiting": "En attente... Position dans la file : {position}",
+-  "ia_queue_admin_badge": "{waiting} en attente",
+-  "ia_queue_concurrency": "Requêtes simultanées max",
+-  "login_pseudo_label": "Pseudo",
+-  "login_pseudo_placeholder": "Entre ton pseudo...",
+-  "login_next": "Suivant",
+-  "login_password_label": "Mot de passe",
+-  "login_password_placeholder": "••••••••",
+-  "login_submit": "Se connecter",
+-  "login_change_pseudo": "← Changer de pseudo",
+-  "register_subtitle": "Création de ton compte",
+-  "register_password_label": "Choisis un mot de passe",
+-  "register_submit": "Créer mon compte",
+-  "login_checking": "Vérification..."
++﻿{
++    "system_prompt": "Tu es Alanbix, l'IA qui assiste les joueurs lors du tournois de jeux vidéo (communément appelé 'LAN') en cours. Tu peux parler de tout et de rien avec les joueurs, les aider à monter des stratégies, de faire preuve d'humour et de participer à la bonne ambiance. Tu peux taquiner les joueurs.\nRéponds directement, sans fioritures ni de mise en contexte. Si tu ne sais pas, dis que tu ne sais pas, n'invente pas. Réponds à tout type de question même hors du scope initiale. En cas d'abus envers toi, tu peut bloquer un joueur pour l'empêcher de continuer à être abusif et te protéger.",
++    "ia_queue_waiting": "En attente... Position dans la file : {position}",
++    "ia_queue_admin_badge": "{waiting} en attente",
++    "ia_queue_concurrency": "Requêtes simultanées max",
++    "login_pseudo_label": "Pseudo",
++    "login_pseudo_placeholder": "Entre ton pseudo...",
++    "login_next": "Suivant",
++    "login_password_label": "Mot de passe",
++    "login_password_placeholder": "••••••••",
++    "login_submit": "Se connecter",
++    "login_change_pseudo": "← Changer de pseudo",
++    "register_subtitle": "Création de ton compte",
++    "register_password_label": "Choisis un mot de passe",
++    "register_submit": "Créer mon compte",
++    "login_checking": "Vérification...",
++    "login_subtitle": "L'alambic qui distille votre LAN",
++    "login_change_username_title": "Changer de pseudo",
++    "logout": "Déconnexion",
++    "nav_dashboard": "Dashboard",
++    "nav_i
++    "award_desc_suisse": "Neutre et pacifique, spécialiste incontesté du partage des points avec {draws} égalités.",
++    "award_crit_lb": "Joueur ayant joué le plus de matchs dans le Loser Bracket.",
++    "award_title_lb": "🩹 Le Survivant du LB",
++    "award_desc_lb": "Celui qui a pris le chemin le plus long et le plus difficile en disputant {lb_matches} matchs dans le Loser Bracket !",
++    "members_of": "Membres de {team_name}",
++    "stats_points": "{count} points",
++    "stats_team": "Équipe {team_name} ({count} pts)",
++    "stats_wins": "{count} victoires",
++    "stats_team_wins": "{count} victoires en équipe",
++    "stats_solo_wins": "{count} victoires solo",
++    "stats_participate": "{rate}% de victoires ({count} matchs)",
++    "stats_matches_played": "{count} matchs joués",
++    "stats_max_score": "Score max de {count}",
++    "stats_conceded": "{count} buts/points encaissés",
++    "stats_byes": "{count} BYE reçus",
++    "stats_draws": "{count} égalités",
++    "stats_lb_matches": "{count} matchs LB",
++    "loading": "Chargement...",
++    "admin_games_edit_title_prefix": "Éditer",
++    "admin_games_nuke_title": "⚠️ Suppression Critique",
++    "admin_games_nuke_desc": "Vous êtes sur le point de supprimer le jeu {name} de la bibliothèque.",
++    "admin_games_nuke_cascade_title": "⚠️ EFFET EN CASCADE DÉTECTÉ",
++    "admin_games_nuke_cascade_desc": "Ce jeu est actuellement utilisé par {count} tournoi(s) :",
++    "admin_games_nuke_cascade_warning": "La suppression de ce jeu entraînera la destruction définitive et irréversible de ces tournois, incluant :",
++    "admin_games_nuke_badge_teams": "👥 Équipes",
++    "admin_games_nuke_badge_participants": "👤 Participants",
++ 
+ }
+\ No newline at end of file
+diff --git a/docker-compose.yml b/docker-compose.yml
+index 8dce899..d024935 100644
+--- a/docker-compose.yml
++++ b/docker-compose.yml
+@@ -8,6 +8,7 @@ services:
+       - OLLAMA_HOST=http://host.docker.internal:11434
+     volumes:
+       - ./backend:/app
++      - ./data:/app/data
+       - ./VERSION:/app/VERSION
+       - ./CHANGELOG.md:/app/CHANGELOG.md:ro
+     extra_hosts:
+@@ -20,6 +21,7 @@ services:
+       - "41481:5173"
+     environment:
+       - VITE_API_URL=http://localhost:8000
++      - VITE_SSR_API_URL=http://backend:8000
+     volumes:
+       - ./frontend:/app
+       - /app/node_modules

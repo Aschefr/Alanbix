@@ -1,4 +1,6 @@
 <script>
+	import { t, initI18n } from '$lib/i18nStore';
+	import { get } from 'svelte/store';
 	import { onMount, onDestroy } from 'svelte';
 	import { wsMessageStore } from '$lib/ws';
 	import { connectWS } from '$lib/ws';
@@ -95,7 +97,7 @@
 			// Fallback: live teams data
 			const team = specTeams.find(t => t.id === Math.abs(userId));
 			if (team) return team.name;
-			return `Équipe #${Math.abs(userId)}`;
+			return get(t)('spec_team_fallback', { num: Math.abs(userId) });
 		}
 		const p = participants.find(pp => pp.user_id === userId);
 		return p ? p.username : `#${userId}`;
@@ -173,10 +175,12 @@
 		else if (e.key === ' ') { e.preventDefault(); paused = !paused; }
 	}
 
-	onMount(() => {
+	onMount(async () => {
 		// Apply theme
 		const theme = localStorage.getItem('alanbix_theme') || 'dark';
 		document.documentElement.setAttribute('data-theme', theme);
+
+		await initI18n();
 
 		connectWS();
 		refreshData();
@@ -322,7 +326,7 @@
 	<div class="spec-content {transClass}">
 		{#if currentView === 'leaderboard'}
 			<div class="spec-view">
-				<h1 class="spec-title">🏆 Classement Général</h1>
+				<h1 class="spec-title">{$t("spec_tab_general")}</h1>
 				<div class="spec-lb">
 					{#each data.leaderboard as entry, i}
 						<div class="spec-row {entry.rank && entry.rank <= 3 ? 'spec-top' : ''}">
@@ -337,31 +341,31 @@
 							<span class="spec-pts">{entry.points} pts</span>
 						</div>
 					{:else}
-						<p class="spec-empty">Aucun joueur classé</p>
+						<p class="spec-empty">{$t("spec_empty_leaderboard")}</p>
 					{/each}
 				</div>
 			</div>
 
 		{:else if currentView === 'teams'}
 			<div class="spec-view">
-				<h1 class="spec-title">👥 Classement Équipes</h1>
+				<h1 class="spec-title">{$t("spec_tab_teams")}</h1>
 				<div class="spec-lb">
 					{#each teamLeaderboard as team, i}
 						<div class="spec-row {team.rank && team.rank <= 3 ? 'spec-top' : ''}">
 							<span class="spec-rank {team.rank === 1 ? 'gold' : team.rank === 2 ? 'silver' : team.rank === 3 ? 'bronze' : ''}">{team.rank || '—'}</span>
 							<span class="spec-name">{team.team_name}</span>
-							<span class="spec-members">{team.member_count} joueurs</span>
+							<span class="spec-members">{$t("spec_players_count", { count: team.member_count })}</span>
 							<span class="spec-pts">{team.score} pts</span>
 						</div>
 					{:else}
-						<p class="spec-empty">Aucune équipe</p>
+						<p class="spec-empty">{$t("spec_empty_teams")}</p>
 					{/each}
 				</div>
 			</div>
 
 		{:else if currentView === 'map'}
 			<div class="spec-view map-view">
-				<h1 class="spec-title">🗺️ Plan de Salle</h1>
+				<h1 class="spec-title">{$t("spec_tab_map")}</h1>
 				<div class="spec-map-wrap">
 					<svg viewBox={mapViewBox} class="spec-map">
 						<defs>
@@ -384,8 +388,12 @@
 							<g transform="rotate({furn.rotation || 0}, {fcx}, {fcy})">
 								<rect x={furn.x} y={furn.y} width={furn.w} height={furn.h} rx="5"
 									fill="rgba(245,158,11,0.1)" stroke="rgba(245,158,11,0.4)" stroke-width="1.5" stroke-dasharray="5 2"/>
-								<text x={fcx} y={fcy - 2} text-anchor="middle" font-size="14" style="pointer-events:none">{furn.icon}</text>
-								<text x={fcx} y={fcy + 12} text-anchor="middle" fill="#f59e0b" font-size="9" font-weight="700">{furn.label}</text>
+								<foreignObject x={furn.x} y={furn.y} width={furn.w} height={furn.h} style="pointer-events:none">
+									<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;height:100%;line-height:1.1;">
+										<span style="font-size: {furn.h <= 40 ? '18px' : '26px'};">{furn.icon}</span>
+										<span style="font-size: {furn.h <= 40 ? '10px' : '12px'};font-weight:700;color:#f59e0b;margin-top:2px;text-align:center;word-break:break-all;padding:0 4px;">{furn.label}</span>
+									</div>
+								</foreignObject>
 							</g>
 						{/each}
 						{#each roomLayout.seats as seat}
@@ -438,7 +446,7 @@
 									{/if}
 								{:else}
 									<text x={scx} y={seat.y + 13} text-anchor="middle" fill="var(--text-muted)" font-size="7" font-weight="800">{seat.id}</text>
-									<text x={scx} y={scy + 4} text-anchor="middle" fill="var(--text-muted)" font-size="8">Libre</text>
+									<text x={scx} y={scy + 4} text-anchor="middle" fill="var(--text-muted)" font-size="8">{$t("spec_seat_free")}</text>
 								{/if}
 							</g>
 						</g>
@@ -446,8 +454,8 @@
 					</svg>
 				</div>
 				<div class="spec-map-legend">
-					<span>🔵 Occupé ({occupiedSeats})</span>
-					<span>⚫ Libre ({totalSeats - occupiedSeats})</span>
+					<span>{$t("spec_map_occupied")} ({occupiedSeats})</span>
+					<span>{$t("spec_map_free")} ({totalSeats - occupiedSeats})</span>
 				</div>
 			</div>
 
@@ -464,7 +472,7 @@
 					</div>
 				{/if}
 				<div class="bracket-top-info">
-					<h1 class="spec-title hero-title">{runningTournament?.name || 'Bracket en cours'}</h1>
+					<h1 class="spec-title hero-title">{runningTournament?.name || $t("spec_bracket_waiting")}</h1>
 					{#if runningGame}<span class="hero-game-name">{runningGame.name}</span>{/if}
 				</div>
 				{#if bracketRounds.length > 0}
@@ -478,8 +486,8 @@
 										{@const isLatest = ri === bracketRounds.length - 1}
 										<div class="spec-ffa-round {isLatest ? 'current' : 'past'}">
 											<div class="spec-ffa-hdr">
-												<span>Manche {ri + 1}</span>
-												<span class="spec-ffa-count">{match.p.length} joueurs</span>
+												<span>{$t("spec_round_num", { num: ri + 1 })}</span>
+												<span class="spec-ffa-count">{$t("spec_players_count", { count: match.p.length })}</span>
 											</div>
 											<div class="spec-ffa-players">
 												{#each match.p as playerId, pi}
@@ -501,7 +509,7 @@
 								<div class="spec-rr-area">
 									{#each bracketRounds as roundMatches, ri}
 										<div class="spec-rr-round">
-											<div class="spec-round-hdr">Journée {ri + 1}</div>
+											<div class="spec-round-hdr">{$t("spec_matchday_num", { num: ri + 1 })}</div>
 											{#each roundMatches as match}
 												{@const s0 = match.score?.[0] ?? null}
 												{@const s1 = match.score?.[1] ?? null}
@@ -525,7 +533,7 @@
 									<div class="spec-rounds">
 										{#each bracketRounds as roundMatches, ri}
 											<div class="spec-round-col">
-												<div class="spec-round-hdr">{ri === bracketRounds.length - 1 && bracketRounds.length > 1 ? '🏆 FINALE' : 'ROUND ' + (ri + 1)}</div>
+												<div class="spec-round-hdr">{ri === bracketRounds.length - 1 && bracketRounds.length > 1 ? $t('spec_tab_bracket') : $t('spec_round_label', { num: ri + 1 })}</div>
 												<div class="spec-matches">
 													{#each roundMatches as match}
 														{@const s0 = match.score?.[0] ?? null}
@@ -556,13 +564,13 @@
 						</div>
 					</div>
 				{:else}
-					<p class="spec-empty">Aucun bracket actif</p>
+					<p class="spec-empty">{$t("spec_empty_bracket")}</p>
 				{/if}
 			</div>
 
 		{:else if currentView === 'info'}
 			<div class="spec-view">
-				<h1 class="spec-title"><span style="-webkit-text-fill-color:initial;background:none">📋</span> Informations</h1>
+				<h1 class="spec-title"><span style="-webkit-text-fill-color:initial;background:none">📋</span> {$t("info_title")}</h1>
 				<div class="spec-info-content">
 					{@html spectatorInfo.replace(/\n/g, '<br>')}
 				</div>
@@ -590,12 +598,12 @@
 	.nav-dot.active { background: var(--accent, #3b82f6); opacity: 1; box-shadow: 0 0 10px rgba(59,130,246,0.5); transform: scale(1.3); border-color: transparent; }
 	.pause-badge { font-size: 0.6rem; font-weight: 800; color: #fbbf24; background: rgba(251,191,36,0.1); padding: 0.2rem 0.6rem; border-radius: 20px; border: 1px solid rgba(251,191,36,0.2); }
 
-	.spec-content { flex-grow: 1; display: flex; align-items: center; justify-content: center; padding: 2rem 4rem; min-height: 0; }
+	.spec-content { flex-grow: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding: 2rem 4rem; min-height: 0; overflow-y: auto; }
 	.bracket-active .spec-content { padding: 1rem; align-items: stretch; min-height: 0; height: 0; }
 	.spec-content.slide-in { animation: specSlideIn 0.6s cubic-bezier(0.16,1,0.3,1) forwards; }
 	@keyframes specSlideIn { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
 
-	.spec-view { width: 100%; max-width: 1100px; }
+	.spec-view { width: 100%; max-width: 1100px; margin-top: auto; margin-bottom: auto; }
 	.spec-view-wide { max-width: 100%; display: flex; flex-direction: column; height: 100%; min-height: 0; }
 
 	.spec-bracket-viewport { width: 100%; flex-grow: 1; overflow: hidden; position: relative; display: flex; flex-direction: column; min-height: 0; }

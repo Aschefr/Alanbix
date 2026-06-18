@@ -1,5 +1,48 @@
 # Changelog
 
+## [1.17.1] - 2026-06-18
+
+### Nouvelles fonctionnalités
+
+- **Seeding automatique des fichiers de langue au démarrage** : Copie automatique des fichiers d'usine (`fr.json`, `en.json`, `es.json` complet) dans le dossier de données de l'utilisateur (`data/i18n/`) s'ils n'existent pas encore, pour faciliter la prise en main et la personnalisation par l'utilisateur.
+
+### Corrections de bugs
+
+- **Chargement dynamique des langues modifiées** : Correction de l'application Svelte pour charger dynamiquement les fichiers i18n depuis l'API de fusion `/api/i18n/{lang}` au lieu de `/static/i18n/`, permettant de prendre en compte immédiatement les modifications locales ou de nouvelles langues (comme l'espagnol).
+- **Ajustement de la hauteur d'affichage (Viewport Scroll)** : Correction de la hauteur des conteneurs pour éliminer les barres de défilement externes indésirables sur la page d'administration des langues en forçant `.container` et `.lang-page` à 100% de la hauteur disponible.
+- **Sécurité et filtrage des langues** : Interdiction d'utiliser ou de l'ister les routes réservées de l'API (comme `bulk-translate` ou `auto-translate`) comme codes de langue valides et suppression des fichiers correspondants.
+
+## [1.17.0] - 2026-06-18
+
+### Nouvelles fonctionnalités
+
+- **Système d'internationalisation complet (i18n)** — Mise en place d'une architecture multilingue intégrale pour l'application :
+  - **Store réactif Svelte** (`i18nStore.ts`) : Chargement asynchrone des traductions depuis l'API, sélection de la langue avec persistance `localStorage`, helper `$t()` avec interpolation de variables (`{name}`, `{count}`), et mapping des drapeaux par code langue.
+  - **Backend i18n** (`/api/i18n`) : Endpoints CRUD complets pour la gestion des langues (GET, POST, PUT, DELETE), avec système de merge bicouche (`static/i18n/` ← fichiers livrés, `data/i18n/` ← éditions utilisateur).
+  - **Traduction automatique par IA** : Endpoint dédié utilisant la file Ollama pour traduire les clés i18n d'une langue source vers une langue cible, avec nettoyage automatique du markdown et des guillemets parasites.
+  - **Fichiers de langue** : `fr.json` (850+ clés), `en.json` (traduction complète), support de nouvelles langues (ex: `es.json`).
+- **Page d'administration des langues** (`/dashboard/admin/languages`) — Interface complète de gestion des traductions :
+  - **Éditeur bicolonne** : Vue côté-à-côté de la langue de référence et de la langue cible, avec catégorisation automatique par préfixe de clé (Sidebar, Dashboard, Tournois, IA, etc.).
+  - **Navigation par catégories** : Barre latérale avec compteurs de clés manquantes par catégorie et badge de progression.
+  - **Traduction individuelle & en masse** : Bouton de traduction IA par clé, traduction en lot (toutes les clés ou seulement les vides), avec barre de progression et bouton d'annulation.
+  - **Recherche et filtrage** : Recherche instantanée dans les clés, valeurs source et cible.
+  - **Persistance des catégories repliées** : L'état de collapse des catégories est sauvegardé en `localStorage`.
+  - **Toasts de confirmation** : Feedback visuel pour toutes les actions (sauvegarde, suppression, synchronisation, traduction).
+  - **Modales de confirmation inline** : Confirmations de suppression de langue via popover sous le bouton (sans titre, Valider/Annuler) avec fond opaque, conformément aux règles du projet.
+- **Synchronisation des clés manquantes** — Détection et ajout automatique des clés absentes d'un fichier de langue par rapport à la référence (`fr.json`) :
+  - **Distinction clés absentes vs non-traduites** : Nouveau compteur `structuralMissingCount` différenciant les clés manquantes du fichier (🔑 rouge) des clés présentes mais vides (⚠️ orange).
+  - **Bandeau d'alerte** : Notification visuelle rouge lorsque des clés structurelles sont manquantes (typiquement après une mise à jour de l'app), avec explication et bouton de synchronisation intégré.
+  - **Endpoint `/api/i18n/{lang}/sync`** : Ajout des clés manquantes avec valeurs vides, retour du nombre de clés ajoutées.
+- **Optimisation i18n — Regroupement des doublons** : Factorisation des clés de traduction dupliquées pour réduire la taille des fichiers de langue.
+- **Sélecteur de langue dans le menu** : Nouveau dropdown de sélection de la langue dans la barre latérale du dashboard, avec drapeaux emoji et persistance du choix.
+
+### Corrections de bugs
+
+- **Accès aux boutons inline après blocage IA** : Correction d'un bug permettant aux joueurs bloqués par l'IA de continuer à accéder aux boutons d'action dans les conversations.
+- **Synchronisation des clés ES** : Correction du backend qui retournait une erreur 404 pour les langues avec un fichier vide (`{}` est falsy en Python). La condition a été corrigée de `not target_data` à `target_data is None`.
+- **Prompt de tournois localisé** : Déplacement du prompt système IA des tournois dans les fichiers i18n pour permettre sa traduction.
+- **Éditeur d'image de profil** : Correction de la sauvegarde du crop/zoom/couleur de fond et réouverture du modal à l'édition au lieu d'un prompt de fichier.
+
 ## [1.16.2] - 2026-06-14
 
 ### Corrections de bugs

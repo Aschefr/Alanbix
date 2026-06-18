@@ -73,6 +73,15 @@ def get_stats(db: Session = Depends(database.get_db)):
     team_mode_config = db.query(models.SystemConfig).filter(models.SystemConfig.key == "team_scoring_mode").first()
     team_scoring_mode = team_mode_config.value if team_mode_config else "weighted"
 
+    # Lan multilingual i18n configs
+    multilang_config = db.query(models.SystemConfig).filter(models.SystemConfig.key == "lan_multilingual").first()
+    lan_multilingual = multilang_config.value if multilang_config is not None else False
+    if isinstance(lan_multilingual, str):
+        lan_multilingual = lan_multilingual.lower() == "true"
+
+    default_lang_config = db.query(models.SystemConfig).filter(models.SystemConfig.key == "lan_default_language").first()
+    lan_default_language = default_lang_config.value if default_lang_config else "fr"
+
     return {
         "tournaments": tournaments_count,
         "players": users_count,
@@ -80,7 +89,9 @@ def get_stats(db: Session = Depends(database.get_db)):
         "active": active_tournaments,
         "leaderboard": leaderboard,
         "event_name": event_name,
-        "team_scoring_mode": team_scoring_mode
+        "team_scoring_mode": team_scoring_mode,
+        "lan_multilingual": lan_multilingual,
+        "lan_default_language": lan_default_language
     }
 
 

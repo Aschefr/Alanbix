@@ -1,7 +1,9 @@
 <script>
+	import { get } from 'svelte/store';
 	import { api } from '$lib/api';
 	import { onMount, onDestroy } from 'svelte';
 	import CreateTournamentWizard from '$lib/components/CreateTournamentWizard.svelte';
+	import Modal from '$lib/components/Modal.svelte';
 	import { marked } from 'marked';
 	import { wsMessageStore } from '$lib/ws';
 	import { API_URL } from '$lib/config';
@@ -62,6 +64,9 @@
 	let toasts = [];
 	let toastId = 0;
 
+	// i18n Config
+	import { t, flagMap } from '$lib/i18nStore';
+
 	// Svelte portal action to avoid transform container clipping (G-49 / scroll fix)
 	function portal(node) {
 		document.body.appendChild(node);
@@ -72,6 +77,20 @@
 				}
 			}
 		};
+	}
+
+	let showModal = false;
+	let modalTitle = '';
+	let modalMessage = '';
+	let modalType = 'info';
+	let modalConfirmCallback = null;
+
+	function askConfirm(title, message, type, callback) {
+		modalTitle = title;
+		modalMessage = message;
+		modalType = type;
+		modalConfirmCallback = callback;
+		showModal = true;
 	}
 
 	function toast(message, type = 'info') {
@@ -149,7 +168,7 @@
 					advancers_count: editConfig.advancers_count
 				}
 			});
-			toast('Tournoi mis à jour !', 'success');
+			toast(get(t)('tourneys_toast_updated'), 'success');
 			editingTournament = null;
 			loadData();
 		} catch (e) { toast(e.message, 'error'); }
@@ -264,18 +283,16 @@
 						defaultPts = { ...defaultPts, ...parsed };
 					}
 				}).catch(() => {});
-				api.get('/admin/config/tournament_closing_prompt').then(cpCfg => {
-					closingPrompt = cpCfg?.value || '';
-				}).catch(() => {});
+				loadPrompts().catch(() => {});
 			}
 			if (msg.type === 'ia_config_updated') {
 				api.get('/ia/config').then(res => {
 					iaConfig = res;
 					if (!iaConfig.ollama_instances) iaConfig.ollama_instances = [];
-					systemPrompt = iaConfig.system_prompt || "Tu es Alanbix, l'IA de gestion de LAN.";
 					fetchModels();
 					loadInstanceStatuses();
 				}).catch(() => {});
+				loadPrompts().catch(() => {});
 			}
 		});
 
@@ -286,13 +303,25 @@
 		if (iaQueueInterval) clearInterval(iaQueueInterval);
 	});
 
+	let defaultLang = 'fr';
+	async function loadPrompts() {
+		try {
+			const stats = await api.get('/dashboard/stats');
+			defaultLang = stats.lan_default_language || 'fr';
+			const translations = await api.get(`/api/i18n/${defaultLang}`);
+			systemPrompt = translations.system_prompt || "Tu es Alanbix, l'IA de gestion de LAN.";
+			closingPrompt = translations.tournament_closing_prompt || "";
+		} catch (err) {
+			console.error('Failed to load prompts from default language:', err);
+		}
+	}
+
 	async function loadData() {
 		try { games = await api.get('/tournaments/games'); } catch {}
 		try { tournaments = await api.get('/tournaments'); } catch {}
 		try {
 			iaConfig = await api.get('/ia/config');
 			if (!iaConfig.ollama_instances) iaConfig.ollama_instances = [];
-			systemPrompt = iaConfig.system_prompt || "Tu es Alanbix, l'IA de gestion de LAN.";
 			fetchModels();
 			loadInstanceStatuses();
 		} catch {}
@@ -311,46 +340,55 @@
 			} catch {}
 			config = { ...config, pts_winner: defaultPts.pts_winner, pts_second: defaultPts.pts_second, pts_third: defaultPts.pts_third, pts_participation: defaultPts.pts_participation, pts_per_match: defaultPts.pts_per_match };
 		} catch {}
-		try {
-			const cpCfg = await api.get('/admin/config/tournament_closing_prompt');
-			closingPrompt = cpCfg?.value || '';
-		} catch {}
+		await loadPrompts();
 		loadAdminConversations();
 	}
 
 	async function saveTeamScoringMode() {
 		try {
 			await api.put('/admin/config/team_scoring_mode', { value: teamScoringMode });
-			toast('Mode de scoring équipes sauvegardé.', 'success');
+			toast(get(t)('admin_toast_team_scoring_saved'), 'success');
 		} catch { toast('Erreur sauvegarde.', 'error'); }
 	}
 
 	async function saveEventName() {
 		try {
 			await api.put('/admin/config/event_name', { value: eventName });
-			toast('Nom de la LAN sauvegardé.', 'success');
+			toast(get(t)('admin_toast_lan_name_saved'), 'success');
 		} catch { toast('Erreur sauvegarde.', 'error'); }
 	}
+
+
 
 	async function saveDefaultPts() {
 		try {
 			await api.put('/admin/config/default_tournament_pts', { value: JSON.stringify(defaultPts) });
-			toast('Points par défaut sauvegardés.', 'success');
+			toast(get(t)('admin_toast_default_points_saved'), 'success');
 		} catch { toast('Erreur sauvegarde.', 'error'); }
 	}
 
 	async function saveSystemPrompt() {
 		try {
-			await api.put('/admin/config/system_prompt', { value: systemPrompt });
-			toast('Prompt système sauvegardé.', 'success');
-		} catch { toast('Erreur sauvegarde prompt.', 'error'); }
+			const translations = await api.get(`/api/i18n/${defaultLang}`);
+			translations.system_prompt = systemPrompt;
+			await api.put(`/api/i18n/${defaultLang}`, translations);
+			toast(get(t)('admin_toast_system_prompt_saved'), 'success');
+		} catch (err) {
+			console.error('Failed to save system prompt:', err);
+			toast('Erreur sauvegarde prompt.', 'error');
+		}
 	}
 
 	async function saveClosingPrompt() {
 		try {
-			await api.put('/admin/config/tournament_closing_prompt', { value: closingPrompt });
-			toast('Prompt de clôture sauvegardé.', 'success');
-		} catch { toast('Erreur sauvegarde.', 'error'); }
+			const translations = await api.get(`/api/i18n/${defaultLang}`);
+			translations.tournament_closing_prompt = closingPrompt;
+			await api.put(`/api/i18n/${defaultLang}`, translations);
+			toast(get(t)('admin_toast_closing_prompt_saved'), 'success');
+		} catch (err) {
+			console.error('Failed to save closing prompt:', err);
+			toast('Erreur sauvegarde.', 'error');
+		}
 	}
 
 	async function previewAiPrompt(tournamentId) {
@@ -360,14 +398,14 @@
 			promptPreviewId = tournamentId;
 			promptPreviewText = res.prompt;
 			promptPreviewTokens = res.estimated_tokens;
-		} catch (e) { toast(e.message || 'Erreur preview', 'error'); }
+		} catch (e) { toast(e.message || get(t)('admin_toast_preview_error'), 'error'); }
 		loadingPreview = false;
 	}
 
 	async function retryNotifications(tournamentId) {
 		try {
 			await api.post(`/tournaments/${tournamentId}/retry-notifications`);
-			toast('🔄 Régénération des messages IA lancée.', 'success');
+			toast(get(t)('admin_toast_regen_ai_started'), 'success');
 		} catch (e) { toast(e.message || 'Erreur retry', 'error'); }
 	}
 
@@ -380,9 +418,9 @@
 	async function deleteKnowledge(docId) {
 		try {
 			await api.delete(`/ia/knowledge/${docId}`);
-			toast('Document supprimé de la base RAG.', 'success');
+			toast(get(t)('admin_toast_rag_deleted'), 'success');
 			loadKnowledge();
-		} catch (e) { toast(e.message || 'Erreur suppression', 'error'); }
+		} catch (e) { toast(e.message || get(t)('admin_toast_delete_error'), 'error'); }
 	}
 
 	async function editKnowledge(docId) {
@@ -392,7 +430,7 @@
 		try {
 			const doc = await api.get(`/ia/knowledge/${docId}`);
 			editDocContent = doc.content;
-		} catch (e) { toast('Erreur chargement du document', 'error'); editingDocId = null; }
+		} catch (e) { toast(get(t)('admin_toast_load_doc_error'), 'error'); editingDocId = null; }
 		editDocLoading = false;
 	}
 
@@ -406,7 +444,7 @@
 			} else if (res.chunks > 1) {
 				toast(`Document re-vectorisé en ${res.chunks} chunks (${res.content_length} car.)`, 'success');
 			} else {
-				toast('Document mis à jour et re-vectorisé.', 'success');
+				toast(get(t)('admin_toast_rag_updated'), 'success');
 			}
 			editingDocId = null;
 			editDocContent = '';
@@ -426,7 +464,7 @@
 			} else if (res.chunks > 1) {
 				toast(`Document vectorisé en ${res.chunks} chunks (${res.content_length} car.) et ajouté à la base RAG.`, 'success');
 			} else {
-				toast('Document vectorisé et ajouté à la base RAG.', 'success');
+				toast(get(t)('admin_toast_rag_added'), 'success');
 			}
 			loadKnowledge();
 		} catch (e) { toast(e.message || 'Erreur vectorisation', 'error'); }
@@ -443,10 +481,10 @@
 		const res = await api.post('/ia/test-connection', iaConfig);
 		testingConnection = false;
 		if (res.status === 'ok') {
-			toast('Connexion à Ollama réussie !', 'success');
+			toast(get(t)('admin_toast_ollama_success'), 'success');
 			fetchModels();
 		} else {
-			toast('Échec de connexion : ' + res.detail, 'error');
+			toast(get(t)('admin_toast_ollama_fail') + res.detail, 'error');
 		}
 	}
 
@@ -466,7 +504,7 @@
 	async function cancelQueueEntry(entryId) {
 		try {
 			await api.delete(`/ia/queue/${entryId}`);
-			toast('Requête annulée', 'success');
+			toast(get(t)('admin_toast_request_cancelled'), 'success');
 			await loadQueueAdmin();
 		} catch (e) {
 			toast('Erreur: ' + e.message, 'error');
@@ -597,7 +635,7 @@
 			gameToDeleteWithTournaments = null;
 			deleteGameCheckboxConfirmed = false;
 			loadData();
-			toast('Jeu supprimé de la bibliothèque.', 'success');
+			toast(get(t)('admin_toast_game_deleted'), 'success');
 		} catch (e) {
 			if (e.message && e.message.includes('confirmer la suppression')) {
 				const g = games.find(game => game.id === id);
@@ -658,8 +696,8 @@
 			const url = `${API_URL}${data.url}`;
 			if (target === 'edit') { editGameData.image_url = url; }
 			else { newGame.image_url = url; }
-			toast('Image uploadée !', 'success');
-		} catch (err) { toast('Erreur upload: ' + err.message, 'error'); }
+			toast(get(t)('admin_toast_image_uploaded'), 'success');
+		} catch (err) { toast(get(t)('admin_toast_upload_error') + err.message, 'error'); }
 	}
 
 	async function createGame() {
@@ -669,7 +707,7 @@
 			searchResults = [];
 			searchQuery = '';
 			loadData();
-			toast('Jeu ajouté à la bibliothèque !', 'success');
+			toast(get(t)('admin_toast_game_added'), 'success');
 		} catch (e) { toast(e.message, 'error'); }
 	}
 
@@ -683,7 +721,7 @@
 	async function saveEditGame() {
 		try {
 			await api.put(`/tournaments/games/${editingGame.id}`, editGameData);
-			toast('Jeu mis à jour !', 'success');
+			toast(get(t)('admin_toast_game_updated'), 'success');
 			editingGame = null;
 			loadData();
 		} catch (e) { toast(e.message, 'error'); }
@@ -692,42 +730,47 @@
 	async function saveIAConfig() {
 		try {
 			await api.post('/ia/config', iaConfig);
-			toast('Configuration IA sauvegardée.', 'success');
-		} catch (e) { toast(e.message || 'Erreur sauvegarde IA', 'error'); }
+			toast(get(t)('admin_toast_ai_saved'), 'success');
+		} catch (e) { toast(e.message || get(t)('admin_toast_ai_save_error'), 'error'); }
 	}
 
 	// --- Player Management ---
 	async function loadPlayers() {
-		try { allPlayers = await api.get('/admin/users'); } catch (e) { toast('Erreur chargement joueurs', 'error'); }
+		try { allPlayers = await api.get('/admin/users'); } catch (e) { toast(get(t)('admin_toast_players_load_error'), 'error'); }
 	}
 
 	async function savePlayer() {
 		try {
 			await api.put(`/admin/users/${editingPlayer.id}`, editPlayerData);
-			toast(`${editPlayerData.username} mis à jour`, 'success');
+			toast(get(t)('admin_toast_player_updated', { name: editPlayerData.username }), 'success');
 			editingPlayer = null;
 			await loadPlayers();
 		} catch (e) { toast(e.message, 'error'); }
 	}
 
-	async function adminDeleteAvatar(playerId) {
-		if (confirm("Supprimer l'avatar de ce joueur ?")) {
-			try {
-				await api.delete(`/admin/users/${playerId}/avatar`);
-				toast("Avatar supprimé", "success");
-				if (editingPlayer && editingPlayer.id === playerId) {
-					editingPlayer.avatar_url = null;
-					editingPlayer = { ...editingPlayer };
-				}
-				await loadPlayers();
-			} catch (e) { toast("Erreur: " + e.message, "error"); }
-		}
+	function adminDeleteAvatar(playerId) {
+		askConfirm(
+			get(t)('admin_confirm_delete_avatar_title') || 'Supprimer l\'avatar',
+			get(t)('admin_confirm_delete_avatar') || 'Voulez-vous vraiment supprimer cet avatar ?',
+			'error',
+			async () => {
+				try {
+					await api.delete(`/admin/users/${playerId}/avatar`);
+					toast(get(t)('admin_toast_avatar_deleted'), 'success');
+					if (editingPlayer && editingPlayer.id === playerId) {
+						editingPlayer.avatar_url = null;
+						editingPlayer = { ...editingPlayer };
+					}
+					await loadPlayers();
+				} catch (e) { toast("Erreur: " + e.message, "error"); }
+			}
+		);
 	}
 
 	async function resetPassword() {
 		try {
 			await api.post(`/admin/users/${resetPwdPlayer.id}/reset-password`, { password: resetPwdValue });
-			toast(`MDP de ${resetPwdPlayer.username} réinitialisé → ${resetPwdValue}`, 'success');
+			toast(get(t)('admin_toast_pwd_reset', { name: resetPwdPlayer.username, pwd: resetPwdValue }), 'success');
 			resetPwdPlayer = null;
 		} catch (e) { toast(e.message, 'error'); }
 	}
@@ -735,7 +778,7 @@
 	async function deletePlayer(id) {
 		try {
 			await api.delete(`/admin/users/${id}`);
-			toast('Joueur supprimé', 'success');
+			toast(get(t)('admin_toast_player_deleted'), 'success');
 			deleteConfirmPlayerId = null;
 			await loadPlayers();
 		} catch (e) { toast(e.message, 'error'); }
@@ -746,7 +789,7 @@
 		creatingPlayer = true;
 		try {
 			await api.post('/admin/users/create', newPlayerData);
-			toast(`Joueur "${newPlayerData.username}" créé`, 'success');
+			toast(get(t)('admin_toast_player_created', { name: newPlayerData.username }), 'success');
 			newPlayerData = { username: '', password: 'lan2025', team_name: '' };
 			showCreatePlayer = false;
 			await loadPlayers();
@@ -758,7 +801,7 @@
 		generatingPool = true;
 		try {
 			const res = await api.post('/admin/users/generate-test-pool');
-			toast(`${res.created_count} joueurs de test générés`, 'success');
+			toast(get(t)('admin_toast_test_players_generated', { count: res.created_count }), 'success');
 			await loadPlayers();
 		} catch (e) { toast(e.message, 'error'); }
 		generatingPool = false;
@@ -767,7 +810,7 @@
 	async function toggleAdmin(player) {
 		try {
 			await api.put(`/admin/users/${player.id}`, { is_admin: !player.is_admin });
-			toast(`${player.username} ${!player.is_admin ? 'promu admin' : 'rétrogradé joueur'}`, 'success');
+			toast(!player.is_admin ? get(t)('admin_toast_promoted', { name: player.username }) : get(t)('admin_toast_demoted', { name: player.username }), 'success');
 			await loadPlayers();
 		} catch (e) { toast(e.message, 'error'); }
 	}
@@ -776,7 +819,7 @@
 		try {
 			const newVal = !player.ia_blocked;
 			await api.put(`/admin/users/${player.id}`, { ia_blocked: newVal });
-			toast(`${player.username} ${newVal ? '🚫 bloqué de l\'IA' : '✅ accès IA rétabli'}`, 'success');
+			toast(newVal ? get(t)('admin_toast_ai_blocked', { name: player.username }) : get(t)('admin_toast_ai_unblocked', { name: player.username }), 'success');
 			await loadPlayers();
 		} catch (e) { toast(e.message, 'error'); }
 	}
@@ -891,6 +934,24 @@
 	let awardsList = [];
 	let awardsLoading = false;
 
+	function getAwardEmoji(key) {
+		const map = {
+			premier: '🏆',
+			team: '🛡️',
+			bourreau: '⚔️',
+			coop: '🤝',
+			loup: '🐺',
+			participate: '🕊️',
+			marathon: '🏃',
+			gachette: '🎯',
+			passoire: '🥅',
+			bye: '🍀',
+			suisse: '🇨🇭',
+			lb: '🩹'
+		};
+		return map[key] || '🎁';
+	}
+
 	async function loadAwardsTab() {
 		awardsLoading = true;
 		try {
@@ -955,19 +1016,20 @@
 {#if authorized}
 <div class="admin-view">
 	<header class="flex-row justify-between items-center">
-		<h1 class="title-premium">Administration Centrale</h1>
+		<h1 class="title-premium">{$t('admin_title') || 'Administration Centrale'}</h1>
 		<div class="tabs glass">
-			<button class={activeTab === 'tournaments' ? 'active' : ''} on:click={() => activeTab = 'tournaments'}>Tournois</button>
-			<button class={activeTab === 'games' ? 'active' : ''} on:click={() => activeTab = 'games'}>Bibliothèque Jeux</button>
-			<button class={activeTab === 'players' ? 'active' : ''} on:click={() => { activeTab = 'players'; loadPlayers(); }}>Gestion Joueurs</button>
-			<button class={activeTab === 'settings' ? 'active' : ''} on:click={() => activeTab = 'settings'}>IA & Paramètres</button>
+			<button class={activeTab === 'tournaments' ? 'active' : ''} on:click={() => activeTab = 'tournaments'}>{$t('admin_tab_tournaments') || 'Tournois'}</button>
+			<button class={activeTab === 'games' ? 'active' : ''} on:click={() => activeTab = 'games'}>{$t('admin_tab_games') || 'Bibliothèque Jeux'}</button>
+			<button class={activeTab === 'players' ? 'active' : ''} on:click={() => { activeTab = 'players'; loadPlayers(); }}>{$t('admin_tab_players') || 'Gestion Joueurs'}</button>
+			<button class={activeTab === 'settings' ? 'active' : ''} on:click={() => activeTab = 'settings'}>{$t('admin_tab_settings') || 'IA & Paramètres'}</button>
 			<button class={activeTab === 'conversations' ? 'active' : ''} on:click={() => { activeTab = 'conversations'; loadAdminConversations(); }}>
-				Conversations IA
+				{$t('admin_tab_chats')}
 				{#if adminUnreadConvsCount > 0}
 					<span class="tab-unread-badge" style="background:#22c55e;color:white;padding:0.1rem 0.4rem;border-radius:10px;font-size:0.65rem;font-weight:bold;margin-left:0.4rem">{adminUnreadConvsCount}</span>
 				{/if}
 			</button>
-			<button class={activeTab === 'awards' ? 'active' : ''} on:click={() => activeTab = 'awards'}>🏆 Prix & Distinctions</button>
+			<button class={activeTab === 'awards' ? 'active' : ''} on:click={() => activeTab = 'awards'}>🏆 {$t('admin_tab_awards') || 'Prix & Distinctions'}</button>
+			<button on:click={() => window.location.href = '/dashboard/admin/languages'}>🌐 {$t('admin_tab_languages')}</button>
 		</div>
 	</header>
 
@@ -979,15 +1041,15 @@
 						<div class="flex-row items-center gap-3">
 							<div class="list-icon">✨</div>
 							<div>
-								<h2 class="text-accent" style="margin:0">Création Pas-à-Pas</h2>
-								<span class="text-xs text-dim">Configurer un nouveau tournoi</span>
+								<h2 class="text-accent" style="margin:0">{$t("admin_tourneys_wizard")}</h2>
+								<span class="text-xs text-dim">{$t("admin_tourneys_wizard_subtitle")}</span>
 							</div>
 						</div>
 					</div>
 					<CreateTournamentWizard 
 						{games} 
 						onSuccess={() => {
-							toast('Tournoi créé avec succès !', 'success');
+							toast(get(t)('tourneys_toast_joined'), 'success');
 							loadData();
 						}} 
 					/>
@@ -998,84 +1060,84 @@
 						<div class="flex-row items-center gap-3">
 							<div class="list-icon">🏆</div>
 							<div>
-								<h2 style="margin:0">Gestion des Tournois</h2>
-								<span class="text-xs text-dim">Éditer, gérer ou supprimer vos compétitions</span>
+								<h2 style="margin:0">{$t("admin_tourneys_mgmt")}</h2>
+								<span class="text-xs text-dim">{$t("admin_tourneys_mgmt_subtitle")}</span>
 							</div>
 						</div>
-						<span class="badge-count">{tournaments.length} Actif{tournaments.length > 1 ? 's' : ''}</span>
+						<span class="badge-count">{tournaments.length} {$t("admin_tourneys_active", { plural: tournaments.length > 1 ? "s" : "" })}</span>
 					</div>
 					
 					<div class="item-list">
-						{#each tournaments as t}
-							<div class="admin-item-card glass-hover {inlineEditId === t.id ? 'editing-expanded' : ''}">
+						{#each tournaments as tourney}
+							<div class="admin-item-card glass-hover {inlineEditId === tourney.id ? 'editing-expanded' : ''}">
 								<div class="card-top-row">
-								<div class="game-mini-thumb" style="background-image: url({games.find(g => g.id === t.game_id)?.image_url})">
-									{#if !games.find(g => g.id === t.game_id)?.image_url}
+								<div class="game-mini-thumb" style="background-image: url({games.find(g => g.id === tourney.game_id)?.image_url})">
+									{#if !games.find(g => g.id === tourney.game_id)?.image_url}
 										<span class="thumb-placeholder">🎮</span>
 									{/if}
 								</div>
 								<div class="item-info">
 									<div class="flex-row items-center gap-2">
-										<span class="item-name">{t.name}</span>
-										<span class="status-pill-sm {t.status.toLowerCase()}">{t.status === 'OPEN' ? 'Ouvert' : t.status === 'RUNNING' ? 'En cours' : t.status === 'CLOSED' ? 'Clôturé' : 'Terminé'}</span>
+										<span class="item-name">{tourney.name}</span>
+										<span class="status-pill-sm {tourney.status.toLowerCase()}">{tourney.status === 'OPEN' ? $t('admin_tourneys_status_pill_open') : tourney.status === 'RUNNING' ? $t('admin_tourneys_status_pill_running') : tourney.status === 'CLOSED' ? $t('admin_tourneys_status_pill_closed') : $t('admin_tourneys_status_pill_done')}</span>
 									</div>
 									<div class="item-meta">
-										{games.find(g => g.id === t.game_id)?.name || '—'} • {t.participants?.length || 0} Joueur{(t.participants?.length || 0) > 1 ? 's' : ''} • 🥇{t.config?.pts_winner ?? 10}/🥈{t.config?.pts_second ?? 6}/🥉{t.config?.pts_third ?? 4} 👤{t.config?.pts_participation ?? 1}/m ⚡{t.config?.pts_per_match ?? t.config?.pts_per_goal ?? 1.0}
+										{games.find(g => g.id === tourney.game_id)?.name || '—'} • {tourney.participants?.length || 0} Joueur{(tourney.participants?.length || 0) > 1 ? 's' : ''} • 🥇{tourney.config?.pts_winner ?? 10}/🥈{tourney.config?.pts_second ?? 6}/🥉{tourney.config?.pts_third ?? 4} 👤{tourney.config?.pts_participation ?? 1}/m ⚡{tourney.config?.pts_per_match ?? tourney.config?.pts_per_goal ?? 1.0}
 									</div>
 								</div>
 								<div class="item-actions">
-									{#if t.status === 'CLOSED'}
-										<button class="btn-icon-edit" on:click={() => previewAiPrompt(t.id)} title="Voir le prompt IA" disabled={loadingPreview}>
-											{loadingPreview && promptPreviewId === t.id ? '⏳' : '👁️'}
+									{#if tourney.status === 'CLOSED'}
+										<button class="btn-icon-edit" on:click={() => previewAiPrompt(tourney.id)} title="{$t('admin_tourneys_view_ai_prompt')}" disabled={loadingPreview}>
+											{loadingPreview && promptPreviewId === tourney.id ? '⏳' : '👁️'}
 										</button>
-										<button class="btn-icon-edit" on:click={() => retryNotifications(t.id)} title="Régénérer les messages IA">
+										<button class="btn-icon-edit" on:click={() => retryNotifications(tourney.id)} title="{$t('admin_tourneys_regen_ai_msgs')}">
 											🔄
 										</button>
 									{/if}
-									{#if deleteConfirmTournamentId === t.id}
+									{#if deleteConfirmTournamentId === tourney.id}
 										<div class="confirm-delete-row">
-											<span class="text-xs text-danger font-bold">Supprimer ?</span>
-											<button class="btn-danger-sm" on:click={() => deleteTournament(t.id)}>Oui</button>
-											<button class="btn-secondary text-xs p-1" on:click={() => deleteConfirmTournamentId = null}>Non</button>
+											<span class="text-xs text-danger font-bold">{$t("admin_tourneys_confirm_delete")}</span>
+											<button class="btn-danger-sm" on:click={() => deleteTournament(tourney.id)}>{$t("admin_tourneys_confirm_yes")}</button>
+											<button class="btn-secondary text-xs p-1" on:click={() => deleteConfirmTournamentId = null}>{$t('admin_tourneys_confirm_no')}</button>
 										</div>
 									{:else}
-										<button class="btn-icon-edit" on:click={() => { if (inlineEditId === t.id) { inlineEditId = null; } else { openEditTournament(t); inlineEditId = t.id; } }} title="Éditer">
+										<button class="btn-icon-edit" on:click={() => { if (inlineEditId === tourney.id) { inlineEditId = null; } else { openEditTournament(tourney); inlineEditId = tourney.id; } }} title="{$t('admin_tourneys_tooltip_edit')}">
 											<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
 										</button>
-										<button class="btn-icon-danger" on:click={() => deleteConfirmTournamentId = t.id} title="Supprimer">
+										<button class="btn-icon-danger" on:click={() => deleteConfirmTournamentId = tourney.id} title="{$t('admin_tourneys_tooltip_delete')}">
 											<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2M10 11v6M14 11v6"/></svg>
 										</button>
 									{/if}
 								</div>
 								</div>
 
-								{#if inlineEditId === t.id}
+								{#if inlineEditId === tourney.id}
 
 									<div class="inline-edit-panel">
 
 										<div class="ie-grid">
 
-											<div class="ie-field"><label>Nom</label><input type="text" bind:value={editConfig.name} /></div>
+											<div class="ie-field"><label>{$t('admin_tourneys_edit_name')}</label><input type="text" bind:value={editConfig.name} /></div>
 
-											<div class="ie-field"><label>Statut</label>
+											<div class="ie-field"><label>{$t('admin_tourneys_edit_status')}</label>
 
-												<select bind:value={editConfig.status}><option value="OPEN">Ouvert</option><option value="RUNNING">En Cours</option><option value="DONE">Terminé</option><option value="CLOSED">Clôturé</option></select>
+												<select bind:value={editConfig.status}><option value="OPEN">{$t("admin_tourneys_status_pill_open")}</option><option value="RUNNING">{$t("admin_tourneys_status_pill_running")}</option><option value="DONE">{$t("admin_tourneys_status_pill_done")}</option><option value="CLOSED">{$t("admin_tourneys_status_pill_closed")}</option></select>
 
 											</div>
 
 
 
-											<div class="ie-field"><label>Format</label>
+											<div class="ie-field"><label>{$t('admin_tourneys_edit_format')}</label>
 
 												<div class="edit-toggle-row">
 
-													<button class="edit-toggle {editConfig.bracket_type === 'single_elim' ? 'active' : ''}" on:click={() => editConfig.bracket_type = 'single_elim'}>Élim.</button>
+													<button class="edit-toggle {editConfig.bracket_type === 'single_elim' ? 'active' : ''}" on:click={() => editConfig.bracket_type = 'single_elim'}>{$t('admin_tourneys_edit_format_elim')}</button>
 
-													<button class="edit-toggle {editConfig.bracket_type === 'double_elim' ? 'active' : ''}" on:click={() => editConfig.bracket_type = 'double_elim'}>Double</button>
+													<button class="edit-toggle {editConfig.bracket_type === 'double_elim' ? 'active' : ''}" on:click={() => editConfig.bracket_type = 'double_elim'}>{$t('admin_tourneys_edit_format_double')}</button>
 
-													<button class="edit-toggle {editConfig.bracket_type === 'round_robin' ? 'active' : ''}" on:click={() => editConfig.bracket_type = 'round_robin'}>Champ.</button>
+													<button class="edit-toggle {editConfig.bracket_type === 'round_robin' ? 'active' : ''}" on:click={() => editConfig.bracket_type = 'round_robin'}>{$t('admin_tourneys_edit_format_champ')}</button>
 
-													<button class="edit-toggle {editConfig.bracket_type === 'ffa' ? 'active' : ''}" on:click={() => editConfig.bracket_type = 'ffa'}>FFA</button>
+													<button class="edit-toggle {editConfig.bracket_type === 'ffa' ? 'active' : ''}" on:click={() => editConfig.bracket_type = 'ffa'}>{$t('admin_tourneys_edit_format_ffa')}</button>
 
 												</div>
 
@@ -1145,15 +1207,15 @@
 
 											<div class="pts-grid">
 
-												<div class="pts-field"><label>🥇 1er</label><input type="number" bind:value={editConfig.pts_winner} min="0" /></div>
+												<div class="pts-field"><label>{$t("admin_settings_points_1st")}</label><input type="number" bind:value={editConfig.pts_winner} min="0" /></div>
 
-												<div class="pts-field"><label>🥈 2ème</label><input type="number" bind:value={editConfig.pts_second} min="0" /></div>
+												<div class="pts-field"><label>{$t("admin_settings_points_2nd")}</label><input type="number" bind:value={editConfig.pts_second} min="0" /></div>
 
-												<div class="pts-field"><label>🥉 3ème</label><input type="number" bind:value={editConfig.pts_third} min="0" /></div>
+												<div class="pts-field"><label>{$t("admin_settings_points_3rd")}</label><input type="number" bind:value={editConfig.pts_third} min="0" /></div>
 
 												<div class="pts-field"><label>👤 Parti.</label><input type="number" bind:value={editConfig.pts_participation} min="0" /></div>
 
-												<div class="pts-field"><label>⚡ Bonus/Score</label><input type="number" bind:value={editConfig.pts_per_match} min="0" step="0.1" /></div>
+												<div class="pts-field"><label>{$t("admin_settings_points_bonus")}</label><input type="number" bind:value={editConfig.pts_per_match} min="0" step="0.1" /></div>
 
 											</div>
 
@@ -1161,9 +1223,9 @@
 
 										<div class="ie-actions">
 
-											<button class="btn-secondary" on:click={() => inlineEditId = null}>Annuler</button>
+											<button class="btn-secondary" on:click={() => inlineEditId = null}>{$t('admin_settings_cancel')}</button>
 
-											<button class="btn-primary" on:click={() => { updateTournament(); inlineEditId = null; }}>💾 Enregistrer</button>
+											<button class="btn-primary" on:click={() => { updateTournament(); inlineEditId = null; }}>💾 {$t('admin_players_modal_btn_save')}</button>
 
 										</div>
 
@@ -1171,7 +1233,7 @@
 
 								{/if}
 
-								{#if promptPreviewId === t.id && promptPreviewText}
+								{#if promptPreviewId === tourney.id && promptPreviewText}
 									<div class="prompt-preview-panel">
 										<div class="prompt-preview-header">
 											<span>👁️ Prompt IA envoyé à Ollama</span>
@@ -1188,8 +1250,8 @@
 						{:else}
 							<div class="empty-list">
 								<span class="empty-icon">🏟️</span>
-								<p>Aucun tournoi créé</p>
-								<span class="text-xs text-dim">Utilisez le wizard à gauche pour en créer un</span>
+								<p>{$t('admin_tourneys_no_created')}</p>
+								<span class="text-xs text-dim">{$t("admin_tourneys_wizard_use_wizard")}</span>
 							</div>
 						{/each}
 					</div>
@@ -1204,26 +1266,26 @@
 						<div class="flex-row items-center gap-3">
 							<div class="list-icon">➕</div>
 							<div>
-								<h2 class="text-accent" style="margin:0">Ajouter un Jeu</h2>
-								<span class="text-xs text-dim">Enrichir la bibliothèque</span>
+								<h2 class="text-accent" style="margin:0">{$t("admin_games_add")}</h2>
+								<span class="text-xs text-dim">{$t("admin_games_add_subtitle")}</span>
 							</div>
 						</div>
 					</div>
 					<div class="flex-col gap-4">
-						<label>Nom du Jeu</label>
+						<label>{$t('admin_games_name_lbl')}</label>
 						<input type="text" bind:value={newGame.name} placeholder="Counter-Strike 2, Valorant..." on:input={() => searchQuery = newGame.name} />
 
 						<!-- Image Source Selector -->
-						<label>Illustration</label>
+						<label>{$t('admin_games_illus_lbl')}</label>
 						<div class="img-mode-tabs">
-							<button class="img-tab {gameImageMode === 'search' ? 'active' : ''}" on:click={() => gameImageMode = 'search'}>🔍 Chercher</button>
-							<button class="img-tab {gameImageMode === 'url' ? 'active' : ''}" on:click={() => gameImageMode = 'url'}>🔗 URL</button>
-							<button class="img-tab {gameImageMode === 'upload' ? 'active' : ''}" on:click={() => gameImageMode = 'upload'}>📁 Fichier</button>
+							<button class="img-tab {gameImageMode === 'search' ? 'active' : ''}" on:click={() => gameImageMode = 'search'}>{$t('admin_games_btn_search')}</button>
+							<button class="img-tab {gameImageMode === 'url' ? 'active' : ''}" on:click={() => gameImageMode = 'url'}>{$t('admin_games_btn_url')}</button>
+							<button class="img-tab {gameImageMode === 'upload' ? 'active' : ''}" on:click={() => gameImageMode = 'upload'}>{$t('admin_games_btn_file')}</button>
 						</div>
 
 						{#if gameImageMode === 'search'}
 							<div class="search-bar">
-								<input type="text" bind:value={searchQuery} placeholder="Rechercher un jeu..." on:keydown={(e) => e.key === 'Enter' && searchCovers()} />
+								<input type="text" bind:value={searchQuery} placeholder="{$t('admin_games_search_placeholder')}" on:keydown={(e) => e.key === 'Enter' && searchCovers()} />
 								<button class="btn-primary btn-sm" on:click={searchCovers} disabled={searching}>{searching ? '...' : '🔍'}</button>
 							</div>
 							{#if searchResults.length > 0}
@@ -1249,9 +1311,9 @@
 							</div>
 						{/if}
 
-						<label>Règles (Markdown)</label>
+						<label>{$t('admin_games_rules_lbl')}</label>
 						<textarea bind:value={newGame.rules} rows="4" placeholder="# Règles\n- ..."></textarea>
-						<button class="btn-primary" on:click={createGame} disabled={!newGame.name}>Valider l'Ajout</button>
+						<button class="btn-primary" on:click={createGame} disabled={!newGame.name}>{$t('admin_games_btn_submit')}</button>
 					</div>
 				</section>
 
@@ -1260,8 +1322,8 @@
 						<div class="flex-row items-center gap-3">
 							<div class="list-icon">🎮</div>
 							<div>
-								<h2 style="margin:0">Bibliothèque</h2>
-								<span class="text-xs text-dim">{games.length} jeu{games.length > 1 ? 'x' : ''} configuré{games.length > 1 ? 's' : ''}</span>
+								<h2 style="margin:0">{$t("admin_games_library")}</h2>
+								<span class="text-xs text-dim">{games.length > 1 ? $t("admin_games_library_count_many", { count: games.length }) : $t("admin_games_library_count_1", { count: games.length })}</span>
 							</div>
 						</div>
 					</div>
@@ -1271,12 +1333,12 @@
 								<div class="game-thumb" style="background-image: url({g.image_url})">
 									{#if !g.image_url}<span class="thumb-placeholder">🎮</span>{/if}
 									<div class="game-card-actions">
-										<button class="game-action-btn edit" on:click={() => openEditGame(g)} title="Éditer">✏️</button>
+										<button class="game-action-btn edit" on:click={() => openEditGame(g)} title="{$t('admin_tourneys_tooltip_edit')}">✏️</button>
 										{#if deleteConfirmGameId === g.id}
 											<button class="game-action-btn confirm" on:click={() => attemptDeleteGame(g)}>✓</button>
 											<button class="game-action-btn cancel" on:click={() => deleteConfirmGameId = null}>✕</button>
 										{:else}
-											<button class="game-action-btn delete" on:click={() => deleteConfirmGameId = g.id} title="Supprimer">🗑</button>
+											<button class="game-action-btn delete" on:click={() => deleteConfirmGameId = g.id} title="{$t('admin_tourneys_tooltip_delete')}">🗑</button>
 										{/if}
 									</div>
 								</div>
@@ -1335,13 +1397,13 @@
 
 							<label class="confirm-checkbox-label">
 								<input type="checkbox" bind:checked={deleteGameCheckboxConfirmed} />
-								<span>Je confirme vouloir supprimer le jeu et détruire définitivement tous les tournois et scores associés.</span>
+								<span>{$t('admin_games_nuke_confirm_checkbox')}</span>
 							</label>
 						</div>
 					</div>
 					<footer class="edit-modal-footer">
-						<button class="btn-secondary" on:click={() => gameToDeleteWithTournaments = null}>Annuler</button>
-						<button class="btn-danger-full" on:click={() => deleteGame(gameToDeleteWithTournaments.game.id, true)} disabled={!deleteGameCheckboxConfirmed}>Supprimer définitivement</button>
+						<button class="btn-secondary" on:click={() => gameToDeleteWithTournaments = null}>{$t('admin_settings_cancel')}</button>
+						<button class="btn-danger-full" on:click={() => deleteGame(gameToDeleteWithTournaments.game.id, true)} disabled={!deleteGameCheckboxConfirmed}>{$t('admin_games_nuke_btn_nuke')}</button>
 					</footer>
 				</div>
 			</div>
@@ -1360,15 +1422,15 @@
 					<div class="edit-modal-body">
 						<div class="flex-col gap-4">
 							<div class="edit-field full-width">
-								<label>Nom</label>
+								<label>{$t('admin_tourneys_edit_name')}</label>
 								<input type="text" bind:value={editGameData.name} />
 							</div>
 							<div class="edit-field full-width">
 								<label>Image</label>
 								<div class="img-mode-tabs">
-									<button class="img-tab {gameImageMode === 'search' ? 'active' : ''}" on:click={() => gameImageMode = 'search'}>🔍 Chercher</button>
-									<button class="img-tab {gameImageMode === 'url' ? 'active' : ''}" on:click={() => gameImageMode = 'url'}>🔗 URL</button>
-									<button class="img-tab {gameImageMode === 'upload' ? 'active' : ''}" on:click={() => gameImageMode = 'upload'}>📁 Fichier</button>
+									<button class="img-tab {gameImageMode === 'search' ? 'active' : ''}" on:click={() => gameImageMode = 'search'}>{$t('admin_games_btn_search')}</button>
+									<button class="img-tab {gameImageMode === 'url' ? 'active' : ''}" on:click={() => gameImageMode = 'url'}>{$t('admin_games_btn_url')}</button>
+									<button class="img-tab {gameImageMode === 'upload' ? 'active' : ''}" on:click={() => gameImageMode = 'upload'}>{$t('admin_games_btn_file')}</button>
 								</div>
 								{#if gameImageMode === 'search'}
 									<div class="search-bar mt-2">
@@ -1398,14 +1460,14 @@
 								{/if}
 							</div>
 							<div class="edit-field full-width">
-								<label>Règles (Markdown)</label>
+								<label>{$t('admin_games_rules_lbl')}</label>
 								<textarea bind:value={editGameData.rules} rows="6"></textarea>
 							</div>
 						</div>
 					</div>
 					<footer class="edit-modal-footer">
-						<button class="btn-secondary" on:click={() => editingGame = null}>Annuler</button>
-						<button class="btn-primary" on:click={saveEditGame}>💾 Enregistrer</button>
+						<button class="btn-secondary" on:click={() => editingGame = null}>{$t('admin_settings_cancel')}</button>
+						<button class="btn-primary" on:click={saveEditGame}>💾 {$t('admin_players_modal_btn_save')}</button>
 					</footer>
 				</div>
 			</div>
@@ -1419,13 +1481,13 @@
 					{/each}
 				</datalist>
 				<div class="flex-row justify-between items-center mb-4">
-					<h3>Joueurs inscrits <span class="t-count">{allPlayers.length}</span></h3>
+					<h3>{$t('admin_players_title')} <span class="t-count">{allPlayers.length}</span></h3>
 					<div class="flex-row gap-2">
 						<button class="btn-secondary btn-sm" on:click={() => showCreatePlayer = !showCreatePlayer}>
-							{showCreatePlayer ? '✕ Fermer' : '➕ Ajouter un joueur'}
+							{showCreatePlayer ? $t('admin_players_btn_cancel_close') : $t('admin_players_btn_add')}
 						</button>
 						<button class="btn-dev btn-sm" on:click={generateTestPool} disabled={generatingPool}>
-							{generatingPool ? '⏳ Génération...' : '🧪 Générer 20 joueurs test'}
+							{generatingPool ? $t('admin_players_generating') : $t('admin_players_btn_gen20')}
 						</button>
 					</div>
 				</div>
@@ -1434,20 +1496,20 @@
 					<div class="create-player-form glass-inner">
 						<div class="cpf-grid">
 							<div class="edit-field">
-								<label>Pseudo</label>
-								<input type="text" bind:value={newPlayerData.username} placeholder="ex: NightHawk" />
+								<label>{$t("admin_players_modal_pseudo")}</label>
+								<input type="text" bind:value={newPlayerData.username} placeholder="{$t('admin_players_pseudo_placeholder')}" />
 							</div>
 							<div class="edit-field">
-								<label>Mot de passe</label>
-								<input type="text" bind:value={newPlayerData.password} placeholder="lan2025" />
+								<label>{$t("admin_players_modal_password")}</label>
+								<input type="text" bind:value={newPlayerData.password} placeholder="{$t('admin_players_pwd_placeholder')}" />
 							</div>
 							<div class="edit-field">
-								<label>Équipe</label>
-								<input type="text" bind:value={newPlayerData.team_name} list="admin-existing-teams" placeholder="Optionnel" />
+								<label>{$t("admin_players_modal_team")}</label>
+								<input type="text" bind:value={newPlayerData.team_name} list="admin-existing-teams" placeholder="{$t('admin_players_team_placeholder')}" />
 							</div>
 							<div class="edit-field cpf-submit">
 								<button class="btn-primary" on:click={createPlayer} disabled={creatingPlayer || !newPlayerData.username.trim() || !newPlayerData.password.trim()}>
-									{creatingPlayer ? '⏳' : '✅'} Créer le joueur
+									{creatingPlayer ? '⏳' : '✅'} {$t("admin_players_modal_btn_create")}
 								</button>
 							</div>
 						</div>
@@ -1455,14 +1517,14 @@
 				{/if}
 
 				{#if allPlayers.length === 0}
-					<p class="text-dim text-xs">Aucun joueur inscrit.</p>
+					<p class="text-dim text-xs">{$t("admin_players_none_registered")}</p>
 				{:else}
 					<div class="players-table">
 						<div class="pt-header">
 							<span class="pt-col pt-id">#</span>
-							<span class="pt-col pt-name">Pseudo</span>
-							<span class="pt-col pt-team">Équipe</span>
-							<span class="pt-col pt-pts">Points</span>
+							<span class="pt-col pt-name">{$t("admin_players_hdr_pseudo")}</span>
+							<span class="pt-col pt-team">{$t("admin_players_hdr_team")}</span>
+							<span class="pt-col pt-pts">{$t("dash_modal_points_total")}</span>
 							<span class="pt-col pt-actions">Actions</span>
 						</div>
 						{#each allPlayers as p, i}
@@ -1474,35 +1536,35 @@
 									{/if}
 									<span>{p.username}</span>
 									{#if p.is_admin}<span class="admin-badge">⭐</span>{/if}
-									{#if p.ia_blocked}<span class="ia-blocked-badge" title="IA bloquée">🚫</span>{/if}
+									{#if p.ia_blocked}<span class="ia-blocked-badge" title="{$t('admin_players_ia_blocked_tooltip')}">🚫</span>{/if}
 								</span>
 								<span class="pt-col pt-team">{p.team_name || '—'}</span>
 								<span class="pt-col pt-pts">{p.points || 0}</span>
 								<span class="pt-col pt-actions">
 									{#if !p.is_admin}
-										<button class="btn-icon" title="Modifier" on:click={() => { editingPlayer = p; editPlayerData = { username: p.username, team_name: p.team_name || '', seat_id: p.seat_id || '', points: p.points || 0, is_admin: p.is_admin || false, ia_blocked: p.ia_blocked || false }; }}>✏️</button>
-										<button class="btn-icon" title="Réinitialiser MDP" on:click={() => { resetPwdPlayer = p; resetPwdValue = 'lan2025'; }}>🔑</button>
-										<button class="btn-icon {p.ia_blocked ? 'btn-icon-danger' : ''}" title="{p.ia_blocked ? 'Débloquer IA' : 'Bloquer IA'}" on:click={() => toggleIaBlocked(p)}>
+										<button class="btn-icon" title="{$t('admin_players_tooltip_edit')}" on:click={() => { editingPlayer = p; editPlayerData = { username: p.username, team_name: p.team_name || '', seat_id: p.seat_id || '', points: p.points || 0, is_admin: p.is_admin || false, ia_blocked: p.ia_blocked || false }; }}>✏️</button>
+										<button class="btn-icon" title="{$t('admin_players_tooltip_resetpw')}" on:click={() => { resetPwdPlayer = p; resetPwdValue = 'lan2025'; }}>🔑</button>
+										<button class="btn-icon {p.ia_blocked ? 'btn-icon-danger' : ''}" title="{p.ia_blocked ? $t('admin_players_tooltip_unblockai') : $t('admin_players_tooltip_blockai')}" on:click={() => toggleIaBlocked(p)}>
 											{p.ia_blocked ? '🔓' : '🚫'}
 										</button>
 										{#if promoteConfirmPlayerId === p.id}
-											<button class="btn-primary-sm" on:click={() => { toggleAdmin(p); promoteConfirmPlayerId = null; }}>Promouvoir ?</button>
+											<button class="btn-primary-sm" on:click={() => { toggleAdmin(p); promoteConfirmPlayerId = null; }}>{$t("admin_players_promote_confirm")}</button>
 											<button class="btn-icon" on:click={() => promoteConfirmPlayerId = null}>❌</button>
 										{:else}
-											<button class="btn-icon btn-icon-promote" title="Promouvoir admin" on:click={() => { promoteConfirmPlayerId = p.id; deleteConfirmPlayerId = null; demoteConfirmPlayerId = null; }}>👑</button>
+											<button class="btn-icon btn-icon-promote" title="{$t('admin_players_tooltip_promote')}" on:click={() => { promoteConfirmPlayerId = p.id; deleteConfirmPlayerId = null; demoteConfirmPlayerId = null; }}>👑</button>
 										{/if}
 										{#if deleteConfirmPlayerId === p.id}
-											<button class="btn-danger-sm" on:click={() => deletePlayer(p.id)}>Confirmer</button>
+											<button class="btn-danger-sm" on:click={() => deletePlayer(p.id)}>{$t("admin_players_delete_confirm")}</button>
 											<button class="btn-icon" on:click={() => deleteConfirmPlayerId = null}>❌</button>
 										{:else}
-											<button class="btn-icon btn-icon-danger" title="Supprimer" on:click={() => { deleteConfirmPlayerId = p.id; promoteConfirmPlayerId = null; demoteConfirmPlayerId = null; }}>🗑️</button>
+											<button class="btn-icon btn-icon-danger" title="{$t('admin_tourneys_tooltip_delete')}" on:click={() => { deleteConfirmPlayerId = p.id; promoteConfirmPlayerId = null; demoteConfirmPlayerId = null; }}>🗑️</button>
 										{/if}
 									{:else}
 										{#if demoteConfirmPlayerId === p.id}
-											<button class="btn-warning-sm" on:click={() => { toggleAdmin(p); demoteConfirmPlayerId = null; }}>Rétrograder ?</button>
+											<button class="btn-warning-sm" on:click={() => { toggleAdmin(p); demoteConfirmPlayerId = null; }}>{$t("admin_players_demote_confirm")}</button>
 											<button class="btn-icon" on:click={() => demoteConfirmPlayerId = null}>❌</button>
 										{:else}
-											<button class="btn-icon btn-icon-demote" title="Rétrograder joueur" on:click={() => { demoteConfirmPlayerId = p.id; promoteConfirmPlayerId = null; deleteConfirmPlayerId = null; }}>🛡️</button>
+											<button class="btn-icon btn-icon-demote" title="{$t('admin_players_tooltip_demote')}" on:click={() => { demoteConfirmPlayerId = p.id; promoteConfirmPlayerId = null; deleteConfirmPlayerId = null; }}>🛡️</button>
 										{/if}
 									{/if}
 								</span>
@@ -1531,7 +1593,7 @@
 								</div>
 							{/if}
 							<div class="edit-field mb-3">
-								<label>Pseudo</label>
+								<label>{$t("admin_players_modal_pseudo")}</label>
 								<input type="text" bind:value={editPlayerData.username} />
 							</div>
 							<div class="edit-field mb-3">
@@ -1556,8 +1618,8 @@
 							</div>
 						</div>
 						<footer class="edit-modal-footer">
-							<button class="btn-secondary" on:click={() => editingPlayer = null}>Annuler</button>
-							<button class="btn-primary" on:click={savePlayer}>💾 Enregistrer</button>
+							<button class="btn-secondary" on:click={() => editingPlayer = null}>{$t('admin_settings_cancel')}</button>
+							<button class="btn-primary" on:click={savePlayer}>💾 {$t('admin_players_modal_btn_save')}</button>
 						</footer>
 					</div>
 				</div>
@@ -1579,7 +1641,7 @@
 							</div>
 						</div>
 						<footer class="edit-modal-footer">
-							<button class="btn-secondary" on:click={() => resetPwdPlayer = null}>Annuler</button>
+							<button class="btn-secondary" on:click={() => resetPwdPlayer = null}>{$t('admin_settings_cancel')}</button>
 							<button class="btn-primary" on:click={resetPassword}>✅ Réinitialiser</button>
 						</footer>
 					</div>
@@ -1591,10 +1653,10 @@
 				<!-- Settings Sub-Tabs -->
 				<div class="settings-tabs">
 					<button class="stab" class:active={!settingsSubTab || settingsSubTab === 'general'} on:click={() => settingsSubTab = 'general'}>
-						<span class="stab-icon">⚙️</span> Général
+						<span class="stab-icon">⚙️</span> {$t("admin_settings_tab_general")}
 					</button>
 					<button class="stab" class:active={settingsSubTab === 'ia'} on:click={() => settingsSubTab = 'ia'}>
-						<span class="stab-icon">🤖</span> Intelligence Artificielle
+						<span class="stab-icon">🤖</span> {$t("admin_settings_tab_ai")}
 					</button>
 				</div>
 
@@ -1605,13 +1667,13 @@
 						<div class="sc-head">
 							<div class="sc-icon">🏷️</div>
 							<div>
-								<h3>Nom de la LAN</h3>
-								<p class="sc-sub">Visible sur le Dashboard et la vue Projecteur</p>
+								<h3>{$t("admin_settings_lan_name")}</h3>
+								<p class="sc-sub">{$t("admin_settings_lan_name_sub")}</p>
 							</div>
 						</div>
 						<div class="sc-body">
 							<div class="flex-row gap-2">
-								<input type="text" bind:value={eventName} on:input={() => debounceSave('eventName', saveEventName)} placeholder="Nom de l'événement" style="flex:1" />
+								<input type="text" bind:value={eventName} on:input={() => debounceSave('eventName', saveEventName)} placeholder="{$t('admin_settings_lan_name_placeholder')}" style="flex:1" />
 							</div>
 						</div>
 					</div>
@@ -1620,21 +1682,21 @@
 						<div class="sc-head">
 							<div class="sc-icon">📊</div>
 							<div>
-								<h3>Classement Équipes</h3>
-								<p class="sc-sub">Mode de calcul des points par équipe</p>
+								<h3>{$t("admin_settings_team_scoring")}</h3>
+								<p class="sc-sub">{$t("admin_settings_team_scoring_sub")}</p>
 							</div>
 						</div>
 						<div class="sc-body">
 							<div class="scoring-toggle">
 								<button class="score-opt {teamScoringMode === 'weighted' ? 'active' : ''}" on:click={() => { teamScoringMode = 'weighted'; saveTeamScoringMode(); }}>
 									<span class="score-opt-icon">📊</span>
-									<span class="score-opt-label">Pondéré</span>
-									<span class="score-opt-desc">Moyenne par membre</span>
+									<span class="score-opt-label">{$t("admin_settings_scoring_weighted_label")}</span>
+									<span class="score-opt-desc">{$t("admin_settings_scoring_weighted_desc")}</span>
 								</button>
 								<button class="score-opt {teamScoringMode === 'raw' ? 'active' : ''}" on:click={() => { teamScoringMode = 'raw'; saveTeamScoringMode(); }}>
 									<span class="score-opt-icon">📈</span>
-									<span class="score-opt-label">Somme brute</span>
-									<span class="score-opt-desc">Total cumulé</span>
+									<span class="score-opt-label">{$t("admin_settings_scoring_raw_label")}</span>
+									<span class="score-opt-desc">{$t("admin_settings_scoring_raw_desc")}</span>
 								</button>
 							</div>
 						</div>
@@ -1644,28 +1706,29 @@
 						<div class="sc-head">
 							<div class="sc-icon">🏆</div>
 							<div>
-								<h3>Points par défaut</h3>
-								<p class="sc-sub">Valeurs utilisées lors de la création d'un nouveau tournoi</p>
+								<h3>{$t("admin_settings_default_pts")}</h3>
+								<p class="sc-sub">{$t("admin_settings_default_pts_sub")}</p>
 							</div>
 						</div>
 						<div class="sc-body">
 							<div class="default-pts-grid">
-								<div class="dpt-field"><label>🥇 1er</label><input type="number" bind:value={defaultPts.pts_winner} on:change={saveDefaultPts} min="0" /></div>
-								<div class="dpt-field"><label>🥈 2ème</label><input type="number" bind:value={defaultPts.pts_second} on:change={saveDefaultPts} min="0" /></div>
-								<div class="dpt-field"><label>🥉 3ème</label><input type="number" bind:value={defaultPts.pts_third} on:change={saveDefaultPts} min="0" /></div>
-								<div class="dpt-field"><label>👤 Parti./match</label><input type="number" bind:value={defaultPts.pts_participation} on:change={saveDefaultPts} min="0" /></div>
-								<div class="dpt-field"><label>⚡ Bonus/Score</label><input type="number" bind:value={defaultPts.pts_per_match} on:change={saveDefaultPts} min="0" step="0.1" /></div>
+								<div class="dpt-field"><label>{$t("admin_settings_points_1st")}</label><input type="number" bind:value={defaultPts.pts_winner} on:change={saveDefaultPts} min="0" /></div>
+								<div class="dpt-field"><label>{$t("admin_settings_points_2nd")}</label><input type="number" bind:value={defaultPts.pts_second} on:change={saveDefaultPts} min="0" /></div>
+								<div class="dpt-field"><label>{$t("admin_settings_points_3rd")}</label><input type="number" bind:value={defaultPts.pts_third} on:change={saveDefaultPts} min="0" /></div>
+								<div class="dpt-field"><label>{$t("admin_settings_points_part")}</label><input type="number" bind:value={defaultPts.pts_participation} on:change={saveDefaultPts} min="0" /></div>
+								<div class="dpt-field"><label>{$t("admin_settings_points_bonus")}</label><input type="number" bind:value={defaultPts.pts_per_match} on:change={saveDefaultPts} min="0" step="0.1" /></div>
 							</div>
 						</div>
 					</div>
+
 
 					<!-- Danger Zone -->
 					<div class="sc danger-zone sc-full">
 						<div class="sc-head">
 							<div class="sc-icon">☢️</div>
 							<div>
-								<h3 style="color: var(--danger)">Zone Dangereuse</h3>
-								<p class="sc-sub">Actions irréversibles — supprimer des données en masse</p>
+								<h3 style="color: var(--danger)">{$t("admin_settings_danger_zone")}</h3>
+								<p class="sc-sub">{$t("admin_settings_danger_zone_sub")}</p>
 							</div>
 						</div>
 						<div class="sc-body">
@@ -1675,20 +1738,20 @@
 									<div class="nuke-info">
 										<span class="nuke-icon">🏆</span>
 										<div>
-											<strong>Supprimer tous les tournois</strong>
-											<p>Tournois, scores, équipes, participants. Remet les points joueurs à 0.</p>
+											<strong>{$t("admin_settings_del_tourneys")}</strong>
+											<p>{$t("admin_settings_del_tourneys_sub")}</p>
 										</div>
 									</div>
 									{#if nukeConfirm.tournaments}
 										<div class="nuke-confirm">
-											<span class="text-danger text-xs font-bold">Confirmer la suppression ?</span>
+											<span class="text-danger text-xs font-bold">{$t("admin_settings_confirm_delete_q")}</span>
 											<button class="btn-danger-sm" on:click={nukeTournaments} disabled={nuking.tournaments}>
-												{nuking.tournaments ? '⏳...' : '🗑️ Supprimer'}
+												{nuking.tournaments ? '⏳...' : $t("admin_settings_del_tourneys_btn_confirm")}
 											</button>
-											<button class="btn-secondary btn-xs" on:click={() => nukeConfirm.tournaments = false}>Annuler</button>
+											<button class="btn-secondary btn-xs" on:click={() => nukeConfirm.tournaments = false}>{$t('admin_settings_cancel')}</button>
 										</div>
 									{:else}
-										<button class="btn-outline-danger" on:click={() => nukeConfirm.tournaments = true}>Supprimer les tournois</button>
+										<button class="btn-outline-danger" on:click={() => nukeConfirm.tournaments = true}>{$t('admin_settings_del_tourneys_btn')}</button>
 									{/if}
 								</div>
 
@@ -1697,20 +1760,20 @@
 									<div class="nuke-info">
 										<span class="nuke-icon">👥</span>
 										<div>
-											<strong>Supprimer tous les joueurs</strong>
-											<p>Supprime tous les comptes non-admin et leurs données associées.</p>
+											<strong>{$t("admin_settings_del_players")}</strong>
+											<p>{$t("admin_settings_del_players_sub")}</p>
 										</div>
 									</div>
 									{#if nukeConfirm.players}
 										<div class="nuke-confirm">
-											<span class="text-danger text-xs font-bold">Confirmer la suppression ?</span>
+											<span class="text-danger text-xs font-bold">{$t("admin_settings_confirm_delete_q")}</span>
 											<button class="btn-danger-sm" on:click={nukePlayers} disabled={nuking.players}>
-												{nuking.players ? '⏳...' : '🗑️ Supprimer'}
+												{nuking.players ? '⏳...' : $t("admin_settings_del_tourneys_btn_confirm")}
 											</button>
-											<button class="btn-secondary btn-xs" on:click={() => nukeConfirm.players = false}>Annuler</button>
+											<button class="btn-secondary btn-xs" on:click={() => nukeConfirm.players = false}>{$t('admin_settings_cancel')}</button>
 										</div>
 									{:else}
-										<button class="btn-outline-danger" on:click={() => nukeConfirm.players = true}>Supprimer les joueurs</button>
+										<button class="btn-outline-danger" on:click={() => nukeConfirm.players = true}>{$t('admin_settings_del_players_btn')}</button>
 									{/if}
 								</div>
 
@@ -1719,20 +1782,20 @@
 									<div class="nuke-info">
 										<span class="nuke-icon">🎮</span>
 										<div>
-											<strong>Supprimer tous les jeux</strong>
-											<p>Supprime la bibliothèque de jeux, ce qui supprime aussi tous les tournois.</p>
+											<strong>{$t("admin_settings_del_games")}</strong>
+											<p>{$t("admin_settings_del_games_sub")}</p>
 										</div>
 									</div>
 									{#if nukeConfirm.games}
 										<div class="nuke-confirm">
-											<span class="text-danger text-xs font-bold">⚠️ TOUT sera supprimé !</span>
+											<span class="text-danger text-xs font-bold">{$t("admin_settings_delete_confirm_warning")}</span>
 											<button class="btn-danger-sm" on:click={nukeGames} disabled={nuking.games}>
-												{nuking.games ? '⏳...' : '☢️ Tout supprimer'}
+												{nuking.games ? '⏳...' : $t("admin_settings_del_games_btn_confirm")}
 											</button>
-											<button class="btn-secondary btn-xs" on:click={() => nukeConfirm.games = false}>Annuler</button>
+											<button class="btn-secondary btn-xs" on:click={() => nukeConfirm.games = false}>{$t('admin_settings_cancel')}</button>
 										</div>
 									{:else}
-										<button class="btn-outline-danger" on:click={() => nukeConfirm.games = true}>Supprimer les jeux</button>
+										<button class="btn-outline-danger" on:click={() => nukeConfirm.games = true}>{$t('admin_settings_del_games_btn')}</button>
 									{/if}
 								</div>
 								<!-- Nuke Images -->
@@ -1740,20 +1803,20 @@
 									<div class="nuke-info">
 										<span class="nuke-icon">🗑️</span>
 										<div>
-											<strong>Purger les images du chat</strong>
-											<p>Supprime toutes les images jointes aux conversations IA</p>
+											<strong>{$t("admin_settings_purge_chat")}</strong>
+											<p>{$t("admin_settings_purge_chat_sub")}</p>
 										</div>
 									</div>
 									{#if nukeConfirm.images}
 										<div class="nuke-confirm">
-											<span class="text-danger text-xs font-bold">⚠️ Toutes les images seront supprimées !</span>
+											<span class="text-danger text-xs font-bold">{$t("admin_settings_delete_confirm_images")}</span>
 											<button class="btn-danger-sm" on:click={nukeImages} disabled={nuking.images}>
-												{nuking.images ? '⏳...' : '☢️ Tout supprimer'}
+												{nuking.images ? '⏳...' : $t("admin_settings_del_games_btn_confirm")}
 											</button>
-											<button class="btn-secondary btn-xs" on:click={() => nukeConfirm.images = false}>Annuler</button>
+											<button class="btn-secondary btn-xs" on:click={() => nukeConfirm.images = false}>{$t('admin_settings_cancel')}</button>
 										</div>
 									{:else}
-										<button class="btn-outline-danger" on:click={() => nukeConfirm.images = true}>Purger les images</button>
+										<button class="btn-outline-danger" on:click={() => nukeConfirm.images = true}>{$t('admin_settings_purge_chat_btn')}</button>
 									{/if}
 								</div>
 
@@ -1762,20 +1825,20 @@
 									<div class="nuke-info">
 										<span class="nuke-icon">🔔</span>
 										<div>
-											<strong>Purger les notifications</strong>
-											<p>Supprime toutes les notifications de tous les joueurs</p>
+											<strong>{$t("admin_settings_purge_notifs")}</strong>
+											<p>{$t("admin_settings_purge_notifs_sub")}</p>
 										</div>
 									</div>
 									{#if nukeConfirm.notifications}
 										<div class="nuke-confirm">
-											<span class="text-danger text-xs font-bold">⚠️ Toutes les notifications seront supprimées !</span>
+											<span class="text-danger text-xs font-bold">{$t("admin_settings_delete_confirm_notifs")}</span>
 											<button class="btn-danger-sm" on:click={nukeNotifications} disabled={nuking.notifications}>
-												{nuking.notifications ? '⏳...' : '☢️ Tout supprimer'}
+												{nuking.notifications ? '⏳...' : $t("admin_settings_del_games_btn_confirm")}
 											</button>
-											<button class="btn-secondary btn-xs" on:click={() => nukeConfirm.notifications = false}>Annuler</button>
+											<button class="btn-secondary btn-xs" on:click={() => nukeConfirm.notifications = false}>{$t('admin_settings_cancel')}</button>
 										</div>
 									{:else}
-										<button class="btn-outline-danger" on:click={() => nukeConfirm.notifications = true}>Purger les notifications</button>
+										<button class="btn-outline-danger" on:click={() => nukeConfirm.notifications = true}>{$t('admin_settings_purge_notifs')}</button>
 									{/if}
 								</div>
 
@@ -1784,20 +1847,20 @@
 									<div class="nuke-info">
 										<span class="nuke-icon">🏆</span>
 										<div>
-											<strong>Purger les prix & distinctions</strong>
-											<p>Supprime tous les prix et distinctions décernés aux joueurs</p>
+											<strong>{$t("admin_settings_purge_awards") || $t("admin_settings_purge_notifs")}</strong>
+											<p>{$t("admin_settings_purge_awards_sub") || "Deletes all prizes and distinctions awarded to players"}</p>
 										</div>
 									</div>
 									{#if nukeConfirm.awards}
 										<div class="nuke-confirm">
-											<span class="text-danger text-xs font-bold">⚠️ Tous les prix seront supprimés !</span>
+											<span class="text-danger text-xs font-bold">{$t("admin_settings_delete_confirm_awards")}</span>
 											<button class="btn-danger-sm" on:click={nukeAwards} disabled={nuking.awards}>
-												{nuking.awards ? '⏳...' : '☢️ Tout supprimer'}
+												{nuking.awards ? '⏳...' : $t("admin_settings_del_games_btn_confirm")}
 											</button>
-											<button class="btn-secondary btn-xs" on:click={() => nukeConfirm.awards = false}>Annuler</button>
+											<button class="btn-secondary btn-xs" on:click={() => nukeConfirm.awards = false}>{$t('admin_settings_cancel')}</button>
 										</div>
 									{:else}
-										<button class="btn-outline-danger" on:click={() => nukeConfirm.awards = true}>Purger les prix</button>
+										<button class="btn-outline-danger" on:click={() => nukeConfirm.awards = true}>{$t('admin_settings_purge_awards') || 'Purger les prix'}</button>
 									{/if}
 								</div>
 							</div>
@@ -1813,30 +1876,30 @@
 						<div class="sc-head">
 							<div class="sc-icon">📋</div>
 							<div style="flex:1">
-								<h3>File d'attente IA</h3>
-								<p class="sc-sub">Requêtes en attente et en cours de traitement</p>
+								<h3>{$t('admin_settings_ai_queue')}</h3>
+								<p class="sc-sub">{$t("admin_settings_ai_queue_sub")}</p>
 							</div>
 							<div class="queue-stats-badges">
-								<span class="queue-stat-badge pending" title="En attente">⏳ {iaQueueData.queue_size}</span>
-								<span class="queue-stat-badge active" title="En cours">⚡ {iaQueueData.active_count}</span>
-								<span class="queue-stat-badge avg" title="Durée moyenne">⏱️ {iaQueueData.avg_duration}s</span>
+								<span class="queue-stat-badge pending" title="{$t('admin_settings_queue_pending')}">⏳ {iaQueueData.queue_size}</span>
+								<span class="queue-stat-badge active" title="{$t('admin_settings_queue_processing')}">⚡ {iaQueueData.active_count}</span>
+								<span class="queue-stat-badge avg" title="{$t('admin_settings_queue_avg_duration')}">⏱️ {iaQueueData.avg_duration}s</span>
 							</div>
 						</div>
 						<div class="sc-body">
 							{#if iaQueueData.active.length > 0}
-								<div class="queue-section-label">⚡ En cours de traitement</div>
+								<div class="queue-section-label">{$t("admin_settings_queue_processing")}</div>
 								{#each iaQueueData.active as entry}
 									<div class="queue-row active">
 										<span class="queue-row-type">{entry.task_type === 'chat' ? '💬' : entry.task_type === 'compress' ? '🗜️' : '🏆'}</span>
 										<span class="queue-row-user">{entry.username || '—'}</span>
 										<span class="queue-row-type-label">{entry.task_type}</span>
 										<span class="queue-row-time">{entry.processing_since}s</span>
-										<button class="queue-cancel-btn" on:click|stopPropagation={() => cancelQueueEntry(entry.id)} title="Annuler">❌</button>
+										<button class="queue-cancel-btn" on:click|stopPropagation={() => cancelQueueEntry(entry.id)} title="{$t('admin_settings_queue_cancel_tooltip')}">❌</button>
 									</div>
 								{/each}
 							{/if}
 							{#if iaQueueData.pending.length > 0}
-								<div class="queue-section-label" style="margin-top:{iaQueueData.active.length > 0 ? '0.75rem' : '0'}">⏳ En attente</div>
+								<div class="queue-section-label" style="margin-top:{iaQueueData.active.length > 0 ? '0.75rem' : '0'}">{$t("admin_settings_queue_pending")}</div>
 								{#each iaQueueData.pending as entry}
 									<div class="queue-row">
 										<span class="queue-row-pos">#{entry.position}</span>
@@ -1844,12 +1907,12 @@
 										<span class="queue-row-user">{entry.username || '—'}</span>
 										<span class="queue-row-type-label">{entry.task_type}</span>
 										<span class="queue-row-time">{entry.waiting_since}s</span>
-										<button class="queue-cancel-btn" on:click|stopPropagation={() => cancelQueueEntry(entry.id)} title="Annuler">❌</button>
+										<button class="queue-cancel-btn" on:click|stopPropagation={() => cancelQueueEntry(entry.id)} title="{$t('admin_settings_queue_cancel_tooltip')}">❌</button>
 									</div>
 								{/each}
 							{/if}
 							{#if iaQueueData.active.length === 0 && iaQueueData.pending.length === 0}
-								<div class="queue-empty">✅ Aucune requête en file — le GPU est libre</div>
+								<div class="queue-empty">✅ {$t("admin_settings_ai_queue_empty")}</div>
 							{/if}
 						</div>
 					</div>
@@ -1859,8 +1922,8 @@
 						<div class="sc-head">
 							<div class="sc-icon">🖥️</div>
 							<div style="flex:1">
-								<h3>Instances Ollama</h3>
-								<p class="sc-sub">Serveurs distribués pour les requêtes IA — triés par priorité</p>
+								<h3>{$t('admin_settings_ai_instances')}</h3>
+								<p class="sc-sub">{$t("admin_settings_ai_instances_sub")}</p>
 							</div>
 							<button class="btn-add btn-xs" on:click={addInstance}>+ Ajouter</button>
 						</div>
@@ -1875,7 +1938,7 @@
 									</div>
 									<div class="inst-status">{status?.online ? '🟢' : '🔴'}</div>
 									<div class="inst-main">
-										<input type="text" class="inst-name-input" bind:value={inst.label} on:change={saveIAConfig} placeholder="GPU1 — Nom" />
+										<input type="text" class="inst-name-input" bind:value={inst.label} on:change={saveIAConfig} placeholder="{$t('admin_settings_instances_gpu_placeholder')}" />
 										<div class="inst-meta">
 											<input type="text" class="inst-url-input" bind:value={inst.url} on:change={saveIAConfig} placeholder="http://..." />
 											<select bind:value={inst.model} on:change={saveIAConfig} class="inst-model-select">
@@ -1898,11 +1961,11 @@
 											<span class="toggle-slider"></span>
 										</label>
 										<button class="inst-btn-mini" on:click={() => testInstance(idx)} title="Tester">🔍</button>
-										<button class="inst-btn-mini danger" on:click={() => removeInstance(idx)} title="Supprimer">✕</button>
+										<button class="inst-btn-mini danger" on:click={() => removeInstance(idx)} title="{$t('admin_tourneys_tooltip_delete')}">✕</button>
 									</div>
 								</div>
 							{:else}
-								<div class="inst-empty">Aucune instance configurée</div>
+								<div class="inst-empty">{$t("admin_settings_instances_empty")}</div>
 							{/each}
 						</div>
 					</div>
@@ -1912,17 +1975,17 @@
 						<div class="sc-head compact">
 							<div class="sc-icon sm">⚙️</div>
 							<div style="flex:1">
-								<h3>Configuration du Modèle</h3>
-								<p class="sc-sub">Paramètres fins du comportement et du contexte de l'IA</p>
+								<h3>{$t('admin_settings_ai_model_cfg')}</h3>
+								<p class="sc-sub">{$t('admin_settings_ai_model_cfg_sub')}</p>
 							</div>
 						</div>
 						<div class="sc-body" style="gap: 0.8rem;">
 							<!-- Temperature -->
 							<div>
 								<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem;">
-									<label class="compact-label">Température: <strong>{iaConfig.temperature}</strong></label>
+									<label class="compact-label">{$t('admin_settings_ai_temp')} <strong>{iaConfig.temperature}</strong></label>
 									<span class="range-hint text-xs" style="color: var(--text-muted); font-size: 0.65rem;">
-										{iaConfig.temperature <= 0.3 ? 'Précis' : iaConfig.temperature >= 0.7 ? 'Créatif' : 'Équilibré'}
+										{iaConfig.temperature <= 0.3 ? $t('admin_settings_ai_temp_precise') : iaConfig.temperature >= 0.7 ? $t('admin_settings_ai_temp_creative') : $t('admin_settings_ai_temp_balanced')}
 									</span>
 								</div>
 								<input type="range" bind:value={iaConfig.temperature} on:change={saveIAConfig} min="0" max="1" step="0.1" class="range-accent" style="width: 100%;" />
@@ -1931,7 +1994,7 @@
 							<!-- Context Window -->
 							<div>
 								<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem;">
-									<label class="compact-label">Contexte: <strong>{iaConfig.context_window} tokens</strong></label>
+									<label class="compact-label">{$t('admin_settings_ai_context')} <strong>{iaConfig.context_window} tokens</strong></label>
 									<input 
 										type="number" 
 										bind:value={iaConfig.context_window} 
@@ -1957,7 +2020,7 @@
 
 							<!-- Embedding Model -->
 							<div>
-								<label class="compact-label" style="margin-bottom: 0.2rem; display: block;">Modèle d'Embedding (RAG)</label>
+								<label class="compact-label" style="margin-bottom: 0.2rem; display: block;">{$t('admin_settings_ai_rag_model')}</label>
 								<select bind:value={iaConfig.embedding_model} on:change={saveIAConfig} class="inst-model-select-wide">
 									<option value="">— Auto (nomic-embed-text) —</option>
 									{#each availableModels.filter(m => m.name.includes('embed')) as m}
@@ -1968,7 +2031,7 @@
 
 							<!-- Network Tools -->
 							<div style="display: flex; align-items: center; justify-content: space-between; padding-top: 0.4rem; border-top: 1px solid var(--glass-border);">
-								<span class="compact-label" style="font-weight: 600;">Outils Réseau & Diagnostic</span>
+								<span class="compact-label" style="font-weight: 600;">{$t('admin_settings_ai_tools')}</span>
 								<label class="toggle-switch-mini">
 									<input type="checkbox" bind:checked={iaConfig.network_tools_enabled} on:change={saveIAConfig} />
 									<span class="toggle-slider"></span>
@@ -1977,7 +2040,7 @@
 
 							<!-- Auto-moderation -->
 							<div style="display: flex; align-items: center; justify-content: space-between; padding-top: 0.4rem; border-top: 1px solid var(--glass-border);">
-								<span class="compact-label" style="font-weight: 600;">Auto-modération (Anti-abus)</span>
+								<span class="compact-label" style="font-weight: 600;">{$t('admin_settings_ai_moderation')}</span>
 								<label class="toggle-switch-mini">
 									<input type="checkbox" bind:checked={iaConfig.auto_moderation_enabled} on:change={saveIAConfig} />
 									<span class="toggle-slider"></span>
@@ -1991,19 +2054,19 @@
 						<div class="sc-head compact">
 							<div class="sc-icon sm">💬</div>
 							<div style="flex:1">
-								<h3>Prompts de l'IA</h3>
-								<p class="sc-sub">Définissez la personnalité et les règles de réponse de l'IA</p>
+								<h3>{$t('admin_settings_ai_prompts')}</h3>
+								<p class="sc-sub">{$t('admin_settings_ai_prompts_sub')}</p>
 							</div>
 						</div>
 						<div class="sc-body" style="gap: 0.75rem; flex: 1; display: flex; flex-direction: column;">
 							<div class="prompts-container" style="flex: 1;">
 								<div style="display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; flex: 1;">
-									<label class="compact-label">Prompt Système</label>
-									<textarea class="prompt-textarea-compact" bind:value={systemPrompt} on:input={() => debounceSave('systemPrompt', saveSystemPrompt)} placeholder="Tu es Alanbix, l'IA..." rows="8" style="flex: 1; height: 100%; resize: none;"></textarea>
+									<label class="compact-label">{$t('admin_settings_ai_prompt_sys')}</label>
+									<textarea class="prompt-textarea-compact" bind:value={systemPrompt} on:input={() => debounceSave('systemPrompt', saveSystemPrompt)} placeholder="{$t('admin_settings_ai_prompt_sys_placeholder')}" rows="8" style="flex: 1; height: 100%; resize: none;"></textarea>
 								</div>
 								<div style="display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; flex: 1;">
-									<label class="compact-label">Prompt Clôture Tournoi</label>
-									<textarea class="prompt-textarea-compact" bind:value={closingPrompt} on:input={() => debounceSave('closingPrompt', saveClosingPrompt)} placeholder="Félicitations aux vainqueurs..." rows="6" style="flex: 1; height: 100%; resize: none;"></textarea>
+									<label class="compact-label">{$t('admin_settings_ai_prompt_close')}</label>
+									<textarea class="prompt-textarea-compact" bind:value={closingPrompt} on:input={() => debounceSave('closingPrompt', saveClosingPrompt)} placeholder="{$t('admin_settings_ai_prompt_close_placeholder')}" rows="6" style="flex: 1; height: 100%; resize: none;"></textarea>
 								</div>
 							</div>
 						</div>
@@ -2014,8 +2077,8 @@
 						<div class="sc-head">
 							<div class="sc-icon">📚</div>
 							<div style="flex:1">
-								<h3>Base de Connaissances RAG</h3>
-								<p class="sc-sub">Injectez des données pour spécialiser l'IA</p>
+								<h3>{$t('admin_settings_ai_rag')}</h3>
+								<p class="sc-sub">{$t('admin_settings_ai_rag_sub')}</p>
 							</div>
 							<span class="badge-count">{knowledgeDocs.length}</span>
 						</div>
@@ -2028,28 +2091,28 @@
 											<div class="rag-item-main">
 												<div class="rag-item-header">
 													<span class="rag-id">#{doc.id}</span>
-													<span class="rag-size">{doc.content_length} car.</span>
+													<span class="rag-size">{doc.content_length} {$t("admin_settings_ai_rag_chars")}</span>
 													{#if doc.has_embedding}
-														<span class="rag-embed-badge">✅ Vectorisé</span>
+														<span class="rag-embed-badge">{$t("admin_settings_ai_rag_vectorized")}</span>
 													{:else}
-														<span class="rag-embed-badge no">⚠️ Non vectorisé</span>
+														<span class="rag-embed-badge no">{$t("admin_settings_ai_rag_non_vectorized")}</span>
 													{/if}
 												</div>
 												{#if editingDocId === doc.id}
 													{#if editDocLoading}
-														<div class="rag-edit-loading">⏳ Chargement...</div>
+														<div class="rag-edit-loading">{$t("admin_settings_ai_rag_edit_loading")}</div>
 													{:else}
 														<textarea class="rag-edit-textarea" bind:value={editDocContent} rows="8" disabled={editDocSaving}></textarea>
 														{#if editDocSaving}
 															<div class="rag-vectorize-anim">
 																<div class="rag-vectorize-bar"></div>
-																<span class="rag-vectorize-label">🧬 Re-vectorisation en cours…</span>
+																<span class="rag-vectorize-label">{$t("admin_settings_ai_rag_vectorizing")}</span>
 															</div>
 														{:else}
 															<div class="rag-edit-actions">
-																<span class="rag-edit-chars">{editDocContent.length} car.</span>
-																<button class="btn-secondary btn-xs" on:click={() => { editingDocId = null; editDocContent = ''; }}>✕ Annuler</button>
-																<button class="btn-primary btn-xs" on:click={saveKnowledgeEdit} disabled={!editDocContent.trim()}>💾 Sauvegarder & Re-vectoriser</button>
+																<span class="rag-edit-chars">{editDocContent.length} {$t("admin_settings_ai_rag_chars")}</span>
+																<button class="btn-secondary btn-xs" on:click={() => { editingDocId = null; editDocContent = ''; }}>✕ {$t('admin_settings_cancel')}</button>
+																<button class="btn-primary btn-xs" on:click={saveKnowledgeEdit} disabled={!editDocContent.trim()}>{$t("admin_settings_ai_rag_btn_save_vectorize")}</button>
 															</div>
 														{/if}
 													{/if}
@@ -2058,8 +2121,8 @@
 												{/if}
 											</div>
 											<div class="rag-item-actions">
-												<button class="btn-icon" title="Éditer" on:click={() => editKnowledge(doc.id)}>{editingDocId === doc.id ? '✕' : '✏️'}</button>
-												<button class="btn-icon btn-icon-danger" title="Supprimer" on:click={() => deleteKnowledge(doc.id)}>🗑️</button>
+												<button class="btn-icon" title="{$t('admin_tourneys_tooltip_edit')}" on:click={() => editKnowledge(doc.id)}>{editingDocId === doc.id ? '✕' : '✏️'}</button>
+												<button class="btn-icon btn-icon-danger" title="{$t('admin_tourneys_tooltip_delete')}" on:click={() => deleteKnowledge(doc.id)}>🗑️</button>
 											</div>
 										</div>
 									{/each}
@@ -2067,20 +2130,20 @@
 							{:else}
 								<div class="rag-empty">
 									<span>📭</span>
-									<p>Aucun document dans la base de connaissances.</p>
+									<p>{$t("admin_settings_ai_rag_empty")}</p>
 								</div>
 							{/if}
 
 							<!-- Add new document -->
 							<div class="rag-add-section">
-								<textarea bind:value={newDocContent} placeholder="Copiez-collez ici vos tutoriels, patchnotes ou règles spécifiques..." class="prompt-textarea" rows="3" disabled={uploadingDoc}></textarea>
+								<textarea bind:value={newDocContent} placeholder="{$t('admin_settings_ai_rag_placeholder')}" class="prompt-textarea" rows="3" disabled={uploadingDoc}></textarea>
 								{#if uploadingDoc}
 									<div class="rag-vectorize-anim">
 										<div class="rag-vectorize-bar"></div>
-										<span class="rag-vectorize-label">🧬 Vectorisation en cours… ({newDocContent.length} car.)</span>
+										<span class="rag-vectorize-label">{$t("admin_settings_ai_rag_vectorizing_new", { count: newDocContent.length })}</span>
 									</div>
 								{:else}
-									<button class="btn-primary btn-xs" on:click={uploadRagDoc} style="align-self:flex-end;margin-top:0.5rem;" disabled={!newDocContent.trim()}>🚀 Vectoriser & Ajouter</button>
+									<button class="btn-primary btn-xs" on:click={uploadRagDoc} style="align-self:flex-end;margin-top:0.5rem;" disabled={!newDocContent.trim()}>{$t("admin_settings_ai_rag_btn_add")}</button>
 								{/if}
 							</div>
 						</div>
@@ -2097,8 +2160,8 @@
 						<div class="flex-row items-center gap-3">
 							<div class="list-icon">💬</div>
 							<div>
-								<h2 style="margin:0">Conversations Joueurs</h2>
-								<span class="text-xs text-dim">Surveiller et intervenir</span>
+								<h2 style="margin:0">{$t("admin_chats_title")}</h2>
+								<span class="text-xs text-dim">{$t("admin_chats_subtitle")}</span>
 							</div>
 						</div>
 						<span class="badge-count">{adminConversations.length}</span>
@@ -2111,13 +2174,13 @@
 										<div class="flex-row items-center gap-2" style="flex-wrap:wrap">
 											<span class="item-name">{c.title}</span>
 											{#if c.has_new_messages}
-												<span class="status-pill-sm open" style="background:rgba(34,197,94,0.15);color:#22c55e;border:1px solid rgba(34,197,94,0.3)">{c.unread_count} nouveau{c.unread_count > 1 ? 'x' : ''}</span>
+												<span class="status-pill-sm open" style="background:rgba(34,197,94,0.15);color:#22c55e;border:1px solid rgba(34,197,94,0.3)">{c.unread_count > 1 ? $t('admin_chats_unread_plural', { count: c.unread_count }) : $t('admin_chats_unread_singular', { count: c.unread_count })}</span>
 											{/if}
 											{#if c.admin_override}
 												<span class="status-pill-sm" style="background:rgba(168,85,247,0.2);color:#a855f7;border:1px solid #a855f7">🛡️ Admin</span>
 											{/if}
 										</div>
-										<div class="item-meta">👤 {c.username} • {c.message_count} msg • Actif : {c.last_message_at ? new Date(c.last_message_at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}</div>
+										<div class="item-meta">👤 {c.username} • {c.message_count} msg • {$t('dash_pill_active')} : {c.last_message_at ? new Date(c.last_message_at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}</div>
 										{#if c.last_message_preview}
 											<div class="last-msg-preview" style="font-size:0.75rem;color:var(--text-dim);margin-top:0.3rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:320px;opacity:0.8">
 												<strong>{c.last_message_role === 'user' ? '👤' : c.last_message_role === 'admin' ? '🛡️' : '🤖'}:</strong> {c.last_message_preview}
@@ -2129,7 +2192,7 @@
 						{:else}
 							<div class="empty-list">
 								<span class="empty-icon">💬</span>
-								<p>Aucune conversation</p>
+								<p>{$t('admin_chats_empty')}</p>
 							</div>
 						{/each}
 					</div>
@@ -2143,14 +2206,14 @@
 								<div class="list-icon">🔍</div>
 								<div>
 									<h2 style="margin:0">{adminConvInfo.title}</h2>
-									<span class="text-xs text-dim">Joueur : {adminConvInfo.username}</span>
+									<span class="text-xs text-dim">{$t("admin_chats_player")} {adminConvInfo.username}</span>
 								</div>
 							</div>
 							<div class="flex-row gap-2 items-center">
 								{#if adminConvInfo.admin_override}
-									<button class="btn-primary btn-xs" on:click={() => toggleAdminOverride(adminActiveConvId, false)}>🤖 Rendre la main à l'IA</button>
+									<button class="btn-primary btn-xs" on:click={() => toggleAdminOverride(adminActiveConvId, false)}>🤖 {$t('admin_chats_takeover')}</button>
 								{:else}
-									<button class="btn-sentinel" on:click={() => toggleAdminOverride(adminActiveConvId, true)}>🛡️ Prendre la main</button>
+									<button class="btn-sentinel" on:click={() => toggleAdminOverride(adminActiveConvId, true)}>{$t('admin_chats_btn_takeover')}</button>
 								{/if}
 							</div>
 						</div>
@@ -2204,19 +2267,19 @@
 								<div style="display:flex;gap:0.5rem;align-items:center">
 									<input type="file" accept="image/*" bind:this={adminFileInput} on:change={handleAdminFileSelect} style="display:none" />
 									<button class="btn-attach" style="width:36px;height:36px;font-size:1rem;border-radius:6px" on:click={() => adminFileInput?.click()} title="Joindre une image">📎</button>
-									<input type="text" bind:value={adminInterveneText} placeholder="Écrire en tant qu'admin..." style="flex:1" on:keydown={(e) => { if (e.key === 'Enter') adminSendIntervention(); }} on:paste={handleAdminPaste} />
-									<button class="btn-primary" on:click={adminSendIntervention}>Envoyer</button>
+									<input type="text" bind:value={adminInterveneText} placeholder="{$t('admin_chats_placeholder')}" style="flex:1" on:keydown={(e) => { if (e.key === 'Enter') adminSendIntervention(); }} on:paste={handleAdminPaste} />
+									<button class="btn-primary" on:click={adminSendIntervention}>{$t('ai_btn_send')}</button>
 								</div>
 							</div>
 						{:else}
 							<div style="padding:0.75rem 1rem;border-top:1px solid var(--glass-border);text-align:center;font-size:0.8rem;color:var(--text-dim)">
-								🤖 L'IA gère cette conversation — Cliquez "Prendre la main" pour intervenir
+								{$t('admin_chats_system_control')}
 							</div>
 						{/if}
 					{:else}
 						<div class="empty-list" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center">
 							<span class="empty-icon">🔍</span>
-							<p>Sélectionnez une conversation</p>
+							<p>{$t('admin_chats_no_conv_selected')}</p>
 						</div>
 					{/if}
 				</section>
@@ -2229,42 +2292,38 @@
 						<div class="flex-row items-center gap-3">
 							<div class="list-icon">🎁</div>
 							<div>
-								<h2 class="text-accent" style="margin:0">Système de Prix</h2>
-								<span class="text-xs text-dim">Attribution automatique par statistiques</span>
+								<h2 class="text-accent" style="margin:0">{$t("admin_awards_title")}</h2>
+								<span class="text-xs text-dim">{$t("admin_awards_subtitle")}</span>
 							</div>
 						</div>
 					</div>
 
 					<div style="display: flex; flex-direction: column; gap: 1rem; margin-top: 1rem;" class="text-sm">
-						<p>
-							Les distinctions de fin de LAN sont calculées en temps réel d'après les statistiques de jeu des tournois (en cours ou terminés).
-						</p>
-						<p>
-							Vous pouvez personnaliser le <strong>titre</strong> et la <strong>description</strong> de chaque catégorie.
-						</p>
+						<p>{$t('admin_awards_desc1')}</p>
+						<p>{$t('admin_awards_desc2')}</p>
 						<p class="text-dim text-xs" style="border-left: 2px solid var(--accent); padding-left: 0.5rem;">
 							💡 Les descriptions supportent l'interpolation de variables de statistiques liées au vainqueur (ex: <code>{"{"}points{"}"}</code>, <code>{"{"}wins{"}"}</code>, <code>{"{"}matches_played{"}"}</code>, <code>{"{"}team_name{"}"}</code>).
 						</p>
 						<p class="text-dim text-xs" style="border-left: 2px solid var(--success); padding-left: 0.5rem; margin-top: 0.2rem;">
-							📢 Les notifications de prix ne sont <strong>pas envoyées automatiquement</strong> aux joueurs lors du calcul. Effectuez vos réglages puis cliquez sur "Diffuser les Prix" pour les notifier.
+							{$t('admin_awards_desc4')}
 						</p>
 					</div>
 
 					<button class="btn-primary" style="margin-top: 1.5rem; width: 100%; padding: 0.6rem 1rem;" on:click={triggerSync} disabled={awardsLoading}>
-						🔄 Recalculer & Synchroniser
+						{$t('admin_awards_btn_recalc')}
 					</button>
 
 					<button class="btn-success" style="margin-top: 1rem; width: 100%; padding: 0.6rem 1rem;" on:click={sendAwardsNotifications} disabled={awardsLoading}>
-						📢 Diffuser les Prix aux Joueurs
+						{$t('admin_awards_btn_broadcast')}
 					</button>
 
 					<div style="margin-top: 2rem; border-top: 1px solid rgba(239, 68, 68, 0.2); padding-top: 1rem;">
 						{#if nukeConfirm.awards}
 							<div class="flex-column gap-2" style="background: rgba(239, 68, 68, 0.08); padding: 0.8rem; border-radius: 8px; border: 1px solid var(--danger);">
-								<span class="text-xs text-dim" style="display:block; margin-bottom: 0.5rem; text-align: center; color: var(--danger) !important; font-weight: bold;">⚠️ Confirmer la purge complète des prix ?</span>
+								<span class="text-xs text-dim" style="display:block; margin-bottom: 0.5rem; text-align: center; color: var(--danger) !important; font-weight: bold;">{$t("admin_awards_confirm_purge_q")}</span>
 								<div style="display: flex; gap: 0.5rem;">
 									<button class="btn-danger btn-xs" style="flex:1" on:click={nukeAwards} disabled={nuking.awards}>
-										{nuking.awards ? 'Purge en cours...' : 'Oui, Purger'}
+										{nuking.awards ? $t('admin_awards_purging') : $t('admin_awards_confirm_purge_yes')}
 									</button>
 									<button class="btn-secondary btn-xs" style="flex:1" on:click={() => nukeConfirm.awards = false}>
 										Annuler
@@ -2273,7 +2332,7 @@
 							</div>
 						{:else}
 							<button class="btn-danger" style="width: 100%; padding: 0.6rem 1rem;" on:click={() => nukeConfirm.awards = true} disabled={awardsLoading}>
-								💀 Purger & Réinitialiser les Prix
+								{$t('admin_awards_btn_purge')}
 							</button>
 						{/if}
 					</div>
@@ -2285,8 +2344,8 @@
 						<div class="flex-row items-center gap-3">
 							<div class="list-icon">🏆</div>
 							<div>
-								<h2 style="margin:0">Distinctions</h2>
-								<span class="text-xs text-dim">Liste des distinctions calculées</span>
+								<h2 style="margin:0">{$t("admin_awards_list")}</h2>
+								<span class="text-xs text-dim">{$t("admin_awards_list_sub")}</span>
 							</div>
 						</div>
 						<span class="badge-count">{awardsList.length}</span>
@@ -2299,8 +2358,8 @@
 								<!-- Title Row -->
 								<div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem;">
 									<div style="flex: 1;">
-										<h3 class="text-accent" style="margin: 0; font-size: 1rem; font-weight: 700;">{award.title}</h3>
-										<p class="text-xs text-dim" style="margin: 0.2rem 0 0; font-style: italic;">Critère : {award.criteria}</p>
+										<h3 class="text-accent" style="margin: 0; font-size: 1rem; font-weight: 700;">{getAwardEmoji(award.key)} {award.title}</h3>
+										<p class="text-xs text-dim" style="margin: 0.2rem 0 0; font-style: italic;">{$t('profile_pts_details')} : {award.criteria}</p>
 									</div>
 									
 									<!-- Recipient Badge -->
@@ -2316,7 +2375,7 @@
 											{/if}
 										{:else}
 											<span class="status-pill-sm closed" style="font-size: 0.75rem; padding: 0.25rem 0.6rem; opacity: 0.6;">
-												Aucun qualifié
+												{$t('admin_awards_none')}
 											</span>
 										{/if}
 									</div>
@@ -2325,12 +2384,12 @@
 								<!-- Input Forms -->
 								<div style="display: flex; flex-direction: column; gap: 0.8rem;">
 									<div class="edit-field full-width" style="margin: 0;">
-										<label class="compact-label" style="font-weight: 700; font-size: 0.75rem; color: var(--text-dim);">Modifier le titre</label>
+										<label class="compact-label" style="font-weight: 700; font-size: 0.75rem; color: var(--text-dim);">{$t("admin_awards_edit_title")}</label>
 										<input type="text" bind:value={award.title} placeholder={award.default_title} style="width: 100%; padding: 0.4rem 0.6rem; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 8px; color: var(--text-main); font-size: 0.85rem;" />
 									</div>
 									
 									<div class="edit-field full-width" style="margin: 0;">
-										<label class="compact-label" style="font-weight: 700; font-size: 0.75rem; color: var(--text-dim);">Modifier la description (Supporte les variables)</label>
+										<label class="compact-label" style="font-weight: 700; font-size: 0.75rem; color: var(--text-dim);">{$t("admin_awards_edit_desc")}</label>
 										<textarea bind:value={award.description} placeholder={award.default_description} rows="2" style="width: 100%; padding: 0.4rem 0.6rem; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 8px; color: var(--text-main); font-size: 0.85rem; font-family: inherit; resize: vertical;"></textarea>
 									</div>
 								</div>
@@ -2339,11 +2398,11 @@
 								<div style="display: flex; justify-content: flex-end; gap: 0.5rem; align-items: center;">
 									{#if award.custom_title !== null || award.custom_description !== null}
 										<button class="btn-secondary btn-xs" style="font-size: 0.75rem; padding: 0.3rem 0.6rem;" on:click={() => restoreDefaultText(award.key)}>
-											Restaurer par défaut
+											{$t("admin_awards_restore_default")}
 										</button>
 									{/if}
 									<button class="btn-primary btn-xs" style="font-size: 0.75rem; padding: 0.3rem 0.8rem;" on:click={() => saveAwardText(award.key, award.title, award.description)}>
-										Enregistrer
+										{$t("admin_awards_btn_save")}
 									</button>
 								</div>
 
@@ -2351,7 +2410,7 @@
 						{:else}
 							<div class="empty-list">
 								<span class="empty-icon">📭</span>
-								<p>Aucune distinction disponible pour le moment</p>
+								<p>{$t('admin_awards_none_available')}</p>
 							</div>
 						{/each}
 					</div>
@@ -2375,6 +2434,13 @@
 	{/each}
 </div>
 
+<Modal
+	bind:show={showModal}
+	title={modalTitle}
+	message={modalMessage}
+	type={modalType}
+	onConfirm={modalConfirmCallback}
+/>
 
 {/if}
 

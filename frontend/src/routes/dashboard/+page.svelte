@@ -2,6 +2,7 @@
 	import { api } from '$lib/api';
 	import { onMount, onDestroy } from 'svelte';
 	import { wsMessageStore } from '$lib/ws';
+	import { t } from '$lib/i18nStore';
 
 	let stats = {
 		tournaments: 0,
@@ -96,7 +97,7 @@
 
 	function getPlayerName(userId, map) {
 		if (userId === 0) return 'TBD';
-		if (userId < 0) return map[String(userId)] || `Équipe #${Math.abs(userId)}`;
+		if (userId < 0) return map[String(userId)] || `${$t('admin_tourneys_wizard_mode_teams')} #${Math.abs(userId)}`;
 		return map[userId] || `#${userId}`;
 	}
 
@@ -337,22 +338,22 @@
 		</div>
 		<div class="cmd-center">
 			<div class="info-chip glass">
-				<span class="chip-label">Événement</span>
+				<span class="chip-label">{$t('dash_stat_event')}</span>
 				<span class="chip-value">{stats.event_name || 'Alanbix LAN'}</span>
 			</div>
 			<div class="info-chip glass">
-				<span class="chip-label">Joueurs</span>
+				<span class="chip-label">{$t('dash_stat_players')}</span>
 				<span class="chip-value">{stats.players}</span>
 			</div>
 			<div class="info-chip glass">
-				<span class="chip-label">Tournois</span>
+				<span class="chip-label">{$t('dash_stat_tournaments')}</span>
 				<span class="chip-value">{stats.tournaments}</span>
 			</div>
 		</div>
 		<div class="cmd-right">
 			<div class="status-live">
 				<span class="pulse"></span> 
-				Status: <strong>LIVE</strong>
+				{@html $t('dash_live_status')}
 			</div>
 		</div>
 	</header>
@@ -362,10 +363,10 @@
 		<!-- LEFT: Leaderboard -->
 		<section class="panel leaderboard-panel glass">
 			<div class="panel-header">
-				<h2>Leaderboard</h2>
+				<h2>{$t('dash_lb_title')}</h2>
 				<div class="lb-tabs">
-					<button class="lb-tab {lbMode === 'players' ? 'active' : ''}" on:click={() => lbMode = 'players'}>Joueurs</button>
-					<button class="lb-tab {lbMode === 'teams' ? 'active' : ''}" on:click={() => lbMode = 'teams'}>Equipes</button>
+					<button class="lb-tab {lbMode === 'players' ? 'active' : ''}" on:click={() => lbMode = 'players'}>{$t('dash_lb_players')}</button>
+					<button class="lb-tab {lbMode === 'teams' ? 'active' : ''}" on:click={() => lbMode = 'teams'}>{$t('dash_lb_teams')}</button>
 				</div>
 			</div>
 			<div class="leaderboard-list">
@@ -393,7 +394,7 @@
 						</div>
 					</div>
 				{:else}
-					<p class="text-dim text-sm" style="padding: 1rem;">Aucun joueur classé pour le moment.</p>
+					<p class="text-dim text-sm" style="padding: 1rem;">{$t('dash_lb_no_players')}</p>
 				{/each}
 				{:else}
 				{#each teamLeaderboard as team, i}
@@ -402,7 +403,7 @@
 						<div class="lb-avatar team-av">{team.team_name[0].toUpperCase()}</div>
 						<div class="lb-info">
 							<span class="lb-name">{team.team_name}</span>
-							<span class="lb-sub">{team.member_count} membre{team.member_count > 1 ? 's' : ''} {expandedTeamIdx === i ? '▲' : '▼'}</span>
+							<span class="lb-sub">{team.member_count}{$t('dash_lb_member_suffix', { plural: team.member_count > 1 ? 's' : '' })} {expandedTeamIdx === i ? '▲' : '▼'}</span>
 						</div>
 						<div class="lb-score">
 							<span class="score-val">{team.score}</span>
@@ -421,7 +422,7 @@
 						</div>
 					{/if}
 				{:else}
-					<p class="text-dim text-sm" style="padding: 1rem;">Aucune équipe classée.</p>
+					<p class="text-dim text-sm" style="padding: 1rem;">{$t('dash_lb_no_teams')}</p>
 				{/each}
 				{/if}
 			</div>
@@ -431,11 +432,11 @@
 		<section class="panel map-panel glass">
 			<div class="panel-header">
 				<div>
-					<h2>Arena Floor Map</h2>
-					<span class="subtitle">Gaming Room</span>
+					<h2>{$t('dash_map_title')}</h2>
+					<span class="subtitle">{$t('dash_map_subtitle')}</span>
 				</div>
 				<div class="flex-row gap-2">
-					<a href="/dashboard/map" class="btn-chip">🗺️ Ouvrir</a>
+					<a href="/dashboard/map" class="btn-chip">{$t('dash_map_open')}</a>
 				</div>
 			</div>
 			<div class="map-preview-canvas">
@@ -471,8 +472,12 @@
 						<g transform="rotate({furn.rotation || 0}, {fcx}, {fcy})">
 							<rect x={furn.x} y={furn.y} width={furn.w} height={furn.h} rx="4"
 								fill="rgba(245,158,11,0.1)" stroke="rgba(245,158,11,0.4)" stroke-width="1.5" stroke-dasharray="4 2"/>
-							<text x={fcx} y={fcy - 1} text-anchor="middle" font-size="12" style="pointer-events:none">{furn.icon}</text>
-							<text x={fcx} y={fcy + 10} text-anchor="middle" fill="#f59e0b" font-size="7" font-weight="700">{furn.label}</text>
+							<foreignObject x={furn.x} y={furn.y} width={furn.w} height={furn.h} style="pointer-events:none">
+								<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;height:100%;line-height:1.1;">
+									<span style="font-size: {furn.h <= 40 ? '18px' : '26px'};">{furn.icon}</span>
+									<span style="font-size: {furn.h <= 40 ? '10px' : '12px'};font-weight:700;color:#f59e0b;margin-top:2px;text-align:center;word-break:break-all;padding:0 4px;">{furn.label}</span>
+								</div>
+							</foreignObject>
 						</g>
 					{/each}
 
@@ -528,7 +533,7 @@
 									{/if}
 								{:else}
 									<text x={scx} y={seat.y + 13} text-anchor="middle" fill="var(--text-muted)" font-size="6" font-weight="800">{seat.id}</text>
-									<text x={scx} y={seat.y + 32} text-anchor="middle" fill="var(--text-muted)" font-size="7">Libre</text>
+									<text x={scx} y={seat.y + 32} text-anchor="middle" fill="var(--text-muted)" font-size="7">{$t('dash_map_legend_free')}</text>
 								{/if}
 							</g>
 						</g>
@@ -537,8 +542,8 @@
 			</div>
 			<div class="map-footer">
 				<div class="map-legend">
-					<span class="lg-item"><span class="lg-dot occupied"></span> Occupé ({occupiedSeats})</span>
-					<span class="lg-item"><span class="lg-dot free"></span> Libre ({totalSeats - occupiedSeats})</span>
+					<span class="lg-item"><span class="lg-dot occupied"></span> {$t('dash_map_legend_occupied')} ({occupiedSeats})</span>
+					<span class="lg-item"><span class="lg-dot free"></span> {$t('dash_map_legend_free')} ({totalSeats - occupiedSeats})</span>
 				</div>
 			</div>
 		</section>
@@ -547,8 +552,8 @@
 		<section class="panel bracket-panel glass">
 			<div class="panel-header">
 				<div>
-					<h2>{activeTournament?.name || 'Tournois en cours'}</h2>
-					<span class="subtitle">{games.find(g => g.id === activeTournament?.game_id)?.name || (runningTournaments.length + ' actif' + (runningTournaments.length > 1 ? 's' : ''))}</span>
+					<h2>{activeTournament?.name || $t('dash_bracket_title')}</h2>
+					<span class="subtitle">{games.find(g => g.id === activeTournament?.game_id)?.name || (runningTournaments.length + ' ' + $t('dash_pill_active').toLowerCase() + (runningTournaments.length > 1 ? 's' : ''))}</span>
 				</div>
 			</div>
 			{#if runningTournaments.length > 0}
@@ -564,14 +569,14 @@
 					<div class="bracket-info-grid">
 						<div class="bi-card">
 							<span class="bi-val">{participants.length}</span>
-							<span class="bi-label">Joueurs</span>
+							<span class="bi-label">{$t('dash_stat_players')}</span>
 						</div>
 						<div class="bi-card">
 							<span class="bi-val">{activeBracketType === 'round_robin' ? 'RR' : activeBracketType === 'double_elim' ? 'DE' : activeBracketType === 'ffa' ? 'FFA' : 'SE'}</span>
-							<span class="bi-label">Format</span>
+							<span class="bi-label">{$t('admin_tourneys_wizard_format_lbl')}</span>
 						</div>
 						<div class="bi-card">
-							<span class="bi-val status-badge {activeTournament?.status?.toLowerCase() || ''}">{activeTournament?.status === 'RUNNING' ? 'EN COURS' : activeTournament?.status === 'CLOSED' ? 'CLÔTURÉ' : activeTournament?.status || ''}</span>
+							<span class="bi-val status-badge {activeTournament?.status?.toLowerCase() || ''}">{activeTournament?.status === 'RUNNING' ? $t('tourneys_status_running').toUpperCase() : activeTournament?.status === 'CLOSED' ? $t('tourneys_status_closed').toUpperCase() : activeTournament?.status || ''}</span>
 							<span class="bi-label">Status</span>
 						</div>
 					</div>
@@ -584,7 +589,7 @@
 									{@const match = roundMatches[0]}
 									{@const isLatest = ri === bracketRounds.length - 1}
 									<div class="dash-ffa-round" class:ffa-latest={isLatest}>
-										<div class="dash-ffa-hdr">Manche {ri+1} · {match.p.length} joueurs</div>
+										<div class="dash-ffa-hdr">{$t('dash_bracket_ffa_round', { round: ri+1, count: match.p.length })}</div>
 										{#each match.p as pid, pi}
 											{@const mRank = getFFAMatchRank(match, pi, activeTournament?.config?.lower_score_is_better)}
 											<div class="dash-ffa-row {mRank === 1 ? 'gold' : mRank === 2 ? 'silver' : mRank === 3 ? 'bronze' : ''}">
@@ -645,18 +650,18 @@
 					{:else}
 						<div class="no-bracket-data">
 							<span>📊</span>
-							<p class="text-dim text-xs">Bracket en attente</p>
+							<p class="text-dim text-xs">{$t('dash_bracket_waiting')}</p>
 						</div>
 					{/if}
 
-					<a href="/dashboard/tournaments" class="btn-chip full-width">🏆 Voir les tournois</a>
+					<a href="/dashboard/tournaments" class="btn-chip full-width">{$t('dash_bracket_view_all')}</a>
 				</div>
 			{:else}
 				<div class="no-tournament">
 					<span class="no-tourney-icon">🏆</span>
-					<p>Aucun tournoi en cours</p>
+					<p>{$t('dash_no_tournament')}</p>
 					{#if user?.is_admin}
-						<a href="/dashboard/admin" class="btn-chip">Créer un tournoi</a>
+						<a href="/dashboard/admin" class="btn-chip">{$t('dash_no_tournament_create')}</a>
 					{/if}
 				</div>
 			{/if}
@@ -669,28 +674,28 @@
 			<span class="sp-icon">🎮</span>
 			<div class="sp-data">
 				<span class="sp-val">{stats.games}</span>
-				<span class="sp-label">Jeux</span>
+				<span class="sp-label">{$t('dash_pill_games')}</span>
 			</div>
 		</div>
 		<div class="stat-pill glass">
 			<span class="sp-icon">👥</span>
 			<div class="sp-data">
 				<span class="sp-val">{stats.players}</span>
-				<span class="sp-label">Joueurs</span>
+				<span class="sp-label">{$t('dash_pill_players')}</span>
 			</div>
 		</div>
 		<div class="stat-pill glass">
 			<span class="sp-icon">🏆</span>
 			<div class="sp-data">
 				<span class="sp-val">{stats.tournaments}</span>
-				<span class="sp-label">Tournois</span>
+				<span class="sp-label">{$t('dash_pill_tournaments')}</span>
 			</div>
 		</div>
 		<div class="stat-pill glass accent">
 			<span class="sp-icon">⚡</span>
 			<div class="sp-data">
 				<span class="sp-val">{stats.active}</span>
-				<span class="sp-label">En cours</span>
+				<span class="sp-label">{$t('dash_pill_active')}</span>
 			</div>
 		</div>
 	</div>
@@ -711,7 +716,7 @@
 					</div>
 					<div class="player-modal-identity">
 						<h3>{selectedPlayerStats?.username || 'Chargement...'}</h3>
-						<span class="player-modal-team">{allUsers.find(u => u.username === selectedPlayerStats?.username)?.team_name || 'Sans équipe'}</span>
+						<span class="player-modal-team">{allUsers.find(u => u.username === selectedPlayerStats?.username)?.team_name || $t('dash_modal_team_fallback')}</span>
 					</div>
 				</div>
 				<button class="player-modal-close" on:click={() => showPlayerStatsModal = false}>✕</button>
@@ -721,29 +726,29 @@
 				{#if loadingPlayerStats}
 					<div class="player-modal-loading">
 						<div class="spinner"></div>
-						<span>Chargement des statistiques...</span>
+						<span>{$t('dash_modal_stats_loading')}</span>
 					</div>
 				{:else if selectedPlayerStats}
 					<!-- Stats cards summary -->
 					<div class="player-modal-summary">
 						<div class="summary-stat-card">
 							<span class="val accent-gradient">{selectedPlayerStats.total_points}</span>
-							<span class="lbl">Points Totaux</span>
+							<span class="lbl">{$t('dash_modal_points_total')}</span>
 						</div>
 						<div class="summary-stat-card">
 							<span class="val">{selectedPlayerStats.history.length}</span>
-							<span class="lbl">Participations</span>
+							<span class="lbl">{$t('dash_modal_participations')}</span>
 						</div>
 						<div class="summary-stat-card">
 							<span class="val">{selectedPlayerStats.awards.length}</span>
-							<span class="lbl">Trophées</span>
+							<span class="lbl">{$t('dash_modal_trophies')}</span>
 						</div>
 					</div>
 
 					<div class="player-modal-details">
 						<!-- Tournaments Section -->
 						<div class="details-section">
-							<h4>🏆 Tournois & Résultats</h4>
+							<h4>{$t('dash_modal_tournaments_title')}</h4>
 							<div class="tournaments-list-scroll">
 								{#each selectedPlayerStats.history as hist}
 									<div class="tournament-stat-row">
@@ -756,11 +761,11 @@
 										</div>
 										<div class="t-details">
 											{#if hist.status === 'OPEN'}
-												<span class="status-badge open">INSCRIT</span>
+												<span class="status-badge open">{$t('tourneys_status_open').toUpperCase()}</span>
 											{:else if hist.status === 'RUNNING'}
-												<span class="status-badge running">EN COURS</span>
+												<span class="status-badge running">{$t('tourneys_status_running').toUpperCase()}</span>
 											{:else}
-												<span class="status-badge closed">TERMINE</span>
+												<span class="status-badge closed">{$t('tourneys_status_done').toUpperCase()}</span>
 											{/if}
 
 											<div class="t-rank-pts">
@@ -770,24 +775,23 @@
 										</div>
 									</div>
 									<div class="pts-breakdown">
-										<span>Participation: <strong>{hist.participation_pts}</strong></span>
-										<span>Placement: <strong>{hist.placement_pts}</strong></span>
+										<span>{@html $t('dash_modal_points_breakdown', { p: hist.participation_pts, pl: hist.placement_pts })}</span>
 										{#if hist.score_pts > 0}
-											<span>Score/Bonus: <strong>{hist.score_pts}</strong></span>
+											<span>{@html $t('dash_modal_points_bonus', { b: hist.score_pts })}</span>
 										{/if}
 										{#if hist.team_name}
-											<span class="team-lbl">Équipe: {hist.team_name}</span>
+											<span class="team-lbl">{@html $t('dash_modal_team_lbl', { name: hist.team_name })}</span>
 										{/if}
 									</div>
 								{:else}
-									<p class="empty-msg">Aucun tournoi enregistré.</p>
+									<p class="empty-msg">{$t('dash_modal_no_tournaments')}</p>
 								{/each}
 							</div>
 						</div>
 
 						<!-- Awards Section -->
 						<div class="details-section">
-							<h4>🎖️ Trophées & Awards</h4>
+							<h4>{$t('dash_modal_awards_title')}</h4>
 							<div class="awards-list-scroll">
 								{#each selectedPlayerStats.awards as award}
 									<div class="award-item-card">
@@ -798,7 +802,7 @@
 										</div>
 									</div>
 								{:else}
-									<p class="empty-msg">Aucun trophée remporté pour le moment.</p>
+									<p class="empty-msg">{$t('dash_modal_no_awards')}</p>
 								{/each}
 							</div>
 						</div>

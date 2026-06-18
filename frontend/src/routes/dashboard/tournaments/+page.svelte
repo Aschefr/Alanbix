@@ -1,4 +1,6 @@
 <script>
+	import { t } from '$lib/i18nStore';
+	import { get } from 'svelte/store';
 	import { api } from '$lib/api';
 	import { onMount, onDestroy } from 'svelte';
 	import { wsMessageStore } from '$lib/ws';
@@ -145,7 +147,7 @@
 	async function joinTournament(id) {
 		try {
 			await api.post(`/tournaments/${id}/join`, {});
-			toast('Vous avez rejoint le tournoi !', 'success');
+			toast($t('tourneys_toast_joined'), 'success');
 			tournaments = await api.get('/tournaments');
 			await selectTournament(id);
 		} catch (e) { toast(e.detail || e.message, 'error'); }
@@ -156,7 +158,7 @@
 			await api.post(`/tournaments/${selectedId}/join`, { user_id: userId });
 			tournaments = await api.get('/tournaments');
 			await selectTournament(selectedId);
-			toast('Joueur ajouté !', 'success');
+			toast($t('tourneys_toast_player_added'), 'success');
 		} catch (e) { toast(e.message || 'Erreur', 'error'); }
 	}
 
@@ -165,7 +167,7 @@
 			await api.delete(`/tournaments/${selectedId}/participants/${userId}`);
 			tournaments = await api.get('/tournaments');
 			await selectTournament(selectedId);
-			toast('Joueur désinscrit.', 'success');
+			toast($t('tourneys_toast_player_removed'), 'success');
 		} catch (e) { toast(e.message || 'Erreur', 'error'); }
 	}
 
@@ -199,7 +201,7 @@
 			await api.post(`/tournaments/${selectedId}/teams`, { name: newTeamName.trim() });
 			newTeamName = '';
 			teams = await api.get(`/tournaments/${selectedId}/teams`);
-			toast('Équipe créée !', 'success');
+			toast($t('tourneys_toast_team_created'), 'success');
 		} catch (e) { toast(e.message, 'error'); }
 	}
 
@@ -228,7 +230,7 @@
 		try {
 			await api.post(`/tournaments/${selectedId}/teams/randomize`, {});
 			teams = await api.get(`/tournaments/${selectedId}/teams`);
-			toast('Joueurs répartis aléatoirement !', 'success');
+			toast($t('tourneys_toast_players_distributed'), 'success');
 		} catch (e) { toast(e.message, 'error'); }
 	}
 
@@ -236,7 +238,7 @@
 	async function startTournament() {
 		try {
 			await api.post(`/tournaments/${selectedId}/start`, {});
-			toast('Tournoi lancé !', 'success');
+			toast($t('tourneys_toast_started'), 'success');
 			tournaments = await api.get('/tournaments');
 			await selectTournament(selectedId);
 		} catch (e) { toast(e.detail || e.message || 'Erreur', 'error'); }
@@ -245,7 +247,7 @@
 	async function stopTournament() {
 		try {
 			await api.put(`/tournaments/${selectedId}`, { status: 'DONE' });
-			toast('Tournoi terminé.', 'success');
+			toast($t('tourneys_toast_finished'), 'success');
 			tournaments = await api.get('/tournaments');
 			await selectTournament(selectedId);
 		} catch (e) { toast(e.message || 'Erreur', 'error'); }
@@ -254,7 +256,7 @@
 	async function resetTournament() {
 		try {
 			await api.put(`/tournaments/${selectedId}`, { status: 'OPEN', bracket: null });
-			toast('Tournoi réinitialisé.', 'success');
+			toast($t('tourneys_toast_reset'), 'success');
 			tournaments = await api.get('/tournaments');
 			await selectTournament(selectedId);
 		} catch (e) { toast(e.message || 'Erreur', 'error'); }
@@ -265,7 +267,7 @@
 		try {
 			confirmingClose = false;
 			const res = await api.post(`/tournaments/${selectedId}/close`);
-			toast('🏆 Tournoi clôturé ! Points distribués.', 'success');
+			toast($t('tourneys_toast_closed'), 'success');
 			tournaments = await api.get('/tournaments');
 			await selectTournament(selectedId);
 		} catch (e) { toast(e.message || 'Erreur', 'error'); }
@@ -276,7 +278,7 @@
 		try {
 			confirmingReopen = false;
 			await api.post(`/tournaments/${selectedId}/reopen`);
-			toast('🔓 Tournoi ré-ouvert ! Points retirés.', 'success');
+			toast($t('tourneys_toast_reopened'), 'success');
 			tournaments = await api.get('/tournaments');
 			await selectTournament(selectedId);
 		} catch (e) { toast(e.message || 'Erreur', 'error'); }
@@ -371,7 +373,7 @@
 	async function advanceFFARound() {
 		try {
 			await api.post(`/tournaments/${selectedId}/ffa-advance`, { keep_count: keepCount });
-			toast(`Manche suivante créée avec ${keepCount} joueurs !`, 'success');
+			toast($t('tourneys_toast_round_advanced', { count: keepCount }), 'success');
 			tournaments = await api.get('/tournaments');
 			await selectTournament(selectedId);
 		} catch (e) { toast(e.detail || e.message || 'Erreur', 'error'); }
@@ -380,7 +382,7 @@
 	async function finishFFA() {
 		try {
 			await api.post(`/tournaments/${selectedId}/ffa-finish`, {});
-			toast('Tournoi FFA terminé !', 'success');
+			toast($t('tourneys_toast_ffa_finished'), 'success');
 			tournaments = await api.get('/tournaments');
 			await selectTournament(selectedId);
 		} catch (e) { toast(e.message || 'Erreur', 'error'); }
@@ -454,7 +456,7 @@
 				points_per_win: editConfig.points_per_win,
 				config: { ...selected.config, use_teams: editConfig.use_teams, team_size: editConfig.team_size, bracket_type: editConfig.bracket_type, pts_winner: editConfig.pts_winner, pts_second: editConfig.pts_second, pts_third: editConfig.pts_third, pts_participation: editConfig.pts_participation, pts_per_match: editConfig.pts_per_match, lower_score_is_better: editConfig.lower_score_is_better, boolean_mode: editConfig.boolean_mode, allow_draws: editConfig.allow_draws, phases: editConfig.phases, group_size: editConfig.group_size, advancers_count: editConfig.advancers_count }
 			});
-			toast('Tournoi mis à jour !', 'success');
+			toast($t('tourneys_toast_updated'), 'success');
 			editingTournament = false;
 			tournaments = await api.get('/tournaments');
 			await selectTournament(selectedId);
@@ -475,12 +477,12 @@
 		keepCount = Math.max(2, Math.ceil(currentFFAMatch.p.length / 2));
 	}
 
-	function bracketLabel(t) {
-		if (t === 'single_elim') return 'Élimination Directe';
-		if (t === 'double_elim') return 'Double Élimination';
-		if (t === 'round_robin') return 'Championnat';
-		if (t === 'ffa') return 'Free For All';
-		return t || 'Standard';
+	function bracketLabel(format) {
+		if (format === 'single_elim') return get(t)('admin_tourneys_wizard_format_single');
+		if (format === 'double_elim') return get(t)('admin_tourneys_wizard_format_double');
+		if (format === 'round_robin') return get(t)('admin_tourneys_wizard_format_championship');
+		if (format === 'ffa') return 'Free For All';
+		return format || get(t)('tourneys_status_unknown');
 	}
 
 	// Bracket helpers
@@ -506,8 +508,8 @@
 
 	function getPlayerName(userId, map) {
 		if (userId === 0) return 'TBD';
-		if (userId < 0) return map[String(userId)] || `Équipe #${Math.abs(userId)}`;
-		return map[userId] || `Joueur #${userId}`;
+		if (userId < 0) return map[String(userId)] || `${get(t)('admin_tourneys_wizard_mode_teams')} #${Math.abs(userId)}`;
+		return map[userId] || `${get(t)('role_player')} #${userId}`;
 	}
 
 	function getFFAMatchRank(match, scoreIndex, lowerIsBetter) {
@@ -691,32 +693,32 @@
 	<!-- Sidebar -->
 	<aside class="t-sidebar glass">
 		<div class="sidebar-header">
-			<h2>🏆 Tournois</h2>
+			<h2>🏆 {$t('tourneys_title')}</h2>
 			<span class="t-count">{tournaments.length}</span>
 		</div>
 		{#if currentUser?.is_admin}
 			<div class="sidebar-actions">
 				<button class="add-tournament-btn-full" on:click={openCreateTournamentModal}>
-					➕ Ajouter un tournoi
+					{$t('tourneys_add_btn')}
 				</button>
 			</div>
 		{/if}
 		<div class="t-list">
-			{#each tournaments as t}
-				<button class="t-item {selectedId === t.id ? 'active' : ''} {t.status.toLowerCase()}" on:click={() => selectTournament(t.id)} style="background-image: url({gameMap[t.game_id]?.image_url || ''})">
-					{#if t.status === 'CLOSED'}<div class="t-item-checkered"></div>{/if}
+			{#each tournaments as tourney}
+				<button class="t-item {selectedId === tourney.id ? 'active' : ''} {tourney.status.toLowerCase()}" on:click={() => selectTournament(tourney.id)} style="background-image: url({gameMap[tourney.game_id]?.image_url || ''})">
+					{#if tourney.status === 'CLOSED'}<div class="t-item-checkered"></div>{/if}
 					<div class="t-item-overlay">
 						<div class="t-item-info">
-							<span class="t-item-name">{t.name}</span>
-							<span class="t-item-meta">{gameMap[t.game_id]?.name || '—'}</span>
+							<span class="t-item-name">{tourney.name}</span>
+							<span class="t-item-meta">{gameMap[tourney.game_id]?.name || '—'}</span>
 						</div>
-						<span class="t-status-badge {t.status.toLowerCase()}">
-							{t.status === 'OPEN' ? '🟢 Ouvert' : t.status === 'RUNNING' ? '🔵 En cours' : t.status === 'CLOSED' ? '🏁 Clôturé' : '⚪ Terminé'}
+						<span class="t-status-badge {tourney.status.toLowerCase()}">
+							{tourney.status === 'OPEN' ? '🟢 ' + $t('tourneys_status_open') : tourney.status === 'RUNNING' ? '🔵 ' + $t('tourneys_status_running') : tourney.status === 'CLOSED' ? '🏁 ' + $t('tourneys_status_closed') : '⚪ ' + $t('tourneys_status_done')}
 						</span>
 					</div>
 				</button>
 			{:else}
-				<div class="t-empty-sidebar"><span class="text-dim text-xs">Aucun tournoi</span></div>
+				<div class="t-empty-sidebar"><span class="text-dim text-xs">{$t("dash_no_tournament")}</span></div>
 			{/each}
 		</div>
 	</aside>
@@ -730,22 +732,22 @@
 				<div class="hero-overlay">
 					<div class="hero-content">
 						<span class="status-pill {selected.status.toLowerCase()}">
-							{selected.status === 'OPEN' ? '🟢 Ouvert' : selected.status === 'RUNNING' ? '🔵 En cours' : selected.status === 'CLOSED' ? '🏁 Clôturé' : '⚪ Terminé'}
+							{selected.status === 'OPEN' ? '🟢 ' + $t('tourneys_status_open') : selected.status === 'RUNNING' ? '🔵 ' + $t('tourneys_status_running') : selected.status === 'CLOSED' ? '🏁 ' + $t('tourneys_status_closed') : '⚪ ' + $t('tourneys_status_done')}
 						</span>
 						<h1>{selected.name}</h1>
 						<span class="hero-game">{selectedGame?.name || '—'}</span>
 					</div>
 					{#if selected.status === 'OPEN'}
 						{#if isParticipant}
-							<span class="hero-joined">✅ Inscrit</span>
+							<span class="hero-joined">✅ {$t("tourneys_hero_joined")}</span>
 						{:else}
-							<button class="btn-primary hero-join" on:click={() => joinTournament(selected.id)}>🎮 Rejoindre</button>
+							<button class="btn-primary hero-join" on:click={() => joinTournament(selected.id)}>🎮 {$t("tourneys_btn_join_text")}</button>
 						{/if}
 					{/if}
 				</div>
 				{#if selectedGame?.rules}
 					<div class="hero-rules">
-						<span class="hero-rules-label">📋 Règles</span>
+						<span class="hero-rules-label">{$t("tourneys_tab_rules")}</span>
 						<p class="hero-rules-text">{selectedGame.rules}</p>
 					</div>
 				{/if}
@@ -754,55 +756,55 @@
 			<!-- Info Cards -->
 			<div class="detail-body">
 				<div class="info-row">
-					<div class="info-card glass"><span class="info-label">Format</span><span class="info-value">{bracketLabel(selected.config?.bracket_type)}</span></div>
-					<div class="info-card glass"><span class="info-label">Mode</span><span class="info-value">{selected.config?.use_teams ? `Équipes (×${selected.config?.team_size || 2})` : 'Solo'}</span></div>
-					<div class="info-card glass"><span class="info-label">Points</span><span class="info-value accent" style="font-size:0.85rem">🥇{selected.config?.pts_winner ?? 10} 🥈{selected.config?.pts_second ?? 6} 🥉{selected.config?.pts_third ?? 4} 👤{selected.config?.pts_participation ?? 1}/m ⚡{selected.config?.pts_per_match ?? selected.config?.pts_per_goal ?? 1.0}</span></div>
-					<div class="info-card glass"><span class="info-label">Inscrits</span><span class="info-value">{participants.length}</span></div>
+					<div class="info-card glass"><span class="info-label">{$t("admin_tourneys_wizard_format_lbl")}</span><span class="info-value">{bracketLabel(selected.config?.bracket_type)}</span></div>
+					<div class="info-card glass"><span class="info-label">{$t("admin_tourneys_wizard_mode_lbl")}</span><span class="info-value">{selected.config?.use_teams ? `{$t('admin_tourneys_wizard_mode_teams')} (x{selected.config?.team_size || 2})` : 'Solo'}</span></div>
+					<div class="info-card glass"><span class="info-label">{$t("admin_tourneys_wizard_points_lbl")}</span><span class="info-value accent" style="font-size:0.85rem">🥇{selected.config?.pts_winner ?? 10} 🥈{selected.config?.pts_second ?? 6} 🥉{selected.config?.pts_third ?? 4} 👤{selected.config?.pts_participation ?? 1}/m ⚡{selected.config?.pts_per_match ?? selected.config?.pts_per_goal ?? 1.0}</span></div>
+					<div class="info-card glass"><span class="info-label">{$t("dash_stat_players")}</span><span class="info-value">{participants.length}</span></div>
 					{#if selected.config?.lower_score_is_better}
-						<div class="info-card glass"><span class="info-label">Score</span><span class="info-value" style="color:#f59e0b">🔄 Inversé</span></div>
+						<div class="info-card glass"><span class="info-label">{$t("admin_tourneys_wizard_format_lbl")}</span><span class="info-value" style="color:#f59e0b">{$t("tourneys_opt_reverse")}</span></div>
 					{/if}
 				</div>
 
 				<!-- Admin Actions -->
 				{#if currentUser?.is_admin}
 					<div class="admin-bar glass">
-						<span class="admin-bar-label">⚙️ Administration</span>
+						<span class="admin-bar-label">⚙️ {$t("nav_administration")}</span>
 						<div class="admin-bar-actions">
 							{#if selected.status === 'OPEN'}
 								<button class="admin-btn start" on:click={startTournament} disabled={participants.length < 2}>
-									▶ Lancer{#if participants.length < 2} (min. 2){/if}
+									▶ {$t('tourneys_btn_start')}{#if participants.length < 2} (min. 2){/if}
 								</button>
 							{/if}
 							{#if selected.status === 'RUNNING'}
-								<button class="admin-btn stop" on:click={stopTournament}>⏹ Terminer</button>
+								<button class="admin-btn stop" on:click={stopTournament}>⏹ {$t('tourneys_btn_finish')}</button>
 							{/if}
 							{#if selected.status === 'DONE'}
 								{#if confirmingClose}
 									<span class="inline-confirm">
-										<span class="inline-confirm-label">Distribuer les points ?</span>
-										<button class="admin-btn confirm-yes" on:click={closeTournament}>✓ Confirmer</button>
+										<span class="inline-confirm-label">{$t("tourneys_confirm_close")}</span>
+										<button class="admin-btn confirm-yes" on:click={closeTournament}>✓ {$t("tourneys_confirm_yes")}</button>
 										<button class="admin-btn confirm-no" on:click={() => confirmingClose = false}>✕</button>
 									</span>
 								{:else}
-									<button class="admin-btn close" on:click={() => confirmingClose = true}>🏁 Clôturer & Distribuer</button>
+									<button class="admin-btn close" on:click={() => confirmingClose = true}>🏁 {$t("tourneys_btn_close")}</button>
 								{/if}
 							{/if}
 							{#if selected.status === 'CLOSED'}
 								{#if confirmingReopen}
 									<span class="inline-confirm">
-										<span class="inline-confirm-label">Retirer les points distribués ?</span>
-										<button class="admin-btn confirm-yes" on:click={reopenTournament}>✓ Confirmer</button>
+										<span class="inline-confirm-label">{$t("tourneys_confirm_reopen")}</span>
+										<button class="admin-btn confirm-yes" on:click={reopenTournament}>✓ {$t("tourneys_confirm_yes")}</button>
 										<button class="admin-btn confirm-no" on:click={() => confirmingReopen = false}>✕</button>
 									</span>
 								{:else}
-									<button class="admin-btn reset" on:click={() => confirmingReopen = true}>🔓 Ré-ouvrir</button>
+									<button class="admin-btn reset" on:click={() => confirmingReopen = true}>🔓 {$t("tourneys_btn_reopen")}</button>
 								{/if}
 							{/if}
 							{#if selected.status !== 'OPEN' && selected.status !== 'CLOSED'}
-								<button class="admin-btn reset" on:click={resetTournament}>🔄 Réinitialiser</button>
+								<button class="admin-btn reset" on:click={resetTournament}>🔄 {$t("tourneys_btn_reset")}</button>
 							{/if}
 							{#if selected.status !== 'CLOSED'}
-								<button class="admin-btn edit" on:click={openEdit}>✏️ Éditer</button>
+								<button class="admin-btn edit" on:click={openEdit}>✏️ {$t("tourneys_btn_edit")}</button>
 							{/if}
 
 						</div>
@@ -812,14 +814,14 @@
 				<!-- Results Summary (after closing) -->
 				{#if selected.status === 'CLOSED' && selected.results}
 					<div class="results-section glass">
-						<h3>🏆 Résultats & Points</h3>
+						<h3>{$t("tourneys_results_title")}</h3>
 						<div class="results-table">
 							<div class="res-header">
 								<span class="res-rank">#</span>
-								<span class="res-name">Joueur/Équipe</span>
-								<span class="res-pts">Placement</span>
+								<span class="res-name">{$t("tourneys_results_player_team")}</span>
+								<span class="res-pts">{$t("admin_tourneys_wizard_points_bonus")}</span>
 								<span class="res-pts">Score</span>
-								<span class="res-pts">Parti.</span>
+								<span class="res-pts">{$t("admin_tourneys_wizard_points_part").substring(0,5)}.</span>
 								<span class="res-total">Total</span>
 							</div>
 							{#each selected.results as r}
@@ -840,38 +842,38 @@
 				{#if !useTeams || selected.status === 'OPEN' || isAdmin}
 				<div class="participants-section glass">
 					<div class="section-title">
-						<h3>👥 {useTeams ? 'Pool des inscrits' : 'Participants inscrits'} <span class="part-count">{participants.length} total{#if useTeams && participants.length > 0}, {poolPlayers.length} dispo{/if}</span></h3>
+						<h3>👥 {useTeams ? $t('tourneys_tab_registered') : $t('dash_modal_tournaments_title')} <span class="part-count">{participants.length} {$t('changelog_fallback_name').toLowerCase()}{#if useTeams && participants.length > 0}, {poolPlayers.length} {$t('tourneys_unassigned_players').replace('joueur{plural} non assigné{plural}', 'available')}{/if}</span></h3>
 						{#if isAdmin && selected.status === 'OPEN'}
 							<div class="part-bulk-actions">
 								{#if confirmJoinAll}
 									<span class="inline-confirm">
-										<span class="inline-confirm-label">Tout inscrire ?</span>
+										<span class="inline-confirm-label">{$t("tourneys_confirm_join_all")}</span>
 										<button class="admin-btn confirm-yes" on:click={joinAllPlayers}>✓</button>
 										<button class="admin-btn confirm-no" on:click={() => confirmJoinAll = false}>✕</button>
 									</span>
 								{:else}
-									<button class="admin-btn start btn-xs" on:click={() => confirmJoinAll = true} disabled={unregisteredUsers.length === 0}>📥 Inscrire tout le monde</button>
+									<button class="admin-btn start btn-xs" on:click={() => confirmJoinAll = true} disabled={unregisteredUsers.length === 0}>📥 {$t("tourneys_btn_join_all")}</button>
 								{/if}
 								{#if confirmLeaveAll}
 									<span class="inline-confirm">
-										<span class="inline-confirm-label">Tout désinscrire ?</span>
+										<span class="inline-confirm-label">{$t("tourneys_confirm_leave_all")}</span>
 										<button class="admin-btn confirm-yes" on:click={leaveAllPlayers}>✓</button>
 										<button class="admin-btn confirm-no" on:click={() => confirmLeaveAll = false}>✕</button>
 									</span>
 								{:else}
-									<button class="admin-btn stop btn-xs" on:click={() => confirmLeaveAll = true} disabled={participants.length === 0}>📤 Désinscrire tout</button>
+									<button class="admin-btn stop btn-xs" on:click={() => confirmLeaveAll = true} disabled={participants.length === 0}>📤 {$t("tourneys_btn_leave_all")}</button>
 								{/if}
 							</div>
 						{/if}
 					</div>
 					{#if poolPlayers.length === 0}
-						<span class="text-dim text-sm">{useTeams && participants.length > 0 ? 'Tous les joueurs sont placés dans une équipe.' : 'Aucun inscrit pour le moment.'}</span>
+						<span class="text-dim text-sm">{useTeams && participants.length > 0 ? $t('tourneys_all_placed') : $t('tourneys_no_registered')}</span>
 					{:else}
 						<div class="part-cards-grid">
 							{#each groupedPoolPlayers as [teamName, members]}
 								<div class="part-card glass">
 									<div class="part-card-header">
-										<span class="part-card-name">{teamName || 'Sans équipe'}</span>
+										<span class="part-card-name">{teamName || $t('dash_modal_team_fallback')}</span>
 										<span class="part-card-count">{members.length}</span>
 									</div>
 									<div class="part-card-members">
@@ -895,17 +897,17 @@
 				{#if useTeams}
 					<div class="teams-section glass">
 						<div class="section-title">
-							<h3>👥 Composition des équipes</h3>
+							<h3>👥 {$t('tourneys_tab_teams')}</h3>
 							{#if isAdmin && selected.status === 'OPEN'}
 								<div style="display:flex;gap:0.5rem;">
-									<button class="btn-secondary btn-xs" on:click={randomizeTeams}>🎲 Répartir</button>
+									<button class="btn-secondary btn-xs" on:click={randomizeTeams}>🎲 {$t('tourneys_btn_randomize')}</button>
 								</div>
 							{/if}
 						</div>
 						{#if selected.status === 'OPEN' && (isAdmin || isParticipant)}
 							<div class="team-create-row">
-								<input type="text" placeholder="Nom de l'équipe..." bind:value={newTeamName} class="team-input" on:keydown={(e) => e.key === 'Enter' && createTeam()} />
-								<button class="btn-primary btn-xs" on:click={createTeam}>+ Créer</button>
+								<input type="text" placeholder="{$t('profile_team_placeholder')}" bind:value={newTeamName} class="team-input" on:keydown={(e) => e.key === 'Enter' && createTeam()} />
+								<button class="btn-primary btn-xs" on:click={createTeam}>+ {$t('tourneys_btn_create_team')}</button>
 							</div>
 						{/if}
 						<div class="teams-grid">
@@ -925,7 +927,7 @@
 										<span class="team-name">{team.name}</span>
 										<div style="display:flex;gap:0.3rem;align-items:center;">
 											{#if selected.status === 'OPEN' && isParticipant && !myTeam}
-												<button class="btn-join" on:click={() => addMemberToTeam(team.id, currentUser.id)} title="Rejoindre">⭐ Rejoindre</button>
+												<button class="btn-join" on:click={() => addMemberToTeam(team.id, currentUser.id)} title="Rejoindre">⭐ {$t("tourneys_btn_join_text")}</button>
 											{/if}
 											{#if selected.status === 'OPEN' && (isAdmin || team.created_by === currentUser?.id)}
 												<button class="team-delete" on:click={() => deleteTeam(team.id)} title="Supprimer">✕</button>
@@ -951,7 +953,7 @@
 										<select class="team-add-select" on:change={(e) => { if (e.target.value) { addMemberToTeam(team.id, parseInt(e.target.value)); e.target.value = ''; } }}>
 											<option value="">+ Ajouter...</option>
 											{#each groupedUnassigned as [groupName, members]}
-												<optgroup label={groupName || 'Sans équipe'}>
+												<optgroup label={groupName || $t('dash_modal_team_fallback')}>
 													{#each members as p}
 														<option value={p.user_id}>{p.username}</option>
 													{/each}
@@ -962,7 +964,7 @@
 								</div>
 
 							{:else}
-								<span class="text-dim text-sm">Créez des équipes ci-dessus.</span>
+								<span class="text-dim text-sm">{$t("tourneys_no_teams")}</span>
 							{/each}
 						</div>
 						{#if isAdmin && selected.status === 'OPEN' && unassignedPlayers.length > 0}
@@ -974,8 +976,8 @@
 				<!-- Bracket -->
 				<div class="bracket-section glass" class:bracket-expanded={hasBracket}>
 					<div class="section-title">
-						<h3>{bracketType === 'round_robin' ? '📊 Championnat' : bracketType === 'ffa' ? '🏁 Free For All' : '📊 Arbre du Tournoi'}</h3>
-						{#if hasBracket && bracketType !== 'round_robin' && bracketType !== 'ffa'}<button class="btn-secondary btn-xs" on:click={resetZoom}>Recentrer</button>{/if}
+						<h3>{bracketType === 'round_robin' ? '📊 ' + $t('admin_tourneys_wizard_format_championship') : bracketType === 'ffa' ? '🏁 Free For All' : '📊 ' + $t('tourneys_tab_bracket')}</h3>
+						{#if hasBracket && bracketType !== 'round_robin' && bracketType !== 'ffa'}<button class="btn-secondary btn-xs" on:click={resetZoom}>{$t('tourneys_btn_recenter')}</button>{/if}
 					</div>
 					{#if hasBracket}
 						{#if bracketType === 'ffa'}
@@ -987,8 +989,8 @@
 									{@const isLatest = ri === bracketRounds.length - 1}
 									<div class="ffa-round {isLatest ? 'ffa-current' : 'ffa-past'}">
 										<div class="ffa-round-hdr">
-											<span>Manche {ri + 1}</span>
-											<span class="ffa-player-count">{match.p.length} joueurs</span>
+											<span>{$t('tourneys_round_number', { num: ri + 1 })}</span>
+											<span class="ffa-player-count">{$t('admin_tourneys_players_count', { count: match.p.length, plural: match.p.length > 1 ? 's' : '' })}</span>
 										</div>
 										<div class="ffa-players">
 											{#each match.p as playerId, pi}
@@ -998,7 +1000,7 @@
 														{#if mRank}#{mRank}{:else}—{/if}
 													</span>
 													<span class="ffa-name">{getPlayerName(playerId, nameMap)}</span>
-													{#if playerId > 0 && seatMap[playerId]}<a href="/dashboard/map?highlight={seatMap[playerId]}" class="seat-badge" title="Voir sur le plan">📍{seatMap[playerId]}</a>{/if}
+													{#if playerId > 0 && seatMap[playerId]}<a href="/dashboard/map?highlight={seatMap[playerId]}" class="seat-badge" title={$t('players_tooltip_seat')}>📍{seatMap[playerId]}</a>{/if}
 													{#if canEditPlayerScore(match, pi, myTeamSlotId, isParticipant, currentUser) && isLatest}
 														<input type="number" class="score-input ffa-input" value={match.score?.[pi] || ''} placeholder="Score"
 															on:change={(e) => updateFFAPlacement(match, pi, e.target.value)} min="1" />
@@ -1101,7 +1103,7 @@
 									<div class="rounds-container">
 										{#each wbRounds as roundMatches, ri}
 											<div class="round-col {ri === wbRounds.length - 1 && wbRounds.length > 1 ? 'finale-col' : ''}">
-												<div class="round-header {ri === wbRounds.length - 1 && wbRounds.length > 1 ? 'finale-header' : ''}">{ri === wbRounds.length - 1 && wbRounds.length > 1 ? '🏆 FINALE' : 'R' + (ri + 1)}</div>
+												<div class="round-header {ri === wbRounds.length - 1 && wbRounds.length > 1 ? 'finale-header' : ''}">{ri === wbRounds.length - 1 && wbRounds.length > 1 ? $t('tourneys_bracket_finale') : 'R' + (ri + 1)}</div>
 												<div class="matches-col">
 													{#each roundMatches as match}
 														{@const s0 = match.score?.[0] ?? null}
@@ -1352,7 +1354,7 @@
 	<div class="edit-overlay" use:portal on:click={() => editingTournament = false}>
 		<div class="edit-modal glass" on:click|stopPropagation>
 			<header class="edit-modal-header">
-				<h3>✏️ Éditer — {selected?.name}</h3>
+				<h3>✏️ {$t("tourneys_btn_edit")} — {selected?.name}</h3>
 				<button class="close-btn" on:click={() => editingTournament = false}>✕</button>
 			</header>
 			<div class="edit-modal-body">

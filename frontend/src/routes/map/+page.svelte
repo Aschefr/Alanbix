@@ -1,12 +1,14 @@
 <script>
 	import { onMount } from 'svelte';
 	import { api } from '$lib/api';
+	import { t, initI18n } from '$lib/i18nStore';
 
 	let layout = { seats: [] };
 	let user = null;
 	let selectedSeat = null;
 
 	onMount(async () => {
+		await initI18n();
 		const res = await api.get('/room/layout');
 		layout = res.layout || { seats: [] };
 		user = await api.get('/me');
@@ -33,8 +35,8 @@
 
 <div class="map-view">
 	<header>
-		<h1>Plan de la salle</h1>
-		<p class="text-dim">Sélectionne ton poste sur le plan.</p>
+		<h1>{$t('map_public_title')}</h1>
+		<p class="text-dim">{$t('map_public_subtitle')}</p>
 	</header>
 
 	<div class="map-container glass">
@@ -60,9 +62,9 @@
 	</div>
 
 	<div class="legend">
-		<div class="item"><span class="box selected"></span> Ta place</div>
-		<div class="item"><span class="box free"></span> Libre</div>
-		<div class="item"><span class="box occupied"></span> Occupé</div>
+		<div class="item"><span class="box selected"></span> {$t('map_legend_yourseat')}</div>
+		<div class="item"><span class="box free"></span> {$t('map_legend_free')}</div>
+		<div class="item"><span class="box occupied"></span> {$t('map_legend_occupied')}</div>
 	</div>
 </div>
 

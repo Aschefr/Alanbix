@@ -1,7 +1,10 @@
 <script>
+	import { t } from '$lib/i18nStore';
+	import { get } from 'svelte/store';
 	import { api } from '$lib/api';
 	import { onMount, onDestroy } from 'svelte';
 	import { goto } from '$app/navigation';
+	import Modal from '$lib/components/Modal.svelte';
 	import { wsMessageStore } from '$lib/ws';
 
 	let user = null;
@@ -26,12 +29,26 @@
 	let cropImageObj = null;
 	let bgColor = 'transparent';
 
+	let showModal = false;
+	let modalTitle = '';
+	let modalMessage = '';
+	let modalType = 'info';
+	let modalConfirmCallback = null;
+
+	function askConfirm(title, message, type, callback) {
+		modalTitle = title;
+		modalMessage = message;
+		modalType = type;
+		modalConfirmCallback = callback;
+		showModal = true;
+	}
+
 	async function handleAvatarUpload(event) {
 		const file = event.target.files[0];
 		if (!file) return;
 
 		if (file.size > 10 * 1024 * 1024) {
-			alert("L'image est trop grande (max 10 Mo)");
+			alert(get(t)('profile_avatar_too_large'));
 			return;
 		}
 
@@ -48,6 +65,46 @@
 				selectedShape = user.avatar_shape || 'circle';
 				showCropModal = true;
 				setTimeout(drawCropCanvas, 50);
+			};
+			cropImageObj.src = e.target.result;
+		};
+		reader.readAsDataURL(file);
+	}
+
+	function openEditorWithCurrentAvatar() {
+		if (!user || !user.avatar_url) return;
+		cropImageObj = new Image();
+		cropImageObj.crossOrigin = 'anonymous';
+		cropImageObj.onload = () => {
+			cropZoom = 1.0;
+			cropX = 0;
+			cropY = 0;
+			bgColor = 'transparent';
+			selectedShape = user.avatar_shape || 'circle';
+			showCropModal = true;
+			setTimeout(drawCropCanvas, 50);
+		};
+		cropImageObj.src = user.avatar_url;
+	}
+
+	function handleAvatarChangeInModal(event) {
+		const file = event.target.files[0];
+		if (!file) return;
+		if (file.size > 10 * 1024 * 1024) {
+			alert(get(t)('profile_avatar_too_large'));
+			return;
+		}
+		pendingFile = file;
+		const reader = new FileReader();
+		reader.onload = (e) => {
+			cropImageObj = new Image();
+			cropImageObj.onload = () => {
+				cropZoom = 1.0;
+				cropX = 0;
+				cropY = 0;
+				bgColor = 'transparent';
+				selectedShape = selectedShape || user.avatar_shape || 'circle';
+				drawCropCanvas();
 			};
 			cropImageObj.src = e.target.result;
 		};
@@ -214,6 +271,16 @@
 		drawCropCanvas();
 	}
 
+	function handleWheel(e) {
+		const zoomFactor = 0.05;
+		if (e.deltaY < 0) {
+			cropZoom = Math.min(4.0, cropZoom + zoomFactor);
+		} else {
+			cropZoom = Math.max(0.5, cropZoom - zoomFactor);
+		}
+		drawCropCanvas();
+	}
+
 	function generateCroppedBlob() {
 		return new Promise((resolve, reject) => {
 			const exportCanvas = document.createElement('canvas');
@@ -257,7 +324,7 @@
 		try {
 			const croppedBlob = await generateCroppedBlob();
 			const formData = new FormData();
-			const filename = pendingFile.name.split('.').slice(0, -1).join('.') + '.png';
+			const filename = pendingFile ? (pendingFile.name.split('.').slice(0, -1).join('.') + '.png') : 'avatar.png';
 			formData.append('file', croppedBlob, filename);
 			
 			const uploadRes = await api.upload('/me/avatar', formData);
@@ -269,24 +336,29 @@
 			
 			window.dispatchEvent(new CustomEvent('user-updated'));
 		} catch (err) {
-			alert("Erreur lors de l'enregistrement de l'avatar : " + err.message);
+			alert(get(t)('profile_avatar_save_error') + err.message);
 		} finally {
 			uploadingAvatar = false;
 			pendingFile = null;
 		}
 	}
 
-	async function deleteAvatar() {
-		if (confirm("Supprimer ton avatar ?")) {
-			try {
-				await api.delete('/me/avatar');
-				user.avatar_url = null;
-				user = { ...user };
-				window.dispatchEvent(new CustomEvent('user-updated'));
-			} catch (err) {
-				alert("Erreur lors de la suppression de l'avatar: " + err.message);
+	function deleteAvatar() {
+		askConfirm(
+			get(t)('profile_avatar_delete_title') || 'Supprimer l\'avatar',
+			get(t)('profile_avatar_delete_confirm') || 'Voulez-vous vraiment supprimer votre avatar ?',
+			'error',
+			async () => {
+				try {
+					await api.delete('/me/avatar');
+					user.avatar_url = null;
+					user = { ...user };
+					window.dispatchEvent(new CustomEvent('user-updated'));
+				} catch (err) {
+					alert(get(t)('profile_avatar_delete_error') + err.message);
+				}
 			}
-		}
+		);
 	}
 
 	onMount(async () => {
@@ -351,36 +423,42 @@
 				{:else}
 					{user.username[0].toUpperCase()}
 				{/if}
-				<label class="avatar-upload-overlay" class:uploading={uploadingAvatar}>
-					<span>{uploadingAvatar ? '⏳...' : '✏️'}</span>
-					<input type="file" accept="image/*" on:change={handleAvatarUpload} style="display: none;" disabled={uploadingAvatar} />
-				</label>
+				{#if user.avatar_url}
+					<button class="avatar-upload-overlay" class:uploading={uploadingAvatar} on:click={openEditorWithCurrentAvatar} disabled={uploadingAvatar} type="button">
+						<span>{uploadingAvatar ? '⏳...' : '✏️'}</span>
+					</button>
+				{:else}
+					<label class="avatar-upload-overlay" class:uploading={uploadingAvatar}>
+						<span>{uploadingAvatar ? '⏳...' : '✏️'}</span>
+						<input type="file" accept="image/*" on:change={handleAvatarUpload} style="display: none;" disabled={uploadingAvatar} />
+					</label>
+				{/if}
 			</div>
 			{#if user.avatar_url}
-				<button class="btn-danger-icon" on:click={deleteAvatar} title="Supprimer l'avatar" type="button">🗑️</button>
+				<button class="btn-danger-icon" on:click={deleteAvatar} title="{$t('profile_avatar_delete_tooltip')}" type="button">🗑️</button>
 			{/if}
 		</div>
 		<div class="header-info">
 			<h1 class="title-premium">{user.username}</h1>
 			<span class="role-badge {user.is_admin ? 'admin' : 'player'}">
-				{user.is_admin ? '👑 Administrateur' : '🎮 Joueur'}
+				{user.is_admin ? '👑 ' + $t('role_admin') : '🎮 ' + $t('role_player')}
 			</span>
 		</div>
 		{#if pointsData}
 			<div class="total-pts-badge">
 			<span class="pts-number">{pointsData.history.reduce((s, h) => s + (h.total || 0), 0)}</span>
-				<span class="pts-label">points</span>
+				<span class="pts-label">{$t("profile_pts_points")}</span>
 			</div>
 		{/if}
 	</header>
 
 	<div class="profile-grid">
 		<section class="profile-card glass">
-			<h2 class="card-title">Mon Équipe</h2>
-			<p class="text-dim text-sm mb-4">Ce nom apparaîtra sur ta place dans le plan de salle et sur tes badges de tournoi.</p>
+			<h2 class="card-title">{$t("profile_team_title")}</h2>
+			<p class="text-dim text-sm mb-4">{$t("profile_team_desc")}</p>
 			<div class="input-row">
 				<input 
-					type="text" class="input" placeholder="Nom d'équipe..."
+					type="text" class="input" placeholder="{$t('profile_team_placeholder')}"
 					bind:value={teamName} list="existing-teams"
 				/>
 				<datalist id="existing-teams">
@@ -392,37 +470,37 @@
 					{#if saving}
 						⏳
 					{:else if saved}
-						✓ Sauvé
+						{$t("profile_saved_toast")}
 					{:else}
-						Enregistrer
+						{$t("profile_btn_save")}
 					{/if}
 				</button>
 			</div>
 		</section>
 
 		<section class="profile-card glass">
-			<h2 class="card-title">Informations</h2>
+			<h2 class="card-title">{$t("info_title")}</h2>
 			<div class="info-grid">
 				<div class="info-item">
-					<span class="info-label">Pseudo</span>
+					<span class="info-label">{$t("profile_lbl_username")}</span>
 					<span class="info-value">{user.username}</span>
 				</div>
 				<div class="info-item">
-					<span class="info-label">Rôle</span>
-					<span class="info-value">{user.is_admin ? 'Administrateur' : 'Joueur'}</span>
+					<span class="info-label">{$t("profile_lbl_role")}</span>
+					<span class="info-value">{user.is_admin ? $t("role_admin") : $t("role_player")}</span>
 				</div>
 				<div class="info-item">
-					<span class="info-label">Place assignée</span>
-					<span class="info-value">{user.seat_id || 'Aucune'}</span>
+					<span class="info-label">{$t("profile_lbl_seat")}</span>
+					<span class="info-value">{user.seat_id || $t('profile_no_seat')}</span>
 				</div>
 				<div class="info-item">
-					<span class="info-label">Équipe</span>
-					<span class="info-value">{user.team_name || 'Non définie'}</span>
+					<span class="info-label">{$t("profile_lbl_team")}</span>
+					<span class="info-value">{user.team_name || $t('profile_no_team')}</span>
 				</div>
 			</div>
 			<div style="margin-top: 1.5rem; text-align: right;">
 				<button class="btn-secondary" on:click={() => goto('/dashboard/welcome')} style="font-size: 0.8rem; padding: 0.5rem 1rem;">
-					📖 Revoir le tutoriel d'accueil
+					{$t("profile_btn_tutorial")}
 				</button>
 			</div>
 		</section>
@@ -431,18 +509,18 @@
 	<!-- Points History -->
 	{#if pointsData}
 		<section class="points-history glass">
-			<h2 class="card-title">🏆 Historique des Points</h2>
+			<h2 class="card-title">{$t("profile_pts_history")}</h2>
 			{#if pointsData.history.length === 0}
-				<p class="text-dim text-sm">Aucun tournoi clôturé pour le moment.</p>
+				<p class="text-dim text-sm">{$t("profile_pts_empty")}</p>
 			{:else}
 				<div class="history-table-wrap">
 					<table class="history-table">
 						<thead>
 							<tr>
-								<th>Rang</th>
-								<th>Tournoi</th>
-								<th class="pts-col">Détails</th>
-								<th class="pts-col total-col">Total</th>
+								<th>{$t("profile_pts_rank")}</th>
+								<th>{$t("profile_pts_tournament")}</th>
+								<th class="pts-col">{$t("profile_pts_details")}</th>
+								<th class="pts-col total-col">{$t("dash_modal_points_total")}</th>
 								<th></th>
 							</tr>
 						</thead>
@@ -455,7 +533,7 @@
 									<td class="tourney-cell">
 										<div class="tourney-name">
 											{h.tournament_name}
-											{#if h.live}<span class="live-badge">● EN COURS</span>{/if}
+											{#if h.live}<span class="live-badge">{$t("profile_pts_running")}</span>{/if}
 										</div>
 										{#if h.game_name}<div class="tourney-game">{h.game_name}</div>{/if}
 										{#if h.team_name}<div class="tourney-team">👥 {h.team_name}</div>{/if}
@@ -469,7 +547,7 @@
 									</td>
 									<td class="pts-col total-col"><strong>{h.live ? '~' : '+'}{h.total}</strong></td>
 									<td>
-										<button class="btn-goto" on:click={() => goToTournament(h.tournament_id)} title="Voir le tournoi">
+										<button class="btn-goto" on:click={() => goToTournament(h.tournament_id)} title="{$t('profile_pts_tooltip_view')}">
 											→
 										</button>
 									</td>
@@ -490,7 +568,7 @@
 	.avatar-container { display: flex; align-items: center; gap: 1rem; position: relative; }
 	.avatar-lg { width: 64px; height: 64px; background: var(--bg-tertiary); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; font-weight: 800; color: var(--accent); border: 2px solid var(--accent-soft); position: relative; overflow: hidden; cursor: pointer; }
 	.avatar-img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
-	.avatar-upload-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.6); color: white; font-size: 0.75rem; font-weight: 700; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.2s; border-radius: 50%; cursor: pointer; pointer-events: none; }
+	.avatar-upload-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.6); color: white; font-size: 0.75rem; font-weight: 700; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.2s; border-radius: 50%; cursor: pointer; pointer-events: none; border: none; padding: 0; outline: none; }
 	.avatar-upload-overlay.uploading { opacity: 1; pointer-events: auto; }
 	.avatar-lg:hover .avatar-upload-overlay { opacity: 1; pointer-events: auto; }
 	.btn-danger-icon { background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); color: #ef4444; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.15s; font-size: 0.9rem; margin-left: -0.5rem; }
@@ -734,7 +812,7 @@
 {#if showCropModal}
 <div class="crop-modal-overlay">
 	<div class="crop-modal-content glass animate-in">
-		<h3 class="crop-modal-title">Éditer l'Avatar</h3>
+		<h3 class="crop-modal-title">{$t("profile_crop_title")}</h3>
 		
 		<div class="canvas-wrapper">
 			<canvas 
@@ -748,13 +826,14 @@
 				on:touchstart|preventDefault={handleTouchStart}
 				on:touchmove|preventDefault={handleTouchMove}
 				on:touchend={handleMouseUp}
+				on:wheel|preventDefault={handleWheel}
 				style="cursor: move;"
 			></canvas>
 		</div>
 		
 		<div class="crop-controls">
 			<div class="control-group">
-				<label for="zoom-slider">🔎 Zoom</label>
+				<label for="zoom-slider">{$t("profile_crop_zoom")}</label>
 				<input 
 					type="range" 
 					id="zoom-slider"
@@ -767,7 +846,7 @@
 			</div>
 			
 			<div class="control-group">
-				<label>Forme d'affichage</label>
+				<label>{$t("profile_crop_shape")}</label>
 				<div class="shape-selector">
 					<button 
 						class="shape-btn" 
@@ -775,7 +854,7 @@
 						on:click={() => { selectedShape = 'circle'; drawCropCanvas(); }}
 						type="button"
 					>
-						⚪ Cercle
+						{$t("profile_crop_shape_circle")}
 					</button>
 					<button 
 						class="shape-btn" 
@@ -783,7 +862,7 @@
 						on:click={() => { selectedShape = 'rounded'; drawCropCanvas(); }}
 						type="button"
 					>
-						⬜ Arrondi
+						⬜ {$t("profile_crop_shape_rounded")}
 					</button>
 					<button 
 						class="shape-btn" 
@@ -791,20 +870,20 @@
 						on:click={() => { selectedShape = 'square'; drawCropCanvas(); }}
 						type="button"
 					>
-						⬛ Carré
+						⬛ {$t("profile_crop_shape_square")}
 					</button>
 				</div>
 			</div>
 
 			<div class="control-group">
-				<label>Couleur de fond (transparence)</label>
+				<label>{$t("profile_crop_bg")}</label>
 				<div class="bg-color-selector">
 					<button 
 						class="color-btn transparent-btn" 
 						class:active={bgColor === 'transparent'} 
 						on:click={() => { bgColor = 'transparent'; drawCropCanvas(); }}
 						type="button"
-						title="Transparent"
+						title="{$t('profile_crop_bg_transparent')}"
 					>
 						🏁
 					</button>
@@ -814,7 +893,7 @@
 						style="background-color: #ffffff;"
 						on:click={() => { bgColor = '#ffffff'; drawCropCanvas(); }}
 						type="button"
-						title="Blanc"
+						title="{$t('profile_crop_bg_white')}"
 					></button>
 					<button 
 						class="color-btn" 
@@ -822,7 +901,7 @@
 						style="background-color: #000000;"
 						on:click={() => { bgColor = '#000000'; drawCropCanvas(); }}
 						type="button"
-						title="Noir"
+						title="{$t('profile_crop_bg_black')}"
 					></button>
 					<button 
 						class="color-btn" 
@@ -830,7 +909,7 @@
 						style="background-color: #3b82f6;"
 						on:click={() => { bgColor = '#3b82f6'; drawCropCanvas(); }}
 						type="button"
-						title="Bleu Alanbix"
+						title="{$t('profile_crop_bg_blue')}"
 					></button>
 					<button 
 						class="color-btn" 
@@ -838,10 +917,10 @@
 						style="background-color: #1e293b;"
 						on:click={() => { bgColor = '#1e293b'; drawCropCanvas(); }}
 						type="button"
-						title="Sombre"
+						title="{$t('profile_crop_bg_dark')}"
 					></button>
 					
-					<label class="color-picker-label" title="Personnalisé">
+					<label class="color-picker-label" title="{$t('profile_crop_bg_custom')}">
 						🎨
 						<input 
 							type="color" 
@@ -852,12 +931,33 @@
 					</label>
 				</div>
 			</div>
+			
+			<div class="control-group">
+				<label>{$t("profile_crop_change_image") || "Changer d'image"}</label>
+				<label class="shape-btn" style="cursor: pointer; width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.5rem; box-sizing: border-box;">
+					📁 {$t("profile_crop_choose_file") || "Choisir un fichier"}
+					<input 
+						type="file" 
+						accept="image/*" 
+						on:change={handleAvatarChangeInModal} 
+						style="display: none;" 
+					/>
+				</label>
+			</div>
 		</div>
 		
 		<div class="crop-actions">
-			<button class="btn-secondary" on:click={() => showCropModal = false} type="button">Annuler</button>
-			<button class="btn-primary" on:click={saveCroppedAvatar} type="button">Valider</button>
+			<button class="btn-secondary" on:click={() => showCropModal = false} type="button">{$t("info_btn_cancel")}</button>
+			<button class="btn-primary" on:click={saveCroppedAvatar} type="button">{$t("profile_crop_btn_save")}</button>
 		</div>
 	</div>
 </div>
 {/if}
+
+<Modal
+	bind:show={showModal}
+	title={modalTitle}
+	message={modalMessage}
+	type={modalType}
+	onConfirm={modalConfirmCallback}
+/>

@@ -1,4 +1,6 @@
 <script>
+	import { t } from '$lib/i18nStore';
+	import { get } from 'svelte/store';
 	import { api } from '$lib/api';
 	import { onMount, onDestroy, tick } from 'svelte';
 	import Modal from '$lib/components/Modal.svelte';
@@ -394,7 +396,7 @@
 	}
 
 	async function deleteConversation(id) {
-		askConfirm('Supprimer', 'Voulez-vous vraiment supprimer cette conversation ?', 'error', async () => {
+		askConfirm($t('ai_confirm_delete_title'), $t('ai_confirm_delete_desc'), 'error', async () => {
 			await api.delete(`/ia/conversations/${id}`);
 			if (activeId === id) activeId = null;
 			await loadConversations();
@@ -440,21 +442,21 @@
 	}
 
 	async function revertCompression() {
-		askConfirm('Annuler la compression', 'Voulez-vous restaurer le contexte original ?', 'warning', async () => {
+		askConfirm($t('ai_confirm_revert_title'), $t('ai_confirm_revert_desc'), 'warning', async () => {
 			await api.delete(`/ia/compress/${activeId}`);
 			await selectConversation(activeId);
 		});
 	}
 
 	async function deleteMsg(id) {
-		askConfirm('Supprimer le message', 'Voulez-vous supprimer ce message ?', 'error', async () => {
+		askConfirm($t('ai_confirm_delete_msg_title'), $t('ai_confirm_delete_msg_desc'), 'error', async () => {
 			await api.delete(`/ia/message/${id}`);
 			messages = messages.filter(m => m.id !== id);
 		});
 	}
 
 	async function regenerate() {
-		askConfirm('Régénérer', 'Voulez-vous régénérer la dernière réponse ? L\'ancienne sera écrasée.', 'warning', async () => {
+		askConfirm($t('ai_confirm_regen_title'), $t('ai_confirm_regen_desc'), 'warning', async () => {
 			loading = true;
 			try {
 				const res = await api.post(`/ia/regenerate/${activeId}`, {});
@@ -725,15 +727,15 @@
 		<div class="admin-notif" on:click={goToNotifiedConv}>
 			<span class="admin-notif-icon">🛡️</span>
 			<span class="admin-notif-text">
-				<strong>{adminNotification.admin_name}</strong> a envoyé un message dans votre conversation
+				{@html $t("ai_banner_sent", { admin: adminNotification.admin_name })}
 			</span>
-			<button class="admin-notif-btn">Voir →</button>
+			<button class="admin-notif-btn">{$t("ai_banner_sent").includes("Voir") ? "Voir →" : $t("ai_banner_view")}</button>
 			<button class="admin-notif-close" on:click|stopPropagation={dismissNotification}>✕</button>
 		</div>
 	{/if}
 	<!-- Sidebar: Conversation History -->
 	<aside class="chat-sidebar glass">
-		<button class="btn-primary w-full" on:click={newConversation} disabled={iaBlocked}>+ Nouvelle Discussion</button>
+		<button class="btn-primary w-full" on:click={newConversation} disabled={iaBlocked}>{$t("ai_btn_new_chat")}</button>
 		<div class="conv-list">
 			{#each conversations as conv}
 				<div class="conv-item {activeId === conv.id ? 'active' : ''}" class:unread={conv.has_new_messages}>
@@ -746,7 +748,7 @@
 						<span class="icon">💬</span>
 						<span class="title">{conv.title}</span>
 						{#if conv.has_new_messages}
-							<span class="unread-badge">Nouveau</span>
+							<span class="unread-badge">{$t("changelog_fallback_name")}</span>
 						{/if}
 					</button>
 					<button class="btn-icon delete-btn" on:click={() => deleteConversation(conv.id)}>❌</button>
@@ -769,14 +771,14 @@
 							</div>
 						{/if}
 						<div class="rag-status">
-							<span class="pulse"></span> IA Active
+							<span class="pulse"></span> {$t("ai_status_active")}
 						</div>
 					</div>
 					<div class="usage-bar mt-1">
 						<div class="flex-row justify-between">
-							<span class="text-xs text-dim">Contexte: {liveTokens} / {contextWindow} tokens</span>
+							<span class="text-xs text-dim">{$t("ai_label_context")} {liveTokens} / {contextWindow} tokens</span>
 							{#if tokenPct > 80}
-								<span class="text-xs text-danger warning-text">⚠️ Proche de la limite</span>
+								<span class="text-xs text-danger warning-text">{$t("ai_context_limit")}</span>
 							{/if}
 						</div>
 						<div class="progress-bg">
@@ -785,11 +787,11 @@
 					</div>
 				</div>
 				<div class="flex-row gap-2">
-					<button class="btn-sentinel" on:click={() => { compressionReason = 'manual'; showCompressionModal = true; }} title="Gérer l'espace du contexte">
-						⚙️ Espace Contexte
+					<button class="btn-sentinel" on:click={() => { compressionReason = 'manual'; showCompressionModal = true; }} title={$t('ai_btn_context_tooltip')} disabled={iaBlocked}>
+						{$t("ai_btn_context_label")}
 					</button>
-					<button class="btn-sentinel danger" on:click={regenerate} title="Régénérer la dernière réponse">
-						🔄 Régénérer
+					<button class="btn-sentinel danger" on:click={regenerate} title={$t('ai_btn_regenerate_tooltip')} disabled={iaBlocked}>
+						{$t("ai_btn_regenerate_label")}
 					</button>
 				</div>
 			</header>
@@ -798,36 +800,36 @@
 				<div class="modal-overlay">
 					<div class="modal-content glass">
 						{#if compressionReason === 'auto'}
-							<h3>⚠️ Contexte saturé</h3>
-							<p class="text-dim text-sm mb-4">Votre message dépasse la capacité mémoire de l'IA. Choisissez comment compresser le contexte avant d'envoyer :</p>
+							<h3>{$t("ai_context_full")}</h3>
+							<p class="text-dim text-sm mb-4">{$t("ai_context_full_desc")}</p>
 							{#if pendingQuery}
 								<div class="pending-msg-preview">
-									<span class="pending-label">⏳ Message en attente :</span>
+									<span class="pending-label">{$t("ai_pending_message")}</span>
 									<span class="pending-text">{pendingQuery.length > 80 ? pendingQuery.slice(0, 80) + '…' : pendingQuery}</span>
 								</div>
 							{/if}
 						{:else}
-							<h3>Gérer l'espace du contexte</h3>
-							<p class="text-dim text-sm mb-4">Choisissez comment libérer de l'espace :</p>
+							<h3>{$t("ai_btn_context_tooltip")}</h3>
+							<p class="text-dim text-sm mb-4">{$t("ai_context_free_options")}</p>
 						{/if}
 						
 						<div class="flex-col gap-2">
 							<button class="comp-btn" on:click={() => applyCompression('truncate')}>
-								<strong>1. Tronquer (Instantané)</strong>
-								<span class="text-xs text-dim">Oublie les messages les plus anciens (0 délai).</span>
+								<strong>{$t("ai_context_option_truncate")}</strong>
+								<span class="text-xs text-dim">{$t("ai_context_option_truncate_desc")}</span>
 							</button>
 							<button class="comp-btn" on:click={() => applyCompression('compact')}>
-								<strong>2. Compacter l'historique</strong>
-								<span class="text-xs text-dim">Supprime les doublons inutiles sans altérer le sens (~50% gain).</span>
+								<strong>{$t("ai_context_option_compact")}</strong>
+								<span class="text-xs text-dim">{$t("ai_context_option_compact_desc")}</span>
 							</button>
 							<button class="comp-btn primary-outline" on:click={() => applyCompression('summary')}>
-								<strong>3. Résumer par l'IA (Recommandé)</strong>
-								<span class="text-xs text-dim">Résumé ultra-concis de tout l'historique (~70% gain).</span>
+								<strong>{$t("ai_context_option_summary")}</strong>
+								<span class="text-xs text-dim">{$t("ai_context_option_summary_desc")}</span>
 							</button>
 						</div>
 						
 						<div class="flex-row justify-end mt-4">
-							<button class="btn-secondary" on:click={() => { showCompressionModal = false; if (pendingQuery) { query = pendingQuery; pendingQuery = ''; } }}>Annuler</button>
+							<button class="btn-secondary" on:click={() => { showCompressionModal = false; if (pendingQuery) { query = pendingQuery; pendingQuery = ''; } }}>{$t("info_btn_cancel")}</button>
 						</div>
 					</div>
 				</div>
@@ -837,7 +839,7 @@
 				{#if autoCompressNotif}
 					<div class="auto-compress-notif">
 						<span>🗜️</span>
-						<span>Le contexte a été automatiquement compressé pour libérer de l'espace.</span>
+						<span>{$t("ai_notif_compressed")}</span>
 					</div>
 				{/if}
 				{#each messages as msg, idx}
@@ -848,21 +850,23 @@
 							<div class="msg-content glass context-block">
 								<details class="context-details">
 									<summary class="context-summary">
-										<span class="context-label">Contexte Compressé ({compression.mode})</span>
+										<span class="context-label">{$t("ai_context_compressed", { mode: compression.mode })}</span>
 										<span class="context-size">{compression.context ? Math.ceil(compression.context.length / 3.5) + ' tokens' : '⚠️ vide'}</span>
-										<button class="action-btn" on:click|stopPropagation={startEditContext} title="Éditer">✏️</button>
+										{#if !iaBlocked}
+											<button class="action-btn" on:click|stopPropagation={startEditContext} title={$t('ai_tooltip_edit')}>✏️</button>
+										{/if}
 									</summary>
 									{#if editingContext}
 										<textarea class="edit-textarea" bind:value={editContextText} rows="4"></textarea>
 										<div class="edit-actions">
-											<button class="btn-xs-save" on:click={saveContextEdit}>✓ Sauvegarder</button>
-											<button class="btn-xs-cancel" on:click={() => editingContext = false}>✕ Annuler</button>
+											<button class="btn-xs-save" on:click={saveContextEdit}>✓ {$t('info_btn_save')}</button>
+											<button class="btn-xs-cancel" on:click={() => editingContext = false}>✕ {$t("info_btn_cancel")}</button>
 										</div>
 									{:else}
 										{#if compression.context}
 											<div class="context-text">{compression.context}</div>
 										{:else}
-											<div class="context-text" style="opacity:0.5;font-style:italic">Aucun contenu compressé disponible. Le LLM n'a pas renvoyé de résultat.</div>
+											<div class="context-text" style="opacity:0.5;font-style:italic">{$t("ai_context_empty")}</div>
 										{/if}
 									{/if}
 								</details>
@@ -904,11 +908,11 @@
 											<span class="model-badge">🤖 {modelInfo.model} ({modelInfo.instance})</span>
 										{/if}
 										{#if msg.status === 'queued'}
-											<span class="status-badge queued">⏳ File d'attente...</span>
+											<span class="status-badge queued">{$t("ai_status_queued")}</span>
 										{:else if msg.status === 'tool_call'}
-											<span class="status-badge tool">🔍 Outil en cours : {msg.active_tool || 'Consultation'}</span>
+											<span class="status-badge tool">{$t("ai_status_tool_running", { tool: msg.active_tool || 'Consultation' })}</span>
 										{:else if msg.status === 'thinking'}
-											<span class="status-badge thinking">🧠 Réflexion...</span>
+											<span class="status-badge thinking">{$t("ai_status_thinking")}</span>
 										{/if}
 										{#if usedTools && usedTools.length > 0}
 											{#each usedTools as tool}
@@ -920,15 +924,15 @@
 								{#if editingMsgId === msg.id}
 									<textarea class="edit-textarea" bind:value={editingMsgContent} rows="3"></textarea>
 									<div class="edit-actions">
-										<button class="btn-xs-save" on:click={saveEdit}>✓ Sauvegarder</button>
-										<button class="btn-xs-save accent" on:click={editAndResend}>↻ Réenvoyer</button>
+										<button class="btn-xs-save" on:click={saveEdit}>✓ {$t('info_btn_save')}</button>
+										<button class="btn-xs-save accent" on:click={editAndResend}>↻ {$t('ai_resend')}</button>
 										<button class="btn-xs-cancel" on:click={cancelEdit}>✕</button>
 									</div>
 								{:else}
 									{#if msg.role === 'bot' && msg.think_content}
 										<details class="think-details" open={msg.status === 'thinking'}>
 											<summary class="think-summary">
-												<span>🧠 Cheminement de pensée</span>
+												<span>{$t("ai_thinking_process")}</span>
 											</summary>
 											<div class="think-text">{msg.think_content}</div>
 										</details>
@@ -942,25 +946,27 @@
 									{/if}
 									{#if msg.image_path}
 										<div class="msg-image">
-											<img src="{API_URL}/data/{msg.image_path}" alt="Image jointe" on:click={() => window.open(API_URL + '/data/' + msg.image_path, '_blank')} />
+											<img src="{API_URL}/data/{msg.image_path}" alt="{$t('ai_attached_image')}" on:click={() => window.open(API_URL + '/data/' + msg.image_path, '_blank')} />
 										</div>
 									{/if}
 									{#if msg.content === '' && loading && msg.role === 'bot' && msg.id === messages[messages.length-1].id}
-										<span class="typing-indicator" class:typing-fade-in={typingFade} class:typing-fade-out={!typingFade}>{compressing ? '🗜️ Compression du contexte en cours...' : queued ? `⏳ Position #${queuePosition} dans la file...` : typingText}</span>
+										<span class="typing-indicator" class:typing-fade-in={typingFade} class:typing-fade-out={!typingFade}>{compressing ? $t("ai_compressing") : queued ? $t("ai_queue_position", { pos: queuePosition }) : typingText}</span>
 									{/if}
 								{/if}
 							</div>
 						</div>
-						<div class="msg-actions">
-							{#if msg.role === 'user'}
-								<button class="action-btn" on:click={() => editMsg(msg)} title="Éditer">✏️</button>
-								<button class="action-btn" on:click={() => retryFromMsg(msg)} title="Réessayer">🔄</button>
-							{/if}
-							{#if msg.role === 'bot' && idx === messages.length - 1}
-								<button class="action-btn" on:click={regenerate} title="Régénérer">🔄</button>
-							{/if}
-							<button class="action-btn" on:click={() => deleteMsg(msg.id)} title="Supprimer">🗑️</button>
-						</div>
+						{#if !iaBlocked}
+							<div class="msg-actions">
+								{#if msg.role === 'user'}
+									<button class="action-btn" on:click={() => editMsg(msg)} title={$t('ai_tooltip_edit')}>✏️</button>
+									<button class="action-btn" on:click={() => retryFromMsg(msg)} title={$t('ai_tooltip_retry')}>🔄</button>
+								{/if}
+								{#if msg.role === 'bot' && idx === messages.length - 1}
+									<button class="action-btn" on:click={regenerate} title={$t('ai_tooltip_regenerate')}>🔄</button>
+								{/if}
+								<button class="action-btn" on:click={() => deleteMsg(msg.id)} title={$t('ai_tooltip_delete')}>🗑️</button>
+							</div>
+						{/if}
 					</div>
 				{/each}
 				{#if compressing}
@@ -968,7 +974,7 @@
 						<div class="msg-row system">
 							<div class="avatar">🗜️</div>
 							<div class="msg-content glass context-block" style="text-align:center">
-								<span class="typing-indicator">🗜️ Compression du contexte en cours...</span>
+								<span class="typing-indicator">{$t("ai_compressing")}</span>
 							</div>
 						</div>
 					</div>
@@ -978,14 +984,14 @@
 			{#if adminOverride}
 				<div class="admin-takeover-banner">
 					<span class="takeover-icon">🛡️</span>
-					<span class="takeover-text">Un administrateur gère cette conversation — l'IA est temporairement en pause</span>
+					<span class="takeover-text">{$t("ai_admin_banner")}</span>
 				</div>
 			{/if}
 
 			{#if iaBlocked}
 				<div class="ia-blocked-banner">
 					<span class="takeover-icon">🚫</span>
-					<span class="blocked-text">Votre accès à l'IA a été suspendu par un administrateur</span>
+					<span class="blocked-text">{$t("ai_blocked")}</span>
 				</div>
 			{/if}
 
@@ -994,12 +1000,12 @@
 					<div class="queue-banner-content">
 						<span class="queue-icon">⏳</span>
 						<div class="queue-info">
-							<span class="queue-label">File d'attente IA — Position <strong>#{queuePosition}</strong></span>
+							<span class="queue-label">{@html $t("ai_queue_position_banner", { pos: queuePosition })}</span>
 							{#if queueEstWait > 0}
-								<span class="queue-wait">Temps estimé : ~{queueEstWait}s</span>
+								<span class="queue-wait">{$t("ai_queue_estimated", { time: queueEstWait })}</span>
 							{/if}
 						</div>
-						<button class="queue-cancel-btn" on:click={cancelQueue} title="Annuler">❌ Annuler</button>
+						<button class="queue-cancel-btn" on:click={cancelQueue} title="Annuler">❌ {$t("info_btn_cancel")}</button>
 					</div>
 					<div class="queue-progress-bg">
 						<div class="queue-progress-fill"></div>
@@ -1016,13 +1022,13 @@
 				{/if}
 				<div class="input-row">
 					<input type="file" accept="image/*" bind:this={fileInput} on:change={handleFileSelect} style="display:none" />
-					<button type="button" class="btn-attach" on:click={() => fileInput?.click()} title="Joindre une image" disabled={iaBlocked || loading || busyOtherConv}>📎</button>
+					<button type="button" class="btn-attach" on:click={() => fileInput?.click()} title={$t('ai_input_tooltip_attach')} disabled={iaBlocked || loading || busyOtherConv}>📎</button>
 					<textarea
 						bind:this={textareaRef}
 						bind:value={query}
-						placeholder={iaBlocked ? 'Accès IA suspendu...' : busyOtherConv ? 'IA occupée dans une autre conversation…' : loading ? 'Alanbix rédige une réponse…' : 'Posez une question… (Maj+Entrée pour un retour à la ligne)'}
+						placeholder={iaBlocked ? $t('ai_input_blocked') : busyOtherConv ? $t('ai_input_busy_other') : loading ? $t('ai_input_generating') : $t('ai_input_placeholder')}
 						disabled={loading || iaBlocked || busyOtherConv}
-						title={busyOtherConv ? 'Une requête IA est déjà en cours dans une autre conversation' : loading ? 'Veuillez patienter — l\'IA génère une réponse' : ''}
+						title={busyOtherConv ? $t('ai_input_title_busy') : loading ? $t('ai_input_title_wait') : ''}
 						on:paste={handlePaste}
 						on:keydown={handleInputKeydown}
 						on:input={autoResizeTextarea}
@@ -1030,20 +1036,20 @@
 						class="chat-textarea"
 					></textarea>
 					{#if loading}
-						<button class="btn-stop" type="button" on:click={cancelQueue} title="Interrompre la génération">⏹ Arrêter</button>
+						<button class="btn-stop" type="button" on:click={cancelQueue} title={$t('ai_tooltip_stop')}>{$t("ai_stop")}</button>
 					{:else if busyOtherConv}
-						<button class="btn-stop" type="button" on:click={async () => { await cancelQueue(); busyOtherConv = false; }} title="Annuler la requête en cours">⏹ Libérer</button>
+						<button class="btn-stop" type="button" on:click={async () => { await cancelQueue(); busyOtherConv = false; }} title={$t('ai_tooltip_cancel')}>{$t("ai_release")}</button>
 					{:else}
-						<button class="btn-primary" type="submit" disabled={iaBlocked}>Envoyer</button>
+						<button class="btn-primary" type="submit" disabled={iaBlocked}>{$t("ai_btn_send")}</button>
 					{/if}
 				</div>
 			</form>
 		{:else}
 			<div class="empty-chat flex-col center">
 				<div class="large-icon">🤖</div>
-				<h2>Bienvenue dans l'IA Alanbix</h2>
-				<p class="text-dim">Sélectionnez une conversation ou commencez-en une nouvelle pour poser vos questions.</p>
-				<button class="btn-primary" on:click={newConversation}>Démarrer</button>
+				<h2>{$t("ai_welcome_title")}</h2>
+				<p class="text-dim">{$t("ai_welcome_desc")}</p>
+				<button class="btn-primary" on:click={newConversation}>{$t("ai_welcome_start")}</button>
 			</div>
 		{/if}
 	</main>

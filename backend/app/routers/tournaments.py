@@ -1555,14 +1555,9 @@ def _build_closing_prompt(tournament_name, game_name, results, participant_uids,
         "ffa": "Free For All"
     }
 
-    # Read admin-customizable intro from SystemConfig
-    closing_prompt_cfg = db.query(models.SystemConfig).filter(
-        models.SystemConfig.key == "tournament_closing_prompt"
-    ).first()
-    if closing_prompt_cfg and closing_prompt_cfg.value:
-        intro = closing_prompt_cfg.value
-    else:
-        intro = "Tu es le commentateur sportif surexcité d'une LAN party."
+    # Read active closing prompt
+    from .ia import get_active_closing_prompt
+    intro = get_active_closing_prompt(db)
 
     # Build standings summary
     standings_text = ""

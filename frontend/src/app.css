@@ -238,6 +238,15 @@ h1, h2, h3, h4, h5, h6 {
   letter-spacing: -0.02em;
 }
 
+.title-premium .title-icon {
+  display: inline-block;
+  background: none;
+  -webkit-background-clip: initial;
+  background-clip: initial;
+  -webkit-text-fill-color: initial;
+  color: initial;
+}
+
 /* Buttons */
 .btn-primary {
   background: var(--accent);
@@ -454,14 +463,26 @@ input, select, textarea,
 }
 
 /* Select / Option dropdown readability */
+select {
+  transition: none !important;
+}
+
 select option {
-  background: var(--bg-secondary);
-  color: var(--text-main);
+  background: var(--bg-secondary) !important;
+  color: var(--text-main) !important;
+  transition: none !important;
 }
 
 [data-theme="light"] select {
   background: var(--input-bg);
   color: var(--input-color);
+  transition: none !important;
+}
+
+[data-theme="light"] select option {
+  background: var(--input-bg) !important;
+  color: var(--input-color) !important;
+  transition: none !important;
 }
 
 /* Fix "color: white" elements that become invisible in light mode */

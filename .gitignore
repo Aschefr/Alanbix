@@ -66,3 +66,4 @@ scratch_*.js
 test_force.py
 CLAUDE.md
 release_guide.md
+scratch/

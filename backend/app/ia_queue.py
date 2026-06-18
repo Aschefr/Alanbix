@@ -351,6 +351,8 @@ class IAQueueManager:
             await self._process_compress(entry, payload)
         elif task_type == "notification":
             await self._process_notification(entry, payload)
+        elif task_type == "translate":
+            await self._process_translate(entry, payload)
         return 0.0, 0.0
 
     async def _process_chat(self, entry: QueueEntry, payload: dict) -> tuple[float, float]:
@@ -661,6 +663,28 @@ class IAQueueManager:
                     "format": "json",
                     "options": {"temperature": 0.8, "num_predict": context_window}
                 }, timeout=120.0)
+
+            if res.status_code != 200:
+                raise Exception(f"Ollama returned HTTP {res.status_code}: {res.text[:200]}")
+
+            raw = res.json().get("message", {}).get("content", "")
+            await entry.result_stream.put({"done": True, "result": raw})
+        except Exception as e:
+            await entry.result_stream.put({"done": True, "error": True, "result": str(e)})
+
+    async def _process_translate(self, entry: QueueEntry, payload: dict):
+        """Process a translation request (non-streaming)."""
+        ollama_host = payload["ollama_host"]
+        model = payload["model"]
+        prompt = payload["prompt"]
+        try:
+            async with httpx.AsyncClient() as client:
+                res = await client.post(f"{ollama_host}/api/chat", json={
+                    "model": model,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "stream": False,
+                    "options": {"temperature": 0.1}
+                }, timeout=45.0)
 
             if res.status_code != 200:
                 raise Exception(f"Ollama returned HTTP {res.status_code}: {res.text[:200]}")

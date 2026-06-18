@@ -3,6 +3,7 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { wsMessageStore } from '$lib/ws';
 	import { goto } from '$app/navigation';
+	import { t, currentLang } from '$lib/i18nStore';
 
 	let notifications = [];
 	let loading = true;
@@ -83,16 +84,24 @@
 		retrying = retrying;
 	}
 
-	function timeAgo(dateStr) {
+	function timeAgo(dateStr, lang) {
 		if (!dateStr) return '';
 		let dStr = dateStr.replace(' ', 'T');
 		if (!dStr.endsWith('Z')) dStr += 'Z';
 		let diff = (Date.now() - new Date(dStr).getTime()) / 1000;
 		if (diff < 0) diff = 0;
-		if (diff < 60) return "à l'instant";
-		if (diff < 3600) return `il y a ${Math.floor(diff / 60)} min`;
-		if (diff < 86400) return `il y a ${Math.floor(diff / 3600)}h`;
-		return `il y a ${Math.floor(diff / 86400)}j`;
+		const isEn = lang === 'en';
+		if (diff < 60) return isEn ? "just now" : "à l'instant";
+		if (diff < 3600) {
+			const m = Math.floor(diff / 60);
+			return isEn ? `${m}m ago` : `il y a ${m} min`;
+		}
+		if (diff < 86400) {
+			const h = Math.floor(diff / 3600);
+			return isEn ? `${h}h ago` : `il y a ${h}h`;
+		}
+		const j = Math.floor(diff / 86400);
+		return isEn ? `${j}d ago` : `il y a ${j}j`;
 	}
 
 	import { pmUnreadCount, groupUnreadCount, totalMsgUnread, notifUnreadCount } from '$lib/pmStore';
@@ -104,25 +113,25 @@
 <div class="notif-page animate-in">
 	<header class="notif-header glass">
 		<div class="header-left">
-			<h1 class="title-premium">🔔 Notifications</h1>
+			<h1 class="title-premium"><span class="title-icon">🔔</span> {$t('nav_notifications')}</h1>
 			{#if unreadCount > 0}
-				<span class="unread-badge">{unreadCount} non lue{unreadCount > 1 ? 's' : ''}</span>
+				<span class="unread-badge">{unreadCount} {$t('notif_unread', { plural: unreadCount > 1 ? 's' : '' })}</span>
 			{/if}
 		</div>
 		{#if unreadCount > 0}
-			<button class="btn-primary btn-sm" on:click={markAllRead}>✓ Tout marquer comme lu</button>
+			<button class="btn-primary btn-sm" on:click={markAllRead}>✓ {$t('notifs_mark_all_read')}</button>
 		{/if}
 	</header>
 
 	{#if loading}
 		<div class="loading-state glass">
-			<span class="spinner">⏳</span> Chargement...
+			<span class="spinner">⏳</span> {$t('notif_loading')}
 		</div>
 	{:else if notifications.length === 0}
 		<div class="empty-state glass">
 			<span class="empty-icon">🔕</span>
-			<p>Aucune notification pour le moment.</p>
-			<p class="text-dim text-sm">Les messages apparaîtront ici après les tournois et les interactions admin.</p>
+			<p>{$t('notifs_empty')}</p>
+			<p class="text-dim text-sm">{$t('notifs_empty_desc')}</p>
 		</div>
 	{:else}
 		<div class="notif-list">
@@ -136,14 +145,14 @@
 					<div class="notif-body">
 						<div class="notif-title-row">
 							<span class="notif-title">{n.title}</span>
-							{#if !n.is_read}<span class="new-badge">{n.metadata?.error ? 'Erreur' : 'Nouveau'}</span>{/if}
+							{#if !n.is_read}<span class="new-badge">{n.metadata?.error ? $t('notifs_error') : $t('notifs_new')}</span>{/if}
 						</div>
 						<p class="notif-content">{n.content}</p>
 						<div class="notif-footer-row">
-							<span class="notif-time">{timeAgo(n.created_at)}</span>
+							<span class="notif-time">{timeAgo(n.created_at, $currentLang)}</span>
 							{#if n.metadata?.error && n.metadata?.tournament_id}
 								<button class="retry-btn" on:click|stopPropagation={() => retryNotifications(n)} disabled={retrying[n.id]}>
-									{retrying[n.id] ? '⏳ ...' : '🔄 Réessayer'}
+									{retrying[n.id] ? '⏳ ...' : '🔄 ' + $t('notif_retry')}
 								</button>
 							{/if}
 						</div>
@@ -151,7 +160,7 @@
 					<button
 						class="notif-delete"
 						on:click|stopPropagation={() => deleteNotif(n.id)}
-						title="Supprimer"
+						title={$t('notif_delete_tooltip')}
 					>🗑️</button>
 				</div>
 			{/each}

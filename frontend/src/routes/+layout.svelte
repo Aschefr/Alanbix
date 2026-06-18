@@ -1,10 +1,12 @@
 <script>
 	import '../app.css';
 	import { onMount } from 'svelte';
+	import { initI18n } from '$lib/i18nStore';
 
-	onMount(() => {
+	onMount(async () => {
 		const saved = localStorage.getItem('alanbix_theme') || 'dark';
 		document.documentElement.setAttribute('data-theme', saved);
+		await initI18n();
 	});
 </script>
 

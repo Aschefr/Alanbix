@@ -7,6 +7,7 @@
 	import { pmUnreadCount, groupUnreadCount, totalMsgUnread, notifUnreadCount, aiUnreadCount } from '$lib/pmStore';
 	import { get } from 'svelte/store';
 	import TutorialOverlay from '$lib/components/TutorialOverlay.svelte';
+	import { currentLang, availableLanguages, lanMultilingual, loadLocale, flagMap, t, initI18n } from '$lib/i18nStore';
 
 	let user = { username: '...', is_admin: false };
 	let loading = true;
@@ -258,9 +259,9 @@
 			// Fetch SemVer version
 			try {
 				const res = await api.get('/health');
-				version = res.version || '1.16.2';
+				version = res.version || '1.17.0';
 			} catch {
-				version = '1.16.2';
+				version = '1.17.0';
 			}
 
 			// Admin: poll IA status
@@ -286,6 +287,7 @@
 
 	onMount(async () => {
 		isDark = (localStorage.getItem('alanbix_theme') || 'dark') === 'dark';
+		await initI18n();
 		if ('Notification' in window) {
 			browserNotifSupport = true;
 			browserNotifStatus = Notification.permission;
@@ -388,33 +390,33 @@
 		<div class="nav-links">
 			<a href="/dashboard" class="nav-item">
 				<span class="icon">🏠</span>
-				<span class="label">Dashboard</span>
+				<span class="label">{$t('nav_dashboard')}</span>
 			</a>
 			<a href="/dashboard/info" class="nav-item">
 				<span class="icon">📋</span>
-				<span class="label">Infos</span>
+				<span class="label">{$t('nav_infos')}</span>
 			</a>
 			<a href="/dashboard/tournaments" class="nav-item">
 				<span class="icon">🏆</span>
-				<span class="label">Tournois</span>
+				<span class="label">{$t('nav_tournaments')}</span>
 			</a>
 			<a href="/dashboard/players{$totalMsgUnread > 0 && lastPmSender ? '?chat=' + lastPmSender : ''}" class="nav-item pm-nav">
 				<span class="icon">👥</span>
-				<span class="label">Joueurs</span>
+				<span class="label">{$t('nav_players')}</span>
 				{#if $totalMsgUnread > 0}
 					<span class="pm-count-badge" class:bounce={pmBounce}>{$totalMsgUnread}</span>
 				{/if}
 			</a>
 			<a href="/dashboard/notifications" class="nav-item notif-nav" on:click={() => { api.get('/notifications/unread-count').then(r => notifUnreadCount.set(r.count || 0)).catch(() => {}); }}>
 				<span class="icon">🔔</span>
-				<span class="label">Notifications</span>
+				<span class="label">{$t('nav_notifications')}</span>
 				{#if $notifUnreadCount > 0}
 					<span class="notif-count-badge" class:bounce={notifBounce}>{$notifUnreadCount}</span>
 				{/if}
 			</a>
 			<a href="/dashboard/ai" class="nav-item ai-nav" on:click={() => aiUnreadCount.set(0)}>
 				<span class="icon">🤖</span>
-				<span class="label">Assistant IA</span>
+				<span class="label">{$t('nav_ai_assistant')}</span>
 				{#if $aiUnreadCount > 0}
 					<span class="ai-count-badge" class:bounce={aiBounce}>{$aiUnreadCount}</span>
 				{/if}
@@ -422,18 +424,18 @@
 			<a href="/dashboard/map" class="nav-item">
 
 				<span class="icon">📍</span>
-				<span class="label">Plan Salle</span>
+				<span class="label">{$t('nav_map')}</span>
 			</a>
 			<a href="/spectator" target="_blank" class="nav-item">
 				<span class="icon">📺</span>
-				<span class="label">Projecteur</span>
+				<span class="label">{$t('nav_spectator')}</span>
 			</a>
 			
 			{#if user.is_admin}
 				<div class="nav-separator"></div>
 				<a href="/dashboard/admin" class="nav-item admin">
 					<span class="icon">⚙️</span>
-					<span class="label">Administration</span>
+					<span class="label">{$t('nav_administration')}</span>
 				</a>
 			{/if}
 		</div>
@@ -441,7 +443,7 @@
 		<div class="nav-footer">
 			{#if user.is_admin && iaInstances.filter(i => i.enabled !== false).length > 0}
 				<div class="ia-status-widget">
-					<div class="ia-status-title">🖥️ IA Instances</div>
+					<div class="ia-status-title">🖥️ {$t('ia_status_title')}</div>
 					{#each iaInstances.filter(i => i.enabled !== false) as inst}
 						<div class="ia-inst-row" title="{inst.url} — {inst.latency_ms || 0}ms{inst.busy ? ' — Génération en cours' : ''}">
 							<span class="ia-dot {inst.busy ? 'busy' : inst.online ? 'online' : 'offline'}"></span>
@@ -473,20 +475,29 @@
 				</div>
 				<div class="info">
 					<div class="username">{user.username}</div>
-					<div class="role">{user.is_admin ? 'Administrateur' : 'Joueur'}</div>
+					<div class="role">{user.is_admin ? $t('role_admin') : $t('role_player')}</div>
 				</div>
 			</a>
+			{#if $lanMultilingual}
+				<div class="lang-selector-wrapper">
+					<select bind:value={$currentLang} on:change={(e) => loadLocale(e.target.value)} class="lang-select">
+						{#each $availableLanguages as l}
+							<option value={l}>{flagMap[l] || l.toUpperCase()}</option>
+						{/each}
+					</select>
+				</div>
+			{/if}
 			<div class="footer-actions">
 				{#if browserNotifSupport && browserNotifStatus !== 'granted' && browserNotifStatus !== 'denied'}
-					<button class="theme-toggle" on:click={requestBrowserNotifications} title="Activer les notifications système">
+					<button class="theme-toggle" on:click={requestBrowserNotifications} title={$t('tooltip_system_notifs')}>
 						<span class="theme-icon">🔔</span>
 					</button>
 				{/if}
-				<button class="theme-toggle" on:click={toggleTheme} title={isDark ? 'Mode clair' : 'Mode sombre'}>
+				<button class="theme-toggle" on:click={toggleTheme} title={isDark ? $t('tooltip_light_mode') : $t('tooltip_dark_mode')}>
 					<span class="theme-icon" class:spin={true}>{isDark ? '☀️' : '🌙'}</span>
 				</button>
 				<button class="logout-btn" on:click={logout}>
-					<span>Déconnexion</span>
+					<span>{$t('logout')}</span>
 				</button>
 			</div>
 		</div>
@@ -727,6 +738,43 @@
 		background: rgba(239, 68, 68, 0.05);
 	}
 
+	.lang-selector-wrapper {
+		position: relative;
+		margin-bottom: 0.8rem;
+		width: 100%;
+	}
+	.lang-selector-wrapper::after {
+		content: "▼";
+		font-size: 0.6rem;
+		position: absolute;
+		right: 0.8rem;
+		top: 50%;
+		transform: translateY(-50%);
+		color: var(--text-muted);
+		pointer-events: none;
+	}
+	.lang-select {
+		width: 100%;
+		padding: 0.6rem 2rem 0.6rem 0.8rem;
+		font-size: 0.8rem;
+		font-weight: 600;
+		border-radius: var(--radius-md);
+		background: var(--hover-tint);
+		border: 1px solid var(--glass-border);
+		color: var(--text-main);
+		cursor: pointer;
+		appearance: none;
+		transition: all 0.2s ease;
+	}
+	.lang-select:hover {
+		border-color: var(--accent);
+		background: var(--surface-raised);
+	}
+	.lang-select option {
+		background: var(--bg-secondary);
+		color: var(--text-main);
+	}
+
 	.footer-actions {
 		display: flex;
 		gap: 0.5rem;
@@ -769,6 +817,10 @@
 		padding: 1.5rem;
 		overflow-y: auto;
 		height: 100vh;
+	}
+
+	.container {
+		height: 100%;
 	}
 
 	/* Notification badge */

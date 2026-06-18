@@ -156,6 +156,7 @@ def get_player_points_history(user_id: int, db: Session = Depends(database.get_d
         awards = db.query(models.Award).filter(models.Award.user_id == user_id).order_by(models.Award.created_at.desc()).all()
         awards_list = [{
             "id": a.id,
+            "award_key": a.award_key,
             "title": a.title,
             "description": a.description,
             "created_at": a.created_at.isoformat() if a.created_at else None

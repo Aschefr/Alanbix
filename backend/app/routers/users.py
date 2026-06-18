@@ -184,6 +184,7 @@ def get_points_history(db: Session = Depends(database.get_db), user: models.User
         awards = db.query(models.Award).filter(models.Award.user_id == user.id).order_by(models.Award.created_at.desc()).all()
         awards_list = [{
             "id": a.id,
+            "award_key": a.award_key,
             "title": a.title,
             "description": a.description,
             "created_at": a.created_at.isoformat() if a.created_at else None
@@ -252,7 +253,7 @@ async def admin_delete_user(user_id: int, db: Session = Depends(database.get_db)
     # Clean up avatar file from disk
     if target.avatar_url:
         DATA_DIR = os.path.dirname(os.getenv("DATABASE_PATH", "/app/data/alanbix.db"))
-        avatar_path = os.path.join(DATA_DIR, "avatars", os.path.basename(target.avatar_url))
+        avatar_path = os.path.join(DATA_DIR, "avatars", os.path.basename(target.avatar_url.split("?")[0]))
         if os.path.exists(avatar_path):
             try:
                 os.remove(avatar_path)
@@ -285,6 +286,36 @@ async def admin_set_config(key: str, data: dict, db: Session = Depends(database.
     db.commit()
     await ws_manager.broadcast({"type": "config_updated"})
     return {"status": "updated", "key": key, "value": data.get("value")}
+
+@router.delete("/admin/config/{key}")
+async def admin_delete_config(key: str, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
+    """Admin deletes a system config value."""
+    config = db.query(models.SystemConfig).filter(models.SystemConfig.key == key).first()
+    if config:
+        db.delete(config)
+        db.commit()
+        await ws_manager.broadcast({"type": "config_updated"})
+        return {"status": "deleted", "key": key}
+    return {"status": "not_found", "key": key}
+
+@router.get("/admin/prompts/status")
+def admin_get_prompts_status(db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
+    """Admin gets a list of translated prompt languages."""
+    configs = db.query(models.SystemConfig).filter(
+        models.SystemConfig.key.startswith('system_prompt_')
+    ).all()
+    translated_langs = []
+    for c in configs:
+        lang = c.key.replace("system_prompt_", "")
+        if c.value and len(c.value.strip()) > 0:
+            translated_langs.append(lang)
+            
+    # Also check if legacy "system_prompt" was customized and treat it as 'fr'
+    legacy = db.query(models.SystemConfig).filter(models.SystemConfig.key == "system_prompt").first()
+    if legacy and legacy.value and "fr" not in translated_langs:
+        translated_langs.append("fr")
+        
+    return {"translated_langs": list(set(translated_langs))}
 
 # --- ADMIN: Create Player ---
 
@@ -374,7 +405,7 @@ async def admin_nuke_players(db: Session = Depends(database.get_db), admin: mode
         avatars_dir = os.path.join(DATA_DIR, "avatars")
         for u in non_admins:
             if u.avatar_url:
-                avatar_path = os.path.join(avatars_dir, os.path.basename(u.avatar_url))
+                avatar_path = os.path.join(avatars_dir, os.path.basename(u.avatar_url.split("?")[0]))
                 if os.path.exists(avatar_path):
                     try:
                         os.remove(avatar_path)
@@ -425,72 +456,115 @@ def admin_nuke_notifications(db: Session = Depends(database.get_db), admin: mode
 
 # --- ADMIN: Awards & Prizes (Prix loufoques & classiques) ---
 from pydantic import BaseModel
-
-# --- ADMIN: Awards & Prizes (Prix loufoques & classiques) ---
-from pydantic import BaseModel
 import json
 import asyncio
+import os
 
-# Metadata mapping for all 12 stats-driven awards
+def get_i18n_dict(lang: str) -> dict:
+    lang = "en" if lang == "en" else "fr"
+    try:
+        from .i18n import load_i18n_merged
+        return load_i18n_merged(lang)
+    except Exception as e:
+        print(f"Failed to load i18n dict for {lang}: {e}")
+        return {}
+
+# Metadata mapping for all 12 stats-driven awards with translation keys and defaults
 AWARD_METADATA = {
     "premier": {
+        "crit_key": "award_crit_premier",
+        "title_key": "award_title_premier",
+        "desc_key": "award_desc_premier",
         "criteria": "Premier du classement général individuel de la LAN.",
-        "default_title": "🏆 Roi de la LAN",
+        "default_title": "Roi de la LAN",
         "default_description": "Félicitations pour avoir dominé le tournoi avec un total impressionnant de {points} points !"
     },
     "team": {
+        "crit_key": "award_crit_team",
+        "title_key": "award_title_team",
+        "desc_key": "award_desc_team",
         "criteria": "Membres de l'équipe ayant accumulé le plus de points.",
-        "default_title": "🛡️ L'Union fait la Force",
+        "default_title": "L'Union fait la Force",
         "default_description": "L'équipe {team_name} a écrasé la compétition en cumulant {points} points au total !"
     },
     "bourreau": {
+        "crit_key": "award_crit_bourreau",
+        "title_key": "award_title_bourreau",
+        "desc_key": "award_desc_bourreau",
         "criteria": "Joueur ayant infligé le plus de défaites en solo (1v1).",
-        "default_title": "⚔️ Le Bourreau des Brackets",
+        "default_title": "Le Bourreau des Brackets",
         "default_description": "Pour avoir accumulé le plus grand nombre de victoires en solo ({wins} victoires)."
     },
     "coop": {
+        "crit_key": "award_crit_coop",
+        "title_key": "award_title_coop",
+        "desc_key": "award_desc_coop",
         "criteria": "Joueur gagnant en équipe mais très discret en solo.",
-        "default_title": "🤝 Le Roi du Coop",
+        "default_title": "Le Roi du Coop",
         "default_description": "Un joueur d'équipe exceptionnel ! Gagnant en équipe ({team_wins} victoires) mais très discret en solo ({solo_wins} victoires)."
     },
     "loup": {
+        "crit_key": "award_crit_loup",
+        "title_key": "award_title_loup",
+        "desc_key": "award_desc_loup",
         "criteria": "Joueur redoutable en solo mais n'ayant pas gagné en équipe.",
-        "default_title": "🐺 Le Loup Solitaire",
+        "default_title": "Le Loup Solitaire",
         "default_description": "Redoutable en solo avec {solo_wins} victoires, mais n'a pas trouvé ses marques en équipe (0 victoire)."
     },
     "participate": {
+        "crit_key": "award_crit_participate",
+        "title_key": "award_title_participate",
+        "desc_key": "award_desc_participate",
         "criteria": "Joueur ayant disputé au moins 2 matchs avec le taux de victoire le plus bas.",
-        "default_title": "🕊️ L'Important c'est de Participer",
+        "default_title": "L'Important c'est de Participer",
         "default_description": "Pour son esprit sportif inébranlable et sa persévérance à travers {matches_played} matchs disputés !"
     },
     "marathon": {
+        "crit_key": "award_crit_marathon",
+        "title_key": "award_title_marathon",
+        "desc_key": "award_desc_marathon",
         "criteria": "Joueur infatigable ayant disputé le plus de matchs dans toute la LAN.",
-        "default_title": "🏃 Le Marathonien",
+        "default_title": "Le Marathonien",
         "default_description": "Le joueur infatigable de la LAN avec un record absolu de {matches_played} matchs joués !"
     },
     "gachette": {
+        "crit_key": "award_crit_gachette",
+        "title_key": "award_title_gachette",
+        "desc_key": "award_desc_gachette",
         "criteria": "Joueur ayant réalisé le score maximal le plus élevé en une seule partie.",
-        "default_title": "🎯 La Gâchette Facile",
+        "default_title": "La Gâchette Facile",
         "default_description": "Pour avoir réalisé le carton de la LAN avec un score maximal de {highest_score} points en une seule partie !"
     },
     "passoire": {
+        "crit_key": "award_crit_passoire",
+        "title_key": "award_title_passoire",
+        "desc_key": "award_desc_passoire",
         "criteria": "Joueur ayant encaissé le plus de points/buts au total.",
-        "default_title": "🥅 La Passoire de la LAN",
+        "default_title": "La Passoire de la LAN",
         "default_description": "Une défense très généreuse... {total_score_conceded} buts/points encaissés au total !"
     },
     "bye": {
+        "crit_key": "award_crit_bye",
+        "title_key": "award_title_bye",
+        "desc_key": "award_desc_bye",
         "criteria": "Joueur ayant bénéficié du plus grand nombre de BYE.",
-        "default_title": "🍀 Le Chouchou des BYE",
+        "default_title": "Le Chouchou des BYE",
         "default_description": "Le grand favori du destin qui a bénéficié de {bye_count} qualifications automatiques par BYE !"
     },
     "suisse": {
+        "crit_key": "award_crit_suisse",
+        "title_key": "award_title_suisse",
+        "desc_key": "award_desc_suisse",
         "criteria": "Joueur ayant réalisé le plus grand nombre de matchs nuls.",
-        "default_title": "🇨🇭 Le Suisse",
+        "default_title": "Le Suisse",
         "default_description": "Neutre et pacifique, spécialiste incontesté du partage des points avec {draws} égalités."
     },
     "lb": {
+        "crit_key": "award_crit_lb",
+        "title_key": "award_title_lb",
+        "desc_key": "award_desc_lb",
         "criteria": "Joueur ayant joué le plus de matchs dans le Loser Bracket.",
-        "default_title": "🩹 Le Survivant du LB",
+        "default_title": "Le Survivant du LB",
         "default_description": "Celui qui a pris le chemin le plus long et le plus difficile en disputant {lb_matches} matchs dans le Loser Bracket !"
     }
 }
@@ -499,9 +573,10 @@ class AwardTextUpdate(BaseModel):
     title: str
     description: str
 
-def _compute_awards_suggestions(db: Session) -> dict:
+def _compute_awards_suggestions(db: Session, lang: str = "fr") -> dict:
     users = db.query(models.User).all()
     user_map = {u.id: u for u in users}
+    i18n = get_i18n_dict(lang)
 
     # Initialize statistics counters
     stats = {}
@@ -648,9 +723,9 @@ def _compute_awards_suggestions(db: Session) -> dict:
         "user_ids": [premier.id] if premier else [],
         "username": premier.username if premier else None,
         "points": premier.points if premier else 0,
-        "title": "🏆 Premier de la LAN",
-        "description": f"Félicitations pour avoir dominé le tournoi avec un total impressionnant de {premier.points if premier else 0} points !",
-        "stats_label": f"{premier.points if premier else 0} points"
+        "title": i18n.get("award_title_premier", "🏆 Roi de la LAN"),
+        "description": i18n.get("award_desc_premier", "Félicitations pour avoir dominé le tournoi avec un total impressionnant de {points} points !"),
+        "stats_label": i18n.get("stats_points", "{count} points").format(count=premier.points if premier else 0)
     } if premier and (premier.points or 0) > 0 else None
 
     # 2. Équipe Championne
@@ -664,12 +739,12 @@ def _compute_awards_suggestions(db: Session) -> dict:
     
     team_suggestion = {
         "user_ids": team_member_ids,
-        "username": f"Membres de {best_team_name}" if best_team_name else None,
+        "username": i18n.get("members_of", "Membres de {team_name}").format(team_name=best_team_name) if best_team_name else None,
         "team_name": best_team_name,
         "points": best_team[1] if best_team else 0,
-        "title": "🛡️ L'Union fait la Force",
-        "description": f"L'équipe {best_team_name} a écrasé la compétition en cumulant {best_team[1] if best_team else 0} points au total !",
-        "stats_label": f"Équipe {best_team_name} ({best_team[1] if best_team else 0} pts)"
+        "title": i18n.get("award_title_team", "🛡️ L'Union fait la Force"),
+        "description": i18n.get("award_desc_team", "L'équipe {team_name} a écrasé la compétition en cumulant {points} points au total !"),
+        "stats_label": i18n.get("stats_team", "Équipe {team_name} ({count} pts)").format(team_name=best_team_name, count=best_team[1] if best_team else 0)
     } if best_team and best_team[1] > 0 else None
 
     # 3. Le Bourreau des Brackets (Most solo wins)
@@ -679,9 +754,9 @@ def _compute_awards_suggestions(db: Session) -> dict:
         "user_ids": [most_solo_wins["user_id"]] if most_solo_wins else [],
         "username": most_solo_wins["username"] if most_solo_wins else None,
         "wins": most_solo_wins["solo_wins"] if most_solo_wins else 0,
-        "title": "⚔️ Le Bourreau des Brackets",
-        "description": f"Pour avoir accumulé le plus grand nombre de victoires en solo ({most_solo_wins['solo_wins'] if most_solo_wins else 0} victoires).",
-        "stats_label": f"{most_solo_wins['solo_wins'] if most_solo_wins else 0} victoires"
+        "title": i18n.get("award_title_bourreau", "⚔️ Le Bourreau des Brackets"),
+        "description": i18n.get("award_desc_bourreau", "Pour avoir accumulé le plus grand nombre de victoires en solo ({wins} victoires)."),
+        "stats_label": i18n.get("stats_wins", "{count} victoires").format(count=most_solo_wins["solo_wins"] if most_solo_wins else 0)
     } if most_solo_wins else None
 
     # 4. Le Roi du Coop
@@ -692,9 +767,9 @@ def _compute_awards_suggestions(db: Session) -> dict:
         "username": roi_coop["username"] if roi_coop else None,
         "team_wins": roi_coop["team_wins"] if roi_coop else 0,
         "solo_wins": roi_coop["solo_wins"] if roi_coop else 0,
-        "title": "🤝 Le Roi du Coop",
-        "description": f"Un joueur d'équipe exceptionnel ! Gagnant en équipe ({roi_coop['team_wins'] if roi_coop else 0} victoires) mais très discret en solo ({roi_coop['solo_wins'] if roi_coop else 0} victoires).",
-        "stats_label": f"{roi_coop['team_wins'] if roi_coop else 0} victoires en équipe"
+        "title": i18n.get("award_title_coop", "🤝 Le Roi du Coop"),
+        "description": i18n.get("award_desc_coop", "Un joueur d'équipe exceptionnel ! Gagnant en équipe ({team_wins} victoires) mais très discret en solo ({solo_wins} victoires)."),
+        "stats_label": i18n.get("stats_team_wins", "{count} victoires en équipe").format(count=roi_coop["team_wins"] if roi_coop else 0)
     } if roi_coop else None
 
     # 5. Le Loup Solitaire
@@ -704,9 +779,9 @@ def _compute_awards_suggestions(db: Session) -> dict:
         "user_ids": [loup_solitaire["user_id"]] if loup_solitaire else [],
         "username": loup_solitaire["username"] if loup_solitaire else None,
         "solo_wins": loup_solitaire["solo_wins"] if loup_solitaire else 0,
-        "title": "🐺 Le Loup Solitaire",
-        "description": f"Redoutable en solo avec {loup_solitaire['solo_wins'] if loup_solitaire else 0} victoires, mais n'a pas trouvé ses marques en équipe (0 victoire).",
-        "stats_label": f"{loup_solitaire['solo_wins'] if loup_solitaire else 0} victoires solo"
+        "title": i18n.get("award_title_loup", "🐺 Le Loup Solitaire"),
+        "description": i18n.get("award_desc_loup", "Redoutable en solo avec {solo_wins} victoires, mais n'a pas trouvé ses marques en équipe (0 victoire)."),
+        "stats_label": i18n.get("stats_solo_wins", "{count} victoires solo").format(count=loup_solitaire["solo_wins"] if loup_solitaire else 0)
     } if loup_solitaire else None
 
     # 6. L'Important c'est de Participer
@@ -719,9 +794,12 @@ def _compute_awards_suggestions(db: Session) -> dict:
         "username": participate_player["username"] if participate_player else None,
         "win_rate": f"{round(participate_player['win_rate'] * 100)}%" if participate_player else "0%",
         "matches_played": participate_player["matches_played"] if participate_player else 0,
-        "title": "🕊️ L'Important c'est de Participer",
-        "description": f"Pour son esprit sportif inébranlable et sa persévérance à travers {participate_player['matches_played'] if participate_player else 0} matchs disputés !",
-        "stats_label": f"{round(participate_player['win_rate'] * 100) if participate_player else 0}% de victoires ({participate_player['matches_played'] if participate_player else 0} matchs)"
+        "title": i18n.get("award_title_participate", "🕊️ L'Important c'est de Participer"),
+        "description": i18n.get("award_desc_participate", "Pour son esprit sportif inébranlable et sa persévérance à travers {matches_played} matchs disputés !"),
+        "stats_label": i18n.get("stats_participate", "{rate}% de victoires ({count} matchs)").format(
+            rate=round(participate_player['win_rate'] * 100) if participate_player else 0,
+            count=participate_player['matches_played'] if participate_player else 0
+        )
     } if participate_player else None
 
     # 7. Le Marathonien
@@ -730,9 +808,9 @@ def _compute_awards_suggestions(db: Session) -> dict:
         "user_ids": [marathonien["user_id"]] if marathonien else [],
         "username": marathonien["username"] if marathonien else None,
         "matches_played": marathonien["matches_played"] if marathonien else 0,
-        "title": "🏃 Le Marathonien",
-        "description": f"Le joueur infatigable de la LAN avec un record absolu de {marathonien['matches_played'] if marathonien else 0} matchs joués !",
-        "stats_label": f"{marathonien['matches_played'] if marathonien else 0} matchs joués"
+        "title": i18n.get("award_title_marathon", "🏃 Le Marathonien"),
+        "description": i18n.get("award_desc_marathon", "Le joueur infatigable de la LAN avec un record absolu de {matches_played} matchs joués !"),
+        "stats_label": i18n.get("stats_matches_played", "{count} matchs joués").format(count=marathonien["matches_played"] if marathonien else 0)
     } if marathonien and marathonien["matches_played"] > 0 else None
 
     # 8. La Gâchette Facile
@@ -741,9 +819,9 @@ def _compute_awards_suggestions(db: Session) -> dict:
         "user_ids": [gachette["user_id"]] if gachette else [],
         "username": gachette["username"] if gachette else None,
         "highest_score": gachette["highest_score"] if gachette else 0,
-        "title": "🎯 La Gâchette Facile",
-        "description": f"Pour avoir réalisé le carton de la LAN avec un score maximal de {gachette['highest_score'] if gachette else 0} points en une seule partie !",
-        "stats_label": f"Score max de {gachette['highest_score'] if gachette else 0}"
+        "title": i18n.get("award_title_gachette", "🎯 La Gâchette Facile"),
+        "description": i18n.get("award_desc_gachette", "Pour avoir réalisé le carton de la LAN avec un score maximal de {highest_score} points en une seule partie !"),
+        "stats_label": i18n.get("stats_max_score", "Score max de {count}").format(count=gachette["highest_score"] if gachette else 0)
     } if gachette and gachette["highest_score"] > 0 else None
 
     # 9. La Passoire de la LAN
@@ -752,9 +830,9 @@ def _compute_awards_suggestions(db: Session) -> dict:
         "user_ids": [passoire["user_id"]] if passoire else [],
         "username": passoire["username"] if passoire else None,
         "total_score_conceded": passoire["total_score_conceded"] if passoire else 0,
-        "title": "🥅 La Passoire de la LAN",
-        "description": f"Une défense très généreuse... {passoire['total_score_conceded'] if passoire else 0} buts/points encaissés au total !",
-        "stats_label": f"{passoire['total_score_conceded'] if passoire else 0} buts/points encaissés"
+        "title": i18n.get("award_title_passoire", "🥅 La Passoire de la LAN"),
+        "description": i18n.get("award_desc_passoire", "Une défense très généreuse... {total_score_conceded} buts/points encaissés au total !"),
+        "stats_label": i18n.get("stats_conceded", "{count} buts/points encaissés").format(count=passoire["total_score_conceded"] if passoire else 0)
     } if passoire and passoire["total_score_conceded"] > 0 else None
 
     # 10. Le Chouchou des BYE
@@ -763,9 +841,9 @@ def _compute_awards_suggestions(db: Session) -> dict:
         "user_ids": [bye_player["user_id"]] if bye_player else [],
         "username": bye_player["username"] if bye_player else None,
         "bye_count": bye_player["bye_count"] if bye_player else 0,
-        "title": "🍀 Le Chouchou des BYE",
-        "description": f"Le grand favori du destin qui a bénéficié de {bye_player['bye_count'] if bye_player else 0} qualifications automatiques par BYE !",
-        "stats_label": f"{bye_player['bye_count'] if bye_player else 0} BYE reçus"
+        "title": i18n.get("award_title_bye", "🍀 Le Chouchou des BYE"),
+        "description": i18n.get("award_desc_bye", "Le grand favori du destin qui a bénéficié de {bye_count} qualifications automatiques par BYE !"),
+        "stats_label": i18n.get("stats_byes", "{count} BYE reçus").format(count=bye_player["bye_count"] if bye_player else 0)
     } if bye_player and bye_player["bye_count"] > 0 else None
 
     # 11. Le Suisse
@@ -774,9 +852,9 @@ def _compute_awards_suggestions(db: Session) -> dict:
         "user_ids": [suisse["user_id"]] if suisse else [],
         "username": suisse["username"] if suisse else None,
         "draws": suisse["draws"] if suisse else 0,
-        "title": "🇨🇭 Le Suisse",
-        "description": f"Neutre et pacifique, spécialiste incontesté du partage des points avec {suisse['draws'] if suisse else 0} égalités.",
-        "stats_label": f"{suisse['draws'] if suisse else 0} égalités"
+        "title": i18n.get("award_title_suisse", "🇨🇭 Le Suisse"),
+        "description": i18n.get("award_desc_suisse", "Neutre et pacifique, spécialiste incontesté du partage des points avec {draws} égalités."),
+        "stats_label": i18n.get("stats_draws", "{count} égalités").format(count=suisse["draws"] if suisse else 0)
     } if suisse and suisse["draws"] > 0 else None
 
     # 12. Le Survivant du LB
@@ -785,9 +863,9 @@ def _compute_awards_suggestions(db: Session) -> dict:
         "user_ids": [lb_survivor["user_id"]] if lb_survivor else [],
         "username": lb_survivor["username"] if lb_survivor else None,
         "lb_matches": lb_survivor["lb_matches_played"] if lb_survivor else 0,
-        "title": "🩹 Le Survivant du LB",
-        "description": f"Celui qui a pris le chemin le plus long et le plus difficile en disputant {lb_survivor['lb_matches_played'] if lb_survivor else 0} matchs dans le Loser Bracket !",
-        "stats_label": f"{lb_survivor['lb_matches_played'] if lb_survivor else 0} matchs LB"
+        "title": i18n.get("award_title_lb", "🩹 Le Survivant du LB"),
+        "description": i18n.get("award_desc_lb", "Celui qui a pris le chemin le plus long et le plus difficile en disputant {lb_matches} matchs dans le Loser Bracket !"),
+        "stats_label": i18n.get("stats_lb_matches", "{count} matchs LB").format(count=lb_survivor["lb_matches_played"] if lb_survivor else 0)
     } if lb_survivor and lb_survivor["lb_matches_played"] > 0 else None
 
     return {
@@ -805,8 +883,13 @@ def _compute_awards_suggestions(db: Session) -> dict:
         "lb": lb_suggestion
     }
 
-async def sync_automatic_awards(db: Session):
+async def sync_automatic_awards(db: Session, lang: str = None):
     """Synchronize stats-driven automatic awards with user assignments and handle notifications."""
+    if lang is None:
+        config_lang = db.query(models.SystemConfig).filter(models.SystemConfig.key == "lan_default_language").first()
+        lang = config_lang.value if config_lang else "fr"
+        
+    i18n = get_i18n_dict(lang)
     suggestions = _compute_awards_suggestions(db)
     for category, meta in AWARD_METADATA.items():
         suggestion = suggestions.get(category)
@@ -823,8 +906,11 @@ async def sync_automatic_awards(db: Session):
             except Exception:
                 pass
         
-        title = custom_title or meta["default_title"]
-        description = custom_desc or meta["default_description"]
+        default_title = i18n.get(meta["title_key"], meta["default_title"])
+        default_description = i18n.get(meta["desc_key"], meta["default_description"])
+        
+        title = custom_title or default_title
+        description = custom_desc or default_description
         
         computed_uids = set(suggestion["user_ids"]) if suggestion else set()
         
@@ -876,15 +962,23 @@ async def sync_automatic_awards(db: Session):
             db.commit()
 
 @router.get("/admin/awards")
-async def admin_list_awards(db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
+async def admin_list_awards(lang: str = "fr", db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
     """List all categories of awards with statistics, recipient details, and editable templates."""
-    # Ensure database is up to date before serving
-    await sync_automatic_awards(db)
+    # Ensure database is up to date before serving (uses system default language for database sync)
+    config_lang = db.query(models.SystemConfig).filter(models.SystemConfig.key == "lan_default_language").first()
+    db_lang = config_lang.value if config_lang else "fr"
+    await sync_automatic_awards(db, db_lang)
     
-    suggestions = _compute_awards_suggestions(db)
+    suggestions = _compute_awards_suggestions(db, lang)
+    i18n = get_i18n_dict(lang)
     
     results = []
     for category, meta in AWARD_METADATA.items():
+        # Get translated default texts
+        default_title = i18n.get(meta["title_key"], meta["default_title"])
+        default_description = i18n.get(meta["desc_key"], meta["default_description"])
+        criteria = i18n.get(meta["crit_key"], meta["criteria"])
+        
         # Get custom texts if any
         config_row = db.query(models.SystemConfig).filter(models.SystemConfig.key == f"award_text_{category}").first()
         custom_title = None
@@ -903,11 +997,11 @@ async def admin_list_awards(db: Session = Depends(database.get_db), admin: model
         
         results.append({
             "key": category,
-            "criteria": meta["criteria"],
-            "default_title": meta["default_title"],
-            "default_description": meta["default_description"],
-            "title": custom_title or meta["default_title"],
-            "description": custom_desc or meta["default_description"],
+            "criteria": criteria,
+            "default_title": default_title,
+            "default_description": default_description,
+            "title": custom_title or default_title,
+            "description": custom_desc or default_description,
             "custom_title": custom_title,
             "custom_description": custom_desc,
             "recipient_name": recipient_name,
@@ -995,12 +1089,17 @@ async def admin_notify_awards(db: Session = Depends(database.get_db), admin: mod
         db.add(config_row)
     db.commit()
 
+    config_lang = db.query(models.SystemConfig).filter(models.SystemConfig.key == "lan_default_language").first()
+    db_lang = config_lang.value if config_lang else "fr"
+    i18n = get_i18n_dict(db_lang)
+    notif_title_tpl = i18n.get("notifs_award_title", "🏆 Prix obtenu : {title}")
+
     awards = db.query(models.Award).all()
     notified_users = set()
     
     for a in awards:
         # Check if notification already exists to avoid duplicates
-        title = f"🏆 Prix obtenu : {a.title} !"
+        title = notif_title_tpl.format(title=a.title)
         existing = db.query(models.Notification).filter(
             models.Notification.user_id == a.user_id,
             models.Notification.type == "award",
@@ -1053,7 +1152,7 @@ async def upload_my_avatar(
     os.makedirs(avatars_dir, exist_ok=True)
 
     if user.avatar_url:
-        old_filename = os.path.basename(user.avatar_url)
+        old_filename = os.path.basename(user.avatar_url.split("?")[0])
         old_file_path = os.path.join(avatars_dir, old_filename)
         if os.path.exists(old_file_path):
             try:
@@ -1067,7 +1166,8 @@ async def upload_my_avatar(
         content = await file.read()
         f.write(content)
 
-    user.avatar_url = f"/data/avatars/{filename}"
+    import time
+    user.avatar_url = f"/data/avatars/{filename}?t={int(time.time())}"
     db.commit()
     db.refresh(user)
     await ws_manager.broadcast({"type": "users_updated"})
@@ -1081,7 +1181,7 @@ async def delete_my_avatar(
     if user.avatar_url:
         DATA_DIR = os.path.dirname(os.getenv("DATABASE_PATH", "/app/data/alanbix.db"))
         avatars_dir = os.path.join(DATA_DIR, "avatars")
-        filename = os.path.basename(user.avatar_url)
+        filename = os.path.basename(user.avatar_url.split("?")[0])
         filepath = os.path.join(avatars_dir, filename)
         if os.path.exists(filepath):
             try:
@@ -1106,7 +1206,7 @@ async def admin_delete_user_avatar(
     if target.avatar_url:
         DATA_DIR = os.path.dirname(os.getenv("DATABASE_PATH", "/app/data/alanbix.db"))
         avatars_dir = os.path.join(DATA_DIR, "avatars")
-        filename = os.path.basename(target.avatar_url)
+        filename = os.path.basename(target.avatar_url.split("?")[0])
         filepath = os.path.join(avatars_dir, filename)
         if os.path.exists(filepath):
             try:

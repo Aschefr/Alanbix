@@ -1,5 +1,4 @@
 <script>
-	import { t } from '$lib/i18nStore';
 	import { api } from '$lib/api';
 	import { onMount } from 'svelte';
 
@@ -95,20 +94,20 @@
 </script>
 
 <div class="steps-indicator">
-	<span class={step === 1 ? 'active' : ''}>{$t('admin_tourneys_wizard_general')}</span>
-	<span class={step === 2 ? 'active' : ''}>{$t('admin_tourneys_wizard_format')}</span>
-	<span class={step === 3 ? 'active' : ''}>{$t('admin_tourneys_wizard_brackets')}</span>
+	<span class={step === 1 ? 'active' : ''}>1. Général</span>
+	<span class={step === 2 ? 'active' : ''}>2. Format</span>
+	<span class={step === 3 ? 'active' : ''}>3. Brackets</span>
 </div>
 
 <div class="step-box">
 	{#if step === 1}
 		<div class="flex-col">
-			<label>{$t('admin_tourneys_wizard_name_lbl')} <span class="opt-label">{$t('admin_tourneys_wizard_name_hint')}</span></label>
-			<input type="text" bind:value={config.name} placeholder="{$t('admin_tourneys_wizard_game_placeholder')}" />
+			<label>Nom du Tournoi <span class="opt-label">(optionnel — par défaut : nom du jeu)</span></label>
+			<input type="text" bind:value={config.name} placeholder="Nom du jeu par défaut..." />
 			
-			<label>{$t('admin_tourneys_wizard_game_lbl')}</label>
+			<label>Jeu de Base</label>
 			<select bind:value={config.game_id}>
-				<option value={null}>{$t('admin_tourneys_wizard_select_game')}</option>
+				<option value={null}>Sélectionner un jeu...</option>
 				{#each games as g}
 					<option value={g.id}>{g.name}</option>
 				{/each}
@@ -120,21 +119,21 @@
 
 			<div class="nav-btns">
 				{#if onCancel}
-					<button class="btn-secondary" on:click={onCancel}>{$t('info_btn_cancel')}</button>
+					<button class="btn-secondary" on:click={onCancel}>Annuler</button>
 				{/if}
-				<button class="btn-primary" on:click={() => step = 2} disabled={!config.game_id}>{$t('admin_tourneys_wizard_next')}</button>
+				<button class="btn-primary" on:click={() => step = 2} disabled={!config.game_id}>Suivant</button>
 			</div>
 		</div>
 	{:else if step === 2}
 		<div class="flex-col">
-			<label>{$t('admin_tourneys_wizard_mode_lbl')}</label>
+			<label>Mode de rencontre</label>
 			<div class="bracket-graphics-grid" style="grid-template-columns: 1fr 1fr;">
 				<button class="graphic-card {!config.use_teams ? 'active' : ''}" on:click={() => config.use_teams = false}>
 					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 						<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
 						<circle cx="12" cy="7" r="4"></circle>
 					</svg>
-					<span>{$t('admin_tourneys_wizard_mode_solo')}</span>
+					<span>Individuel (Solo)</span>
 				</button>
 				<button class="graphic-card {config.use_teams ? 'active' : ''}" on:click={() => config.use_teams = true}>
 					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -143,12 +142,12 @@
 						<path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
 						<path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
 					</svg>
-					<span>{$t('admin_tourneys_wizard_mode_teams')}</span>
+					<span>Par Équipes</span>
 				</button>
 			</div>
 
 			{#if config.use_teams}
-				<label>{$t('admin_tourneys_wizard_team_size')}</label>
+				<label>Taille d'équipe</label>
 				<input type="number" bind:value={config.team_size} min="2" max="16" />
 			{/if}
 
@@ -157,41 +156,41 @@
 			{/if}
 
 			<div class="nav-btns">
-				<button class="btn-secondary" on:click={() => step = 1}>{$t('admin_tourneys_wizard_prev')}</button>
-				<button class="btn-primary" on:click={() => step = 3}>{$t('admin_tourneys_wizard_next')}</button>
+				<button class="btn-secondary" on:click={() => step = 1}>Retour</button>
+				<button class="btn-primary" on:click={() => step = 3}>Suivant</button>
 			</div>
 		</div>
 	{:else}
 		<div class="flex-col">
-			<label>{$t('admin_tourneys_wizard_struct_lbl')}</label>
+			<label>Structure Globale</label>
 			<select bind:value={config.phases}>
-				<option value="single">{$t('admin_tourneys_wizard_struct_ffa')}</option>
-				<option value="double">{$t('admin_tourneys_wizard_struct_groups')}</option>
+				<option value="single">Phase finale directe</option>
+				<option value="double">Groupes + Phase finale</option>
 			</select>
 
 			{#if config.phases === 'double'}
 				<div class="glass-inner p-4 mt-2">
 					<div class="grid-2">
-						<div><label>{$t('admin_tourneys_wizard_group_size')}</label><input type="number" bind:value={config.group_size} /></div>
-						<div><label>{$t('admin_tourneys_wizard_advancers')}</label><input type="number" bind:value={config.advancers_count} /></div>
+						<div><label>Taille Groupes</label><input type="number" bind:value={config.group_size} /></div>
+						<div><label>Qualifiés</label><input type="number" bind:value={config.advancers_count} /></div>
 					</div>
 				</div>
 			{/if}
 
-			<label>{$t('admin_tourneys_wizard_format_lbl')}</label>
+			<label>Format de l'Arbre</label>
 			<div class="bracket-graphics-grid">
 				<button class="graphic-card {config.bracket_type === 'single_elim' ? 'active' : ''}" on:click={() => config.bracket_type = 'single_elim'}>
 					<svg viewBox="0 0 100 60" fill="none" stroke="currentColor" stroke-width="3">
 						<path d="M10 10h20v20H10m20-10h20v30H30m20-15h20m-60 30h20"/>
 					</svg>
-					<span>{$t('admin_tourneys_wizard_format_single')}</span>
+					<span>Élimination Directe</span>
 				</button>
 				<button class="graphic-card {config.bracket_type === 'double_elim' ? 'active' : ''}" on:click={() => config.bracket_type = 'double_elim'}>
 					<svg viewBox="0 0 100 60" fill="none" stroke="currentColor" stroke-width="3">
 						<path d="M10 10h20v20H10m20-10h20v20m-20 20h20v-20m-40 30h20m30-30h20"/>
 						<path d="M40 35l10-15" stroke-dasharray="2 2"/>
 					</svg>
-					<span>{$t('admin_tourneys_wizard_format_double')}</span>
+					<span>Double Élimination</span>
 				</button>
 				<button class="graphic-card {config.bracket_type === 'round_robin' ? 'active' : ''}" on:click={() => config.bracket_type = 'round_robin'}>
 					<svg viewBox="0 0 100 60" fill="none" stroke="currentColor" stroke-width="3">
@@ -199,7 +198,7 @@
 						<path d="M30 30a20 20 0 0 1 40 0"/>
 						<path d="M70 30a20 20 0 0 1-40 0" stroke-dasharray="4 4"/>
 					</svg>
-					<span>{$t('admin_tourneys_wizard_format_championship')}</span>
+					<span>Championnat</span>
 				</button>
 				<button class="graphic-card {config.bracket_type === 'ffa' ? 'active' : ''}" on:click={() => config.bracket_type = 'ffa'}>
 					<svg viewBox="0 0 100 60" fill="none" stroke="currentColor" stroke-width="3">
@@ -214,46 +213,46 @@
 
 			<label class="score-invert-label">
 				<input type="checkbox" bind:checked={config.lower_score_is_better} />
-				{$t('admin_tourneys_wizard_opt_reverse')} <span class="text-dim text-xs">{$t('admin_tourneys_wizard_opt_reverse_desc')}</span>
+				🔄 Score inversé <span class="text-dim text-xs">(le plus petit score gagne, ex: placement, golf)</span>
 			</label>
 
 			<label class="score-invert-label">
 				<input type="checkbox" bind:checked={config.boolean_mode} />
-				{$t('admin_tourneys_wizard_opt_boolean')} <span class="text-dim text-xs">{$t('admin_tourneys_wizard_opt_boolean_desc')}</span>
+				🎯 Mode Victoire/Défaite <span class="text-dim text-xs">(boutons V/D/É au lieu de scores numériques)</span>
 			</label>
 
 			{#if config.bracket_type === 'round_robin'}
 			<label class="score-invert-label">
 				<input type="checkbox" bind:checked={config.allow_draws} />
-				{$t('admin_tourneys_wizard_opt_draws')} <span class="text-dim text-xs">{$t('admin_tourneys_wizard_opt_draws_desc')}</span>
+				🤝 Autoriser les égalités <span class="text-dim text-xs">(uniquement en mode Championnat / Round Robin)</span>
 			</label>
 			{/if}
 
 			<details class="pts-config glass-inner" open>
-				<summary>🏅 {$t('admin_tourneys_wizard_points_lbl')}</summary>
+				<summary>🏅 Répartition des points</summary>
 				<div class="pts-grid">
 					<div class="pts-field">
-						<label>🥇 {$t('admin_tourneys_wizard_points_1st')}</label>
+						<label>🥇 1er</label>
 						<input type="number" bind:value={config.pts_winner} min="0" />
 					</div>
 					<div class="pts-field">
-						<label>🥈 {$t('admin_tourneys_wizard_points_2nd')}</label>
+						<label>🥈 2ème</label>
 						<input type="number" bind:value={config.pts_second} min="0" />
 					</div>
 					<div class="pts-field">
-						<label>🥉 {$t('admin_tourneys_wizard_points_3rd')}</label>
+						<label>🥉 3ème</label>
 						<input type="number" bind:value={config.pts_third} min="0" />
 					</div>
 					<div class="pts-field">
-						<label>👤 {$t('admin_tourneys_wizard_points_part')}</label>
+						<label>👤 Participation</label>
 						<input type="number" bind:value={config.pts_participation} min="0" />
 					</div>
 					<div class="pts-field">
-						<label>⚡ {$t('admin_tourneys_wizard_points_bonus')}</label>
+						<label>⚡ Bonus/Score</label>
 						<input type="number" bind:value={config.pts_per_match} min="0" step="0.1" />
 					</div>
 				</div>
-				<p class="pts-hint">{$t('admin_tourneys_wizard_points_hint')}</p>
+				<p class="pts-hint">Bonus/Score = bonus du plancher (valeur saisie) au plafond (2×) selon le score cumulé de chaque joueur/équipe</p>
 			</details>
 
 			{#if errorMsg}
@@ -261,9 +260,9 @@
 			{/if}
 
 			<div class="nav-btns">
-				<button class="btn-secondary" on:click={() => step = 2}>{$t('admin_tourneys_wizard_prev')}</button>
+				<button class="btn-secondary" on:click={() => step = 2}>Retour</button>
 				<button class="btn-primary {creatingTournament ? 'btn-success-anim' : ''}" on:click={saveTournament} disabled={creatingTournament}>
-					{creatingTournament ? '✨ ' + $t('distillation_loading') : $t('admin_tourneys_wizard_submit')}
+					{creatingTournament ? '✨ Distillation...' : 'Lancer le Tournoi'}
 				</button>
 			</div>
 		</div>

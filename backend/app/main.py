@@ -30,7 +30,25 @@ app.add_middleware(
 @app.on_event("startup")
 async def startup():
     init_db()
-    
+
+    # Seed default i18n files to user data volume on startup (DX helper)
+    import shutil
+    data_dir = os.path.dirname(os.getenv("DATABASE_PATH", "/app/data/alanbix.db"))
+    data_i18n_dir = os.path.join(data_dir, "i18n")
+    static_i18n_dir = "static/i18n"
+    os.makedirs(data_i18n_dir, exist_ok=True)
+    if os.path.exists(static_i18n_dir):
+        for f_name in os.listdir(static_i18n_dir):
+            if f_name.endswith(".json") and not f_name.endswith(".bak"):
+                src_file = os.path.join(static_i18n_dir, f_name)
+                dest_file = os.path.join(data_i18n_dir, f_name)
+                if not os.path.exists(dest_file):
+                    try:
+                        shutil.copy2(src_file, dest_file)
+                        print(f"[Startup] Seeded i18n file to data volume: {f_name}")
+                    except Exception as e:
+                        print(f"[Startup] Failed to seed i18n file {f_name}: {e}")
+
     from .database import SessionLocal
     from . import models
     db = SessionLocal()
@@ -146,11 +164,25 @@ def get_changelog():
     except Exception:
         return []
 
+@app.get("/i18n/languages")
+def list_languages():
+    from app.routers.i18n import list_all_languages
+    try:
+        langs = list_all_languages()
+        if langs:
+            return {"languages": langs}
+    except Exception:
+        pass
+    return {"languages": ["fr", "en"]}
+
+from app.routers import users, tournaments, room, ia, dashboard, i18n
+
 app.include_router(users.router)
 app.include_router(tournaments.router)
 app.include_router(room.router)
 app.include_router(ia.router)
 app.include_router(dashboard.router)
+app.include_router(i18n.router)
 app.include_router(notifications.router)
 app.include_router(players.router)
 
@@ -165,6 +197,7 @@ DATA_DIR = os.path.dirname(os.getenv("DATABASE_PATH", "/app/data/alanbix.db"))
 os.makedirs(os.path.join(DATA_DIR, "chat_images"), exist_ok=True)
 os.makedirs(os.path.join(DATA_DIR, "info_files"), exist_ok=True)
 os.makedirs(os.path.join(DATA_DIR, "avatars"), exist_ok=True)
+os.makedirs(os.path.join(DATA_DIR, "i18n"), exist_ok=True)
 app.mount("/data", StaticFiles(directory=DATA_DIR), name="data")
 
 

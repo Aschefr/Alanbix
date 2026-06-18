@@ -4,6 +4,7 @@
 	import { wsMessageStore } from '$lib/ws';
 	import { page } from '$app/stores';
 	import { pmUnreadCount, groupUnreadCount } from '$lib/pmStore';
+	import { t } from '$lib/i18nStore';
 
 	let players = [];
 	let currentUser = null;
@@ -72,6 +73,24 @@
 
 	// Per-player unread counts
 	let unreadMap = {}; // peer_id -> unread count
+
+	function getAwardEmoji(key) {
+		const map = {
+			premier: '🏆',
+			team: '🛡️',
+			bourreau: '⚔️',
+			coop: '🤝',
+			loup: '🐺',
+			participate: '🕊️',
+			marathon: '🏃',
+			gachette: '🎯',
+			passoire: '🥅',
+			bye: '🍀',
+			suisse: '🇨🇭',
+			lb: '🩹'
+		};
+		return map[key] || '🎁';
+	}
 
 	// Group unread counts (AXE-12)
 	let groupUnreadMap = {}; // channel_key -> unread count
@@ -360,16 +379,16 @@
 
 
 
-	function timeAgo(dateStr) {
+	function timeAgo(dateStr, translate) {
 		if (!dateStr) return '';
 		let dStr = dateStr.replace(' ', 'T');
 		if (!dStr.endsWith('Z')) dStr += 'Z';
 		let diff = (Date.now() - new Date(dStr).getTime()) / 1000;
 		if (diff < 0) diff = 0;
-		if (diff < 60) return "à l'instant";
-		if (diff < 3600) return `${Math.floor(diff / 60)} min`;
-		if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
-		return `${Math.floor(diff / 86400)}j`;
+		if (diff < 60) return translate('players_time_justnow');
+		if (diff < 3600) return translate('players_time_min', { count: Math.floor(diff / 60) });
+		if (diff < 86400) return translate('players_time_hour', { count: Math.floor(diff / 3600) });
+		return translate('players_time_day', { count: Math.floor(diff / 86400) });
 	}
 
 	function getRankEmoji(rank) {
@@ -384,15 +403,15 @@
 
 <div class="players-page animate-in">
 	<header class="players-header glass">
-		<h1 class="title-premium">👥 Joueurs</h1>
-		<span class="player-count">{players.length} inscrit{players.length > 1 ? 's' : ''}</span>
+		<h1 class="title-premium"><span class="title-icon">👥</span> {$t('players_title') || 'Joueurs'}</h1>
+		<span class="player-count">{$t('players_subtitle', { count: players.length, plural: players.length > 1 ? 's' : '' })}</span>
 	</header>
 
 	<div class="players-layout" style="grid-template-columns: minmax(0, 1fr) 8px {chatWidth}px;">
 		<!-- LEFT: Player directory -->
 		<div class="directory-col">
 			{#if loading}
-				<div class="loading-state glass"><span>⏳</span> Chargement...</div>
+				<div class="loading-state glass"><span>⏳</span> {$t("login_checking")}</div>
 			{:else}
 				{#each grouped.teams as [teamName, members]}
 					<div class="team-section glass" class:active-chat={isTeamChatActive(teamName, chatMode, chatChannelKey)}>
@@ -416,9 +435,9 @@
 									on:click={(e) => openTeamChat(e, teamName)}
 								>
 									{#if currentUser.is_admin || !currentUser.team_name || currentUser.team_name === teamName}
-										🛡️ Chat équipe
+										🛡️ {$t('players_chat_type_team')}
 									{:else}
-										⚔️ Chat inter
+										⚔️ {$t('players_chat_type_inter')}
 									{/if}
 								</button>
 							{/if}
@@ -445,9 +464,9 @@
 										</div>
 										<div class="player-actions">
 											{#if player.seat_id}
-												<a href="/dashboard/map?highlight={player.seat_id}" class="action-btn seat" title="Voir siège" on:click|stopPropagation>📍</a>
+												<a href="/dashboard/map?highlight={player.seat_id}" class="action-btn seat" title="{$t('players_tooltip_seat')}" on:click|stopPropagation>📍</a>
 											{/if}
-											<button class="action-btn pts" on:click={(e) => togglePoints(e, player.id)} title="Détail des points" class:expanded={expandedPlayerId === player.id}>📊</button>
+											<button class="action-btn pts" on:click={(e) => togglePoints(e, player.id)} title="{$t('players_tooltip_pts')}" class:expanded={expandedPlayerId === player.id}>📊</button>
 										</div>
 									</div>
 									{#if expandedPlayerId === player.id}
@@ -458,7 +477,7 @@
 												<span class="pts-loading">⏳</span>
 											{:else}
 												{#if pointsHistory && pointsHistory.history && pointsHistory.history.length > 0}
-													<div class="pts-total">Total : <strong>{pointsHistory.total_points} pts</strong></div>
+													<div class="pts-total">{$t("players_info_total")} <strong>{pointsHistory.total_points} pts</strong></div>
 													{#each pointsHistory.history as h}
 														<div class="pts-row">
 															<span class="pts-rank">{getRankEmoji(h.rank)}</span>
@@ -469,14 +488,14 @@
 														</div>
 													{/each}
 												{:else}
-													<span class="pts-empty">Aucune participation</span>
+													<span class="pts-empty">{$t("players_pts_none")}</span>
 												{/if}
 												{#if pointsHistory && pointsHistory.awards && pointsHistory.awards.length > 0}
 													<div class="awards-section">
-														<div class="awards-title">🏆 Prix & Distinctions</div>
+														<div class="awards-title">{$t("admin_tab_awards")}</div>
 														{#each pointsHistory.awards as award}
 															<div class="award-chip" title={award.description}>
-																<span class="award-emoji">🎁</span>
+																<span class="award-emoji">{getAwardEmoji(award.award_key)}</span>
 																<div class="award-text">
 																	<span class="award-name">{award.title}</span>
 																	{#if award.description}
@@ -499,7 +518,7 @@
 				{#if grouped.noTeam.length > 0}
 					<div class="team-section glass">
 						<div class="team-header solo-header">
-							<span class="team-name">Sans équipe</span>
+							<span class="team-name">{$t("dash_modal_team_fallback")}</span>
 							<span class="team-count">{grouped.noTeam.length}</span>
 						</div>
 						<div class="team-members">
@@ -524,9 +543,9 @@
 										</div>
 										<div class="player-actions">
 											{#if player.seat_id}
-												<a href="/dashboard/map?highlight={player.seat_id}" class="action-btn seat" title="Voir siège" on:click|stopPropagation>📍</a>
+												<a href="/dashboard/map?highlight={player.seat_id}" class="action-btn seat" title="{$t('players_tooltip_seat')}" on:click|stopPropagation>📍</a>
 											{/if}
-											<button class="action-btn pts" on:click={(e) => togglePoints(e, player.id)} title="Détail des points" class:expanded={expandedPlayerId === player.id}>📊</button>
+											<button class="action-btn pts" on:click={(e) => togglePoints(e, player.id)} title="{$t('players_tooltip_pts')}" class:expanded={expandedPlayerId === player.id}>📊</button>
 										</div>
 									</div>
 									{#if expandedPlayerId === player.id}
@@ -537,7 +556,7 @@
 												<span class="pts-loading">⏳</span>
 											{:else}
 												{#if pointsHistory && pointsHistory.history && pointsHistory.history.length > 0}
-													<div class="pts-total">Total : <strong>{pointsHistory.total_points} pts</strong></div>
+													<div class="pts-total">{$t("players_info_total")} <strong>{pointsHistory.total_points} pts</strong></div>
 													{#each pointsHistory.history as h}
 														<div class="pts-row">
 															<span class="pts-rank">{getRankEmoji(h.rank)}</span>
@@ -552,14 +571,14 @@
 														</div>
 													{/each}
 												{:else}
-													<span class="pts-empty">Aucune participation</span>
+													<span class="pts-empty">{$t("players_pts_none")}</span>
 												{/if}
 												{#if pointsHistory && pointsHistory.awards && pointsHistory.awards.length > 0}
 													<div class="awards-section">
-														<div class="awards-title">🏆 Prix & Distinctions</div>
+														<div class="awards-title">{$t("admin_tab_awards")}</div>
 														{#each pointsHistory.awards as award}
 															<div class="award-chip" title={award.description}>
-																<span class="award-emoji">🎁</span>
+																<span class="award-emoji">{getAwardEmoji(award.award_key)}</span>
 																<div class="award-text">
 																	<span class="award-name">{award.title}</span>
 																	{#if award.description}
@@ -590,10 +609,10 @@
 			{#if !chatMode}
 				<div class="chat-empty">
 					<span class="chat-empty-icon">💬</span>
-					<p>Cliquez sur un joueur ou une équipe pour démarrer une conversation</p>
+					<p>{$t('players_chat_empty_prompt')}</p>
 				</div>
 			{:else if chatLoading}
-				<div class="chat-empty"><span>⏳</span> Chargement...</div>
+				<div class="chat-empty"><span>⏳</span> {$t("login_checking")}</div>
 			{:else if chatMode === 'p2p'}
 				<div class="chat-header">
 					<div class="chat-peer-avatar avatar-shape-{chatPeer?.avatar_shape || 'circle'}">
@@ -608,26 +627,26 @@
 						{#if chatPeer?.team_name}<span class="chat-peer-team">{chatPeer.team_name}</span>{/if}
 					</div>
 					{#if chatPeer?.seat_id}
-						<a href="/dashboard/map?highlight={chatPeer.seat_id}" class="chat-seat-link" title="Voir siège">📍 {chatPeer.seat_id}</a>
+						<a href="/dashboard/map?highlight={chatPeer.seat_id}" class="chat-seat-link" title="{$t('players_tooltip_seat')}">📍 {chatPeer.seat_id}</a>
 					{/if}
-					<button class="chat-close" on:click={closeChat} title="Fermer">✕</button>
+					<button class="chat-close" on:click={closeChat} title="{$t('players_chat_tooltip_close')}">✕</button>
 				</div>
 
 				<div class="chat-messages" bind:this={chatEl}>
 					{#if chatMessages.length === 0}
-						<div class="chat-no-msg"><p>Aucun message. Envoyez le premier !</p></div>
+						<div class="chat-no-msg"><p>{$t('players_chat_no_msg')}</p></div>
 					{:else}
 						{#each chatMessages as msg}
 							<div class="chat-bubble {msg.sender_id === currentUser?.id ? 'mine' : 'theirs'}">
 								<div class="bubble-content">{msg.content}</div>
-								<span class="bubble-time">{timeAgo(msg.created_at)}</span>
+								<span class="bubble-time">{timeAgo(msg.created_at, $t)}</span>
 							</div>
 						{/each}
 					{/if}
 				</div>
 
 				<div class="chat-input-bar">
-					<textarea class="chat-input" bind:value={chatInput} on:keydown={handleKeydown} placeholder="Écrire un message..." rows="1"></textarea>
+					<textarea class="chat-input" bind:value={chatInput} on:keydown={handleKeydown} placeholder={$t('players_chat_placeholder_single')} rows="1"></textarea>
 					<button class="chat-send" on:click={sendMessage} disabled={!chatInput.trim()}>
 						<span>➤</span>
 					</button>
@@ -644,19 +663,19 @@
 							{/if}
 						</span>
 						<span class="chat-peer-team">
-							{chatChannelInfo?.channel_type === 'team' ? 'Chat d\'équipe' : 'Chat inter-équipes'}
-							 · {chatChannelMembers.length} membres
+							{chatChannelInfo?.channel_type === 'team' ? $t('players_chat_type_team') : $t('players_chat_type_inter')}
+							 · {$t("players_chat_title", { count: chatChannelMembers.length, plural: chatChannelMembers.length > 1 ? "s" : "" }).split(" • ")[1] || "members"}
 						</span>
 					</div>
 					<span class="group-type-badge {chatChannelInfo?.channel_type}">
-						{chatChannelInfo?.channel_type === 'team' ? 'ÉQUIPE' : 'INTER'}
+						{chatChannelInfo?.channel_type === 'team' ? $t('players_chat_badge_team') : $t('players_chat_badge_inter')}
 					</span>
-					<button class="chat-close" on:click={closeChat} title="Fermer">✕</button>
+					<button class="chat-close" on:click={closeChat} title="{$t('players_chat_tooltip_close')}">✕</button>
 				</div>
 
 				<div class="chat-messages" bind:this={chatEl}>
 					{#if chatMessages.length === 0}
-						<div class="chat-no-msg"><p>Aucun message. Lancez la conversation !</p></div>
+						<div class="chat-no-msg"><p>{$t("players_chat_empty")}</p></div>
 					{:else}
 						{#each chatMessages as msg}
 							<div class="chat-bubble {msg.sender_id === currentUser?.id ? 'mine' : 'theirs'}">
@@ -664,14 +683,14 @@
 									<span class="bubble-sender">{msg.sender_name}</span>
 								{/if}
 								<div class="bubble-content">{msg.content}</div>
-								<span class="bubble-time">{timeAgo(msg.created_at)}</span>
+								<span class="bubble-time">{timeAgo(msg.created_at, $t)}</span>
 							</div>
 						{/each}
 					{/if}
 				</div>
 
 				<div class="chat-input-bar">
-					<textarea class="chat-input" bind:value={chatInput} on:keydown={handleKeydown} placeholder="Écrire au groupe..." rows="1"></textarea>
+					<textarea class="chat-input" bind:value={chatInput} on:keydown={handleKeydown} placeholder="{$t('players_chat_placeholder')}" rows="1"></textarea>
 					<button class="chat-send" on:click={sendMessage} disabled={!chatInput.trim()}>
 						<span>➤</span>
 					</button>
