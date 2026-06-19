@@ -510,7 +510,7 @@
 					{@html $t('map_seat_info', { seat: selectedSeat })} 
 					<button class="btn-link" on:click={releaseSeat}>{$t('map_seat_free')}</button>
 				{:else}
-					seatingLocked && !user?.is_admin ? $t('map_instructions_view_locked') : $t('map_instructions_view_click') + $t('map_instructions_view_pan')
+					{seatingLocked && !user?.is_admin ? $t('map_instructions_view_locked') : $t('map_instructions_view_click') + ' ' + $t('map_instructions_view_pan')}
 				{/if}
 			</p>
 		</div>

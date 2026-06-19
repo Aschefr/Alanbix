@@ -145,33 +145,33 @@
 	}
 
 	// Rotating typing messages (Astérix/Alanbix themed)
-	const typingMessages = [
-		'🧪 Alanbix distille une réponse…',
-		'📜 Alanbix consulte les parchemins…',
-		'🧠 Alanbix réfléchit intensément…',
-		'⚗️ La potion de réponse mijote…',
-		'🏛️ Alanbix consulte le sénat…',
-		'🗡️ Alanbix combat les bugs gaulois…',
-		'🐗 Alanbix chasse le sanglier de données…',
-		'🍖 Pause banquet… non, Alanbix travaille !',
-		'🪄 Par Toutatis, ça arrive…',
-		'🛡️ Alanbix forge sa réponse…',
-		'📖 Alanbix tourne les pages du savoir…',
-		'🌿 Cueillette du gui numérique en cours…',
-		'🏺 L\'alambic tourne à plein régime…',
-		'⭐ Alanbix aligne les menhirs…',
+	const typingMessagesKeys = [
+		'ai_typing_1',
+		'ai_typing_2',
+		'ai_typing_3',
+		'ai_typing_4',
+		'ai_typing_5',
+		'ai_typing_6',
+		'ai_typing_7',
+		'ai_typing_8',
+		'ai_typing_9',
+		'ai_typing_10',
+		'ai_typing_11',
+		'ai_typing_12',
+		'ai_typing_13',
+		'ai_typing_14'
 	];
 	let typingMsgIdx = 0;
 	let typingFade = true;
 	let typingInterval = null;
-	$: typingText = typingMessages[typingMsgIdx];
+	$: typingText = $t(typingMessagesKeys[typingMsgIdx]);
 	$: if (loading && !compressing && !queued) {
 		if (!typingInterval) {
-			typingMsgIdx = Math.floor(Math.random() * typingMessages.length);
+			typingMsgIdx = Math.floor(Math.random() * typingMessagesKeys.length);
 			typingInterval = setInterval(() => {
 				typingFade = false;
 				setTimeout(() => {
-					typingMsgIdx = (typingMsgIdx + 1) % typingMessages.length;
+					typingMsgIdx = (typingMsgIdx + 1) % typingMessagesKeys.length;
 					typingFade = true;
 				}, 200);
 			}, 5000);
@@ -388,7 +388,7 @@
 
 	async function newConversation() {
 		const res = await api.post('/ia/conversations', { 
-			title: 'Nouvelle discussion',
+			title: get(t)('ai_default_chat_title'),
 			model: iaConfig.model
 		});
 		await loadConversations();

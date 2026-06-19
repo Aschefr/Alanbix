@@ -674,12 +674,15 @@ future_axes:
 
   - id: AXE-08
     title: "Vérification et Extraction i18n"
-    status: TODO
+    status: DONE
     description: >
       Parcourir l'ensemble des composants Svelte et extraire tous les textes statiques
       vers le fichier de traduction backend/static/i18n/fr.json. Laisser les icones en hard-codé, seulement les textes a écrire dans le fichier .json.
       S'assurer qu'aucun texte n'est hardcodé en HTML/JS pour garantir un support multi-langue
       complet (Anglais notamment) dans les futures versions.
+    done:
+      - "Extraction et centralisation de toutes les clés de traduction."
+      - "Localisation complète de l'assistant IA (titre par défaut et phrases gauloises de chargement)."
     priority: medium
 
   - id: AXE-09
@@ -1163,4 +1166,58 @@ future_axes:
       - "Correction ergonomique empêchant la sélection de texte lors du glissement dans l'éditeur."
       - "Ajustement du plan de salle SVG avec clipPath dynamique et réduction des avatars à 18px pour conserver le nom de l'équipe."
       - "Optimisation de l'overlay de modale avec un fond sombre opaque au lieu d'un floutage de fond."
+
+  - id: AXE-46
+    title: "Mutualisation de la Modale d'Édition de Tournois"
+    status: DONE
+    description: >
+      Afin d'éviter la duplication de code et faciliter la maintenance, extraire la modale d'édition de tournois premium
+      présente sur la page d'administration et sur la page tournois joueur dans un composant Svelte unique et réutilisable.
+    done:
+      - "Création du composant réutilisable EditTournamentModal.svelte."
+      - "Intégration sur la page tournois joueur."
+      - "Intégration sur la page administration en conservant les options de statut spécifiques."
+      - "Nettoyage des styles CSS dupliqués."
+    priority: medium
+
+  - id: AXE-47
+    title: "Correction de l'Affichage des Instructions du Plan de Salle"
+    status: DONE
+    description: >
+      Corriger le bug d'affichage sur la page Plan de Salle où les instructions de navigation
+      s'affichaient sous forme de code ternaire JavaScript brut (seatingLocked && !user?.is_admin ...)
+      quand le joueur n'avait pas de siège assigné, et modifier le message d'aide à la navigation.
+    done:
+      - "Enveloppement de la condition de traduction dans des accolades Svelte {} pour exécution réactive."
+      - "Remplacement de 'Molette ou clic droit pour naviguer.' par 'Clic pour naviguer.' dans les fichiers i18n."
+    priority: high
+
+  - id: AXE-48
+    title: "Redimensionnement dynamique et cohérent des textes de la Sidebar"
+    status: DONE
+    description: >
+      Afin de garantir une interface esthétique et sans retour à la ligne inesthétique dans toutes les langues,
+      implémenter une fonction Svelte réactive qui détecte si un libellé de menu de la barre latérale déborde.
+      Si un débordement est détecté, réduire la taille de police uniformément sur tous les éléments.
+    done:
+      - "Détection du wrapping vertical par comparaison de hauteur (offsetHeight > 25px)."
+      - "Calcul itératif avec réduction uniforme via variable CSS --nav-font-size."
+      - "Retrait de la transition CSS font-size pour éliminer tout lag de rendu lors de la mesure."
+      - "Validation réactive lors du chargement des traductions ($t)."
+    priority: medium
+
+  - id: AXE-49
+    title: "Persistance des Illustrations de Jeux (Docker)"
+    status: DONE
+    description: >
+      Les images de couverture des jeux étaient stockées dans un dossier éphémère du conteneur Docker
+      (/app/static/uploads/games/) et disparaissaient après chaque redémarrage ou mise à jour.
+      Déplacer le stockage vers le volume persistant /app/data/game_images/ avec migration automatique
+      des fichiers existants et mise à jour des chemins en base de données au démarrage.
+    done:
+      - "Création d'une fonction helper _get_game_images_dir() utilisant le volume persistant."
+      - "Migration de _localize_image_url() et upload_game_image() vers /data/game_images/."
+      - "Migration automatique au startup : déplacement des fichiers physiques et mise à jour des URL en BDD."
+      - "Audit complet du stockage persistant : tous les éléments utilisateur sont dans /app/data."
+      - "Nettoyage du .gitignore : retrait des fichiers .bak du dépôt et ajout de test_api.py aux exclusions."
     priority: high

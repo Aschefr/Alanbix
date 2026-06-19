@@ -4,6 +4,7 @@
 	import { onMount, onDestroy } from 'svelte';
 	import CreateTournamentWizard from '$lib/components/CreateTournamentWizard.svelte';
 	import Modal from '$lib/components/Modal.svelte';
+	import EditTournamentModal from '$lib/components/EditTournamentModal.svelte';
 	import { marked } from 'marked';
 	import { wsMessageStore } from '$lib/ws';
 	import { API_URL } from '$lib/config';
@@ -138,9 +139,11 @@
 			pts_participation: t.config?.pts_participation ?? 1,
 			pts_per_match: t.config?.pts_per_match ?? t.config?.pts_per_goal ?? 1.0,
 			lower_score_is_better: t.config?.lower_score_is_better || false,
-			phases: t.config?.phases || 'single',
-			group_size: t.config?.group_size || 4,
-			advancers_count: t.config?.advancers_count || 2
+			boolean_mode: t.config?.boolean_mode || false,
+			allow_draws: t.config?.allow_draws || false,
+			meet_twice: t.config?.meet_twice || false,
+			ffa_group_size: t.config?.ffa_group_size || 4,
+			ffa_advancers: t.config?.ffa_advancers || 2
 		};
 	}
 
@@ -151,6 +154,7 @@
 				status: editConfig.status,
 				points_per_win: editConfig.points_per_win,
 				config: {
+					...editingTournament.config,
 					use_teams: editConfig.use_teams,
 					team_size: editConfig.team_size,
 					phases: editConfig.phases,
@@ -163,9 +167,11 @@
 					pts_participation: editConfig.pts_participation,
 					pts_per_match: editConfig.pts_per_match,
 					lower_score_is_better: editConfig.lower_score_is_better,
-					phases: editConfig.phases,
-					group_size: editConfig.group_size,
-					advancers_count: editConfig.advancers_count
+					boolean_mode: editConfig.boolean_mode,
+					allow_draws: editConfig.allow_draws,
+					meet_twice: editConfig.meet_twice,
+					ffa_group_size: editConfig.ffa_group_size,
+					ffa_advancers: editConfig.ffa_advancers
 				}
 			});
 			toast(get(t)('tourneys_toast_updated'), 'success');
@@ -1101,7 +1107,7 @@
 											<button class="btn-secondary text-xs p-1" on:click={() => deleteConfirmTournamentId = null}>{$t('admin_tourneys_confirm_no')}</button>
 										</div>
 									{:else}
-										<button class="btn-icon-edit" on:click={() => { if (inlineEditId === tourney.id) { inlineEditId = null; } else { openEditTournament(tourney); inlineEditId = tourney.id; } }} title="{$t('admin_tourneys_tooltip_edit')}">
+										<button class="btn-icon-edit" on:click={() => openEditTournament(tourney)} title="{$t('admin_tourneys_tooltip_edit')}">
 											<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
 										</button>
 										<button class="btn-icon-danger" on:click={() => deleteConfirmTournamentId = tourney.id} title="{$t('admin_tourneys_tooltip_delete')}">
@@ -1110,128 +1116,6 @@
 									{/if}
 								</div>
 								</div>
-
-								{#if inlineEditId === tourney.id}
-
-									<div class="inline-edit-panel">
-
-										<div class="ie-grid">
-
-											<div class="ie-field"><label>{$t('admin_tourneys_edit_name')}</label><input type="text" bind:value={editConfig.name} /></div>
-
-											<div class="ie-field"><label>{$t('admin_tourneys_edit_status')}</label>
-
-												<select bind:value={editConfig.status}><option value="OPEN">{$t("admin_tourneys_status_pill_open")}</option><option value="RUNNING">{$t("admin_tourneys_status_pill_running")}</option><option value="DONE">{$t("admin_tourneys_status_pill_done")}</option><option value="CLOSED">{$t("admin_tourneys_status_pill_closed")}</option></select>
-
-											</div>
-
-
-
-											<div class="ie-field"><label>{$t('admin_tourneys_edit_format')}</label>
-
-												<div class="edit-toggle-row">
-
-													<button class="edit-toggle {editConfig.bracket_type === 'single_elim' ? 'active' : ''}" on:click={() => editConfig.bracket_type = 'single_elim'}>{$t('admin_tourneys_edit_format_elim')}</button>
-
-													<button class="edit-toggle {editConfig.bracket_type === 'double_elim' ? 'active' : ''}" on:click={() => editConfig.bracket_type = 'double_elim'}>{$t('admin_tourneys_edit_format_double')}</button>
-
-													<button class="edit-toggle {editConfig.bracket_type === 'round_robin' ? 'active' : ''}" on:click={() => editConfig.bracket_type = 'round_robin'}>{$t('admin_tourneys_edit_format_champ')}</button>
-
-													<button class="edit-toggle {editConfig.bracket_type === 'ffa' ? 'active' : ''}" on:click={() => editConfig.bracket_type = 'ffa'}>{$t('admin_tourneys_edit_format_ffa')}</button>
-
-												</div>
-
-											</div>
-
-											<div class="ie-field" style="grid-column: 1/-1">
-												<label class="score-invert-label">
-													<input type="checkbox" bind:checked={editConfig.lower_score_is_better} />
-													🔄 Score inversé <span class="text-dim text-xs">(plus petit score gagne)</span>
-												</label>
-											</div>
-
-										</div>
-										<div class="ie-row">
-
-											<div class="ie-field" style="flex:1">
-
-												<label>Mode</label>
-
-												<div class="edit-toggle-row">
-
-													<button class="edit-toggle {!editConfig.use_teams ? 'active' : ''}" on:click={() => editConfig.use_teams = false}>👤 Solo</button>
-
-													<button class="edit-toggle {editConfig.use_teams ? 'active' : ''}" on:click={() => editConfig.use_teams = true}>👥 Équipes</button>
-
-												</div>
-
-											</div>
-
-											{#if editConfig.use_teams}
-
-												<div class="ie-field" style="flex:0 0 80px">
-
-													<label>Joueurs / Éq.</label>
-
-													<input type="number" bind:value={editConfig.team_size} min="2" max="16" />
-
-												</div>
-
-											{/if}
-
-										</div>
-
-										<div class="ie-row">
-											<div class="ie-field" style="flex:1">
-												<label>Structure</label>
-												<div class="edit-toggle-row">
-													<button class="edit-toggle {editConfig.phases === 'single' ? 'active' : ''}" on:click={() => editConfig.phases = 'single'}>Phase directe</button>
-													<button class="edit-toggle {editConfig.phases === 'double' ? 'active' : ''}" on:click={() => editConfig.phases = 'double'}>Groupes + Finale</button>
-												</div>
-											</div>
-											{#if editConfig.phases === 'double'}
-												<div class="ie-field" style="flex:0 0 90px">
-													<label>Taille Groupes</label>
-													<input type="number" bind:value={editConfig.group_size} min="2" max="16" />
-												</div>
-												<div class="ie-field" style="flex:0 0 90px">
-													<label>Qualifiés</label>
-													<input type="number" bind:value={editConfig.advancers_count} min="1" max="8" />
-												</div>
-											{/if}
-										</div>
-
-										<details class="pts-config glass-inner" open>
-
-											<summary>🏅 Répartition des points</summary>
-
-											<div class="pts-grid">
-
-												<div class="pts-field"><label>{$t("admin_settings_points_1st")}</label><input type="number" bind:value={editConfig.pts_winner} min="0" /></div>
-
-												<div class="pts-field"><label>{$t("admin_settings_points_2nd")}</label><input type="number" bind:value={editConfig.pts_second} min="0" /></div>
-
-												<div class="pts-field"><label>{$t("admin_settings_points_3rd")}</label><input type="number" bind:value={editConfig.pts_third} min="0" /></div>
-
-												<div class="pts-field"><label>👤 Parti.</label><input type="number" bind:value={editConfig.pts_participation} min="0" /></div>
-
-												<div class="pts-field"><label>{$t("admin_settings_points_bonus")}</label><input type="number" bind:value={editConfig.pts_per_match} min="0" step="0.1" /></div>
-
-											</div>
-
-										</details>
-
-										<div class="ie-actions">
-
-											<button class="btn-secondary" on:click={() => inlineEditId = null}>{$t('admin_settings_cancel')}</button>
-
-											<button class="btn-primary" on:click={() => { updateTournament(); inlineEditId = null; }}>💾 {$t('admin_players_modal_btn_save')}</button>
-
-										</div>
-
-									</div>
-
-								{/if}
 
 								{#if promptPreviewId === tourney.id && promptPreviewText}
 									<div class="prompt-preview-panel">
@@ -2419,8 +2303,17 @@
 		{/if}
 	</div>
 </div>
-
-
+<!-- Edit Tournament Modal -->
+<EditTournamentModal
+	tournament={editingTournament}
+	show={!!editingTournament}
+	showStatus={true}
+	on:close={() => editingTournament = null}
+	on:save={async (e) => {
+		editConfig = e.detail.editConfig;
+		await updateTournament();
+	}}
+/>
 
 <!-- Toast Notifications -->
 <div class="toast-container" use:portal>

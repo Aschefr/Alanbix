@@ -1,5 +1,32 @@
 # Changelog
 
+## [1.17.4] - 2026-06-19
+
+### Corrections de bugs
+
+- **Persistance des illustrations de jeux (Docker)** : Les images de couverture des jeux étaient stockées dans un dossier éphémère du conteneur (`/app/static/uploads/games/`) et disparaissaient à chaque redémarrage ou mise à jour Docker. Elles sont désormais stockées dans le volume persistant `/app/data/game_images/`. Une migration automatique au démarrage déplace les fichiers existants et met à jour les chemins en base de données.
+
+### Maintenance
+
+- **Nettoyage de sécurité pour la release** : Retrait des fichiers `.bak` du dépôt Git, ajout de `test_api.py` et `*.bak` au `.gitignore` pour éviter l'inclusion de fichiers de développement ou de sauvegarde dans les releases publiques.
+
+## [1.17.3] - 2026-06-19
+
+### Améliorations & Corrections de bugs
+
+- **Mutualisation de la modale d'édition des tournois** : Création d'un composant unique réutilisable `EditTournamentModal.svelte` et suppression de la duplication de code entre les pages tournois joueurs et administration.
+- **Correction sur le Plan de Salle** : Résolution d'un bug d'affichage qui affichait l'expression ternaire JavaScript brute au lieu de la traduction dynamique correcte lorsque le joueur n'avait pas de siège. Simplification et uniformisation des instructions de navigation en "Clic pour naviguer." dans les langues supportées.
+- **Traduction de la page Assistant IA** : Extraction et localisation des 14 phrases de chargement gauloises et du titre par défaut des conversations dans les fichiers i18n (`fr.json`, `en.json`, `es.json`) ; mise à jour du backend pour supporter les détections d'auto-titre sur les titres par défaut traduits.
+- **Redimensionnement dynamique et cohérent de la Sidebar** : Détection automatique en JavaScript du retour à la ligne des libellés de navigation de la barre latérale, avec réduction uniforme de la taille de police (jusqu'à `0.75rem`) pour éviter les retours à la ligne inesthétiques tout en conservant une cohérence visuelle parfaite.
+
+## [1.17.2] - 2026-06-19
+
+### Corrections de bugs & Internationalisation (i18n)
+
+- **Résolution du mix de langues (français/espagnol)** : Remplacement de tous les textes codés en dur en français par des appels réactifs `$t(...)` dans le composant de gestion des tournois.
+- **Support complet de la pluralisation espagnole** : Correction dynamique du suffixe de pluriel pour "Jugador" (qui passait de "Jugador" à "Jugadors") pour afficher correctement "Jugadores" en espagnol en fonction du store de langue active (`currentLang`).
+- **Synchronisation globale des fichiers de langues** : Mise à jour et alignement des clés manquantes dans `fr.json`, `en.json` et `es.json` tant dans la configuration d'usine (`static/i18n`) que dans les surcharges utilisateur (`data/i18n`).
+
 ## [1.17.1] - 2026-06-18
 
 ### Nouvelles fonctionnalités

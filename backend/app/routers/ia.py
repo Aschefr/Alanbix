@@ -813,7 +813,7 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
                         est_tokens = int((sum(len(m.content) for m in post_msgs) + ctx_chars) / 3.5) + 1300  # +system overhead
                         
                         # ── Auto-title: fire-and-forget background task (G-50) ──
-                        if conv_obj and conv_obj.title in ("Nouvelle discussion", ""):
+                        if conv_obj and conv_obj.title in ("Nouvelle discussion", "New discussion", "Nueva discusión", ""):
                             first_user_msg = s.query(models.ChatMessage).filter(
                                 models.ChatMessage.conversation_id == request.conversation_id,
                                 models.ChatMessage.role == "user"
@@ -899,7 +899,7 @@ async def auto_title(conv_id: int, db: Session = Depends(database.get_db), user:
     if not conv:
         raise HTTPException(404)
     # Only rename if still default
-    if conv.title not in ("Nouvelle discussion", ""):
+    if conv.title not in ("Nouvelle discussion", "New discussion", "Nueva discusión", ""):
         return {"title": conv.title}
     # Get the first user message
     first_msg = db.query(models.ChatMessage).filter(

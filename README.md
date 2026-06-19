@@ -251,9 +251,9 @@ Alanbix/
 
 ## 🌐 Langues & Internationalisation (i18n)
 
-Alanbix a été conçu dès l'origine pour supporter le multi-langue (système i18n prêt à l'emploi côté backend et frontend). Cependant, pour le moment, **l'interface est disponible uniquement en Français**.
+Alanbix supporte pleinement le multi-langue grâce à son système i18n natif côté backend et frontend. **L'interface est disponible en Français, Anglais et Espagnol**.
 
-Toutes les chaînes de texte se trouvent dans `backend/static/i18n/fr.json`. Si vous souhaitez contribuer à l'ajout de l'anglais, l'architecture est déjà en place !
+Les fichiers de traduction de référence se trouvent dans `backend/static/i18n/`. Les administrateurs peuvent également ajouter, éditer et synchroniser des clés de langue en direct depuis le panneau d'administration de l'application.
 
 > ⚠️ **Important (Pour les développeurs)** : Modifiez toujours les fichiers JSON i18n via Python avec `encoding='utf-8-sig'` pour éviter de corrompre le BOM (spécificité sous Windows).
 

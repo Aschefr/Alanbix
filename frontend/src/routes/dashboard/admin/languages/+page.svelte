@@ -3,6 +3,7 @@
 	import { api } from '$lib/api';
 	import { API_URL } from '$lib/config';
 	import { onMount } from 'svelte';
+	import { beforeNavigate } from '$app/navigation';
 
 	let languages = ['fr', 'en'];
 	let refLang = 'fr';
@@ -73,8 +74,13 @@
 		return CATEGORY_MAP[prefix] ? prefix : '_other';
 	}
 
-	function getCategoryMeta(cat) {
-		return CATEGORY_MAP[cat] || OTHER_CATEGORY;
+	function getCategoryMeta(cat, t_func) {
+		const meta = CATEGORY_MAP[cat] || OTHER_CATEGORY;
+		const key = cat === '_other' || cat === 'other' ? 'admin_languages_cat_other' : `admin_languages_cat_${cat}`;
+		return {
+			...meta,
+			label: t_func(key) || meta.label
+		};
 	}
 
 	// ─── Active category (sidebar navigation) ──────────────────
@@ -119,6 +125,15 @@
 		if (savedTarget) targetLang = savedTarget;
 		loadLanguages();
 		loadSettings();
+	});
+
+	beforeNavigate((navigation) => {
+		if (hasUnsavedChanges) {
+			const confirmLeave = confirm($t('admin_languages_unsaved_warning') || "Vous avez des modifications non enregistrées. Voulez-vous vraiment quitter cette page ?");
+			if (!confirmLeave) {
+				navigation.cancel();
+			}
+		}
 	});
 
 	async function loadSettings() {
@@ -260,9 +275,13 @@
 			if (!groups[cat]) groups[cat] = [];
 			groups[cat].push(key);
 		}
+		// Sort keys inside each category alphabetically
+		for (const cat in groups) {
+			groups[cat].sort((a, b) => a.localeCompare(b));
+		}
 		const sortedEntries = Object.entries(groups).sort((a, b) => {
-			const ma = getCategoryMeta(a[0]);
-			const mb = getCategoryMeta(b[0]);
+			const ma = getCategoryMeta(a[0], $t);
+			const mb = getCategoryMeta(b[0], $t);
 			return ma.order - mb.order;
 		});
 		return sortedEntries;
@@ -437,6 +456,7 @@
 			markDirty();
 			if (translateProgress >= 100) {
 				toast($t('admin_languages_toast_bulk_done'), 'success');
+				saveTargetData();
 			}
 		}
 	}
@@ -479,6 +499,13 @@
 		return flagMap[code] || code.toUpperCase();
 	}
 </script>
+
+<svelte:window on:beforeunload={(e) => {
+	if (hasUnsavedChanges) {
+		e.preventDefault();
+		e.returnValue = '';
+	}
+}} />
 
 {#if authorized}
 <div class="lang-page">
@@ -653,7 +680,7 @@
 		<!-- Sidebar -->
 		<nav class="sidebar">
 			{#each groupedKeys as [cat, keys] (cat)}
-				{@const meta = getCategoryMeta(cat)}
+				{@const meta = getCategoryMeta(cat, $t)}
 				{@const missing = catMissingCount(keys)}
 				<button
 					class="sidebar-item"
@@ -675,7 +702,7 @@
 		<!-- Editor -->
 		<div class="editor-main">
 			{#if activeCategory}
-				{@const meta = getCategoryMeta(activeCategory)}
+				{@const meta = getCategoryMeta(activeCategory, $t)}
 				<div class="editor-header">
 					<div class="editor-header-left">
 						<span class="editor-header-icon">{meta.icon}</span>

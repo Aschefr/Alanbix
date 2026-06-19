@@ -101,6 +101,37 @@ async def startup():
         num_workers = 1
     await queue_manager.start(num_workers=num_workers)
 
+    # Migrate game images from old ephemeral static/uploads/games/ to persistent data/game_images/
+    game_images_dir = os.path.join(data_dir, "game_images")
+    os.makedirs(game_images_dir, exist_ok=True)
+    old_uploads_dir = os.path.join("static", "uploads", "games")
+    migrated_files = 0
+
+    # 1) Move physical files if old dir exists
+    if os.path.isdir(old_uploads_dir):
+        for fname in os.listdir(old_uploads_dir):
+            src = os.path.join(old_uploads_dir, fname)
+            dst = os.path.join(game_images_dir, fname)
+            if os.path.isfile(src) and not os.path.exists(dst):
+                try:
+                    shutil.move(src, dst)
+                    migrated_files += 1
+                except Exception as e:
+                    print(f"[Startup] Failed to migrate game image {fname}: {e}")
+
+    # 2) Update DB records pointing to old path
+    migrated_records = 0
+    for game in db.query(models.Game).all():
+        if game.image_url and game.image_url.startswith("/static/uploads/games/"):
+            old_filename = game.image_url.replace("/static/uploads/games/", "")
+            game.image_url = f"/data/game_images/{old_filename}"
+            migrated_records += 1
+    if migrated_records > 0:
+        db.commit()
+
+    if migrated_files > 0 or migrated_records > 0:
+        print(f"[Startup] Game images migration: {migrated_files} files moved, {migrated_records} DB records updated.")
+
     db.close()
 
 @app.on_event("shutdown")
@@ -186,7 +217,7 @@ app.include_router(i18n.router)
 app.include_router(notifications.router)
 app.include_router(players.router)
 
-# Serve uploaded images
+# Serve uploaded images (legacy static mount)
 from fastapi.staticfiles import StaticFiles
 import os
 os.makedirs("static/uploads/games", exist_ok=True)
@@ -198,6 +229,7 @@ os.makedirs(os.path.join(DATA_DIR, "chat_images"), exist_ok=True)
 os.makedirs(os.path.join(DATA_DIR, "info_files"), exist_ok=True)
 os.makedirs(os.path.join(DATA_DIR, "avatars"), exist_ok=True)
 os.makedirs(os.path.join(DATA_DIR, "i18n"), exist_ok=True)
+os.makedirs(os.path.join(DATA_DIR, "game_images"), exist_ok=True)
 app.mount("/data", StaticFiles(directory=DATA_DIR), name="data")
 
 

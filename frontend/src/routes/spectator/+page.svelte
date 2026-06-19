@@ -207,6 +207,18 @@
 	$: bracketType = runningTournament?.config?.bracket_type || 'single_elim';
 	$: specLowerIsBetter = runningTournament?.config?.lower_score_is_better || false;
 	$: runningGame = runningTournament ? games.find(g => g.id === runningTournament.game_id) : null;
+	$: rrGroups = (() => {
+		if (bracketType !== 'round_robin' || !runningTournament) return [];
+		const groups = {};
+		(runningTournament.bracket || []).forEach(m => {
+			if (!groups[m.id.s]) groups[m.id.s] = [];
+			groups[m.id.s].push(m);
+		});
+		return Object.keys(groups).sort((a,b) => a-b).map(k => ({
+			id: k,
+			rounds: getRounds(groups[k])
+		}));
+	})();
 	$: occupiedSeats = roomLayout.seats.filter(s => getOccupant(s.id)).length;
 	$: totalSeats = roomLayout.seats.length;
 	$: mapViewBox = (() => {
@@ -482,24 +494,29 @@
 								<!-- FFA View -->
 								<div class="spec-ffa-area">
 									{#each bracketRounds as roundMatches, ri}
-										{@const match = roundMatches[0]}
 										{@const isLatest = ri === bracketRounds.length - 1}
 										<div class="spec-ffa-round {isLatest ? 'current' : 'past'}">
 											<div class="spec-ffa-hdr">
 												<span>{$t("spec_round_num", { num: ri + 1 })}</span>
-												<span class="spec-ffa-count">{$t("spec_players_count", { count: match.p.length })}</span>
 											</div>
-											<div class="spec-ffa-players">
-												{#each match.p as playerId, pi}
-													{@const mRank = getFFAMatchRank(match, pi, specLowerIsBetter)}
-													<div class="spec-ffa-row {mRank === 1 ? 'gold' : mRank === 2 ? 'silver' : mRank === 3 ? 'bronze' : ''}">
-														<span class="spec-ffa-rank">{#if mRank}#{mRank}{:else}—{/if}</span>
-														<span class="spec-ffa-name">{getPlayerName(playerId)}</span>
-														{#if match.score?.[pi] > 0}
-															<span class="spec-ffa-score">{match.score[pi]}</span>
-														{/if}
+											<div class="spec-ffa-matches" style="display: flex; flex-direction: column; gap: 1rem; padding: 1rem;">
+											{#each roundMatches as match, mi}
+												<div class="spec-ffa-match-box">
+													<div class="spec-ffa-count" style="margin-bottom: 0.5rem; font-weight: 600; font-size: 0.85rem; color: var(--text-muted);">Match {mi + 1} - {$t("spec_players_count", { count: match.p.length })}</div>
+													<div class="spec-ffa-players">
+														{#each match.p as playerId, pi}
+															{@const mRank = getFFAMatchRank(match, pi, specLowerIsBetter)}
+															<div class="spec-ffa-row {mRank === 1 ? 'gold' : mRank === 2 ? 'silver' : mRank === 3 ? 'bronze' : ''}">
+																<span class="spec-ffa-rank">{#if mRank}#{mRank}{:else}—{/if}</span>
+																<span class="spec-ffa-name">{getPlayerName(playerId)}</span>
+																{#if match.score?.[pi] > 0}
+																	<span class="spec-ffa-score">{match.score[pi]}</span>
+																{/if}
+															</div>
+														{/each}
 													</div>
-												{/each}
+												</div>
+											{/each}
 											</div>
 										</div>
 									{/each}
@@ -507,23 +524,32 @@
 							{:else if bracketType === 'round_robin'}
 								<!-- Round Robin -->
 								<div class="spec-rr-area">
-									{#each bracketRounds as roundMatches, ri}
-										<div class="spec-rr-round">
-											<div class="spec-round-hdr">{$t("spec_matchday_num", { num: ri + 1 })}</div>
-											{#each roundMatches as match}
-												{@const s0 = match.score?.[0] ?? null}
-												{@const s1 = match.score?.[1] ?? null}
-												{@const isDone = s0 !== null && s1 !== null && (s0 !== 0 || s1 !== 0) && (s0 !== s1 || runningTournament?.config?.allow_draws)}
-												<div class="spec-rr-match {isDone ? 'done' : ''}">
-													<span class="spec-rr-p {isDone && (specLowerIsBetter ? s0 < s1 : s0 > s1) ? 'winner' : ''}">{getPlayerName(match.p[0])}</span>
-													{#if runningTournament?.config?.boolean_mode}
-														<span class="spec-rr-score">{#if isDone}{(specLowerIsBetter ? (s0??0) < (s1??0) : (s0??0) > (s1??0)) ? '✅' : ((s0??0)===(s1??0) && (s0??0)!==0 ? '🤝' : '❌')} - {(specLowerIsBetter ? (s1??0) < (s0??0) : (s1??0) > (s0??0)) ? '✅' : ((s0??0)===(s1??0) && (s0??0)!==0 ? '🤝' : '❌')}{:else}—{/if}</span>
-													{:else}
-														<span class="spec-rr-score">{s0 ?? 0} - {s1 ?? 0}</span>
-													{/if}
-													<span class="spec-rr-p {isDone && (specLowerIsBetter ? s1 < s0 : s1 > s0) ? 'winner' : ''}">{getPlayerName(match.p[1])}</span>
-												</div>
-											{/each}
+									{#each rrGroups as group}
+										<div class="spec-rr-group" style="width: 100%; margin-bottom: 2rem;">
+											{#if rrGroups.length > 1}
+												<h2 class="spec-group-title" style="text-align: center; color: var(--accent); margin-bottom: 1rem; font-weight: 800;">Poule {String.fromCharCode(64 + parseInt(group.id))}</h2>
+											{/if}
+											<div class="spec-rr-group-rounds" style="display: flex; flex-wrap: wrap; gap: 1.5rem; justify-content: center;">
+												{#each group.rounds as roundMatches, ri}
+													<div class="spec-rr-round">
+														<div class="spec-round-hdr">{$t("spec_matchday_num", { num: ri + 1 })}</div>
+														{#each roundMatches as match}
+															{@const s0 = match.score?.[0] ?? null}
+															{@const s1 = match.score?.[1] ?? null}
+															{@const isDone = s0 !== null && s1 !== null && (s0 !== 0 || s1 !== 0) && (s0 !== s1 || runningTournament?.config?.allow_draws)}
+															<div class="spec-rr-match {isDone ? 'done' : ''}">
+																<span class="spec-rr-p {isDone && (specLowerIsBetter ? s0 < s1 : s0 > s1) ? 'winner' : ''}">{getPlayerName(match.p[0])}</span>
+																{#if runningTournament?.config?.boolean_mode}
+																	<span class="spec-rr-score">{#if isDone}{(specLowerIsBetter ? (s0??0) < (s1??0) : (s0??0) > (s1??0)) ? '✅' : ((s0??0)===(s1??0) && (s0??0)!==0 ? '🤝' : '❌')} - {(specLowerIsBetter ? (s1??0) < (s0??0) : (s1??0) > (s0??0)) ? '✅' : ((s0??0)===(s1??0) && (s0??0)!==0 ? '🤝' : '❌')}{:else}—{/if}</span>
+																{:else}
+																	<span class="spec-rr-score">{s0 ?? 0} - {s1 ?? 0}</span>
+																{/if}
+																<span class="spec-rr-p {isDone && (specLowerIsBetter ? s1 < s0 : s1 > s0) ? 'winner' : ''}">{getPlayerName(match.p[1])}</span>
+															</div>
+														{/each}
+													</div>
+												{/each}
+											</div>
 										</div>
 									{/each}
 								</div>

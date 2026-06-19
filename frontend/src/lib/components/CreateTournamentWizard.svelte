@@ -19,9 +19,10 @@
 		use_teams: false, 
 		team_size: 2, 
 		points_per_win: 3, 
-		phases: 'single', 
 		group_size: 4, 
-		advancers_count: 2, 
+		meet_twice: false,
+		ffa_group_size: 4,
+		ffa_advancers: 2,
 		bracket_type: 'single_elim',
 		pts_winner: defaultPts.pts_winner, 
 		pts_second: defaultPts.pts_second, 
@@ -66,9 +67,10 @@
 					use_teams: config.use_teams,
 					team_size: Number(config.team_size),
 					points_per_win: Number(config.points_per_win),
-					phases: config.phases,
 					group_size: Number(config.group_size),
-					advancers_count: Number(config.advancers_count),
+					meet_twice: config.meet_twice,
+					ffa_group_size: Number(config.ffa_group_size),
+					ffa_advancers: Number(config.ffa_advancers),
 					bracket_type: config.bracket_type,
 					pts_winner: Number(config.pts_winner),
 					pts_second: Number(config.pts_second),
@@ -84,7 +86,7 @@
 			onSuccess(res);
 			setTimeout(() => {
 				step = 1;
-				config = { name: '', game_id: games.length > 0 ? games[0].id : null, use_teams: false, team_size: 2, points_per_win: 3, phases: 'single', group_size: 4, advancers_count: 2, bracket_type: 'single_elim', pts_winner: defaultPts.pts_winner, pts_second: defaultPts.pts_second, pts_third: defaultPts.pts_third, pts_participation: defaultPts.pts_participation, pts_per_match: defaultPts.pts_per_match, lower_score_is_better: false, boolean_mode: false, allow_draws: false };
+				config = { name: '', game_id: games.length > 0 ? games[0].id : null, use_teams: false, team_size: 2, points_per_win: 3, group_size: 4, meet_twice: false, ffa_group_size: 4, ffa_advancers: 2, bracket_type: 'single_elim', pts_winner: defaultPts.pts_winner, pts_second: defaultPts.pts_second, pts_third: defaultPts.pts_third, pts_participation: defaultPts.pts_participation, pts_per_match: defaultPts.pts_per_match, lower_score_is_better: false, boolean_mode: false, allow_draws: false };
 			}, 1000);
 		} catch (e) {
 			errorMsg = e.message || 'Erreur lors de la création';
@@ -163,21 +165,6 @@
 		</div>
 	{:else}
 		<div class="flex-col">
-			<label>{$t('admin_tourneys_wizard_struct_lbl')}</label>
-			<select bind:value={config.phases}>
-				<option value="single">{$t('admin_tourneys_wizard_struct_ffa')}</option>
-				<option value="double">{$t('admin_tourneys_wizard_struct_groups')}</option>
-			</select>
-
-			{#if config.phases === 'double'}
-				<div class="glass-inner p-4 mt-2">
-					<div class="grid-2">
-						<div><label>{$t('admin_tourneys_wizard_group_size')}</label><input type="number" bind:value={config.group_size} /></div>
-						<div><label>{$t('admin_tourneys_wizard_advancers')}</label><input type="number" bind:value={config.advancers_count} /></div>
-					</div>
-				</div>
-			{/if}
-
 			<label>{$t('admin_tourneys_wizard_format_lbl')}</label>
 			<div class="bracket-graphics-grid">
 				<button class="graphic-card {config.bracket_type === 'single_elim' ? 'active' : ''}" on:click={() => config.bracket_type = 'single_elim'}>
@@ -211,6 +198,27 @@
 					<span>Free For All</span>
 				</button>
 			</div>
+
+			{#if config.bracket_type === 'round_robin'}
+				<div class="glass-inner p-4 mt-2">
+					<div class="grid-2">
+						<div><label>{$t('tournaments.config.group_size')}</label><input type="number" bind:value={config.group_size} min="2" /></div>
+					</div>
+					<label class="score-invert-label mt-2">
+						<input type="checkbox" bind:checked={config.meet_twice} />
+						{$t('tournaments.config.meet_twice')}
+					</label>
+				</div>
+			{/if}
+
+			{#if config.bracket_type === 'ffa'}
+				<div class="glass-inner p-4 mt-2">
+					<div class="grid-2">
+						<div><label>{$t('tournaments.config.ffa_group_size')}</label><input type="number" bind:value={config.ffa_group_size} min="2" /></div>
+						<div><label>{$t('tournaments.config.ffa_advancers')}</label><input type="number" bind:value={config.ffa_advancers} min="1" /></div>
+					</div>
+				</div>
+			{/if}
 
 			<label class="score-invert-label">
 				<input type="checkbox" bind:checked={config.lower_score_is_better} />

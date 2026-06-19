@@ -11,14 +11,22 @@ import httpx
 
 router = APIRouter(prefix="/tournaments", tags=["Tournaments"])
 
+# --- Helper: persistent upload directory for game images ---
+def _get_game_images_dir() -> str:
+    """Return the persistent directory for game cover images (inside /app/data)."""
+    import os
+    data_dir = os.path.dirname(os.getenv("DATABASE_PATH", "/app/data/alanbix.db"))
+    upload_dir = os.path.join(data_dir, "game_images")
+    os.makedirs(upload_dir, exist_ok=True)
+    return upload_dir
+
 # --- Helper: download external images locally ---
 def _localize_image_url(url: str) -> str:
-    """If url is external (http), download it to static/uploads/games/ and return local path."""
+    """If url is external (http), download it to the persistent data volume and return local path."""
     if not url or not url.startswith(("http://", "https://")):
         return url  # already local
     import os, uuid, httpx
-    upload_dir = os.path.join("static", "uploads", "games")
-    os.makedirs(upload_dir, exist_ok=True)
+    upload_dir = _get_game_images_dir()
     try:
         resp = httpx.get(url, timeout=10.0, follow_redirects=True)
         if resp.status_code != 200:
@@ -35,7 +43,7 @@ def _localize_image_url(url: str) -> str:
         filepath = os.path.join(upload_dir, filename)
         with open(filepath, "wb") as f:
             f.write(resp.content)
-        return f"/static/uploads/games/{filename}"
+        return f"/data/game_images/{filename}"
     except Exception:
         return url  # keep external on error
 
@@ -110,10 +118,9 @@ async def upload_game_image(
     file: UploadFile,
     admin: models.User = Depends(auth.get_current_admin)
 ):
-    """Upload a game cover image to local storage."""
+    """Upload a game cover image to persistent data volume."""
     import os, uuid
-    upload_dir = os.path.join("static", "uploads", "games")
-    os.makedirs(upload_dir, exist_ok=True)
+    upload_dir = _get_game_images_dir()
     
     ext = file.filename.rsplit(".", 1)[-1] if "." in file.filename else "png"
     filename = f"{uuid.uuid4().hex[:12]}.{ext}"
@@ -123,7 +130,7 @@ async def upload_game_image(
     with open(filepath, "wb") as f:
         f.write(content)
     
-    return {"url": f"/static/uploads/games/{filename}"}
+    return {"url": f"/data/game_images/{filename}"}
 
 @router.get("/games/search-covers")
 async def search_game_covers(q: str):
@@ -389,28 +396,54 @@ async def start_tournament(
     num = len(opponents)
     
     if bracket_type == "round_robin":
-        engine = RoundRobin(num)
+        engine = RoundRobin(num, config)
     elif bracket_type == "double_elim":
-        engine = Duel(num, double_elim=True)
+        engine = Duel(num, double_elim=True, config=config)
     elif bracket_type == "ffa":
-        engine = FFA(num)
+        engine = FFA(num, config)
     else:
-        engine = Duel(num, double_elim=False)
+        engine = Duel(num, double_elim=False, config=config)
     
     if bracket_type == "ffa":
-        # FFA: single match with all players
-        engine.matches[0].p = [o["id"] for o in opponents]
-    else:
-        # Seed R1
-        seed_idx = 0
+        idx = 0
+        for match in engine.matches:
+            if match.id.r == 1:
+                p_len = len(match.p)
+                for i in range(p_len):
+                    if idx < len(opponents):
+                        match.p[i] = opponents[idx]["id"]
+                        idx += 1
+                    else:
+                        match.p[i] = 0
+    elif bracket_type in ("single_elim", "double_elim"):
+        # Standard seeded placement to distribute BYEs evenly
+        p_val = getattr(engine, "p", None)
+        if p_val is None:
+            import math
+            p_val = math.ceil(math.log2(num)) if num > 0 else 0
+        
+        # Generate standard seed order for a bracket of size 2^p
+        order = [1, 2] if p_val > 0 else [1]
+        for r in range(2, p_val + 1):
+            next_order = []
+            for seed in order:
+                next_order.extend([seed, 2**r + 1 - seed])
+            order = next_order
+            
+        ordered_players = []
+        for seed in order:
+            if seed <= len(opponents):
+                ordered_players.append(opponents[seed - 1]["id"])
+            else:
+                ordered_players.append(0)
+                
+        # Fill R1 matches
+        idx = 0
         for match in engine.matches:
             if match.id.r == 1 and match.id.s == 1:
-                if match.p[0] == 0 and seed_idx < len(opponents):
-                    match.p[0] = opponents[seed_idx]["id"]
-                    seed_idx += 1
-                if match.p[1] == 0 and seed_idx < len(opponents):
-                    match.p[1] = opponents[seed_idx]["id"]
-                    seed_idx += 1
+                match.p[0] = ordered_players[idx]
+                match.p[1] = ordered_players[idx+1]
+                idx += 2
     
     if bracket_type == "round_robin":
         for match in engine.matches:
@@ -437,11 +470,11 @@ async def start_tournament(
                     continue
                 if p0 != 0 and p1 == 0 and _is_genuine_bye(bracket_data, match):
                     match["score"] = [1, 0]
-                    _advance_bracket(bracket_data, match, bracket_type)
+                    _advance_bracket(bracket_data, match, bracket_type, config=config)
                     changed = True
                 elif p1 != 0 and p0 == 0 and _is_genuine_bye(bracket_data, match):
                     match["score"] = [0, 1]
-                    _advance_bracket(bracket_data, match, bracket_type)
+                    _advance_bracket(bracket_data, match, bracket_type, config=config)
                     changed = True
     
     if use_teams:
@@ -686,11 +719,66 @@ def _is_genuine_bye(bd, match):
             return False  # Not scored yet → wait
     return False
 
-def _advance_bracket(bracket, scored_match, bracket_type="single_elim", lower_is_better=False):
+def _advance_bracket(bracket, scored_match, bracket_type="single_elim", lower_is_better=False, config=None):
     if bracket_type == "round_robin":
         return False
-    score = scored_match.get("score", [0, 0])
-    # If any score is None (not yet entered), do not advance
+        
+    config = config or {}
+    score = scored_match.get("score", [])
+    
+    if bracket_type == "ffa":
+        advancers = int(config.get("ffa_advancers", 0))
+        if advancers <= 0:
+            return False
+            
+        # Check if match is fully scored (no None values for valid players)
+        # Players are valid if id != 0
+        p_list = scored_match.get("p", [])
+        valid_players = [p for p in p_list if p != 0]
+        if not valid_players:
+            return False
+            
+        # Ensure we have scores for all valid players
+        if len(score) < len(p_list) or any(score[i] is None for i, p in enumerate(p_list) if p != 0):
+            return False
+            
+        # Sort players by score
+        player_scores = []
+        for i, p in enumerate(p_list):
+            if p != 0:
+                player_scores.append({"id": p, "score": score[i]})
+                
+        player_scores.sort(key=lambda x: x["score"], reverse=not lower_is_better)
+        top_players = [x["id"] for x in player_scores[:advancers]]
+        
+        mid = scored_match["id"]
+        next_r = mid["r"] + 1
+        
+        # In FFA, we just fill the next round matches sequentially
+        # First, clear these players from next round (in case of re-score)
+        next_round_matches = [m for m in bracket if m["id"]["r"] == next_r and m["id"]["s"] == 1]
+        next_round_matches.sort(key=lambda m: m["id"]["m"])
+        
+        if not next_round_matches:
+            return False
+            
+        for p_id in top_players:
+            for nm in next_round_matches:
+                _clear_player(nm, p_id)
+                
+        # Now place them in the first available 0 slot
+        for p_id in top_players:
+            placed = False
+            for nm in next_round_matches:
+                if placed: break
+                for i in range(len(nm["p"])):
+                    if nm["p"][i] == 0:
+                        nm["p"][i] = p_id
+                        placed = True
+                        break
+        return True
+
+    # Original Duel Logic
     if any(s is None for s in score):
         return False
     if score[0] == score[1]:
@@ -952,16 +1040,34 @@ async def update_match_score(
         elif bracket_type == "ffa":
             if existing_scores and all(s is not None and s > 0 for s in existing_scores):
                 raise HTTPException(status_code=403, detail="Cette manche est terminée. Seul un admin peut modifier les classements.")
+            # Enforce that non-admins can only change their own slot in FFA
+            if not user.is_admin:
+                for i, new_val in enumerate(body.score):
+                    old_val = existing_scores[i] if i < len(existing_scores) else None
+                    if new_val != old_val:
+                        pid = scored_match["p"][i] if i < len(scored_match["p"]) else 0
+                        is_my_slot = (pid == user.id)
+                        if config.get("use_teams") and not is_my_slot and pid < 0:
+                            team_id = abs(pid)
+                            is_my_slot = db.query(models.TournamentTeamMember).filter(
+                                models.TournamentTeamMember.team_id == team_id,
+                                models.TournamentTeamMember.user_id == user.id
+                            ).first() is not None
+                        if not is_my_slot:
+                            # Graceful merge: ignore changes to slots they don't own to prevent race conditions
+                            body.score[i] = old_val
     # Rollback previous advancement if match was already scored (score correction)
     lower_is_better = config.get("lower_score_is_better", False)
     if bracket_type not in ("round_robin", "ffa"):
         _rollback_advancement(bracket, scored_match, bracket_type, lower_is_better)
     
     scored_match["score"] = body.score
-    if bracket_type not in ("round_robin", "ffa"):
-        _advance_bracket(bracket, scored_match, bracket_type, lower_is_better)
-        # Post-advance BYE resolution: auto-advance any newly created BYE matches
-        bye_changed = True
+    if bracket_type != "round_robin":
+        _advance_bracket(bracket, scored_match, bracket_type, lower_is_better, config)
+        bye_changed = False
+        if bracket_type != "ffa":
+            # Post-advance BYE resolution: auto-advance any newly created BYE matches
+            bye_changed = True
         while bye_changed:
             bye_changed = False
             for m in bracket:
@@ -972,11 +1078,11 @@ async def update_match_score(
                     continue
                 if p0 != 0 and p1 == 0 and _is_genuine_bye(bracket, m):
                     m["score"] = [1, 0]
-                    _advance_bracket(bracket, m, bracket_type, lower_is_better)
+                    _advance_bracket(bracket, m, bracket_type, lower_is_better, config)
                     bye_changed = True
                 elif p1 != 0 and p0 == 0 and _is_genuine_bye(bracket, m):
                     m["score"] = [0, 1]
-                    _advance_bracket(bracket, m, bracket_type, lower_is_better)
+                    _advance_bracket(bracket, m, bracket_type, lower_is_better, config)
                     bye_changed = True
     
     tournament_done = False
@@ -1026,40 +1132,66 @@ async def ffa_advance_round(
         raise HTTPException(status_code=400, detail="Not an FFA tournament")
     
     bracket = list(tournament.bracket)
-    # Find latest round
+    # Find latest round matches
     max_r = max(m["id"]["r"] for m in bracket)
-    current = _find_match(bracket, 1, max_r, 1)
-    if not current:
+    current_matches = [m for m in bracket if m["id"]["r"] == max_r and m["id"]["s"] == 1]
+    
+    if not current_matches:
         raise HTTPException(status_code=404, detail="Current round not found")
+        
+    lower_is_better = config.get("lower_score_is_better", False)
+    advancing_players = []
     
-    # Validate scores exist
-    scores = current.get("score", [])
-    players = current.get("p", [])
-    if not all(s is not None and s > 0 for s in scores):
-        raise HTTPException(status_code=400, detail="All placements must be entered before advancing")
-    
-    if body.keep_count < 2:
-        raise HTTPException(status_code=400, detail="Must keep at least 2 players")
-    if body.keep_count > len(players):
-        raise HTTPException(status_code=400, detail="Cannot keep more players than are in the round")
-    
-    # Sort by placement (score = ranking position, lower = better)
-    paired = list(zip(players, scores))
-    paired.sort(key=lambda x: x[1])
-    advancing = [p for p, s in paired[:body.keep_count]]
-    
-    # Create next round
+    for m in current_matches:
+        scores = m.get("score", [])
+        p_list = m.get("p", [])
+        
+        valid_players = [p for p in p_list if p != 0]
+        if not valid_players:
+            continue
+            
+        if not scores or len(scores) < len(p_list) or any(scores[i] is None for i, p in enumerate(p_list) if p != 0):
+            raise HTTPException(status_code=400, detail="Tous les scores doivent être renseignés avant d'avancer")
+            
+        player_scores = []
+        for i, p in enumerate(p_list):
+            if p != 0:
+                player_scores.append((p, scores[i]))
+                
+        player_scores.sort(key=lambda x: x[1], reverse=not lower_is_better)
+        top_players = [p for p, s in player_scores[:body.keep_count]]
+        advancing_players.extend(top_players)
+        
+    if not advancing_players:
+        raise HTTPException(status_code=400, detail="Aucun joueur à avancer")
+        
+    # Create next round matches
+    group_size = int(config.get("ffa_group_size", len(advancing_players))) or len(advancing_players)
+    if group_size < 2:
+        group_size = 2
+        
+    import math
+    num_matches = math.ceil(len(advancing_players) / group_size)
     next_r = max_r + 1
-    new_match = {"id": {"s": 1, "r": next_r, "m": 1}, "p": advancing, "score": [None] * len(advancing)}
-    bracket.append(new_match)
     
+    for m_idx in range(1, num_matches + 1):
+        start_i = (m_idx - 1) * group_size
+        end_i = start_i + group_size
+        players = advancing_players[start_i:end_i]
+        # For FFA, we pad with 0s if they want to retain the visual slots, but we can just use the actual list.
+        bracket.append({
+            "id": {"s": 1, "r": next_r, "m": m_idx},
+            "p": players,
+            "score": []
+        })
+        
     tournament.bracket = bracket
     from sqlalchemy.orm.attributes import flag_modified
     flag_modified(tournament, "bracket")
     db.commit()
     
     await manager.broadcast({"type": "ffa_advanced", "tournament_id": tournament_id, "round": next_r})
-    return {"status": "advanced", "round": next_r, "players": len(advancing)}
+    return {"status": "advanced", "round": next_r, "players": len(advancing_players)}
 
 
 @router.post("/{tournament_id}/ffa-finish")
@@ -1748,18 +1880,21 @@ def _compute_standings(bracket, bracket_type, lower_is_better=False):
         #   2) Their placement/score within that round (lower placement = better)
         max_r = max((m["id"]["r"] for m in bracket), default=0)
 
-        # Collect all players per round
+        # Collect all players per round across all matches
         round_matches = {}
         for m in bracket:
             r = m["id"]["r"]
-            if m["id"]["m"] == 1:
-                round_matches[r] = m
+            round_matches.setdefault(r, []).append(m)
 
         # Build: who is in each round, and who was eliminated after each round
         players_in_round = {}  # round -> set of player ids
         for r in sorted(round_matches.keys()):
-            m = round_matches[r]
-            players_in_round[r] = set(pid for pid in m["p"] if pid and pid != 0)
+            players = set()
+            for m in round_matches[r]:
+                for pid in m["p"]:
+                    if pid and pid != 0:
+                        players.add(pid)
+            players_in_round[r] = players
 
         # For each round except the last, eliminated = in this round but NOT in next round
         eliminated_per_round = {}  # round -> [(pid, score)]
@@ -1768,19 +1903,20 @@ def _compute_standings(bracket, bracket_type, lower_is_better=False):
                 continue  # Last round players are survivors, not eliminated
             next_r = r + 1
             next_players = players_in_round.get(next_r, set())
-            m = round_matches[r]
-            scores = m.get("score", [])
-            for i, pid in enumerate(m["p"]):
-                if pid and pid != 0 and pid not in next_players:
-                    score = scores[i] if i < len(scores) else 0
-                    eliminated_per_round.setdefault(r, []).append((pid, score))
+            for m in round_matches[r]:
+                scores = m.get("score", [])
+                for i, pid in enumerate(m["p"]):
+                    if pid and pid != 0 and pid not in next_players:
+                        score = scores[i] if i < len(scores) else 0
+                        eliminated_per_round.setdefault(r, []).append((pid, score))
 
         # Rank last-round players first
-        last_match = round_matches.get(max_r)
         current_rank = 0
-        if last_match:
-            paired = list(zip(last_match["p"], last_match.get("score", [])))
-            valid = [(pid, s) for pid, s in paired if pid and pid != 0 and s and s > 0]
+        if max_r in round_matches:
+            valid = []
+            for m in round_matches[max_r]:
+                paired = list(zip(m["p"], m.get("score", [])))
+                valid.extend([(pid, s) for pid, s in paired if pid and pid != 0 and s and s > 0])
             # In FFA, score = placement position (lower = better regardless of config)
             # because ffa-advance sorts by score ascending to pick top N
             valid.sort(key=lambda x: x[1])
@@ -1943,16 +2079,14 @@ def _compute_projected_standings(tournament, db):
     # Normalize cumulated scores → score bonus
     score_bonus = {}
     if bracket_type == "ffa":
-        # FFA: normalize per-round separately, then sum
-        round_matches = {}
+        # FFA: normalize per-match separately, then sum
+        # Wait, the normalization should be per-match because each match in a round is separate!
+        # Actually, if we do it per-round it's fine, but per-match is more accurate for FFA groups.
+        # Let's just normalize per match.
         for m in bracket:
-            r = m["id"]["r"]
-            if m["id"]["m"] == 1:
-                round_matches[r] = m
-        for r in sorted(round_matches.keys()):
-            rm = round_matches[r]
-            rp = rm.get("p", [])
-            rs = rm.get("score", [])
+            if m["id"]["s"] != 1: continue
+            rp = m.get("p", [])
+            rs = m.get("score", [])
             if not any(v is not None and v > 0 for v in rs):
                 continue
             round_data = [(pid, rs[i]) for i, pid in enumerate(rp)

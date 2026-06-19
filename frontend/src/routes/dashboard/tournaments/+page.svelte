@@ -1,11 +1,13 @@
 <script>
-	import { t } from '$lib/i18nStore';
+	import { t, currentLang } from '$lib/i18nStore';
 	import { get } from 'svelte/store';
 	import { api } from '$lib/api';
 	import { onMount, onDestroy } from 'svelte';
 	import { wsMessageStore } from '$lib/ws';
 	import { page } from '$app/stores';
+	import { authStore } from '$lib/auth';
 	import CreateTournamentWizard from '$lib/components/CreateTournamentWizard.svelte';
+	import EditTournamentModal from '$lib/components/EditTournamentModal.svelte';
 
 	let tournaments = [];
 	let games = [];
@@ -15,6 +17,10 @@
 	let currentUser = null;
 	let editingTournament = false;
 	let editConfig = {};
+
+	let ffaKeepCount = 1;
+
+	$: isAdmin = $authStore.role === 'admin';
 
 	// Tournament Creation State
 	let showCreateModal = false;
@@ -370,11 +376,11 @@
 		scheduleScore(match, 0, [null, null]);
 	}
 
-	async function advanceFFARound() {
+	async function advanceFFA() {
 		try {
-			await api.post(`/tournaments/${selectedId}/ffa-advance`, { keep_count: keepCount });
-			toast($t('tourneys_toast_round_advanced', { count: keepCount }), 'success');
-			tournaments = await api.get('/tournaments');
+			await api.post(`/tournaments/${selectedId}/ffa-advance`, { keep_count: ffaKeepCount });
+			toast($t('tourneys_toast_round_advanced', { count: ffaKeepCount }), 'success');
+			await loadAll();
 			await selectTournament(selectedId);
 		} catch (e) { toast(e.detail || e.message || 'Erreur', 'error'); }
 	}
@@ -412,7 +418,14 @@
 		if (!_isParticipant || !_currentUser) return false;
 		if (isMatchFinalized(match)) return false;
 		const uid = _currentUser.id;
-		// Allow editing both score slots if player is in this match
+		
+		// In FFA, strictly only allow editing your own slot to prevent trolling.
+		if (bracketType === 'ffa') {
+			const pid = match.p[playerIdx];
+			return (pid === uid) || (_myTeamSlotId && pid === _myTeamSlotId);
+		}
+		
+		// For duels/round robin, allow editing both slots so boolean mode and 1v1 score entry work as intended.
 		const isInMatch = match.p.some(pid => pid === uid || (_myTeamSlotId && pid === _myTeamSlotId));
 		return isInMatch;
 	}
@@ -444,7 +457,10 @@
 			allow_draws: selected.config?.allow_draws || false,
 			phases: selected.config?.phases || 'single',
 			group_size: selected.config?.group_size || 4,
-			advancers_count: selected.config?.advancers_count || 2
+			advancers_count: selected.config?.advancers_count || 2,
+			meet_twice: selected.config?.meet_twice || false,
+			ffa_group_size: selected.config?.ffa_group_size || 4,
+			ffa_advancers: selected.config?.ffa_advancers || 2
 		};
 		editingTournament = true;
 	}
@@ -454,7 +470,26 @@
 			await api.put(`/tournaments/${selectedId}`, {
 				name: editConfig.name,
 				points_per_win: editConfig.points_per_win,
-				config: { ...selected.config, use_teams: editConfig.use_teams, team_size: editConfig.team_size, bracket_type: editConfig.bracket_type, pts_winner: editConfig.pts_winner, pts_second: editConfig.pts_second, pts_third: editConfig.pts_third, pts_participation: editConfig.pts_participation, pts_per_match: editConfig.pts_per_match, lower_score_is_better: editConfig.lower_score_is_better, boolean_mode: editConfig.boolean_mode, allow_draws: editConfig.allow_draws, phases: editConfig.phases, group_size: editConfig.group_size, advancers_count: editConfig.advancers_count }
+				config: {
+					...selected.config,
+					use_teams: editConfig.use_teams,
+					team_size: editConfig.team_size,
+					bracket_type: editConfig.bracket_type,
+					pts_winner: editConfig.pts_winner,
+					pts_second: editConfig.pts_second,
+					pts_third: editConfig.pts_third,
+					pts_participation: editConfig.pts_participation,
+					pts_per_match: editConfig.pts_per_match,
+					lower_score_is_better: editConfig.lower_score_is_better,
+					boolean_mode: editConfig.boolean_mode,
+					allow_draws: editConfig.allow_draws,
+					phases: editConfig.phases,
+					group_size: editConfig.group_size,
+					advancers_count: editConfig.advancers_count,
+					meet_twice: editConfig.meet_twice,
+					ffa_group_size: editConfig.ffa_group_size,
+					ffa_advancers: editConfig.ffa_advancers
+				}
 			});
 			toast($t('tourneys_toast_updated'), 'success');
 			editingTournament = false;
@@ -674,6 +709,30 @@
 	}));
 	$: displayStandings = liveStandings;
 
+	$: rrGroups = (() => {
+		if (!selected || !selected.bracket || bracketType !== 'round_robin') return [];
+		const groups = {};
+		selected.bracket.forEach(m => {
+			const gId = m.id.s;
+			if (!groups[gId]) groups[gId] = [];
+			groups[gId].push(m);
+		});
+		
+		return Object.keys(groups).sort((a,b) => parseInt(a)-parseInt(b)).map(gId => {
+			const groupMatches = groups[gId];
+			const roundsMap = {};
+			groupMatches.forEach(m => {
+				if (!roundsMap[m.id.r]) roundsMap[m.id.r] = [];
+				roundsMap[m.id.r].push(m);
+			});
+			const rounds = Object.keys(roundsMap).sort((a,b) => parseInt(a)-parseInt(b)).map(r => roundsMap[r]);
+			return {
+				id: gId,
+				rounds: rounds
+			};
+		});
+	})();
+
 	function getPlayerPts(userId, standings) {
 		// In team mode, find user's team and return per_member from backend
 		if (useTeams && teams.length > 0) {
@@ -757,7 +816,7 @@
 			<div class="detail-body">
 				<div class="info-row">
 					<div class="info-card glass"><span class="info-label">{$t("admin_tourneys_wizard_format_lbl")}</span><span class="info-value">{bracketLabel(selected.config?.bracket_type)}</span></div>
-					<div class="info-card glass"><span class="info-label">{$t("admin_tourneys_wizard_mode_lbl")}</span><span class="info-value">{selected.config?.use_teams ? `{$t('admin_tourneys_wizard_mode_teams')} (x{selected.config?.team_size || 2})` : 'Solo'}</span></div>
+					<div class="info-card glass"><span class="info-label">{$t("admin_tourneys_wizard_mode_lbl")}</span><span class="info-value">{selected.config?.use_teams ? `${$t('admin_tourneys_wizard_mode_teams')} (x${selected.config?.team_size || 2})` : 'Solo'}</span></div>
 					<div class="info-card glass"><span class="info-label">{$t("admin_tourneys_wizard_points_lbl")}</span><span class="info-value accent" style="font-size:0.85rem">🥇{selected.config?.pts_winner ?? 10} 🥈{selected.config?.pts_second ?? 6} 🥉{selected.config?.pts_third ?? 4} 👤{selected.config?.pts_participation ?? 1}/m ⚡{selected.config?.pts_per_match ?? selected.config?.pts_per_goal ?? 1.0}</span></div>
 					<div class="info-card glass"><span class="info-label">{$t("dash_stat_players")}</span><span class="info-value">{participants.length}</span></div>
 					{#if selected.config?.lower_score_is_better}
@@ -842,7 +901,7 @@
 				{#if !useTeams || selected.status === 'OPEN' || isAdmin}
 				<div class="participants-section glass">
 					<div class="section-title">
-						<h3>👥 {useTeams ? $t('tourneys_tab_registered') : $t('dash_modal_tournaments_title')} <span class="part-count">{participants.length} {$t('changelog_fallback_name').toLowerCase()}{#if useTeams && participants.length > 0}, {poolPlayers.length} {$t('tourneys_unassigned_players').replace('joueur{plural} non assigné{plural}', 'available')}{/if}</span></h3>
+						<h3>👥 {useTeams ? $t('tourneys_tab_registered') : $t('dash_modal_tournaments_title')} <span class="part-count">{participants.length} {$t('changelog_fallback_name').toLowerCase()}{#if useTeams && participants.length > 0}, {poolPlayers.length} {$t('tourneys_unassigned_players', { count: poolPlayers.length, plural: poolPlayers.length > 1 ? 's' : '' })}{/if}</span></h3>
 						{#if isAdmin && selected.status === 'OPEN'}
 							<div class="part-bulk-actions">
 								{#if confirmJoinAll}
@@ -881,7 +940,7 @@
 											<div class="part-member-row pool-badge" draggable={isAdmin && selected.status === 'OPEN' && useTeams} on:dragstart={(e) => { e.dataTransfer.setData('userId', p.user_id); e.target.classList.add('dragging'); }} on:dragend={(e) => e.target.classList.remove('dragging')}>
 												<span>👤 {p.username}</span>
 												{#if isAdmin && selected.status === 'OPEN'}
-													<button class="part-member-remove" on:click={() => forceRemovePlayer(p.user_id)} title="Désinscrire {p.username}">✕</button>
+													<button class="part-member-remove" on:click={() => forceRemovePlayer(p.user_id)} title={$t('tourneys_unregister_player', { name: p.username })}>✕</button>
 												{/if}
 											</div>
 										{/each}
@@ -927,10 +986,10 @@
 										<span class="team-name">{team.name}</span>
 										<div style="display:flex;gap:0.3rem;align-items:center;">
 											{#if selected.status === 'OPEN' && isParticipant && !myTeam}
-												<button class="btn-join" on:click={() => addMemberToTeam(team.id, currentUser.id)} title="Rejoindre">⭐ {$t("tourneys_btn_join_text")}</button>
+												<button class="btn-join" on:click={() => addMemberToTeam(team.id, currentUser.id)} title={$t("tourneys_btn_join_text")}>⭐ {$t("tourneys_btn_join_text")}</button>
 											{/if}
 											{#if selected.status === 'OPEN' && (isAdmin || team.created_by === currentUser?.id)}
-												<button class="team-delete" on:click={() => deleteTeam(team.id)} title="Supprimer">✕</button>
+												<button class="team-delete" on:click={() => deleteTeam(team.id)} title={$t("btn_delete")}>✕</button>
 											{/if}
 										</div>
 									</div>
@@ -951,7 +1010,7 @@
 									</div>
 									{#if isAdmin && selected.status === 'OPEN' && unassignedPlayers.length > 0}
 										<select class="team-add-select" on:change={(e) => { if (e.target.value) { addMemberToTeam(team.id, parseInt(e.target.value)); e.target.value = ''; } }}>
-											<option value="">+ Ajouter...</option>
+											<option value="">{$t('tourneys_add_member_placeholder')}</option>
 											{#each groupedUnassigned as [groupName, members]}
 												<optgroup label={groupName || $t('dash_modal_team_fallback')}>
 													{#each members as p}
@@ -968,7 +1027,7 @@
 							{/each}
 						</div>
 						{#if isAdmin && selected.status === 'OPEN' && unassignedPlayers.length > 0}
-							<div class="unassigned-hint">⚠️ {unassignedPlayers.length} joueur{unassignedPlayers.length > 1 ? 's' : ''} non assigné{unassignedPlayers.length > 1 ? 's' : ''}</div>
+							<div class="unassigned-hint">⚠️ {$t('tourneys_unassigned_players', { count: unassignedPlayers.length, plural: unassignedPlayers.length > 1 ? 's' : '' })}</div>
 						{/if}
 					</div>
 				{/if}
@@ -983,110 +1042,123 @@
 						{#if bracketType === 'ffa'}
 							<!-- FFA View -->
 							<div class="ffa-container">
-								{#each bracketRounds as roundMatches, ri}
-									{@const match = roundMatches[0]}
-									{@const allPlaced = match.score?.every(s => s > 0)}
-									{@const isLatest = ri === bracketRounds.length - 1}
-									<div class="ffa-round {isLatest ? 'ffa-current' : 'ffa-past'}">
-										<div class="ffa-round-hdr">
-											<span>{$t('tourneys_round_number', { num: ri + 1 })}</span>
-											<span class="ffa-player-count">{$t('admin_tourneys_players_count', { count: match.p.length, plural: match.p.length > 1 ? 's' : '' })}</span>
+  								{#each bracketRounds as roundMatches, ri}
+  									{@const isLatest = ri === bracketRounds.length - 1}
+  									{@const roundAllPlaced = roundMatches.every(m => m.score?.every(s => s > 0))}
+  									<div class="ffa-round {isLatest ? 'ffa-current' : 'ffa-past'}">
+  										<div class="ffa-round-hdr">
+  											<span>{$t('tourneys_round_number', { num: ri + 1 })}</span>
+  										</div>
+										<div class="ffa-matches-grid" style="display: flex; flex-direction: column; gap: 1rem;">
+										{#each roundMatches as match, mi}
+											<div class="ffa-match-box">
+												<div class="ffa-player-count" style="margin-bottom: 0.5rem;">Match {mi + 1} - {$t(match.p.length > 1 ? 'admin_tourneys_players_count_plural' : 'admin_tourneys_players_count_singular', { count: match.p.length })}</div>
+												<div class="ffa-players">
+													{#each match.p as playerId, pi}
+														{@const mRank = getFFAMatchRank(match, pi, lowerIsBetter)}
+														<div class="ffa-player-row {mRank === 1 ? 'ffa-gold' : mRank === 2 ? 'ffa-silver' : mRank === 3 ? 'ffa-bronze' : ''}">
+															<span class="ffa-rank">
+																{#if mRank}#{mRank}{:else}—{/if}
+															</span>
+															<span class="ffa-name">{getPlayerName(playerId, nameMap)}</span>
+															{#if playerId > 0 && seatMap[playerId]}<a href="/dashboard/map?highlight={seatMap[playerId]}" class="seat-badge" title={$t('players_tooltip_seat')}>💺{seatMap[playerId]}</a>{/if}
+															{#if canEditPlayerScore(match, pi, myTeamSlotId, isParticipant, currentUser) && isLatest}
+																<input type="number" class="score-input ffa-input" value={match.score?.[pi] || ''} placeholder="Score"
+																	on:change={(e) => updateFFAPlacement(match, pi, e.target.value)} min="1" />
+															{:else if isPlayerLocked(match, pi, myTeamSlotId, isParticipant, currentUser)}
+																<span class="score-locked ffa-input" title={$t('tourneys_score_validated')}>🔒 {match.score?.[pi]}</span>
+															{:else if match.score?.[pi] > 0}
+																<span class="score-display ffa-input">{match.score[pi]}</span>
+															{/if}
+														</div>
+													{/each}
+												</div>
+											</div>
+										{/each}
 										</div>
-										<div class="ffa-players">
-											{#each match.p as playerId, pi}
-												{@const mRank = getFFAMatchRank(match, pi, lowerIsBetter)}
-												<div class="ffa-player-row {mRank === 1 ? 'ffa-gold' : mRank === 2 ? 'ffa-silver' : mRank === 3 ? 'ffa-bronze' : ''}">
-													<span class="ffa-rank">
-														{#if mRank}#{mRank}{:else}—{/if}
-													</span>
-													<span class="ffa-name">{getPlayerName(playerId, nameMap)}</span>
-													{#if playerId > 0 && seatMap[playerId]}<a href="/dashboard/map?highlight={seatMap[playerId]}" class="seat-badge" title={$t('players_tooltip_seat')}>📍{seatMap[playerId]}</a>{/if}
-													{#if canEditPlayerScore(match, pi, myTeamSlotId, isParticipant, currentUser) && isLatest}
-														<input type="number" class="score-input ffa-input" value={match.score?.[pi] || ''} placeholder="Score"
-															on:change={(e) => updateFFAPlacement(match, pi, e.target.value)} min="1" />
-													{:else if isPlayerLocked(match, pi, myTeamSlotId, isParticipant, currentUser)}
-														<span class="score-locked ffa-input" title="Score validé">🔒 {match.score?.[pi]}</span>
-													{:else if match.score?.[pi] > 0}
-														<span class="score-display ffa-input">{match.score[pi]}</span>
-													{/if}
+  										{#if isAdmin && isLatest && roundAllPlaced && selected.status === 'RUNNING'}
+  											<div class="ffa-actions">
+												<div class="ffa-advance-box" style="display:flex; align-items:center; gap:0.5rem; justify-content:center; margin-bottom: 1rem;">
+													<label style="font-size: 0.9rem; color: var(--text-muted); font-weight: 600;">{$t('tourneys_ffa_keep_players')}</label>
+													<input type="number" bind:value={ffaKeepCount} min="1" max={roundMatches[0].p.length} style="width: 60px; padding: 0.3rem 0.5rem; border-radius: 6px; background: var(--surface-sunken); border: 1px solid var(--glass-border); color: var(--text-main);" />
+													<button class="admin-btn" on:click={advanceFFA} style="margin: 0;">▶️ {$t('tourneys_ffa_next_round')}</button>
+												</div>
+  												<button class="admin-btn stop" on:click={finishFFA}>🏁 {$t('tourneys_ffa_finish')}</button>
+  											</div>
+  										{/if}
+  									</div>
+  								{/each}
+  							</div>
+						{:else if bracketType === 'round_robin'}
+  							<!-- Round Robin Table -->
+  							<div class="rr-container">
+								{#each rrGroups as group}
+									<div class="rr-group" style="width: 100%; margin-bottom: 1rem;">
+										{#if rrGroups.length > 1}
+											<h4 class="rr-group-title" style="margin-bottom: 0.5rem; font-weight: 800; color: var(--accent);">Poule {String.fromCharCode(64 + parseInt(group.id))}</h4>
+										{/if}
+										<div class="rr-group-rounds" style="display: flex; flex-wrap: wrap; gap: 1rem;">
+											{#each group.rounds as roundMatches, ri}
+												<div class="rr-round">
+													<div class="rr-round-hdr">{$t('spec_matchday_num', { num: ri + 1 })}</div>
+													{#each roundMatches as match}
+														{@const s0 = match.score?.[0] ?? null}
+														{@const s1 = match.score?.[1] ?? null}
+														{@const isDone = s0 !== null && s1 !== null && (s0 !== 0 || s1 !== 0) && (s0 !== s1 || selected?.config?.allow_draws)}
+														<div class="rr-match {isDone ? 'match-done' : ''}">
+															<span class="rr-p {isDone && (lowerIsBetter ? s0 < s1 : s0 > s1) ? 'winner' : ''}">{getPlayerName(match.p[0], nameMap)}{#if match.p[0] > 0 && seatMap[match.p[0]]}<a href="/dashboard/map?highlight={seatMap[match.p[0]]}" class="seat-badge" title={$t('tourneys_view_on_map')}>💺{seatMap[match.p[0]]}</a>{/if}</span>
+															<div class="rr-scores">
+																{#if booleanMode}
+																	{#if isDone}
+																		<div class="bool-badge-container">
+																			<span class="bool-badge {(lowerIsBetter ? (s0 ?? 0) < (s1 ?? 0) : (s0 ?? 0) > (s1 ?? 0)) ? 'win' : ((s0 ?? 0) === (s1 ?? 0) && (s0 ?? 0) !== 0 ? 'draw' : 'lose')}">{(lowerIsBetter ? (s0 ?? 0) < (s1 ?? 0) : (s0 ?? 0) > (s1 ?? 0)) ? '🏆' : ((s0 ?? 0) === (s1 ?? 0) && (s0 ?? 0) !== 0 ? '🤝' : '❌')}</span>
+																			<span class="rr-vs">-</span>
+																			<span class="bool-badge {(lowerIsBetter ? (s1 ?? 0) < (s0 ?? 0) : (s1 ?? 0) > (s0 ?? 0)) ? 'win' : ((s0 ?? 0) === (s1 ?? 0) && (s0 ?? 0) !== 0 ? 'draw' : 'lose')}">{(lowerIsBetter ? (s1 ?? 0) < (s0 ?? 0) : (s1 ?? 0) > (s0 ?? 0)) ? '🏆' : ((s0 ?? 0) === (s1 ?? 0) && (s0 ?? 0) !== 0 ? '🤝' : '❌')}</span>
+																			{#if isAdmin}
+																				<button class="bool-reset-btn" on:click={() => resetBoolScore(match)} title={$t('tourneys_reset_score_tooltip')}>⏪</button>
+																			{/if}
+																		</div>
+																	{:else if canEditPlayerScore(match, 0, myTeamSlotId, isParticipant, currentUser) || canEditPlayerScore(match, 1, myTeamSlotId, isParticipant, currentUser)}
+																		<div class="bool-btns-rr">
+																			<button class="bool-btn bool-check" on:click={() => setBoolScore(match, 0)} title={$t('tourneys_win_tooltip', { name: getPlayerName(match.p[0], nameMap) })}><span class="bool-default">☐</span><span class="bool-hover">✅</span></button>
+																			{#if selected?.config?.allow_draws}
+																				<button class="bool-btn bool-draw" on:click={() => setBoolDraw(match)} title={$t('tourneys_draw_tooltip')}>🤝</button>
+																			{/if}
+																			<button class="bool-btn bool-check" on:click={() => setBoolScore(match, 1)} title={$t('tourneys_win_tooltip', { name: getPlayerName(match.p[1], nameMap) })}><span class="bool-default">☐</span><span class="bool-hover">✅</span></button>
+																		</div>
+																	{:else}
+																		<span class="rr-score">—</span><span class="rr-vs">-</span><span class="rr-score">—</span>
+																	{/if}
+																{:else}
+																	{#if canEditPlayerScore(match, 0, myTeamSlotId, isParticipant, currentUser)}
+																		<input type="number" class="score-input" value={s0 || ''} placeholder="—" on:change={(e) => updateScore(match, 0, e.target.value)} min="0" disabled={match.p[0] === 0 || match.p[1] === 0} />
+																	{:else if isPlayerLocked(match, 0, myTeamSlotId, isParticipant, currentUser)}
+																		<span class="score-locked" title={$t('tourneys_score_validated')}>🔒 {s0 ?? 0}</span>
+																	{:else}
+																		<span class="rr-score">{s0 ?? 0}</span>
+																	{/if}
+																	<span class="rr-vs">-</span>
+																	{#if canEditPlayerScore(match, 1, myTeamSlotId, isParticipant, currentUser)}
+																		<input type="number" class="score-input" value={s1 || ''} placeholder="—" on:change={(e) => updateScore(match, 1, e.target.value)} min="0" disabled={match.p[0] === 0 || match.p[1] === 0} />
+																	{:else if isPlayerLocked(match, 1, myTeamSlotId, isParticipant, currentUser)}
+																		<span class="score-locked" title={$t('tourneys_score_validated')}>🔒 {s1 ?? 0}</span>
+																	{:else}
+																		<span class="rr-score">{s1 ?? 0}</span>
+																	{/if}
+																{/if}
+															</div>
+															<span class="rr-p {isDone && (lowerIsBetter ? s1 < s0 : s1 > s0) ? 'winner' : ''}">{getPlayerName(match.p[1], nameMap)}{#if match.p[1] > 0 && seatMap[match.p[1]]}<a href="/dashboard/map?highlight={seatMap[match.p[1]]}" class="seat-badge" title={$t('tourneys_view_on_map')}>💺{seatMap[match.p[1]]}</a>{/if}</span>
+															{#if getPendingProgress(match, 0, pendingTick) !== null || getPendingProgress(match, 1, pendingTick) !== null}
+																<div class="score-pending rr-pending">
+																	<div class="score-pending-bar" style="width:{((getPendingProgress(match, 0, pendingTick) ?? getPendingProgress(match, 1, pendingTick)) * 100).toFixed(0)}%"></div>
+																	<button class="score-pending-cancel" on:click|stopPropagation={() => { cancelPendingScore(match, getPendingProgress(match, 0, pendingTick) !== null ? 0 : 1); }}>✕ {$t('info_btn_cancel')}</button>
+																</div>
+															{/if}
+														</div>
+													{/each}
 												</div>
 											{/each}
 										</div>
-										{#if isAdmin && isLatest && allPlaced && selected.status === 'RUNNING'}
-											<div class="ffa-actions">
-												<div class="ffa-advance-row">
-													<span>Garder les</span>
-													<input type="number" class="ffa-keep-input" bind:value={keepCount} min="2" max={match.p.length} />
-													<span>premiers</span>
-													<button class="admin-btn start" on:click={advanceFFARound}>▶ Manche suivante</button>
-												</div>
-												<button class="admin-btn stop" on:click={finishFFA}>🏆 Terminer le tournoi</button>
-											</div>
-										{/if}
-									</div>
-								{/each}
-							</div>
-						{:else if bracketType === 'round_robin'}
-							<!-- Round Robin Table -->
-							<div class="rr-container">
-								{#each bracketRounds as roundMatches, ri}
-									<div class="rr-round">
-										<div class="rr-round-hdr">Journée {ri + 1}</div>
-										{#each roundMatches as match}
-											{@const s0 = match.score?.[0] ?? null}
-											{@const s1 = match.score?.[1] ?? null}
-											{@const isDone = s0 !== null && s1 !== null && (s0 !== 0 || s1 !== 0) && (s0 !== s1 || selected?.config?.allow_draws)}
-											<div class="rr-match {isDone ? 'match-done' : ''}">
-												<span class="rr-p {isDone && (lowerIsBetter ? s0 < s1 : s0 > s1) ? 'winner' : ''}">{getPlayerName(match.p[0], nameMap)}{#if match.p[0] > 0 && seatMap[match.p[0]]}<a href="/dashboard/map?highlight={seatMap[match.p[0]]}" class="seat-badge" title="Voir sur le plan">📍{seatMap[match.p[0]]}</a>{/if}</span>
-												<div class="rr-scores">
-													{#if booleanMode}
-														{#if isDone}
-															<div class="bool-badge-container">
-																<span class="bool-badge {(lowerIsBetter ? (s0 ?? 0) < (s1 ?? 0) : (s0 ?? 0) > (s1 ?? 0)) ? 'win' : ((s0 ?? 0) === (s1 ?? 0) && (s0 ?? 0) !== 0 ? 'draw' : 'lose')}">{(lowerIsBetter ? (s0 ?? 0) < (s1 ?? 0) : (s0 ?? 0) > (s1 ?? 0)) ? '✅' : ((s0 ?? 0) === (s1 ?? 0) && (s0 ?? 0) !== 0 ? '🤝' : '❌')}</span>
-																<span class="rr-vs">-</span>
-																<span class="bool-badge {(lowerIsBetter ? (s1 ?? 0) < (s0 ?? 0) : (s1 ?? 0) > (s0 ?? 0)) ? 'win' : ((s0 ?? 0) === (s1 ?? 0) && (s0 ?? 0) !== 0 ? 'draw' : 'lose')}">{(lowerIsBetter ? (s1 ?? 0) < (s0 ?? 0) : (s1 ?? 0) > (s0 ?? 0)) ? '✅' : ((s0 ?? 0) === (s1 ?? 0) && (s0 ?? 0) !== 0 ? '🤝' : '❌')}</span>
-																{#if isAdmin}
-																	<button class="bool-reset-btn" on:click={() => resetBoolScore(match)} title="Annuler le score (revenir en arrière)">↩️</button>
-																{/if}
-															</div>
-														{:else if canEditPlayerScore(match, 0, myTeamSlotId, isParticipant, currentUser)}
-															<div class="bool-btns-rr">
-																<button class="bool-btn bool-check" on:click={() => setBoolScore(match, 0)} title="Victoire {getPlayerName(match.p[0], nameMap)}"><span class="bool-default">☐</span><span class="bool-hover">✅</span></button>
-																{#if selected?.config?.allow_draws}
-																	<button class="bool-btn bool-draw" on:click={() => setBoolDraw(match)} title="Égalité">🤝</button>
-																{/if}
-																<button class="bool-btn bool-check" on:click={() => setBoolScore(match, 1)} title="Victoire {getPlayerName(match.p[1], nameMap)}"><span class="bool-default">☐</span><span class="bool-hover">✅</span></button>
-															</div>
-														{:else}
-															<span class="rr-score">—</span><span class="rr-vs">-</span><span class="rr-score">—</span>
-														{/if}
-													{:else}
-														{#if canEditPlayerScore(match, 0, myTeamSlotId, isParticipant, currentUser)}
-															<input type="number" class="score-input" value={s0 || ''} placeholder="—" on:change={(e) => updateScore(match, 0, e.target.value)} min="0" disabled={match.p[0] === 0 || match.p[1] === 0} />
-														{:else if isPlayerLocked(match, 0, myTeamSlotId, isParticipant, currentUser)}
-															<span class="score-locked" title="Score validé">🔒 {s0 ?? 0}</span>
-														{:else}
-															<span class="rr-score">{s0 ?? 0}</span>
-														{/if}
-														<span class="rr-vs">-</span>
-														{#if canEditPlayerScore(match, 1, myTeamSlotId, isParticipant, currentUser)}
-															<input type="number" class="score-input" value={s1 || ''} placeholder="—" on:change={(e) => updateScore(match, 1, e.target.value)} min="0" disabled={match.p[0] === 0 || match.p[1] === 0} />
-														{:else if isPlayerLocked(match, 1, myTeamSlotId, isParticipant, currentUser)}
-															<span class="score-locked" title="Score validé">🔒 {s1 ?? 0}</span>
-														{:else}
-															<span class="rr-score">{s1 ?? 0}</span>
-														{/if}
-													{/if}
-												</div>
-												<span class="rr-p {isDone && (lowerIsBetter ? s1 < s0 : s1 > s0) ? 'winner' : ''}">{getPlayerName(match.p[1], nameMap)}{#if match.p[1] > 0 && seatMap[match.p[1]]}<a href="/dashboard/map?highlight={seatMap[match.p[1]]}" class="seat-badge" title="Voir sur le plan">📍{seatMap[match.p[1]]}</a>{/if}</span>
-												{#if getPendingProgress(match, 0, pendingTick) !== null || getPendingProgress(match, 1, pendingTick) !== null}
-													<div class="score-pending rr-pending">
-														<div class="score-pending-bar" style="width:{((getPendingProgress(match, 0, pendingTick) ?? getPendingProgress(match, 1, pendingTick)) * 100).toFixed(0)}%"></div>
-														<button class="score-pending-cancel" on:click|stopPropagation={() => { cancelPendingScore(match, getPendingProgress(match, 0, pendingTick) !== null ? 0 : 1); }}>✕ Annuler</button>
-													</div>
-												{/if}
-											</div>
-										{/each}
 									</div>
 								{/each}
 							</div>
@@ -1116,7 +1188,7 @@
 															<!-- svelte-ignore a11y-no-static-element-interactions -->
 															<div class="player-row {match.p[0] ? 'filled' : ''} {isDone && (lowerIsBetter ? s0 < s1 : s0 > s1) ? 'winner' : ''} {isDone && (lowerIsBetter ? s0 > s1 : s0 < s1) ? 'loser' : ''}" on:mouseenter={() => { if(match.p[0]) hoveredPlayerId = match.p[0]; }} on:mouseleave={() => hoveredPlayerId = null}>
 																<span class="player-name">{getPlayerName(match.p[0], nameMap)}</span>
-																{#if match.p[0] > 0 && seatMap[match.p[0]]}<a href="/dashboard/map?highlight={seatMap[match.p[0]]}" class="seat-badge" title="Voir sur le plan">📍{seatMap[match.p[0]]}</a>{/if}
+																{#if match.p[0] > 0 && seatMap[match.p[0]]}<a href="/dashboard/map?highlight={seatMap[match.p[0]]}" class="seat-badge" title={$t('tourneys_view_on_map')}>📍{seatMap[match.p[0]]}</a>{/if}
 																{#if booleanMode}
 																	{#if canEditPlayerScore(match, 0, myTeamSlotId, isParticipant, currentUser) && !isDone}
 																		<div class="bool-btns">
@@ -1126,7 +1198,7 @@
 																		<div class="bool-badge-container">
 																			<span class="bool-badge {(lowerIsBetter ? (s0 ?? 0) < (s1 ?? 0) : (s0 ?? 0) > (s1 ?? 0)) ? 'win' : (s0 === s1 ? 'draw' : 'lose')}">{(lowerIsBetter ? (s0 ?? 0) < (s1 ?? 0) : (s0 ?? 0) > (s1 ?? 0)) ? '✅' : (s0 === s1 ? '🤝' : '❌')}</span>
 																			{#if isAdmin}
-																				<button class="bool-reset-btn" on:click={() => resetBoolScore(match)} title="Annuler le score (revenir en arrière)">↩️</button>
+																				<button class="bool-reset-btn" on:click={() => resetBoolScore(match)} title={$t('tourneys_reset_score_tooltip')}>↩️</button>
 																			{/if}
 																		</div>
 																	{:else}
@@ -1136,7 +1208,7 @@
 																	{#if canEditPlayerScore(match, 0, myTeamSlotId, isParticipant, currentUser)}
 																		<input type="number" class="score-input" value={s0 || ''} placeholder="—" on:change={(e) => updateScore(match, 0, e.target.value)} min="0" disabled={match.p[0] === 0 || match.p[1] === 0} />
 																	{:else if isPlayerLocked(match, 0, myTeamSlotId, isParticipant, currentUser)}
-																		<span class="score-locked" title="Score validé — modification admin uniquement">🔒 {s0 ?? 0}</span>
+																		<span class="score-locked" title={$t('tourneys_score_validated_admin')}>🔒 {s0 ?? 0}</span>
 																	{:else}
 																		<span class="score-display">{s0 || '—'}</span>
 																	{/if}
@@ -1146,7 +1218,7 @@
 															<!-- svelte-ignore a11y-no-static-element-interactions -->
 															<div class="player-row {match.p[1] ? 'filled' : ''} {isDone && (lowerIsBetter ? s1 < s0 : s1 > s0) ? 'winner' : ''} {isDone && (lowerIsBetter ? s1 > s0 : s1 < s0) ? 'loser' : ''}" on:mouseenter={() => { if(match.p[1]) hoveredPlayerId = match.p[1]; }} on:mouseleave={() => hoveredPlayerId = null}>
 																<span class="player-name">{getPlayerName(match.p[1], nameMap)}</span>
-																{#if match.p[1] > 0 && seatMap[match.p[1]]}<a href="/dashboard/map?highlight={seatMap[match.p[1]]}" class="seat-badge" title="Voir sur le plan">📍{seatMap[match.p[1]]}</a>{/if}
+																{#if match.p[1] > 0 && seatMap[match.p[1]]}<a href="/dashboard/map?highlight={seatMap[match.p[1]]}" class="seat-badge" title={$t('tourneys_view_on_map')}>📍{seatMap[match.p[1]]}</a>{/if}
 																{#if booleanMode}
 																	{#if canEditPlayerScore(match, 1, myTeamSlotId, isParticipant, currentUser) && !isDone}
 																		<div class="bool-btns">
@@ -1156,7 +1228,7 @@
 																		<div class="bool-badge-container">
 																			<span class="bool-badge {(lowerIsBetter ? (s1 ?? 0) < (s0 ?? 0) : (s1 ?? 0) > (s0 ?? 0)) ? 'win' : (s0 === s1 ? 'draw' : 'lose')}">{(lowerIsBetter ? (s1 ?? 0) < (s0 ?? 0) : (s1 ?? 0) > (s0 ?? 0)) ? '✅' : (s0 === s1 ? '🤝' : '❌')}</span>
 																			{#if isAdmin}
-																				<button class="bool-reset-btn" on:click={() => resetBoolScore(match)} title="Annuler le score (revenir en arrière)">↩️</button>
+																				<button class="bool-reset-btn" on:click={() => resetBoolScore(match)} title={$t('tourneys_reset_score_tooltip')}>↩️</button>
 																			{/if}
 																		</div>
 																	{:else}
@@ -1166,7 +1238,7 @@
 																	{#if canEditPlayerScore(match, 1, myTeamSlotId, isParticipant, currentUser)}
 																		<input type="number" class="score-input" value={s1 || ''} placeholder="—" on:change={(e) => updateScore(match, 1, e.target.value)} min="0" disabled={match.p[0] === 0 || match.p[1] === 0} />
 																	{:else if isPlayerLocked(match, 1, myTeamSlotId, isParticipant, currentUser)}
-																		<span class="score-locked" title="Score validé — modification admin uniquement">🔒 {s1 ?? 0}</span>
+																		<span class="score-locked" title={$t('tourneys_score_validated_admin')}>🔒 {s1 ?? 0}</span>
 																	{:else}
 																		<span class="score-display">{s1 || '—'}</span>
 																	{/if}
@@ -1175,7 +1247,7 @@
 															{#if getPendingProgress(match, 0, pendingTick) !== null || getPendingProgress(match, 1, pendingTick) !== null}
 																<div class="score-pending">
 																	<div class="score-pending-bar" style="width:{((getPendingProgress(match, 0, pendingTick) ?? getPendingProgress(match, 1, pendingTick)) * 100).toFixed(0)}%"></div>
-																	<button class="score-pending-cancel" on:click|stopPropagation={() => { cancelPendingScore(match, getPendingProgress(match, 0, pendingTick) !== null ? 0 : 1); }}>✕ Annuler</button>
+																	<button class="score-pending-cancel" on:click|stopPropagation={() => { cancelPendingScore(match, getPendingProgress(match, 0, pendingTick) !== null ? 0 : 1); }}>✕ {$t('info_btn_cancel')}</button>
 																</div>
 															{/if}
 														</div>
@@ -1190,7 +1262,7 @@
 										<div class="rounds-container lb-section">
 											{#each lbRounds as lbRound, ri}
 												<div class="round-col">
-													<div class="round-header lb-hdr">{ri === lbRounds.length - 1 ? 'LB Finale' : 'LB R' + (lbRound.originalIndex + 1)}</div>
+													<div class="round-header lb-hdr">{lbRound.originalIndex === lbRoundsRaw.length - 1 ? 'LB Finale' : 'LB R' + (lbRound.originalIndex + 1)}</div>
 													<div class="matches-col">
 														{#each lbRound.matches as match}
 															{@const s0 = match.score?.[0] ?? null}
@@ -1203,7 +1275,7 @@
 																<!-- svelte-ignore a11y-no-static-element-interactions -->
 																<div class="player-row {match.p[0] ? 'filled' : ''} {isDone && (lowerIsBetter ? s0 < s1 : s0 > s1) ? 'winner' : ''} {isDone && (lowerIsBetter ? s0 > s1 : s0 < s1) ? 'loser' : ''}" on:mouseenter={() => { if(match.p[0]) hoveredPlayerId = match.p[0]; }} on:mouseleave={() => hoveredPlayerId = null}>
 																	<span class="player-name">{getPlayerName(match.p[0], nameMap)}</span>
-																	{#if match.p[0] > 0 && seatMap[match.p[0]]}<a href="/dashboard/map?highlight={seatMap[match.p[0]]}" class="seat-badge" title="Voir sur le plan">📍{seatMap[match.p[0]]}</a>{/if}
+																	{#if match.p[0] > 0 && seatMap[match.p[0]]}<a href="/dashboard/map?highlight={seatMap[match.p[0]]}" class="seat-badge" title={$t('tourneys_view_on_map')}>📍{seatMap[match.p[0]]}</a>{/if}
 																	{#if booleanMode}
 																		{#if canEditPlayerScore(match, 0, myTeamSlotId, isParticipant, currentUser) && !isDone}
 																			<div class="bool-btns">
@@ -1213,7 +1285,7 @@
 																			<div class="bool-badge-container">
 																				<span class="bool-badge {(lowerIsBetter ? (s0??0) < (s1??0) : (s0??0) > (s1??0)) ? 'win' : ((s0??0)===(s1??0) && (s0??0)!==0 ? 'draw' : 'lose')}">{(lowerIsBetter ? (s0??0) < (s1??0) : (s0??0) > (s1??0)) ? '✅' : ((s0??0)===(s1??0) && (s0??0)!==0 ? '🤝' : '❌')}</span>
 																				{#if isAdmin}
-																					<button class="bool-reset-btn" on:click={() => resetBoolScore(match)} title="Annuler le score (revenir en arrière)">↩️</button>
+																					<button class="bool-reset-btn" on:click={() => resetBoolScore(match)} title={$t('tourneys_reset_score_tooltip')}>↩️</button>
 																				{/if}
 																			</div>
 																		{:else}<span class="score-display">—</span>{/if}
@@ -1221,7 +1293,7 @@
 																		{#if canEditPlayerScore(match, 0, myTeamSlotId, isParticipant, currentUser)}
 																			<input type="number" class="score-input" value={s0 || ''} placeholder="—" on:change={(e) => updateScore(match, 0, e.target.value)} min="0" disabled={match.p[0] === 0 || match.p[1] === 0} />
 																		{:else if isPlayerLocked(match, 0, myTeamSlotId, isParticipant, currentUser)}
-																			<span class="score-locked" title="Score validé">🔒 {s0 ?? 0}</span>
+																			<span class="score-locked" title={$t('tourneys_score_validated')}>🔒 {s0 ?? 0}</span>
 																		{:else}
 																			<span class="score-display">{s0 || '—'}</span>
 																		{/if}
@@ -1231,7 +1303,7 @@
 																<!-- svelte-ignore a11y-no-static-element-interactions -->
 																<div class="player-row {match.p[1] ? 'filled' : ''} {isDone && (lowerIsBetter ? s1 < s0 : s1 > s0) ? 'winner' : ''} {isDone && (lowerIsBetter ? s1 > s0 : s1 < s0) ? 'loser' : ''}" on:mouseenter={() => { if(match.p[1]) hoveredPlayerId = match.p[1]; }} on:mouseleave={() => hoveredPlayerId = null}>
 																	<span class="player-name">{getPlayerName(match.p[1], nameMap)}</span>
-																	{#if match.p[1] > 0 && seatMap[match.p[1]]}<a href="/dashboard/map?highlight={seatMap[match.p[1]]}" class="seat-badge" title="Voir sur le plan">📍{seatMap[match.p[1]]}</a>{/if}
+																	{#if match.p[1] > 0 && seatMap[match.p[1]]}<a href="/dashboard/map?highlight={seatMap[match.p[1]]}" class="seat-badge" title={$t('tourneys_view_on_map')}>📍{seatMap[match.p[1]]}</a>{/if}
 																	{#if booleanMode}
 																		{#if canEditPlayerScore(match, 1, myTeamSlotId, isParticipant, currentUser) && !isDone}
 																			<div class="bool-btns">
@@ -1241,7 +1313,7 @@
 																			<div class="bool-badge-container">
 																				<span class="bool-badge {(lowerIsBetter ? (s1??0) < (s0??0) : (s1??0) > (s0??0)) ? 'win' : ((s0??0)===(s1??0) && (s0??0)!==0 ? 'draw' : 'lose')}">{(lowerIsBetter ? (s1??0) < (s0??0) : (s1??0) > (s0??0)) ? '✅' : ((s0??0)===(s1??0) && (s0??0)!==0 ? '🤝' : '❌')}</span>
 																				{#if isAdmin}
-																					<button class="bool-reset-btn" on:click={() => resetBoolScore(match)} title="Annuler le score (revenir en arrière)">↩️</button>
+																					<button class="bool-reset-btn" on:click={() => resetBoolScore(match)} title={$t('tourneys_reset_score_tooltip')}>↩️</button>
 																				{/if}
 																			</div>
 																		{:else}<span class="score-display">—</span>{/if}
@@ -1249,7 +1321,7 @@
 																		{#if canEditPlayerScore(match, 1, myTeamSlotId, isParticipant, currentUser)}
 																			<input type="number" class="score-input" value={s1 || ''} placeholder="—" on:change={(e) => updateScore(match, 1, e.target.value)} min="0" disabled={match.p[0] === 0 || match.p[1] === 0} />
 																		{:else if isPlayerLocked(match, 1, myTeamSlotId, isParticipant, currentUser)}
-																			<span class="score-locked" title="Score validé">🔒 {s1 ?? 0}</span>
+																			<span class="score-locked" title={$t('tourneys_score_validated')}>🔒 {s1 ?? 0}</span>
 																		{:else}
 																			<span class="score-display">{s1 || '—'}</span>
 																		{/if}
@@ -1258,7 +1330,7 @@
 																{#if getPendingProgress(match, 0, pendingTick) !== null || getPendingProgress(match, 1, pendingTick) !== null}
 																	<div class="score-pending">
 																		<div class="score-pending-bar" style="width:{((getPendingProgress(match, 0, pendingTick) ?? getPendingProgress(match, 1, pendingTick)) * 100).toFixed(0)}%"></div>
-																		<button class="score-pending-cancel" on:click|stopPropagation={() => { cancelPendingScore(match, getPendingProgress(match, 0, pendingTick) !== null ? 0 : 1); }}>✕ Annuler</button>
+																		<button class="score-pending-cancel" on:click|stopPropagation={() => { cancelPendingScore(match, getPendingProgress(match, 0, pendingTick) !== null ? 0 : 1); }}>✕ {$t('info_btn_cancel')}</button>
 																	</div>
 																{/if}
 															</div>
@@ -1282,7 +1354,7 @@
 				{:else}
 						<div class="bracket-empty">
 							<span class="bracket-empty-icon">🏟️</span>
-							<p>Le bracket sera généré au lancement du tournoi.</p>
+							<p>{$t('tourneys_detail_empty_bracket')}</p>
 						</div>
 					{/if}
 				</div>
@@ -1290,13 +1362,13 @@
 				<!-- Live Standings -->
 				{#if liveStandings.length > 0}
 					<div class="live-standings glass">
-						<div class="section-title"><h3>📊 {selected?.status === 'RUNNING' ? 'Classement Live' : 'Classement Final'}</h3>{#if selected?.status === 'RUNNING'}<span class="live-badge">⚡ LIVE</span>{:else}<span class="live-badge" style="color:#3b82f6;background:rgba(59,130,246,0.1);border-color:rgba(59,130,246,0.2)">✅ FINAL</span>{/if}</div>
+						<div class="section-title"><h3>📊 {$t(selected?.status === 'RUNNING' ? 'tourneys_standings_live' : 'tourneys_standings_final')}</h3>{#if selected?.status === 'RUNNING'}<span class="live-badge">⚡ LIVE</span>{:else}<span class="live-badge" style="color:#3b82f6;background:rgba(59,130,246,0.1);border-color:rgba(59,130,246,0.2)">✅ FINAL</span>{/if}</div>
 						<div class="ls-config-summary">
-							<span class="ls-cfg" title="Points pour le 1er">🥇 {selected?.config?.pts_winner ?? 10}</span>
-							<span class="ls-cfg" title="Points pour le 2ème">🥈 {selected?.config?.pts_second ?? 6}</span>
-							<span class="ls-cfg" title="Points pour le 3ème">🥉 {selected?.config?.pts_third ?? 4}</span>
-							<span class="ls-cfg" title="Points de participation par match joué">👤 {selected?.config?.pts_participation ?? 1}/match</span>
-							<span class="ls-cfg" title="Bonus score : du plancher au plafond selon le score cumulé">⚡ {selected?.config?.pts_per_match ?? selected?.config?.pts_per_goal ?? 1.0} Bonus/Score</span>
+							<span class="ls-cfg" title={$t('tourneys_pts_1st_tooltip')}>🥇 {selected?.config?.pts_winner ?? 10}</span>
+							<span class="ls-cfg" title={$t('tourneys_pts_2nd_tooltip')}>🥈 {selected?.config?.pts_second ?? 6}</span>
+							<span class="ls-cfg" title={$t('tourneys_pts_3rd_tooltip')}>🥉 {selected?.config?.pts_third ?? 4}</span>
+							<span class="ls-cfg" title={$t('tourneys_pts_participation_tooltip')}>👤 {selected?.config?.pts_participation ?? 1}{$t('tourneys_per_match')}</span>
+							<span class="ls-cfg" title={$t('tourneys_pts_bonus_tooltip')}>⚡ {selected?.config?.pts_per_match ?? selected?.config?.pts_per_goal ?? 1.0} {$t('admin_tourneys_wizard_points_bonus')}</span>
 						</div>
 						<div class="ls-list">
 							{#each displayStandings as entry, i}
@@ -1306,8 +1378,8 @@
 										<span class="ls-name">{entry.name}</span>
 										<div class="ls-breakdown">
 											{#if entry.placement_pts > 0}<span class="ls-bp ls-bp-place" title="Placement : top {entry.rank}">🏅{entry.placement_pts}</span>{/if}
-											<span class="ls-bp ls-bp-parti" title="{entry.matches_played} match{entry.matches_played > 1 ? 's' : ''} joué{entry.matches_played > 1 ? 's' : ''} × {selected?.config?.pts_participation ?? 1} pts">👤{entry.participation_pts}</span>
-											{#if entry.score_pts > 0}<span class="ls-bp ls-bp-score" title="Score cumulé : {entry.cumulated_score} — Bonus de {entry.pts_per_match} (plancher) à {Math.round(entry.pts_per_match * 2 * 10) / 10} (plafond) selon votre position entre le pire et le meilleur scoreur">⚡{entry.score_pts}</span>{/if}
+											<span class="ls-bp ls-bp-parti" title={$t('tourneys_participation_tooltip_detail', { count: entry.matches_played, plural: entry.matches_played > 1 ? 's' : '', pts: selected?.config?.pts_participation ?? 1 })}>👤{entry.participation_pts}</span>
+											{#if entry.score_pts > 0}<span class="ls-bp ls-bp-score" title={$t('tourneys_pts_bonus_detail_tooltip', { score: entry.cumulated_score, floor: entry.pts_per_match, ceiling: Math.round(entry.pts_per_match * 2 * 10) / 10 })}>⚡{entry.score_pts}</span>{/if}
 										</div>
 									</div>
 									<span class="ls-pts">{entry.pts} pts</span>
@@ -1322,12 +1394,12 @@
 				{#if currentUser?.is_admin && selected.status === 'OPEN' && unregisteredUsers.length > 0}
 					<div class="unreg-section glass">
 						<div class="section-title">
-							<h3>➕ Joueurs disponibles</h3>
-							<span class="unreg-hint">Cliquez pour inscrire</span>
+							<h3>➕ {$t('tourneys_available_players')}</h3>
+							<span class="unreg-hint">{$t('tourneys_click_to_register')}</span>
 						</div>
 						<div class="unreg-badges">
 							{#each unregisteredUsers as u}
-								<button class="unreg-badge" on:click={() => forceAddPlayer(u.id)} title="Ajouter {u.username}">
+								<button class="unreg-badge" on:click={() => forceAddPlayer(u.id)} title={$t('tourneys_detail_unregistered_add_title', { name: u.username })}>
 									<span>👤</span>
 									<span class="unreg-name">{u.username}</span>
 									{#if u.team_name}<span class="unreg-team">• {u.team_name}</span>{/if}
@@ -1342,106 +1414,23 @@
 		{:else}
 			<div class="detail-empty">
 				<span class="empty-lg-icon">🏟️</span>
-				<h2>Sélectionnez un tournoi</h2>
-				<p class="text-dim">Choisissez dans la liste à gauche.</p>
+				<h2>{$t('tourneys_select_tournament')}</h2>
+				<p class="text-dim">{$t('tourneys_choose_from_list')}</p>
 			</div>
 		{/if}
 	</main>
 </div>
 
 <!-- Edit Modal -->
-{#if editingTournament}
-	<div class="edit-overlay" use:portal on:click={() => editingTournament = false}>
-		<div class="edit-modal glass" on:click|stopPropagation>
-			<header class="edit-modal-header">
-				<h3>✏️ {$t("tourneys_btn_edit")} — {selected?.name}</h3>
-				<button class="close-btn" on:click={() => editingTournament = false}>✕</button>
-			</header>
-			<div class="edit-modal-body">
-				<div class="edit-grid">
-					<div class="edit-field">
-						<label>Nom</label>
-						<input type="text" bind:value={editConfig.name} />
-					</div>
-
-					<div class="edit-field">
-						<label>Mode</label>
-						<div class="edit-toggle-row">
-							<button class="edit-toggle {!editConfig.use_teams ? 'active' : ''}" on:click={() => editConfig.use_teams = false}>👤 Solo</button>
-							<button class="edit-toggle {editConfig.use_teams ? 'active' : ''}" on:click={() => editConfig.use_teams = true}>👥 Équipes</button>
-						</div>
-					</div>
-					{#if editConfig.use_teams}
-						<div class="edit-field narrow">
-							<label>Taille d'équipe</label>
-							<input type="number" bind:value={editConfig.team_size} min="2" max="16" />
-						</div>
-					{/if}
-					<div class="edit-field full-width">
-						<label>Format</label>
-						<div class="edit-toggle-row">
-							<button class="edit-toggle {editConfig.bracket_type === 'single_elim' ? 'active' : ''}" on:click={() => editConfig.bracket_type = 'single_elim'}>Élimination Directe</button>
-							<button class="edit-toggle {editConfig.bracket_type === 'double_elim' ? 'active' : ''}" on:click={() => editConfig.bracket_type = 'double_elim'}>Double Élimination</button>
-							<button class="edit-toggle {editConfig.bracket_type === 'round_robin' ? 'active' : ''}" on:click={() => editConfig.bracket_type = 'round_robin'}>Championnat</button>
-						<button class="edit-toggle {editConfig.bracket_type === 'ffa' ? 'active' : ''}" on:click={() => editConfig.bracket_type = 'ffa'}>FFA</button>
-						</div>
-					</div>
-					<div class="edit-field full-width">
-						<label class="edit-toggle-label">
-							<input type="checkbox" bind:checked={editConfig.lower_score_is_better} />
-							🔄 Score inversé <span class="edit-hint">(le plus petit score gagne, ex: placement, golf)</span>
-						</label>
-					</div>
-					<div class="edit-field full-width">
-						<label class="edit-toggle-label">
-							<input type="checkbox" bind:checked={editConfig.boolean_mode} />
-							🎯 Mode Victoire/Défaite <span class="edit-hint">(boutons V/D/É au lieu de scores numériques)</span>
-						</label>
-					</div>
-					{#if editConfig.bracket_type === 'round_robin'}
-					<div class="edit-field full-width">
-						<label class="edit-toggle-label">
-							<input type="checkbox" bind:checked={editConfig.allow_draws} />
-							🤝 Autoriser les égalités <span class="edit-hint">(uniquement en mode Championnat / Round Robin)</span>
-						</label>
-					</div>
-					{/if}
-					<div class="edit-field full-width">
-						<label>Structure Globale</label>
-						<div class="edit-toggle-row">
-							<button class="edit-toggle {editConfig.phases === 'single' ? 'active' : ''}" on:click={() => editConfig.phases = 'single'}>Phase finale directe</button>
-							<button class="edit-toggle {editConfig.phases === 'double' ? 'active' : ''}" on:click={() => editConfig.phases = 'double'}>Groupes + Phase finale</button>
-						</div>
-					</div>
-					{#if editConfig.phases === 'double'}
-						<div class="edit-field">
-							<label>Taille Groupes</label>
-							<input type="number" bind:value={editConfig.group_size} min="2" max="16" />
-						</div>
-						<div class="edit-field">
-							<label>Qualifiés / Groupe</label>
-							<input type="number" bind:value={editConfig.advancers_count} min="1" max="8" />
-						</div>
-					{/if}
-				</div>
-				<details class="edit-pts-config" open>
-					<summary>🏅 Points</summary>
-					<div class="edit-pts-grid">
-						<div class="edit-pts-field"><label>🥇 1er</label><input type="number" bind:value={editConfig.pts_winner} min="0" /></div>
-						<div class="edit-pts-field"><label>🥈 2ème</label><input type="number" bind:value={editConfig.pts_second} min="0" /></div>
-						<div class="edit-pts-field"><label>🥉 3ème</label><input type="number" bind:value={editConfig.pts_third} min="0" /></div>
-						<div class="edit-pts-field"><label>👤 Parti.</label><input type="number" bind:value={editConfig.pts_participation} min="0" /></div>
-						<div class="edit-pts-field"><label>⚡ Bonus/Score</label><input type="number" bind:value={editConfig.pts_per_match} min="0" step="0.1" /></div>
-					</div>
-				</details>
-			</div>
-			<footer class="edit-modal-footer">
-				<button class="btn-secondary" on:click={() => editingTournament = false}>Annuler</button>
-				<button class="btn-primary" on:click={saveEdit}>💾 Enregistrer</button>
-			</footer>
-		</div>
-	</div>
-{/if}
+<EditTournamentModal
+	tournament={selected}
+	show={editingTournament}
+	on:close={() => editingTournament = false}
+	on:save={async (e) => {
+		editConfig = e.detail.editConfig;
+		await saveEdit();
+	}}
+/>
 
 <!-- Create Modal -->
 {#if showCreateModal}
@@ -1721,31 +1710,332 @@
 	.admin-btn.edit:hover { background: rgba(59,130,246,0.15); }
 
 	/* === EDIT MODAL === */
-	.edit-overlay { position: fixed; inset: 0; background: var(--overlay-bg); backdrop-filter: blur(4px); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 2rem; }
-	.edit-modal { width: 520px; max-width: 100%; max-height: 85vh; overflow-y: auto; border-radius: 20px; border: 1px solid var(--glass-border); box-shadow: 0 25px 60px rgba(0,0,0,0.3); }
-	.edit-modal-header { display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.2rem; border-bottom: 1px solid var(--glass-border); background: rgba(59,130,246,0.08); }
-	.edit-modal-header h3 { font-size: 0.95rem; margin: 0; }
-	.close-btn { background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 1.1rem; padding: 0.2rem; }
-	.edit-modal-body { padding: 1.2rem; }
-	.edit-modal-footer { display: flex; justify-content: flex-end; gap: 0.6rem; padding: 0.8rem 1.2rem; border-top: 1px solid var(--glass-border); }
-	.edit-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 0.8rem; }
-	.edit-field { display: flex; flex-direction: column; gap: 0.3rem; }
-	.edit-field.narrow { max-width: 140px; }
-	.edit-field.full-width { grid-column: 1 / -1; }
-	.edit-field label { font-size: 0.65rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
-	.edit-toggle-row { display: flex; gap: 0.3rem; flex-wrap: wrap; }
-	.edit-toggle { padding: 0.35rem 0.7rem; font-size: 0.7rem; font-weight: 600; border: 1px solid var(--glass-border); border-radius: 8px; background: var(--hover-tint); color: var(--text-dim); cursor: pointer; transition: all 0.15s; }
-	.edit-toggle:hover { border-color: var(--accent); }
-	.edit-toggle.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); box-shadow: 0 0 8px var(--accent-glow); }
-	.edit-toggle-label { display: flex; align-items: center; gap: 0.5rem; font-size: 0.78rem !important; font-weight: 600 !important; color: var(--text-main) !important; text-transform: none !important; cursor: pointer; }
-	.edit-toggle-label input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
-	.edit-hint { font-size: 0.65rem; color: var(--text-muted); font-weight: 400; }
-	.edit-pts-config { margin-top: 0.5rem; padding: 0.6rem; border: 1px solid var(--glass-border); border-radius: 10px; background: var(--surface-sunken); }
-	.edit-pts-config summary { cursor: pointer; font-weight: 700; font-size: 0.7rem; color: var(--text-main); margin-bottom: 0.4rem; }
-	.edit-pts-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.4rem; }
-	.edit-pts-field { display: flex; flex-direction: column; gap: 0.15rem; }
-	.edit-pts-field label { font-size: 0.55rem; font-weight: 700; color: var(--text-muted); }
-	.edit-pts-field input { width: 100%; padding: 0.3rem; text-align: center; font-size: 0.75rem; font-weight: 800; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 6px; color: var(--accent); }
+	.edit-overlay {
+		position: fixed;
+		inset: 0;
+		background: rgba(0, 0, 0, 0.45);
+		backdrop-filter: blur(8px);
+		-webkit-backdrop-filter: blur(8px);
+		z-index: 9999;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: 1.5rem;
+		animation: modalFadeIn 0.2s ease-out forwards;
+	}
+	@keyframes modalFadeIn {
+		from { opacity: 0; }
+		to { opacity: 1; }
+	}
+	.edit-modal {
+		width: 580px;
+		max-width: 100%;
+		max-height: 85vh;
+		border-radius: 16px;
+		border: 1px solid var(--glass-border);
+		box-shadow: 0 30px 70px rgba(0, 0, 0, 0.45);
+		background: var(--bg-primary);
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+		animation: modalSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+	}
+	@keyframes modalSlideUp {
+		from { transform: translateY(20px) scale(0.97); }
+		to { transform: translateY(0) scale(1); }
+	}
+	.edit-modal-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 1.25rem 1.5rem;
+		border-bottom: 1px solid var(--glass-border);
+		background: var(--surface-sunken);
+		flex-shrink: 0;
+	}
+	.header-title-wrapper {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+	}
+	.header-emoji {
+		font-size: 1.3rem;
+	}
+	.edit-modal-header h3 {
+		font-size: 1rem;
+		font-weight: 800;
+		margin: 0;
+		color: var(--text-main);
+	}
+	.header-subtitle {
+		font-size: 0.72rem;
+		color: var(--text-dim);
+		font-weight: 500;
+	}
+	.close-btn {
+		background: var(--hover-tint);
+		border: 1px solid var(--glass-border);
+		color: var(--text-dim);
+		cursor: pointer;
+		font-size: 0.85rem;
+		width: 30px;
+		height: 30px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border-radius: 50%;
+		transition: all 0.2s;
+	}
+	.close-btn:hover {
+		background: var(--accent-soft);
+		color: var(--accent);
+		border-color: var(--accent);
+		transform: rotate(90deg);
+	}
+	.edit-modal-body {
+		padding: 1.5rem 1.5rem 2.5rem 1.5rem;
+		display: flex;
+		flex-direction: column;
+		gap: 1.25rem;
+		overflow-y: auto;
+		flex: 1;
+		min-height: 0;
+	}
+	.edit-section-card {
+		background: var(--surface-raised);
+		border: 1px solid var(--glass-border);
+		border-radius: 12px;
+		padding: 1.25rem;
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+		box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+	}
+	.section-title {
+		font-size: 0.75rem;
+		font-weight: 800;
+		color: var(--text-main);
+		margin: 0;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		border-bottom: 1px solid var(--glass-border);
+		padding-bottom: 0.4rem;
+	}
+	.edit-grid-2col {
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
+		gap: 1rem;
+	}
+	.edit-field {
+		display: flex;
+		flex-direction: column;
+		gap: 0.35rem;
+	}
+	.edit-field.full-width {
+		grid-column: 1 / -1;
+	}
+	.edit-field label {
+		font-size: 0.65rem;
+		font-weight: 700;
+		color: var(--text-dim);
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+	}
+	.edit-field input[type="text"],
+	.edit-field input[type="number"] {
+		width: 100%;
+		padding: 0.5rem 0.75rem;
+		font-size: 0.8rem;
+		background: var(--surface-sunken);
+		border: 1px solid var(--glass-border);
+		border-radius: 8px;
+		color: var(--text-main);
+		transition: all 0.2s;
+	}
+	.edit-field input:focus {
+		outline: none;
+		border-color: var(--accent);
+		box-shadow: 0 0 0 3px var(--accent-glow);
+	}
+	.edit-sub-row {
+		display: flex;
+		gap: 1rem;
+		margin-top: -0.25rem;
+	}
+	.edit-field.narrow {
+		max-width: 150px;
+	}
+	.edit-toggle-row {
+		display: flex;
+		gap: 0.3rem;
+		background: var(--surface-sunken);
+		padding: 0.2rem;
+		border-radius: 8px;
+		border: 1px solid var(--glass-border);
+		width: 100%;
+	}
+	.edit-toggle {
+		flex: 1;
+		padding: 0.4rem 0.6rem;
+		font-size: 0.7rem;
+		font-weight: 700;
+		border: none;
+		border-radius: 6px;
+		background: transparent;
+		color: var(--text-dim);
+		cursor: pointer;
+		transition: all 0.15s;
+		white-space: nowrap;
+	}
+	.edit-toggle:hover {
+		color: var(--text-main);
+		background: var(--hover-tint);
+	}
+	.edit-toggle.active {
+		background: var(--bg-primary);
+		color: var(--accent);
+		box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1), 0 0 0 1px var(--glass-border);
+	}
+	.edit-options-grid {
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
+		gap: 0.75rem;
+		width: 100%;
+	}
+	.edit-options-grid.simple-grid {
+		grid-column: 2;
+		align-content: end;
+	}
+	.option-card {
+		display: flex;
+		align-items: flex-start;
+		gap: 0.6rem;
+		padding: 0.6rem 0.8rem;
+		background: var(--surface-sunken);
+		border: 1px solid var(--glass-border);
+		border-radius: 8px;
+		cursor: pointer;
+		text-align: left;
+		transition: all 0.2s;
+	}
+	.option-card:hover {
+		border-color: var(--accent);
+		background: var(--hover-tint);
+	}
+	.option-card.active {
+		border-color: var(--accent);
+		background: var(--accent-soft);
+		box-shadow: 0 0 8px var(--accent-glow);
+	}
+	.option-icon {
+		font-size: 1rem;
+		margin-top: 0.05rem;
+	}
+	.option-content {
+		display: flex;
+		flex-direction: column;
+		gap: 0.1rem;
+	}
+	.option-label {
+		font-size: 0.72rem;
+		font-weight: 700;
+		color: var(--text-main);
+	}
+	.option-desc {
+		font-size: 0.6rem;
+		color: var(--text-muted);
+		line-height: 1.2;
+	}
+	.edit-format-specific-panel {
+		background: var(--surface-sunken);
+		border: 1px solid var(--glass-border);
+		border-radius: 8px;
+		padding: 0.8rem;
+		margin-top: 0.25rem;
+		display: flex;
+		flex-direction: column;
+		gap: 0.6rem;
+		width: 100%;
+	}
+	.specific-title {
+		font-size: 0.7rem;
+		font-weight: 800;
+		color: var(--text-dim);
+		margin: 0;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+	}
+	.edit-pts-grid-modern {
+		display: grid;
+		grid-template-columns: repeat(4, 1fr);
+		gap: 0.6rem;
+		width: 100%;
+	}
+	.edit-pts-card {
+		background: var(--surface-sunken);
+		border: 1px solid var(--glass-border);
+		border-radius: 8px;
+		padding: 0.5rem;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 0.25rem;
+		transition: all 0.2s;
+	}
+	.edit-pts-card:hover {
+		border-color: var(--accent);
+	}
+	.edit-pts-card.full-row {
+		grid-column: 1 / -1;
+		flex-direction: row;
+		justify-content: space-between;
+		padding: 0.5rem 0.8rem;
+	}
+	.edit-pts-card.full-row label {
+		margin-bottom: 0;
+	}
+	.edit-pts-card.full-row input {
+		width: 80px;
+		text-align: right;
+	}
+	.edit-pts-card label {
+		font-size: 0.6rem;
+		font-weight: 700;
+		color: var(--text-dim);
+	}
+	.edit-pts-card input {
+		width: 100%;
+		padding: 0.35rem;
+		text-align: center;
+		font-size: 0.8rem;
+		font-weight: 800;
+		background: var(--bg-primary);
+		border: 1px solid var(--glass-border);
+		border-radius: 6px;
+		color: var(--accent);
+		transition: all 0.2s;
+	}
+	.edit-pts-card input:focus {
+		outline: none;
+		border-color: var(--accent);
+		box-shadow: 0 0 0 2px var(--accent-glow);
+	}
+	.edit-modal-footer {
+		display: flex;
+		justify-content: flex-end;
+		gap: 0.6rem;
+		padding: 1rem 1.5rem;
+		border-top: 1px solid var(--glass-border);
+		background: var(--bg-secondary);
+		flex-shrink: 0;
+	}
+	.anim-fade-in {
+		animation: quickFadeIn 0.2s ease-out forwards;
+	}
+	@keyframes quickFadeIn {
+		from { opacity: 0; transform: translateY(4px); }
+		to { opacity: 1; transform: translateY(0); }
+	}
 	/* === EMPTY STATE === */
 	.detail-empty { flex-grow: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.5rem; text-align: center; }
 	.empty-lg-icon { font-size: 3.5rem; opacity: 0.4; }

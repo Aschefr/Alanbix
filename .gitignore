@@ -64,6 +64,10 @@ restore_notif.py
 scratch_*.py
 scratch_*.js
 test_force.py
+test_api.py
 CLAUDE.md
 release_guide.md
 scratch/
+
+# === Backup files ===
+*.bak

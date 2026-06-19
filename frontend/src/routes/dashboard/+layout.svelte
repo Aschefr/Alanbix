@@ -1,6 +1,6 @@
 <script>
 	import { authStore } from '$lib/auth';
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount, onDestroy, tick } from 'svelte';
 	import { api } from '$lib/api';
 	import { connectWS, wsMessageStore } from '$lib/ws';
 	import { invalidateAll, goto } from '$app/navigation';
@@ -336,6 +336,46 @@
 		}
 	});
 
+	let navFontSize = '0.95rem';
+
+	$: if ($t || version || user) {
+		adjustNavFontSize();
+	}
+
+	async function adjustNavFontSize() {
+		await tick();
+		const sideNav = document.querySelector('.side-nav');
+		if (!sideNav) return;
+		
+		const labels = sideNav.querySelectorAll('.nav-item .label');
+		if (labels.length === 0) return;
+
+		let sizeRem = 0.95;
+		const minSizeRem = 0.75;
+		
+		// Reset to max size first to measure
+		sideNav.style.setProperty('--nav-font-size', `${sizeRem}rem`);
+		await tick();
+
+		let hasOverflow = true;
+		while (hasOverflow && sizeRem > minSizeRem) {
+			hasOverflow = false;
+			for (const label of labels) {
+				// If a label wraps to 2 lines, its height is > 25px
+				if (label.offsetHeight > 25) {
+					hasOverflow = true;
+					break;
+				}
+			}
+			
+			if (hasOverflow) {
+				sizeRem -= 0.05;
+				sideNav.style.setProperty('--nav-font-size', `${sizeRem}rem`);
+				await tick();
+			}
+		}
+	}
+
 	function toggleTheme() {
 		isDark = !isDark;
 		const theme = isDark ? 'dark' : 'light';
@@ -650,6 +690,10 @@
 		background: var(--hover-tint);
 		color: var(--accent);
 		transform: translateX(5px);
+	}
+
+	.nav-item .label {
+		font-size: var(--nav-font-size, 0.95rem);
 	}
 
 	.nav-item.admin {
