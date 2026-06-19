@@ -206,6 +206,18 @@
 	$: bracketRounds = runningTournament ? getRounds(runningTournament.bracket) : [];
 	$: bracketType = runningTournament?.config?.bracket_type || 'single_elim';
 	$: specLowerIsBetter = runningTournament?.config?.lower_score_is_better || false;
+	
+	$: wbRounds = bracketType === 'double_elim' ? getRounds((runningTournament?.bracket || []).filter(m => m.id.s === 1)) : bracketRounds;
+	$: lbRoundsRaw = bracketType === 'double_elim' ? getRounds((runningTournament?.bracket || []).filter(m => m.id.s === 2)) : [];
+	$: lbRounds = lbRoundsRaw.map((roundMatches, ri) => {
+		const hasVisible = roundMatches.some(m => {
+			const isBye = m.p[0] === 0 && m.p[1] === 0;
+			const s0 = m.score?.[0] ?? null, s1 = m.score?.[1] ?? null;
+			const isAutoWin = (m.p[0] === 0 || m.p[1] === 0) && (s0 > 0 || s1 > 0);
+			return !isBye && !isAutoWin;
+		});
+		return hasVisible ? { matches: roundMatches, originalIndex: ri } : null;
+	}).filter(Boolean);
 	$: runningGame = runningTournament ? games.find(g => g.id === runningTournament.game_id) : null;
 	$: rrGroups = (() => {
 		if (bracketType !== 'round_robin' || !runningTournament) return [];
@@ -491,24 +503,28 @@
 					<div class="spec-bracket-viewport" bind:clientHeight={viewportHeight}>
 						<div class="spec-bracket-content" bind:clientHeight={roundsHeight} style="transform: translateY({translateY}px) translateZ(0); transition: {isAnimating ? 'transform ' + scrollDuration + 's linear' : 'none'};">
 							{#if bracketType === 'ffa'}
-								<!-- FFA View -->
-								<div class="spec-ffa-area">
+								<!-- FFA View (Block Layout) -->
+								<div class="spec-ffa-area" style="display: block; width: 100%; max-width: 1600px; margin: 0 auto; padding: 2rem 0;">
 									{#each bracketRounds as roundMatches, ri}
 										{@const isLatest = ri === bracketRounds.length - 1}
-										<div class="spec-ffa-round {isLatest ? 'current' : 'past'}">
-											<div class="spec-ffa-hdr">
+										<div class="spec-ffa-round-block {isLatest ? 'current' : 'past'}" style="background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 16px; overflow: hidden; opacity: {isLatest ? '1' : '0.6'}; margin-bottom: 2.5rem;">
+											<div class="spec-ffa-hdr" style="background: var(--surface-sunken); padding: 1rem 1.5rem; font-size: 1.4rem; font-weight: 800; color: var(--accent); border-bottom: 1px solid var(--glass-border); display: flex; align-items: center; justify-content: space-between;">
 												<span>{$t("spec_round_num", { num: ri + 1 })}</span>
+												<span style="font-size: 1rem; color: var(--text-muted); font-weight: 600;">{roundMatches.length} Match{roundMatches.length > 1 ? 's' : ''}</span>
 											</div>
-											<div class="spec-ffa-matches" style="display: flex; flex-direction: column; gap: 1rem; padding: 1rem;">
+											<div class="spec-ffa-matches-wrap" style="display: flex; flex-wrap: wrap; gap: 1.5rem; padding: 1.5rem; align-items: flex-start; justify-content: center;">
 											{#each roundMatches as match, mi}
-												<div class="spec-ffa-match-box">
-													<div class="spec-ffa-count" style="margin-bottom: 0.5rem; font-weight: 600; font-size: 0.85rem; color: var(--text-muted);">Match {mi + 1} - {$t("spec_players_count", { count: match.p.length })}</div>
-													<div class="spec-ffa-players">
+												<div class="spec-ffa-match-card" style="background: rgba(0,0,0,0.2); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden; flex: 1 1 320px; max-width: 600px;">
+													<div class="spec-ffa-match-hdr" style="padding: 0.6rem 1rem; background: rgba(0,0,0,0.3); font-weight: 700; font-size: 0.9rem; color: var(--text-dim); display: flex; justify-content: space-between;">
+														<span>Match {mi + 1}</span>
+														<span>{$t("spec_players_count", { count: match.p.length })}</span>
+													</div>
+													<div class="spec-ffa-players" style="padding: 0.5rem;">
 														{#each match.p as playerId, pi}
 															{@const mRank = getFFAMatchRank(match, pi, specLowerIsBetter)}
-															<div class="spec-ffa-row {mRank === 1 ? 'gold' : mRank === 2 ? 'silver' : mRank === 3 ? 'bronze' : ''}">
+															<div class="spec-ffa-row {mRank === 1 ? 'gold' : mRank === 2 ? 'silver' : mRank === 3 ? 'bronze' : ''}" style="margin-bottom: 0.25rem;">
 																<span class="spec-ffa-rank">{#if mRank}#{mRank}{:else}—{/if}</span>
-																<span class="spec-ffa-name">{getPlayerName(playerId)}</span>
+																<span class="spec-ffa-name" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{getPlayerName(playerId)}</span>
 																{#if match.score?.[pi] > 0}
 																	<span class="spec-ffa-score">{match.score[pi]}</span>
 																{/if}
@@ -555,11 +571,11 @@
 								</div>
 							{:else}
 								<!-- Duel bracket (single/double elim) -->
-								<div class="spec-bracket-area">
+								<div class="spec-bracket-area" style="flex-direction: column; align-items: center; justify-content: flex-start; gap: 4rem; overflow-y: visible; padding-top: 2rem; padding-bottom: 4rem;">
 									<div class="spec-rounds">
-										{#each bracketRounds as roundMatches, ri}
+										{#each wbRounds as roundMatches, ri}
 											<div class="spec-round-col">
-												<div class="spec-round-hdr">{ri === bracketRounds.length - 1 && bracketRounds.length > 1 ? $t('spec_tab_bracket') : $t('spec_round_label', { num: ri + 1 })}</div>
+												<div class="spec-round-hdr">{ri === wbRounds.length - 1 && wbRounds.length > 1 ? $t('spec_tab_bracket') : $t('spec_round_label', { num: ri + 1 })}</div>
 												<div class="spec-matches">
 													{#each roundMatches as match}
 														{@const s0 = match.score?.[0] ?? null}
@@ -585,6 +601,41 @@
 											</div>
 										{/each}
 									</div>
+									{#if bracketType === 'double_elim' && lbRounds.length > 0}
+										<div style="display: flex; flex-direction: column; align-items: center; gap: 1.5rem; width: 100%;">
+											<div style="width: 80%; height: 2px; background: var(--glass-border);"></div>
+											<h3 style="color: var(--text-muted); font-size: 1.5rem; font-weight: 800; letter-spacing: 0.2em; text-transform: uppercase;">Losers Bracket</h3>
+											<div class="spec-rounds">
+												{#each lbRounds as lbRound, ri}
+													<div class="spec-round-col">
+														<div class="spec-round-hdr">{lbRound.originalIndex === lbRoundsRaw.length - 1 ? 'LB Finale' : 'LB R' + (lbRound.originalIndex + 1)}</div>
+														<div class="spec-matches">
+															{#each lbRound.matches as match}
+																{@const s0 = match.score?.[0] ?? null}
+																{@const s1 = match.score?.[1] ?? null}
+																{@const isDone = s0 !== null && s1 !== null && (s0 !== 0 || s1 !== 0) && s0 !== s1}
+																{@const isBye = match.p[0] === 0 && match.p[1] === 0}
+																{@const isAutoWin = (match.p[0] === 0 || match.p[1] === 0) && (s0 > 0 || s1 > 0)}
+																{#if !isBye && !isAutoWin}
+																	<div class="spec-match {isDone ? 'done' : ''}" style="opacity: 0.9;">
+																		<div class="spec-player {isDone && (specLowerIsBetter ? s0 < s1 : s0 > s1) ? 'winner' : ''} {isDone && (specLowerIsBetter ? s0 > s1 : s0 < s1) ? 'loser' : ''}">
+																			<span class="spec-pname">{getPlayerName(match.p[0])}</span>
+																			<span class="spec-pscore">{#if runningTournament?.config?.boolean_mode}{#if isDone && (specLowerIsBetter ? (s0??0) < (s1??0) : (s0??0) > (s1??0))}✅{:else if isDone}❌{:else}{s0 ?? 0}{/if}{:else}{s0 ?? 0}{/if}</span>
+																		</div>
+																		<div class="spec-match-div"></div>
+																		<div class="spec-player {isDone && (specLowerIsBetter ? s1 < s0 : s1 > s0) ? 'winner' : ''} {isDone && (specLowerIsBetter ? s1 > s0 : s1 < s0) ? 'loser' : ''}">
+																			<span class="spec-pname">{getPlayerName(match.p[1])}</span>
+																			<span class="spec-pscore">{#if runningTournament?.config?.boolean_mode}{#if isDone && (specLowerIsBetter ? (s1??0) < (s0??0) : (s1??0) > (s0??0))}✅{:else if isDone}❌{:else}{s1 ?? 0}{/if}{:else}{s1 ?? 0}{/if}</span>
+																		</div>
+																	</div>
+																{/if}
+															{/each}
+														</div>
+													</div>
+												{/each}
+											</div>
+										</div>
+									{/if}
 								</div>
 							{/if}
 						</div>
@@ -703,12 +754,12 @@
 	/* Round Robin spectator */
 	.spec-rr-area { flex: 1; overflow-y: auto; display: flex; flex-wrap: wrap; gap: 1.5rem; justify-content: center; padding: 0 2rem; }
 	.spec-rr-round { min-width: 300px; max-width: 420px; flex: 1; }
-	.spec-rr-match { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.8rem; background: var(--hover-tint, rgba(255,255,255,0.02)); border: 1px solid var(--glass-border, rgba(255,255,255,0.06)); border-radius: 8px; margin-bottom: 0.4rem; }
-	.spec-rr-match.done { border-color: rgba(59,130,246,0.2); }
-	.spec-rr-p { flex: 1; font-size: 1rem; color: var(--text-muted); }
+	.spec-rr-match { display: flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1rem; background: var(--glass-bg, rgba(0,0,0,0.6)); border: 1px solid var(--glass-border, rgba(255,255,255,0.1)); border-radius: 8px; margin-bottom: 0.4rem; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+	.spec-rr-match.done { border-color: rgba(59,130,246,0.3); background: var(--surface-sunken, rgba(0,0,0,0.8)); }
+	.spec-rr-p { flex: 1; font-size: 1rem; color: var(--text-main); font-weight: 500; }
 	.spec-rr-p:last-child { text-align: right; }
-	.spec-rr-p.winner { color: var(--text-main); font-weight: 700; }
-	.spec-rr-score { font-size: 1rem; font-weight: 800; color: var(--accent); min-width: 3.5rem; text-align: center; }
+	.spec-rr-p.winner { color: var(--accent); font-weight: 800; text-shadow: 0 0 10px rgba(59,130,246,0.4); }
+	.spec-rr-score { font-size: 1.1rem; font-weight: 900; color: white; min-width: 3.5rem; text-align: center; background: rgba(0,0,0,0.4); padding: 0.2rem 0.5rem; border-radius: 6px; }
 
 	/* Info spectator */
 	.spec-info-content {

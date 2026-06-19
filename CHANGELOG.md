@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.17.8] - 2026-06-19
+
+### Améliorations & Corrections de bugs
+
+- **Optimisation de la vue Spectateur & Dashboard** : Harmonisation des vues de brackets. Pour le Double Élimination, le Winner Bracket et le Loser Bracket sont maintenant affichés en couches distinctes (empilés verticalement sur la vue Spectateur) afin de prévenir la compression horizontale sur les résolutions standards.
+- **Lisibilité en mode Spectateur** : Le format Round Robin dispose d'un fond de carte contrasté semi-transparent et de textes blancs à fort contraste pour rester parfaitement lisible au-dessus des arrière-plans cinématiques de jeux. Le format FFA a été revu avec une disposition fluide (`flex-wrap`) et dynamique (hauteur `fit-content`) qui élimine tout grand espace vide superflu entre les manches.
+- **Sécurité et Robustesse de saisie de scores** : Le backend rejette désormais toute soumission de score de match contenant un joueur TBD (ID 0) afin d'éviter la corruption des brackets. Les scores saisis sont fusionnés intelligemment avec les scores existants pour prévenir les conditions de concurrence et les écrasements accidentels.
+
+## [1.17.7] - 2026-06-19
+
+### Améliorations
+
+- **Identification visuelle du joueur dans le bracket** : Le pseudo du joueur connecté (ou le nom de son équipe en mode équipes) est désormais mis en surbrillance dans l'arbre de tournoi avec un fond bleu accent et une bordure latérale distinctive. Le highlight est adapté aux deux modes clair/sombre et fonctionne dans tous les formats de bracket (Single/Double Élim, Round Robin, FFA).
+
+## [1.17.6] - 2026-06-19
+
+### Corrections de bugs
+
+- **Saisie de score sur match TBD** : Correction d'un bug permettant à un joueur en attente d'adversaire (TBD) de saisir et valider un score. Les champs de saisie sont désormais masqués et le backend rejette toute tentative de soumission de score sur un match dont l'adversaire n'est pas encore déterminé.
+
 ## [1.17.5] - 2026-06-19
 
 ### Corrections de bugs

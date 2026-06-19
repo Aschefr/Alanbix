@@ -158,14 +158,16 @@ core_features_deep_dive:
         1. 🏆 Classement Personnel (podium coloré, team badges)
         2. 👥 Classement Équipes (score pondéré/brut selon config)
         3. 🗺️ Plan de Salle (SVG interactif avec statut d'occupation)
-        4. 📊 Bracket en cours (matches avec scores, winner highlight)
+        4. 📊 Bracket en cours (matches avec scores, winner highlight, empilement vertical WB/LB en Double Élimination pour éviter la compression horizontale)
         Cycle auto 12s par slide. Navigation clavier : ← → (slide), Espace (pause/resume).
         Dots de navigation cliquables. WebSocket auto-refresh sur événements score/tournament.
         Animation CSS slide-in (cubic-bezier) entre transitions.
         viewHasData() vérifie si une slide a du contenu (leaderboard vide, pas d'équipes, pas de sièges,
         pas de tournoi RUNNING) et skip automatiquement les vues sans données. Boucle max VIEWS.length
         pour éviter boucle infinie si toutes les vues sont vides.
+        Lisibilité améliorée : Round Robin avec fonds contrastés semi-transparents et textes à fort contraste ; FFA avec mise en page flexible (flex-wrap/fit-content) supprimant les grands espaces vides inutiles.
       pitfalls: "Pas d'authentification sur /spectator (public endpoint)."
+
 
   ai_chat_pipeline:
     - mechanism: "Streaming SSE (Server-Sent Events)"

@@ -20,7 +20,38 @@
 
 	let ffaKeepCount = 1;
 
-	$: isAdmin = $authStore.role === 'admin';
+	let showDetails = true;
+	let showLiveStandings = false;
+
+	$: if (selectedId && currentUser) {
+		const savedShowDetails = localStorage.getItem('alanbix_show_details');
+		if (savedShowDetails !== null) {
+			showDetails = savedShowDetails === 'true';
+		} else {
+			showDetails = true;
+		}
+
+		const isFinished = selected?.status === 'DONE' || selected?.status === 'CLOSED';
+		const key = isFinished ? 'alanbix_show_finished_standings' : 'alanbix_show_live_standings';
+		const savedShowLive = localStorage.getItem(key);
+		if (savedShowLive !== null) {
+			showLiveStandings = savedShowLive === 'true';
+		} else {
+			showLiveStandings = isFinished;
+		}
+	}
+
+	function toggleDetails() {
+		showDetails = !showDetails;
+		localStorage.setItem('alanbix_show_details', showDetails.toString());
+	}
+
+	function toggleLiveStandings() {
+		showLiveStandings = !showLiveStandings;
+		const isFinished = selected?.status === 'DONE' || selected?.status === 'CLOSED';
+		const key = isFinished ? 'alanbix_show_finished_standings' : 'alanbix_show_live_standings';
+		localStorage.setItem(key, showLiveStandings.toString());
+	}
 
 	// Tournament Creation State
 	let showCreateModal = false;
@@ -794,7 +825,7 @@
 	</aside>
 
 	<!-- Main Detail -->
-	<main class="t-detail">
+	<main class="t-detail" class:collapsed-layout={selected?.status === 'RUNNING' && !showDetails}>
 		{#if selected}
 			<!-- Hero -->
 			<div class="detail-hero" style="background-image: url({selectedGame?.image_url || ''})">
@@ -802,7 +833,7 @@
 				<div class="hero-overlay">
 					<div class="hero-content">
 						<span class="status-pill {selected.status.toLowerCase()}">
-							{selected.status === 'OPEN' ? '🟢 ' + $t('tourneys_status_open') : selected.status === 'RUNNING' ? '🔵 ' + $t('tourneys_status_running') : selected.status === 'CLOSED' ? '🏁 ' + $t('tourneys_status_closed') : '⚪ ' + $t('tourneys_status_done')}
+							{selected.status === 'OPEN' ? '🟢 ' + $t('tourneys_status_open') : selected?.status === 'RUNNING' ? '🔵 ' + $t('tourneys_status_running') : selected.status === 'CLOSED' ? '🏁 ' + $t('tourneys_status_closed') : '⚪ ' + $t('tourneys_status_done')}
 						</span>
 						<h1>{selected.name}</h1>
 						<span class="hero-game">{selectedGame?.name || '—'}</span>
@@ -824,91 +855,107 @@
 			</div>
 
 			<!-- Info Cards -->
-			<div class="detail-body">
-				<div class="info-row">
-					<div class="info-card glass"><span class="info-label">{$t("admin_tourneys_wizard_format_lbl")}</span><span class="info-value">{bracketLabel(selected.config?.bracket_type)}</span></div>
-					<div class="info-card glass"><span class="info-label">{$t("admin_tourneys_wizard_mode_lbl")}</span><span class="info-value">{selected.config?.use_teams ? `${$t('admin_tourneys_wizard_mode_teams')} (x${selected.config?.team_size || 2})` : 'Solo'}</span></div>
-					<div class="info-card glass"><span class="info-label">{$t("admin_tourneys_wizard_points_lbl")}</span><span class="info-value accent" style="font-size:0.85rem">🥇{selected.config?.pts_winner ?? 10} 🥈{selected.config?.pts_second ?? 6} 🥉{selected.config?.pts_third ?? 4} 👤{selected.config?.pts_participation ?? 1}/m ⚡{selected.config?.pts_per_match ?? selected.config?.pts_per_goal ?? 1.0}</span></div>
-					<div class="info-card glass"><span class="info-label">{$t("dash_stat_players")}</span><span class="info-value">{participants.length}</span></div>
-					{#if selected.config?.lower_score_is_better}
-						<div class="info-card glass"><span class="info-label">{$t("admin_tourneys_wizard_format_lbl")}</span><span class="info-value" style="color:#f59e0b">{$t("tourneys_opt_reverse")}</span></div>
+			<div class="detail-body" class:collapsed-layout={selected?.status === 'RUNNING' && !showDetails}>
+				<div class="controls-row">
+					{#if selected?.status === 'RUNNING'}
+						<button class="toggle-details-btn glass" on:click={toggleDetails}>
+							{showDetails ? '▲ ' + $t('tourneys_btn_hide_details') : '▼ ' + $t('tourneys_btn_show_details')}
+						</button>
+					{/if}
+					{#if selected?.status === 'RUNNING' || selected?.status === 'DONE' || selected?.status === 'CLOSED'}
+						{#if liveStandings.length > 0}
+							<button class="toggle-live-btn glass" on:click={toggleLiveStandings}>
+								{showLiveStandings ? '◀ ' + ($t('tourneys_hide_standings') || 'Masquer le classement') : '▶ ' + ($t('tourneys_show_standings') || 'Classement live')}
+							</button>
+						{/if}
+					{/if}
+
+					{#if currentUser?.is_admin}
+						<div class="admin-bar glass">
+							<span class="admin-bar-label">⚙️ {$t("nav_administration")}</span>
+							<div class="admin-bar-actions">
+								{#if selected.status === 'OPEN'}
+									<button class="admin-btn start" on:click={startTournament} disabled={participants.length < 2}>
+										▶ {$t('tourneys_btn_start')}{#if participants.length < 2} (min. 2){/if}
+									</button>
+								{/if}
+								{#if selected?.status === 'RUNNING'}
+									<button class="admin-btn stop" on:click={stopTournament}>⏹ {$t('tourneys_btn_finish')}</button>
+								{/if}
+								{#if selected.status === 'DONE'}
+									{#if confirmingClose}
+										<span class="inline-confirm">
+											<span class="inline-confirm-label">{$t("tourneys_confirm_close")}</span>
+											<button class="admin-btn confirm-yes" on:click={closeTournament}>✓ {$t("tourneys_confirm_yes")}</button>
+											<button class="admin-btn confirm-no" on:click={() => confirmingClose = false}>✕</button>
+										</span>
+									{:else}
+										<button class="admin-btn close" on:click={() => confirmingClose = true}>🏁 {$t("tourneys_btn_close")}</button>
+									{/if}
+								{/if}
+								{#if selected.status === 'CLOSED'}
+									{#if confirmingReopen}
+										<span class="inline-confirm">
+											<span class="inline-confirm-label">{$t("tourneys_confirm_reopen")}</span>
+											<button class="admin-btn confirm-yes" on:click={reopenTournament}>✓ {$t("tourneys_confirm_yes")}</button>
+											<button class="admin-btn confirm-no" on:click={() => confirmingReopen = false}>✕</button>
+										</span>
+									{:else}
+										<button class="admin-btn reset" on:click={() => confirmingReopen = true}>🔓 {$t("tourneys_btn_reopen")}</button>
+									{/if}
+								{/if}
+								{#if selected.status !== 'OPEN' && selected.status !== 'CLOSED'}
+									<button class="admin-btn reset" on:click={resetTournament}>🔄 {$t("tourneys_btn_reset")}</button>
+								{/if}
+								{#if selected.status !== 'CLOSED'}
+									<button class="admin-btn edit" on:click={openEdit}>✏️ {$t("tourneys_btn_edit")}</button>
+								{/if}
+							</div>
+						</div>
 					{/if}
 				</div>
 
-				<!-- Admin Actions -->
-				{#if currentUser?.is_admin}
-					<div class="admin-bar glass">
-						<span class="admin-bar-label">⚙️ {$t("nav_administration")}</span>
-						<div class="admin-bar-actions">
-							{#if selected.status === 'OPEN'}
-								<button class="admin-btn start" on:click={startTournament} disabled={participants.length < 2}>
-									▶ {$t('tourneys_btn_start')}{#if participants.length < 2} (min. 2){/if}
-								</button>
-							{/if}
-							{#if selected.status === 'RUNNING'}
-								<button class="admin-btn stop" on:click={stopTournament}>⏹ {$t('tourneys_btn_finish')}</button>
-							{/if}
-							{#if selected.status === 'DONE'}
-								{#if confirmingClose}
-									<span class="inline-confirm">
-										<span class="inline-confirm-label">{$t("tourneys_confirm_close")}</span>
-										<button class="admin-btn confirm-yes" on:click={closeTournament}>✓ {$t("tourneys_confirm_yes")}</button>
-										<button class="admin-btn confirm-no" on:click={() => confirmingClose = false}>✕</button>
-									</span>
-								{:else}
-									<button class="admin-btn close" on:click={() => confirmingClose = true}>🏁 {$t("tourneys_btn_close")}</button>
-								{/if}
-							{/if}
-							{#if selected.status === 'CLOSED'}
-								{#if confirmingReopen}
-									<span class="inline-confirm">
-										<span class="inline-confirm-label">{$t("tourneys_confirm_reopen")}</span>
-										<button class="admin-btn confirm-yes" on:click={reopenTournament}>✓ {$t("tourneys_confirm_yes")}</button>
-										<button class="admin-btn confirm-no" on:click={() => confirmingReopen = false}>✕</button>
-									</span>
-								{:else}
-									<button class="admin-btn reset" on:click={() => confirmingReopen = true}>🔓 {$t("tourneys_btn_reopen")}</button>
-								{/if}
-							{/if}
-							{#if selected.status !== 'OPEN' && selected.status !== 'CLOSED'}
-								<button class="admin-btn reset" on:click={resetTournament}>🔄 {$t("tourneys_btn_reset")}</button>
-							{/if}
-							{#if selected.status !== 'CLOSED'}
-								<button class="admin-btn edit" on:click={openEdit}>✏️ {$t("tourneys_btn_edit")}</button>
-							{/if}
-
-						</div>
+				{#if showDetails || selected.status !== 'RUNNING'}
+					<div class="info-row">
+						<div class="info-card glass"><span class="info-label">{$t("admin_tourneys_wizard_format_lbl")}</span><span class="info-value">{bracketLabel(selected.config?.bracket_type)}</span></div>
+						<div class="info-card glass"><span class="info-label">{$t("admin_tourneys_wizard_mode_lbl")}</span><span class="info-value">{selected.config?.use_teams ? `${$t('admin_tourneys_wizard_mode_teams')} (x${selected.config?.team_size || 2})` : 'Solo'}</span></div>
+						<div class="info-card glass"><span class="info-label">{$t("admin_tourneys_wizard_points_lbl")}</span><span class="info-value accent" style="font-size:0.85rem">🥇{selected.config?.pts_winner ?? 10} 🥈{selected.config?.pts_second ?? 6} 🥉{selected.config?.pts_third ?? 4} 👤{selected.config?.pts_participation ?? 1}/m ⚡{selected.config?.pts_per_match ?? selected.config?.pts_per_goal ?? 1.0}</span></div>
+						<div class="info-card glass"><span class="info-label">{$t("dash_stat_players")}</span><span class="info-value">{participants.length}</span></div>
+						{#if selected.config?.lower_score_is_better}
+							<div class="info-card glass"><span class="info-label">{$t("admin_tourneys_wizard_format_lbl")}</span><span class="info-value" style="color:#f59e0b">{$t("tourneys_opt_reverse")}</span></div>
+						{/if}
 					</div>
-				{/if}
 
-				<!-- Results Summary (after closing) -->
-				{#if selected.status === 'CLOSED' && selected.results}
-					<div class="results-section glass">
-						<h3>{$t("tourneys_results_title")}</h3>
-						<div class="results-table">
-							<div class="res-header">
-								<span class="res-rank">#</span>
-								<span class="res-name">{$t("tourneys_results_player_team")}</span>
-								<span class="res-pts">{$t("admin_tourneys_wizard_points_bonus")}</span>
-								<span class="res-pts">Score</span>
-								<span class="res-pts">{$t("admin_tourneys_wizard_points_part").substring(0,5)}.</span>
-								<span class="res-total">Total</span>
-							</div>
-							{#each selected.results as r}
-								<div class="res-row {r.rank === 1 ? 'gold' : r.rank === 2 ? 'silver' : r.rank === 3 ? 'bronze' : ''}">
-									<span class="res-rank">{r.rank != null && r.rank <= 3 ? ['🥇','🥈','🥉'][r.rank-1] : r.rank != null ? '#' + r.rank : '—'}</span>
-									<span class="res-name">{r.name}</span>
-									<span class="res-pts">{r.placement_pts}</span>
-									<span class="res-pts">{r.score_pts}</span>
-									<span class="res-pts">{r.participation_pts}</span>
-									<span class="res-total">{r.total}</span>
+					<!-- Results Summary (after closing) -->
+					{#if selected.status === 'CLOSED' && selected.results}
+						<div class="results-section glass">
+							<h3>{$t("tourneys_results_title")}</h3>
+							<div class="results-table">
+								<div class="res-header">
+									<span class="res-rank">#</span>
+									<span class="res-name">{$t("tourneys_results_player_team")}</span>
+									<span class="res-pts">{$t("admin_tourneys_wizard_points_bonus")}</span>
+									<span class="res-pts">Score</span>
+									<span class="res-pts">{$t("admin_tourneys_wizard_points_part").substring(0,5)}.</span>
+									<span class="res-total">Total</span>
 								</div>
-							{/each}
+								{#each selected.results as r}
+									<div class="res-row {r.rank === 1 ? 'gold' : r.rank === 2 ? 'silver' : r.rank === 3 ? 'bronze' : ''}">
+										<span class="res-rank">{r.rank != null && r.rank <= 3 ? ['🥇','🥈','🥉'][r.rank-1] : r.rank != null ? '#' + r.rank : '—'}</span>
+										<span class="res-name">{r.name}</span>
+										<span class="res-pts">{r.placement_pts}</span>
+										<span class="res-pts">{r.score_pts}</span>
+										<span class="res-pts">{r.participation_pts}</span>
+										<span class="res-total">{r.total}</span>
+									</div>
+								{/each}
+							</div>
 						</div>
-					</div>
-
+					{/if}
 				{/if}
-				<!-- Participants / Pool -->
+
+			{#if showDetails || selected.status !== 'RUNNING'}
+			<!-- Participants / Pool -->
 				{#if !useTeams || selected.status === 'OPEN' || isAdmin}
 				<div class="participants-section glass">
 					<div class="section-title">
@@ -1043,7 +1090,10 @@
 					</div>
 				{/if}
 
-				<!-- Bracket -->
+				{/if}
+
+			<div class="tournament-split-layout" class:split-active={showLiveStandings && liveStandings.length > 0} class:split-fill={selected?.status === 'RUNNING' && !showDetails}>
+			<!-- Bracket -->
 				<div class="bracket-section glass" class:bracket-expanded={hasBracket}>
 					<div class="section-title">
 						<h3>{bracketType === 'round_robin' ? '📊 ' + $t('admin_tourneys_wizard_format_championship') : bracketType === 'ffa' ? '🏁 Free For All' : '📊 ' + $t('tourneys_tab_bracket')}</h3>
@@ -1059,7 +1109,7 @@
   									<div class="ffa-round {isLatest ? 'ffa-current' : 'ffa-past'}">
   										<div class="ffa-round-hdr" style="display: flex; justify-content: space-between; align-items: center;">
   											<span>{$t('tourneys_round_number', { num: ri + 1 })}</span>
-  											{#if isAdmin && isLatest && ri > 0 && selected.status === 'RUNNING'}
+  											{#if isAdmin && isLatest && ri > 0 && selected?.status === 'RUNNING'}
   												{#if confirmingRollback}
   													<span class="inline-confirm" style="margin-left: auto; display: inline-flex; align-items: center; gap: 0.3rem;">
   														<span class="inline-confirm-label" style="font-size: 0.7rem;">{$t('admin_tourneys_confirm_delete')}</span>
@@ -1078,7 +1128,7 @@
 												<div class="ffa-players">
 													{#each match.p as playerId, pi}
 														{@const mRank = getFFAMatchRank(match, pi, lowerIsBetter)}
-														<div class="ffa-player-row {mRank === 1 ? 'ffa-gold' : mRank === 2 ? 'ffa-silver' : mRank === 3 ? 'ffa-bronze' : ''}">
+														<div class="ffa-player-row {mRank === 1 ? 'ffa-gold' : mRank === 2 ? 'ffa-silver' : mRank === 3 ? 'ffa-bronze' : ''}" class:my-player-highlight={useTeams ? (playerId === myTeamSlotId) : (playerId === currentUser?.id)}>
 															<span class="ffa-rank">
 																{#if mRank}#{mRank}{:else}—{/if}
 															</span>
@@ -1098,7 +1148,7 @@
 											</div>
 										{/each}
 										</div>
-  										{#if isAdmin && isLatest && roundAllPlaced && selected.status === 'RUNNING'}
+  										{#if isAdmin && isLatest && roundAllPlaced && selected?.status === 'RUNNING'}
   											<div class="ffa-actions">
 												<div class="ffa-advance-box" style="display:flex; align-items:center; gap:0.5rem; justify-content:center; margin-bottom: 1rem;">
 													<label style="font-size: 0.9rem; color: var(--text-muted); font-weight: 600;">{$t('tourneys_ffa_keep_players')}</label>
@@ -1128,7 +1178,7 @@
 														{@const s1 = match.score?.[1] ?? null}
 														{@const isDone = s0 !== null && s1 !== null && (s0 !== 0 || s1 !== 0) && (s0 !== s1 || selected?.config?.allow_draws)}
 														<div class="rr-match {isDone ? 'match-done' : ''}">
-															<span class="rr-p {isDone && (lowerIsBetter ? s0 < s1 : s0 > s1) ? 'winner' : ''}">{getPlayerName(match.p[0], nameMap)}{#if match.p[0] > 0 && seatMap[match.p[0]]}<a href="/dashboard/map?highlight={seatMap[match.p[0]]}" class="seat-badge" title={$t('tourneys_view_on_map')}>💺{seatMap[match.p[0]]}</a>{/if}</span>
+															<span class="rr-p {isDone && (lowerIsBetter ? s0 < s1 : s0 > s1) ? 'winner' : ''}" class:my-player-highlight={useTeams ? (match.p[0] === myTeamSlotId) : (match.p[0] === currentUser?.id)}>{getPlayerName(match.p[0], nameMap)}{#if match.p[0] > 0 && seatMap[match.p[0]]}<a href="/dashboard/map?highlight={seatMap[match.p[0]]}" class="seat-badge" title={$t('tourneys_view_on_map')}>💺{seatMap[match.p[0]]}</a>{/if}</span>
 															<div class="rr-scores">
 																{#if booleanMode}
 																	{#if isDone}
@@ -1169,7 +1219,7 @@
 																	{/if}
 																{/if}
 															</div>
-															<span class="rr-p {isDone && (lowerIsBetter ? s1 < s0 : s1 > s0) ? 'winner' : ''}">{getPlayerName(match.p[1], nameMap)}{#if match.p[1] > 0 && seatMap[match.p[1]]}<a href="/dashboard/map?highlight={seatMap[match.p[1]]}" class="seat-badge" title={$t('tourneys_view_on_map')}>💺{seatMap[match.p[1]]}</a>{/if}</span>
+															<span class="rr-p {isDone && (lowerIsBetter ? s1 < s0 : s1 > s0) ? 'winner' : ''}" class:my-player-highlight={useTeams ? (match.p[1] === myTeamSlotId) : (match.p[1] === currentUser?.id)}>{getPlayerName(match.p[1], nameMap)}{#if match.p[1] > 0 && seatMap[match.p[1]]}<a href="/dashboard/map?highlight={seatMap[match.p[1]]}" class="seat-badge" title={$t('tourneys_view_on_map')}>💺{seatMap[match.p[1]]}</a>{/if}</span>
 															{#if getPendingProgress(match, 0, pendingTick) !== null || getPendingProgress(match, 1, pendingTick) !== null}
 																<div class="score-pending rr-pending">
 																	<div class="score-pending-bar" style="width:{((getPendingProgress(match, 0, pendingTick) ?? getPendingProgress(match, 1, pendingTick)) * 100).toFixed(0)}%"></div>
@@ -1208,7 +1258,7 @@
 														{#if !isBye && !isAutoWin}
 														<div class="bracket-match {isDone ? 'match-done' : ''} {hoveredPlayerId && (match.p[0] === hoveredPlayerId || match.p[1] === hoveredPlayerId) ? 'player-highlight' : ''}">
 															<!-- svelte-ignore a11y-no-static-element-interactions -->
-															<div class="player-row {match.p[0] ? 'filled' : ''} {isDone && (lowerIsBetter ? s0 < s1 : s0 > s1) ? 'winner' : ''} {isDone && (lowerIsBetter ? s0 > s1 : s0 < s1) ? 'loser' : ''}" on:mouseenter={() => { if(match.p[0]) hoveredPlayerId = match.p[0]; }} on:mouseleave={() => hoveredPlayerId = null}>
+															<div class="player-row {match.p[0] ? 'filled' : ''} {isDone && (lowerIsBetter ? s0 < s1 : s0 > s1) ? 'winner' : ''} {isDone && (lowerIsBetter ? s0 > s1 : s0 < s1) ? 'loser' : ''}" class:my-player-highlight={useTeams ? (match.p[0] === myTeamSlotId) : (match.p[0] === currentUser?.id)} on:mouseenter={() => { if(match.p[0]) hoveredPlayerId = match.p[0]; }} on:mouseleave={() => hoveredPlayerId = null}>
 																<span class="player-name">{getPlayerName(match.p[0], nameMap)}</span>
 																{#if match.p[0] > 0 && seatMap[match.p[0]]}<a href="/dashboard/map?highlight={seatMap[match.p[0]]}" class="seat-badge" title={$t('tourneys_view_on_map')}>📍{seatMap[match.p[0]]}</a>{/if}
 																{#if booleanMode}
@@ -1238,7 +1288,7 @@
 															</div>
 															<div class="match-divider"></div>
 															<!-- svelte-ignore a11y-no-static-element-interactions -->
-															<div class="player-row {match.p[1] ? 'filled' : ''} {isDone && (lowerIsBetter ? s1 < s0 : s1 > s0) ? 'winner' : ''} {isDone && (lowerIsBetter ? s1 > s0 : s1 < s0) ? 'loser' : ''}" on:mouseenter={() => { if(match.p[1]) hoveredPlayerId = match.p[1]; }} on:mouseleave={() => hoveredPlayerId = null}>
+															<div class="player-row {match.p[1] ? 'filled' : ''} {isDone && (lowerIsBetter ? s1 < s0 : s1 > s0) ? 'winner' : ''} {isDone && (lowerIsBetter ? s1 > s0 : s1 < s0) ? 'loser' : ''}" class:my-player-highlight={useTeams ? (match.p[1] === myTeamSlotId) : (match.p[1] === currentUser?.id)} on:mouseenter={() => { if(match.p[1]) hoveredPlayerId = match.p[1]; }} on:mouseleave={() => hoveredPlayerId = null}>
 																<span class="player-name">{getPlayerName(match.p[1], nameMap)}</span>
 																{#if match.p[1] > 0 && seatMap[match.p[1]]}<a href="/dashboard/map?highlight={seatMap[match.p[1]]}" class="seat-badge" title={$t('tourneys_view_on_map')}>📍{seatMap[match.p[1]]}</a>{/if}
 																{#if booleanMode}
@@ -1295,7 +1345,7 @@
 															{#if !isBye && !isAutoWin}
 															<div class="bracket-match lb-match {isDone ? 'match-done' : ''} {hoveredPlayerId && (match.p[0] === hoveredPlayerId || match.p[1] === hoveredPlayerId) ? 'player-highlight' : ''}">
 																<!-- svelte-ignore a11y-no-static-element-interactions -->
-																<div class="player-row {match.p[0] ? 'filled' : ''} {isDone && (lowerIsBetter ? s0 < s1 : s0 > s1) ? 'winner' : ''} {isDone && (lowerIsBetter ? s0 > s1 : s0 < s1) ? 'loser' : ''}" on:mouseenter={() => { if(match.p[0]) hoveredPlayerId = match.p[0]; }} on:mouseleave={() => hoveredPlayerId = null}>
+																<div class="player-row {match.p[0] ? 'filled' : ''} {isDone && (lowerIsBetter ? s0 < s1 : s0 > s1) ? 'winner' : ''} {isDone && (lowerIsBetter ? s0 > s1 : s0 < s1) ? 'loser' : ''}" class:my-player-highlight={useTeams ? (match.p[0] === myTeamSlotId) : (match.p[0] === currentUser?.id)} on:mouseenter={() => { if(match.p[0]) hoveredPlayerId = match.p[0]; }} on:mouseleave={() => hoveredPlayerId = null}>
 																	<span class="player-name">{getPlayerName(match.p[0], nameMap)}</span>
 																	{#if match.p[0] > 0 && seatMap[match.p[0]]}<a href="/dashboard/map?highlight={seatMap[match.p[0]]}" class="seat-badge" title={$t('tourneys_view_on_map')}>📍{seatMap[match.p[0]]}</a>{/if}
 																	{#if booleanMode}
@@ -1323,7 +1373,7 @@
 																</div>
 																<div class="match-divider"></div>
 																<!-- svelte-ignore a11y-no-static-element-interactions -->
-																<div class="player-row {match.p[1] ? 'filled' : ''} {isDone && (lowerIsBetter ? s1 < s0 : s1 > s0) ? 'winner' : ''} {isDone && (lowerIsBetter ? s1 > s0 : s1 < s0) ? 'loser' : ''}" on:mouseenter={() => { if(match.p[1]) hoveredPlayerId = match.p[1]; }} on:mouseleave={() => hoveredPlayerId = null}>
+																<div class="player-row {match.p[1] ? 'filled' : ''} {isDone && (lowerIsBetter ? s1 < s0 : s1 > s0) ? 'winner' : ''} {isDone && (lowerIsBetter ? s1 > s0 : s1 < s0) ? 'loser' : ''}" class:my-player-highlight={useTeams ? (match.p[1] === myTeamSlotId) : (match.p[1] === currentUser?.id)} on:mouseenter={() => { if(match.p[1]) hoveredPlayerId = match.p[1]; }} on:mouseleave={() => hoveredPlayerId = null}>
 																	<span class="player-name">{getPlayerName(match.p[1], nameMap)}</span>
 																	{#if match.p[1] > 0 && seatMap[match.p[1]]}<a href="/dashboard/map?highlight={seatMap[match.p[1]]}" class="seat-badge" title={$t('tourneys_view_on_map')}>📍{seatMap[match.p[1]]}</a>{/if}
 																	{#if booleanMode}
@@ -1382,7 +1432,7 @@
 				</div>
 
 				<!-- Live Standings -->
-				{#if liveStandings.length > 0}
+				{#if showLiveStandings && liveStandings.length > 0}
 					<div class="live-standings glass">
 						<div class="section-title"><h3>📊 {$t(selected?.status === 'RUNNING' ? 'tourneys_standings_live' : 'tourneys_standings_final')}</h3>{#if selected?.status === 'RUNNING'}<span class="live-badge">⚡ LIVE</span>{:else}<span class="live-badge" style="color:#3b82f6;background:rgba(59,130,246,0.1);border-color:rgba(59,130,246,0.2)">✅ FINAL</span>{/if}</div>
 						<div class="ls-config-summary">
@@ -1411,6 +1461,8 @@
 					</div>
 				{/if}
 
+
+				</div>
 
 				<!-- Admin: unregistered users -->
 				{#if currentUser?.is_admin && selected.status === 'OPEN' && unregisteredUsers.length > 0}
@@ -1530,7 +1582,20 @@
 	}
 
 	/* === LAYOUT === */
-	.tournaments-layout { display: flex; height: calc(100vh - 5rem); }
+	.tournaments-layout {
+		display: flex;
+		height: 100%;
+		--highlight-border: #d8b4fe;
+		--highlight-bg: rgba(168, 85, 247, 0.28);
+		--highlight-text: #f5f3ff;
+		--highlight-glow: rgba(168, 85, 247, 0.35);
+	}
+	:global([data-theme="light"]) .tournaments-layout {
+		--highlight-border: #9333ea;
+		--highlight-bg: rgba(168, 85, 247, 0.25);
+		--highlight-text: #581c87;
+		--highlight-glow: rgba(147, 51, 234, 0.2);
+	}
 
 	/* === SIDEBAR === */
 	.t-sidebar { width: 280px; min-width: 260px; display: flex; flex-direction: column; padding: 0; overflow: hidden; flex-shrink: 0; margin-right: 1.5rem; position: relative; z-index: 2; }
@@ -1601,7 +1666,7 @@
 	.status-pill.done { background: rgba(100,116,139,0.2); color: #94a3b8; border: 1px solid rgba(100,116,139,0.3); }
 	.status-pill.closed { background: rgba(16,185,129,0.2); color: #34d399; border: 1px solid rgba(16,185,129,0.3); }
 
-	.detail-body { padding: 1.2rem 1.5rem; display: flex; flex-direction: column; gap: 1.2rem; }
+	.detail-body { padding: 1.2rem 1.5rem; display: flex; flex-direction: column; gap: 1.2rem; flex-grow: 1; min-height: 0; }
 	.info-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 0.8rem; }
 	.info-card { padding: 0.8rem; display: flex; flex-direction: column; gap: 0.2rem; border-radius: 10px; }
 	.info-label { font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
@@ -1629,6 +1694,18 @@
 	.bracket-match { width: 240px; background: var(--hover-tint); border: 1px solid var(--glass-border); border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.15); }
 	.player-row { display: flex; align-items: center; justify-content: space-between; padding: 0.55rem 0.85rem; font-size: 0.85rem; background: var(--surface-sunken); color: var(--text-muted); }
 	.player-row.filled { color: var(--text-main); background: var(--accent-soft); }
+	.my-player-highlight {
+		border-left: 4px solid var(--highlight-border) !important;
+		background: var(--highlight-bg) !important;
+		box-shadow: inset 0 0 6px var(--highlight-glow) !important;
+	}
+	.my-player-highlight.rr-p,
+	.my-player-highlight .player-name,
+	.my-player-highlight .ffa-name {
+		color: var(--highlight-text) !important;
+		text-shadow: 0 0 6px var(--highlight-glow);
+		font-weight: 800 !important;
+	}
 	.player-row.winner { background: rgba(34,197,94,0.15); color: #4ade80; }
 	.player-row.winner .score-input, .player-row.winner .score-display { color: #4ade80; }
 	.player-row.loser { opacity: 0.45; }
@@ -2135,6 +2212,9 @@
 	.ffa-gold { background: rgba(255,215,0,0.12) !important; border-left: 3px solid #ffd700; }
 	.ffa-silver { background: rgba(192,192,192,0.1) !important; border-left: 3px solid #c0c0c0; }
 	.ffa-bronze { background: rgba(205,127,50,0.1) !important; border-left: 3px solid #cd7f32; }
+	.ffa-player-row.my-player-highlight.ffa-gold { background: rgba(255,215,0,0.15) !important; }
+	.ffa-player-row.my-player-highlight.ffa-silver { background: rgba(192,192,192,0.12) !important; }
+	.ffa-player-row.my-player-highlight.ffa-bronze { background: rgba(205,127,50,0.12) !important; }
 	.ffa-rank { font-weight: 800; min-width: 28px; text-align: center; color: var(--accent); font-size: 0.75rem; }
 	.ffa-name { flex: 1; font-weight: 600; }
 	.ffa-input { width: 48px !important; text-align: center; }
@@ -2198,4 +2278,29 @@
 		line-height: 1; display: inline-flex; align-items: center; justify-content: center;
 	}
 	.bool-reset-btn:hover { opacity: 1; transform: scale(1.2); }
+
+	/* === CONTROLS ROW === */
+	.controls-row { display: flex; align-items: stretch; gap: 0.75rem; margin-bottom: 0.5rem; width: 100%; }
+	.controls-row .admin-bar { flex-grow: 1; margin-bottom: 0; padding: 0.4rem 1rem; }
+	.controls-row .toggle-details-btn, .controls-row .toggle-live-btn { margin-bottom: 0; flex-shrink: 0; align-self: stretch; border-radius: 10px; }
+	.detail-body.collapsed-layout { padding-bottom: 0; }
+	.t-detail.collapsed-layout { overflow-y: hidden; }
+	.toggle-details-btn, .toggle-live-btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; padding: 0.5rem 1rem; font-size: 0.75rem; font-weight: 700; color: var(--accent); background: var(--accent-soft); border: 1px solid var(--glass-border); border-radius: 8px; cursor: pointer; transition: all 0.2s ease-in-out; align-self: flex-start; margin-bottom: 0.5rem; }
+	.toggle-details-btn:hover, .toggle-live-btn:hover { background: var(--accent); color: white; box-shadow: 0 0 10px var(--accent-glow); transform: translateY(-1px); }
+	.toggle-details-btn:active, .toggle-live-btn:active { transform: translateY(0); }
+	/* === TOURNAMENT SPLIT LAYOUT === */
+	.tournament-split-layout { display: flex; flex-direction: column; gap: 1.5rem; width: 100%; flex-shrink: 0; }
+	
+	/* Layout behavior for folded (max-height viewport) mode */
+	.tournament-split-layout.split-fill { flex-grow: 1; min-height: 0; flex-shrink: 1; height: 100%; }
+	.split-fill > .bracket-section { flex-grow: 1; min-height: 0; height: 100%; }
+	.split-fill > .live-standings { flex-grow: 1; min-height: 0; height: 100%; display: flex; flex-direction: column; }
+	.split-fill .ls-list { flex-grow: 1; min-height: 0; overflow-y: auto; max-height: none; }
+	.split-fill .ffa-container { max-height: none; flex-grow: 1; min-height: 0; }
+	.split-fill .bracket-viewport-wrapper { flex-grow: 1; min-height: 0; height: 100%; }
+
+	/* Active split layout (side-by-side) - Ordered last to win cascade and force 50% width */
+	.tournament-split-layout.split-active { flex-direction: row; align-items: stretch; }
+	.split-active > .bracket-section { flex: 1 1 0%; min-width: 0; }
+	.split-active > .live-standings { flex: 1 1 0%; min-width: 300px; margin-top: 0; }
 </style>

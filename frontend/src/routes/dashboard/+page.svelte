@@ -137,6 +137,31 @@
 	$: bracketRounds = activeTournament ? getRounds(activeTournament.bracket) : [];
 	$: activeBracketType = activeTournament?.config?.bracket_type || 'single_elim';
 
+	$: dashRRGroups = (() => {
+		if (activeBracketType !== 'round_robin' || !activeTournament) return [];
+		const groups = {};
+		(activeTournament.bracket || []).forEach(m => {
+			if (!groups[m.id.s]) groups[m.id.s] = [];
+			groups[m.id.s].push(m);
+		});
+		return Object.keys(groups).sort((a,b) => a-b).map(k => ({
+			id: k,
+			rounds: getRounds(groups[k])
+		}));
+	})();
+
+	$: wbRounds = activeBracketType === 'double_elim' ? getRounds((activeTournament?.bracket || []).filter(m => m.id.s === 1)) : bracketRounds;
+	$: lbRoundsRaw = activeBracketType === 'double_elim' ? getRounds((activeTournament?.bracket || []).filter(m => m.id.s === 2)) : [];
+	$: lbRounds = lbRoundsRaw.map((roundMatches, ri) => {
+		const hasVisible = roundMatches.some(m => {
+			const isBye = m.p[0] === 0 && m.p[1] === 0;
+			const s0 = m.score?.[0] ?? null, s1 = m.score?.[1] ?? null;
+			const isAutoWin = (m.p[0] === 0 || m.p[1] === 0) && (s0 > 0 || s1 > 0);
+			return !isBye && !isAutoWin;
+		});
+		return hasVisible ? { matches: roundMatches, originalIndex: ri } : null;
+	}).filter(Boolean);
+
 	// --- Pan/Zoom for map preview ---
 	let mapVb = { x: 0, y: 0, w: 900, h: 600 };
 	let mapVbInit = false;
@@ -586,20 +611,71 @@
 							<!-- FFA compact view -->
 							<div class="dash-ffa">
 								{#each bracketRounds as roundMatches, ri}
-									{@const match = roundMatches[0]}
 									{@const isLatest = ri === bracketRounds.length - 1}
 									<div class="dash-ffa-round" class:ffa-latest={isLatest}>
-										<div class="dash-ffa-hdr">{$t('dash_bracket_ffa_round', { round: ri+1, count: match.p.length })}</div>
-										{#each match.p as pid, pi}
-											{@const mRank = getFFAMatchRank(match, pi, activeTournament?.config?.lower_score_is_better)}
-											<div class="dash-ffa-row {mRank === 1 ? 'gold' : mRank === 2 ? 'silver' : mRank === 3 ? 'bronze' : ''}">
-												<span class="dash-ffa-pos">{mRank ? '#' + mRank : '—'}</span>
-												<span style="flex:1">{getPlayerName(pid, dashNameMap)}</span>
-												{#if match.score?.[pi] > 0}
-													<span class="dash-ffa-score">{match.score[pi]}</span>
-												{/if}
+										<div class="dash-ffa-hdr" style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.8rem; background: var(--surface-sunken); border-radius: 8px 8px 0 0; font-weight: 700; color: var(--accent); margin-bottom: 0.5rem;">
+											{$t('dash_bracket_ffa_round', { round: ri+1, count: roundMatches.length })}
+										</div>
+										<div class="dash-ffa-matches" style="display: flex; flex-direction: column; gap: 0.8rem; padding: 0 0.5rem 0.5rem;">
+										{#each roundMatches as match, mi}
+											<div class="dash-ffa-match-box">
+												<div class="dash-ffa-count" style="font-size: 0.7rem; color: var(--text-muted); font-weight: 600; margin-bottom: 0.3rem;">Match {mi + 1} - {$t(match.p.length > 1 ? 'admin_tourneys_players_count_plural' : 'admin_tourneys_players_count_singular', { count: match.p.length })}</div>
+												{#each match.p as pid, pi}
+													{@const mRank = getFFAMatchRank(match, pi, activeTournament?.config?.lower_score_is_better)}
+													<div class="dash-ffa-row {mRank === 1 ? 'gold' : mRank === 2 ? 'silver' : mRank === 3 ? 'bronze' : ''}">
+														<span class="dash-ffa-pos">{mRank ? '#' + mRank : '—'}</span>
+														<span style="flex:1">{getPlayerName(pid, dashNameMap)}</span>
+														{#if match.score?.[pi] > 0}
+															<span class="dash-ffa-score">{match.score[pi]}</span>
+														{/if}
+													</div>
+												{/each}
 											</div>
 										{/each}
+										</div>
+									</div>
+								{/each}
+							</div>
+						{:else if activeBracketType === 'round_robin'}
+							<!-- Round Robin view -->
+							<div class="dash-rr">
+								{#each dashRRGroups as group}
+									<div class="dash-rr-group" style="margin-bottom: 1.5rem; width: 100%;">
+										{#if dashRRGroups.length > 1}
+											<h4 style="color: var(--accent); font-weight: 800; margin-bottom: 0.5rem;">Poule {String.fromCharCode(64 + parseInt(group.id))}</h4>
+										{/if}
+										<div class="dash-rr-rounds" style="display: flex; flex-wrap: wrap; gap: 1rem;">
+											{#each group.rounds as roundMatches, ri}
+												<div class="dash-rr-round" style="min-width: 250px; flex: 1;">
+													<div class="dash-rr-hdr" style="font-weight: 700; color: var(--text-muted); margin-bottom: 0.5rem; font-size: 0.8rem; text-transform: uppercase;">{$t('spec_matchday_num', { num: ri + 1 })}</div>
+													<div class="dash-rr-matches" style="display: flex; flex-direction: column; gap: 0.4rem;">
+														{#each roundMatches as match}
+															{@const s0 = match.score?.[0] ?? null}
+															{@const s1 = match.score?.[1] ?? null}
+															{@const isDone = s0 !== null && s1 !== null && (s0 !== 0 || s1 !== 0) && (s0 !== s1 || activeTournament?.config?.allow_draws)}
+															{@const lowerIsBetter = activeTournament?.config?.lower_score_is_better}
+															{@const p0Winner = isDone && (lowerIsBetter ? s0 < s1 : s0 > s1)}
+															{@const p1Winner = isDone && (lowerIsBetter ? s1 < s0 : s1 > s0)}
+															<div class="dash-rr-match {isDone ? 'done' : ''}" style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: var(--surface-sunken); border-radius: 6px; border: 1px solid var(--glass-border);">
+																<span class="dash-rr-p {p0Winner ? 'winner' : ''}" style="flex: 1; {p0Winner ? 'color: var(--text-main); font-weight: 700;' : 'color: var(--text-muted);'}">{getPlayerName(match.p[0], dashNameMap)}</span>
+																
+																<span class="dash-rr-score" style="font-weight: 800; color: var(--accent); padding: 0 0.5rem;">
+																	{#if activeTournament?.config?.boolean_mode}
+																		{#if isDone}
+																			{p0Winner ? '✅' : (s0 === s1 && s0 !== 0 ? '🤝' : '❌')} - {p1Winner ? '✅' : (s0 === s1 && s0 !== 0 ? '🤝' : '❌')}
+																		{:else}—{/if}
+																	{:else}
+																		{s0 ?? 0} - {s1 ?? 0}
+																	{/if}
+																</span>
+																
+																<span class="dash-rr-p {p1Winner ? 'winner' : ''}" style="flex: 1; text-align: right; {p1Winner ? 'color: var(--text-main); font-weight: 700;' : 'color: var(--text-muted);'}">{getPlayerName(match.p[1], dashNameMap)}</span>
+															</div>
+														{/each}
+													</div>
+												</div>
+											{/each}
+										</div>
 									</div>
 								{/each}
 							</div>
@@ -610,7 +686,7 @@
 								<div class="dash-bracket-viewport" bind:this={brViewportEl} on:wheel={brWheel} on:mousedown={brDown} on:mousemove={brMove} on:mouseup={brUp} on:mouseleave={brUp} style="cursor: {brDrag ? 'grabbing' : 'grab'}">
 									<div class="dash-bracket-canvas" bind:this={brCanvasEl} style="transform: translate({brPanX}px, {brPanY}px) scale({brScale});">
 										<div class="dash-rounds">
-											{#each bracketRounds as roundMatches, ri}
+											{#each wbRounds as roundMatches, ri}
 												<div class="dash-round-col">
 													<div class="dash-round-hdr">R{ri + 1}</div>
 													<div class="dash-matches-col">
@@ -618,27 +694,68 @@
 															{@const s0 = match.score?.[0] ?? null}
 															{@const s1 = match.score?.[1] ?? null}
 															{@const isDone = s0 !== null && s1 !== null && (s0 !== 0 || s1 !== 0) && s0 !== s1}
+															{@const isBye = match.p[0] === 0 && match.p[1] === 0}
+															{@const isAutoWin = (match.p[0] === 0 || match.p[1] === 0) && (s0 > 0 || s1 > 0)}
+															{#if !isBye && !isAutoWin}
 															{@const lowerIsBetter = activeTournament?.config?.lower_score_is_better}
 															{@const p0Winner = isDone && (lowerIsBetter ? s0 < s1 : s0 > s1)}
 															{@const p0Loser = isDone && (lowerIsBetter ? s0 > s1 : s0 < s1)}
 															{@const p1Winner = isDone && (lowerIsBetter ? s1 < s0 : s1 > s0)}
 															{@const p1Loser = isDone && (lowerIsBetter ? s1 > s0 : s1 < s0)}
-															<div class="dash-match">
+															<div class="dash-match {isDone ? 'done' : ''}">
 																<div class="dm-player {match.p[0] ? 'filled' : ''} {p0Winner ? 'winner' : ''} {p0Loser ? 'loser' : ''}">
 																	<span>{getPlayerName(match.p[0], dashNameMap)}</span>
-																	<span class="dm-score">{#if activeTournament?.config?.boolean_mode}{#if s0 > s1}✅{:else if s0 < s1}❌{:else if s0 !== null && s0 > 0}🤝{:else}—{/if}{:else}{s0 ?? 0}{/if}</span>
+																	<span class="dm-score">{#if activeTournament?.config?.boolean_mode}{#if p0Winner}✅{:else if p0Loser}❌{:else if isDone}🤝{:else}—{/if}{:else}{s0 ?? 0}{/if}</span>
 																</div>
 																<div class="dm-div"></div>
 																<div class="dm-player {match.p[1] ? 'filled' : ''} {p1Winner ? 'winner' : ''} {p1Loser ? 'loser' : ''}">
 																	<span>{getPlayerName(match.p[1], dashNameMap)}</span>
-																	<span class="dm-score">{#if activeTournament?.config?.boolean_mode}{#if s1 > s0}✅{:else if s1 < s0}❌{:else if s1 !== null && s1 > 0}🤝{:else}—{/if}{:else}{s1 ?? 0}{/if}</span>
+																	<span class="dm-score">{#if activeTournament?.config?.boolean_mode}{#if p1Winner}✅{:else if p1Loser}❌{:else if isDone}🤝{:else}—{/if}{:else}{s1 ?? 0}{/if}</span>
 																</div>
 															</div>
+															{/if}
 														{/each}
 													</div>
 												</div>
 											{/each}
 										</div>
+										{#if activeBracketType === 'double_elim' && lbRounds.length > 0}
+											<div style="margin: 0 1rem; align-self: center; font-weight: 800; color: var(--text-muted); text-transform: uppercase; font-size: 0.8rem; letter-spacing: 0.1em; padding: 1rem 0; text-align: center;">Losers Bracket</div>
+											<div class="dash-rounds">
+												{#each lbRounds as lbRound, ri}
+													<div class="dash-round-col">
+														<div class="dash-round-hdr">{lbRound.originalIndex === lbRoundsRaw.length - 1 ? 'LB Finale' : 'LB R' + (lbRound.originalIndex + 1)}</div>
+														<div class="dash-matches-col">
+															{#each lbRound.matches as match}
+																{@const s0 = match.score?.[0] ?? null}
+																{@const s1 = match.score?.[1] ?? null}
+																{@const isDone = s0 !== null && s1 !== null && (s0 !== 0 || s1 !== 0) && s0 !== s1}
+																{@const isBye = match.p[0] === 0 && match.p[1] === 0}
+																{@const isAutoWin = (match.p[0] === 0 || match.p[1] === 0) && (s0 > 0 || s1 > 0)}
+																{#if !isBye && !isAutoWin}
+																{@const lowerIsBetter = activeTournament?.config?.lower_score_is_better}
+																{@const p0Winner = isDone && (lowerIsBetter ? s0 < s1 : s0 > s1)}
+																{@const p0Loser = isDone && (lowerIsBetter ? s0 > s1 : s0 < s1)}
+																{@const p1Winner = isDone && (lowerIsBetter ? s1 < s0 : s1 > s0)}
+																{@const p1Loser = isDone && (lowerIsBetter ? s1 > s0 : s1 < s0)}
+																<div class="dash-match {isDone ? 'done' : ''}" style="opacity: 0.9;">
+																	<div class="dm-player {match.p[0] ? 'filled' : ''} {p0Winner ? 'winner' : ''} {p0Loser ? 'loser' : ''}">
+																		<span>{getPlayerName(match.p[0], dashNameMap)}</span>
+																		<span class="dm-score">{#if activeTournament?.config?.boolean_mode}{#if p0Winner}✅{:else if p0Loser}❌{:else if isDone}🤝{:else}—{/if}{:else}{s0 ?? 0}{/if}</span>
+																	</div>
+																	<div class="dm-div"></div>
+																	<div class="dm-player {match.p[1] ? 'filled' : ''} {p1Winner ? 'winner' : ''} {p1Loser ? 'loser' : ''}">
+																		<span>{getPlayerName(match.p[1], dashNameMap)}</span>
+																		<span class="dm-score">{#if activeTournament?.config?.boolean_mode}{#if p1Winner}✅{:else if p1Loser}❌{:else if isDone}🤝{:else}—{/if}{:else}{s1 ?? 0}{/if}</span>
+																	</div>
+																</div>
+																{/if}
+															{/each}
+														</div>
+													</div>
+												{/each}
+											</div>
+										{/if}
 									</div>
 								</div>
 								{#if brArrowLeft}<div class="pan-arrow pan-arrow-left" on:click={() => brPanTo(100, 0)}>‹</div>{/if}

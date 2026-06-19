@@ -45,6 +45,7 @@ Nommé en clin d'œil à *Alambix* de l'univers d'Astérix — une machinerie co
 - **Fonds d'écran cinématiques** : Images de jeux en plein écran avec effet de vignetage.
 - **Contrôles clavier** : ← → (naviguer), Espace (pause/reprendre).
 - **Actualisation WebSocket** : Rafraîchissement automatique au moindre changement de score.
+- **Optimisation des affichages** : Empilement vertical de la Winner et de la Loser Bracket (Double Élimination) ; contraste et lisibilité accrus en Round Robin ; disposition fluide (flex-wrap) en FFA pour éliminer les espaces vides.
 
 ### 🗺️ Plan de Salle Interactif
 - **Drag & drop** : Placement libre des sièges et des tables (pour les admins).

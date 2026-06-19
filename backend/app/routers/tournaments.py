@@ -1025,6 +1025,9 @@ async def update_match_score(
                         break
         if not user_in_match:
             raise HTTPException(status_code=403, detail="You can only update scores for matches you are playing in")
+        # Block score entry if the match has a TBD opponent (player ID 0)
+        if any(pid == 0 for pid in scored_match["p"]):
+            raise HTTPException(status_code=403, detail="Ce match n'est pas encore prêt (adversaire TBD). Vous ne pouvez pas saisir de score.")
         # AXE-15: Non-admin cannot edit a finalized match
         existing_scores = scored_match.get("score", [])
         if bracket_type in ("single_elim", "double_elim", "round_robin"):
@@ -1061,7 +1064,18 @@ async def update_match_score(
     if bracket_type not in ("round_robin", "ffa"):
         _rollback_advancement(bracket, scored_match, bracket_type, lower_is_better)
     
-    scored_match["score"] = body.score
+    # Merge new scores with existing scores to prevent race conditions (e.g. slow typing or multi-client)
+    existing_scores = scored_match.get("score") or []
+    new_scores = []
+    max_len = max(len(body.score), len(existing_scores))
+    for i in range(max_len):
+        new_val = body.score[i] if i < len(body.score) else None
+        old_val = existing_scores[i] if i < len(existing_scores) else None
+        if new_val is None:
+            new_scores.append(old_val)
+        else:
+            new_scores.append(new_val)
+    scored_match["score"] = new_scores
     if bracket_type != "round_robin":
         _advance_bracket(bracket, scored_match, bracket_type, lower_is_better, config)
         bye_changed = False
