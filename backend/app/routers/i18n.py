@@ -58,6 +58,9 @@ def load_i18n_merged(lang: str) -> dict:
     static_path = os.path.join(STATIC_I18N_DIR, f"{lang}.json")
     data_path = os.path.join(DATA_I18N_DIR, f"{lang}.json")
 
+    if not os.path.exists(static_path) and not os.path.exists(data_path):
+        return None
+
     static_data = {}
     if os.path.exists(static_path):
         try:
@@ -73,9 +76,6 @@ def load_i18n_merged(lang: str) -> dict:
                 data_data = json.load(f)
         except Exception:
             pass
-
-    if not static_data and not data_data:
-        return {}
 
     # Merge: start with static defaults, overlay user edits
     merged = {**static_data, **data_data}
@@ -344,7 +344,7 @@ async def bulk_translate(
 def get_language(lang: str):
     lang = _sanitize_lang(lang)
     data = load_i18n_merged(lang)
-    if not data:
+    if data is None:
         raise HTTPException(status_code=404, detail="Language not found")
     return data
 
@@ -369,7 +369,7 @@ def update_language(lang: str, translations: Dict[str, str] = Body(...), admin: 
     lang = _sanitize_lang(lang)
     # Verify the language exists somewhere
     data = load_i18n_merged(lang)
-    if not data and not translations:
+    if data is None:
         raise HTTPException(status_code=404, detail="Language not found")
     
     try:

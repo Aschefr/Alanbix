@@ -758,3 +758,45 @@ def test_live_leaderboard_zero_scores(client, db_session):
     assert p0_standing["wins"] == 1, "Projected standings should count 1 win for p0"
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# TEST 11 — FFA Rollback Round
+# ═══════════════════════════════════════════════════════════════════════════
+
+def test_ffa_rollback_round(client, db_session):
+    """Verify that we can rollback an advanced FFA round."""
+    game = _create_game(db_session, "FFA Rollback", "ffa")
+    t_id = _create_tournament(client, "Rollback FFA", game.id, {
+        "bracket_type": "ffa",
+        "lower_score_is_better": True
+    })
+
+    user_ids = _get_user_ids(db_session, 8)
+    _join_players(client, t_id, user_ids)
+    _start(client, t_id)
+
+    # Round 1
+    bracket = _get_bracket(client, t_id)
+    m1 = bracket[0]
+    _score(client, t_id, m1, list(range(1, 9)))
+
+    # Advance
+    res = client.post(f"/tournaments/{t_id}/ffa-advance", json={"keep_count": 4})
+    assert res.status_code == 200
+
+    # Verify Round 2 exists
+    bracket = _get_bracket(client, t_id)
+    assert len(bracket) == 2, "Should have 2 rounds"
+    assert any(m["id"]["r"] == 2 for m in bracket)
+
+    # Rollback
+    res = client.post(f"/tournaments/{t_id}/ffa-rollback")
+    assert res.status_code == 200
+    assert res.json()["round"] == 1
+
+    # Verify Round 2 is deleted
+    bracket = _get_bracket(client, t_id)
+    assert len(bracket) == 1, "Round 2 should be deleted"
+    assert all(m["id"]["r"] == 1 for m in bracket)
+
+
+

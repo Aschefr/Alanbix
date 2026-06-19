@@ -1140,7 +1140,7 @@ async def ffa_advance_round(
         raise HTTPException(status_code=404, detail="Current round not found")
         
     lower_is_better = config.get("lower_score_is_better", False)
-    advancing_players = []
+    all_player_scores = []
     
     for m in current_matches:
         scores = m.get("score", [])
@@ -1153,17 +1153,15 @@ async def ffa_advance_round(
         if not scores or len(scores) < len(p_list) or any(scores[i] is None for i, p in enumerate(p_list) if p != 0):
             raise HTTPException(status_code=400, detail="Tous les scores doivent être renseignés avant d'avancer")
             
-        player_scores = []
         for i, p in enumerate(p_list):
             if p != 0:
-                player_scores.append((p, scores[i]))
+                all_player_scores.append((p, scores[i]))
                 
-        player_scores.sort(key=lambda x: x[1], reverse=not lower_is_better)
-        top_players = [p for p, s in player_scores[:body.keep_count]]
-        advancing_players.extend(top_players)
-        
-    if not advancing_players:
+    if not all_player_scores:
         raise HTTPException(status_code=400, detail="Aucun joueur à avancer")
+        
+    all_player_scores.sort(key=lambda x: x[1], reverse=not lower_is_better)
+    advancing_players = [p for p, s in all_player_scores[:body.keep_count]]
         
     # Create next round matches
     group_size = int(config.get("ffa_group_size", len(advancing_players))) or len(advancing_players)
@@ -1192,6 +1190,40 @@ async def ffa_advance_round(
     
     await manager.broadcast({"type": "ffa_advanced", "tournament_id": tournament_id, "round": next_r})
     return {"status": "advanced", "round": next_r, "players": len(advancing_players)}
+
+
+@router.post("/{tournament_id}/ffa-rollback")
+async def ffa_rollback_round(
+    tournament_id: int,
+    db: Session = Depends(database.get_db),
+    admin: models.User = Depends(auth.get_current_admin)
+):
+    """Delete the latest FFA round and rollback to the previous round."""
+    tournament = db.query(models.Tournament).filter(models.Tournament.id == tournament_id).first()
+    if not tournament or not tournament.bracket:
+        raise HTTPException(status_code=404, detail="Tournament not found")
+    
+    config = tournament.config or {}
+    if config.get("bracket_type") != "ffa":
+        raise HTTPException(status_code=400, detail="Not an FFA tournament")
+        
+    bracket = list(tournament.bracket)
+    if not bracket:
+        raise HTTPException(status_code=400, detail="Empty bracket")
+        
+    max_r = max(m["id"]["r"] for m in bracket)
+    if max_r <= 1:
+        raise HTTPException(status_code=400, detail="Cannot rollback the first round")
+        
+    new_bracket = [m for m in bracket if m["id"]["r"] < max_r]
+    
+    tournament.bracket = new_bracket
+    from sqlalchemy.orm.attributes import flag_modified
+    flag_modified(tournament, "bracket")
+    db.commit()
+    
+    await manager.broadcast({"type": "ffa_rolled_back", "tournament_id": tournament_id, "round": max_r - 1})
+    return {"status": "rolled_back", "round": max_r - 1}
 
 
 @router.post("/{tournament_id}/ffa-finish")

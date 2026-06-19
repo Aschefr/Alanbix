@@ -86,7 +86,7 @@
 					api.get(`/tournaments/${msg.tournament_id}/teams`).then(t => { teams = t; }).catch(() => {});
 					refreshStandings();
 				}
-				if ((msg.type === 'score_updated' || msg.type === 'ffa_advanced') && msg.tournament_id) {
+				if ((msg.type === 'score_updated' || msg.type === 'ffa_advanced' || msg.type === 'ffa_rolled_back') && msg.tournament_id) {
 					api.get('/tournaments').then(t => { tournaments = t; }).catch(() => {});
 					if (selectedId === msg.tournament_id) refreshStandings();
 				}
@@ -280,6 +280,7 @@
 	}
 
 	let confirmingReopen = false;
+	let confirmingRollback = false;
 	async function reopenTournament() {
 		try {
 			confirmingReopen = false;
@@ -392,6 +393,16 @@
 			tournaments = await api.get('/tournaments');
 			await selectTournament(selectedId);
 		} catch (e) { toast(e.message || 'Erreur', 'error'); }
+	}
+
+	async function rollbackFFA() {
+		try {
+			confirmingRollback = false;
+			await api.post(`/tournaments/${selectedId}/ffa-rollback`, {});
+			toast($t('tourneys_toast_ffa_rolled_back') || 'Manche supprimée avec succès !', 'success');
+			await loadAll();
+			await selectTournament(selectedId);
+		} catch (e) { toast(e.detail || e.message || 'Erreur', 'error'); }
 	}
 
 	// AXE-15: Check if a match is finalized (scores validated)
@@ -1046,8 +1057,19 @@
   									{@const isLatest = ri === bracketRounds.length - 1}
   									{@const roundAllPlaced = roundMatches.every(m => m.score?.every(s => s > 0))}
   									<div class="ffa-round {isLatest ? 'ffa-current' : 'ffa-past'}">
-  										<div class="ffa-round-hdr">
+  										<div class="ffa-round-hdr" style="display: flex; justify-content: space-between; align-items: center;">
   											<span>{$t('tourneys_round_number', { num: ri + 1 })}</span>
+  											{#if isAdmin && isLatest && ri > 0 && selected.status === 'RUNNING'}
+  												{#if confirmingRollback}
+  													<span class="inline-confirm" style="margin-left: auto; display: inline-flex; align-items: center; gap: 0.3rem;">
+  														<span class="inline-confirm-label" style="font-size: 0.7rem;">{$t('admin_tourneys_confirm_delete')}</span>
+  														<button class="admin-btn confirm-yes" on:click|stopPropagation|preventDefault={rollbackFFA} style="padding: 0.1rem 0.3rem; font-size: 0.7rem; border-radius: 4px; border: 1px solid var(--success); background: none; color: var(--success); cursor: pointer;">✓</button>
+  														<button class="admin-btn confirm-no" on:click|stopPropagation|preventDefault={() => confirmingRollback = false} style="padding: 0.1rem 0.3rem; font-size: 0.7rem; border-radius: 4px; border: 1px solid var(--danger); background: none; color: var(--danger); cursor: pointer;">✕</button>
+  													</span>
+  												{:else}
+  													<button class="rollback-btn" on:click|stopPropagation|preventDefault={() => confirmingRollback = true} title={$t('tourneys_ffa_rollback_tooltip')} style="background: none; border: none; color: #ef4444; cursor: pointer; font-size: 1.1rem; padding: 0 0.5rem; display: flex; align-items: center; justify-content: center; margin-left: auto;">✕</button>
+  												{/if}
+  											{/if}
   										</div>
 										<div class="ffa-matches-grid" style="display: flex; flex-direction: column; gap: 1rem;">
 										{#each roundMatches as match, mi}
@@ -1080,7 +1102,7 @@
   											<div class="ffa-actions">
 												<div class="ffa-advance-box" style="display:flex; align-items:center; gap:0.5rem; justify-content:center; margin-bottom: 1rem;">
 													<label style="font-size: 0.9rem; color: var(--text-muted); font-weight: 600;">{$t('tourneys_ffa_keep_players')}</label>
-													<input type="number" bind:value={ffaKeepCount} min="1" max={roundMatches[0].p.length} style="width: 60px; padding: 0.3rem 0.5rem; border-radius: 6px; background: var(--surface-sunken); border: 1px solid var(--glass-border); color: var(--text-main);" />
+													<input type="number" bind:value={ffaKeepCount} min="1" max={roundMatches.reduce((sum, m) => sum + m.p.length, 0)} style="width: 60px; padding: 0.3rem 0.5rem; border-radius: 6px; background: var(--surface-sunken); border: 1px solid var(--glass-border); color: var(--text-main);" />
 													<button class="admin-btn" on:click={advanceFFA} style="margin: 0;">▶️ {$t('tourneys_ffa_next_round')}</button>
 												</div>
   												<button class="admin-btn stop" on:click={finishFFA}>🏁 {$t('tourneys_ffa_finish')}</button>

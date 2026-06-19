@@ -9,8 +9,10 @@
 	export let showStatus = false;
 
 	let editConfig = {};
+	let lastTournamentId = null;
+	let lastShow = false;
 
-	$: if (tournament) {
+	$: if (tournament && (tournament.id !== lastTournamentId || (show && !lastShow))) {
 		editConfig = {
 			name: tournament.name,
 			game_id: tournament.game_id,
@@ -34,7 +36,14 @@
 			ffa_group_size: tournament.config?.ffa_group_size || 4,
 			ffa_advancers: tournament.config?.ffa_advancers || 2
 		};
+		lastTournamentId = tournament.id;
 	}
+
+	$: if (!tournament) {
+		lastTournamentId = null;
+	}
+
+	$: lastShow = show;
 
 	function close() {
 		dispatch('close');

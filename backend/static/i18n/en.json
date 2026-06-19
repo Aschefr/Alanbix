@@ -828,7 +828,7 @@
     "admin_languages_toast_sync_uptodate": "All keys are already up to date.",
     "admin_languages_toast_sync_error": "Sync error: {error}",
     "admin_languages_toast_setting_saved": "Setting saved.",
-    "tourneys_ffa_keep_players": "Players to keep/match:",
+    "tourneys_ffa_keep_players": "Total players to keep:",
     "tourneys_ffa_next_round": "Start next round",
     "tourneys_ffa_finish": "Finish tournament",
     "btn_delete": "Delete",
@@ -894,5 +894,7 @@
     "ai_typing_11": "📖 Alanbix is turning the pages of knowledge…",
     "ai_typing_12": "🌿 Gathering digital mistletoe in progress…",
     "ai_typing_13": "🏺 The alembic is running at full power…",
-    "ai_typing_14": "⭐ Alanbix is aligning the menhirs…"
+    "ai_typing_14": "⭐ Alanbix is aligning the menhirs…",
+    "tourneys_ffa_rollback_tooltip": "Delete this round and roll back",
+    "tourneys_toast_ffa_rolled_back": "Round successfully deleted!"
 }

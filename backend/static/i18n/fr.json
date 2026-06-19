@@ -832,7 +832,7 @@
     "tournaments.config.meet_twice": "Matchs Aller-Retour",
     "tournaments.config.ffa_group_size": "Joueurs max par match",
     "tournaments.config.ffa_advancers": "Qualifiés au tour suivant",
-    "tourneys_ffa_keep_players": "Joueurs à garder/match :",
+    "tourneys_ffa_keep_players": "Joueurs à garder au total :",
     "tourneys_ffa_next_round": "Lancer la manche suivante",
     "tourneys_ffa_finish": "Terminer le tournoi",
     "btn_delete": "Supprimer",
@@ -898,5 +898,7 @@
     "ai_typing_11": "📖 Alanbix tourne les pages du savoir…",
     "ai_typing_12": "🌿 Cueillette du gui numérique en cours…",
     "ai_typing_13": "🏺 L'alambic tourne à plein régime…",
-    "ai_typing_14": "⭐ Alanbix aligne les menhirs…"
+    "ai_typing_14": "⭐ Alanbix aligne les menhirs…",
+    "tourneys_ffa_rollback_tooltip": "Supprimer cette manche et revenir en arrière",
+    "tourneys_toast_ffa_rolled_back": "Manche supprimée avec succès !"
 }

@@ -15,7 +15,8 @@ def mock_i18n_dir():
         with open(os.path.join(tmp_dir, "en.json"), "w", encoding="utf-8-sig") as f:
             json.dump({"test_key": "Hello"}, f, ensure_ascii=False, indent=4)
             
-        with patch("app.routers.i18n.I18N_DIR", tmp_dir):
+        with patch("app.routers.i18n.STATIC_I18N_DIR", tmp_dir), \
+             patch("app.routers.i18n.DATA_I18N_DIR", tmp_dir):
             yield tmp_dir
 
 def test_get_language_success(client):
