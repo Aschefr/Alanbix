@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.17.5] - 2026-06-19
+
+### Corrections de bugs
+
+- **Modales Non-Intrusives (G-08)** : Remplacement de l'utilisation de `window.confirm` par une modale de confirmation inline lors de l'annulation d'une manche FFA.
+- **Robustesse des tests unitaires** : Correction des tests unitaires i18n suite à l'introduction de la séparation des répertoires de traduction en environnement de production et de données utilisateur.
+
 ## [1.17.4] - 2026-06-19
 
 ### Corrections de bugs
