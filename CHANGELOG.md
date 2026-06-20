@@ -1,12 +1,19 @@
 # Changelog
 
-## [1.17.9] - 2026-06-20
+## [1.17.10] - 2026-06-20
 
 ### Maintenance & CI/CD
 
+- **Changelog Updates**: Corrected the application changelog formatting and visibility.
 - **Strict Translation Verification (i18n)**: Enhanced the verification script to perform exhaustive checks across all translation JSON files, ensuring perfect key synchronization, absence of empty translations, and whitelist/blacklist controls for emojis.
 - **Docker Release Safeguard**: Integrated the verification check into the build script to prevent publishing incomplete translation files to Docker Hub.
 - **GitHub Actions Workflow**: Added CI checks on pushes and pull requests to enforce translation consistency and synchronization automatically.
+
+## [1.17.9] - 2026-06-20
+
+### Maintenance
+
+- **Release fixes**: Re-released verification tooling fixes.
 
 ## [1.17.8] - 2026-06-19
 
