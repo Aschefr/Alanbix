@@ -26,8 +26,8 @@ Pour valider le bon fonctionnement des brackets de tournoi ou de la messagerie s
 
 Pour associer une image et un règlement aux tournois, les administrateurs gèrent un catalogue local de jeux.
 * **Création d'un Jeu** : Allez dans **Administration > Jeux > Nouveau Jeu**.
-* **Recherche de jaquette automatique** : Pour éviter d'avoir à télécharger et héberger vous-même l'image d'un jeu, saisissez le nom du jeu et cliquez sur le bouton Loupe de recherche. Le serveur interroge en arrière-plan un moteur SearXNG (proxy local) pour récupérer l'image officielle et l'enregistrer localement dans `static/uploads/games/` afin de garantir l'offline-first de la LAN.
-* **Upload manuel** : L'administration permet également de téléverser une image de couverture directement depuis le disque dur du PC de l'administrateur.
+* **Recherche de jaquette automatique** : Pour éviter d'avoir à télécharger et héberger vous-même l'image d'un jeu, saisissez le nom du jeu et cliquez sur le bouton Loupe de recherche. Le serveur interroge en arrière-plan un moteur SearXNG (proxy local) pour récupérer l'image officielle et l'enregistrer localement dans `/app/data/game_images/` (volume persistant) afin de garantir l'offline-first de la LAN.
+* **Upload manuel** : L'administration permet également de téléverser une image de couverture directement depuis le disque dur du PC de l'administrateur, qui sera stockée de manière persistante.
 
 ![Gestion de la Bibliothèque de Jeux](../../../screenshots/alanbix_administration_jeux.png)
 
@@ -39,6 +39,7 @@ Pour associer une image et un règlement aux tournois, les administrateurs gère
 * **Renommage de la LAN** : L'administrateur peut modifier le nom de l'événement. Le changement est sauvegardé via `PUT /admin/config/event_name` et se met à jour en temps réel sur les dashboards de tous les participants grâce au WebSocket.
 
 ![Paramètres d'Administration](../../../screenshots/alanbix_administration_param%C3%A8tres.png)
+
 
 ---
 

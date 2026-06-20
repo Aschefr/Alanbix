@@ -36,6 +36,7 @@ graph LR
   * Les perdants de `WB Round K (K >= 2)` vont vers le round de Losers `LB Round 2*(K-1)`.
 * La **Grande Finale (GF)** oppose le gagnant invaincu du Winners Bracket au vainqueur rescapé du Losers Bracket.
 * *Note d'affichage* : Le round de la Grande Finale est labellisé `🏆 FINALE` avec un style doré et une marge d'espacement accrue pour le distinguer visuellement. Les rounds Losers vides sont automatiquement masqués du DOM.
+* **Affichage Spectateur / Dashboard** : Pour éviter la compression horizontale sur les résolutions standards, le Winners Bracket et le Losers Bracket sont présentés sous forme de couches distinctes et empilés verticalement sur la vue Spectateur.
 
 ![Double Élimination](../../../screenshots/alanbix_tournois_double_elimination.png)
 
@@ -43,11 +44,14 @@ graph LR
 * Pas d'arbre d'élimination. Chaque participant affronte tous les autres participants à tour de rôle.
 * Le système utilise l'**Algorithme de Rotation (Circle Method)** pour planifier automatiquement les journées (rounds) de match sans conflit de calendrier.
 * Si le nombre de participants est impair, un participant fantôme "BYE" est inséré à chaque round.
+* **Lisibilité Spectateur** : Le format dispose de cartes au fond contrasté semi-transparent et de textes blancs à fort contraste, facilitant la lecture au-dessus des arrière-plans cinématiques de jeux.
 
 ### 4. Chacun pour Soi (`ffa` / Free For All)
 * Adapté aux jeux de course (Trackmania, Mario Kart) ou de combat multijoueur (Smash à 4).
 * Une manche se compose d'une seule série de placements.
 * L'administrateur saisit le classement final de la manche dans l'interface, puis définit par configuration combien de joueurs avancent à la manche suivante.
+* **Mise en page fluide** : La vue spectateur utilise une disposition flexible (`flex-wrap`) et une hauteur dynamique (`fit-content`) qui élimine tout grand espace vide superflu entre les manches.
+* **Annulation de manche (Rollback)** : Les annulations de manche FFA sont sécurisées par une modale de confirmation inline non intrusive (évitant ainsi les `window.confirm` bloquants du navigateur).
 
 ![FFA](../../../screenshots/alanbix_tournois_FFA.png)
 
@@ -55,8 +59,13 @@ graph LR
 
 ## ⚙️ Les Mécaniques de Match et de Score
 
+### Identification visuelle du joueur
+Le pseudo du joueur connecté (ou le nom de son équipe globale/de tournoi) est mis en surbrillance dans l'arbre du tournoi avec un fond bleu accent et une bordure latérale distinctive, adapté aux thèmes clair et sombre, pour tous les formats de bracket (Single/Double Élim, Round Robin, FFA).
+
 ### La Saisie et le Verrouillage Automatique (🔒)
-* **Qui peut saisir ?** N'importe quel joueur participant au match concerné, ou un Administrateur.
+* **Qui peut saisir ?** N'importe quel joueur participant au match concerné (si l'adversaire est déterminé), ou un Administrateur.
+* **Saisie sur match TBD** : Il est interdit de saisir des scores sur un match dont l'adversaire n'est pas encore déterminé (joueur TBD, ID 0). Les champs de saisie correspondants sont automatiquement masqués sur le frontend et le backend rejette toute soumission de score contenant un joueur TBD afin de prévenir la corruption des brackets.
+* **Fusion intelligente des scores** : Les scores saisis sont fusionnés de manière atomique avec les données existantes sur le backend pour éviter les conditions de concurrence (race conditions) et les écrasements accidentels en cas de soumission simultanée.
 * **Le Verrou de Saisie (Cooldown de 5s)** : Pour éviter le vandalisme ou les erreurs de saisie simultanée entre adversaires, la validation du score applique un cooldown de 5 secondes.
 * **Le Verrou Automatique** : Une fois le score soumis et validé par le serveur, le match est marqué d'une icône Cadenas (🔒). Les joueurs ne peuvent plus modifier le score.
 * **Forçage Admin** : Seul un Administrateur système a le droit d'écraser un score verrouillé pour corriger une erreur de saisie des joueurs.

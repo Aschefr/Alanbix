@@ -33,7 +33,13 @@ Cette documentation est organisée de manière modulaire pour vous guider pas à
   * Centre de notifications unifié et commentaires de match générés par l'IA.
 * 📋 **[Page d'Informations (Markdown)](features/info-page.md)** :
   * Éditeur WYSIWYG (EasyMDE), double vue (Joueur vs Projecteur) et détection des chemins de fichiers Windows (`\\serveur\partage`).
+* 🌐 **[Gestion des Langues (i18n)](features/languages.md)** :
+  * Fonctionnement double couche (usine/utilisateur) et store réactif.
+  * Éditeur bicolonne comparative et filtrage par catégorie.
+  * Traduction automatique assistée par l'IA (Ollama) individuelle et en masse.
+  * Détection et synchronisation en un clic des clés structurelles manquantes.
 * 🛡️ **[Administration Système & Modération](features/administration.md)** :
   * Gestion complète des profils et mots de passe.
   * Bibliothèque de jeux et téléchargement automatique de jaquettes (SearXNG).
   * Monitoring des instances IA et boutons d'auto-destruction sécurisés (Purge/Nuke).
+

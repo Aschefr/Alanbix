@@ -59,7 +59,16 @@ Si un joueur discute avec l'IA et que celle-ci commence à s'embrouiller, l'admi
 
 ![AI Takeover](../../../screenshots/alanbix_administration_conversation_ia_prendre_la_main.png)
 
-### 3. Édition et Retry Inline (G-36)
+### 3. Suivi des Messages Non Lus (Badges en Temps Réel)
+Pour faciliter le suivi des échanges sans forcer le rafraîchissement de la page (zéro F5) :
+* **Côté Joueur** : Un badge rouge s'affiche sur l'onglet **Assistant IA** de la barre latérale lorsqu'une réponse IA ou admin est reçue alors que le joueur navigue sur une autre page.
+* **Côté Administrateur (Onglet Conversations IA)** :
+  * **Badge global** : L'onglet "Conversations IA" indique le nombre total de messages non lus envoyés par les joueurs (les réponses de l'IA elle-même ne sont pas comptabilisées pour l'administrateur).
+  * **Liste latérale** : Les cartes de discussion en attente affichent le nombre de nouveaux messages (ex: `2 nouveaux`), reçoivent une bordure verte distinctive de mise en évidence, et présentent un extrait du dernier message (avec l'icône de l'auteur) ainsi qu'un horodatage précis au format `JJ/MM/AAAA HH:MM:SS`.
+  * **Marquage automatique** : La conversation perd son surlignage et son badge instantanément dès que l'administrateur clique pour l'ouvrir.
+
+### 4. Édition, Retry Inline & Ergonomie
+* **Redimensionnement du Chat** : Les utilisateurs disposent d'une barre de redimensionnement pour élargir le panneau de discussion jusqu'à **70%** de la largeur de l'écran. L'ajustement de la largeur est sauvegardé de manière persistante.
 * **Bouton Crayon (✏️)** : Tout message utilisateur peut être édité inline. La modification supprime la branche de discussion ultérieure pour éviter les paradoxes de conversation et relance le flux.
 * **Bouton Retry (🔄)** : Présent sous les bulles de dialogue, il permet de ré-exécuter le message de l'utilisateur ou de régénérer une nouvelle réponse du bot si la précédente n'était pas satisfaisante.
 
@@ -72,3 +81,25 @@ Pour les événements de grande envergure, un seul PC serveur ne suffit pas pour
 1. **Configuration** : Dans **Administration > Paramètres IA**, listez les serveurs disponibles (`http://192.168.1.10:11434`, `http://192.168.1.11:11434`).
 2. **Priorités d'Instance** : Attribuez une priorité numérique à chaque serveur (ex: 0 pour un serveur avec RTX 4090, 10 pour un petit laptop).
 3. **Mécanisme de Failover** : Le backend interroge les serveurs en commençant par les plus performants. Si l'un des serveurs ne répond plus (timeout / plantage), il est désactivé temporairement (pastille rouge 🔴) et la requête bascule de manière invisible sur l'instance de secours disponible sans perturber le joueur.
+
+---
+
+## 🛠️ Les Outils de l'IA (Tool Calling)
+
+L'assistant IA d'Alanbix dispose de capacités d'appel d'outils (tool calling) lui permettant d'interagir dynamiquement avec le système et d'effectuer des tâches utiles pour les joueurs et les organisateurs :
+
+### 1. Localisation et plan de salle
+* `get_player_seat` : Permet à l'IA de retrouver le siège assigné à un joueur (format `T{table}_S{siège}`) et d'identifier ses voisins directs de table.
+
+### 2. Diagnostics Réseau et Logistique
+* `ping_host` : Permet à l'IA de tester la connectivité réseau vers une machine.
+* `traceroute_host` : Permet de diagnostiquer les chemins réseau.
+* `dns_lookup` : Effectue des résolutions d'adresses IP/noms d'hôtes.
+* `scan_local_network` : Scanne le sous-réseau local pour détecter les ports et services actifs.
+* `check_server_health` : Retourne l'état de santé global du serveur Alanbix.
+
+### 3. Informations sur les Jeux
+* `get_game_rules` : Récupère la fiche descriptive et les règles d'un jeu configuré dans la bibliothèque.
+
+*Ces outils peuvent être activés ou désactivés globalement par l'administrateur depuis les options d'administration de l'IA.*
+
