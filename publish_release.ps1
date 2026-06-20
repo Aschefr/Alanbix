@@ -27,6 +27,13 @@ $CleanVersion | Out-File -Encoding utf8 -FilePath backend/VERSION
 
 Write-Host "Nouvelle version : v$CleanVersion" -ForegroundColor Green
 
+Write-Host "Vérification des fichiers de traduction (i18n)..." -ForegroundColor Cyan
+python scripts/verify_i18n.py
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Erreur : La vérification i18n a échoué. La publication a été annulée." -ForegroundColor Red
+    exit 1
+}
+
 Write-Host "Construction de l'image Docker (Architecture courante, generalement x86_64)..." -ForegroundColor Cyan
 docker build -f Dockerfile.standalone -t aschefr/alanbix:$CleanVersion -t aschefr/alanbix:latest .
 

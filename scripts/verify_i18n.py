@@ -29,9 +29,18 @@ def check_json_files():
                 data = json.load(f)
                 keys_per_lang[file] = set(data.keys())
                 
-                # Check for emojis
+                # Check for emojis and empty values
                 for k, v in data.items():
-                    if isinstance(v, str) and EMOJI_PATTERN.search(v):
+                    if not isinstance(v, str):
+                        print(f"[ERREUR] Type invalide pour la clé '{k}' dans {file}: {type(v)}")
+                        has_error = True
+                        continue
+                    if not v.strip():
+                        print(f"[ERREUR] Valeur vide pour la clé '{k}' dans {file}")
+                        has_error = True
+                    elif EMOJI_PATTERN.search(v):
+                        if k.startswith("ai_typing_"):
+                            continue
                         print(f"[ERREUR] Émoji trouvé dans {file} à la clé '{k}': {v}")
                         has_error = True
         except Exception as e:
@@ -46,12 +55,14 @@ def check_json_files():
             missing = base_keys - keys
             extra = keys - base_keys
             if missing:
-                print(f"[ATTENTION] {len(missing)} clés manquantes dans {file} par rapport à fr.json")
+                print(f"[ERREUR] {len(missing)} clés manquantes dans {file} par rapport à fr.json: {list(missing)}")
+                has_error = True
             if extra:
-                print(f"[ATTENTION] {len(extra)} clés en trop dans {file} par rapport à fr.json")
+                print(f"[ERREUR] {len(extra)} clés en trop dans {file} par rapport à fr.json: {list(extra)}")
+                has_error = True
 
     if not has_error:
-        print("✅ Fichiers JSON propres (aucun émoji, syntaxe valide).")
+        print("✅ Fichiers JSON propres (aucun émoji hors ai_typing, syntaxe valide, clés synchrones et traduites).")
     return not has_error
 
 def check_svelte_files():
