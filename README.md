@@ -258,11 +258,55 @@ Les fichiers de traduction de référence se trouvent dans `backend/static/i18n/
 
 > ⚠️ **Important (Pour les développeurs)** : Modifiez toujours les fichiers JSON i18n via Python avec `encoding='utf-8-sig'` pour éviter de corrompre le BOM (spécificité sous Windows).
 
+## 💻 Développement Local
+
+Si vous souhaitez exécuter Alanbix localement pour le développement (hors Docker) :
+
+### Backend (FastAPI)
+
+1. Naviguez dans le dossier `backend` :
+   ```bash
+   cd backend
+   ```
+2. Créez et activez un environnement virtuel Python :
+   ```bash
+   python -m venv venv
+   # Sur Windows (PowerShell)
+   .\venv\Scripts\Activate.ps1
+   # Sur Linux/macOS
+   source venv/bin/activate
+   ```
+3. Installez les dépendances :
+   ```bash
+   pip install -r requirements.txt
+   ```
+4. Lancez le serveur de développement FastAPI :
+   ```bash
+   uvicorn app.main:app --reload --port 8000
+   ```
+   Le backend sera disponible sur : 👉 **http://localhost:8000**
+
+### Frontend (SvelteKit)
+
+1. Naviguez dans le dossier `frontend` :
+   ```bash
+   cd ../frontend
+   ```
+2. Installez les dépendances Node.js :
+   ```bash
+   npm install
+   ```
+3. Lancez le serveur de développement SvelteKit :
+   ```bash
+   npm run dev -- --port 5173
+   ```
+   Le frontend de développement sera disponible sur : 👉 **http://localhost:5173**
+
 ---
 
 ## 📄 Licence
 
-Ce projet est open source. N'hésitez pas à l'utiliser, le modifier et le distribuer.
+Ce projet est sous licence MIT. Voir le fichier [LICENSE](LICENSE) pour plus de détails.
 
 ---
 
