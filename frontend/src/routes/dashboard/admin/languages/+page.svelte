@@ -10,6 +10,7 @@
 	let targetLang = 'en';
 	let refData = {};
 	let targetData = {};
+	let targetStaticData = {};
 	
 	let searchQuery = '';
 	
@@ -107,6 +108,14 @@
 		markDirty();
 	}
 
+	function restoreDefault(key) {
+		if (targetStaticData[key] !== undefined) {
+			targetData[key] = targetStaticData[key];
+			targetData = targetData;
+			markDirty();
+		}
+	}
+
 	onMount(async () => {
 		try {
 			const me = await api.get('/me');
@@ -185,6 +194,10 @@
 		try {
 			const res = await api.get(`/api/i18n/${targetLang}`);
 			targetData = res || {};
+			try {
+				const resStatic = await api.get(`/api/i18n/${targetLang}/static`);
+				targetStaticData = resStatic || {};
+			} catch (e) { targetStaticData = {}; }
 			savedSnapshot = JSON.stringify(targetData);
 			hasUnsavedChanges = false;
 		} catch (err) {
@@ -718,7 +731,15 @@
 					{#each activeCategoryKeys as key (key)}
 						{@const isMissing = !targetData[key] || targetData[key].trim() === ''}
 						<div class="trans-row" class:row-missing={isMissing}>
-							<div class="trans-key" title={key}>{key}</div>
+							<div class="trans-key-container">
+								<div class="trans-key" title={key}>{key}</div>
+								{#if targetStaticData[key] !== undefined && targetData[key] !== targetStaticData[key]}
+									<div class="custom-indicator" title="Modifié par rapport à la valeur par défaut">
+										<span class="custom-dot"></span> Modifié
+										<button class="btn-restore" on:click={() => restoreDefault(key)} title="Restaurer la valeur par défaut">↺</button>
+									</div>
+								{/if}
+							</div>
 							<div class="trans-cols">
 								<div class="trans-col ref-col">
 									<textarea use:autoResize={refData[key]} readonly rows="1">{refData[key] || ''}</textarea>
@@ -1227,15 +1248,39 @@
 	.trans-row:focus-within { background: var(--hover-tint); }
 	.trans-row.row-missing { background: rgba(251, 146, 60, 0.035); }
 	.trans-row.row-missing .trans-key { color: #fb923c; }
-	.trans-key {
+	.trans-key-container {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
 		background: var(--bg-secondary);
+		border-bottom: 1px solid var(--glass-border);
+		padding-right: 0.5rem;
+	}
+	.trans-key {
 		padding: 0.12rem 0.5rem;
 		font-family: 'Fira Code', 'Cascadia Code', monospace;
 		font-size: 0.68rem;
 		color: var(--text-muted);
-		border-bottom: 1px solid var(--glass-border);
 		word-break: break-all;
 	}
+	.custom-indicator {
+		display: flex;
+		align-items: center;
+		gap: 0.3rem;
+		font-size: 0.65rem;
+		color: #3b82f6;
+		background: rgba(59, 130, 246, 0.1);
+		padding: 0.1rem 0.4rem;
+		border-radius: 4px;
+	}
+	.custom-dot {
+		width: 4px; height: 4px; border-radius: 50%; background: #3b82f6;
+	}
+	.btn-restore {
+		background: none; border: none; color: inherit; cursor: pointer;
+		font-size: 0.8rem; padding: 0 0 0 0.2rem; opacity: 0.7; transition: opacity 0.2s;
+	}
+	.btn-restore:hover { opacity: 1; }
 	.trans-cols {
 		display: flex;
 		flex-direction: row;

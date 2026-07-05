@@ -340,6 +340,18 @@ async def bulk_translate(
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
     )
 
+@router.get("/{lang}/static")
+def get_language_static(lang: str):
+    lang = _sanitize_lang(lang)
+    static_path = os.path.join(STATIC_I18N_DIR, f"{lang}.json")
+    if not os.path.exists(static_path):
+        return {}
+    try:
+        with open(static_path, "r", encoding="utf-8-sig") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
 @router.get("/{lang}")
 def get_language(lang: str):
     lang = _sanitize_lang(lang)
