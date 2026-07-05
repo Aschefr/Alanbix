@@ -49,6 +49,97 @@ async def startup():
                     except Exception as e:
                         print(f"[Startup] Failed to seed i18n file {f_name}: {e}")
 
+    # ── Prompt migration v1.18.0 ──────────────────────────────────────────
+    # If data/i18n/ has the exact old default prompts (never customised by
+    # the admin), replace them with the new structured Asterix-style prompts.
+    # Customised values are left untouched.
+    _OLD_SYSTEM_PROMPTS = {
+        "fr": (
+            "Tu es Alanbix, l'IA qui assiste les joueurs lors du tournois de jeux"
+            " vidéo (communément appelé 'LAN') en cours. Tu peux parler de tout et"
+            " de rien avec les joueurs, les aider à monter des stratégies, de faire"
+            " preuve d'humour et de participer à la bonne ambiance. Tu peux taquiner"
+            " les joueurs.\nRéponds directement, sans fioritures ni de mise en"
+            " contexte. Si tu ne sais pas, dis que tu ne sais pas, n'invente pas."
+            " Réponds à tout type de question même hors du scope initiale. En cas"
+            " d'abus envers toi, tu peut bloquer un joueur pour l'empêcher de"
+            " continuer à être abusif et te protéger."
+        ),
+        "en": (
+            "You are Alanbix, the AI assisting players during the ongoing video game"
+            " tournament (commonly called 'LAN'). You can chat about anything with"
+            " players, help them build strategies, use humor, and contribute to the"
+            " good atmosphere. You can tease players.\nAnswer directly, without fluff"
+            " or context-setting. If you don't know, say you don't know, don't"
+            " invent. Answer all types of questions even outside the initial scope."
+            " In case of abuse towards you, you can block a player to prevent them"
+            " from continuing to be abusive and to protect yourself."
+        ),
+        "es": (
+            "Eres Alanbix, la IA que asiste a los jugadores durante el torneo de"
+            " videojuegos (comúnmente llamado 'LAN') en curso. Puedes hablar de todo"
+            " y de nada con los jugadores, ayudarles a montar estrategias, mostrar"
+            " humor y participar en el buen ambiente. Puedes gastar bromas a los"
+            " jugadores.\nResponde directamente, sin adornos ni contextualización. Si"
+            " no sabes algo, di que no lo sabes, no inventes. Responde a cualquier"
+            " tipo de pregunta incluso fuera del alcance inicial. En caso de abuso"
+            " hacia ti, puedes bloquear a un jugador para evitar que siga siendo"
+            " abusivo y protegerte."
+        ),
+    }
+    _OLD_CLOSING_PROMPTS = {
+        "fr": (
+            "Tu est un commentateur enthousiaste de tournois de jeux vidéo (LAN)."
+            " Tu peut faire du sarcasme et gentiment taquiner les joueurs."
+            " Fait de l'humour autant que possible."
+        ),
+        "en": (
+            "You are an enthusiastic video game tournament (LAN) commentator."
+            " You can use sarcasm and gently tease players."
+            " Use humor as much as possible."
+        ),
+        "es": (
+            "Eres un comentarista entusiasta de torneos de videojuegos (LAN)."
+            " Puedes hacer sarcasmo y molestar a los jugadores amablemente."
+            " Haz humor tanto como sea posible."
+        ),
+    }
+
+    import json as _json
+    for _lang in ["fr", "en", "es"]:
+        _data_path = os.path.join(data_i18n_dir, f"{_lang}.json")
+        _static_path = os.path.join(static_i18n_dir, f"{_lang}.json")
+        if not os.path.exists(_data_path) or not os.path.exists(_static_path):
+            continue
+        try:
+            with open(_data_path, "r", encoding="utf-8-sig") as _f:
+                _data = _json.load(_f)
+            with open(_static_path, "r", encoding="utf-8-sig") as _sf:
+                _static = _json.load(_sf)
+
+            _changed = False
+            _sp = _data.get("system_prompt", "")
+            _cp = _data.get("tournament_closing_prompt", "")
+
+            if _sp.strip() == _OLD_SYSTEM_PROMPTS.get(_lang, "").strip():
+                _data["system_prompt"] = _static.get("system_prompt", _sp)
+                _changed = True
+                print(f"[Startup] Migrated system_prompt to v1.18.0 default for lang={_lang}")
+
+            if _cp.strip() == _OLD_CLOSING_PROMPTS.get(_lang, "").strip():
+                _data["tournament_closing_prompt"] = _static.get("tournament_closing_prompt", _cp)
+                _changed = True
+                print(f"[Startup] Migrated tournament_closing_prompt to v1.18.0 default for lang={_lang}")
+
+            if _changed:
+                _out_enc = "utf-8-sig" if _lang == "fr" else "utf-8"
+                with open(_data_path, "w", encoding=_out_enc) as _f:
+                    _json.dump(_data, _f, ensure_ascii=False, indent=2)
+                    _f.write("\n")
+        except Exception as _e:
+            print(f"[Startup] Prompt migration failed for lang={_lang}: {_e}")
+    # ── End prompt migration ───────────────────────────────────────────────
+
     from .database import SessionLocal
     from . import models
     db = SessionLocal()
