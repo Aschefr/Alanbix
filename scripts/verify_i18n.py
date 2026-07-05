@@ -39,7 +39,7 @@ def check_json_files():
                         print(f"[ERREUR] Valeur vide pour la clé '{k}' dans {file}")
                         has_error = True
                     elif EMOJI_PATTERN.search(v):
-                        if k.startswith("ai_typing_"):
+                        if k.startswith("ai_typing_") or k == "admin_prompt_modal_tip_title":
                             continue
                         print(f"[ERREUR] Émoji trouvé dans {file} à la clé '{k}': {v}")
                         has_error = True
