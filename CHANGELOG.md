@@ -10,6 +10,12 @@
 - **25 nouvelles clés i18n** (`admin_prompt_modal_*`) ajoutées dans les fichiers `fr.json`, `en.json` et `es.json` (couches `static/i18n/` et `data/i18n/`).
 - **Documentation IA** : Création de `docs/ia_improvements.md` listant 14 suggestions d'améliorations futures pour l'assistant (nouveaux outils de lecture et d'écriture).
 
+### Améliorations — Internationalisation (i18n)
+
+- **Indicateur de traduction modifiée** : Dans la page d'administration des langues, un badge visuel ("Modifié") indique désormais à l'administrateur quelles clés de traduction ont été personnalisées et s'écartent des valeurs par défaut fournies par l'application.
+- **Restauration des valeurs par défaut** : Ajout d'un bouton de restauration (↺) permettant de rétablir instantanément la valeur d'usine d'une clé de traduction spécifique sans affecter le reste de la personnalisation.
+- **Nouvelles clés i18n** (`admin_languages_custom_indicator`, `admin_languages_custom_tooltip`, `admin_languages_restore_tooltip`) intégrées de base dans les 3 langues.
+
 ## [1.17.10] - 2026-06-20
 
 ### Maintenance & CI/CD
