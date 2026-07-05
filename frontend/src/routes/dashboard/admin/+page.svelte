@@ -58,6 +58,34 @@
 	let promptPreviewTokens = 0;
 	let loadingPreview = false;
 
+	// System Prompt Editor Modal
+	let showPromptModal = false;
+	let promptModalDraft = '';
+
+	const DEFAULT_PROMPT_SECTIONS = [
+		{ key: 'identity', icon: '🧙' },
+		{ key: 'context', icon: '🗺️' },
+		{ key: 'style', icon: '🎭' },
+		{ key: 'rules', icon: '⚖️' },
+	];
+
+	function openPromptModal() {
+		promptModalDraft = systemPrompt;
+		showPromptModal = true;
+	}
+
+	async function savePromptFromModal() {
+		systemPrompt = promptModalDraft;
+		showPromptModal = false;
+		await saveSystemPrompt();
+	}
+
+	function insertSection(sectionKey) {
+		const sectionHeader = get(t)(`admin_prompt_modal_section_${sectionKey}`);
+		const block = `\n${sectionHeader}\n`;
+		promptModalDraft += block;
+	}
+
 	// Inline Edit (replaces modal)
 	let inlineEditId = null;
 	
@@ -1945,7 +1973,10 @@
 						<div class="sc-body" style="gap: 0.75rem; flex: 1; display: flex; flex-direction: column;">
 							<div class="prompts-container" style="flex: 1;">
 								<div style="display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; flex: 1;">
-									<label class="compact-label">{$t('admin_settings_ai_prompt_sys')}</label>
+									<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.3rem;">
+										<label class="compact-label">{$t('admin_settings_ai_prompt_sys')}</label>
+										<button class="btn-prompt-edit" on:click={openPromptModal} title="{$t('admin_prompt_modal_open')}">✏️ {$t('admin_prompt_modal_open')}</button>
+									</div>
 									<textarea class="prompt-textarea-compact" bind:value={systemPrompt} on:input={() => debounceSave('systemPrompt', saveSystemPrompt)} placeholder="{$t('admin_settings_ai_prompt_sys_placeholder')}" rows="8" style="flex: 1; height: 100%; resize: none;"></textarea>
 								</div>
 								<div style="display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; flex: 1;">
@@ -2337,6 +2368,80 @@
 
 {/if}
 
+<!-- System Prompt Editor Modal -->
+{#if showPromptModal}
+<div class="prompt-modal-overlay" use:portal on:mousedown|self={() => showPromptModal = false} role="dialog" aria-modal="true">
+	<div class="prompt-modal">
+		<!-- Header -->
+		<div class="prompt-modal-header">
+			<div class="prompt-modal-title-group">
+				<span class="prompt-modal-icon">🧪</span>
+				<div>
+					<h2 class="prompt-modal-title">{$t('admin_prompt_modal_title')}</h2>
+					<p class="prompt-modal-subtitle">{$t('admin_prompt_modal_subtitle')}</p>
+				</div>
+			</div>
+			<button class="prompt-modal-close" on:click={() => showPromptModal = false}>✕</button>
+		</div>
+
+		<!-- Body: two-column layout -->
+		<div class="prompt-modal-body">
+
+			<!-- LEFT: Textarea -->
+			<div class="prompt-modal-editor">
+				<div class="prompt-modal-char-count">{$t('admin_prompt_modal_char_count').replace('{count}', promptModalDraft.length)}</div>
+				<textarea
+					class="prompt-modal-textarea"
+					bind:value={promptModalDraft}
+					placeholder="{$t('admin_settings_ai_prompt_sys_placeholder')}"
+					spellcheck="false"
+				></textarea>
+			</div>
+
+			<!-- RIGHT: Guide panel -->
+			<div class="prompt-modal-guide">
+				<!-- Section blocks -->
+				<div class="pmg-section">
+					<h4 class="pmg-section-title">📐 {$t('admin_prompt_modal_guide_title')}</h4>
+					<p class="pmg-intro">{$t('admin_prompt_modal_guide_intro')}</p>
+					<div class="pmg-blocks">
+						{#each DEFAULT_PROMPT_SECTIONS as sec}
+							<div class="pmg-block">
+								<div class="pmg-block-header">
+									<span class="pmg-block-icon">{sec.icon}</span>
+									<code class="pmg-block-tag">{$t(`admin_prompt_modal_section_${sec.key}`)}</code>
+									<button class="pmg-insert-btn" on:click={() => insertSection(sec.key)} title="{$t('admin_prompt_modal_insert')}">
+										+ {$t('admin_prompt_modal_insert')}
+									</button>
+								</div>
+								<p class="pmg-block-desc">{$t(`admin_prompt_modal_section_${sec.key}_desc`)}</p>
+							</div>
+						{/each}
+					</div>
+				</div>
+
+				<!-- Tips -->
+				<div class="pmg-section pmg-tips">
+					<h4 class="pmg-section-title">{$t('admin_prompt_modal_tip_title')}</h4>
+					<ul class="pmg-tip-list">
+						<li>{$t('admin_prompt_modal_tip_1')}</li>
+						<li>{$t('admin_prompt_modal_tip_2')}</li>
+						<li>{$t('admin_prompt_modal_tip_3')}</li>
+						<li>{$t('admin_prompt_modal_tip_4')}</li>
+					</ul>
+				</div>
+			</div>
+		</div>
+
+		<!-- Footer -->
+		<div class="prompt-modal-footer">
+			<button class="btn-secondary" on:click={() => showPromptModal = false}>{$t('admin_prompt_modal_cancel')}</button>
+			<button class="btn-primary" on:click={savePromptFromModal}>{$t('admin_prompt_modal_save')}</button>
+		</div>
+	</div>
+</div>
+{/if}
+
 <style>
 	.admin-view { display: flex; flex-direction: column; gap: 2rem; }
 	.tabs { display: flex; padding: 0.3rem; border-radius: 12px; background: var(--surface-sunken); border: 1px solid var(--glass-border); }
@@ -2404,6 +2509,45 @@
 	.edit-toggle { padding: 0.45rem 0.8rem; font-size: 0.75rem; font-weight: 600; border: 1px solid var(--glass-border); border-radius: 8px; background: var(--hover-tint); color: var(--text-dim); cursor: pointer; transition: all 0.15s; }
 	.edit-toggle:hover { border-color: var(--accent); background: rgba(59,130,246,0.05); }
 	.edit-toggle.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); box-shadow: 0 0 8px var(--accent-glow); }
+
+	/* Prompt Editor Modal */
+	.prompt-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(6px); z-index: 9998; display: flex; align-items: center; justify-content: center; padding: 1.5rem; }
+	.prompt-modal { width: min(1100px, 100%); max-height: 90vh; display: flex; flex-direction: column; border-radius: 20px; border: 1px solid var(--glass-border); background: var(--bg-secondary); box-shadow: 0 30px 80px rgba(0,0,0,0.5); animation: pmSlideIn 0.25s cubic-bezier(0.16,1,0.3,1); overflow: hidden; }
+	@keyframes pmSlideIn { from { opacity: 0; transform: translateY(20px) scale(0.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+	.prompt-modal-header { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.4rem; background: rgba(139,92,246,0.08); border-bottom: 1px solid rgba(139,92,246,0.2); flex-shrink: 0; }
+	.prompt-modal-title-group { display: flex; align-items: center; gap: 0.8rem; }
+	.prompt-modal-icon { font-size: 1.6rem; }
+	.prompt-modal-title { font-size: 1rem; font-weight: 800; margin: 0; color: var(--text-main); }
+	.prompt-modal-subtitle { font-size: 0.7rem; color: var(--text-muted); margin: 0.1rem 0 0; }
+	.prompt-modal-close { background: none; border: 1px solid var(--glass-border); color: var(--text-dim); cursor: pointer; font-size: 1rem; width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+	.prompt-modal-close:hover { background: rgba(239,68,68,0.1); border-color: var(--danger); color: var(--danger); }
+	.prompt-modal-body { display: grid; grid-template-columns: 1fr 340px; flex: 1; min-height: 0; overflow: hidden; }
+	@media (max-width: 800px) { .prompt-modal-body { grid-template-columns: 1fr; } }
+	.prompt-modal-editor { display: flex; flex-direction: column; padding: 1rem; border-right: 1px solid var(--glass-border); min-height: 0; }
+	.prompt-modal-char-count { font-size: 0.65rem; color: var(--text-muted); font-variant-numeric: tabular-nums; margin-bottom: 0.4rem; text-align: right; font-weight: 600; }
+	.prompt-modal-textarea { flex: 1; width: 100%; min-height: 400px; max-height: 100%; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 10px; padding: 0.8rem; color: var(--text-main); font-size: 0.8rem; font-family: 'Courier New', 'Consolas', monospace; line-height: 1.6; resize: none; transition: border-color 0.2s; }
+	.prompt-modal-textarea:focus { outline: none; border-color: rgba(139,92,246,0.5); box-shadow: 0 0 0 3px rgba(139,92,246,0.08); }
+	.prompt-modal-guide { overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: 0.8rem; background: rgba(139,92,246,0.02); }
+	.pmg-section { background: var(--hover-tint); border: 1px solid var(--glass-border); border-radius: 12px; padding: 0.8rem 0.9rem; }
+	.pmg-section-title { font-size: 0.8rem; font-weight: 800; color: var(--text-main); margin: 0 0 0.4rem; }
+	.pmg-intro { font-size: 0.7rem; color: var(--text-dim); margin: 0 0 0.6rem; line-height: 1.4; }
+	.pmg-blocks { display: flex; flex-direction: column; gap: 0.5rem; }
+	.pmg-block { padding: 0.55rem 0.65rem; border-radius: 8px; background: var(--surface-sunken); border: 1px solid var(--glass-border); transition: border-color 0.15s; }
+	.pmg-block:hover { border-color: rgba(139,92,246,0.3); }
+	.pmg-block-header { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.3rem; }
+	.pmg-block-icon { font-size: 0.85rem; }
+	.pmg-block-tag { font-size: 0.65rem; font-weight: 700; color: #a78bfa; background: rgba(139,92,246,0.1); padding: 0.1rem 0.4rem; border-radius: 4px; font-family: monospace; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.pmg-insert-btn { font-size: 0.6rem; font-weight: 700; padding: 0.15rem 0.45rem; border-radius: 5px; border: 1px solid rgba(139,92,246,0.3); background: rgba(139,92,246,0.08); color: #a78bfa; cursor: pointer; transition: all 0.15s; white-space: nowrap; flex-shrink: 0; }
+	.pmg-insert-btn:hover { background: rgba(139,92,246,0.2); border-color: #a78bfa; }
+	.pmg-block-desc { font-size: 0.65rem; color: var(--text-muted); margin: 0; line-height: 1.4; }
+	.pmg-tips { border-color: rgba(245,158,11,0.2); background: rgba(245,158,11,0.03); }
+	.pmg-tips .pmg-section-title { color: #f59e0b; }
+	.pmg-tip-list { margin: 0; padding-left: 1.1rem; display: flex; flex-direction: column; gap: 0.3rem; }
+	.pmg-tip-list li { font-size: 0.68rem; color: var(--text-dim); line-height: 1.4; }
+	.prompt-modal-footer { display: flex; justify-content: flex-end; gap: 0.6rem; padding: 0.8rem 1.2rem; border-top: 1px solid var(--glass-border); background: var(--hover-tint); flex-shrink: 0; }
+	/* Button to open the prompt editor modal from the compact admin card */
+	.btn-prompt-edit { font-size: 0.68rem; font-weight: 700; padding: 0.2rem 0.6rem; border-radius: 6px; border: 1px solid rgba(139,92,246,0.3); background: rgba(139,92,246,0.06); color: #a78bfa; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+	.btn-prompt-edit:hover { background: rgba(139,92,246,0.18); border-color: #a78bfa; box-shadow: 0 0 8px rgba(139,92,246,0.2); }
 
 	.wizard { padding: 2rem; min-height: 500px; display: flex; flex-direction: column; }
 	.list { padding: 2rem; display: flex; flex-direction: column; }

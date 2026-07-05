@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.18.0] - 2026-07-05
+
+### Améliorations — Assistant IA
+
+- **Refonte de la personnalité d'Alanbix** : Le prompt système a été entièrement restructuré en 4 sections claires (`=== IDENTITÉ ===`, `=== CONTEXTE ===`, `=== STYLE ===`, `=== RÈGLES ===`). L'IA adopte désormais une personnalité gauloise assumée (clin d'œil à Astérix), un ton de copain passionné plutôt que d'assistant corporate, et est moins focalisée sur le coaching stratégique.
+- **Refonte du prompt de clôture de tournoi** : Le `tournament_closing_prompt` est réécrit dans un style de commentateur gaulois enthousiaste — métaphores de sangliers, potions magiques, menhirs — avec humour et sarcasme.
+- **Éditeur de prompt système** : Ajout d'une modale d'édition plein écran accessible depuis le panneau Administration > IA. La modale offre une grande zone de texte monospace pour éditer le prompt, un panneau de guide avec 4 blocs cliquables (Identité / Contexte / Style / Règles) et boutons « Insérer le bloc », ainsi qu'un panneau de conseils pour les nouveaux administrateurs.
+- **25 nouvelles clés i18n** (`admin_prompt_modal_*`) ajoutées dans les fichiers `fr.json`, `en.json` et `es.json` (couches `static/i18n/` et `data/i18n/`).
+- **Documentation IA** : Création de `docs/ia_improvements.md` listant 14 suggestions d'améliorations futures pour l'assistant (nouveaux outils de lecture et d'écriture).
+
 ## [1.17.10] - 2026-06-20
 
 ### Maintenance & CI/CD
