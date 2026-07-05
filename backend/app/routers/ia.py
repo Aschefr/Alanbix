@@ -621,10 +621,11 @@ async def suggest_title(conv_id: int, db: Session = Depends(database.get_db), us
     excerpt = "\n".join(excerpt_parts)
 
     cfg = get_effective_config(db)
-    instances = get_instances(db)
-    enabled = [i for i in instances if i.get("enabled", True)]
-    ollama_host = enabled[0]["url"] if enabled else "http://ollama:11434"
-    model = cfg.get("model", "gemma4:e4b")
+    model = conv.model or cfg.get("model", "llama3")
+    instance = await pick_instance(db, model=model)
+    ollama_host = instance["url"] if instance else cfg.get("ollama_host", "http://localhost:11434")
+    if instance and instance.get("model"):
+        model = instance["model"]
 
     from ..ia_queue import queue_manager, QueueEntry
     import time
