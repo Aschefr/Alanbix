@@ -5,7 +5,41 @@ scores, and leaderboard. Each tool returns compact JSON for the model.
 """
 import json
 import datetime
+import difflib
 from typing import Any, Dict, Optional
+
+
+def _find_best_match(query: str, possibilities: list[str], cutoff: float = 0.55) -> Optional[str]:
+    """Trouve la meilleure correspondance approximative (recherche floue).
+    Retourne None si aucune correspondance acceptable n'est trouvée.
+    """
+    if not query or not possibilities:
+        return None
+        
+    query_lower = query.lower()
+    possibilities_map = {p.lower(): p for p in possibilities}
+    
+    # 1. Correspondance exacte ou insensible à la casse
+    if query_lower in possibilities_map:
+        return possibilities_map[query_lower]
+        
+    # 2. Correspondance de sous-chaîne (longueur min de 2 pour éviter les faux positifs)
+    if len(query_lower) >= 2:
+        for p_lower, p in possibilities_map.items():
+            if query_lower in p_lower or p_lower in query_lower:
+                return p
+            
+    # 3. Recherche floue (difflib)
+    matches = difflib.get_close_matches(query, possibilities, n=1, cutoff=cutoff)
+    if matches:
+        return matches[0]
+        
+    # 4. Recherche floue insensible à la casse
+    matches_lower = difflib.get_close_matches(query_lower, list(possibilities_map.keys()), n=1, cutoff=cutoff)
+    if matches_lower:
+        return possibilities_map[matches_lower[0]]
+        
+    return None
 
 # ---------------------------------------------------------------------------
 # Tool Definitions (Ollama JSON Schema format)
@@ -281,6 +315,198 @@ TOOL_DEFINITIONS = [
                 "required": ["reason"]
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_live_matches",
+            "description": "Obtenir la liste de tous les matchs actuellement en cours ou prêts à être joués sur l'ensemble des tournois actifs (RUNNING). Utilise cette fonction quand l'utilisateur demande quels matchs se déroulent en ce moment, les affrontements en direct ou s'il y a du jeu sur un tournoi.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_team_roster",
+            "description": "Obtenir la composition complète d'une équipe (membres, points, participation aux tournois). Utilise cette fonction quand l'utilisateur pose des questions sur une équipe spécifique de la LAN, ses membres ou son score.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "team_name": {
+                        "type": "string",
+                        "description": "Le nom (ou partie du nom) de l'équipe à rechercher"
+                    }
+                },
+                "required": ["team_name"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_player_match_history",
+            "description": "Obtenir l'historique complet des matchs joués par un joueur spécifique, avec le score et le résultat (victoire/défaite). Si aucun pseudo n'est fourni, retourne l'historique du joueur qui pose la question.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "username": {
+                        "type": "string",
+                        "description": "Le pseudo du joueur à rechercher (optionnel — si vide, utilise l'utilisateur courant)"
+                    }
+                },
+                "required": []
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_awards",
+            "description": "Obtenir les distinctions, classements et trophées en cours de calcul pour l'ensemble des joueurs (ex: Marathonien, Bourreau, Passoire, Loup Solitaire). Utilise cette fonction quand l'utilisateur demande les leaders des trophées, qui est en tête pour un prix, ou des statistiques amusantes.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_upcoming_matches",
+            "description": "Obtenir la liste globale des prochains matchs programmés et prêts à être joués sur l'ensemble de la LAN. Utilise cette fonction quand l'utilisateur demande le programme des matchs ou quels sont les prochains affrontements prévus.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_files",
+            "description": "Obtenir la liste de tous les fichiers disponibles en téléchargement local (torrents, patchs de jeux, configurations). Utilise cette fonction quand l'utilisateur demande où télécharger un jeu, un patch ou un utilitaire réseau.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_player_rank_progression",
+            "description": "Obtenir l'historique de l'évolution du classement général d'un joueur pas-à-pas après la clôture de chaque tournoi. Si aucun pseudo n'est fourni, utilise l'utilisateur courant.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "username": {
+                        "type": "string",
+                        "description": "Le pseudo du joueur (optionnel — si vide, utilise l'utilisateur courant)"
+                    }
+                },
+                "required": []
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_bracket_detail",
+            "description": "Obtenir la structure complète et détaillée de l'arbre de tournoi (brackets, rounds, opposants, scores et statuts de qualification). Utilise cette fonction quand l'utilisateur demande des détails sur le parcours d'un joueur, les demi-finales ou la structure d'un bracket.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "tournament_name": {
+                        "type": "string",
+                        "description": "Le nom du tournoi à inspecter"
+                    }
+                },
+                "required": ["tournament_name"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_leaderboard_by_game",
+            "description": "Obtenir le classement des meilleurs joueurs ou équipes sur un jeu spécifique de la LAN. Utilise cette fonction quand l'utilisateur demande qui est le plus fort sur un jeu particulier.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "game_name": {
+                        "type": "string",
+                        "description": "Le nom du jeu (ex: Trackmania, Golfit!)"
+                    }
+                },
+                "required": ["game_name"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_tournament_bracket_path",
+            "description": "Obtenir l'historique du parcours détaillé d'un joueur, match par match, dans un tournoi spécifique (scores, adversaires successifs, victoires, défaites).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "tournament_name": {
+                        "type": "string",
+                        "description": "Le nom du tournoi à inspecter"
+                    },
+                    "username": {
+                        "type": "string",
+                        "description": "Le pseudo du joueur dont on veut suivre le parcours (optionnel — utilise le joueur courant si non renseigné)"
+                    }
+                },
+                "required": ["tournament_name"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "send_notification_to_player",
+            "description": "Envoyer une notification d'alerte instantanée à un joueur ciblé par son pseudo. Permet de lui transmettre un message court (ex: 'Ton match commence dans 5 min').",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "username": {
+                        "type": "string",
+                        "description": "Le pseudo du joueur à notifier"
+                    },
+                    "content": {
+                        "type": "string",
+                        "description": "Le texte court de la notification à envoyer"
+                    }
+                },
+                "required": ["username", "content"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "announce_to_all",
+            "description": "Diffuser une notification d'annonce globale à TOUS les joueurs de la LAN (ex: annonce de pause repas, rappel général). Attention : cette fonction est STRICTEMENT RÉSERVÉE AUX ADMINISTRATEURS. Si l'utilisateur appelant n'est pas admin, l'outil refusera l'exécution.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "content": {
+                        "type": "string",
+                        "description": "Le contenu de l'annonce à diffuser globalement"
+                    }
+                },
+                "required": ["content"]
+            }
+        }
     }
 ]
 
@@ -344,6 +570,30 @@ def execute_tool(name: str, arguments: Dict[str, Any], user_id: int = 0) -> str:
             return _tool_get_game_rules(db, models, arguments)
         elif name == "block_user_from_ia":
             return _tool_block_user_from_ia(db, models, arguments, user_id)
+        elif name == "get_live_matches":
+            return _tool_get_live_matches(db, models, arguments)
+        elif name == "get_team_roster":
+            return _tool_get_team_roster(db, models, arguments)
+        elif name == "get_player_match_history":
+            return _tool_get_player_match_history(db, models, arguments, user_id)
+        elif name == "get_awards":
+            return _tool_get_awards(db, models)
+        elif name == "get_upcoming_matches":
+            return _tool_get_upcoming_matches(db, models, arguments)
+        elif name == "get_files":
+            return _tool_get_files(db, models, arguments)
+        elif name == "get_player_rank_progression":
+            return _tool_get_player_rank_progression(db, models, arguments, user_id)
+        elif name == "get_bracket_detail":
+            return _tool_get_bracket_detail(db, models, arguments)
+        elif name == "get_leaderboard_by_game":
+            return _tool_get_leaderboard_by_game(db, models, arguments)
+        elif name == "get_tournament_bracket_path":
+            return _tool_get_tournament_bracket_path(db, models, arguments, user_id)
+        elif name == "send_notification_to_player":
+            return _tool_send_notification_to_player(db, models, arguments)
+        elif name == "announce_to_all":
+            return _tool_announce_to_all(db, models, arguments, user_id)
         else:
             return json.dumps({"error": f"Outil inconnu: {name}"})
 
@@ -389,14 +639,14 @@ def _tool_get_tournament_standings(db, models, args: dict) -> str:
     if not search:
         return json.dumps({"error": "Nom du tournoi requis"})
 
-    tournaments = db.query(models.Tournament).filter(
-        models.Tournament.name.ilike(f"%{search}%")
-    ).all()
+    all_tournaments = db.query(models.Tournament).all()
+    tournaments_map = {t.name: t for t in all_tournaments}
+    best_name = _find_best_match(search, list(tournaments_map.keys()))
 
-    if not tournaments:
+    if not best_name:
         return json.dumps({"error": f"Aucun tournoi trouvé pour '{search}'"})
 
-    tournament = tournaments[0]
+    tournament = tournaments_map[best_name]
     config = tournament.config or {}
     use_teams = config.get("use_teams", False)
 
@@ -459,12 +709,12 @@ def _tool_get_player_info(db, models, args: dict, user_id: int) -> str:
     username = args.get("username", "").strip()
 
     if username:
-        user = db.query(models.User).filter(models.User.username.ilike(username)).first()
-        if not user:
-            # Fuzzy search
-            user = db.query(models.User).filter(models.User.username.ilike(f"%{username}%")).first()
-        if not user:
+        all_users = db.query(models.User).all()
+        user_map = {u.username: u for u in all_users}
+        best_username = _find_best_match(username, list(user_map.keys()))
+        if not best_username:
             return json.dumps({"error": f"Joueur '{username}' introuvable"})
+        user = user_map[best_username]
     else:
         user = db.query(models.User).filter(models.User.id == user_id).first()
         if not user:
@@ -509,9 +759,12 @@ def _tool_get_my_matches(db, models, args: dict, user_id: int) -> str:
     username = args.get("username", "").strip()
 
     if username:
-        user = db.query(models.User).filter(models.User.username.ilike(f"%{username}%")).first()
-        if not user:
+        all_users = db.query(models.User).all()
+        user_map = {u.username: u for u in all_users}
+        best_username = _find_best_match(username, list(user_map.keys()))
+        if not best_username:
             return json.dumps({"error": f"Joueur '{username}' introuvable"})
+        user = user_map[best_username]
     else:
         user = db.query(models.User).filter(models.User.id == user_id).first()
         if not user:
@@ -594,12 +847,18 @@ def _tool_get_my_matches(db, models, args: dict, user_id: int) -> str:
 
 def _tool_get_games(db, models, args: dict) -> str:
     """List available games in the library."""
-    query = db.query(models.Game)
     search = args.get("search", "").strip()
+    
     if search:
-        query = query.filter(models.Game.name.ilike(f"%{search}%"))
-
-    games = query.order_by(models.Game.name).all()
+        all_games = db.query(models.Game).all()
+        games_map = {g.name: g for g in all_games}
+        best_name = _find_best_match(search, list(games_map.keys()))
+        if best_name:
+            games = [games_map[best_name]]
+        else:
+            games = []
+    else:
+        games = db.query(models.Game).order_by(models.Game.name).all()
     result = []
     for g in games[:30]:
         tournament_count = db.query(models.Tournament).filter(
@@ -693,9 +952,12 @@ def _tool_get_player_seat(db, models, args: dict, user_id: int) -> str:
     username = args.get("username", "").strip()
 
     if username:
-        user = db.query(models.User).filter(models.User.username.ilike(f"%{username}%")).first()
-        if not user:
+        all_users = db.query(models.User).all()
+        user_map = {u.username: u for u in all_users}
+        best_username = _find_best_match(username, list(user_map.keys()))
+        if not best_username:
             return json.dumps({"error": f"Joueur '{username}' introuvable"})
+        user = user_map[best_username]
     else:
         user = db.query(models.User).filter(models.User.id == user_id).first()
         if not user:
@@ -939,12 +1201,14 @@ def _tool_get_game_rules(db, models, args: dict) -> str:
     if not game_name:
         return json.dumps({"error": "Nom du jeu requis"}, ensure_ascii=False)
         
-    game = db.query(models.Game).filter(models.Game.name.ilike(game_name)).first()
-    if not game:
-        game = db.query(models.Game).filter(models.Game.name.ilike(f"%{game_name}%")).first()
-        
-    if not game:
+    all_games = db.query(models.Game).all()
+    games_map = {g.name: g for g in all_games}
+    best_name = _find_best_match(game_name, list(games_map.keys()))
+    
+    if not best_name:
         return json.dumps({"error": f"Jeu '{game_name}' introuvable dans la bibliothèque"}, ensure_ascii=False)
+        
+    game = games_map[best_name]
         
     return json.dumps({
         "name": game.name,
@@ -1009,3 +1273,733 @@ def _resolve_entity_name(db, models, entity_id, use_teams: bool, tournament_id: 
     else:
         user = db.query(models.User).filter(models.User.id == entity_id).first()
         return user.username if user else f"Joueur #{entity_id}"
+
+
+def _tool_get_live_matches(db, models, args: dict) -> str:
+    """List matches currently in progress in active tournaments (status = RUNNING)."""
+    running_tournaments = db.query(models.Tournament).filter(
+        models.Tournament.status == "RUNNING"
+    ).all()
+    
+    live_matches = []
+    for t in running_tournaments:
+        bracket = t.bracket or []
+        config = t.config or {}
+        use_teams = config.get("use_teams", False)
+        
+        for match in bracket:
+            players = match.get("p", [])
+            scores = match.get("score", [])
+            mid = match.get("id", {})
+            
+            if len(players) == 2:
+                p0, p1 = players[0], players[1]
+                if p0 != 0 and p1 != 0 and p0 is not None and p1 is not None:
+                    is_scored = scores and len(scores) == 2 and scores[0] is not None and scores[1] is not None
+                    if not is_scored:
+                        p0_name = _resolve_entity_name(db, models, p0, use_teams, t.id)
+                        p1_name = _resolve_entity_name(db, models, p1, use_teams, t.id)
+                        
+                        section = mid.get("s", 1)
+                        round_num = mid.get("r", 1)
+                        match_num = mid.get("m", 1)
+                        section_label = "WB" if section == 1 else "LB" if section == 2 else "GF"
+                        
+                        live_matches.append({
+                            "tournament_id": t.id,
+                            "tournament_name": t.name,
+                            "match_id": f"{section_label} R{round_num} M{match_num}",
+                            "player1": p0_name,
+                            "player2": p1_name,
+                            "bracket_type": config.get("bracket_type", "single_elim"),
+                        })
+            elif len(players) > 2:
+                non_zero_players = [p for p in players if p != 0 and p is not None]
+                if len(non_zero_players) >= 2:
+                    is_scored = scores and len(scores) == len(players) and all(s is not None for s in scores)
+                    if not is_scored:
+                        player_names = [_resolve_entity_name(db, models, p, use_teams, t.id) for p in non_zero_players]
+                        section = mid.get("s", 1)
+                        round_num = mid.get("r", 1)
+                        match_num = mid.get("m", 1)
+                        live_matches.append({
+                            "tournament_id": t.id,
+                            "tournament_name": t.name,
+                            "match_id": f"R{round_num} M{match_num}",
+                            "players": player_names,
+                            "bracket_type": config.get("bracket_type", "ffa"),
+                        })
+                        
+    return json.dumps({
+        "live_matches": live_matches,
+        "count": len(live_matches)
+    }, ensure_ascii=False)
+
+
+def _tool_get_team_roster(db, models, args: dict) -> str:
+    """Get the composition of a team (members, points, tournaments). Supports both global teams and tournament-specific teams."""
+    team_search = args.get("team_name", "").strip()
+    if not team_search:
+        return json.dumps({"error": "Nom de l'équipe requis"}, ensure_ascii=False)
+        
+    # Resolve global team name via fuzzy matching
+    all_users = db.query(models.User).all()
+    global_teams = list(set(u.team_name for u in all_users if u.team_name))
+    resolved_team_name = _find_best_match(team_search, global_teams)
+    
+    members_list = []
+    
+    if resolved_team_name:
+        team_users = db.query(models.User).filter(
+            models.User.team_name == resolved_team_name
+        ).all()
+        
+        for u in team_users:
+            members_list.append({
+                "username": u.username,
+                "points": u.points or 0,
+                "seat": u.seat_id or "Non assigné",
+                "is_admin": u.is_admin
+            })
+            
+    # Resolve tournament teams via fuzzy matching
+    all_tournament_teams = db.query(models.TournamentTeam).all()
+    t_team_names = list(set(tt.name for tt in all_tournament_teams))
+    best_t_team_name = _find_best_match(team_search, t_team_names)
+    
+    tournament_teams = []
+    if best_t_team_name:
+        tournament_teams = db.query(models.TournamentTeam).filter(
+            models.TournamentTeam.name == best_t_team_name
+        ).all()
+    
+    t_teams_list = []
+    for tt in tournament_teams:
+        t = db.query(models.Tournament).filter(models.Tournament.id == tt.tournament_id).first()
+        t_name = t.name if t else "?"
+        
+        m_relations = db.query(models.TournamentTeamMember).filter(
+            models.TournamentTeamMember.team_id == tt.id
+        ).all()
+        
+        tt_members = []
+        for mr in m_relations:
+            u = db.query(models.User).filter(models.User.id == mr.user_id).first()
+            if u:
+                tt_members.append(u.username)
+                
+        t_teams_list.append({
+            "team_id": tt.id,
+            "team_name": tt.name,
+            "tournament": t_name,
+            "members": tt_members
+        })
+        
+    if not members_list and not t_teams_list:
+        return json.dumps({"error": f"Aucune équipe trouvée pour '{team_search}'"}, ensure_ascii=False)
+        
+    return json.dumps({
+        "search_query": team_search,
+        "global_team": {
+            "name": resolved_team_name,
+            "members": members_list,
+            "total_points": sum(m["points"] for m in members_list) if members_list else 0
+        } if resolved_team_name else None,
+        "tournament_teams": t_teams_list
+    }, ensure_ascii=False)
+
+
+def _tool_get_player_match_history(db, models, args: dict, user_id: int) -> str:
+    """Get match history for a user."""
+    username = args.get("username", "").strip()
+
+    if username:
+        all_users = db.query(models.User).all()
+        user_map = {u.username: u for u in all_users}
+        best_username = _find_best_match(username, list(user_map.keys()))
+        if not best_username:
+            return json.dumps({"error": f"Joueur '{username}' introuvable"}, ensure_ascii=False)
+        user = user_map[best_username]
+    else:
+        user = db.query(models.User).filter(models.User.id == user_id).first()
+        if not user:
+            return json.dumps({"error": "Utilisateur courant introuvable"}, ensure_ascii=False)
+
+    tournaments = db.query(models.Tournament).all()
+    history = []
+    
+    for t in tournaments:
+        bracket = t.bracket or []
+        config = t.config or {}
+        use_teams = config.get("use_teams", False)
+        
+        entity_ids = set()
+        if use_teams:
+            teams = db.query(models.TournamentTeam).filter(
+                models.TournamentTeam.tournament_id == t.id
+            ).all()
+            for team in teams:
+                is_member = db.query(models.TournamentTeamMember).filter(
+                    models.TournamentTeamMember.team_id == team.id,
+                    models.TournamentTeamMember.user_id == user.id
+                ).first()
+                if is_member:
+                    entity_ids.add(-team.id)
+        else:
+            entity_ids.add(user.id)
+            
+        if not entity_ids:
+            continue
+            
+        game = db.query(models.Game).filter(models.Game.id == t.game_id).first()
+        game_name = game.name if game else "?"
+            
+        for match in bracket:
+            players = match.get("p", [])
+            scores = match.get("score", [])
+            mid = match.get("id", {})
+            
+            user_in_match = any(pid in entity_ids for pid in players if pid)
+            if not user_in_match:
+                continue
+                
+            is_completed = scores and len(scores) >= 2 and all(s is not None for s in scores)
+            if not is_completed:
+                continue
+                
+            opponent_ids = [pid for pid in players if pid and pid not in entity_ids and pid != 0]
+            opponent_names = [_resolve_entity_name(db, models, oid, use_teams, t.id) for oid in opponent_ids]
+            
+            section = mid.get("s", 1)
+            round_num = mid.get("r", 1)
+            section_label = "WB" if section == 1 else "LB" if section == 2 else "GF"
+            
+            user_idx = next(i for i, pid in enumerate(players) if pid in entity_ids)
+            user_score = scores[user_idx]
+            
+            opponents_scores = [scores[i] for i, pid in enumerate(players) if pid not in entity_ids and pid != 0]
+            
+            outcome = "Égalité"
+            if opponents_scores:
+                opp_score = opponents_scores[0]
+                if user_score > opp_score:
+                    outcome = "Victoire"
+                elif user_score < opp_score:
+                    outcome = "Défaite"
+                    
+            history.append({
+                "tournament": t.name,
+                "game": game_name,
+                "round": f"{section_label} R{round_num}",
+                "opponent": ", ".join(opponent_names) if opponent_names else "Aucun (BYE)",
+                "user_score": user_score,
+                "opponent_score": opponents_scores[0] if opponents_scores else None,
+                "outcome": outcome,
+                "tournament_status": t.status
+            })
+            
+    return json.dumps({
+        "username": user.username,
+        "history": history,
+        "total_played": len(history)
+    }, ensure_ascii=False)
+
+
+def _tool_get_awards(db, models) -> str:
+    """Get active awards and calculations."""
+    from .routers.users import _compute_awards_suggestions
+    
+    config_lang = db.query(models.SystemConfig).filter(models.SystemConfig.key == "lan_default_language").first()
+    lang = config_lang.value if config_lang else "fr"
+    
+    suggestions = _compute_awards_suggestions(db, lang)
+    
+    formatted_awards = []
+    for category, suggestion in suggestions.items():
+        if not suggestion:
+            continue
+            
+        formatted_awards.append({
+            "category": category,
+            "title": suggestion.get("title", ""),
+            "description": suggestion.get("description", ""),
+            "leader": suggestion.get("username", ""),
+            "stats": suggestion.get("stats_label", ""),
+            "points": suggestion.get("points", 0) if "points" in suggestion else None
+        })
+        
+    return json.dumps({
+        "awards": formatted_awards,
+        "count": len(formatted_awards)
+    }, ensure_ascii=False)
+
+
+def _tool_get_upcoming_matches(db, models, args: dict) -> str:
+    """List unplayed matches where both players/teams are known in running tournaments."""
+    running_tournaments = db.query(models.Tournament).filter(
+        models.Tournament.status == "RUNNING"
+    ).all()
+    
+    upcoming = []
+    for t in running_tournaments:
+        bracket = t.bracket or []
+        config = t.config or {}
+        use_teams = config.get("use_teams", False)
+        
+        for match in bracket:
+            players = match.get("p", [])
+            scores = match.get("score", [])
+            mid = match.get("id", {})
+            
+            if len(players) == 2:
+                p0, p1 = players[0], players[1]
+                if p0 != 0 and p1 != 0 and p0 is not None and p1 is not None:
+                    is_scored = scores and len(scores) == 2 and scores[0] is not None and scores[1] is not None
+                    if not is_scored:
+                        p0_name = _resolve_entity_name(db, models, p0, use_teams, t.id)
+                        p1_name = _resolve_entity_name(db, models, p1, use_teams, t.id)
+                        
+                        section = mid.get("s", 1)
+                        round_num = mid.get("r", 1)
+                        match_num = mid.get("m", 1)
+                        section_label = "WB" if section == 1 else "LB" if section == 2 else "GF"
+                        
+                        upcoming.append({
+                            "tournament": t.name,
+                            "match_id": f"{section_label} R{round_num} M{match_num}",
+                            "player1": p0_name,
+                            "player2": p1_name,
+                            "status": "Prêt"
+                        })
+            elif len(players) > 2:
+                non_zero_players = [p for p in players if p != 0 and p is not None]
+                if len(non_zero_players) >= 2:
+                    is_scored = scores and len(scores) == len(players) and all(s is not None for s in scores)
+                    if not is_scored:
+                        player_names = [_resolve_entity_name(db, models, p, use_teams, t.id) for p in non_zero_players]
+                        section = mid.get("s", 1)
+                        round_num = mid.get("r", 1)
+                        match_num = mid.get("m", 1)
+                        upcoming.append({
+                            "tournament": t.name,
+                            "match_id": f"R{round_num} M{match_num}",
+                            "players": player_names,
+                            "status": "Prêt"
+                        })
+                        
+    return json.dumps({
+        "upcoming_matches": upcoming,
+        "count": len(upcoming)
+    }, ensure_ascii=False)
+
+
+def _tool_get_files(db, models, args: dict) -> str:
+    """List downloadable files (patches, configs, torrents)."""
+    import os
+    from .routers.dashboard import INFO_FILES_DIR
+    os.makedirs(INFO_FILES_DIR, exist_ok=True)
+    
+    files = []
+    for fname in sorted(os.listdir(INFO_FILES_DIR)):
+        fpath = os.path.join(INFO_FILES_DIR, fname)
+        if os.path.isfile(fpath):
+            stat = os.stat(fpath)
+            files.append({
+                "name": fname,
+                "size_bytes": stat.st_size,
+                "url": f"/data/info_files/{fname}"
+            })
+    return json.dumps({"files": files, "count": len(files)}, ensure_ascii=False)
+
+
+def _tool_get_player_rank_progression(db, models, args: dict, user_id: int) -> str:
+    """Calculate rank progression of a player after each closed tournament."""
+    username = args.get("username", "").strip()
+    if username:
+        all_users = db.query(models.User).all()
+        user_map = {u.username: u for u in all_users}
+        best_username = _find_best_match(username, list(user_map.keys()))
+        if not best_username:
+            return json.dumps({"error": f"Joueur '{username}' introuvable"}, ensure_ascii=False)
+        user = user_map[best_username]
+    else:
+        user = db.query(models.User).filter(models.User.id == user_id).first()
+        if not user:
+            return json.dumps({"error": "Utilisateur courant introuvable"}, ensure_ascii=False)
+            
+    closed_tournaments = db.query(models.Tournament).filter(
+        models.Tournament.status == "CLOSED"
+    ).order_by(models.Tournament.id.asc()).all()
+    
+    all_users = db.query(models.User).all()
+    user_points = {u.id: 0 for u in all_users}
+    
+    progression = []
+    
+    def get_rank(target_uid):
+        sorted_users = sorted(user_points.keys(), key=lambda uid: user_points[uid], reverse=True)
+        try:
+            return sorted_users.index(target_uid) + 1
+        except ValueError:
+            return len(sorted_users)
+            
+    initial_rank = get_rank(user.id)
+    progression.append({
+        "tournament_id": 0,
+        "tournament_name": "Début de la LAN",
+        "points_gained": 0,
+        "total_points": 0,
+        "rank": initial_rank
+    })
+    
+    for t in closed_tournaments:
+        config = t.config or {}
+        use_teams = config.get("use_teams", False)
+        results = t.results or []
+        
+        team_to_users = {}
+        if use_teams:
+            members = db.query(models.TournamentTeamMember).join(
+                models.TournamentTeam
+            ).filter(
+                models.TournamentTeam.tournament_id == t.id
+            ).all()
+            for m in members:
+                team_to_users.setdefault(m.team_id, []).append(m.user_id)
+                
+        points_gained_this_t = {u.id: 0 for u in all_users}
+        
+        for r in results:
+            entity_id = r.get("entity_id")
+            total_pts = int(r.get("total", 0))
+            
+            if use_teams and entity_id < 0:
+                team_id = abs(entity_id)
+                member_uids = team_to_users.get(team_id, [])
+                for uid in member_uids:
+                    if uid in points_gained_this_t:
+                        points_gained_this_t[uid] = total_pts
+            else:
+                if entity_id in points_gained_this_t:
+                    points_gained_this_t[entity_id] = total_pts
+                    
+        for uid in points_gained_this_t:
+            user_points[uid] += points_gained_this_t[uid]
+            
+        rank_after = get_rank(user.id)
+        progression.append({
+            "tournament_id": t.id,
+            "tournament_name": t.name,
+            "points_gained": points_gained_this_t.get(user.id, 0),
+            "total_points": user_points[user.id],
+            "rank": rank_after
+        })
+        
+    return json.dumps({
+        "username": user.username,
+        "progression": progression,
+        "total_tournaments_closed": len(closed_tournaments)
+    }, ensure_ascii=False)
+
+
+def _tool_get_bracket_detail(db, models, args: dict) -> str:
+    """Get the detailed bracket of a tournament (rounds, matches, participants, scores)."""
+    search = args.get("tournament_name", "").strip()
+    if not search:
+        return json.dumps({"error": "Nom du tournoi requis"}, ensure_ascii=False)
+        
+    all_tournaments = db.query(models.Tournament).all()
+    tournaments_map = {t.name: t for t in all_tournaments}
+    best_name = _find_best_match(search, list(tournaments_map.keys()))
+    if not best_name:
+        return json.dumps({"error": f"Aucun tournoi trouvé pour '{search}'"}, ensure_ascii=False)
+        
+    t = tournaments_map[best_name]
+    config = t.config or {}
+    use_teams = config.get("use_teams", False)
+    bracket = t.bracket or []
+    
+    sections = {}
+    for match in bracket:
+        mid = match.get("id", {})
+        section = mid.get("s", 1)
+        round_num = mid.get("r", 1)
+        match_num = mid.get("m", 1)
+        
+        players = match.get("p", [])
+        scores = match.get("score", [])
+        
+        player_names = []
+        for p in players:
+            if p == 0 or p is None:
+                player_names.append("À déterminer")
+            else:
+                player_names.append(_resolve_entity_name(db, models, p, use_teams, t.id))
+                
+        match_info = {
+            "match_num": match_num,
+            "players": player_names,
+            "score": scores,
+            "completed": scores and len(scores) >= 2 and all(s is not None for s in scores)
+        }
+        
+        sections.setdefault(section, {}).setdefault(round_num, []).append(match_info)
+        
+    formatted_sections = {}
+    section_names = {1: "Tableau Principal / Winners Bracket", 2: "Losers Bracket", 3: "Grande Finale"}
+    
+    for sect_id, rounds in sections.items():
+        sect_name = section_names.get(sect_id, f"Section {sect_id}")
+        formatted_rounds = {}
+        for r_num, matches in rounds.items():
+            formatted_rounds[f"Round {r_num}"] = matches
+        formatted_sections[sect_name] = formatted_rounds
+        
+    return json.dumps({
+        "tournament_name": t.name,
+        "status": t.status,
+        "bracket_type": config.get("bracket_type", "single_elim"),
+        "bracket_details": formatted_sections
+    }, ensure_ascii=False)
+
+
+def _tool_get_leaderboard_by_game(db, models, args: dict) -> str:
+    """Get the leaderboard of players/teams for a specific game."""
+    game_name = args.get("game_name", "").strip()
+    if not game_name:
+        return json.dumps({"error": "Nom du jeu requis"}, ensure_ascii=False)
+        
+    all_games = db.query(models.Game).all()
+    games_map = {g.name: g for g in all_games}
+    best_name = _find_best_match(game_name, list(games_map.keys()))
+    if not best_name:
+        return json.dumps({"error": f"Jeu '{game_name}' introuvable dans la bibliothèque"}, ensure_ascii=False)
+        
+    game = games_map[best_name]
+    
+    tournaments = db.query(models.Tournament).filter(
+        models.Tournament.game_id == game.id
+    ).all()
+    
+    if not tournaments:
+        return json.dumps({"game": game.name, "leaderboard": [], "note": "Aucun tournoi n'a été créé pour ce jeu."}, ensure_ascii=False)
+        
+    player_points = {}
+    
+    for t in tournaments:
+        config = t.config or {}
+        use_teams = config.get("use_teams", False)
+        
+        if t.status == "CLOSED" and t.results:
+            for r in t.results:
+                name = r.get("name")
+                total = int(r.get("total", 0))
+                if name:
+                    player_points[name] = player_points.get(name, 0) + total
+        elif t.status in ("RUNNING", "DONE"):
+            from .routers.tournaments import _compute_projected_standings
+            standings = _compute_projected_standings(t, db)
+            for s in standings:
+                name = _resolve_entity_name(db, models, s.get("entity_id"), use_teams, t.id)
+                total = int(s.get("total", 0))
+                if name:
+                    player_points[name] = player_points.get(name, 0) + total
+                    
+    sorted_lb = sorted(player_points.items(), key=lambda x: x[1], reverse=True)
+    leaderboard = [{"rank": i+1, "name": name, "points": pts} for i, (name, pts) in enumerate(sorted_lb)]
+    
+    return json.dumps({
+        "game": game.name,
+        "leaderboard": leaderboard[:15],
+        "total_tournaments": len(tournaments)
+    }, ensure_ascii=False)
+
+
+def _tool_get_tournament_bracket_path(db, models, args: dict, user_id: int) -> str:
+    """Get a detailed match history of a player in a specific tournament."""
+    t_search = args.get("tournament_name", "").strip()
+    username = args.get("username", "").strip()
+    
+    if not t_search:
+        return json.dumps({"error": "Nom du tournoi requis"}, ensure_ascii=False)
+        
+    all_tournaments = db.query(models.Tournament).all()
+    t_map = {t.name: t for t in all_tournaments}
+    best_t_name = _find_best_match(t_search, list(t_map.keys()))
+    if not best_t_name:
+        return json.dumps({"error": f"Tournoi '{t_search}' introuvable"}, ensure_ascii=False)
+        
+    t = t_map[best_t_name]
+    config = t.config or {}
+    use_teams = config.get("use_teams", False)
+    bracket = t.bracket or []
+    
+    if username:
+        all_users = db.query(models.User).all()
+        user_map = {u.username: u for u in all_users}
+        best_username = _find_best_match(username, list(user_map.keys()))
+        if not best_username:
+            return json.dumps({"error": f"Joueur '{username}' introuvable"}, ensure_ascii=False)
+        user = user_map[best_username]
+    else:
+        user = db.query(models.User).filter(models.User.id == user_id).first()
+        if not user:
+            return json.dumps({"error": "Utilisateur courant introuvable"}, ensure_ascii=False)
+            
+    entity_ids = set()
+    if use_teams:
+        teams = db.query(models.TournamentTeam).filter(
+            models.TournamentTeam.tournament_id == t.id
+        ).all()
+        for team in teams:
+            is_member = db.query(models.TournamentTeamMember).filter(
+                models.TournamentTeamMember.team_id == team.id,
+                models.TournamentTeamMember.user_id == user.id
+            ).first()
+            if is_member:
+                entity_ids.add(-team.id)
+    else:
+        entity_ids.add(user.id)
+        
+    if not entity_ids:
+        return json.dumps({"error": f"{user.username} ne participe pas à ce tournoi."}, ensure_ascii=False)
+        
+    path_matches = []
+    for match in bracket:
+        players = match.get("p", [])
+        scores = match.get("score", [])
+        mid = match.get("id", {})
+        
+        user_in_match = any(pid in entity_ids for pid in players if pid)
+        if not user_in_match:
+            continue
+            
+        section = mid.get("s", 1)
+        round_num = mid.get("r", 1)
+        match_num = mid.get("m", 1)
+        section_label = "WB" if section == 1 else "LB" if section == 2 else "GF"
+        
+        opponent_ids = [pid for pid in players if pid and pid not in entity_ids and pid != 0]
+        opponent_names = [_resolve_entity_name(db, models, oid, use_teams, t.id) for oid in opponent_ids]
+        
+        has_scores = scores and len(scores) >= 2 and all(s is not None for s in scores)
+        
+        outcome = "À jouer"
+        user_score = None
+        opp_score = None
+        
+        if has_scores:
+            user_idx = next(i for i, pid in enumerate(players) if pid in entity_ids)
+            user_score = scores[user_idx]
+            opp_scores = [scores[i] for i, pid in enumerate(players) if pid not in entity_ids and pid != 0]
+            
+            if opp_scores:
+                opp_score = opp_scores[0]
+                if user_score > opp_score:
+                    outcome = "Victoire"
+                elif user_score < opp_score:
+                    outcome = "Défaite"
+                else:
+                    outcome = "Égalité"
+            else:
+                outcome = "BYE (Qualifié)"
+                
+        path_matches.append({
+            "match_id": f"{section_label} R{round_num} M{match_num}",
+            "opponent": ", ".join(opponent_names) if opponent_names else "À déterminer / BYE",
+            "user_score": user_score,
+            "opponent_score": opp_score,
+            "outcome": outcome
+        })
+        
+    return json.dumps({
+        "player": user.username,
+        "tournament": t.name,
+        "path": path_matches,
+        "total_matches": len(path_matches)
+    }, ensure_ascii=False)
+
+
+def _tool_send_notification_to_player(db, models, args: dict) -> str:
+    """Send a notification to a specific player."""
+    username = args.get("username", "").strip()
+    content = args.get("content", "").strip()
+    
+    if not username or not content:
+        return json.dumps({"error": "Pseudo et contenu requis"}, ensure_ascii=False)
+        
+    all_users = db.query(models.User).all()
+    user_map = {u.username: u for u in all_users}
+    best_username = _find_best_match(username, list(user_map.keys()))
+    if not best_username:
+        return json.dumps({"error": f"Joueur '{username}' introuvable"}, ensure_ascii=False)
+        
+    dest_user = user_map[best_username]
+    
+    notif = models.Notification(
+        user_id=dest_user.id,
+        type="admin_message",
+        title="Message de l'organisateur (IA)",
+        content=content
+    )
+    db.add(notif)
+    db.commit()
+    
+    from .websockets import manager as ws_manager
+    async def run_broadcast():
+        await ws_manager.broadcast({"type": "notification_new", "user_id": dest_user.id})
+        
+    import asyncio
+    try:
+        loop = asyncio.get_running_loop()
+        loop.create_task(run_broadcast())
+    except RuntimeError:
+        asyncio.run(run_broadcast())
+        
+    return json.dumps({
+        "success": True,
+        "recipient": dest_user.username,
+        "message": f"Notification envoyée avec succès à {dest_user.username}."
+    }, ensure_ascii=False)
+
+
+def _tool_announce_to_all(db, models, args: dict, user_id: int) -> str:
+    """Send a global notification to all players (admin only)."""
+    content = args.get("content", "").strip()
+    
+    if not content:
+        return json.dumps({"error": "Contenu de l'annonce requis"}, ensure_ascii=False)
+        
+    caller = db.query(models.User).filter(models.User.id == user_id).first()
+    if not caller or not caller.is_admin:
+        return json.dumps({"error": "Action non autorisée. Seuls les administrateurs peuvent faire des annonces globales."}, ensure_ascii=False)
+        
+    all_users = db.query(models.User).all()
+    
+    for u in all_users:
+        notif = models.Notification(
+            user_id=u.id,
+            type="admin_message",
+            title="📢 Annonce Globale",
+            content=content
+        )
+        db.add(notif)
+        
+    db.commit()
+    
+    from .websockets import manager as ws_manager
+    async def run_broadcast():
+        await ws_manager.broadcast({"type": "notification_new"})
+        
+    import asyncio
+    try:
+        loop = asyncio.get_running_loop()
+        loop.create_task(run_broadcast())
+    except RuntimeError:
+        asyncio.run(run_broadcast())
+        
+    return json.dumps({
+        "success": True,
+        "count": len(all_users),
+        "message": f"Annonce globale diffusée avec succès à {len(all_users)} joueurs."
+    }, ensure_ascii=False)

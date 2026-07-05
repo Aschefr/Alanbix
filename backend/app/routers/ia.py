@@ -577,6 +577,77 @@ async def regenerate_last(conv_id: int, db: Session = Depends(database.get_db), 
         raise HTTPException(404)
     return {"status": "ok", "last_user_content": last_user.content}
 
+class RenameRequest(BaseModel):
+    title: str
+
+@router.patch("/conversations/{conv_id}/title")
+def rename_conversation(conv_id: int, body: RenameRequest, db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
+    """Manually rename a conversation."""
+    conv = db.query(models.Conversation).filter(
+        models.Conversation.id == conv_id,
+        models.Conversation.user_id == user.id
+    ).first()
+    if not conv:
+        raise HTTPException(404)
+    title = body.title.strip()
+    if not title or len(title) > 100:
+        raise HTTPException(400, "Titre invalide (1–100 caractères)")
+    conv.title = title
+    db.commit()
+    return {"status": "ok", "title": conv.title}
+
+@router.post("/conversations/{conv_id}/suggest-title")
+async def suggest_title(conv_id: int, db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
+    """Fire-and-forget title suggestion via the IA queue. Returns immediately; result pushed via WebSocket."""
+    conv = db.query(models.Conversation).filter(
+        models.Conversation.id == conv_id,
+        models.Conversation.user_id == user.id
+    ).first()
+    if not conv:
+        raise HTTPException(404)
+
+    msgs = db.query(models.ChatMessage).filter(
+        models.ChatMessage.conversation_id == conv_id,
+        models.ChatMessage.role.in_(["user", "bot"])
+    ).order_by(models.ChatMessage.timestamp.asc()).limit(6).all()
+
+    if not msgs:
+        raise HTTPException(400, "Aucun message dans cette conversation")
+
+    excerpt_parts = []
+    for m in msgs:
+        prefix = "User" if m.role == "user" else "Assistant"
+        excerpt_parts.append(f"{prefix}: {m.content[:200]}")
+    excerpt = "\n".join(excerpt_parts)
+
+    cfg = get_effective_config(db)
+    instances = get_instances(db)
+    enabled = [i for i in instances if i.get("enabled", True)]
+    ollama_host = enabled[0]["url"] if enabled else "http://ollama:11434"
+    model = cfg.get("model", "gemma4:e4b")
+
+    from ..ia_queue import queue_manager, QueueEntry
+    import time
+    entry = QueueEntry(
+        priority=5,           # between admin (0) and player (10) — doesn't block chat
+        created_at=time.time(),
+        user_id=0,            # 0 = system task, not subject to 1-per-user limit
+        username=f"system:title:{user.id}",
+        conversation_id=conv_id,
+        task_type="title_suggestion",
+        payload={
+            "ollama_host": ollama_host,
+            "model": model,
+            "excerpt": excerpt,
+            "conversation_id": conv_id,
+            "user_id": user.id,
+        }
+    )
+    await queue_manager.enqueue(entry)
+    return {"status": "pending"}
+
+
+
 class QueryRequest(BaseModel):
     prompt: str
     conversation_id: int
@@ -814,21 +885,28 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
                         
                         # ── Auto-title: fire-and-forget background task (G-50) ──
                         if conv_obj and conv_obj.title in ("Nouvelle discussion", "New discussion", "Nueva discusión", ""):
-                            first_user_msg = s.query(models.ChatMessage).filter(
+                            # Collect up to 3 exchanges (user + bot pairs) for richer context
+                            first_msgs = s.query(models.ChatMessage).filter(
                                 models.ChatMessage.conversation_id == request.conversation_id,
-                                models.ChatMessage.role == "user"
-                            ).order_by(models.ChatMessage.timestamp.asc()).first()
-                            if first_user_msg:
-                                _first_content = first_user_msg.content
+                                models.ChatMessage.role.in_(["user", "bot"])
+                            ).order_by(models.ChatMessage.timestamp.asc()).limit(6).all()
+                            if first_msgs:
+                                # Build a short excerpt: "User: ... / Bot: ..."
+                                excerpt_parts = []
+                                for m in first_msgs:
+                                    prefix = "User" if m.role == "user" else "Assistant"
+                                    excerpt_parts.append(f"{prefix}: {m.content[:200]}")
+                                _excerpt = "\n".join(excerpt_parts[:6])
                                 _conv_id = request.conversation_id
                                 _ollama_host = ollama_host
                                 _model = model_to_use
                                 async def _bg_title():
                                     try:
-                                        async with httpx.AsyncClient() as tc:
+                                        bg_timeout = httpx.Timeout(connect=10.0, read=120.0, write=10.0, pool=5.0)
+                                        async with httpx.AsyncClient(timeout=bg_timeout) as tc:
                                             tr = await tc.post(f"{_ollama_host}/api/chat", json={
                                                 "model": _model,
-                                                "messages": [{"role": "user", "content": f"Génère un titre COURT (max 5 mots) pour cette conversation. Réponds UNIQUEMENT avec le titre, sans guillemets ni ponctuation finale.\n\nQuestion: {_first_content}"}],
+                                                "messages": [{"role": "user", "content": f"Génère un titre COURT (max 5 mots) pour cette conversation. Réponds UNIQUEMENT avec le titre, sans guillemets ni ponctuation finale.\n\nConversation:\n{_excerpt}"}],
                                                 "stream": False,
                                                 "options": {"temperature": 0.3}
                                             }, timeout=20.0)

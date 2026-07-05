@@ -1,5 +1,40 @@
 # Changelog
 
+## [1.21.0] - 2026-07-05
+
+### Features — AI Chat
+
+- **Message timestamps**: Each AI assistant and user message now displays the time it was sent. Timestamps on user bubbles are rendered in a lighter color for readability.
+- **Conversation auto-naming v2**: The automatic naming now uses up to 6 messages (3 user + assistant exchanges) instead of only the first user message, producing significantly more meaningful titles. The trigger still fires after the first response, using whatever context is available.
+- **Manual conversation rename**: A ✏️ rename button now appears on hover over each conversation in the sidebar. Clicking it opens a rename modal with a text field (Enter to confirm) and an **AI Suggestion** button.
+- **AI title suggestion — fire-and-forget via queue**: Clicking "AI Suggestion" returns immediately (`{status: "pending"}`) and routes the generation through the `IAQueueManager` as a `title_suggestion` task (priority 5, between admin and player). The result is pushed back to the frontend via WebSocket (`title_suggestion_ready`), making the task visible in the queue panel and properly coordinated with chat requests. No more HTTP blocking on Ollama.
+- **New API endpoints**:
+  - `PATCH /ia/conversations/{id}/title` — manual rename with broadcast
+  - `POST /ia/conversations/{id}/suggest-title` — async suggestion enqueued via IAQueueManager
+- **New queue task type**: `title_suggestion` added to `ia_queue.py` with dedicated `_process_title_suggestion()` method and WebSocket result broadcast.
+- **i18n**: 7 new translation keys (`ai_tooltip_rename`, `ai_rename_modal_title`, `ai_rename_placeholder`, `ai_rename_suggest`, `ai_rename_suggesting`, `ai_rename_save`, `ai_rename_cancel`) added to all 6 locale files (fr/en/es × static/data).
+
+### Bug Fixes
+
+- **Retry pipeline**: Fixed a broken response pipeline after the "Retry" button was clicked — the response was silently lost due to a missing `full_response` propagation in the SSE event generator.
+- **Ghost message on restart**: Fixed a bug where the `firefox` user account received a duplicate AI message containing the current time on every backend restart, caused by an orphaned system prompt entry in the database.
+- **`api.patch()` missing**: The `api.ts` helper was missing the `patch` method, causing the manual rename save button ("Renommer") to silently fail. Added `patch` alongside the existing `put`, `post`, `delete` methods.
+
+### Architecture
+
+- **Queue integration for background AI tasks**: Title suggestion is now a first-class `IAQueueManager` entry, using `user_id=0` (system task) and `priority=5` to avoid the per-user queue limit while still being processed in order behind active chat requests.
+
+---
+
+## [1.20.0] - 2026-07-05
+
+### Features — AI Assistant
+
+- **High-Priority AI Tools**: Implemented 4 new high-priority tools for the AI assistant (`get_live_matches`, `get_team_roster`, `get_player_match_history`, and `get_awards`).
+- **Medium-Priority AI Tools**: Implemented 4 new medium-priority tools for the AI assistant (`get_upcoming_matches`, `get_files`, `get_player_rank_progression`, and `get_bracket_detail`).
+- **Fuzzy Name Matching**: Added orthographic error tolerance using `difflib` so that user queries about players, teams, tournaments, and games are accurately resolved even with spelling mistakes.
+- **Robust Automated Tests**: Created `backend/tests/test_ia_tools.py` containing comprehensive unit tests verifying the correctness of all AI tools and fuzzy matching logic.
+
 ## [1.19.0] - 2026-07-05
 
 ### Améliorations — Assistant IA

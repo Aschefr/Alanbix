@@ -63,6 +63,10 @@ Nommé en clin d'œil à *Alambix* de l'univers d'Astérix — une machinerie co
 - **Édition & Retry inline** : Possibilité de modifier ses messages ou de relancer une génération directement dans le chat.
 - **Prompt système configurable** : Personnalisable depuis le panneau d'administration.
 - **Notifications de tournoi générées par l'IA** : Messages de fin de match personnalisés et humoristiques pour chaque participant.
+- **Horodatage des messages** : Chaque message (utilisateur et IA) affiche l'heure d'envoi.
+- **Auto-nommage des conversations v2** : Le titre est généré automatiquement après la première réponse, en utilisant jusqu'à 3 échanges pour un titre plus pertinent.
+- **Renommage manuel avec suggestion IA** : Bouton ✏️ sur chaque conversation (sidebar) ouvrant un modal d'édition avec suggestion IA asynchrone. La suggestion est traitée via la file d'attente Ollama et retournée via WebSocket sans bloquer l'interface.
+- **File d'attente unifiée** : Toutes les requêtes IA (chat, compression, suggestions de titre) passent par l'`IAQueueManager` avec priorités différenciées — plus de contention entre les requêtes.
 
 ### 🔔 Notifications
 - **Centre de notifications** : Un espace centralisé pour toutes les alertes des joueurs.

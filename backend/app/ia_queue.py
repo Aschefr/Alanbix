@@ -353,6 +353,8 @@ class IAQueueManager:
             await self._process_notification(entry, payload)
         elif task_type == "translate":
             await self._process_translate(entry, payload)
+        elif task_type == "title_suggestion":
+            await self._process_title_suggestion(entry, payload)
         return 0.0, 0.0
 
     async def _process_chat(self, entry: QueueEntry, payload: dict) -> tuple[float, float]:
@@ -436,10 +438,12 @@ class IAQueueManager:
 
                     is_xml_fallback = False
                     if not tool_calls:
-                        # Fallback: check content and thinking for XML tool call tags
+                        # Fallback: check content and thinking for XML or pythonic tool call formats
                         text_to_search = direct_content + "\n" + (thinking_content or "")
                         found_calls = []
                         import re
+                        
+                        # 1. Try XML format
                         for match in re.finditer(r'<tool_call name="([^"]+)">\s*(.*?)\s*</tool_call>', text_to_search, re.DOTALL):
                             name = match.group(1)
                             args_str = match.group(2)
@@ -456,6 +460,36 @@ class IAQueueManager:
                                     "arguments": args
                                 }
                             })
+                            
+                        # 2. Try Python function call syntax fallback (e.g. tool_name("arg1", "arg2"))
+                        if not found_calls:
+                            tools_map = {t["function"]["name"]: t["function"] for t in tools}
+                            for match in re.finditer(r'([a-zA-Z0-9_]+)\((.*?)\)', text_to_search):
+                                name = match.group(1)
+                                if name in tools_map:
+                                    args_str = match.group(2).strip()
+                                    args = {}
+                                    
+                                    # Try keyword arguments: key="val"
+                                    kw_matches = re.findall(r'(\w+)\s*=\s*["\']([^"\']*)["\']', args_str)
+                                    if kw_matches:
+                                        for k, v in kw_matches:
+                                            args[k] = v
+                                    else:
+                                        # Positional arguments: extract quoted strings
+                                        pos_args = re.findall(r'["\']([^"\']*)["\']', args_str)
+                                        params = list(tools_map[name].get("parameters", {}).get("properties", {}).keys())
+                                        for idx, val in enumerate(pos_args):
+                                            if idx < len(params):
+                                                args[params[idx]] = val
+                                                
+                                    found_calls.append({
+                                        "function": {
+                                            "name": name,
+                                            "arguments": args
+                                        }
+                                    })
+                                    
                         if found_calls:
                             tool_calls = found_calls
                             is_xml_fallback = True
@@ -584,6 +618,7 @@ class IAQueueManager:
                             # Strip think blocks from saved response
                             import re
                             clean_response = re.sub(r'<think>.*?</think>', '', full_response, flags=re.DOTALL).strip()
+                            self._execute_post_stream_tool_calls(clean_response, tools, entry.user_id, used_tools)
                             meta = {
                                 "model_info": entry.payload.get("model_info"),
                                 "used_tools": used_tools,
@@ -694,7 +729,48 @@ class IAQueueManager:
         except Exception as e:
             await entry.result_stream.put({"done": True, "error": True, "result": str(e)})
 
+    async def _process_title_suggestion(self, entry: QueueEntry, payload: dict):
+        """Generate a conversation title suggestion (non-streaming, fire-and-forget result via WebSocket)."""
+        ollama_host = payload["ollama_host"]
+        model = payload["model"]
+        excerpt = payload["excerpt"]
+        conv_id = payload["conversation_id"]
+        user_id = payload["user_id"]
+        try:
+            timeout = httpx.Timeout(connect=10.0, read=120.0, write=10.0, pool=5.0)
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                res = await client.post(f"{ollama_host}/api/chat", json={
+                    "model": model,
+                    "messages": [{"role": "user", "content": f"Génère un titre COURT (max 5 mots) pour cette conversation. Réponds UNIQUEMENT avec le titre, sans guillemets ni ponctuation finale.\n\nConversation:\n{excerpt}"}],
+                    "stream": False,
+                    "options": {"temperature": 0.4, "num_predict": 20}
+                })
+            if res.status_code == 200:
+                suggestion = res.json().get("message", {}).get("content", "").strip().strip('"\'')
+                if suggestion and len(suggestion) <= 100:
+                    await ws_manager.broadcast({
+                        "type": "title_suggestion_ready",
+                        "conversation_id": conv_id,
+                        "user_id": user_id,
+                        "suggestion": suggestion
+                    })
+                    return
+            await ws_manager.broadcast({
+                "type": "title_suggestion_ready",
+                "conversation_id": conv_id,
+                "user_id": user_id,
+                "error": f"Ollama HTTP {res.status_code}"
+            })
+        except Exception as e:
+            await ws_manager.broadcast({
+                "type": "title_suggestion_ready",
+                "conversation_id": conv_id,
+                "user_id": user_id,
+                "error": str(e)[:100]
+            })
+
     # --- Internal helpers ---
+
 
     def _get_position(self, entry_id: str) -> int:
         """Get 1-based position of an entry in the queue. 0 = processing."""
@@ -713,6 +789,62 @@ class IAQueueManager:
         self._active.pop(entry.id, None)
         if entry.user_id and self._by_user.get(entry.user_id) is entry:
             del self._by_user[entry.user_id]
+
+    def _execute_post_stream_tool_calls(self, response_text: str, tools: list, user_id: int, used_tools: list):
+        if not tools:
+            return
+        
+        import re
+        import json
+        tools_map = {t["function"]["name"]: t["function"] for t in tools}
+        found_calls = []
+        
+        # 1. XML format
+        for match in re.finditer(r'<tool_call name="([^"]+)">\s*(.*?)\s*</tool_call>', response_text, re.DOTALL):
+            name = match.group(1)
+            args_str = match.group(2)
+            try:
+                args = json.loads(args_str)
+            except Exception:
+                try:
+                    args = json.loads(args_str.replace("'", '"'))
+                except Exception:
+                    args = {}
+            found_calls.append((name, args))
+            
+        # 2. Python function call syntax fallback (e.g. tool_name("arg1", "arg2"))
+        if not found_calls:
+            for match in re.finditer(r'([a-zA-Z0-9_]+)\((.*?)\)', response_text):
+                name = match.group(1)
+                if name in tools_map:
+                    args_str = match.group(2).strip()
+                    args = {}
+                    
+                    # Try keyword arguments: key="val"
+                    kw_matches = re.findall(r'(\w+)\s*=\s*["\']([^"\']*)["\']', args_str)
+                    if kw_matches:
+                        for k, v in kw_matches:
+                            args[k] = v
+                    else:
+                        # Positional arguments: extract quoted strings
+                        pos_args = re.findall(r'["\']([^"\']*)["\']', args_str)
+                        params = list(tools_map[name].get("parameters", {}).get("properties", {}).keys())
+                        for idx, val in enumerate(pos_args):
+                            if idx < len(params):
+                                args[params[idx]] = val
+                                
+                    found_calls.append((name, args))
+                    
+        # Execute each found tool call if it hasn't been executed yet
+        from .ia_tools import execute_tool
+        for name, args in found_calls:
+            if name in tools_map and name not in used_tools:
+                try:
+                    print(f"[IA Queue] Executing post-stream tool call: {name}({args})", flush=True)
+                    execute_tool(name, args, user_id=user_id)
+                    used_tools.append(name)
+                except Exception as e:
+                    print(f"[IA Queue] Post-stream tool call {name} failed: {e}", flush=True)
 
     async def _broadcast_queue_state(self):
         """Broadcast global queue state via WebSocket (for admin widget)."""

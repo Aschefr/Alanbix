@@ -16,6 +16,23 @@
 		if (!text) return '';
 		return marked.parse(text);
 	}
+	/**
+	 * Format a message timestamp for display.
+	 * - Today: HH:MM
+	 * - Within 7 days: Weekday HH:MM
+	 * - Older: DD/MM HH:MM
+	 */
+	function formatMsgTime(ts) {
+		if (!ts) return '';
+		const d = new Date(ts.endsWith('Z') ? ts : ts + 'Z');
+		if (isNaN(d)) return '';
+		const now = new Date();
+		const diffDays = Math.floor((now - d) / 86400000);
+		const hh = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+		if (diffDays === 0) return hh;
+		if (diffDays < 7) return d.toLocaleDateString('fr-FR', { weekday: 'short' }) + ' ' + hh;
+		return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }) + ' ' + hh;
+	}
 	function escapeHtml(text) {
 		if (!text) return '';
 		return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -76,6 +93,39 @@
 		if (adminNotification) {
 			selectConversation(adminNotification.conversation_id, true);
 			adminNotification = null;
+		}
+	}
+	// Rename modal
+	let showRenameModal = false;
+	let renamingConvId = null;
+	let renameTitle = '';
+	let renameSuggesting = false;
+
+	async function openRename(conv) {
+		renamingConvId = conv.id;
+		renameTitle = conv.title;
+		showRenameModal = true;
+	}
+	async function saveRename() {
+		if (!renamingConvId || !renameTitle.trim()) return;
+		try {
+			await api.patch(`/ia/conversations/${renamingConvId}/title`, { title: renameTitle.trim() });
+			const conv = conversations.find(c => c.id === renamingConvId);
+			if (conv) { conv.title = renameTitle.trim(); conversations = conversations; }
+			showRenameModal = false;
+		} catch(e) { alert(e.message); }
+	}
+	async function suggestTitle() {
+		if (!renamingConvId) return;
+		renameSuggesting = true;
+		try {
+			// Fire-and-forget: returns {status:"pending"} immediately
+			// Result arrives via WebSocket (title_suggestion_ready)
+			await api.post(`/ia/conversations/${renamingConvId}/suggest-title`, {});
+			// Keep spinner — WebSocket will clear it when result arrives
+		} catch(e) {
+			renameSuggesting = false;
+			alert(`Suggestion IA échouée : ${e.message}`);
 		}
 	}
 	let showCompressionModal = false;
@@ -294,12 +344,23 @@
 					}
 				}).catch(() => {});
 			}
-			// Auto-title arrives asynchronously via background task (no user_id filter required as conversation_id is unique)
+			// Auto-title arrives asynchronously via background task
 			if (msg && msg.type === 'conv_title_updated') {
 				const conv = conversations.find(c => c.id === msg.conversation_id);
 				if (conv) {
 					conv.title = msg.title;
 					conversations = conversations;
+				}
+			}
+			// AI title suggestion result (fire-and-forget → WebSocket push)
+			if (msg && msg.type === 'title_suggestion_ready' && msg.user_id === userObj?.id) {
+				renameSuggesting = false;
+				if (showRenameModal && renamingConvId === msg.conversation_id) {
+					if (msg.suggestion) {
+						renameTitle = msg.suggestion;
+					} else if (msg.error) {
+						alert(`Suggestion IA échouée : ${msg.error}`);
+					}
 				}
 			}
 		});
@@ -751,6 +812,7 @@
 							<span class="unread-badge">{$t("changelog_fallback_name")}</span>
 						{/if}
 					</button>
+					<button class="btn-icon rename-btn" on:click|stopPropagation={() => openRename(conv)} title={$t('ai_tooltip_rename')}>✏️</button>
 					<button class="btn-icon delete-btn" on:click={() => deleteConversation(conv.id)}>❌</button>
 				</div>
 			{/each}
@@ -796,7 +858,42 @@
 				</div>
 			</header>
 
-			{#if showCompressionModal}
+		{#if showRenameModal}
+			<div class="modal-overlay" on:click|self={() => showRenameModal = false}>
+				<div class="modal-content glass rename-modal">
+					<h3>{$t('ai_rename_modal_title')}</h3>
+					<div class="rename-input-row">
+						<input
+							class="rename-input"
+							type="text"
+							bind:value={renameTitle}
+							placeholder={$t('ai_rename_placeholder')}
+							maxlength="100"
+							on:keydown={e => e.key === 'Enter' && saveRename()}
+							autofocus
+						/>
+						<button
+							class="btn-suggest"
+							on:click={suggestTitle}
+							disabled={renameSuggesting}
+							title={$t('ai_rename_suggest')}
+						>
+							{#if renameSuggesting}
+								<span class="spin">⏳</span> {$t('ai_rename_suggesting')}
+							{:else}
+								✨ {$t('ai_rename_suggest')}
+							{/if}
+						</button>
+					</div>
+					<div class="flex-row justify-end mt-4" style="gap:0.5rem">
+						<button class="btn-secondary" on:click={() => showRenameModal = false}>{$t('ai_rename_cancel')}</button>
+						<button class="btn-primary" on:click={saveRename} disabled={!renameTitle.trim()}>{$t('ai_rename_save')}</button>
+					</div>
+				</div>
+			</div>
+		{/if}
+
+		{#if showCompressionModal}
 				<div class="modal-overlay">
 					<div class="modal-content glass">
 						{#if compressionReason === 'auto'}
@@ -899,6 +996,9 @@
 									{@const usedTools = msg.used_tools || (msg.meta && msg.meta.used_tools)}
 									{@const msgDuration = msg.meta?.duration}
 									<div class="bot-meta">
+										{#if msg.timestamp}
+											<span class="msg-time" title={new Date(msg.timestamp.endsWith('Z') ? msg.timestamp : msg.timestamp + 'Z').toLocaleString('fr-FR')}>🕐 {formatMsgTime(msg.timestamp)}</span>
+										{/if}
 										{#if idx === messages.length - 1 && loading && !queued && !compressing && (msg.status === 'thinking' || msg.status === 'tool_call')}
 											<span class="status-badge timer-badge">⏱️ {elapsedTime.toFixed(1)}s / {avgDuration.toFixed(1)}s</span>
 										{:else if msgDuration !== undefined && msgDuration !== null}
@@ -952,6 +1052,9 @@
 									{#if msg.content === '' && loading && msg.role === 'bot' && msg.id === messages[messages.length-1].id}
 										<span class="typing-indicator" class:typing-fade-in={typingFade} class:typing-fade-out={!typingFade}>{compressing ? $t("ai_compressing") : queued ? $t("ai_queue_position", { pos: queuePosition }) : typingText}</span>
 									{/if}
+								{/if}
+								{#if msg.role !== 'bot' && msg.timestamp}
+									<span class="msg-time user-time" title={new Date(msg.timestamp.endsWith('Z') ? msg.timestamp : msg.timestamp + 'Z').toLocaleString('fr-FR')}>🕐 {formatMsgTime(msg.timestamp)}</span>
 								{/if}
 							</div>
 						</div>
@@ -1104,7 +1207,10 @@
 	}
 
 	.delete-btn { opacity: 0; padding: 0.5rem; font-size: 0.8rem; flex-shrink: 0; }
+	.rename-btn { opacity: 0; padding: 0.5rem; font-size: 0.78rem; flex-shrink: 0; background: none; border: none; cursor: pointer; color: var(--text-muted); transition: opacity 0.2s, color 0.2s; }
 	.conv-item:hover .delete-btn { opacity: 1; }
+	.conv-item:hover .rename-btn { opacity: 1; }
+	.rename-btn:hover { color: var(--accent); }
 
 	.chat-main { flex-grow: 1; display: flex; flex-direction: column; position: relative; overflow: hidden; }
 	header { padding: 1.2rem 2rem; border-bottom: 1px solid var(--glass-border); min-height: 90px; }
@@ -1125,6 +1231,27 @@
 		align-items: center; gap: 0.3rem;
 	}
 	.revert-btn { background: none; border: none; cursor: pointer; color: inherit; padding: 0; font-size: 0.85rem; }
+
+	/* Rename modal */
+	.rename-modal { width: 420px; }
+	.rename-modal h3 { margin-bottom: 1rem; font-size: 1rem; }
+	.rename-input-row { display: flex; gap: 0.5rem; align-items: stretch; }
+	.rename-input {
+		flex: 1; background: var(--surface-sunken); border: 1px solid var(--glass-border);
+		border-radius: var(--radius-md); padding: 0.55rem 0.75rem; color: var(--text-main);
+		font-size: 0.9rem; font-family: inherit; outline: none; transition: border-color 0.2s;
+	}
+	.rename-input:focus { border-color: var(--accent); }
+	.btn-suggest {
+		padding: 0.5rem 0.9rem; background: rgba(139,92,246,0.12); border: 1px solid rgba(139,92,246,0.3);
+		border-radius: var(--radius-md); color: #a78bfa; font-size: 0.8rem; font-weight: 600;
+		cursor: pointer; white-space: nowrap; transition: all 0.2s; flex-shrink: 0;
+		display: flex; align-items: center; gap: 0.3rem;
+	}
+	.btn-suggest:hover:not(:disabled) { background: rgba(139,92,246,0.22); border-color: rgba(139,92,246,0.5); }
+	.btn-suggest:disabled { opacity: 0.55; cursor: not-allowed; }
+	.spin { display: inline-block; animation: spin 1s linear infinite; }
+	@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
 	.btn-sentinel { 
 		padding: 0.6rem 1rem; background: var(--hover-tint); 
@@ -1237,6 +1364,22 @@
 		font-size: 0.72rem;
 		margin-bottom: 0.5rem;
 		align-items: center;
+	}
+	.msg-time {
+		font-size: 0.68rem;
+		color: var(--text-muted);
+		opacity: 0.7;
+		font-variant-numeric: tabular-nums;
+		letter-spacing: 0.2px;
+		user-select: none;
+	}
+	.msg-time.user-time {
+		display: block;
+		text-align: right;
+		padding: 0.1rem 0.25rem 0 0;
+		font-size: 0.67rem;
+		color: rgba(255, 255, 255, 0.65);
+		opacity: 1;
 	}
 	.model-badge {
 		background: rgba(255, 255, 255, 0.05);

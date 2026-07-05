@@ -41,6 +41,11 @@ export const api = {
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify(data)
 	}),
+	patch: (path: string, data: any) => request(path, {
+		method: 'PATCH',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(data)
+	}),
 	delete: (path: string) => request(path, {
 		method: 'DELETE'
 	}),
