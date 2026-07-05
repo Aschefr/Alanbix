@@ -109,10 +109,12 @@ async def auto_translate(
         
     try:
         ia_cfg = get_effective_config(db)
-        model = ia_cfg.get('model', 'llama3')
+        model = ia_cfg.get('model', '')
         instance = await pick_instance(db, model=model)
-        ollama_host = instance["url"] if instance else ia_cfg.get('ollama_host', 'http://localhost:11434')
-        if instance and instance.get("model"):
+        if not instance:
+            raise HTTPException(503, "Aucune instance IA configurée par l'administrateur")
+        ollama_host = instance["url"]
+        if instance.get("model"):
             model = instance["model"]
             
         translation_prompt = (
@@ -199,7 +201,7 @@ async def bulk_translate(
     Returns SSE stream with each translated key as a JSON event.
     """
     ia_cfg = get_effective_config(db)
-    default_model = ia_cfg.get('model', 'llama3')
+    default_model = ia_cfg.get('model', '')
 
     # Discover healthy instances
     instances = [i for i in get_instances(db) if i.get("enabled", True)]

@@ -36,21 +36,24 @@ def get_effective_config(db: Session):
         return val
     return {
         "ollama_host": os.getenv("OLLAMA_HOST", "http://host.docker.internal:11434"),
-        "model": "llama3",
+        "model": "",
         "rag_enabled": True,
         "network_tools_enabled": True,
         "auto_moderation_enabled": True
     }
 
 def get_instances(db: Session):
-    """Extract instance list from config. Retro-compatible with single ollama_host."""
+    """Extract instance list from config. Returns [] if no instances configured."""
     cfg = get_effective_config(db)
     instances = cfg.get("ollama_instances")
     if instances and len(instances) > 0:
         return instances
-    # Legacy single-host fallback
-    host = cfg.get("ollama_host", os.getenv("OLLAMA_HOST", "http://host.docker.internal:11434"))
-    return [{"url": host, "label": "Default", "model": cfg.get("model", "llama3"), "enabled": True, "priority": 0}]
+    # Legacy single-host fallback (only if ollama_host is explicitly set)
+    host = cfg.get("ollama_host", os.getenv("OLLAMA_HOST", ""))
+    model = cfg.get("model", "")
+    if host and model:
+        return [{"url": host, "label": "Default", "model": model, "enabled": True, "priority": 0}]
+    return []
 
 async def _check_instance_health(url: str, timeout: float = 3.0):
     """Ping an Ollama instance, return (ok, latency_ms, models)."""
@@ -276,10 +279,12 @@ async def translate_prompts(req: TranslatePromptsRequest, db: Session = Depends(
         src_cp = "Tu es le commentateur sportif surexcité d'une LAN party."
 
     ia_cfg = get_effective_config(db)
-    model = ia_cfg.get('model', 'llama3')
+    model = ia_cfg.get('model', '')
     instance = await pick_instance(db, model=model)
-    ollama_host = instance["url"] if instance else ia_cfg.get('ollama_host', 'http://localhost:11434')
-    if instance and instance.get("model"):
+    if not instance:
+        raise HTTPException(503, "Aucune instance IA configurée par l'administrateur")
+    ollama_host = instance["url"]
+    if instance.get("model"):
         model = instance["model"]
 
     translation_prompt = (
@@ -453,10 +458,12 @@ async def compress_context(conv_id: int, req: CompressRequest, db: Session = Dep
         return {"status": "ok"}
         
     ia_cfg = get_effective_config(db)
-    model_to_use = conv.model or ia_cfg.get('model', 'llama3')
+    model_to_use = conv.model or ia_cfg.get('model', '')
     instance = await pick_instance(db, model=model_to_use)
-    url = instance["url"] if instance else ia_cfg.get('ollama_host', 'http://localhost:11434')
-    if not conv.model and instance and instance.get("model"):
+    if not instance:
+        raise HTTPException(503, "Aucune instance IA configurée par l'administrateur")
+    url = instance["url"]
+    if not conv.model and instance.get("model"):
         model_to_use = instance["model"]
     model = model_to_use
     
@@ -621,10 +628,12 @@ async def suggest_title(conv_id: int, db: Session = Depends(database.get_db), us
     excerpt = "\n".join(excerpt_parts)
 
     cfg = get_effective_config(db)
-    model = conv.model or cfg.get("model", "llama3")
+    model = conv.model or cfg.get("model", "")
     instance = await pick_instance(db, model=model)
-    ollama_host = instance["url"] if instance else cfg.get("ollama_host", "http://localhost:11434")
-    if instance and instance.get("model"):
+    if not instance:
+        raise HTTPException(503, "Aucune instance IA configurée par l'administrateur")
+    ollama_host = instance["url"]
+    if instance.get("model"):
         model = instance["model"]
 
     from ..ia_queue import queue_manager, QueueEntry
@@ -685,11 +694,13 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
             yield f"data: {json.dumps({'text': '🛡️ Un administrateur gère cette conversation. Votre message a été transmis.', 'done': True})}\n\n"
         return StreamingResponse(admin_mode_response(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
     ia_cfg = get_effective_config(db)
-    model_to_use = conv.model or ia_cfg.get('model', 'llama3')
+    model_to_use = conv.model or ia_cfg.get('model', '')
     instance = await pick_instance(db, model=model_to_use)
-    ollama_host = instance["url"] if instance else ia_cfg.get('ollama_host', 'http://localhost:11434')
+    if not instance:
+        raise HTTPException(503, "Aucune instance IA configurée par l'administrateur")
+    ollama_host = instance["url"]
     # Use instance's model affinity if conversation has no override
-    if not conv.model and instance and instance.get("model"):
+    if not conv.model and instance.get("model"):
         model_to_use = instance["model"]
     
     # 1. RAG (numpy cosine similarity in memory)
@@ -989,10 +1000,12 @@ async def auto_title(conv_id: int, db: Session = Depends(database.get_db), user:
         return {"title": conv.title}
     
     ia_cfg = get_effective_config(db)
-    model_to_use = conv.model or ia_cfg.get('model', 'llama3')
+    model_to_use = conv.model or ia_cfg.get('model', '')
     instance = await pick_instance(db, model=model_to_use)
-    ollama_host = instance["url"] if instance else ia_cfg.get('ollama_host', 'http://localhost:11434')
-    if not conv.model and instance and instance.get("model"):
+    if not instance:
+        raise HTTPException(503, "Aucune instance IA configurée par l'administrateur")
+    ollama_host = instance["url"]
+    if not conv.model and instance.get("model"):
         model_to_use = instance["model"]
     
     try:

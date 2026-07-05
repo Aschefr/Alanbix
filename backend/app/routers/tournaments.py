@@ -1801,8 +1801,11 @@ async def _generate_tournament_notifications(tournament_id, tournament_name, gam
         try:
             ia_cfg = get_effective_config(db)
             instance = await pick_instance(db)
-            ollama_host = instance["url"] if instance else ia_cfg.get('ollama_host', 'http://host.docker.internal:11434')
-            model = instance.get("model") if instance else ia_cfg.get('model', 'llama3')
+            if not instance:
+                print("[Tournaments] No AI instance configured, skipping closing notifications")
+                return
+            ollama_host = instance["url"]
+            model = instance.get("model") or ia_cfg.get('model', '')
 
             prompt = _build_closing_prompt(
                 tournament_name, game_name, results, participant_uids,
