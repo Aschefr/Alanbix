@@ -734,9 +734,9 @@
 							<div class="trans-key-container">
 								<div class="trans-key" title={key}>{key}</div>
 								{#if targetStaticData[key] !== undefined && targetData[key] !== targetStaticData[key]}
-									<div class="custom-indicator" title="Modifié par rapport à la valeur par défaut">
-										<span class="custom-dot"></span> Modifié
-										<button class="btn-restore" on:click={() => restoreDefault(key)} title="Restaurer la valeur par défaut">↺</button>
+									<div class="custom-indicator" title={$t('admin_languages_custom_tooltip') || 'Modifié par rapport à la valeur par défaut'}>
+										<span class="custom-dot"></span> {$t('admin_languages_custom_indicator') || 'Modifié'}
+										<button class="btn-restore" on:click={() => restoreDefault(key)} title={$t('admin_languages_restore_tooltip') || 'Restaurer la valeur par défaut'}>↺</button>
 									</div>
 								{/if}
 							</div>
