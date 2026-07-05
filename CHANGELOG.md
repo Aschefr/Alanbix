@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.18.0] - 2026-07-05
+## [1.19.0] - 2026-07-05
 
 ### Améliorations — Assistant IA
 
