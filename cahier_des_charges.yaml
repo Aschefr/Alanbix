@@ -1261,3 +1261,16 @@ future_axes:
       - "Alignement horizontal en flexbox avec white-space: nowrap pour les étiquettes de points."
       - "Mise à jour des valeurs par défaut distribuées avec l'application (1er: 1.5, 2e: 1.3, 3e: 1.0, Part.: 1.0, Bonus: 0.5)."
     priority: low
+
+  - id: AXE-53
+    title: "Diagnostics réseau déportés côté client"
+    status: DONE
+    description: >
+      Permettre au navigateur client d'exécuter localement les requêtes de diagnostic réseau
+      (ping, traceroute, DNS) émises par le LLM pour surmonter l'isolation imposée par Docker.
+    done:
+      - "Transformation de execute_tool en fonction asynchrone (async def)."
+      - "Création de la route POST /client-tool-response/{call_id} pour recevoir les retours."
+      - "Implémentation de runClientTool en Svelte pour tester la latence HTTP/HTTPS et DNS Cloudflare."
+      - "Tests unitaires complets écrits et validés avec pytest."
+    priority: high

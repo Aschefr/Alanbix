@@ -1256,3 +1256,14 @@ async def admin_nuke_images(db: Session = Depends(database.get_db), admin: model
     db.query(models.ChatMessage).filter(models.ChatMessage.image_path != None).update({"image_path": None})
     db.commit()
     return {"status": "ok", "message": "Toutes les images ont été supprimées."}
+
+@router.post("/client-tool-response/{call_id}")
+async def client_tool_response(call_id: str, payload: dict):
+    from ..ia_tools import pending_client_calls
+    if call_id not in pending_client_calls:
+        raise HTTPException(404, "Identifiant d'appel non trouvé ou expiré.")
+    
+    event, _ = pending_client_calls[call_id]
+    pending_client_calls[call_id] = (event, payload)
+    event.set()
+    return {"status": "ok"}

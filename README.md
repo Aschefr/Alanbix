@@ -59,6 +59,7 @@ Nommé en clin d'œil à *Alambix* de l'univers d'Astérix — une machinerie co
 - **Réponses en streaming** : Affichage fluide via Server-Sent Events.
 - **Pipeline RAG** : Recherche vectorielle native avec NumPy (aucune base de données externe requise).
 - **Ollama Multi-instances** : Équilibrage de charge avec gestion des priorités et basculement automatique (failover).
+- **Diagnostics réseau déportés côté client** : Possibilité d'exécuter les outils de diagnostic réseau (ping, traceroute, DNS) directement depuis le navigateur de l'utilisateur pour contourner l'isolation réseau de Docker.
 - **Compression du contexte** : Troncature, compactage et résumé IA pour économiser les tokens.
 - **Édition & Retry inline** : Possibilité de modifier ses messages ou de relancer une génération directement dans le chat.
 - **Prompt système configurable** : Personnalisable depuis le panneau d'administration.

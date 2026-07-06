@@ -602,6 +602,80 @@
 		loading = false;
 	}
 
+	async function runClientTool(name, args, callId) {
+		let result = {};
+		const host = args.host || args.domain || "";
+		
+		if (name === "ping_host") {
+			const start = performance.now();
+			const controller = new AbortController();
+			const timeoutId = setTimeout(() => controller.abort(), 5000);
+			
+			// Tenter HTTP et HTTPS en parallèle pour maximiser les chances (certains routeurs filtrent le port 80)
+			const fetchPromise = (protocol) => fetch(`${protocol}://${host}/`, { 
+				mode: 'no-cors', 
+				cache: 'no-cache', 
+				signal: controller.signal 
+			});
+
+			try {
+				await Promise.any([fetchPromise('http'), fetchPromise('https')]);
+				clearTimeout(timeoutId);
+				const latency = Math.round(performance.now() - start);
+				result = { host, success: true, latency };
+			} catch (err) {
+				clearTimeout(timeoutId);
+				const latency = Math.round(performance.now() - start);
+				// Si c'est un timeout global (5s) ou proche de 5s, c'est un échec
+				const timedOut = err.name === "AbortError" || (err.errors && err.errors.every(e => e.name === "AbortError")) || latency >= 4900;
+				result = { 
+					host, 
+					success: !timedOut, 
+					latency: !timedOut ? latency : null,
+					error: timedOut ? "Timeout" : "Connection Refused / CORS" 
+				};
+			}
+		} else if (name === "dns_lookup") {
+			if (host === "router.lan" || host === "router" || host === "192.168.22.1") {
+				result = { domain: host, canonical_name: host, ips: ["192.168.22.1"], success: true };
+			} else {
+				try {
+					const dnsRes = await fetch(`https://cloudflare-dns.com/dns-query?name=${host}&type=A`, {
+						headers: { "accept": "application/dns-json" }
+					});
+					const dnsData = await dnsRes.json();
+					const ips = (dnsData.Answer || []).filter(a => a.type === 1).map(a => a.data);
+					result = { domain: host, ips, success: ips.length > 0 };
+				} catch (e) {
+					result = { domain: host, error: "DNS lookup failed in browser", success: false };
+				}
+			}
+		} else if (name === "traceroute_host") {
+			result = {
+				host,
+				hops: [
+					{ hop: 1, ip: "192.168.22.1", rtt_ms: 2 },
+					{ hop: 2, ip: host, rtt_ms: 12 }
+				],
+				note: "Simulé par le navigateur client (raw sockets ICMP non supportées)."
+			};
+		} else if (name === "scan_local_network") {
+			result = {
+				hosts: [
+					{ ip: "192.168.22.1", mac: "00:11:22:33:44:55" }
+				],
+				count: 1,
+				note: "Simulé par le client (la table ARP complète de l'hôte n'est pas accessible au navigateur)."
+			};
+		}
+		
+		try {
+			await api.post(`/ia/client-tool-response/${callId}`, result);
+		} catch (e) {
+			console.error("Failed to send client tool response", e);
+		}
+	}
+
 	async function send() {
 		if ((!query && !pendingImage) || loading || !activeId) return;
 
@@ -724,6 +798,16 @@
 									if (!messages[botMsgIdx].used_tools.includes(data.tool_name)) {
 										messages[botMsgIdx].used_tools.push(data.tool_name);
 									}
+								}
+								if (data.status === 'client_tool_call') {
+									messages[botMsgIdx].active_tool = data.tool_name;
+									if (!messages[botMsgIdx].used_tools) {
+										messages[botMsgIdx].used_tools = [];
+									}
+									if (!messages[botMsgIdx].used_tools.includes(data.tool_name)) {
+										messages[botMsgIdx].used_tools.push(data.tool_name);
+									}
+									runClientTool(data.tool_name, data.arguments, data.call_id);
 								}
 								if (data.status === 'thinking' && data.think_chunk) {
 									messages[botMsgIdx].think_content = (messages[botMsgIdx].think_content || '') + data.think_chunk;

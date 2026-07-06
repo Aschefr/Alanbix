@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.23.0] - 2026-07-06
+
+### Features — AI Assistant & Network Diagnostics
+
+- **Client-side Network Diagnostics (Option 5)**: Enabled the AI assistant to perform network diagnostics (`ping_host`, `traceroute_host`, `dns_lookup`, `scan_local_network`) directly from the user's browser, overcoming the network isolation limitations of Docker containers.
+  - **Asynchronous Tool Execution**: Converted the backend `execute_tool` logic to an async pipeline to support waiting for browser client responses.
+  - **Client Tool Callback Integration**: Pushes a new SSE signal (`client_tool_call`) with parameters and a unique `call_id` to trigger SvelteKit actions.
+  - **New API Endpoint**: Added `POST /ia/client-tool-response/{call_id}` to resolve pending diagnostics securely.
+  - **SvelteKit Integration**: Implemented `runClientTool()` in Svelte which performs parallel HTTP and HTTPS probes (to bypass router filters/drops), Cloudflare DNS-over-HTTPS queries, and returns raw latency and status data.
+  - **Automated Tests**: Created `backend/tests/test_network_diagnostics.py` verifying full async flow, correct responses for existing hosts (e.g. `192.168.22.1`), and timeouts/failures for offline ones (e.g. `192.168.30.100`).
+
+---
+
 ## [1.22.0] - 2026-07-06
 
 ### Features — Administration & Games

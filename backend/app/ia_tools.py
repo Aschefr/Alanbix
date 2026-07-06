@@ -514,7 +514,35 @@ TOOL_DEFINITIONS = [
 # ---------------------------------------------------------------------------
 # Tool Execution
 # ---------------------------------------------------------------------------
-def execute_tool(name: str, arguments: Dict[str, Any], user_id: int = 0) -> str:
+import asyncio
+import uuid
+
+# Global store for client-side tool executions in progress
+# format: call_id -> (asyncio.Event, result_data_or_error)
+pending_client_calls = {}
+
+async def _execute_client_tool(tool_name: str, args: dict, on_client_call) -> str:
+    call_id = str(uuid.uuid4())
+    event = asyncio.Event()
+    pending_client_calls[call_id] = (event, None)
+    
+    try:
+        await on_client_call(tool_name, args, call_id)
+    except Exception as e:
+        pending_client_calls.pop(call_id, None)
+        return json.dumps({"error": f"Failed to send client tool call: {str(e)}"}, ensure_ascii=False)
+        
+    try:
+        await asyncio.wait_for(event.wait(), timeout=35.0)
+        _, result = pending_client_calls.pop(call_id)
+        if result is None:
+            return json.dumps({"error": "Aucune réponse reçue du client."}, ensure_ascii=False)
+        return json.dumps(result, ensure_ascii=False)
+    except asyncio.TimeoutError:
+        pending_client_calls.pop(call_id, None)
+        return json.dumps({"error": "Le diagnostic réseau a expiré. Le client n'a pas répondu à temps."}, ensure_ascii=False)
+
+async def execute_tool(name: str, arguments: Dict[str, Any], user_id: int = 0, on_client_call = None) -> str:
     """Execute a tool by name with given arguments. Returns JSON string result.
     user_id is the ID of the user making the request (for personalized tools).
     """
@@ -557,14 +585,22 @@ def execute_tool(name: str, arguments: Dict[str, Any], user_id: int = 0) -> str:
         elif name == "get_player_seat":
             return _tool_get_player_seat(db, models, arguments, user_id)
         elif name == "ping_host":
+            if on_client_call:
+                return await _execute_client_tool("ping_host", arguments, on_client_call)
             return _tool_ping_host(arguments)
         elif name == "traceroute_host":
+            if on_client_call:
+                return await _execute_client_tool("traceroute_host", arguments, on_client_call)
             return _tool_traceroute_host(arguments)
         elif name == "dns_lookup":
+            if on_client_call:
+                return await _execute_client_tool("dns_lookup", arguments, on_client_call)
             return _tool_dns_lookup(arguments)
         elif name == "check_server_health":
             return _tool_check_server_health()
         elif name == "scan_local_network":
+            if on_client_call:
+                return await _execute_client_tool("scan_local_network", arguments, on_client_call)
             return _tool_scan_local_network()
         elif name == "get_game_rules":
             return _tool_get_game_rules(db, models, arguments)

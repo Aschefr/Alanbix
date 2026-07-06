@@ -525,8 +525,17 @@ class IAQueueManager:
                         if fn_name not in used_tools:
                             used_tools.append(fn_name)
                         t_tool_start = time.time()
+                        async def on_client_call(t_name, t_args, c_id):
+                            await entry.result_stream.put({
+                                "status": "client_tool_call",
+                                "tool_name": t_name,
+                                "arguments": t_args,
+                                "call_id": c_id
+                            })
+                            await entry.result_stream.put({"text": f"⚡ *Diagnostic réseau en cours depuis votre navigateur...*\n\n"})
+
                         try:
-                            result = execute_tool(fn_name, fn_args, user_id=entry.user_id)
+                            result = await execute_tool(fn_name, fn_args, user_id=entry.user_id, on_client_call=on_client_call)
                         except Exception as e:
                             result = json.dumps({"error": str(e)})
                         tool_time += (time.time() - t_tool_start)
