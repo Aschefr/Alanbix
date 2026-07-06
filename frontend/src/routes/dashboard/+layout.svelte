@@ -7,7 +7,7 @@
 	import { pmUnreadCount, groupUnreadCount, totalMsgUnread, notifUnreadCount, aiUnreadCount } from '$lib/pmStore';
 	import { get } from 'svelte/store';
 	import TutorialOverlay from '$lib/components/TutorialOverlay.svelte';
-	import { currentLang, availableLanguages, lanMultilingual, loadLocale, flagMap, t, initI18n } from '$lib/i18nStore';
+	import { currentLang, availableLanguages, lanMultilingual, loadLocale, flagMap, t, initI18n, refreshEventName } from '$lib/i18nStore';
 
 	let user = { username: '...', is_admin: false };
 	let loading = true;
@@ -178,6 +178,9 @@
 			unsub = wsMessageStore.subscribe(msg => {
 				if (msg && msg.type) {
 					invalidateAll();
+					if (msg.type === 'config_updated') {
+						refreshEventName();
+					}
 					// Update notification badge in real-time
 					if (msg.type === 'notification_new') {
 						api.get('/notifications/unread-count').then(r => {
@@ -259,9 +262,9 @@
 			// Fetch SemVer version
 			try {
 				const res = await api.get('/health');
-				version = res.version || '1.17.0';
+				version = res.version || '1.22.0';
 			} catch {
-				version = '1.17.0';
+				version = '1.22.0';
 			}
 
 			// Admin: poll IA status

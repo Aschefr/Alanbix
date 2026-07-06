@@ -1,13 +1,18 @@
 <script>
 	import { t } from '$lib/i18nStore';
 	import { api } from '$lib/api';
-	import { onMount } from 'svelte';
+	import { onMount, createEventDispatcher } from 'svelte';
+	import AddGameModal from './AddGameModal.svelte';
 
 	export let games = [];
 	export let onSuccess = (tournament) => {};
 	export let onCancel = null;
+	export let onGameCreated = async (newGameId) => {};
 
-	let defaultPts = { pts_winner: 10, pts_second: 6, pts_third: 4, pts_participation: 1, pts_per_match: 1.0 };
+	const dispatch = createEventDispatcher();
+	let showAddGameModal = false;
+
+	let defaultPts = { pts_winner: 1.5, pts_second: 1.3, pts_third: 1.0, pts_participation: 1.0, pts_per_match: 0.5 };
 	
 	let step = 1;
 	let creatingTournament = false;
@@ -94,6 +99,15 @@
 			creatingTournament = false;
 		}
 	}
+
+	async function handleGameCreated(event) {
+		const newGame = event.detail;
+		if (onGameCreated) {
+			await onGameCreated(newGame.id);
+		}
+		config.game_id = newGame.id;
+		showAddGameModal = false;
+	}
 </script>
 
 <div class="steps-indicator">
@@ -109,12 +123,15 @@
 			<input type="text" bind:value={config.name} placeholder="{$t('admin_tourneys_wizard_game_placeholder')}" />
 			
 			<label>{$t('admin_tourneys_wizard_game_lbl')}</label>
-			<select bind:value={config.game_id}>
-				<option value={null}>{$t('admin_tourneys_wizard_select_game')}</option>
-				{#each games as g}
-					<option value={g.id}>{g.name}</option>
-				{/each}
-			</select>
+			<div class="game-select-row">
+				<select bind:value={config.game_id}>
+					<option value={null}>{$t('admin_tourneys_wizard_select_game')}</option>
+					{#each games as g}
+						<option value={g.id}>{g.name}</option>
+					{/each}
+				</select>
+				<button type="button" class="btn-add-game-inline" on:click={() => showAddGameModal = true} title="{$t('admin_games_add') || 'Ajouter un Jeu'}">➕</button>
+			</div>
 			
 			{#if errorMsg}
 				<div class="error-banner">{errorMsg}</div>
@@ -278,6 +295,13 @@
 	{/if}
 </div>
 
+<AddGameModal 
+	show={showAddGameModal} 
+	on:close={() => showAddGameModal = false} 
+	on:success={handleGameCreated} 
+	on:toast={(e) => dispatch('toast', e.detail)}
+/>
+
 <style>
 	.flex-col { display: flex; flex-direction: column; gap: 0.8rem; }
 	.opt-label { font-weight: 400; font-size: 0.7rem; color: var(--text-muted); }
@@ -332,11 +356,11 @@
 		font-weight: 700; 
 		color: var(--text-muted); 
 		text-align: center; 
-		min-height: 1.8rem; 
 		display: flex; 
-		align-items: flex-end; 
+		align-items: center; 
 		justify-content: center; 
-		line-height: 1.2;
+		gap: 0.25rem;
+		white-space: nowrap;
 	}
 	.pts-field input { width: 100%; padding: 0.35rem; text-align: center; font-size: 0.8rem; font-weight: 800; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 6px; color: var(--accent); outline: none; }
 	.pts-field input:focus { border-color: var(--accent); }
@@ -396,5 +420,27 @@
 	input:focus,
 	select:focus {
 		border-color: var(--accent);
+	}
+
+	.game-select-row { display: flex; gap: 0.5rem; }
+	.game-select-row select { flex: 1; }
+	.btn-add-game-inline {
+		width: 36px;
+		height: 36px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background: rgba(59, 130, 246, 0.1);
+		border: 1px dashed rgba(59, 130, 246, 0.3);
+		color: var(--accent);
+		border-radius: 8px;
+		font-size: 0.95rem;
+		cursor: pointer;
+		transition: all 0.2s;
+		flex-shrink: 0;
+	}
+	.btn-add-game-inline:hover {
+		background: rgba(59, 130, 246, 0.2);
+		border-style: solid;
 	}
 </style>

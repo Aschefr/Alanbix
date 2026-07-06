@@ -5,6 +5,7 @@
 	import CreateTournamentWizard from '$lib/components/CreateTournamentWizard.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import EditTournamentModal from '$lib/components/EditTournamentModal.svelte';
+	import AddGameModal from '$lib/components/AddGameModal.svelte';
 	import { marked } from 'marked';
 	import { wsMessageStore } from '$lib/ws';
 	import { API_URL } from '$lib/config';
@@ -17,6 +18,10 @@
 	let tournaments = [];
 	let availableModels = [];
 	let activeTab = (typeof localStorage !== 'undefined' && localStorage.getItem('admin_tab')) || 'tournaments';
+	if (activeTab === 'games') activeTab = 'tournaments';
+	let showAddGameModal = false;
+	let EasyMDE = null;
+	let editGameEditorInstance = null;
 
 	let settingsSubTab = (typeof localStorage !== 'undefined' && localStorage.getItem('admin_subtab')) || 'general';
 	$: if (typeof localStorage !== 'undefined') localStorage.setItem('admin_tab', activeTab);
@@ -50,7 +55,10 @@
 	// Team Scoring Mode
 	let teamScoringMode = 'weighted';
 	let eventName = 'Alanbix LAN';
-	let defaultPts = { pts_winner: 10, pts_second: 6, pts_third: 4, pts_participation: 1, pts_per_match: 1.0 };
+	let searxngUrl = 'http://searxng:8080';
+	let searxngTesting = false;
+	let searxngTestResult = null;
+	let defaultPts = { pts_winner: 1.5, pts_second: 1.3, pts_third: 1.0, pts_participation: 1.0, pts_per_match: 0.5 };
 	let systemPrompt = '';
 	let closingPrompt = '';
 	let promptPreviewId = null;
@@ -94,7 +102,18 @@
 	let toastId = 0;
 
 	// i18n Config
-	import { t, flagMap } from '$lib/i18nStore';
+	import { t, flagMap, customPageTitle } from '$lib/i18nStore';
+
+	$: {
+		let baseAdmin = $t('nav_administration') || 'Administration';
+		let tabName = baseAdmin;
+		if (activeTab === 'tournaments') tabName = `${baseAdmin} - ${$t('admin_tab_tournaments') || 'Tournois & Jeux'}`;
+		else if (activeTab === 'players') tabName = `${baseAdmin} - ${$t('admin_tab_players') || 'Gestion Joueurs'}`;
+		else if (activeTab === 'settings') tabName = `${baseAdmin} - ${$t('admin_tab_settings') || 'IA & Paramètres'}`;
+		else if (activeTab === 'conversations') tabName = `${baseAdmin} - ${$t('admin_tab_conversations') || 'Conversations IA'}`;
+		else if (activeTab === 'awards') tabName = `${baseAdmin} - ${$t('admin_tab_awards') || 'Prix & Distinctions'}`;
+		customPageTitle.set(tabName);
+	}
 
 	// Svelte portal action to avoid transform container clipping (G-49 / scroll fix)
 	function portal(node) {
@@ -209,7 +228,7 @@
 	}
 
 	// New Game State
-	let newGame = { name: '', rules: '', image_url: '' };
+	// (handled via AddGameModal)
 
 	// IA Settings
 	let iaConfig = { 
@@ -234,6 +253,13 @@
 	let authorized = false;
 
 	onMount(async () => {
+		try {
+			const mod = await import('easymde');
+			EasyMDE = mod.default;
+		} catch (e) {
+			console.error("Failed to load EasyMDE", e);
+		}
+
 		// --- Admin Guard: block non-admin access ---
 		try {
 			const me = await api.get('/me');
@@ -311,6 +337,9 @@
 					teamScoringMode = stats.team_scoring_mode || 'weighted';
 					eventName = stats.event_name || 'Alanbix LAN';
 				}).catch(() => {});
+				api.get('/admin/config/searxng_url').then(sxCfg => {
+					searxngUrl = sxCfg?.value || 'http://searxng:8080';
+				}).catch(() => {});
 				api.get('/admin/config/default_tournament_pts').then(dpCfg => {
 					if (dpCfg?.value) {
 						const parsed = typeof dpCfg.value === 'string' ? JSON.parse(dpCfg.value) : dpCfg.value;
@@ -374,6 +403,10 @@
 			} catch {}
 			config = { ...config, pts_winner: defaultPts.pts_winner, pts_second: defaultPts.pts_second, pts_third: defaultPts.pts_third, pts_participation: defaultPts.pts_participation, pts_per_match: defaultPts.pts_per_match };
 		} catch {}
+		try {
+			const sxCfg = await api.get('/admin/config/searxng_url');
+			searxngUrl = sxCfg?.value || 'http://searxng:8080';
+		} catch {}
 		await loadPrompts();
 		loadAdminConversations();
 	}
@@ -390,6 +423,33 @@
 			await api.put('/admin/config/event_name', { value: eventName });
 			toast(get(t)('admin_toast_lan_name_saved'), 'success');
 		} catch { toast('Erreur sauvegarde.', 'error'); }
+	}
+
+	async function saveSearxngUrl() {
+		try {
+			await api.put('/admin/config/searxng_url', { value: searxngUrl });
+			toast(get(t)('admin_toast_searxng_url_saved') || 'URL de l\'instance SearXNG enregistree.', 'success');
+		} catch { toast('Erreur sauvegarde URL SearXNG.', 'error'); }
+	}
+
+	async function testSearxng() {
+		searxngTesting = true;
+		searxngTestResult = null;
+		try {
+			const res = await api.post('/admin/config/test-searxng', { url: searxngUrl });
+			if (res.ok) {
+				searxngTestResult = { ok: true, message: res.message || 'Instance SearXNG valide et fonctionnelle.' };
+				toast(res.message || 'SearXNG testé avec succès.', 'success');
+			} else {
+				searxngTestResult = { ok: false, message: res.error || 'Erreur inconnue.' };
+				toast(res.error || 'Test SearXNG échoué.', 'error');
+			}
+		} catch (err) {
+			searxngTestResult = { ok: false, message: 'Erreur réseau lors de la communication avec le serveur backend.' };
+			toast('Erreur test SearXNG.', 'error');
+		} finally {
+			searxngTesting = false;
+		}
 	}
 
 
@@ -696,12 +756,16 @@
 	let editingGame = null;
 	let editGameData = {};
 
+	let searxngNotConfigured = false;
+
 	async function searchCovers() {
 		if (!searchQuery.trim()) return;
 		searching = true;
+		searxngNotConfigured = false;
 		try {
 			const res = await api.get(`/tournaments/games/search-covers?q=${encodeURIComponent(searchQuery)}`);
 			searchResults = res.results || [];
+			searxngNotConfigured = !!res.not_configured;
 		} catch { searchResults = []; }
 		searching = false;
 	}
@@ -715,7 +779,7 @@
 		searchResults = [];
 	}
 
-	async function handleFileUpload(e, target = 'new') {
+	async function handleFileUpload(e) {
 		const file = e.target.files?.[0];
 		if (!file) return;
 		const formData = new FormData();
@@ -728,21 +792,9 @@
 			});
 			const data = await res.json();
 			const url = `${API_URL}${data.url}`;
-			if (target === 'edit') { editGameData.image_url = url; }
-			else { newGame.image_url = url; }
+			editGameData.image_url = url;
 			toast(get(t)('admin_toast_image_uploaded'), 'success');
 		} catch (err) { toast(get(t)('admin_toast_upload_error') + err.message, 'error'); }
-	}
-
-	async function createGame() {
-		try {
-			await api.post('/tournaments/games', newGame);
-			newGame = { name: '', rules: '', image_url: '' };
-			searchResults = [];
-			searchQuery = '';
-			loadData();
-			toast(get(t)('admin_toast_game_added'), 'success');
-		} catch (e) { toast(e.message, 'error'); }
 	}
 
 	function openEditGame(g) {
@@ -1045,7 +1097,49 @@
 			awardsLoading = false;
 		}
 	}
+
+	function setupEditGameEditor(node, currentRules) {
+		if (!EasyMDE) return;
+		
+		editGameEditorInstance = new EasyMDE({
+			element: node,
+			initialValue: currentRules || '',
+			spellChecker: false,
+			autofocus: false,
+			status: false,
+			minHeight: '120px',
+			maxHeight: '250px',
+			toolbar: [
+				'bold', 'italic', 'heading', '|', 
+				'quote', 'unordered-list', 'ordered-list', '|', 
+				'preview', 'side-by-side', 'fullscreen', '|', 
+				'guide'
+			]
+		});
+		
+		editGameEditorInstance.codemirror.on('change', () => {
+			editGameData.rules = editGameEditorInstance.value();
+		});
+
+		return {
+			update(newRules) {
+				if (editGameEditorInstance && editGameEditorInstance.value() !== newRules) {
+					editGameEditorInstance.value(newRules || '');
+				}
+			},
+			destroy() {
+				if (editGameEditorInstance) {
+					editGameEditorInstance.toTextArea();
+					editGameEditorInstance = null;
+				}
+			}
+		};
+	}
 </script>
+
+<svelte:head>
+	<link rel="stylesheet" href="https://unpkg.com/easymde/dist/easymde.min.css" />
+</svelte:head>
 
 {#if authorized}
 <div class="admin-view">
@@ -1053,7 +1147,6 @@
 		<h1 class="title-premium">{$t('admin_title') || 'Administration Centrale'}</h1>
 		<div class="tabs glass">
 			<button class={activeTab === 'tournaments' ? 'active' : ''} on:click={() => activeTab = 'tournaments'}>{$t('admin_tab_tournaments') || 'Tournois'}</button>
-			<button class={activeTab === 'games' ? 'active' : ''} on:click={() => activeTab = 'games'}>{$t('admin_tab_games') || 'Bibliothèque Jeux'}</button>
 			<button class={activeTab === 'players' ? 'active' : ''} on:click={() => { activeTab = 'players'; loadPlayers(); }}>{$t('admin_tab_players') || 'Gestion Joueurs'}</button>
 			<button class={activeTab === 'settings' ? 'active' : ''} on:click={() => activeTab = 'settings'}>{$t('admin_tab_settings') || 'IA & Paramètres'}</button>
 			<button class={activeTab === 'conversations' ? 'active' : ''} on:click={() => { activeTab = 'conversations'; loadAdminConversations(); }}>
@@ -1086,10 +1179,15 @@
 							toast(get(t)('tourneys_toast_joined'), 'success');
 							loadData();
 						}} 
+						onGameCreated={async (newGameId) => {
+							await loadData();
+						}}
+						on:toast={(e) => toast(e.detail.message, e.detail.type)}
 					/>
 				</section>
 
-				<section class="list glass">
+				<div class="flex-col gap-6" style="display:flex; flex-direction:column; gap:1.5rem;">
+					<section class="list glass">
 					<div class="list-header">
 						<div class="flex-row items-center gap-3">
 							<div class="list-icon">🏆</div>
@@ -1169,66 +1267,6 @@
 					</div>
 				</section>
 
-			</div>
-
-		{:else if activeTab === 'games'}
-			<div class="admin-grid">
-				<section class="wizard glass">
-					<div class="list-header">
-						<div class="flex-row items-center gap-3">
-							<div class="list-icon">➕</div>
-							<div>
-								<h2 class="text-accent" style="margin:0">{$t("admin_games_add")}</h2>
-								<span class="text-xs text-dim">{$t("admin_games_add_subtitle")}</span>
-							</div>
-						</div>
-					</div>
-					<div class="flex-col gap-4">
-						<label>{$t('admin_games_name_lbl')}</label>
-						<input type="text" bind:value={newGame.name} placeholder="Counter-Strike 2, Valorant..." on:input={() => searchQuery = newGame.name} />
-
-						<!-- Image Source Selector -->
-						<label>{$t('admin_games_illus_lbl')}</label>
-						<div class="img-mode-tabs">
-							<button class="img-tab {gameImageMode === 'search' ? 'active' : ''}" on:click={() => gameImageMode = 'search'}>{$t('admin_games_btn_search')}</button>
-							<button class="img-tab {gameImageMode === 'url' ? 'active' : ''}" on:click={() => gameImageMode = 'url'}>{$t('admin_games_btn_url')}</button>
-							<button class="img-tab {gameImageMode === 'upload' ? 'active' : ''}" on:click={() => gameImageMode = 'upload'}>{$t('admin_games_btn_file')}</button>
-						</div>
-
-						{#if gameImageMode === 'search'}
-							<div class="search-bar">
-								<input type="text" bind:value={searchQuery} placeholder="{$t('admin_games_search_placeholder')}" on:keydown={(e) => e.key === 'Enter' && searchCovers()} />
-								<button class="btn-primary btn-sm" on:click={searchCovers} disabled={searching}>{searching ? '...' : '🔍'}</button>
-							</div>
-							{#if searchResults.length > 0}
-								<div class="cover-grid">
-									{#each searchResults as r}
-										<button class="cover-pick" on:click={() => pickCover(r.image)}>
-											<img src={r.thumbnail || r.image} alt={r.name} loading="lazy" />
-											<span class="cover-name">{r.name}</span>
-										</button>
-									{/each}
-								</div>
-							{/if}
-						{:else if gameImageMode === 'url'}
-							<input type="text" bind:value={newGame.image_url} placeholder="https://..." />
-						{:else}
-							<input type="file" accept="image/*" on:change={(e) => handleFileUpload(e, 'new')} />
-						{/if}
-
-						{#if newGame.image_url}
-							<div class="img-preview">
-								<img src={newGame.image_url} alt="Preview" />
-								<button class="preview-clear" on:click={() => newGame.image_url = ''}>✕</button>
-							</div>
-						{/if}
-
-						<label>{$t('admin_games_rules_lbl')}</label>
-						<textarea bind:value={newGame.rules} rows="4" placeholder="# Règles\n- ..."></textarea>
-						<button class="btn-primary" on:click={createGame} disabled={!newGame.name}>{$t('admin_games_btn_submit')}</button>
-					</div>
-				</section>
-
 				<section class="list glass">
 					<div class="list-header">
 						<div class="flex-row items-center gap-3">
@@ -1238,6 +1276,7 @@
 								<span class="text-xs text-dim">{games.length > 1 ? $t("admin_games_library_count_many", { count: games.length }) : $t("admin_games_library_count_1", { count: games.length })}</span>
 							</div>
 						</div>
+						<button class="btn-primary btn-sm" on:click={() => showAddGameModal = true}>{$t("admin_games_add") || 'Ajouter un Jeu'}</button>
 					</div>
 					<div class="game-gallery">
 						{#each games as g}
@@ -1264,6 +1303,8 @@
 					</div>
 				</section>
 			</div>
+
+		</div>
 
 		<!-- Delete Game Double Confirmation Modal -->
 		{#if gameToDeleteWithTournaments}
@@ -1349,6 +1390,12 @@
 										<input type="text" bind:value={searchQuery} placeholder="Rechercher..." on:keydown={(e) => e.key === 'Enter' && searchCovers()} />
 										<button class="btn-primary btn-sm" on:click={searchCovers} disabled={searching}>{searching ? '...' : '🔍'}</button>
 									</div>
+									{#if searxngNotConfigured}
+										<div class="mt-2" style="font-size: 0.75rem; color: #f59e0b; display: flex; align-items: center; gap: 0.4rem;">
+											<span>⚠️</span>
+											<span>{$t('admin_games_searxng_not_configured')}</span>
+										</div>
+									{/if}
 									{#if searchResults.length > 0}
 										<div class="cover-grid mt-2">
 											{#each searchResults as r}
@@ -1371,9 +1418,13 @@
 									</div>
 								{/if}
 							</div>
-							<div class="edit-field full-width">
+							<div class="edit-field full-width editor-container">
 								<label>{$t('admin_games_rules_lbl')}</label>
-								<textarea bind:value={editGameData.rules} rows="6"></textarea>
+								{#if EasyMDE}
+									<textarea use:setupEditGameEditor={editGameData.rules}></textarea>
+								{:else}
+									<textarea bind:value={editGameData.rules} rows="6"></textarea>
+								{/if}
 							</div>
 						</div>
 					</div>
@@ -1629,6 +1680,42 @@
 								<div class="dpt-field"><label>{$t("admin_settings_points_3rd")}</label><input type="number" bind:value={defaultPts.pts_third} on:change={saveDefaultPts} min="0" /></div>
 								<div class="dpt-field"><label>{$t("admin_settings_points_part")}</label><input type="number" bind:value={defaultPts.pts_participation} on:change={saveDefaultPts} min="0" /></div>
 								<div class="dpt-field"><label>{$t("admin_settings_points_bonus")}</label><input type="number" bind:value={defaultPts.pts_per_match} on:change={saveDefaultPts} min="0" step="0.1" /></div>
+							</div>
+						</div>
+					</div>
+
+					<div class="sc glass sc-full">
+						<div class="sc-head">
+							<div class="sc-icon">🔍</div>
+							<div>
+								<h3>{$t("admin_settings_searxng_title")}</h3>
+								<p class="sc-sub">{$t("admin_settings_searxng_sub")}</p>
+							</div>
+						</div>
+						<div class="sc-body">
+							<div class="flex-column gap-2" style="width: 100%;">
+								<div class="flex-row gap-2" style="width: 100%;">
+									<input type="text" bind:value={searxngUrl} on:input={() => debounceSave('searxngUrl', saveSearxngUrl)} placeholder="{$t('admin_settings_searxng_placeholder')}" style="flex:1" />
+									<button class="btn-primary" on:click={testSearxng} disabled={searxngTesting}>
+										{#if searxngTesting}
+											{$t("admin_settings_searxng_testing")}
+										{:else}
+											{$t("admin_settings_searxng_test_btn")}
+										{/if}
+									</button>
+								</div>
+								
+								{#if searxngTestResult}
+									{#if searxngTestResult.ok}
+										<div style="padding: 0.75rem; border-radius: 6px; font-size: 0.9rem; border: 1px solid rgba(16, 185, 129, 0.25); background: rgba(16, 185, 129, 0.08); color: #34d399; margin-top: 0.5rem; text-align: left; width: 100%;">
+											✅ {searxngTestResult.message}
+										</div>
+									{:else}
+										<div style="padding: 0.75rem; border-radius: 6px; font-size: 0.9rem; border: 1px solid rgba(239, 68, 68, 0.25); background: rgba(239, 68, 68, 0.08); color: #f87171; margin-top: 0.5rem; text-align: left; width: 100%;">
+											❌ {searxngTestResult.message}
+										</div>
+									{/if}
+								{/if}
 							</div>
 						</div>
 					</div>
@@ -2346,6 +2433,14 @@
 	}}
 />
 
+<!-- Add Game Modal -->
+<AddGameModal
+	show={showAddGameModal}
+	on:close={() => showAddGameModal = false}
+	on:success={() => loadData()}
+	on:toast={(e) => toast(e.detail.message, e.detail.type)}
+/>
+
 <!-- Toast Notifications -->
 <div class="toast-container" use:portal>
 	{#each toasts as t (t.id)}
@@ -3026,6 +3121,54 @@
 		height: 100%;
 		object-fit: cover;
 		border-radius: 50%;
+	}
+	
+	/* EasyMDE theme overrides for dark mode */
+	.editor-container :global(.EasyMDEContainer) {
+		background: transparent;
+		border: 1px solid var(--glass-border);
+		border-radius: 8px;
+		overflow: hidden;
+	}
+	.editor-container :global(.EasyMDEContainer .CodeMirror) {
+		background: var(--bg-secondary, #0f172a);
+		color: var(--text-main, white);
+		border: none;
+		border-radius: 0;
+		font-size: 0.8rem;
+	}
+	.editor-container :global(.editor-toolbar) {
+		background: var(--hover-tint, rgba(255,255,255,0.03));
+		border: none;
+		border-bottom: 1px solid var(--glass-border);
+		opacity: 1;
+		padding: 4px;
+	}
+	.editor-container :global(.editor-toolbar button) {
+		color: var(--text-dim, #94a3b8) !important;
+		border: none !important;
+		width: 26px !important;
+		height: 26px !important;
+	}
+	.editor-container :global(.editor-toolbar button:hover),
+	.editor-container :global(.editor-toolbar button.active) {
+		background: var(--accent-soft, rgba(59,130,246,0.15)) !important;
+		color: var(--accent, #3b82f6) !important;
+		border-radius: 4px;
+	}
+	.editor-container :global(.editor-toolbar i.separator) {
+		border-left-color: var(--glass-border) !important;
+	}
+	.editor-container :global(.CodeMirror-cursor) { border-left-color: var(--accent, #3b82f6); }
+	.editor-container :global(.CodeMirror-selected) { background: var(--accent-soft, rgba(59,130,246,0.2)) !important; }
+	.editor-container :global(.editor-preview) {
+		background: var(--bg-secondary, #0f172a);
+		color: var(--text-main, white);
+	}
+	.editor-container :global(.editor-preview-side) {
+		background: var(--bg-secondary, #0f172a);
+		color: var(--text-main, white);
+		border-left: 1px solid var(--glass-border);
 	}
 </style>
 

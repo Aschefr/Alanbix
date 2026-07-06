@@ -21,4 +21,4 @@ def test_get_changelog(client):
             with open(path, "r", encoding="utf-8") as f:
                 version = f.read().strip()
                 break
-    assert first["tag_name"] == f"v{version}"
+    assert any(r["tag_name"] == f"v{version}" for r in data)

@@ -3,6 +3,7 @@
 	import { api } from '$lib/api';
 	import { onMount } from 'svelte';
 	import Modal from '$lib/components/Modal.svelte';
+	import { customPageTitle } from '$lib/i18nStore';
 
 	let id = $page.params.id;
 	let tournament = null;
@@ -18,6 +19,10 @@
 	let modalConfirmCallback = null;
 
 	let activeTab = 'bracket'; // 'bracket', 'settings', 'players'
+
+	$: if (tournament && tournament.name) {
+		customPageTitle.set(tournament.name);
+	}
 	let showDeleteConfirm = false;
 
 	// Pan & Zoom state

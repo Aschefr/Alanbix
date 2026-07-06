@@ -87,7 +87,11 @@ async def test_auto_translate_success(client):
         await entry.result_stream.put({"done": True, "result": "Hello Translated"})
         return entry, 0
         
-    with patch.object(queue_manager, "enqueue", side_effect=mock_enqueue):
+    async def mock_pick_instance(db, model=None):
+        return {"url": "http://localhost:11434", "label": "Default", "model": "llama3", "enabled": True, "priority": 0}
+        
+    with patch("app.routers.i18n.pick_instance", side_effect=mock_pick_instance), \
+         patch.object(queue_manager, "enqueue", side_effect=mock_enqueue):
         res = client.post("/api/i18n/auto-translate", json={
             "text": "Bonjour",
             "source_lang": "fr",

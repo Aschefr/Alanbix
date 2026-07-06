@@ -1,5 +1,32 @@
 # Changelog
 
+## [1.22.0] - 2026-07-06
+
+### Features — Administration & Games
+
+- **Unified Admin View**: Merged the separate "Games Library" tab into the main "Tournaments & Games" tab. The tournaments list and the games gallery are now vertically stacked, providing a single cohesive page.
+- **Inline Game Addition**: Organizers can now add new games directly from Step 1 of the tournament creation wizard via a `➕` button. The newly created game is automatically selected without clearing other form fields.
+- **Integrated WYSIWYG Editor for Rules**: Replaced plain text areas for rules with the `EasyMDE` rich Markdown editor in both the **Add Game** modal and the **Edit Game** modal. Added responsive layout wrapping and visual theme overrides for dark mode.
+- **Aesthetic Improvements**:
+  - Point distribution labels (Gold, Silver, Bronze, Participation, and Bonus/Score) are now aligned horizontally on a single row using a flexbox layout, with `white-space: nowrap` to prevent text wrapping.
+  - Section titles within the edit modal are now flex-aligned with their emojis.
+- **New Point Allocation Defaults**: Updated default points values for new tournaments to match the new custom defaults: Winner (1.5), Second (1.3), Third (1.0), Participation (1.0), and Match/Goal Bonus (0.5).
+- **Customizable SearXNG Search Engine**: Organizers can now configure their own self-hosted SearXNG instance URL for game cover searches directly in the Administration settings.
+  - Added a **Test Validity** button to ensure the configured instance is reachable and supports JSON output format.
+  - By default, the search engine URL is set to an empty string (`""`) for private and secure-by-default operation.
+- **Dynamic Browser Tab Titles**: The browser tab title now displays the name of the LAN (configured by the admin as `event_name`) followed by the currently open page name (e.g., `Alanbix LAN - Tournois` or `Alanbix LAN - Mon Profil`).
+  - Tab titles are automatically translated in real-time according to the selected user language.
+  - Dynamic subpages (such as individual tournament pages) update the title automatically with their specific names (e.g., `[LAN Name] - [Tournament Name]`).
+  - The administration panel dynamically appends the currently active tab (e.g., `[LAN Name] - Administration - Gestion Joueurs`).
+  - Updates to the LAN name propagate instantly across all active tabs in real-time when changed by an admin.
+
+### Maintenance & Bug Fixes
+
+- **Unit Test Stability**: Added a `pick_instance` mock in translation unit tests to bypass the 503 error caused by empty test databases, ensuring `pytest` suites execute successfully in clean environments.
+- **Backend VERSION Alignment**: Aligned the backend `VERSION` file with the root version (`1.21.0`) and cleared parity BOM markers that were causing tests to fail.
+
+---
+
 ## [1.21.0] - 2026-07-05
 
 ### Features — AI Chat

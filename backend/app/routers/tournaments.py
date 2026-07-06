@@ -133,13 +133,25 @@ async def upload_game_image(
     return {"url": f"/data/game_images/{filename}"}
 
 @router.get("/games/search-covers")
-async def search_game_covers(q: str):
+async def search_game_covers(q: str, db: Session = Depends(database.get_db)):
     """Search game covers via self-hosted SearXNG image search."""
     import httpx
+    searxng_cfg = db.query(models.SystemConfig).filter(models.SystemConfig.key == "searxng_url").first()
+    searxng_url = searxng_cfg.value if (searxng_cfg and searxng_cfg.value) else "http://searxng:8080"
+    
+    if not searxng_url.strip():
+        return {"results": [], "not_configured": True}
+        
+    searxng_url = searxng_url.rstrip("/")
+    if not searxng_url.endswith("/search"):
+        target_url = f"{searxng_url}/search"
+    else:
+        target_url = searxng_url
+
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.get(
-                "https://search.amify-studio.fr/search",
+                target_url,
                 params={
                     "q": f"{q} game cover",
                     "format": "json",
@@ -1284,11 +1296,11 @@ async def close_tournament(
         flag_modified(tournament, "config")
     
     # Points config (from tournament config, with defaults)
-    pts_winner = config.get("pts_winner", 10)
-    pts_second = config.get("pts_second", 6)
-    pts_third = config.get("pts_third", 4)
-    pts_participation = config.get("pts_participation", 1)
-    pts_per_match = config.get("pts_per_match", config.get("pts_per_goal", 1.0))
+    pts_winner = config.get("pts_winner", 1.5)
+    pts_second = config.get("pts_second", 1.3)
+    pts_third = config.get("pts_third", 1.0)
+    pts_participation = config.get("pts_participation", 1.0)
+    pts_per_match = config.get("pts_per_match", config.get("pts_per_goal", 0.5))
     
     bracket = tournament.bracket or []
     
@@ -2082,11 +2094,11 @@ def _compute_projected_standings(tournament, db):
     bracket_type = config.get("bracket_type", "single_elim")
     use_teams = config.get("use_teams", False)
     lower_is_better = config.get("lower_score_is_better", False)
-    pts_winner = config.get("pts_winner", 10)
-    pts_second = config.get("pts_second", 6)
-    pts_third = config.get("pts_third", 4)
-    pts_participation = config.get("pts_participation", 1)
-    pts_per_match = config.get("pts_per_match", config.get("pts_per_goal", 1.0))
+    pts_winner = config.get("pts_winner", 1.5)
+    pts_second = config.get("pts_second", 1.3)
+    pts_third = config.get("pts_third", 1.0)
+    pts_participation = config.get("pts_participation", 1.0)
+    pts_per_match = config.get("pts_per_match", config.get("pts_per_goal", 0.5))
     ppw = tournament.points_per_win or 3
 
     if not bracket:

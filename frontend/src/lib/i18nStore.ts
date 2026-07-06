@@ -5,6 +5,8 @@ export const currentLang = writable<string>('fr');
 export const i18nDict = writable<Record<string, string>>({});
 export const lanMultilingual = writable<boolean>(false);
 export const availableLanguages = writable<string[]>(['fr', 'en']);
+export const eventName = writable<string>('Alanbix LAN');
+export const customPageTitle = writable<string>('');
 
 export const flagMap: Record<string, string> = {
 	fr: 'Français',
@@ -47,6 +49,19 @@ export async function loadLocale(lang: string) {
 	}
 }
 
+// Refresh the LAN event name
+export async function refreshEventName() {
+	try {
+		const res = await fetch(`${API_URL}/dashboard/stats`);
+		if (res.ok) {
+			const stats = await res.json();
+			eventName.set(stats.event_name || 'Alanbix LAN');
+		}
+	} catch (e) {
+		console.error('Failed to refresh event name:', e);
+	}
+}
+
 // Initialize i18n using config settings & local preferences
 export async function initI18n() {
 	let lang: string = 'fr';
@@ -70,6 +85,7 @@ export async function initI18n() {
 		if (statsRes.ok) {
 			const stats = await statsRes.json();
 			lanMultilingual.set(!!stats.lan_multilingual);
+			eventName.set(stats.event_name || 'Alanbix LAN');
 			
 			const savedLang = localStorage.getItem('alanbix_lang');
 			const list = get(availableLanguages);

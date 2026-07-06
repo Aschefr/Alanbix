@@ -266,6 +266,63 @@ async def admin_delete_user(user_id: int, db: Session = Depends(database.get_db)
     await ws_manager.broadcast({"type": "users_updated"})
     return {"status": "deleted", "id": user_id}
 
+@router.post("/admin/config/test-searxng")
+async def test_searxng(data: dict, admin: models.User = Depends(auth.get_current_admin)):
+    """Test validity of a SearXNG instance URL."""
+    url = data.get("url", "").strip()
+    if not url:
+        return {"ok": False, "error": "L'URL est vide."}
+    
+    # Ensure URL formatting
+    url = url.rstrip("/")
+    if not url.endswith("/search"):
+        target_url = f"{url}/search"
+    else:
+        target_url = url
+        
+    import httpx
+    try:
+        async with httpx.AsyncClient() as client:
+            # We perform a real search test, e.g. querying for "test"
+            resp = await client.get(
+                target_url,
+                params={
+                    "q": "test",
+                    "format": "json",
+                    "categories": "images",
+                },
+                timeout=8.0
+            )
+            if resp.status_code != 200:
+                return {
+                    "ok": False, 
+                    "error": f"Le serveur a répondu avec le statut {resp.status_code}. Vérifiez l'URL."
+                }
+            try:
+                res_data = resp.json()
+            except ValueError:
+                return {
+                    "ok": False, 
+                    "error": "La réponse n'est pas au format JSON. Vérifiez que l'accès JSON est activé sur votre instance SearXNG."
+                }
+            
+            if "results" not in res_data:
+                return {
+                    "ok": False, 
+                    "error": "La réponse JSON ne contient pas la clé 'results'. Est-ce une instance SearXNG valide ?"
+                }
+                
+            return {
+                "ok": True, 
+                "message": "Instance SearXNG valide et fonctionnelle (format JSON supporté)."
+            }
+    except httpx.ConnectError:
+        return {"ok": False, "error": "Impossible de se connecter au serveur. Vérifiez l'URL ou la connexion réseau."}
+    except httpx.TimeoutException:
+        return {"ok": False, "error": "La requête a expiré (timeout de 8.0s)."}
+    except Exception as e:
+        return {"ok": False, "error": f"Erreur lors du test : {str(e)}"}
+
 @router.get("/admin/config/{key}")
 def admin_get_config(key: str, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
     """Admin reads a system config value."""

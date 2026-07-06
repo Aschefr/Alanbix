@@ -1,0 +1,7 @@
+use_default_settings: true
+server:
+  secret_key: "alanbix_searxng_secret_key_change_me_if_needed"
+search:
+  formats:
+    - html
+    - json

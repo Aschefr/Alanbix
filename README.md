@@ -79,7 +79,7 @@ Nommé en clin d'œil à *Alambix* de l'univers d'Astérix — une machinerie co
 ### 🛡️ Administration
 - **Gestion complète des joueurs** : Créer, modifier, réinitialiser les mots de passe, promouvoir/révoquer les administrateurs.
 - **Modération IA** : Restreindre l'accès à l'IA pour certains joueurs ou prendre la main en direct sur une conversation.
-- **Bibliothèque de jeux** : Recherche de jaquettes intégrée (SearXNG), upload manuel et téléchargement local automatique.
+- **Bibliothèque de jeux** : Recherche de jaquettes intégrée via une instance SearXNG configurable par l'admin (désactivée par défaut), upload manuel et téléchargement local automatique.
 - **Cycle de vie des tournois** : Création → Lancement → Scores → Clôture → Distribution des points.
 - **Paramètres système** : Nom de l'événement, mode de calcul des équipes, configuration IA.
 - **Monitoring des instances IA** : Widget d'état en temps réel (en ligne/occupé/hors ligne) dans la barre latérale.
@@ -143,7 +143,7 @@ Une interface drag-and-drop permettant aux organisateurs de cartographier l'espa
 ![Room Plan Editor](screenshots/alanbix_plan_salle_editeur.png)
 
 **Bibliothèque de Jeux**  
-Gérez les jeux joués pendant la LAN. Le système récupère automatiquement des jaquettes de haute qualité via une intégration SearXNG et les stocke localement pour un fonctionnement garanti hors-ligne.
+Gerez les jeux joues pendant la LAN. Le systeme peut recuperer automatiquement des jaquettes de haute qualite en configurant votre instance SearXNG privee dans les parametres d'administration, et les stocke localement pour un fonctionnement garanti hors-ligne.
 ![Admin Games](screenshots/alanbix_administration_jeux.png)
 
 **Modération des Joueurs**  

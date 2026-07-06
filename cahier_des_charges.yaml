@@ -1223,3 +1223,41 @@ future_axes:
       - "Audit complet du stockage persistant : tous les éléments utilisateur sont dans /app/data."
       - "Nettoyage du .gitignore : retrait des fichiers .bak du dépôt et ajout de test_api.py aux exclusions."
     priority: high
+
+  - id: AXE-50
+    title: "Fusion de l'administration des tournois & bibliothèque de jeux avec ajout inline"
+    status: DONE
+    description: >
+      Regrouper sous un onglet unique 'Tournois & Jeux' les listes de tournois et la bibliothèque des jeux.
+      Permettre l'ajout direct d'un jeu depuis le wizard de création de tournoi via un bouton additionnel '+',
+      avec sélection automatique du nouveau jeu sans perturber le formulaire.
+    done:
+      - "Création du composant réutilisable AddGameModal.svelte pour l'ajout complet de jeux."
+      - "Retrait de l'onglet séparé 'Bibliothèque Jeux' et empilement des deux listes dans la vue d'administration."
+      - "Intégration du bouton '+' dans CreateTournamentWizard.svelte et liaison avec la modale."
+      - "Synchronisation i18n des onglets en français, anglais et espagnol."
+    priority: high
+
+  - id: AXE-51
+    title: "Éditeur WYSIWYG (EasyMDE) pour les règles des jeux"
+    status: DONE
+    description: >
+      Remplacer les champs textarea bruts de règles par l'éditeur Markdown EasyMDE.
+      Intégrer l'éditeur à la fois dans la modale d'ajout de jeux et dans la modale d'édition de jeux.
+    done:
+      - "Chargement asynchrone et dynamique d'EasyMDE pour éviter les erreurs de rendu SSR."
+      - "Utilisation de directives Svelte actions avec synchronisation bidirectionnelle automatique."
+      - "Application du thème sombre personnalisé pour EasyMDE conforme au design du projet."
+    priority: medium
+
+  - id: AXE-52
+    title: "Harmonisation esthétique de l'attribution des points"
+    status: DONE
+    description: >
+      Ajuster l'affichage des attributions de points de tournois dans l'édition et la création.
+      Passer à une grille homogène à 5 colonnes et aligner horizontalement les icônes et étiquettes.
+    done:
+      - "Passage à une grille à 5 colonnes dans EditTournamentModal.svelte."
+      - "Alignement horizontal en flexbox avec white-space: nowrap pour les étiquettes de points."
+      - "Mise à jour des valeurs par défaut distribuées avec l'application (1er: 1.5, 2e: 1.3, 3e: 1.0, Part.: 1.0, Bonus: 0.5)."
+    priority: low

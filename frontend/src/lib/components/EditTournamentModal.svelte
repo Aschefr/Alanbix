@@ -243,7 +243,7 @@
 							<label>👤 {$t("admin_tourneys_wizard_points_part") || "Parti."}</label>
 							<input type="number" bind:value={editConfig.pts_participation} min="0" />
 						</div>
-						<div class="edit-pts-card full-row">
+						<div class="edit-pts-card">
 							<label>⚡ {$t("admin_tourneys_wizard_points_bonus") || "Bonus/Score"}</label>
 							<input type="number" bind:value={editConfig.pts_per_match} min="0" step="0.1" />
 						</div>
@@ -363,6 +363,9 @@
 		letter-spacing: 0.05em;
 		border-bottom: 1px solid var(--glass-border);
 		padding-bottom: 0.4rem;
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
 	}
 	.edit-grid-2col {
 		display: grid;
@@ -512,7 +515,7 @@
 	}
 	.edit-pts-grid-modern {
 		display: grid;
-		grid-template-columns: repeat(4, 1fr);
+		grid-template-columns: repeat(5, 1fr);
 		gap: 0.6rem;
 		width: 100%;
 	}
@@ -547,6 +550,11 @@
 		font-size: 0.6rem;
 		font-weight: 700;
 		color: var(--text-dim);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.25rem;
+		white-space: nowrap;
 	}
 	.edit-pts-card input {
 		width: 100%;
