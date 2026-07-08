@@ -98,6 +98,9 @@
 
 		// Handle ?highlight=SEAT_ID from bracket seat badges
 		const hlParam = $page.url.searchParams.get('highlight');
+		if (!hlParam) {
+			resetView();
+		}
 		if (hlParam) {
 			const targetSeat = layout.seats.find(s => s.id === hlParam);
 			if (targetSeat) {
@@ -173,81 +176,159 @@
 		table.y = sy;
 	}
 
+	function intersects(r1, r2) {
+		return !(r2.x >= r1.x + r1.w ||
+		         r2.x + r2.w <= r1.x ||
+		         r2.y >= r1.y + r1.h ||
+		         r2.y + r2.h <= r1.y);
+	}
+
+	function hasCollision(item, x, y, w, h) {
+		const r1 = { x, y, w, h };
+		const isSeat = item.id && item.id.includes('_S');
+		
+		if (!isSeat) {
+			// Check tables
+			if (layout.tables) {
+				for (const t of layout.tables) {
+					if (t.id !== item.id) {
+						if (intersects(r1, { x: t.x, y: t.y, w: t.w, h: t.h })) return true;
+					}
+				}
+			}
+			
+			// Check furniture
+			if (layout.furniture) {
+				for (const f of layout.furniture) {
+					if (f.id !== item.id) {
+						if (intersects(r1, { x: f.x, y: f.y, w: f.w, h: f.h })) return true;
+					}
+				}
+			}
+		}
+		
+		// Check seats
+		if (layout.seats) {
+			for (const s of layout.seats) {
+				if (s.id !== item.id) {
+					if (intersects(r1, { x: s.x, y: s.y, w: SEAT_SIZE, h: SEAT_SIZE })) return true;
+				}
+			}
+		}
+		
+		return false;
+	}
+
 	const SEAT_SIZE = 50; // visual seat size
 	let targetTableId = ''; // admin selects which table to fill
 
 	// --- Admin Actions ---
 	function nextTableNum() {
-		const nums = layout.tables.map(t => parseInt(t.id.replace('T','')) || 0);
-		return (Math.max(0, ...nums) + 1);
+		let num = 1;
+		while (layout.tables.some(t => t.id === 'T' + num)) {
+			num++;
+		}
+		return num;
 	}
 	function addTable() {
 		const n = nextTableNum();
-		const newTable = { id: 'T' + n, x: 120, y: 120, w: 300, h: 140, label: 'Table ' + n, rotation: 0 };
+		let x = 120;
+		let y = 120;
+		const w = 300;
+		const h = 140;
+		const tempTable = { id: 'T' + n };
+		while (hasCollision(tempTable, x, y, w, h)) {
+			x += GRID_SIZE;
+			y += GRID_SIZE;
+		}
+		const newTable = { id: 'T' + n, x, y, w, h, label: 'Table ' + n, rotation: 0 };
 		layout.tables = [...layout.tables, newTable];
 		targetTableId = newTable.id; // auto-select new table
 	}
 
 	// AXE-09: Add furniture element
 	function nextFurnitureNum() {
-		const nums = layout.furniture.map(f => parseInt(f.id.replace('F','')) || 0);
-		return (Math.max(0, ...nums) + 1);
+		let num = 1;
+		while (layout.furniture.some(f => f.id === 'F' + num)) {
+			num++;
+		}
+		return num;
 	}
 	function addFurniture() {
 		const preset = FURNITURE_TYPES.find(t => t.type === selectedFurnitureType) || FURNITURE_TYPES[0];
 		const n = nextFurnitureNum();
+		let x = 200;
+		let y = 200;
+		const w = preset.w;
+		const h = preset.h;
+		const tempFurn = { id: 'F' + n };
+		while (hasCollision(tempFurn, x, y, w, h)) {
+			x += GRID_SIZE;
+			y += GRID_SIZE;
+		}
 		layout.furniture = [...layout.furniture, {
 			id: 'F' + n,
 			type: preset.type,
 			icon: preset.icon,
 			label: preset.label,
-			x: 200, y: 200,
-			w: preset.w, h: preset.h,
+			x, y,
+			w, h,
 			rotation: 0
 		}];
 	}
 
 	function nextSeatNum(tableId) {
+		let num = 1;
 		const prefix = tableId + '_S';
-		const nums = layout.seats.filter(s => s.id.startsWith(prefix)).map(s => parseInt(s.id.split('_S')[1]) || 0);
-		return (Math.max(0, ...nums) + 1);
+		while (layout.seats.some(s => s.id === prefix + num)) {
+			num++;
+		}
+		return num;
 	}
 	function addSeat() {
 		// Use selected table, fallback to first table
 		const tId = targetTableId || (layout.tables.length > 0 ? layout.tables[0].id : 'T1');
 		const table = layout.tables.find(t => t.id === tId);
-		const sn = nextSeatNum(tId);
-		const half = SEAT_SIZE / 2;
 		let sx = 200, sy = 200;
+		const sn = nextSeatNum(tId);
+		
 		if (table) {
-			const PAD = 10;
-			const step = GRID_SIZE * Math.ceil(SEAT_SIZE / GRID_SIZE);
-			const cols = Math.max(1, Math.floor((table.w - PAD * 2) / step));
-			const existingOnTable = layout.seats.filter(s => s.id.startsWith(tId + '_S'));
-			const idx = existingOnTable.length;
-			const col = idx % cols;
-			const row = Math.floor(idx / cols);
-			// Local position inside unrotated table
-			const localCx = PAD + half + col * step;
-			const localCy = PAD + half + row * step;
-			// Snap in local coords
-			const snappedCx = snapToGrid(table.x + localCx);
-			const snappedCy = snapToGrid(table.y + localCy);
-			// Rotate around table center if table has rotation
-			const rot = (table.rotation || 0) * Math.PI / 180;
-			if (Math.abs(rot) > 0.01) {
-				const tcx = table.x + table.w / 2;
-				const tcy = table.y + table.h / 2;
-				const dx = snappedCx - tcx;
-				const dy = snappedCy - tcy;
-				sx = tcx + dx * Math.cos(rot) - dy * Math.sin(rot) - half;
-				sy = tcy + dx * Math.sin(rot) + dy * Math.cos(rot) - half;
-			} else {
-				sx = snappedCx - half;
-				sy = snappedCy - half;
+			const slot = findFirstFreeSlot(table);
+			if (slot) {
+				const half = SEAT_SIZE / 2;
+				const snappedCx = slot.x;
+				const snappedCy = slot.y;
+				
+				// Rotate around table center if table has rotation
+				const rot = (table.rotation || 0) * Math.PI / 180;
+				if (Math.abs(rot) > 0.01) {
+					const tcx = table.x + table.w / 2;
+					const tcy = table.y + table.h / 2;
+					const dx = snappedCx - tcx;
+					const dy = snappedCy - tcy;
+					sx = tcx + dx * Math.cos(rot) - dy * Math.sin(rot) - half;
+					sy = tcy + dx * Math.sin(rot) + dy * Math.cos(rot) - half;
+				} else {
+					sx = snappedCx - half;
+					sy = snappedCy - half;
+				}
 			}
 		}
-		layout.seats = [...layout.seats, { id: tId + '_S' + sn, x: sx, y: sy, rotation: table ? (table.rotation || 0) : 0 }];
+		// If ID already exists, find a unique suffix
+		let seatId = tId + '_S' + sn;
+		let counter = 1;
+		while (layout.seats.some(s => s.id === seatId)) {
+			seatId = tId + '_S' + sn + '_' + counter;
+			counter++;
+		}
+		
+		const tempSeat = { id: seatId };
+		while (hasCollision(tempSeat, sx, sy, SEAT_SIZE, SEAT_SIZE)) {
+			sx += GRID_SIZE;
+			sy += GRID_SIZE;
+		}
+		
+		layout.seats = [...layout.seats, { id: seatId, x: sx, y: sy, rotation: table ? (table.rotation || 0) : 0 }];
 	}
 
 	function tryRenameId(item, type, newId) {
@@ -264,9 +345,15 @@
 		layout = layout;
 		return true;
 	}
-
 	async function removeItem(type, id) {
-		if (type === 'table') layout.tables = layout.tables.filter(t => t.id !== id);
+		if (type === 'table') {
+			const table = layout.tables.find(t => t.id === id);
+			if (table) {
+				table.delete_pending = true;
+				layout = layout;
+			}
+			return;
+		}
 		if (type === 'furniture') layout.furniture = layout.furniture.filter(f => f.id !== id);
 		if (type === 'seat') {
 			// Unassign player if seated here
@@ -278,6 +365,74 @@
 			layout.seats = layout.seats.filter(s => s.id !== id);
 		}
 		layout = layout;
+	}
+
+	async function confirmDeleteTable(id) {
+		// Find all seats associated with this table
+		const seatsToRemove = layout.seats.filter(s => s.id.startsWith(id + '_'));
+		// Unassign players for those seats
+		for (const s of seatsToRemove) {
+			const occupant = getOccupant(s.id);
+			if (occupant) {
+				try { await api.post('/room/admin-unassign-seat', { seat_id: s.id }); } catch {}
+			}
+		}
+		
+		// Filter out seats and the table
+		layout.seats = layout.seats.filter(s => !s.id.startsWith(id + '_'));
+		layout.tables = layout.tables.filter(t => t.id !== id);
+		
+		layout = layout;
+		await loadUsers();
+	}
+
+	function addSeatToTable(tableId) {
+		targetTableId = tableId;
+		addSeat();
+	}
+	function findFirstFreeSlot(table) {
+		const PAD = 10;
+		const half = SEAT_SIZE / 2;
+		const step = GRID_SIZE * Math.ceil(SEAT_SIZE / GRID_SIZE);
+		const cols = Math.max(1, Math.floor((table.w - PAD * 2) / step));
+		const existingOnTable = layout.seats.filter(s => s.id.startsWith(table.id + '_'));
+		
+		let slotIdx = 0;
+		while (true) {
+			const col = slotIdx % cols;
+			const row = Math.floor(slotIdx / cols);
+			
+			const localCx = PAD + half + col * step;
+			const localCy = PAD + half + row * step;
+			
+			// If it overflows the table footprint height, it is full
+			if (localCy + half > table.h - PAD) {
+				return null;
+			}
+			
+			const snappedCx = snapToGrid(table.x + localCx);
+			const snappedCy = snapToGrid(table.y + localCy);
+			
+			// Check if any existing seat occupies this position
+			const targetX = snappedCx - half;
+			const targetY = snappedCy - half;
+			const occupied = existingOnTable.some(s => {
+				return Math.abs(s.x - targetX) < 5 && Math.abs(s.y - targetY) < 5;
+			});
+			
+			if (!occupied) {
+				return { slotIdx, x: snappedCx, y: snappedCy };
+			}
+			
+			slotIdx++;
+			if (slotIdx > 200) return null;
+		}
+	}
+
+	function getNextSeatPos(table) {
+		const slot = findFirstFreeSlot(table);
+		if (!slot) return null;
+		return { x: slot.x, y: slot.y };
 	}
 
 	async function saveLayout() {
@@ -297,16 +452,15 @@
 		dragType = type;
 		dragStart = { x: p.x, y: p.y };
 		dragOriginal = { x: table.x, y: table.y, w: table.w, h: table.h, rotation: table.rotation || 0 };
-		// Capture child seats' original positions for coordinated move
-		if (type === 'move') {
+		// Capture child seats' original positions for coordinated move or rotation
+		if (type === 'move' || type === 'rotate') {
 			dragChildSeats = layout.seats
 				.filter(s => s.id.startsWith(table.id + '_'))
-				.map(s => ({ ref: s, origX: s.x, origY: s.y }));
+				.map(s => ({ ref: s, origX: s.x, origY: s.y, origRotation: s.rotation || 0 }));
 		} else {
 			dragChildSeats = [];
 		}
 	}
-
 	function startDragSeat(e, seat, type = 'move-seat') {
 		if (!editMode) return;
 		e.preventDefault();
@@ -366,6 +520,20 @@
 			const cy = dragOriginal.y + dragOriginal.h / 2;
 			const angle = Math.atan2(p.y - cy, p.x - cx) * (180 / Math.PI);
 			dragging.rotation = snapAngle(angle + 90);
+
+			// Rotate child seats around the table center
+			const deltaRot = dragging.rotation - dragOriginal.rotation;
+			const rad = deltaRot * Math.PI / 180;
+			const half = SEAT_SIZE / 2;
+			for (const cs of dragChildSeats) {
+				const dx = (cs.origX + half) - cx;
+				const dy = (cs.origY + half) - cy;
+				const rx = dx * Math.cos(rad) - dy * Math.sin(rad);
+				const ry = dx * Math.sin(rad) + dy * Math.cos(rad);
+				cs.ref.x = cx + rx - half;
+				cs.ref.y = cy + ry - half;
+				cs.ref.rotation = snapAngle(cs.origRotation + deltaRot);
+			}
 		} else if (dragType === 'rotate-seat') {
 			const cx = dragOriginal.x + 25;
 			const cy = dragOriginal.y + 25;
@@ -429,9 +597,50 @@
 		vbX = panVbStart.x - dx;
 		vbY = panVbStart.y - dy;
 	}
-
 	function resetView() {
-		vbX = 0; vbY = 0; vbW = 900; vbH = 600;
+		let minX = Infinity, minY = Infinity;
+		let maxX = -Infinity, maxY = -Infinity;
+
+		for (const t of layout.tables) {
+			minX = Math.min(minX, t.x);
+			minY = Math.min(minY, t.y);
+			maxX = Math.max(maxX, t.x + t.w);
+			maxY = Math.max(maxY, t.y + t.h);
+		}
+
+		for (const f of layout.furniture) {
+			minX = Math.min(minX, f.x);
+			minY = Math.min(minY, f.y);
+			maxX = Math.max(maxX, f.x + f.w);
+			maxY = Math.max(maxY, f.y + f.h);
+		}
+
+		for (const s of layout.seats) {
+			minX = Math.min(minX, s.x);
+			minY = Math.min(minY, s.y);
+			maxX = Math.max(maxX, s.x + SEAT_SIZE);
+			maxY = Math.max(maxY, s.y + SEAT_SIZE);
+		}
+
+		if (minX === Infinity || minY === Infinity) {
+			vbX = 0; vbY = 0; vbW = 900; vbH = 600;
+			return;
+		}
+
+		const padding = 15;
+		const width = (maxX - minX) + padding * 2;
+		const height = (maxY - minY) + padding * 2;
+
+		const finalW = Math.max(900, width);
+		const finalH = Math.max(600, height);
+
+		const centerX = minX + (maxX - minX) / 2;
+		const centerY = minY + (maxY - minY) / 2;
+
+		vbW = finalW;
+		vbH = finalH;
+		vbX = centerX - finalW / 2;
+		vbY = centerY - finalH / 2;
 	}
 
 	// --- User seat interactions ---
@@ -567,7 +776,7 @@
 			<rect width="100%" height="100%" fill="url(#grid)"/>
 
 			<!-- Tables -->
-			{#each layout.tables as table}
+			{#each layout.tables as table (table.id)}
 				{@const cx = table.x + table.w / 2}
 				{@const cy = table.y + table.h / 2}
 				<g transform="rotate({table.rotation || 0}, {cx}, {cy})">
@@ -575,52 +784,94 @@
 					<!-- svelte-ignore a11y-no-static-element-interactions -->
 					<rect 
 						x={table.x} y={table.y} width={table.w} height={table.h} rx="8"
-						class="table-rect"
+						class="table-rect {table.delete_pending ? 'delete-pending' : ''}"
 						style="cursor: {editMode ? 'grab' : 'default'}"
 						on:mousedown={(e) => startDragTable(e, table, 'move')}
 					/>
-					<text x={cx} y={cy + 5} text-anchor="middle" class="table-label">{table.label}</text>
 
-					{#if editMode}
-						<!-- Resize handles (corners) -->
-						{#each [
-							{ type: 'resize-tl', hx: table.x, hy: table.y },
-							{ type: 'resize-tr', hx: table.x + table.w, hy: table.y },
-							{ type: 'resize-bl', hx: table.x, hy: table.y + table.h },
-							{ type: 'resize-br', hx: table.x + table.w, hy: table.y + table.h }
-						] as handle}
-							<!-- svelte-ignore a11y-no-static-element-interactions -->
-							<rect 
-								x={handle.hx - 5} y={handle.hy - 5} width="10" height="10" rx="2"
-								class="resize-handle"
-								style="cursor: {handle.type.includes('tl') || handle.type.includes('br') ? 'nwse-resize' : 'nesw-resize'}"
-								on:mousedown={(e) => startDragTable(e, table, handle.type)}
-							/>
-						{/each}
-
-						<!-- Rotation handle -->
-						<!-- svelte-ignore a11y-no-static-element-interactions -->
-						<line x1={cx} y1={table.y} x2={cx} y2={table.y - 25} stroke="var(--accent)" stroke-width="2" stroke-dasharray="3 2"/>
-						<!-- svelte-ignore a11y-no-static-element-interactions -->
-						<circle 
-							cx={cx} cy={table.y - 30} r="7"
-							class="rotate-handle"
-							on:mousedown={(e) => startDragTable(e, table, 'rotate')}
+					{#if editMode && table.delete_pending}
+						<!-- Inline delete confirmation overlay inside the table -->
+						<rect 
+							x={table.x + 2} y={table.y + 2} width={table.w - 4} height={table.h - 4} rx="6"
+							fill="rgba(239, 68, 68, 0.15)" stroke="var(--danger)" stroke-width="2" stroke-dasharray="4 2"
+							style="pointer-events: none;"
 						/>
-						<text x={cx} y={table.y - 27} text-anchor="middle" fill="white" font-size="8" font-weight="bold" style="pointer-events:none">↻</text>
-
-						<!-- Remove -->
+						
+						<!-- Confirmation controls just above the table top-right -->
+						<text x={table.x + table.w - 65} y={table.y - 10} text-anchor="end" fill="var(--danger)" font-weight="bold" font-size="12">{$t('map_delete_confirm_prompt')}</text>
+						
+						<!-- Confirm button (check mark) -->
 						<!-- svelte-ignore a11y-no-static-element-interactions -->
-						<g class="remove-btn" on:click|stopPropagation={() => removeItem('table', table.id)}>
-							<circle cx={table.x + table.w - 8} cy={table.y + 8} r="8" fill="var(--danger)"/>
-							<text x={table.x + table.w - 8} y={table.y + 12} text-anchor="middle" fill="white" font-size="10" font-weight="bold">✕</text>
+						<g class="confirm-delete-btn" on:click|stopPropagation={() => confirmDeleteTable(table.id)} style="cursor: pointer;">
+							<circle cx={table.x + table.w - 45} cy={table.y - 14} r="10" fill="var(--success)" stroke="white" stroke-width="1"/>
+							<text x={table.x + table.w - 45} y={table.y - 10} text-anchor="middle" fill="white" font-size="12" font-weight="bold">✓</text>
 						</g>
+						
+						<!-- Cancel button (cross mark) -->
+						<!-- svelte-ignore a11y-no-static-element-interactions -->
+						<g class="cancel-delete-btn" on:click|stopPropagation={() => { table.delete_pending = false; layout = layout; }} style="cursor: pointer;">
+							<circle cx={table.x + table.w - 20} cy={table.y - 14} r="10" fill="var(--text-muted)" stroke="white" stroke-width="1"/>
+							<text x={table.x + table.w - 20} y={table.y - 10} text-anchor="middle" fill="white" font-size="12" font-weight="bold">✕</text>
+						</g>
+					{:else}
+						<text x={cx} y={cy + 5} text-anchor="middle" class="table-label">{table.label}</text>
+						{#if editMode}
+							{@const nextPos = getNextSeatPos(table)}
+							{#if nextPos}
+								<!-- Add seat button "+" at the next free seat position -->
+								<!-- svelte-ignore a11y-no-static-element-interactions -->
+								<g class="add-seat-btn" on:click|stopPropagation={() => addSeatToTable(table.id)} style="cursor: pointer;">
+									<!-- A ghost dashed seat footprint -->
+									<rect 
+										x={nextPos.x - 25} y={nextPos.y - 25} width="50" height="50" rx="8"
+										fill="rgba(34, 197, 94, 0.06)" stroke="var(--success)" stroke-width="1.5" stroke-dasharray="3 2"
+									/>
+									<!-- The "+" indicator in the center of the ghost seat -->
+									<circle cx={nextPos.x} cy={nextPos.y} r="8" fill="var(--success)" stroke="white" stroke-width="1"/>
+									<text x={nextPos.x} y={nextPos.y + 3} text-anchor="middle" fill="white" font-size="10" font-weight="bold">+</text>
+								</g>
+							{/if}
+
+							<!-- Resize handles (corners) -->
+							{#each [
+								{ type: 'resize-tl', hx: table.x, hy: table.y },
+								{ type: 'resize-tr', hx: table.x + table.w, hy: table.y },
+								{ type: 'resize-bl', hx: table.x, hy: table.y + table.h },
+								{ type: 'resize-br', hx: table.x + table.w, hy: table.y + table.h }
+							] as handle}
+								<!-- svelte-ignore a11y-no-static-element-interactions -->
+								<rect 
+									x={handle.hx - 5} y={handle.hy - 5} width="10" height="10" rx="2"
+									class="resize-handle"
+									style="cursor: {handle.type.includes('tl') || handle.type.includes('br') ? 'nwse-resize' : 'nesw-resize'}"
+									on:mousedown={(e) => startDragTable(e, table, handle.type)}
+								/>
+							{/each}
+
+							<!-- Rotation handle -->
+							<!-- svelte-ignore a11y-no-static-element-interactions -->
+							<line x1={cx} y1={table.y} x2={cx} y2={table.y - 25} stroke="var(--accent)" stroke-width="2" stroke-dasharray="3 2"/>
+							<!-- svelte-ignore a11y-no-static-element-interactions -->
+							<circle 
+								cx={cx} cy={table.y - 30} r="7"
+								class="rotate-handle"
+								on:mousedown={(e) => startDragTable(e, table, 'rotate')}
+							/>
+							<text x={cx} y={table.y - 27} text-anchor="middle" fill="white" font-size="8" font-weight="bold" style="pointer-events:none">↻</text>
+
+							<!-- Remove -->
+							<!-- svelte-ignore a11y-no-static-element-interactions -->
+							<g class="remove-btn" on:click|stopPropagation={() => removeItem('table', table.id)}>
+								<circle cx={table.x + table.w - 8} cy={table.y + 8} r="8" fill="var(--danger)"/>
+								<text x={table.x + table.w - 8} y={table.y + 12} text-anchor="middle" fill="white" font-size="10" font-weight="bold">✕</text>
+							</g>
+						{/if}
 					{/if}
 				</g>
 			{/each}
 
 			<!-- Furniture (AXE-09) -->
-			{#each layout.furniture as furn}
+			{#each layout.furniture as furn (furn.id)}
 				{@const fcx = furn.x + furn.w / 2}
 				{@const fcy = furn.y + furn.h / 2}
 				<g transform="rotate({furn.rotation || 0}, {fcx}, {fcy})">
@@ -677,7 +928,7 @@
 			{/each}
 
 			<!-- Seats -->
-			{#each layout.seats as seat}
+			{#each layout.seats as seat (seat.id)}
 				{@const occupant = getOccupant(seat.id)}
 				{@const isMine = selectedSeat === seat.id}
 				{@const isOccupied = !!occupant}
@@ -827,8 +1078,39 @@
 	.room-canvas { width: 100%; height: 100%; background: var(--map-canvas-bg); border-radius: 12px; user-select: none; }
 	.room-canvas.edit-mode { outline: 2px dashed rgba(59, 130, 246, 0.3); outline-offset: -2px; }
 
-	.table-select { padding: 0.75rem 1rem; background: var(--map-select-bg); border: 1px solid var(--glass-border); border-radius: var(--radius-md); color: var(--accent); font-size: 0.75rem; font-weight: 700; cursor: pointer; }
-	.table-select option { background: var(--map-select-option-bg); color: var(--map-select-option-color); padding: 0.3rem; }
+	/* Harmonize toolbar heights and styles */
+	.map-page header button,
+	.map-page header select {
+		height: 38px;
+		padding: 0 1.25rem;
+		font-size: 0.75rem;
+		font-weight: 700;
+		border-radius: var(--radius-md);
+		box-sizing: border-box;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		vertical-align: middle;
+		margin: 0;
+	}
+	.map-page header select {
+		appearance: none;
+		-webkit-appearance: none;
+		padding-right: 2.2rem;
+		background: var(--map-select-bg);
+		border: 1px solid var(--glass-border);
+		color: var(--accent);
+		cursor: pointer;
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%233b82f6'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+		background-repeat: no-repeat;
+		background-position: right 0.75rem center;
+		background-size: 0.85rem;
+	}
+	.map-page header select:focus {
+		border-color: var(--accent);
+		outline: none;
+	}
+	.map-page header select option { background: var(--map-select-option-bg); color: var(--map-select-option-color); padding: 0.3rem; }
 
 	/* Tables */
 	.table-rect {
@@ -837,7 +1119,26 @@
 		stroke-width: 2;
 		filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
 	}
+
 	.table-label { fill: var(--text-muted); font-size: 13px; font-weight: 700; pointer-events: none; }
+	.table-rect.delete-pending {
+		stroke: var(--danger);
+		fill: rgba(239, 68, 68, 0.05);
+	}
+	.add-seat-btn circle {
+		transition: filter 0.2s, stroke-width 0.2s;
+	}
+	.add-seat-btn:hover circle {
+		filter: brightness(1.25);
+		stroke-width: 1.5;
+	}
+	.add-seat-btn rect {
+		transition: fill 0.2s, stroke-width 0.2s;
+	}
+	.add-seat-btn:hover rect {
+		fill: rgba(34, 197, 94, 0.12);
+		stroke-width: 2;
+	}
 
 	/* Furniture (AXE-09) */
 	.furniture-rect { fill: rgba(245, 158, 11, 0.12); stroke: rgba(245, 158, 11, 0.5); stroke-width: 2; stroke-dasharray: 6 3; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.2)); }

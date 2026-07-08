@@ -19,8 +19,10 @@ You can Drag & Drop the following elements onto the canvas:
 
 ### Actions on Canvas Elements
 * **Selection and Movement**: Click and hold an element to reposition it.
-* **Rotation (360°)**: Click an element, then use the rotation button to rotate it (useful for orienting tables and chairs in the correct direction).
-* **Deletion**: Click an element then click the trash icon (✕) to permanently remove it from the plan.
+* **Coordinated Rotation**: Clicking the rotation handle of a table and rotating it automatically moves and aligns all associated seats in a circular arc around the table's center.
+* **Delete Confirmation (Table)**: Deleting a table displays a visual confirmation overlay (`✓` / `✕`) positioned at the top-right above the table to prevent accidental clicks, and automatically cascades deletion to all associated seats.
+* **Direct Seat Addition**: A green `+` button (ghost seat) appears at the next vacant physical grid slot of a table. Clicking it generates a seat with a unique sequential ID (e.g. `T5_S9` instead of conflicting IDs). The button automatically shifts or disappears depending on table resizing and its maximum capacity.
+* **Tight Auto-Recentering**: The **Recenter** button (as well as the initial page load) dynamically calculates the bounding box of all elements (tables, seats, decorations) to adjust zoom and center the room plan with an optimized `15px` padding.
 * **Save**: Changes automatically sync in the background with the SQLite `room_items` table.
 
 ---

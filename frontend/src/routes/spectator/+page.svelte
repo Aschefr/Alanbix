@@ -83,8 +83,8 @@
 		} catch (e) { console.error(e); }
 	}
 
-	function getOccupant(seatId) {
-		return allUsers.find(u => u.seat_id === seatId);
+	function getOccupant(seatId, usersList) {
+		return usersList.find(u => u.seat_id === seatId);
 	}
 
 	function getPlayerName(userId) {
@@ -231,14 +231,14 @@
 			rounds: getRounds(groups[k])
 		}));
 	})();
-	$: occupiedSeats = roomLayout.seats.filter(s => getOccupant(s.id)).length;
+	$: occupiedSeats = roomLayout.seats.filter(s => getOccupant(s.id, allUsers)).length;
 	$: totalSeats = roomLayout.seats.length;
 	$: mapViewBox = (() => {
 		const items = [...(roomLayout.seats || []).map(s => ({ x: s.x, y: s.y, w: 50, h: 50 })),
 			...(roomLayout.tables || []).map(t => ({ x: t.x, y: t.y, w: t.w, h: t.h })),
 			...(roomLayout.furniture || []).map(f => ({ x: f.x, y: f.y, w: f.w, h: f.h }))];
 		if (items.length === 0) return '0 0 900 600';
-		const pad = 40;
+		const pad = 15;
 		const minX = Math.min(...items.map(i => i.x)) - pad;
 		const minY = Math.min(...items.map(i => i.y)) - pad;
 		const maxX = Math.max(...items.map(i => i.x + i.w)) + pad;
@@ -421,7 +421,7 @@
 							</g>
 						{/each}
 						{#each roomLayout.seats as seat}
-						{@const occ = getOccupant(seat.id)}
+						{@const occ = getOccupant(seat.id, allUsers)}
 						{@const scx = seat.x + 25}
 						{@const scy = seat.y + 25}
 						<g transform="rotate({seat.rotation || 0}, {scx}, {scy})">

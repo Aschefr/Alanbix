@@ -952,5 +952,8 @@
   "welcome_step3_desc": "You're all set. Track tournaments live and ask the AI assistant if you have any questions!",
   "welcome_step3_title": "Ready for the LAN!",
   "welcome_title": "Welcome to Alanbix!",
-  "admin_games_searxng_not_configured": "SearXNG is not configured in the administration settings."
+  "admin_games_searxng_not_configured": "SearXNG is not configured in the administration settings.",
+  "map_delete_table_title": "Delete Table",
+  "map_delete_table_message": "Are you sure you want to delete table {id}? This will also delete all associated seats.",
+  "map_delete_confirm_prompt": "Sure?"
 }

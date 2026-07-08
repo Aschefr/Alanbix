@@ -19,8 +19,10 @@ Vous pouvez faire glisser par Drag & Drop (Glisser-Déposer) les éléments suiv
 
 ### Actions sur les Éléments du Canevas
 * **Sélection et Déplacement** : Cliquez sur un élément et maintenez enfoncé pour le repositionner.
-* **Rotation (360°)** : Cliquez sur un élément puis utilisez le bouton de rotation pour le faire pivoter (utile pour orienter les tables et les chaises dans le bon sens).
-* **Suppression** : Cliquez sur un élément puis sur l'icône de corbeille (✕) pour le retirer définitivement du plan.
+* **Rotation coordonnée** : Cliquer sur la poignée de rotation d'une table et la faire pivoter déplace et oriente automatiquement tous les sièges associés en arc de cercle autour du centre de la table.
+* **Confirmation de suppression (Table)** : Supprimer une table affiche une boîte de confirmation visuelle (`✓` / `✕`) positionnée en haut à droite au-dessus de la table pour éviter tout clic accidentel, et supprime automatiquement en cascade tous les sièges associés à cette table.
+* **Ajout direct de siège** : Un bouton vert `+` (siège fantôme) s'affiche sur le prochain slot de grille physique libre d'une table. Cliquer dessus génère un siège avec un ID séquentiel unique (ex. `T5_S9` au lieu d'IDs conflictuels). Le bouton se déplace ou disparaît automatiquement en fonction du redimensionnement de la table et de sa capacité maximale.
+* **Recentrage automatique serré** : Le bouton **Recentrer** (ainsi que le chargement initial du plan) calcule dynamiquement la boîte englobante de tous les éléments (tables, chaises, décorations) pour ajuster le zoom et centrer le plan de salle avec une marge optimisée de 15px.
 * **Sauvegarde** : Les modifications se synchronisent automatiquement en arrière-plan avec la table SQLite `room_items`.
 
 ---

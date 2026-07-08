@@ -952,5 +952,8 @@
   "welcome_step3_desc": "Tu es paré. Suis l'avancement des tournois en direct et discute avec l'assistant IA pour toute question !",
   "welcome_step3_title": "Prêt pour la LAN !",
   "welcome_title": "Bienvenue sur Alanbix !",
-  "admin_games_searxng_not_configured": "SearXNG n'est pas configuré dans les paramètres de l'administration."
+  "admin_games_searxng_not_configured": "SearXNG n'est pas configuré dans les paramètres de l'administration.",
+  "map_delete_table_title": "Supprimer la Table",
+  "map_delete_table_message": "Êtes-vous sûr de vouloir supprimer la table {id} ? Cela supprimera également tous les sièges qui y sont rattachés.",
+  "map_delete_confirm_prompt": "Sûr ?"
 }

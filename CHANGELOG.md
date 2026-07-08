@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.23.2] - 2026-07-08
+
+### Features & UI — Room Layout Editor
+
+- **Toolbar Styling Harmonization**: Standardized height, font size, padding, and borders across all buttons and selects in the room editor toolbar. Replaced default browser select elements with modern custom SVG arrow indicators.
+- **Creation-Only Collision Avoidance**: Integrated an axis-aligned bounding box (AABB) collision detection system that automatically shifts newly added tables, seats, and furniture on creation if they would overlap with existing items.
+- **Seat-Specific Collision Filtering**: Refactored seat collision checks so that seats are only evaluated against other seats. This allows seats to be successfully added on top of tables without being shifted away by table collision footprints.
+- **Unrestricted Dragging & Resizing**: Dragging and resizing actions remain completely free and non-blocking, ensuring full usability of the layout and restoring functionality to resizing handles.
+- **Inline SVG Delete Confirmation**: Added an inline warning overlay inside the table SVG box with confirmation ✓ and cancel ✕ controls positioned clearly above the table at the top-right (preventing overlaps and click blockage behind seats).
+- **Cascade Seat Deletion**: Deleting a table now automatically removes all associated seats and unassigns seated users via backend API callbacks.
+- **Direct Seat Addition & Reflowing**: Rendered a green circular "+" button as a ghost seat preview at the next vacant grid space on the table. Configured the layout grid scanner (`findFirstFreeSlot`) to skip already occupied absolute positions, ensuring correct seat reflowing and preventing seat overlapping when tables are resized.
+- **Intelligent Sequential ID Re-use**: Configured tables, seats, and furniture to automatically scan and occupy the lowest available numerical gap in names (e.g. recreating Table 3 or Seat 2 if they were deleted) rather than always incrementing past the maximum index.
+- **Coordinated Seat Rotation**: Configured associated seats to automatically track the table's orientation and center point during user rotation, rotating along a perfect 2D arc.
+- **Dynamic Viewport Centering & Auto-Focus**: Replaced hardcoded boundaries in the "Recentrer" button (`resetView`) with a bounding box calculation of all active layout components. Focused elements are centered on initial load with a tight, optimal padding of `15px`.
+- **Spectator Map Reactivity & Padding**: Fixed Svelte compiler dependency tracing on the spectator layout map by explicitly passing `allUsers` to `getOccupant`, ensuring occupied/free seat counts and avatars update live via WebSockets. Reduced margins to `15px` to match the editor.
+- **Key Tracking for Instant Removals**: Appended unique keys `(id)` to the Svelte `{#each}` loops for tables, seats, and furniture. This resolves Svelte's index-based DOM recycling, causing deleted seats to vanish instantly instead of making remaining seats slide weirdly across the map coordinates.
+
 ## [1.23.1] - 2026-07-08
 
 ### Bug Fixes — Tournament Standings & UI

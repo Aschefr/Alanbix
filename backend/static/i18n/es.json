@@ -952,5 +952,8 @@
   "welcome_step3_desc": "Estás listo. Sigue el avance de los torneos en directo y ¡chatea con el asistente de IA para cualquier pregunta!",
   "welcome_step3_title": "¡Listo para la LAN!",
   "welcome_title": "¡Bienvenido a Alanbix!",
-  "admin_games_searxng_not_configured": "SearXNG no está configurado en los ajustes de administración."
+  "admin_games_searxng_not_configured": "SearXNG no está configurado en los ajustes de administración.",
+  "map_delete_table_title": "Eliminar la Mesa",
+  "map_delete_table_message": "¿Está seguro de que desea eliminar la mesa {id}? Esto también eliminará todos los asientos asociados.",
+  "map_delete_confirm_prompt": "¿Seguro?"
 }
