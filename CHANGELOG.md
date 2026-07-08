@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.24.0] - 2026-07-08
+## [1.25.0] - 2026-07-08
 
 ### Features & UI — Room Layout Editor
 
