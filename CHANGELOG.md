@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.23.1] - 2026-07-08
+
+### Bug Fixes — Tournament Standings & UI
+
+- **Fixed Points Distribution & Final Standings**: Aligned the final standings calculation on tournament close with the live standings projection (`_compute_projected_standings`). This resolves the issue where only the top 3 players on the podium were shown, and all other participants/teams were incorrectly listed individually with `0 pts` (due to an ID mismatch between user IDs and team IDs).
+- **Fixed Premature Tournament DONE State**: Corrected the tournament completion detection in the backend to ensure that both scores of the final match are entered and different before marking a tournament as `DONE`, preventing premature UI updates and admin panel disruption when entering only the first score of the finals.
+- **Frontend Detail Section Collapsing**: Modified the tournament details, registered player pool, and team composition sections to strictly respect the `showDetails` toggle state across all tournament statuses (`RUNNING`, `DONE`, `CLOSED`). The "Show Details" button now remains active and functional in all states.
+
+---
+
 ## [1.23.0] - 2026-07-06
 
 ### Features — AI Assistant & Network Diagnostics

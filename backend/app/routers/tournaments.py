@@ -1123,8 +1123,10 @@ async def update_match_score(
         # Both single_elim and double_elim: GF is the last WB round
         max_round = _get_max_round(bracket, section=1)
         final = _find_match(bracket, 1, max_round, 1)
-        if final and final.get("score") and final["score"][0] != final["score"][1]:
-            tournament_done = True
+        if final and final.get("score") and len(final["score"]) >= 2:
+            s0, s1 = final["score"][0], final["score"][1]
+            if s0 is not None and s1 is not None and s0 != s1:
+                tournament_done = True
     
     if tournament_done:
         tournament.status = "DONE"
@@ -1304,76 +1306,8 @@ async def close_tournament(
     
     bracket = tournament.bracket or []
     
-    # --- Calculate standings ---
-    standings = _compute_standings(bracket, bracket_type, config.get("lower_score_is_better", False))
-    
-    # --- Calculate score bonus via cumulated score normalization ---
-    # For FFA multi-round: normalize per-round separately so eliminated players
-    # don't unfairly benefit from lower cumulated scores.
-    # For other modes: single-pool normalization across all matches.
-    lower_is_better = config.get("lower_score_is_better", False)
-    cumulated_scores = {}  # entity_id -> total raw score
-    matches_count = {}  # entity_id -> number of scored matches
-    for match in bracket:
-        players = match.get("p", [])
-        scores = match.get("score", [])
-        has_scores = any(s is not None and s > 0 for s in scores)
-        if not has_scores:
-            continue
-        for i, pid in enumerate(players):
-            if pid and pid != 0 and i < len(scores):
-                cumulated_scores[pid] = cumulated_scores.get(pid, 0) + max(0, scores[i])
-                matches_count[pid] = matches_count.get(pid, 0) + 1
-
-    # Normalize and compute bonus
-    score_totals = {}
-    if bracket_type == "ffa" and cumulated_scores:
-        # FFA: normalize per-round, then sum. Each round contributes pts_per_match × (1 + normalized).
-        round_matches = {}
-        for m in bracket:
-            r = m["id"]["r"]
-            if m["id"]["m"] == 1:
-                round_matches[r] = m
-        for r in sorted(round_matches.keys()):
-            m = round_matches[r]
-            players = m.get("p", [])
-            scores = m.get("score", [])
-            if not any(s is not None and s > 0 for s in scores):
-                continue
-            round_data = [(pid, scores[i]) for i, pid in enumerate(players)
-                          if pid and pid != 0 and i < len(scores) and scores[i] > 0]
-            if not round_data:
-                continue
-            round_scores = [s for _, s in round_data]
-            min_rs = min(round_scores)
-            max_rs = max(round_scores)
-            rng = max_rs - min_rs
-            for pid, sc in round_data:
-                if rng > 0:
-                    # FFA scores are always placements (lower = better)
-                    normalized = (max_rs - sc) / rng
-                else:
-                    normalized = 1.0
-                score_totals[pid] = round(score_totals.get(pid, 0) + pts_per_match * (1 + normalized), 1)
-    elif cumulated_scores:
-        # Non-FFA: single-pool normalization (existing logic)
-        scores_list = list(cumulated_scores.values())
-        min_cs = min(scores_list)
-        max_cs = max(scores_list)
-        score_range = max_cs - min_cs
-        for eid, cs in cumulated_scores.items():
-            if score_range > 0:
-                if lower_is_better:
-                    normalized = (max_cs - cs) / score_range
-                else:
-                    normalized = (cs - min_cs) / score_range
-            else:
-                normalized = 1.0  # everyone equal → everyone gets full bonus
-            score_totals[eid] = round(pts_per_match * (1 + normalized), 1)
-    
-    # --- Build results & distribute points ---
-    results = []
-    placement_pts_map = {1: pts_winner, 2: pts_second, 3: pts_third}
+    # --- Calculate standings & results using the single source of truth ---
+    results = _compute_projected_standings(tournament, db)
     
     # Map team IDs to user IDs for team mode
     team_members_map = {}
@@ -1386,64 +1320,22 @@ async def close_tournament(
                 models.TournamentTeamMember.team_id == team.id
             ).all()
             team_members_map[-team.id] = [m.user_id for m in members]
-    
-    participants = db.query(models.TournamentParticipant).filter(
-        models.TournamentParticipant.tournament_id == tournament_id
-    ).all()
-    participant_uids = {p.user_id for p in participants}
-    
-    # Track who got placement points
-    placed_uids = set()
-    
-    for rank, entity_id in standings:
-        placement = placement_pts_map.get(rank, 0)
-        score_pts = round(score_totals.get(entity_id, 0), 1)
-        mp = matches_count.get(entity_id, 0)
-        participation = round(pts_participation * mp, 1)  # Strictly matches played
-        total = round(placement + participation + score_pts, 1)
+            
+    # Distribute points to users based on computed standings
+    for entry in results:
+        total = entry["total"]
+        entity_id = entry["entity_id"]
         
         if use_teams and entity_id < 0:
-            # Team: give points to all members
             member_uids = team_members_map.get(entity_id, [])
-            team_name = config.get("_team_map", {}).get(str(entity_id), f"Team {abs(entity_id)}")
-            results.append({
-                "rank": rank, "entity_id": entity_id, "name": team_name,
-                "placement_pts": placement, "score_pts": score_pts,
-                "participation_pts": participation, "total": total
-            })
             for uid in member_uids:
                 user = db.query(models.User).filter(models.User.id == uid).first()
                 if user:
                     user.points = (user.points or 0) + int(total)
-                    placed_uids.add(uid)
-        else:
-            # Solo player
+        elif not use_teams and entity_id > 0:
             user = db.query(models.User).filter(models.User.id == entity_id).first()
-            uname = user.username if user else f"#{entity_id}"
-            results.append({
-                "rank": rank, "entity_id": entity_id, "name": uname,
-                "placement_pts": placement, "score_pts": score_pts,
-                "participation_pts": participation, "total": total
-            })
             if user:
                 user.points = (user.points or 0) + int(total)
-                placed_uids.add(entity_id)
-    
-    # Give participation points to remaining participants not in standings
-    for uid in participant_uids:
-        if uid not in placed_uids:
-            score_pts = round(score_totals.get(uid, 0), 1)
-            mp = matches_count.get(uid, 0)
-            participation = round(pts_participation * mp, 1)
-            total = round(participation + score_pts, 1)
-            user = db.query(models.User).filter(models.User.id == uid).first()
-            if user:
-                user.points = (user.points or 0) + int(total)
-                results.append({
-                    "rank": None, "entity_id": uid, "name": user.username,
-                    "placement_pts": 0, "score_pts": score_pts,
-                    "participation_pts": participation, "total": total
-                })
     
     tournament.results = results
     tournament.status = "CLOSED"
@@ -1459,6 +1351,11 @@ async def close_tournament(
     await manager.broadcast({"type": "tournament_closed", "tournament_id": tournament_id})
 
     # Fire-and-forget: generate AI personalized notifications for participants
+    participants = db.query(models.TournamentParticipant).filter(
+        models.TournamentParticipant.tournament_id == tournament_id
+    ).all()
+    participant_uids = {p.user_id for p in participants}
+
     _game_name = tournament.game.name if tournament.game else tournament.name
     asyncio.create_task(_generate_tournament_notifications(
         tournament_id, tournament.name, _game_name, results, list(participant_uids), use_teams,
