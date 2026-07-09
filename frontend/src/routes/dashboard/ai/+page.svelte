@@ -411,6 +411,27 @@
 					queuePosition = qs.position || 0;
 					queueEstWait = qs.estimated_wait || 0;
 					queueEntryId = qs.entry_id || null;
+					
+					// Start progress time calculation if active/processing
+					if (qs.status === 'processing' && !progressInterval) {
+						elapsedTime = 0;
+						progressInterval = setInterval(() => {
+							elapsedTime += 0.1;
+						}, 100);
+					}
+
+					// Start ASTÉRIX typing indicator message cycle if loading
+					if (!typingInterval) {
+						typingMsgIdx = Math.floor(Math.random() * typingMessagesKeys.length);
+						typingInterval = setInterval(() => {
+							typingFade = false;
+							setTimeout(() => {
+								typingMsgIdx = (typingMsgIdx + 1) % typingMessagesKeys.length;
+								typingFade = true;
+							}, 200);
+						}, 5000);
+					}
+
 					// Add a placeholder bot message to show the typing indicator
 					const lastMsg = messages[messages.length - 1];
 					if (!lastMsg || lastMsg.role !== 'bot' || lastMsg.content !== '') {
@@ -433,16 +454,30 @@
 								queueEstWait = qsNow.estimated_wait || 0;
 							} else if (qsNow && qsNow.status === 'processing') {
 								queued = false; queuePosition = 0;
+								// Start timer if transitioned from queued to processing
+								if (!progressInterval) {
+									elapsedTime = 0;
+									progressInterval = setInterval(() => {
+										elapsedTime += 0.1;
+									}, 100);
+								}
 							}
 							if (fresh.messages.length > initialCount || !qsNow || !qsNow.status) {
 								clearInterval(pollId);
+								if (progressInterval) { clearInterval(progressInterval); progressInterval = null; }
+								if (typingInterval) { clearInterval(typingInterval); typingInterval = null; }
 								messages = fresh.messages;
 								usage = fresh.usage || { estimated_tokens: 0 };
 								loading = false;
 								queued = false; queuePosition = 0; queueEntryId = null;
 								scrollToBottom();
 							}
-						} catch { clearInterval(pollId); loading = false; }
+						} catch { 
+							clearInterval(pollId); 
+							if (progressInterval) { clearInterval(progressInterval); progressInterval = null; }
+							if (typingInterval) { clearInterval(typingInterval); typingInterval = null; }
+							loading = false; 
+						}
 					}, 2000);
 				} else {
 					// Request is for a DIFFERENT conversation — block input here

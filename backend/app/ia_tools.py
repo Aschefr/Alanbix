@@ -484,7 +484,7 @@ TOOL_DEFINITIONS = [
                     },
                     "content": {
                         "type": "string",
-                        "description": "Le texte court de la notification à envoyer"
+                        "description": "Short notification message (max 250 characters). Write the message in the same language as the user's query or conversation context (e.g. French, English, Spanish). Be brief, concise and direct."
                     }
                 },
                 "required": ["username", "content"]
@@ -495,13 +495,13 @@ TOOL_DEFINITIONS = [
         "type": "function",
         "function": {
             "name": "announce_to_all",
-            "description": "Diffuser une notification d'annonce globale à TOUS les joueurs de la LAN (ex: annonce de pause repas, rappel général). Attention : cette fonction est STRICTEMENT RÉSERVÉE AUX ADMINISTRATEURS. Si l'utilisateur appelant n'est pas admin, l'outil refusera l'exécution.",
+            "description": "Broadcast a global announcement to ALL players. Strictly restricted to administrators.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "content": {
                         "type": "string",
-                        "description": "Le contenu de l'annonce à diffuser globalement"
+                        "description": "The announcement content (max 250 characters). Write the message in the same language as the user's query or conversation context (e.g. French, English, Spanish). Be brief, concise and direct."
                     }
                 },
                 "required": ["content"]

@@ -1331,4 +1331,19 @@ future_axes:
       - "Application globale sur l'endpoint de routage SPA dans main.py."
     priority: medium
 
+  - id: AXE-58
+    title: "Restauration visuelle de réflexion IA et UX Notifications cliquables"
+    status: DONE
+    description: >
+      Conserver l'indicateur visuel de réflexion et le timer de l'IA quand l'utilisateur quitte et revient sur le chat.
+      Ajouter l'expansion des notifications au clic uniquement si le texte est long (> 140 caractères).
+      Limiter les notifications de l'IA à 250 caractères max en multilangue.
+    done:
+      - "Restauration des timers et messages de réflexion de l'IA lors du chargement initial/navigation (+page.svelte)."
+      - "Clamping et expansion sélective des notifications uniquement si content.length > 140."
+      - "Opacité des cartes de notifications lues adoucie à 0.85 pour une meilleure lisibilité."
+      - "Schémas d'outils ia_tools adaptés avec des instructions de longueur et de langue explicites."
+    priority: high
+
+
 

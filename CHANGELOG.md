@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.26.4] - 2026-07-09
+
+### Features — Améliorations UX (Attente IA & Expansion des Notifications)
+
+- **Restauration de l'indicateur d'attente IA** : L'état d'avancement de la réflexion du bot et le chronomètre de calcul sont maintenant correctement restaurés et continuent de tourner en direct si l'utilisateur quitte la page de discussion et y revient pendant le calcul.
+- **Expansion Sélective des Notifications** : Les cartes de notification ne sont cliquables pour se déplier/replier que si leur longueur de texte dépasse 140 caractères. Les notifications courtes ne déclenchent plus l'effet visuel de pointeur et restent statiques.
+- **Ajustement Visuel des Notifications Lues** : Opacité des notifications lues adoucie à `0.85` (au lieu de `0.7`) pour garantir un excellent confort de lecture tout en gardant une légère distinction.
+- **Régulation Multilingue de la longueur des Annonces IA** : Ajustement des descriptions de schémas de tools en anglais pour ordonner au LLM de formuler des messages d'alertes directs, brefs et limités à 250 caractères maximum, dans la langue d'origine utilisée par l'utilisateur.
+
+---
+
 ## [1.26.3] - 2026-07-09
 
 ### Bug Fixes — Robustesse du Store Page SvelteKit
