@@ -18,7 +18,7 @@ def test_get_changelog(client):
     version = "1.16.0"
     for path in ["VERSION", "../VERSION"]:
         if os.path.exists(path):
-            with open(path, "r", encoding="utf-8") as f:
+            with open(path, "r", encoding="utf-8-sig") as f:
                 version = f.read().strip()
                 break
     assert any(r["tag_name"] == f"v{version}" for r in data)

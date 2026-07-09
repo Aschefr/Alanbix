@@ -50,13 +50,13 @@ def _is_default_title(title: str) -> bool:
 
 def _build_title_prompt(excerpt: str) -> str:
     """Build the prompt string for a title-generation Ollama call via /api/generate.
-    Uses simple, direct instruction in French without complex Unicode characters.
+    Uses simple, direct instruction in English, requesting the title to be in the same language as the conversation.
     """
     return (
-        "Genere un titre court (maximum 5 mots) pour synthetiser cette conversation.\n"
-        "Le titre doit etre dans la meme langue que l'echange.\n"
-        "Reponds UNIQUEMENT avec le titre brut, sans introduction, sans guillemets ni ponctuation finale.\n\n"
-        f"Echange :\n{excerpt}"
+        "Generate a short title (maximum 5 words) to summarize this conversation.\n"
+        "The title MUST be in the same language as the conversation itself.\n"
+        "Respond ONLY with the raw title, without introduction, without quotes, and without trailing punctuation.\n\n"
+        f"Conversation:\n{excerpt}"
     )
 
 
