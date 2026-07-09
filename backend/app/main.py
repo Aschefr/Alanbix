@@ -338,6 +338,20 @@ async def websocket_endpoint(websocket: WebSocket):
 
 # SPA Fallback for Frontend
 from fastapi.responses import FileResponse
+from starlette.responses import Response
+
+def _cache_headers(file_path: str) -> dict:
+    """Return appropriate Cache-Control headers based on file path.
+    
+    Vite/SvelteKit generates hashed filenames for JS/CSS in _app/immutable/,
+    making them safe to cache forever.  index.html must always be revalidated
+    so browsers pick up new asset hashes after deployments.
+    """
+    # Immutable hashed assets (e.g. _app/immutable/chunks/app.DxF3k2.js)
+    if "/_app/immutable/" in file_path.replace("\\", "/"):
+        return {"Cache-Control": "public, max-age=31536000, immutable"}
+    # Everything else (index.html, favicon, manifest…) — always revalidate
+    return {"Cache-Control": "no-cache, no-store, must-revalidate"}
 
 @app.get("/{full_path:path}")
 async def serve_spa(full_path: str):
@@ -352,15 +366,17 @@ async def serve_spa(full_path: str):
     
     # Security check to prevent path traversal
     if not os.path.abspath(path).startswith(os.path.abspath(base_dir)):
-        return FileResponse(os.path.join(base_dir, "index.html"))
+        index = os.path.join(base_dir, "index.html")
+        return FileResponse(index, headers=_cache_headers(index))
 
     if os.path.isfile(path):
-        return FileResponse(path)
+        return FileResponse(path, headers=_cache_headers(path))
         
     # Fallback to index.html for SPA routing
     index_path = os.path.join(base_dir, "index.html")
     if os.path.isfile(index_path):
-        return FileResponse(index_path)
+        return FileResponse(index_path, headers=_cache_headers(index_path))
         
     return {"error": "Frontend not built or not found"}
+
 

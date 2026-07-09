@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.26.2] - 2026-07-09
+
+### Bug Fixes — Cache-Control & Correctifs Déploiement
+
+- **Gestion Optimale du Cache (Zéro CTRL+F5)** : Ajout d'en-têtes de cache fins sur la route de distribution SPA. Le fichier `index.html` est servi avec `no-cache, must-revalidate` (toujours rafraîchi pour charger les nouveaux assets après mise à jour), tandis que les fichiers JavaScript/CSS hashés de SvelteKit bénéficient d'un cache longue durée (`immutable`).
+
+---
+
 ## [1.26.1] - 2026-07-09
 
 ### Bug Fixes — File d'attente d'Auto-Titrage IA & Corrections Stabilité

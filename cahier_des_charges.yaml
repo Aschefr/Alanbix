@@ -1318,4 +1318,17 @@ future_axes:
       - "Vérification de sécurité anti-écrasement si l'utilisateur renomme manuellement sa conversation pendant l'attente."
       - "Création de 4 tests unitaires (limite de concurrence, protection contre les doublons, gestion des conflits de titres, routage)."
     priority: high
+
+  - id: AXE-57
+    title: "Headers de Cache-Control pour le frontend de production"
+    status: DONE
+    description: >
+      Éliminer le besoin d'exécuter un rafraîchissement forcé (CTRL+F5) après chaque mise à jour sur le serveur.
+      Ajouter des en-têtes HTTP Cache-Control appropriés selon le type d'asset servi par le serveur standalone.
+    done:
+      - "Index.html configuré en no-cache, no-store, must-revalidate (revalidation systématique)."
+      - "Fichiers statiques hashés (_app/immutable/*) configurés avec un cache à vie (1 an, public, immutable)."
+      - "Application globale sur l'endpoint de routage SPA dans main.py."
+    priority: medium
+
 
