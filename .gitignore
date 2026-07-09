@@ -74,3 +74,6 @@ scratch/
 
 # === Dev ===
 /Dev/
+
+# === Local Publish Notice ===
+publish_notice.md

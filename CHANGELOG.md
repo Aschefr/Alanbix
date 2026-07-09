@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.26.1] - 2026-07-09
+
+### Bug Fixes — File d'attente d'Auto-Titrage IA & Corrections Stabilité
+
+- **Intégration Queue d'Auto-Titrage** : Enregistrement correct des tâches d'auto-titrage en tâche système de priorité arrière-plan (`priority=20`) dans le gestionnaire de file d'attente IA global.
+- **Résolution du blocage (Regression)** : Correction d'une collision de portée de variable Python (`UnboundLocalError` sur `queue_manager`) dans la route `/ia/stream` qui bloquait le streaming des réponses de l'assistant.
+- **Suppression du Code Mort** : Retrait de l'ancien endpoint direct `POST /ia/auto-title/{conv_id}` qui contournait la file d'attente d'Ollama et générait des contentions de GPU.
+- **Protection Race-Condition** : Ajout d'une vérification à l'écriture pour s'assurer que l'auto-titrage n'écrase pas un titre personnalisé saisi manuellement par l'utilisateur pendant l'attente en queue.
+- **Couverture de Tests Unitaire accrue** : Ajout de 4 nouveaux tests unitaires validant la limite de concurrence par GPU, le routage interne de la queue, la protection contre les réinscriptions et la gestion des titres manuels (51/51 tests au vert).
+
+---
+
 ## [1.26.0] - 2026-07-09
 
 ### Features — Performance Mode IA & Suivi Présence Joueurs

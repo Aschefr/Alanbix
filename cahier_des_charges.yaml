@@ -1302,4 +1302,20 @@ future_axes:
       - "Ajout de l'indicateur visuel point vert (online-indicator) sur les avatars dans l'annuaire des joueurs, l'en-tête de chat et l'administration."
       - "Création d'un wrapper avatar pour empêcher le rognage de l'indicateur par overflow:hidden."
       - "Optimisation du polling Svelte et du WebSocket (limitation de invalidateAll)."
-    priority: high
+    priority: high
+
+  - id: AXE-56
+    title: "Intégration de la génération des titres dans la file d'attente IA"
+    status: DONE
+    description: >
+      Gérer la génération en arrière-plan des titres de conversations via la file d'attente IA globale.
+      Afficher l'état de ces tâches système dans le dashboard d'administration et la file d'attente.
+      Résoudre le bug de regression UnboundLocalError sur le streaming de chat.
+    done:
+      - "Intégration d'auto_title en tant que tâche système de priorité 20 dans IAQueueManager."
+      - "Suppression de l'endpoint direct bloquant /ia/auto-title/{conv_id}."
+      - "Résolution de l'import local problématique de queue_manager provoquant l'UnboundLocalError."
+      - "Vérification de sécurité anti-écrasement si l'utilisateur renomme manuellement sa conversation pendant l'attente."
+      - "Création de 4 tests unitaires (limite de concurrence, protection contre les doublons, gestion des conflits de titres, routage)."
+    priority: high
+
