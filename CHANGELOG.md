@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.25.3] - 2026-07-09
+## [1.25.4] - 2026-07-09
 
 ### Bug Fixes — AI Chat Takeover & i18n Translation Tasks
 
