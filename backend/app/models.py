@@ -136,6 +136,7 @@ class Conversation(Base):
     admin_override = Column(Boolean, default=False)  # When True, admin controls responses
     admin_last_read_message_id = Column(Integer, default=0)
     player_last_read_message_id = Column(Integer, default=0)
+    title_generation_attempted = Column(Boolean, default=False, server_default="0")
 
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     

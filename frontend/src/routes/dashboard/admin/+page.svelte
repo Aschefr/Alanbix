@@ -1928,7 +1928,7 @@
 								<div class="queue-section-label">{$t("admin_settings_queue_processing")}</div>
 								{#each iaQueueData.active as entry}
 									<div class="queue-row active">
-										<span class="queue-row-type">{entry.task_type === 'chat' ? '💬' : entry.task_type === 'compress' ? '🗜️' : '🏆'}</span>
+										<span class="queue-row-type">{entry.task_type === 'chat' ? '💬' : entry.task_type === 'compress' ? '🗜️' : (entry.task_type === 'title_suggestion' || entry.task_type === 'auto_title') ? '📝' : '🏆'}</span>
 										<span class="queue-row-user">{entry.username || '—'}</span>
 										<span class="queue-row-type-label">{entry.task_type}</span>
 										<span class="queue-row-time">{entry.processing_since}s</span>
@@ -1941,7 +1941,7 @@
 								{#each iaQueueData.pending as entry}
 									<div class="queue-row">
 										<span class="queue-row-pos">#{entry.position}</span>
-										<span class="queue-row-type">{entry.task_type === 'chat' ? '💬' : entry.task_type === 'compress' ? '🗜️' : '🏆'}</span>
+										<span class="queue-row-type">{entry.task_type === 'chat' ? '💬' : entry.task_type === 'compress' ? '🗜️' : (entry.task_type === 'title_suggestion' || entry.task_type === 'auto_title') ? '📝' : '🏆'}</span>
 										<span class="queue-row-user">{entry.username || '—'}</span>
 										<span class="queue-row-type-label">{entry.task_type}</span>
 										<span class="queue-row-time">{entry.waiting_since}s</span>

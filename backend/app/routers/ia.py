@@ -913,8 +913,12 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
                         ctx_chars = len(conv_obj.compressed_context or "") if conv_obj else 0
                         est_tokens = int((sum(len(m.content) for m in post_msgs) + ctx_chars) / 3.5) + 1300  # +system overhead
                         
-                        # ── Auto-title: fire-and-forget background task (G-50) ──
-                        if conv_obj and _is_default_title(conv_obj.title):
+                        # ── Auto-title: queue task (G-50) ──
+                        if conv_obj and _is_default_title(conv_obj.title) and not conv_obj.title_generation_attempted:
+                            # Mark as attempted so we never enqueue redundant generations
+                            conv_obj.title_generation_attempted = True
+                            s.commit()
+                            
                             # Collect up to 3 exchanges (user + bot pairs) for richer context
                             first_msgs = s.query(models.ChatMessage).filter(
                                 models.ChatMessage.conversation_id == request.conversation_id,
@@ -927,42 +931,26 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
                                     prefix = "User" if m.role == "user" else "Assistant"
                                     excerpt_parts.append(f"{prefix}: {m.content[:300]}")
                                 _excerpt = "\n".join(excerpt_parts[:6])
-                                _conv_id = request.conversation_id
-                                _ollama_host = ollama_host
-                                _model = model_to_use
-                                async def _bg_title():
-                                    try:
-                                        print(f"[BG_TITLE] Starting background title generation for conv {_conv_id}", flush=True)
-                                        bg_timeout = httpx.Timeout(connect=10.0, read=120.0, write=10.0, pool=5.0)
-                                        async with httpx.AsyncClient(timeout=bg_timeout) as tc:
-                                            tr = await tc.post(f"{_ollama_host}/api/generate", json={
-                                                "model": _model,
-                                                "prompt": _build_title_prompt(_excerpt),
-                                                "stream": False,
-                                                "options": {"temperature": 0.2, "num_predict": 30}
-                                            })
-                                            print(f"[BG_TITLE] Ollama HTTP status: {tr.status_code}", flush=True)
-                                            if tr.status_code == 200:
-                                                raw = tr.json().get("response", "")
-                                                print(f"[BG_TITLE] Raw response: '{raw}'", flush=True)
-                                                tt = _clean_title(raw)
-                                                print(f"[BG_TITLE] Cleaned title: '{tt}'", flush=True)
-                                                if tt:
-                                                    with database.SessionLocal() as ts:
-                                                        c = ts.query(models.Conversation).filter(models.Conversation.id == _conv_id).first()
-                                                        if c:
-                                                            c.title = tt
-                                                            ts.commit()
-                                                            print(f"[BG_TITLE] Committed title '{tt}' to DB", flush=True)
-                                                    await ws_manager.broadcast({"type": "conv_title_updated", "conversation_id": _conv_id, "title": tt})
-                                                    print(f"[BG_TITLE] Broadcasted conv_title_updated", flush=True)
-                                                else:
-                                                    print(f"[BG_TITLE] Title was cleaned to empty/None", flush=True)
-                                    except Exception as e:
-                                        import traceback
-                                        print(f"[BG_TITLE] Error:", flush=True)
-                                        traceback.print_exc()
-                                asyncio.create_task(_bg_title())
+                                
+                                # Enqueue the task
+                                from ..ia_queue import QueueEntry
+                                import time
+                                entry = QueueEntry(
+                                    priority=20,          # background priority (doesn't block player queries)
+                                    created_at=time.time(),
+                                    user_id=0,            # system task (no 1-per-user limit)
+                                    username="system:autotitle",
+                                    conversation_id=request.conversation_id,
+                                    task_type="auto_title",
+                                    payload={
+                                        "ollama_host": ollama_host,
+                                        "model": model_to_use,
+                                        "excerpt": _excerpt,
+                                        "conversation_id": request.conversation_id,
+                                        "user_id": conv_obj.user_id,
+                                    }
+                                )
+                                await queue_manager.enqueue(entry)
                         
                     done_payload = {'done': True, 'estimated_tokens': est_tokens, 'meta': meta_val}
                     yield f"data: {json.dumps(done_payload)}\n\n"
@@ -1011,57 +999,8 @@ async def queue_cancel_own(user: models.User = Depends(auth.get_current_user)):
     ok = await queue_manager.cancel_by_user(user.id)
     return {"status": "cancelled" if ok else "not_found"}
 
-# ── Auto-title endpoint (called by frontend after first exchange) ────────────
-@router.post("/auto-title/{conv_id}")
-async def auto_title(conv_id: int, db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
-    conv = db.query(models.Conversation).filter(models.Conversation.id == conv_id).first()
-    if not conv:
-        raise HTTPException(404)
-    # Only rename if still a default placeholder title
-    if not _is_default_title(conv.title):
-        return {"title": conv.title}
-    # Get the first exchange (user message + first bot reply) for richer context
-    first_msgs = db.query(models.ChatMessage).filter(
-        models.ChatMessage.conversation_id == conv_id,
-        models.ChatMessage.role.in_(["user", "bot"])
-    ).order_by(models.ChatMessage.timestamp.asc()).limit(4).all()
-    if not first_msgs:
-        return {"title": conv.title}
-    # Wait for at least one bot reply before generating a title (better context)
-    has_bot_reply = any(m.role == "bot" for m in first_msgs)
-    if not has_bot_reply:
-        return {"title": conv.title}
-    excerpt_parts = []
-    for m in first_msgs:
-        prefix = "User" if m.role == "user" else "Assistant"
-        excerpt_parts.append(f"{prefix}: {m.content[:300]}")
-    excerpt = "\n".join(excerpt_parts)
-    ia_cfg = get_effective_config(db)
-    model_to_use = conv.model or ia_cfg.get('model', '')
-    instance = await pick_instance(db, model=model_to_use)
-    if not instance:
-        raise HTTPException(503, "Aucune instance IA configurée par l'administrateur")
-    ollama_host = instance["url"]
-    if not conv.model and instance.get("model"):
-        model_to_use = instance["model"]
-    try:
-        async with httpx.AsyncClient() as client:
-            title_res = await client.post(f"{ollama_host}/api/generate", json={
-                "model": model_to_use,
-                "prompt": _build_title_prompt(excerpt),
-                "stream": False,
-                "options": {"temperature": 0.2, "num_predict": 30}
-            }, timeout=60.0)
-            if title_res.status_code == 200:
-                raw = title_res.json().get("response", "")
-                title_text = _clean_title(raw)
-                if title_text:
-                    conv.title = title_text
-                    db.commit()
-                    return {"title": title_text}
-    except Exception:
-        pass
-    return {"title": conv.title}
+# NOTE: Legacy /auto-title/{conv_id} endpoint removed — title generation is now
+# handled exclusively via IAQueueManager._process_auto_title (enqueued from /stream).
 
 
 # ── Admin conversation monitoring endpoints ──────────────────────────────────

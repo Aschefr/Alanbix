@@ -15,7 +15,7 @@ from typing import Optional, Dict, List, Any
 from collections import deque
 
 from .websockets import manager as ws_manager
-from .ia_title_utils import _build_title_prompt, _clean_title
+from .ia_title_utils import _build_title_prompt, _clean_title, _is_default_title
 
 
 # ---------------------------------------------------------------------------
@@ -317,6 +317,17 @@ class IAQueueManager:
                 self._queue.task_done()
                 continue
 
+            # Limit: 1 concurrent request per Ollama instance to prevent GPU overload
+            host = entry.payload.get("ollama_host")
+            if host:
+                active_on_host = sum(1 for e in self._active.values() if e.payload.get("ollama_host") == host)
+                if active_on_host >= 1:
+                    # Put it back in the queue and sleep briefly to prevent busy spinning
+                    await asyncio.sleep(0.5)
+                    await self._queue.put(entry)
+                    self._queue.task_done()
+                    continue
+
             # Move from pending to active
             self._pending.pop(entry.id, None)
             self._active[entry.id] = entry
@@ -374,6 +385,8 @@ class IAQueueManager:
             await self._process_translate(entry, payload)
         elif task_type == "title_suggestion":
             await self._process_title_suggestion(entry, payload)
+        elif task_type == "auto_title":
+            await self._process_auto_title(entry, payload)
         return 0.0, 0.0
 
     async def _process_chat(self, entry: QueueEntry, payload: dict) -> tuple[float, float]:
@@ -834,6 +847,41 @@ class IAQueueManager:
                 "user_id": user_id,
                 "error": str(e)[:100]
             })
+
+    async def _process_auto_title(self, entry: QueueEntry, payload: dict):
+        """Generate a conversation title automatically (non-streaming, updates DB and pushes WebSocket)."""
+        ollama_host = payload["ollama_host"]
+        model = payload["model"]
+        excerpt = payload["excerpt"]
+        conv_id = payload["conversation_id"]
+        try:
+            timeout = httpx.Timeout(connect=10.0, read=120.0, write=10.0, pool=5.0)
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                res = await client.post(f"{ollama_host}/api/generate", json={
+                    "model": model,
+                    "prompt": _build_title_prompt(excerpt),
+                    "stream": False,
+                    "options": {"temperature": 0.2, "num_predict": 30}
+                })
+            if res.status_code == 200:
+                raw = res.json().get("response", "")
+                title_text = _clean_title(raw)
+                if title_text:
+                    from .database import SessionLocal
+                    from .models import Conversation
+                    with SessionLocal() as db:
+                        c = db.query(Conversation).filter(Conversation.id == conv_id).first()
+                        # Crucial safety check to prevent overwriting manual renames
+                        if c and _is_default_title(c.title):
+                            c.title = title_text
+                            db.commit()
+                            await ws_manager.broadcast({
+                                "type": "conv_title_updated",
+                                "conversation_id": conv_id,
+                                "title": title_text
+                            })
+        except Exception as e:
+            print(f"[IA Queue] Auto-title generation error: {e}", flush=True)
 
     # --- Internal helpers ---
 

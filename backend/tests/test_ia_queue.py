@@ -271,3 +271,206 @@ async def test_ia_queue_xml_fallback_parsing(db_session):
         finally:
             for p in patched_targets:
                 p.stop()
+
+
+@pytest.mark.asyncio
+async def test_ia_queue_host_concurrency_limit():
+    """Verify that only 1 request at a time runs on a given Ollama host.
+
+    When one entry is already active on host X, a second entry targeting the
+    same host should NOT be moved to _active — it must stay in _pending.
+    """
+    qm = IAQueueManager()
+
+    # Simulate an already-active entry on host "http://gpu1:11434"
+    active_entry = QueueEntry(
+        priority=10,
+        created_at=time.time(),
+        id="active_1",
+        user_id=1,
+        username="user1",
+        task_type="chat",
+        payload={"ollama_host": "http://gpu1:11434"}
+    )
+    qm._active[active_entry.id] = active_entry
+
+    # Create a second entry targeting the same host
+    waiting_entry = QueueEntry(
+        priority=10,
+        created_at=time.time(),
+        id="waiting_1",
+        user_id=2,
+        username="user2",
+        task_type="chat",
+        payload={"ollama_host": "http://gpu1:11434"}
+    )
+    qm._pending[waiting_entry.id] = waiting_entry
+
+    # Simulate the concurrency check from _worker (lines 320-329 of ia_queue.py)
+    host = waiting_entry.payload.get("ollama_host")
+    active_on_host = sum(1 for e in qm._active.values() if e.payload.get("ollama_host") == host)
+
+    # The waiting entry must NOT be promoted to active
+    assert active_on_host >= 1, "There should be at least 1 active request on gpu1"
+    assert waiting_entry.id in qm._pending, "Waiting entry should remain in _pending"
+    assert waiting_entry.id not in qm._active, "Waiting entry should NOT be in _active"
+
+    # Now verify a different host WOULD be allowed
+    entry_gpu2 = QueueEntry(
+        priority=10,
+        created_at=time.time(),
+        id="gpu2_entry",
+        user_id=3,
+        username="user3",
+        task_type="chat",
+        payload={"ollama_host": "http://gpu2:11434"}
+    )
+    active_on_gpu2 = sum(1 for e in qm._active.values() if e.payload.get("ollama_host") == "http://gpu2:11434")
+    assert active_on_gpu2 == 0, "gpu2 has no active requests, so entry should be promotable"
+
+
+@pytest.mark.asyncio
+async def test_auto_title_not_enqueued_if_already_attempted(db_session):
+    """Verify that auto-title is NOT enqueued when title_generation_attempted is True."""
+    from app import models
+    from app.ia_title_utils import _is_default_title
+
+    # Create a conversation with a default title but title_generation_attempted=True
+    conv = models.Conversation(
+        title="Nouvelle conversation",
+        user_id=1,
+        title_generation_attempted=True
+    )
+    db_session.add(conv)
+    db_session.commit()
+    db_session.refresh(conv)
+
+    # The guard condition from stream_query (line 917 of ia.py):
+    #   if conv_obj and _is_default_title(conv_obj.title) and not conv_obj.title_generation_attempted:
+    should_enqueue = _is_default_title(conv.title) and not conv.title_generation_attempted
+
+    assert _is_default_title(conv.title) is True, "Title should be detected as default"
+    assert conv.title_generation_attempted is True, "Flag should be True"
+    assert should_enqueue is False, "Auto-title should NOT be enqueued when already attempted"
+
+
+@pytest.mark.asyncio
+async def test_auto_title_skips_custom_title(db_session):
+    """Verify that _process_auto_title does NOT overwrite a manually-set title.
+
+    Simulates the race condition where a user renames their conversation while
+    the auto-title task is waiting in the queue.
+    """
+    from unittest.mock import patch, MagicMock, AsyncMock
+    from app.ia_queue import IAQueueManager, QueueEntry
+    from app import models
+    from app.ia_title_utils import _is_default_title
+
+    # Create a conversation with a CUSTOM title (user renamed it while waiting)
+    conv = models.Conversation(
+        title="Ma stratégie Rocket League",
+        user_id=1,
+        title_generation_attempted=True
+    )
+    db_session.add(conv)
+    db_session.commit()
+    db_session.refresh(conv)
+
+    assert _is_default_title(conv.title) is False, "Custom title should NOT be detected as default"
+
+    # Mock Ollama response that would return a generated title
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {"response": "Configuration réseau avancée"}
+
+    mock_client = AsyncMock()
+    mock_client.post = AsyncMock(return_value=mock_response)
+    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+    mock_client.__aexit__ = AsyncMock(return_value=False)
+
+    # Mock SessionLocal to return our test db_session
+    mock_session_ctx = MagicMock()
+    mock_session_ctx.__enter__ = MagicMock(return_value=db_session)
+    mock_session_ctx.__exit__ = MagicMock(return_value=False)
+
+    qm = IAQueueManager()
+    entry = QueueEntry(
+        priority=20,
+        created_at=time.time(),
+        id="autotitle_race",
+        user_id=0,
+        username="system:autotitle",
+        task_type="auto_title",
+        payload={
+            "ollama_host": "http://gpu1:11434",
+            "model": "gemma4:e4b",
+            "excerpt": "User: Hello\nAssistant: Bonjour !",
+            "conversation_id": conv.id,
+            "user_id": 1,
+        }
+    )
+
+    with patch("httpx.AsyncClient", return_value=mock_client), \
+         patch("app.database.SessionLocal", return_value=mock_session_ctx), \
+         patch("app.ia_queue.ws_manager.broadcast", new_callable=AsyncMock) as mock_broadcast:
+        await qm._process_auto_title(entry, entry.payload)
+
+    # The title should NOT have been overwritten
+    db_session.refresh(conv)
+    assert conv.title == "Ma stratégie Rocket League", \
+        "Custom title must not be overwritten by auto-title"
+
+    # WebSocket broadcast should NOT have been called (no title change)
+    for call in mock_broadcast.call_args_list:
+        msg = call[0][0] if call[0] else call[1].get("message", {})
+        assert msg.get("type") != "conv_title_updated", \
+            "No conv_title_updated should be broadcast when title is custom"
+
+
+@pytest.mark.asyncio
+async def test_process_entry_routes_correctly():
+    """Verify _process_entry dispatches to the correct handler for each task_type."""
+    from unittest.mock import AsyncMock
+    from app.ia_queue import IAQueueManager, QueueEntry
+
+    qm = IAQueueManager()
+
+    task_types_and_handlers = {
+        "chat": "_process_chat",
+        "compress": "_process_compress",
+        "notification": "_process_notification",
+        "translate": "_process_translate",
+        "title_suggestion": "_process_title_suggestion",
+        "auto_title": "_process_auto_title",
+    }
+
+    for task_type, handler_name in task_types_and_handlers.items():
+        # Mock ALL handlers to prevent side effects
+        mocks = {}
+        for tt, hn in task_types_and_handlers.items():
+            mock = AsyncMock(return_value=(0.0, 0.0) if tt == "chat" else None)
+            setattr(qm, hn, mock)
+            mocks[hn] = mock
+
+        entry = QueueEntry(
+            priority=10,
+            created_at=time.time(),
+            id=f"route_{task_type}",
+            user_id=1,
+            username="test",
+            task_type=task_type,
+            payload={"ollama_host": "http://test:11434"}
+        )
+
+        await qm._process_entry(entry, worker_id=0)
+
+        # Verify the correct handler was called
+        expected_mock = mocks[handler_name]
+        assert expected_mock.called, \
+            f"Handler {handler_name} should have been called for task_type='{task_type}'"
+
+        # Verify OTHER handlers were NOT called
+        for other_name, other_mock in mocks.items():
+            if other_name != handler_name:
+                assert not other_mock.called, \
+                    f"Handler {other_name} should NOT be called for task_type='{task_type}'"
