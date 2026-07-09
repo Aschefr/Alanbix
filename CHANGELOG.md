@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.26.0] - 2026-07-09
+
+### Features — Performance Mode IA & Suivi Présence Joueurs
+
+- **Option A (Optimisé - Intercept)** : Résolution de la latence de l'assistant IA avec streaming immédiat et interception à la volée des tool calls Ollama (latence réduite de 30s à moins de 2s).
+- **Titrage Gemma Robuste** : Passage à l'API `/api/generate` (Ollama) pour corriger les réponses tronquées et intégration de la détection multilingue dynamique des titres par défaut.
+- **Suivi Présence 100% Mémoire** : Tracker en mémoire vive (`ACTIVE_USERS`) évitant les verrous de base de données SQLite et assurant un site fluide.
+- **Point Vert de Présence** : Visualisation en temps réel de l'état de connexion ("En ligne") sur les avatars (dans l'annuaire des joueurs et l'en-tête de chat) ainsi que dans l'administration (avec wrapper Svelte pour éviter toute coupure ou troncature visuelle).
+- **Support i18n Complet** : Traduction dynamique de l'état "En ligne" en français, anglais, et espagnol.
+
+---
+
 ## [1.25.4] - 2026-07-09
 
 ### Bug Fixes — AI Chat Takeover & i18n Translation Tasks

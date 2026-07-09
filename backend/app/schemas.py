@@ -16,6 +16,7 @@ class User(UserBase):
     team_name: Optional[str] = None
     avatar_url: Optional[str] = None
     avatar_shape: Optional[str] = "circle"
+    is_online: Optional[bool] = False
     model_config = ConfigDict(from_attributes=True)
 
 class Token(BaseModel):

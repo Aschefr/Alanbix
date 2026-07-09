@@ -17,10 +17,12 @@ from .. import models, schemas, auth, database
 from ..ia_utils import get_embedding, get_embedding_chunked, search_similar
 from starlette.requests import Request as StarletteRequest
 from ..ia_compression import run_truncation, run_compaction, run_summary
+from ..ia_title_utils import _is_default_title, _build_title_prompt, _clean_title
 
 router = APIRouter(prefix="/ia", tags=["IA"])
 
 # --- Multi-instance Ollama support ---
+
 _round_robin_idx = 0
 _active_requests = {}  # url -> int (active generation count)
 
@@ -33,13 +35,16 @@ def get_effective_config(db: Session):
             val["network_tools_enabled"] = True
         if "auto_moderation_enabled" not in val:
             val["auto_moderation_enabled"] = True
+        if "tool_calling_mode" not in val:
+            val["tool_calling_mode"] = "stream_intercept"
         return val
     return {
         "ollama_host": os.getenv("OLLAMA_HOST", "http://host.docker.internal:11434"),
         "model": "",
         "rag_enabled": True,
         "network_tools_enabled": True,
-        "auto_moderation_enabled": True
+        "auto_moderation_enabled": True,
+        "tool_calling_mode": "stream_intercept"
     }
 
 def get_instances(db: Session):
@@ -55,20 +60,29 @@ def get_instances(db: Session):
         return [{"url": host, "label": "Default", "model": model, "enabled": True, "priority": 0}]
     return []
 
+_health_cache = {}  # url -> (timestamp, ok, latency, models)
+
 async def _check_instance_health(url: str, timeout: float = 3.0):
-    """Ping an Ollama instance, return (ok, latency_ms, models)."""
+    """Ping an Ollama instance, return (ok, latency_ms, models). Uses cache to prevent high latency."""
+    import time
+    now = time.time()
+    if url in _health_cache:
+        cached_time, ok, latency, models = _health_cache[url]
+        if now - cached_time < 10.0:
+            return ok, latency, models
     try:
         async with httpx.AsyncClient() as client:
-            import time
             t0 = time.time()
             res = await client.get(f"{url}/api/tags", timeout=timeout)
             latency = round((time.time() - t0) * 1000)
             if res.status_code == 200:
                 data = res.json()
                 model_names = [m.get("name", "?") for m in data.get("models", [])]
+                _health_cache[url] = (now, True, latency, model_names)
                 return True, latency, model_names
     except Exception:
         pass
+    _health_cache[url] = (now, False, 0, [])
     return False, 0, []
 
 async def pick_instance(db: Session, model: str = None):
@@ -773,15 +787,18 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
     
     # Filtrer les outils optionnels de diagnostic réseau et de modération
     enabled_tools = []
-    network_tool_names = {"ping_host", "traceroute_host", "dns_lookup", "check_server_health", "scan_local_network"}
-    network_enabled = ia_cfg.get("network_tools_enabled", True)
-    moderation_enabled = ia_cfg.get("auto_moderation_enabled", True)
-    for tool in TOOL_DEFINITIONS:
-        if tool["function"]["name"] in network_tool_names and not network_enabled:
-            continue
-        if tool["function"]["name"] == "block_user_from_ia" and not moderation_enabled:
-            continue
-        enabled_tools.append(tool)
+    tool_calling_mode = ia_cfg.get("tool_calling_mode", "stream_intercept")
+    
+    if tool_calling_mode != "disabled":
+        network_tool_names = {"ping_host", "traceroute_host", "dns_lookup", "check_server_health", "scan_local_network"}
+        network_enabled = ia_cfg.get("network_tools_enabled", True)
+        moderation_enabled = ia_cfg.get("auto_moderation_enabled", True)
+        for tool in TOOL_DEFINITIONS:
+            if tool["function"]["name"] in network_tool_names and not network_enabled:
+                continue
+            if tool["function"]["name"] == "block_user_from_ia" and not moderation_enabled:
+                continue
+            enabled_tools.append(tool)
         
     req_data = {
         "model": model_to_use,
@@ -803,6 +820,7 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
             "conversation_id": request.conversation_id,
             "raw_request": raw_request,
             "model_info": {"model": model_to_use, "instance": instance.get('label', 'Default') if instance else 'Default'},
+            "tool_calling_mode": tool_calling_mode,
         }
     )
     queue_entry, position = await queue_manager.enqueue(queue_entry)
@@ -896,43 +914,54 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
                         est_tokens = int((sum(len(m.content) for m in post_msgs) + ctx_chars) / 3.5) + 1300  # +system overhead
                         
                         # ── Auto-title: fire-and-forget background task (G-50) ──
-                        if conv_obj and conv_obj.title in ("Nouvelle discussion", "New discussion", "Nueva discusión", ""):
+                        if conv_obj and _is_default_title(conv_obj.title):
                             # Collect up to 3 exchanges (user + bot pairs) for richer context
                             first_msgs = s.query(models.ChatMessage).filter(
                                 models.ChatMessage.conversation_id == request.conversation_id,
                                 models.ChatMessage.role.in_(["user", "bot"])
                             ).order_by(models.ChatMessage.timestamp.asc()).limit(6).all()
                             if first_msgs:
-                                # Build a short excerpt: "User: ... / Bot: ..."
+                                # Build excerpt for the prompt
                                 excerpt_parts = []
                                 for m in first_msgs:
                                     prefix = "User" if m.role == "user" else "Assistant"
-                                    excerpt_parts.append(f"{prefix}: {m.content[:200]}")
+                                    excerpt_parts.append(f"{prefix}: {m.content[:300]}")
                                 _excerpt = "\n".join(excerpt_parts[:6])
                                 _conv_id = request.conversation_id
                                 _ollama_host = ollama_host
                                 _model = model_to_use
                                 async def _bg_title():
                                     try:
+                                        print(f"[BG_TITLE] Starting background title generation for conv {_conv_id}", flush=True)
                                         bg_timeout = httpx.Timeout(connect=10.0, read=120.0, write=10.0, pool=5.0)
                                         async with httpx.AsyncClient(timeout=bg_timeout) as tc:
-                                            tr = await tc.post(f"{_ollama_host}/api/chat", json={
+                                            tr = await tc.post(f"{_ollama_host}/api/generate", json={
                                                 "model": _model,
-                                                "messages": [{"role": "user", "content": f"Génère un titre COURT (max 5 mots) pour cette conversation. Réponds UNIQUEMENT avec le titre, sans guillemets ni ponctuation finale.\n\nConversation:\n{_excerpt}"}],
+                                                "prompt": _build_title_prompt(_excerpt),
                                                 "stream": False,
-                                                "options": {"temperature": 0.3}
-                                            }, timeout=20.0)
+                                                "options": {"temperature": 0.2, "num_predict": 30}
+                                            })
+                                            print(f"[BG_TITLE] Ollama HTTP status: {tr.status_code}", flush=True)
                                             if tr.status_code == 200:
-                                                tt = tr.json().get("message", {}).get("content", "").strip().strip('"\'')
-                                                if tt and len(tt) < 60:
+                                                raw = tr.json().get("response", "")
+                                                print(f"[BG_TITLE] Raw response: '{raw}'", flush=True)
+                                                tt = _clean_title(raw)
+                                                print(f"[BG_TITLE] Cleaned title: '{tt}'", flush=True)
+                                                if tt:
                                                     with database.SessionLocal() as ts:
                                                         c = ts.query(models.Conversation).filter(models.Conversation.id == _conv_id).first()
                                                         if c:
                                                             c.title = tt
                                                             ts.commit()
+                                                            print(f"[BG_TITLE] Committed title '{tt}' to DB", flush=True)
                                                     await ws_manager.broadcast({"type": "conv_title_updated", "conversation_id": _conv_id, "title": tt})
-                                    except Exception:
-                                        pass
+                                                    print(f"[BG_TITLE] Broadcasted conv_title_updated", flush=True)
+                                                else:
+                                                    print(f"[BG_TITLE] Title was cleaned to empty/None", flush=True)
+                                    except Exception as e:
+                                        import traceback
+                                        print(f"[BG_TITLE] Error:", flush=True)
+                                        traceback.print_exc()
                                 asyncio.create_task(_bg_title())
                         
                     done_payload = {'done': True, 'estimated_tokens': est_tokens, 'meta': meta_val}
@@ -988,17 +1017,25 @@ async def auto_title(conv_id: int, db: Session = Depends(database.get_db), user:
     conv = db.query(models.Conversation).filter(models.Conversation.id == conv_id).first()
     if not conv:
         raise HTTPException(404)
-    # Only rename if still default
-    if conv.title not in ("Nouvelle discussion", "New discussion", "Nueva discusión", ""):
+    # Only rename if still a default placeholder title
+    if not _is_default_title(conv.title):
         return {"title": conv.title}
-    # Get the first user message
-    first_msg = db.query(models.ChatMessage).filter(
+    # Get the first exchange (user message + first bot reply) for richer context
+    first_msgs = db.query(models.ChatMessage).filter(
         models.ChatMessage.conversation_id == conv_id,
-        models.ChatMessage.role == "user"
-    ).order_by(models.ChatMessage.timestamp.asc()).first()
-    if not first_msg:
+        models.ChatMessage.role.in_(["user", "bot"])
+    ).order_by(models.ChatMessage.timestamp.asc()).limit(4).all()
+    if not first_msgs:
         return {"title": conv.title}
-    
+    # Wait for at least one bot reply before generating a title (better context)
+    has_bot_reply = any(m.role == "bot" for m in first_msgs)
+    if not has_bot_reply:
+        return {"title": conv.title}
+    excerpt_parts = []
+    for m in first_msgs:
+        prefix = "User" if m.role == "user" else "Assistant"
+        excerpt_parts.append(f"{prefix}: {m.content[:300]}")
+    excerpt = "\n".join(excerpt_parts)
     ia_cfg = get_effective_config(db)
     model_to_use = conv.model or ia_cfg.get('model', '')
     instance = await pick_instance(db, model=model_to_use)
@@ -1007,18 +1044,18 @@ async def auto_title(conv_id: int, db: Session = Depends(database.get_db), user:
     ollama_host = instance["url"]
     if not conv.model and instance.get("model"):
         model_to_use = instance["model"]
-    
     try:
         async with httpx.AsyncClient() as client:
-            title_res = await client.post(f"{ollama_host}/api/chat", json={
+            title_res = await client.post(f"{ollama_host}/api/generate", json={
                 "model": model_to_use,
-                "messages": [{"role": "user", "content": f"Génère un titre COURT (max 5 mots) pour cette conversation. Réponds UNIQUEMENT avec le titre, sans guillemets ni ponctuation finale.\n\nQuestion: {first_msg.content}"}],
+                "prompt": _build_title_prompt(excerpt),
                 "stream": False,
-                "options": {"temperature": 0.3}
-            }, timeout=15.0)
+                "options": {"temperature": 0.2, "num_predict": 30}
+            }, timeout=60.0)
             if title_res.status_code == 200:
-                title_text = title_res.json().get("message", {}).get("content", "").strip().strip('"\'')
-                if title_text and len(title_text) < 60:
+                raw = title_res.json().get("response", "")
+                title_text = _clean_title(raw)
+                if title_text:
                     conv.title = title_text
                     db.commit()
                     return {"title": title_text}
@@ -1065,7 +1102,8 @@ async def admin_list_conversations(db: Session = Depends(database.get_db), admin
             "last_message_role": last_message_role,
             "last_message_preview": last_message_preview,
             "has_new_messages": unread_count > 0,
-            "unread_count": unread_count
+            "unread_count": unread_count,
+            "is_online": user.is_online if user else False
         })
         
     # Sort by last message time descending (recent first)

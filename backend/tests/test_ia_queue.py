@@ -103,7 +103,8 @@ async def test_ia_queue_tool_time_subtraction():
     assert duration == 0.5
 
 
-def test_ia_tool_block_user_from_ia(db_session):
+@pytest.mark.asyncio
+async def test_ia_tool_block_user_from_ia(db_session):
     """Test that the block_user_from_ia tool blocks the user and raises notifications."""
     from app.ia_tools import execute_tool
     from app import models
@@ -119,7 +120,7 @@ def test_ia_tool_block_user_from_ia(db_session):
     mock_session = MagicMock()
     mock_session.__enter__.return_value = db_session
     with patch("app.database.SessionLocal", return_value=mock_session):
-        result_str = execute_tool("block_user_from_ia", {"reason": "Language injurieux répétitif"}, user_id=player1.id)
+        result_str = await execute_tool("block_user_from_ia", {"reason": "Language injurieux répétitif"}, user_id=player1.id)
         
     import json
     result = json.loads(result_str)
@@ -143,7 +144,8 @@ def test_ia_tool_block_user_from_ia(db_session):
     assert any("Player1" in n.content for n in admin_notifs)
 
 
-def test_ia_tool_block_user_from_ia_disabled(db_session):
+@pytest.mark.asyncio
+async def test_ia_tool_block_user_from_ia_disabled(db_session):
     """Test that the block_user_from_ia tool returns an error when disabled in config."""
     from app.ia_tools import execute_tool
     from app import models
@@ -166,7 +168,7 @@ def test_ia_tool_block_user_from_ia_disabled(db_session):
     mock_session = MagicMock()
     mock_session.__enter__.return_value = db_session
     with patch("app.database.SessionLocal", return_value=mock_session):
-        result_str = execute_tool("block_user_from_ia", {"reason": "Language injurieux répétitif"}, user_id=player1.id)
+        result_str = await execute_tool("block_user_from_ia", {"reason": "Language injurieux répétitif"}, user_id=player1.id)
 
     import json
     result = json.loads(result_str)
@@ -199,6 +201,7 @@ async def test_ia_queue_xml_fallback_parsing(db_session):
         payload={
             "ollama_host": "http://instance_xml:11434",
             "conversation_id": 1,
+            "tool_calling_mode": "legacy_double",
             "req_data": {
                 "model": "deepseek-r1",
                 "messages": [{"role": "user", "content": "Quelle heure est-il ?"}],
@@ -251,7 +254,20 @@ async def test_ia_queue_xml_fallback_parsing(db_session):
     mock_client.stream = MagicMock(return_value=AsyncContextManagerMock())
     mock_client.aclose = AsyncMock()
 
+    mock_exec = AsyncMock(return_value='{"datetime": "2026-05-22T22:00:00"}')
+    import sys
+    patched_targets = []
+    for mod_name in list(sys.modules.keys()):
+        if mod_name.endswith("ia_tools") and hasattr(sys.modules[mod_name], "execute_tool"):
+            patched_targets.append(patch(f"{mod_name}.execute_tool", mock_exec))
+            
     with patch("httpx.AsyncClient", return_value=mock_client):
-        with patch("app.ia_tools.execute_tool", return_value='{"datetime": "2026-05-22T22:00:00"}') as mock_exec:
+        # Open all patches
+        for p in patched_targets:
+            p.start()
+        try:
             tool_time, resp_time = await queue_manager._process_chat(entry, entry.payload)
             mock_exec.assert_called_once_with("get_current_datetime", {}, user_id=player1.id)
+        finally:
+            for p in patched_targets:
+                p.stop()

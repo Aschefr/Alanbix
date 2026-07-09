@@ -8,6 +8,10 @@ from sqlalchemy.orm import sessionmaker
 DB_PATH = os.getenv("DATABASE_PATH", "/app/data/alanbix.db")
 DATABASE_URL = f"sqlite:///{DB_PATH}"
 
+# Global in-memory presence tracking to prevent writing locks on SQLite
+ACTIVE_USERS = {}  # user_id -> datetime.datetime
+
+
 engine = create_engine(
     DATABASE_URL,
     connect_args={"check_same_thread": False},
@@ -48,6 +52,7 @@ def init_db():
         _safe_add_column(conn, "users", "ia_blocked", "BOOLEAN DEFAULT 0")
         _safe_add_column(conn, "users", "avatar_url", "VARCHAR")
         _safe_add_column(conn, "users", "avatar_shape", "VARCHAR DEFAULT 'circle'")
+        _safe_add_column(conn, "users", "last_active_at", "TIMESTAMP")
         _safe_add_column(conn, "tournaments", "points_per_win", "INTEGER DEFAULT 3")
         _safe_add_column(conn, "tournaments", "bracket", "JSON")
         _safe_add_column(conn, "tournament_teams", "created_by", "INTEGER")

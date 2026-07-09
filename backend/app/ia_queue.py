@@ -15,6 +15,7 @@ from typing import Optional, Dict, List, Any
 from collections import deque
 
 from .websockets import manager as ws_manager
+from .ia_title_utils import _build_title_prompt, _clean_title
 
 
 # ---------------------------------------------------------------------------
@@ -381,22 +382,23 @@ class IAQueueManager:
         req_data = payload["req_data"]
         conversation_id = payload["conversation_id"]
         raw_request = payload.get("raw_request")
+        tool_calling_mode = payload.get("tool_calling_mode", "stream_intercept")
 
         client = httpx.AsyncClient()
         used_tools = []
         tool_time = 0.0
         response_time = 0.0
         t_start = time.time()
+        
         try:
-            # ── Phase 1: Check for tool calls (non-streaming first call) ──
             tool_messages = list(req_data.get("messages", []))
             tools = req_data.get("tools")
             max_tool_rounds = 3
             tool_round = 0
-
-            if tools:
+            
+            # Phase 1: Legacy Double Call mode (if requested)
+            if tools and tool_calling_mode == "legacy_double":
                 from .ia_tools import execute_tool
-
                 has_moderation = any(t.get("function", {}).get("name") == "block_user_from_ia" for t in tools)
                 moderation_instruction = ""
                 if has_moderation:
@@ -404,18 +406,12 @@ class IAQueueManager:
                         " Si l'utilisateur est grossier, vulgaire, insultant, agressif ou s'il fait des demandes inappropriées ou abusives répétées, "
                         "ou si l'utilisateur te demande explicitement de le bloquer ou de tester la fonction de blocage, "
                         "tu DOIS impérativement appeler l'outil 'block_user_from_ia' avec une raison explicite. "
-                        "Note que cet outil bloque uniquement l'utilisateur courant avec qui tu discutes. "
-                        "Tu ne peux pas l'utiliser pour bloquer d'autres joueurs (comme TurboGamer ou des PNJ test) car l'outil n'a pas de paramètre pour spécifier un autre joueur."
                     )
-
-                # Inject tool-use instruction for the model
                 tool_instruction = {
                     "role": "system",
                     "content": (
                         "Tu as accès à des outils (tools/functions) pour répondre aux questions. "
-                        "Tu DOIS utiliser les outils disponibles pour obtenir des données factuelles "
-                        "(heure, date, tournois, scores, classement, joueurs, jeux, notifications, infos, règles de jeux complètes, diagnostics réseau et serveur). "
-                        "N'invente/n'hallucine JAMAIS de données réseau ou de mesures de latence. Appelle toujours l'outil approprié.\n"
+                        "Tu DOIS utiliser les outils disponibles pour obtenir des données factuelles. "
                         "IMPORTANT: Si ton API ne supporte pas l'appel d'outil natif ou si tu décides d'appeler un outil, "
                         "tu DOIS impérativement l'écrire sous ce format XML exact dans ta réponse :\n"
                         "<tool_call name=\"nom_de_l_outil\">\n"
@@ -423,20 +419,15 @@ class IAQueueManager:
                         "  \"nom_parametre\": \"valeur\"\n"
                         "}\n"
                         "</tool_call>\n"
-                        "N'écris pas de texte décrivant l'action sans inclure cette balise XML, sinon l'action ne sera pas exécutée !\n"
                         + moderation_instruction
                     )
                 }
-
-                # Use full conversation history for tool detection.
-                # Insert tool instruction after system messages.
                 system_msgs = [m for m in tool_messages if m.get("role") == "system"]
                 non_system = [m for m in tool_messages if m.get("role") != "system"]
                 tool_detect_msgs = system_msgs + [tool_instruction] + non_system
 
                 while tool_round < max_tool_rounds:
                     tool_round += 1
-                    # Non-streaming call to check for tool_calls
                     tool_req = {**req_data, "messages": tool_detect_msgs, "stream": False}
                     try:
                         tool_res = await client.post(
@@ -447,7 +438,7 @@ class IAQueueManager:
                         tool_data = tool_res.json()
                     except Exception as e:
                         print(f"[ToolCall] Non-streaming call failed: {e}", flush=True)
-                        break  # Fall through to normal streaming
+                        break
 
                     msg = tool_data.get("message", {})
                     tool_calls = msg.get("tool_calls")
@@ -456,12 +447,9 @@ class IAQueueManager:
 
                     is_xml_fallback = False
                     if not tool_calls:
-                        # Fallback: check content and thinking for XML or pythonic tool call formats
                         text_to_search = direct_content + "\n" + (thinking_content or "")
                         found_calls = []
                         import re
-                        
-                        # 1. Try XML format
                         for match in re.finditer(r'<tool_call name="([^"]+)">\s*(.*?)\s*</tool_call>', text_to_search, re.DOTALL):
                             name = match.group(1)
                             args_str = match.group(2)
@@ -472,64 +460,18 @@ class IAQueueManager:
                                     args = json.loads(args_str.replace("'", '"'))
                                 except Exception:
                                     args = {}
-                            found_calls.append({
-                                "function": {
-                                    "name": name,
-                                    "arguments": args
-                                }
-                            })
-                            
-                        # 2. Try Python function call syntax fallback (e.g. tool_name("arg1", "arg2"))
-                        if not found_calls:
-                            tools_map = {t["function"]["name"]: t["function"] for t in tools}
-                            for match in re.finditer(r'([a-zA-Z0-9_]+)\((.*?)\)', text_to_search):
-                                name = match.group(1)
-                                if name in tools_map:
-                                    args_str = match.group(2).strip()
-                                    args = {}
-                                    
-                                    # Try keyword arguments: key="val"
-                                    kw_matches = re.findall(r'(\w+)\s*=\s*["\']([^"\']*)["\']', args_str)
-                                    if kw_matches:
-                                        for k, v in kw_matches:
-                                            args[k] = v
-                                    else:
-                                        # Positional arguments: extract quoted strings
-                                        pos_args = re.findall(r'["\']([^"\']*)["\']', args_str)
-                                        params = list(tools_map[name].get("parameters", {}).get("properties", {}).keys())
-                                        for idx, val in enumerate(pos_args):
-                                            if idx < len(params):
-                                                args[params[idx]] = val
-                                                
-                                    found_calls.append({
-                                        "function": {
-                                            "name": name,
-                                            "arguments": args
-                                        }
-                                    })
-                                    
+                            found_calls.append({"function": {"name": name, "arguments": args}})
                         if found_calls:
                             tool_calls = found_calls
                             is_xml_fallback = True
 
-                    print(f"[ToolCall] Round {tool_round}: tool_calls={bool(tool_calls)} (xml_fallback={is_xml_fallback}), content_len={len(direct_content)}, keys={list(msg.keys())}", flush=True)
-                    print(f"[ToolCall] Content: {direct_content[:300]}", flush=True)
-                    print(f"[ToolCall] Full msg keys/types: { {k: type(v).__name__ for k,v in msg.items()} }", flush=True)
-                    if tool_calls and not is_xml_fallback:
-                        print(f"[ToolCall] Calls: {json.dumps(tool_calls, default=str)[:500]}", flush=True)
-
                     if not tool_calls:
-                        # No tool calls needed — fall through to Phase 2
-                        # for real streaming (tool detection was non-streaming).
                         break
 
-                    # Execute each tool call
                     if is_xml_fallback:
-                        # For text-based models, append the actual assistant response text
                         tool_messages.append({"role": "assistant", "content": direct_content})
                         tool_detect_msgs.append({"role": "assistant", "content": direct_content})
                     else:
-                        # Add assistant message with tool_calls to BOTH lists
                         tool_messages.append({"role": "assistant", "tool_calls": tool_calls})
                         tool_detect_msgs.append({"role": "assistant", "tool_calls": tool_calls})
 
@@ -537,131 +479,227 @@ class IAQueueManager:
                         fn = tc.get("function", {})
                         fn_name = fn.get("name", "")
                         fn_args = fn.get("arguments", {})
-                        # Notify user that a tool is being called
                         await entry.result_stream.put({"status": "tool_call", "tool_name": fn_name})
                         await entry.result_stream.put({"text": f"🔍 *Consultation des données : {fn_name}...*\n\n"})
                         if fn_name not in used_tools:
                             used_tools.append(fn_name)
                         t_tool_start = time.time()
-                        async def on_client_call(t_name, t_args, c_id):
-                            await entry.result_stream.put({
-                                "status": "client_tool_call",
-                                "tool_name": t_name,
-                                "arguments": t_args,
-                                "call_id": c_id
-                            })
-                            await entry.result_stream.put({"text": f"⚡ *Diagnostic réseau en cours depuis votre navigateur...*\n\n"})
-
                         try:
-                            result = await execute_tool(fn_name, fn_args, user_id=entry.user_id, on_client_call=on_client_call)
+                            result = await execute_tool(fn_name, fn_args, user_id=entry.user_id)
                         except Exception as e:
                             result = json.dumps({"error": str(e)})
                         tool_time += (time.time() - t_tool_start)
 
                         if is_xml_fallback:
-                            # For XML fallback, send the result back as a user response
                             tool_messages.append({"role": "user", "content": f"Résultat de l'outil {fn_name}: {result}"})
                             tool_detect_msgs.append({"role": "user", "content": f"Résultat de l'outil {fn_name}: {result}"})
                         else:
                             tool_messages.append({"role": "tool", "content": result})
                             tool_detect_msgs.append({"role": "tool", "content": result})
 
-                    # Continue loop to check if model wants more tool calls
-
-            # ── Phase 2: Final streaming response ──
-            # If tool calls happened, use the enriched message history
-            if tool_round > 0 and tools:
-                # Stream the final response with tool results in context
-                stream_req = {**req_data, "messages": tool_messages, "stream": True}
-                # Remove tools to prevent another round
-                stream_req.pop("tools", None)
-            else:
-                stream_req = req_data
-
-            full_response = ""
-            in_think_block = False
-            first_token = True
-            
             # Send initial thinking status (waiting for first token / prompt processing)
             await entry.result_stream.put({"status": "thinking"})
-            
-            async with client.stream("POST", f"{ollama_host}/api/chat",
-                                     json=stream_req,
-                                     timeout=httpx.Timeout(connect=10.0, read=300.0, write=10.0, pool=10.0)) as response:
-                async for chunk in response.aiter_lines():
-                    if entry.cancelled:
-                        break
-                    if raw_request:
-                        try:
-                            if await raw_request.is_disconnected():
-                                break
-                        except Exception:
-                            pass
-                    if not chunk:
-                        continue
-                    try:
-                        data = json.loads(chunk)
-                        token = data.get("message", {}).get("content", "")
-                        if token:
-                            if first_token and response_time == 0.0:
-                                response_time = max(0.1, (time.time() - t_start) - tool_time)
-                            full_response += token
-                            
-                            # Check for start of think block
-                            if "<think>" in token:
-                                in_think_block = True
-                                await entry.result_stream.put({"status": "thinking", "think": True})
-                                parts = token.split("<think>", 1)
-                                if parts[0]:
-                                    if first_token:
-                                        first_token = False
-                                        await entry.result_stream.put({"status": "generating"})
-                                    await entry.result_stream.put({"text": parts[0]})
-                                token = parts[1]
-                                
-                            if in_think_block:
-                                # Check for end of think block
-                                if "</think>" in token:
-                                    parts = token.split("</think>", 1)
-                                    if parts[0]:
-                                        await entry.result_stream.put({"status": "thinking", "think_chunk": parts[0]})
-                                    in_think_block = False
-                                    await entry.result_stream.put({"status": "generating"})
-                                    if parts[1]:
-                                        first_token = False
-                                        await entry.result_stream.put({"text": parts[1]})
-                                else:
-                                    await entry.result_stream.put({"status": "thinking", "think_chunk": token})
-                            else:
-                                if first_token:
-                                    first_token = False
-                                    await entry.result_stream.put({"status": "generating"})
-                                await entry.result_stream.put({"text": token})
-                                
-                        if data.get("done"):
-                            # If no tokens were streamed (e.g. empty or instant response), set response_time now
-                            if response_time == 0.0:
-                                response_time = max(0.1, (time.time() - t_start) - tool_time)
-                            # Strip think blocks from saved response
-                            import re
-                            clean_response = re.sub(r'<think>.*?</think>', '', full_response, flags=re.DOTALL).strip()
-                            self._execute_post_stream_tool_calls(clean_response, tools, entry.user_id, used_tools)
-                            meta = {
-                                "model_info": entry.payload.get("model_info"),
-                                "used_tools": used_tools,
-                                "duration": response_time
-                            }
-                            saved_msg_id = self._save_bot_message(conversation_id, clean_response, meta=meta)
-                            await entry.result_stream.put({
-                                "done": True,
-                                "full_response": clean_response,
-                                "saved_by_worker": saved_msg_id is not None,
-                                "meta": meta,
-                            })
+
+            # Streaming loop (Option A and final leg of Option B/D)
+            while tool_round < max_tool_rounds:
+                tool_round += 1
+                
+                # If we're executing tools in stream_intercept mode, remove tools from later requests to avoid infinite loops
+                stream_req = {**req_data, "messages": tool_messages, "stream": True}
+                if tool_round > 1:
+                    stream_req.pop("tools", None)
+
+                # Variables to control streaming chunk buffer for XML detection
+                is_buffering_xml = (tools and tool_calling_mode == "stream_intercept")
+                xml_buffer = ""
+                detected_xml_call = False
+                native_tool_calls = []
+
+                full_response = ""
+                in_think_block = False
+                first_token = True
+
+                async with client.stream("POST", f"{ollama_host}/api/chat",
+                                         json=stream_req,
+                                         timeout=httpx.Timeout(connect=10.0, read=300.0, write=10.0, pool=10.0)) as response:
+                    async for chunk in response.aiter_lines():
+                        if entry.cancelled:
                             break
-                    except json.JSONDecodeError:
-                        pass
+                        if raw_request:
+                            try:
+                                if await raw_request.is_disconnected():
+                                    break
+                            except Exception:
+                                pass
+                        if not chunk:
+                            continue
+                        try:
+                            data = json.loads(chunk)
+                            
+                            # Check native tool calls
+                            tc_list = data.get("message", {}).get("tool_calls")
+                            if tc_list and tool_calling_mode == "stream_intercept":
+                                native_tool_calls.extend(tc_list)
+                                continue
+
+                            token = data.get("message", {}).get("content", "")
+                            if token:
+                                full_response += token
+                                
+                                # Check for XML tool call start and buffer it
+                                if is_buffering_xml:
+                                    xml_buffer += token
+                                    # If it looks like XML tool call, keep buffering without yielding
+                                    if xml_buffer.strip().startswith("<tool_call") or "<tool_call" in xml_buffer:
+                                        if "</tool_call>" in xml_buffer:
+                                            detected_xml_call = True
+                                            is_buffering_xml = False
+                                            break # Exit client.stream reading loop to execute tool
+                                        else:
+                                            continue
+                                    elif not xml_buffer.strip().startswith("<") and len(xml_buffer.strip()) > 12:
+                                        # Not an XML call, flush buffer
+                                        is_buffering_xml = False
+                                        if first_token:
+                                            first_token = False
+                                            await entry.result_stream.put({"status": "generating"})
+                                        await entry.result_stream.put({"text": xml_buffer})
+                                        # Continue streaming normally for next tokens
+                                        continue
+                                    else:
+                                        continue
+
+                                if token:
+                                    if first_token and response_time == 0.0:
+                                        response_time = max(0.1, (time.time() - t_start) - tool_time)
+                                    
+                                    # Check for start of think block
+                                    if "<think>" in token:
+                                        in_think_block = True
+                                        await entry.result_stream.put({"status": "thinking", "think": True})
+                                        parts = token.split("<think>", 1)
+                                        if parts[0]:
+                                            if first_token:
+                                                first_token = False
+                                                await entry.result_stream.put({"status": "generating"})
+                                            await entry.result_stream.put({"text": parts[0]})
+                                        token = parts[1]
+                                        
+                                    if in_think_block:
+                                        # Check for end of think block
+                                        if "</think>" in token:
+                                            parts = token.split("</think>", 1)
+                                            if parts[0]:
+                                                await entry.result_stream.put({"status": "thinking", "think_chunk": parts[0]})
+                                            in_think_block = False
+                                            await entry.result_stream.put({"status": "generating"})
+                                            if parts[1]:
+                                                first_token = False
+                                                await entry.result_stream.put({"text": parts[1]})
+                                        else:
+                                            await entry.result_stream.put({"status": "thinking", "think_chunk": token})
+                                    else:
+                                        if first_token:
+                                            first_token = False
+                                            await entry.result_stream.put({"status": "generating"})
+                                        await entry.result_stream.put({"text": token})
+                                        
+                            if data.get("done") and not detected_xml_call and not native_tool_calls:
+                                if response_time == 0.0:
+                                    response_time = max(0.1, (time.time() - t_start) - tool_time)
+                                break
+                        except json.JSONDecodeError:
+                            pass
+
+                # If a tool call was detected, execute it and do another round
+                has_tool_call = bool(native_tool_calls) or detected_xml_call
+                if has_tool_call and tool_calling_mode == "stream_intercept":
+                    # Parse tools
+                    parsed_calls = []
+                    if detected_xml_call:
+                        import re
+                        match = re.search(r'<tool_call name="([^"]+)">\s*(.*?)\s*</tool_call>', xml_buffer, re.DOTALL)
+                        if match:
+                            name = match.group(1)
+                            args_str = match.group(2)
+                            try:
+                                args = json.loads(args_str)
+                            except Exception:
+                                try:
+                                    args = json.loads(args_str.replace("'", '"'))
+                                except Exception:
+                                    args = {}
+                            parsed_calls.append({"function": {"name": name, "arguments": args}})
+                    
+                    for tc in native_tool_calls:
+                        parsed_calls.append(tc)
+
+                    if not parsed_calls:
+                        # Fallback: if parse failed, flush buffer to user and stop
+                        if xml_buffer:
+                            await entry.result_stream.put({"status": "generating"})
+                            await entry.result_stream.put({"text": xml_buffer})
+                        break
+
+                    from .ia_tools import execute_tool
+                    # Notify tool executing
+                    t_names = ", ".join(c["function"]["name"] for c in parsed_calls)
+                    await entry.result_stream.put({"status": "tool_call", "tool_name": t_names})
+                    await entry.result_stream.put({"text": f"🔍 *Consultation des données : {t_names}...*\n\n"})
+                    
+                    # Add assistant message
+                    tool_messages.append({
+                        "role": "assistant",
+                        "content": xml_buffer if detected_xml_call else "",
+                        "tool_calls": native_tool_calls if native_tool_calls else None
+                    })
+
+                    for call in parsed_calls:
+                        fn_name = call["function"]["name"]
+                        fn_args = call["function"]["arguments"]
+                        if fn_name not in used_tools:
+                            used_tools.append(fn_name)
+                        t_tool_start = time.time()
+                        try:
+                            result = await execute_tool(fn_name, fn_args, user_id=entry.user_id)
+                        except Exception as e:
+                            result = json.dumps({"error": str(e)})
+                        tool_time += (time.time() - t_tool_start)
+
+                        if detected_xml_call:
+                            tool_messages.append({"role": "user", "content": f"Résultat de l'outil {fn_name}: {result}"})
+                        else:
+                            tool_messages.append({"role": "tool", "content": result})
+
+                    # Loop back for the next round of stream
+                    continue
+                else:
+                    # No tool calls detected, flush any buffered content and exit
+                    if is_buffering_xml and xml_buffer:
+                        if first_token:
+                            first_token = False
+                            await entry.result_stream.put({"status": "generating"})
+                        await entry.result_stream.put({"text": xml_buffer})
+
+                    import re
+                    clean_response = re.sub(r'<think>.*?</think>', '', full_response, flags=re.DOTALL).strip()
+                    self._execute_post_stream_tool_calls(clean_response, tools, entry.user_id, used_tools)
+                    meta = {
+                        "model_info": entry.payload.get("model_info"),
+                        "used_tools": used_tools,
+                        "duration": response_time
+                    }
+                    saved_msg_id = self._save_bot_message(conversation_id, clean_response, meta=meta)
+                    await entry.result_stream.put({
+                        "done": True,
+                        "full_response": clean_response,
+                        "saved_by_worker": saved_msg_id is not None,
+                        "meta": meta,
+                    })
+                    break
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             error_msg = f"Erreur IA ({type(e).__name__}): {str(e)[:200]}"
             await entry.result_stream.put({"text": error_msg, "done": True, "error": True})
         finally:
@@ -766,15 +804,16 @@ class IAQueueManager:
         try:
             timeout = httpx.Timeout(connect=10.0, read=120.0, write=10.0, pool=5.0)
             async with httpx.AsyncClient(timeout=timeout) as client:
-                res = await client.post(f"{ollama_host}/api/chat", json={
+                res = await client.post(f"{ollama_host}/api/generate", json={
                     "model": model,
-                    "messages": [{"role": "user", "content": f"Génère un titre COURT (max 5 mots) pour cette conversation. Réponds UNIQUEMENT avec le titre, sans guillemets ni ponctuation finale.\n\nConversation:\n{excerpt}"}],
+                    "prompt": _build_title_prompt(excerpt),
                     "stream": False,
-                    "options": {"temperature": 0.4, "num_predict": 20}
+                    "options": {"temperature": 0.2, "num_predict": 30}
                 })
             if res.status_code == 200:
-                suggestion = res.json().get("message", {}).get("content", "").strip().strip('"\'')
-                if suggestion and len(suggestion) <= 100:
+                raw = res.json().get("response", "")
+                suggestion = _clean_title(raw)
+                if suggestion:
                     await ws_manager.broadcast({
                         "type": "title_suggestion_ready",
                         "conversation_id": conv_id,

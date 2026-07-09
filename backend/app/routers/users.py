@@ -198,7 +198,7 @@ def get_points_history(db: Session = Depends(database.get_db), user: models.User
 def admin_list_users(db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
     """List all users with details for admin management."""
     users = db.query(models.User).all()
-    return [{"id": u.id, "username": u.username, "team_name": u.team_name, "is_admin": u.is_admin, "ia_blocked": u.ia_blocked or False, "seat_id": u.seat_id, "points": u.points, "avatar_url": u.avatar_url, "avatar_shape": u.avatar_shape} for u in users]
+    return [{"id": u.id, "username": u.username, "team_name": u.team_name, "is_admin": u.is_admin, "ia_blocked": u.ia_blocked or False, "seat_id": u.seat_id, "points": u.points, "avatar_url": u.avatar_url, "avatar_shape": u.avatar_shape, "is_online": u.is_online} for u in users]
 
 @router.put("/admin/users/{user_id}")
 async def admin_update_user(user_id: int, data: dict, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):

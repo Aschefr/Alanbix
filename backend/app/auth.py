@@ -48,6 +48,11 @@ async def get_current_user(db: Session = Depends(database.get_db), token: str = 
     user = db.query(models.User).filter(models.User.username == username).first()
     if user is None:
         raise credentials_exception
+    
+    # Track online presence in memory (zero SQLite write lock latency)
+    from .database import ACTIVE_USERS
+    ACTIVE_USERS[user.id] = datetime.utcnow()
+            
     return user
 
 async def get_current_admin(current_user: models.User = Depends(get_current_user)):

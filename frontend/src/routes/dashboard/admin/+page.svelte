@@ -235,7 +235,8 @@
 		ollama_host: '', model: '', rag_enabled: true, network_tools_enabled: true,
 		auto_moderation_enabled: true,
 		temperature: 0.7, context_window: 4096,
-		ollama_instances: [], embedding_model: ''
+		ollama_instances: [], embedding_model: '',
+		tool_calling_mode: 'stream_intercept'
 	};
 	let newDocContent = '';
 	let instanceStatuses = [];
@@ -915,6 +916,38 @@
 
 	// --- Admin Conversation Monitoring ---
 	let adminConversations = [];
+	let collapsedPlayers = {};
+	function togglePlayerCollapse(username) {
+		collapsedPlayers[username] = !collapsedPlayers[username];
+	}
+
+	$: groupedConversations = (() => {
+		const groups = {};
+		adminConversations.forEach(c => {
+			const user = c.username || 'Inconnu';
+			if (!groups[user]) {
+				groups[user] = {
+					username: user,
+					conversations: [],
+					has_unread: false,
+					is_online: c.is_online || false
+				};
+			}
+			if (c.is_online) {
+				groups[user].is_online = true;
+			}
+			groups[user].conversations.push(c);
+			if (c.has_new_messages) {
+				groups[user].has_unread = true;
+			}
+		});
+		return Object.values(groups).sort((a, b) => {
+			const maxA = Math.max(...a.conversations.map(c => new Date(c.last_message_at || 0).getTime()));
+			const maxB = Math.max(...b.conversations.map(c => new Date(c.last_message_at || 0).getTime()));
+			return maxB - maxA;
+		});
+	})();
+
 	$: adminUnreadConvsCount = adminConversations.reduce((sum, c) => sum + (c.unread_count || 0), 0);
 	let adminActiveConvId = null;
 	let adminConvMessages = [];
@@ -1501,6 +1534,9 @@
 										<div class="admin-avatar-small avatar-shape-{p.avatar_shape || 'circle'}"><img src={p.avatar_url} alt="" /></div>
 									{/if}
 									<span>{p.username}</span>
+									{#if p.is_online}
+										<span style="color:#10b981; font-size:0.8rem; text-shadow: 0 0 6px rgba(16,185,129,0.6);" title={$t('players_status_online')}>●</span>
+									{/if}
 									{#if p.is_admin}<span class="admin-badge">⭐</span>{/if}
 									{#if p.ia_blocked}<span class="ia-blocked-badge" title="{$t('admin_players_ia_blocked_tooltip')}">🚫</span>{/if}
 								</span>
@@ -2031,6 +2067,16 @@
 								</select>
 							</div>
 
+							<!-- Tool Calling Mode -->
+							<div>
+								<label class="compact-label" style="margin-bottom: 0.2rem; display: block;">{$t('admin_settings_ai_tool_mode')}</label>
+								<select bind:value={iaConfig.tool_calling_mode} on:change={saveIAConfig} class="inst-model-select-wide">
+									<option value="stream_intercept">{$t('admin_settings_ai_tool_mode_intercept')}</option>
+									<option value="legacy_double">{$t('admin_settings_ai_tool_mode_legacy')}</option>
+									<option value="disabled">{$t('admin_settings_ai_tool_mode_disabled')}</option>
+								</select>
+							</div>
+
 							<!-- Network Tools -->
 							<div style="display: flex; align-items: center; justify-content: space-between; padding-top: 0.4rem; border-top: 1px solid var(--glass-border);">
 								<span class="compact-label" style="font-weight: 600;">{$t('admin_settings_ai_tools')}</span>
@@ -2171,29 +2217,51 @@
 						</div>
 						<span class="badge-count">{adminConversations.length}</span>
 					</div>
-					<div class="item-list">
-						{#each adminConversations as c}
-							<div class="admin-item-card glass-hover {adminActiveConvId === c.id ? 'editing-expanded' : ''}" style="cursor:pointer;flex-direction:column;align-items:stretch;border-left: 4px solid {c.has_new_messages ? '#22c55e' : (c.admin_override ? '#a855f7' : 'rgba(255,255,255,0.05)')}" on:click={() => selectAdminConv(c.id)}>
-								<div class="card-top-row" style="display:flex;justify-content:space-between;align-items:center">
-									<div class="item-info">
-										<div class="flex-row items-center gap-2" style="flex-wrap:wrap">
-											<span class="item-name">{c.title}</span>
-											{#if c.has_new_messages}
-												<span class="status-pill-sm open" style="background:rgba(34,197,94,0.15);color:#22c55e;border:1px solid rgba(34,197,94,0.3)">{c.unread_count > 1 ? $t('admin_chats_unread_plural', { count: c.unread_count }) : $t('admin_chats_unread_singular', { count: c.unread_count })}</span>
-											{/if}
-											{#if c.admin_override}
-												<span class="status-pill-sm" style="background:rgba(168,85,247,0.2);color:#a855f7;border:1px solid #a855f7">🛡️ Admin</span>
-											{/if}
-										</div>
-										<div class="item-meta">👤 {c.username} • {c.message_count} msg • {$t('dash_pill_active')} : {c.last_message_at ? new Date(c.last_message_at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}</div>
-										{#if c.last_message_preview}
-											<div class="last-msg-preview" style="font-size:0.75rem;color:var(--text-dim);margin-top:0.3rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:320px;opacity:0.8">
-												<strong>{c.last_message_role === 'user' ? '👤' : c.last_message_role === 'admin' ? '🛡️' : '🤖'}:</strong> {c.last_message_preview}
-											</div>
-										{/if}
-									</div>
+					<div class="item-list" style="display:flex; flex-direction:column; gap:0.5rem;">
+						{#each groupedConversations as group}
+							<div class="user-group-header glass-hover" on:click={() => togglePlayerCollapse(group.username)} style="display:flex; justify-content:space-between; align-items:center; padding:0.6rem 0.8rem; border-radius:8px; cursor:pointer; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.05); user-select:none; margin-top:0.3rem;">
+								<div class="flex-row items-center gap-2">
+									<span class="user-group-icon">👤</span>
+									<span class="user-group-title" style="font-weight:600; font-size:0.9rem; color:var(--text-main);">{group.username}</span>
+									{#if group.is_online}
+										<span style="color:#10b981; font-size:0.8rem; margin-left:0.2rem; text-shadow: 0 0 6px rgba(16,185,129,0.6);" title={$t('players_status_online')}>●</span>
+									{/if}
+									{#if group.has_unread}
+										<span class="status-pill-sm open" style="background:rgba(34,197,94,0.15); color:#22c55e; border:1px solid rgba(34,197,94,0.3); padding:0.1rem 0.3rem; font-size:0.7rem; line-height:1;">{$t('dash_stat_new')}</span>
+									{/if}
+								</div>
+								<div class="flex-row items-center gap-2">
+									<span class="badge-count-inline" style="background:rgba(255,255,255,0.05); padding:0.15rem 0.4rem; border-radius:10px; font-size:0.75rem; color:var(--text-dim);">{group.conversations.length}</span>
+									<span class="toggle-arrow" style="font-size:0.7rem; color:var(--text-dim); transition: transform 0.2s; transform: {collapsedPlayers[group.username] ? 'rotate(0deg)' : 'rotate(90deg)'}">▶</span>
 								</div>
 							</div>
+							{#if !collapsedPlayers[group.username]}
+								<div class="user-group-items" style="display:flex; flex-direction:column; gap:0.4rem; padding-left:0.5rem; border-left:1px dashed rgba(255,255,255,0.08); margin-left:0.5rem; margin-bottom:0.3rem;">
+									{#each group.conversations as c}
+										<div class="admin-item-card glass-hover {adminActiveConvId === c.id ? 'editing-expanded' : ''}" style="cursor:pointer;flex-direction:column;align-items:stretch;border-left: 4px solid {c.has_new_messages ? '#22c55e' : (c.admin_override ? '#a855f7' : 'rgba(255,255,255,0.05)')}; padding:0.5rem 0.7rem;" on:click={() => selectAdminConv(c.id)}>
+											<div class="card-top-row" style="display:flex;justify-content:space-between;align-items:center">
+												<div class="item-info" style="width:100%">
+													<div class="flex-row items-center gap-2" style="flex-wrap:wrap">
+														<span class="item-name" style="font-size:0.85rem; font-weight:550;">{c.title}</span>
+														{#if c.has_new_messages}
+															<span class="status-pill-sm open" style="background:rgba(34,197,94,0.15);color:#22c55e;border:1px solid rgba(34,197,94,0.3)">{c.unread_count > 1 ? $t('admin_chats_unread_plural', { count: c.unread_count }) : $t('admin_chats_unread_singular', { count: c.unread_count })}</span>
+														{/if}
+														{#if c.admin_override}
+															<span class="status-pill-sm" style="background:rgba(168,85,247,0.2);color:#a855f7;border:1px solid #a855f7">🛡️ Admin</span>
+														{/if}
+													</div>
+													<div class="item-meta" style="font-size:0.7rem;">{c.message_count} msg • {$t('dash_pill_active')} : {c.last_message_at ? new Date(c.last_message_at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}</div>
+													{#if c.last_message_preview}
+														<div class="last-msg-preview" style="font-size:0.72rem;color:var(--text-dim);margin-top:0.2rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:320px;opacity:0.8">
+															<strong>{c.last_message_role === 'user' ? '👤' : c.last_message_role === 'admin' ? '🛡️' : '🤖'}:</strong> {c.last_message_preview}
+														</div>
+													{/if}
+												</div>
+											</div>
+										</div>
+									{/each}
+								</div>
+							{/if}
 						{:else}
 							<div class="empty-list">
 								<span class="empty-icon">💬</span>

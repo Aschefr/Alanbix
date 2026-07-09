@@ -15,7 +15,8 @@ def list_players(db: Session = Depends(database.get_db), user: models.User = Dep
     return [{
         "id": u.id, "username": u.username, "team_name": u.team_name,
         "seat_id": u.seat_id, "points": u.points or 0, "is_admin": u.is_admin,
-        "avatar_url": u.avatar_url, "avatar_shape": u.avatar_shape
+        "avatar_url": u.avatar_url, "avatar_shape": u.avatar_shape,
+        "is_online": u.is_online
     } for u in users]
 
 
@@ -240,7 +241,9 @@ def pm_read(peer_id: int, db: Session = Depends(database.get_db), user: models.U
     return {
         "peer": {
             "id": peer.id, "username": peer.username,
-            "team_name": peer.team_name, "seat_id": peer.seat_id
+            "team_name": peer.team_name, "seat_id": peer.seat_id,
+            "avatar_url": peer.avatar_url, "avatar_shape": peer.avatar_shape,
+            "is_online": peer.is_online
         } if peer else None,
         "messages": [{
             "id": m.id, "sender_id": m.sender_id, "receiver_id": m.receiver_id,

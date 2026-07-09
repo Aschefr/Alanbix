@@ -15,6 +15,16 @@ class User(Base):
     points = Column(Integer, default=0) # Accumulated tournament points
     avatar_url = Column(String, nullable=True) # URL / path of user avatar
     avatar_shape = Column(String, default="circle") # Display shape: circle, rounded, square
+    last_active_at = Column(DateTime, nullable=True)
+    
+    @property
+    def is_online(self) -> bool:
+        from .database import ACTIVE_USERS
+        last_active = ACTIVE_USERS.get(self.id)
+        if not last_active:
+            return False
+        import datetime
+        return (datetime.datetime.utcnow() - last_active).total_seconds() < 120
     
     tournaments = relationship("TournamentParticipant", back_populates="user")
 

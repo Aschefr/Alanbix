@@ -94,8 +94,8 @@
 
 	// Group unread counts (AXE-12)
 	let groupUnreadMap = {}; // channel_key -> unread count
-
 	let wsUnsub = null;
+	let presenceInterval;
 
 	onMount(async () => {
 		try { currentUser = await api.get('/me'); } catch {}
@@ -151,10 +151,15 @@
 				loadGroupUnreadMap();
 			}
 		});
+
+		presenceInterval = setInterval(async () => {
+			await loadPlayers();
+		}, 20000);
 	});
 
 	onDestroy(() => { 
 		if (wsUnsub) wsUnsub(); 
+		if (presenceInterval) clearInterval(presenceInterval);
 		if (typeof window !== 'undefined') {
 			window.removeEventListener('mousemove', doResize);
 			window.removeEventListener('mouseup', stopResize);
@@ -163,7 +168,16 @@
 
 	async function loadPlayers() {
 		loading = true;
-		try { players = await api.get('/players'); } catch { players = []; }
+		try { 
+			players = await api.get('/players'); 
+			if (chatMode === 'p2p' && chatPeerId && chatPeer) {
+				const active = players.find(p => p.id === chatPeerId);
+				if (active) {
+					chatPeer.is_online = active.is_online;
+					chatPeer = chatPeer;
+				}
+			}
+		} catch { players = []; }
 		loading = false;
 	}
 
@@ -448,14 +462,19 @@
 								<!-- svelte-ignore a11y-no-static-element-interactions -->
 								<div class="player-card" class:active-chat={chatPeerId === player.id} class:has-unread={(unreadMap[player.id] || 0) > 0} on:click={() => openChat(player.id)}>
 									<div class="player-main">
-										<div class="player-avatar avatar-shape-{player.avatar_shape || 'circle'}">
-											{#if player.avatar_url}
-												<img src={player.avatar_url} alt="" class="player-avatar-img" />
-											{:else}
-												{player.username[0].toUpperCase()}
-											{/if}
-											{#if (unreadMap[player.id] || 0) > 0}
-												<span class="player-unread-badge">{unreadMap[player.id]}</span>
+										<div class="avatar-wrapper" style="position: relative; display: inline-block; flex-shrink: 0;">
+											<div class="player-avatar avatar-shape-{player.avatar_shape || 'circle'}">
+												{#if player.avatar_url}
+													<img src={player.avatar_url} alt="" class="player-avatar-img" />
+												{:else}
+													{player.username[0].toUpperCase()}
+												{/if}
+												{#if (unreadMap[player.id] || 0) > 0}
+													<span class="player-unread-badge">{unreadMap[player.id]}</span>
+												{/if}
+											</div>
+											{#if player.is_online}
+												<span class="online-indicator" title={$t('players_status_online')}></span>
 											{/if}
 										</div>
 										<div class="player-info">
@@ -527,14 +546,19 @@
 								<!-- svelte-ignore a11y-no-static-element-interactions -->
 								<div class="player-card" class:active-chat={chatPeerId === player.id} class:has-unread={(unreadMap[player.id] || 0) > 0} on:click={() => openChat(player.id)}>
 									<div class="player-main">
-										<div class="player-avatar solo avatar-shape-{player.avatar_shape || 'circle'}">
-											{#if player.avatar_url}
-												<img src={player.avatar_url} alt="" class="player-avatar-img" />
-											{:else}
-												{player.username[0].toUpperCase()}
-											{/if}
-											{#if (unreadMap[player.id] || 0) > 0}
-												<span class="player-unread-badge">{unreadMap[player.id]}</span>
+										<div class="avatar-wrapper" style="position: relative; display: inline-block; flex-shrink: 0;">
+											<div class="player-avatar solo avatar-shape-{player.avatar_shape || 'circle'}">
+												{#if player.avatar_url}
+													<img src={player.avatar_url} alt="" class="player-avatar-img" />
+												{:else}
+													{player.username[0].toUpperCase()}
+												{/if}
+												{#if (unreadMap[player.id] || 0) > 0}
+													<span class="player-unread-badge">{unreadMap[player.id]}</span>
+												{/if}
+											</div>
+											{#if player.is_online}
+												<span class="online-indicator" title={$t('players_status_online')}></span>
 											{/if}
 										</div>
 										<div class="player-info">
@@ -615,11 +639,16 @@
 				<div class="chat-empty"><span>⏳</span> {$t("login_checking")}</div>
 			{:else if chatMode === 'p2p'}
 				<div class="chat-header">
-					<div class="chat-peer-avatar avatar-shape-{chatPeer?.avatar_shape || 'circle'}">
-						{#if chatPeer?.avatar_url}
-							<img src={chatPeer.avatar_url} alt="" class="chat-peer-avatar-img" />
-						{:else}
-							{chatPeer?.username?.[0]?.toUpperCase() || '?'}
+					<div class="avatar-wrapper" style="position: relative; display: inline-block; flex-shrink: 0;">
+						<div class="chat-peer-avatar avatar-shape-{chatPeer?.avatar_shape || 'circle'}">
+							{#if chatPeer?.avatar_url}
+								<img src={chatPeer.avatar_url} alt="" class="chat-peer-avatar-img" />
+							{:else}
+								{chatPeer?.username?.[0]?.toUpperCase() || '?'}
+							{/if}
+						</div>
+						{#if chatPeer?.is_online}
+							<span class="online-indicator" title={$t('players_status_online')}></span>
 						{/if}
 					</div>
 					<div class="chat-peer-info">
@@ -743,6 +772,18 @@
 	.player-main { display: flex; align-items: center; gap: 0.6rem; padding: 0.5rem 0.6rem; }
 	.player-avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--bg-tertiary); display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 800; color: var(--accent); border: 1px solid rgba(59,130,246,0.2); flex-shrink: 0; position: relative; }
 	.player-avatar.solo { border-color: var(--glass-border); color: var(--text-dim); }
+	.online-indicator {
+		position: absolute;
+		bottom: -2px;
+		right: -2px;
+		width: 10px;
+		height: 10px;
+		background-color: #10b981;
+		border: 2px solid var(--bg-primary, #1e293b);
+		border-radius: 50%;
+		box-shadow: 0 0 8px #10b981;
+		z-index: 10;
+	}
 	.player-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 	.player-username { font-weight: 700; font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	.player-pts { font-size: 0.6rem; color: var(--text-muted); font-weight: 600; }

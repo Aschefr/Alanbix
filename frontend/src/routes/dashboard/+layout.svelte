@@ -177,7 +177,14 @@
 			if (unsub) unsub();
 			unsub = wsMessageStore.subscribe(msg => {
 				if (msg && msg.type) {
-					invalidateAll();
+					const criticalTypes = [
+						'config_updated', 'users_updated', 
+						'tournament_created', 'tournament_updated', 'tournament_deleted',
+						'tournament_started', 'tournament_closed', 'tournament_reopened'
+					];
+					if (criticalTypes.includes(msg.type)) {
+						invalidateAll();
+					}
 					if (msg.type === 'config_updated') {
 						refreshEventName();
 					}
@@ -262,9 +269,9 @@
 			// Fetch SemVer version
 			try {
 				const res = await api.get('/health');
-				version = res.version || '1.22.0';
+				version = res.version || '1.26.0';
 			} catch {
-				version = '1.22.0';
+				version = '1.26.0';
 			}
 
 			// Admin: poll IA status

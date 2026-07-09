@@ -955,5 +955,10 @@
   "admin_games_searxng_not_configured": "SearXNG no está configurado en los ajustes de administración.",
   "map_delete_table_title": "Eliminar la Mesa",
   "map_delete_table_message": "¿Está seguro de que desea eliminar la mesa {id}? Esto también eliminará todos los asientos asociados.",
-  "map_delete_confirm_prompt": "¿Seguro?"
+  "map_delete_confirm_prompt": "¿Seguro?",
+  "admin_settings_ai_tool_mode": "Modo de ejecución de herramientas IA",
+  "admin_settings_ai_tool_mode_intercept": "Optimizado (Streaming e Interceptación)",
+  "admin_settings_ai_tool_mode_legacy": "Doble llamada (Comportamiento heredado)",
+  "admin_settings_ai_tool_mode_disabled": "Desactivado (Sin herramientas)",
+  "players_status_online": "En línea"
 }

@@ -1274,3 +1274,32 @@ future_axes:
       - "Implémentation de runClientTool en Svelte pour tester la latence HTTP/HTTPS et DNS Cloudflare."
       - "Tests unitaires complets écrits et validés avec pytest."
     priority: high
+
+  - id: AXE-54
+    title: "Optimisation des performances IA & correction des titres"
+    status: DONE
+    description: >
+      Résoudre les réponses tronquées sur Gemma en passant à l'API /api/generate pour les titres.
+      Garantir le support multilingue pour les titres de conversation par défaut.
+      Ajouter les modes de performance IA (A - Intercept, C - Pas d'outils, D - Double appel) et supprimer l'Option B non fiable.
+      Mettre à disposition le sélecteur dans le panneau d'administration.
+    done:
+      - "Passage à l'API /api/generate d'Ollama pour la génération textuelle de titres robustes."
+      - "Détection multilingue dynamique des titres par défaut depuis les JSON i18n."
+      - "Implémentation des modes IA stream_intercept, legacy_double et disabled avec sélecteur d'administration."
+      - "Retrait complet de l'Option B (filtrage hybride)."
+    priority: high
+
+  - id: AXE-55
+    title: "Suivi en temps réel de la présence des joueurs"
+    status: DONE
+    description: >
+      Ajouter le suivi et l'affichage en temps réel (point vert) de la présence des joueurs en ligne.
+      La solution doit être performante et ne pas surcharger la base de données SQLite.
+    done:
+      - "Création d'un tracker de présence 100% en mémoire ACTIVE_USERS (zéro écriture SQLite)."
+      - "Propagation de is_online dans les API /players, /admin/users, /admin/conversations et /messages/{peer_id}."
+      - "Ajout de l'indicateur visuel point vert (online-indicator) sur les avatars dans l'annuaire des joueurs, l'en-tête de chat et l'administration."
+      - "Création d'un wrapper avatar pour empêcher le rognage de l'indicateur par overflow:hidden."
+      - "Optimisation du polling Svelte et du WebSocket (limitation de invalidateAll)."
+    priority: high

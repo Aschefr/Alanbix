@@ -897,7 +897,7 @@
 						selectConversation(conv.id, true);
 					}}>
 						<span class="icon">💬</span>
-						<span class="title">{conv.title}</span>
+						<span class="title" title={conv.title}>{conv.title}</span>
 						{#if conv.has_new_messages}
 							<span class="unread-badge">{$t("changelog_fallback_name")}</span>
 						{/if}
@@ -1258,7 +1258,7 @@
 
 <style>
 	.ai-page { height: calc(100vh - 4rem); gap: 2rem; align-items: stretch; }
-	.chat-sidebar { width: 260px; min-width: 260px; max-width: 260px; flex-shrink: 0; padding: 1.5rem; display: flex; flex-direction: column; gap: 1.5rem; }
+	.chat-sidebar { width: 280px; min-width: 280px; max-width: 280px; flex-shrink: 0; padding: 1.5rem; display: flex; flex-direction: column; gap: 1.5rem; }
 	.conv-list { display: flex; flex-direction: column; gap: 0.5rem; overflow-y: auto; }
 	
 	.conv-item { 

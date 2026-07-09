@@ -955,5 +955,10 @@
   "admin_games_searxng_not_configured": "SearXNG is not configured in the administration settings.",
   "map_delete_table_title": "Delete Table",
   "map_delete_table_message": "Are you sure you want to delete table {id}? This will also delete all associated seats.",
-  "map_delete_confirm_prompt": "Sure?"
+  "map_delete_confirm_prompt": "Sure?",
+  "admin_settings_ai_tool_mode": "AI Tool Execution Mode",
+  "admin_settings_ai_tool_mode_intercept": "Optimized (Streaming & Interception)",
+  "admin_settings_ai_tool_mode_legacy": "Double Call (Legacy Behavior)",
+  "admin_settings_ai_tool_mode_disabled": "Disabled (No Tools)",
+  "players_status_online": "Online"
 }
