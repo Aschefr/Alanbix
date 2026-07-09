@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.25.1] - 2026-07-09
+
+### Bug Fix — Tournament Team Building
+
+- **Fixed Hidden Team Composition for New Tournaments**: Restored visibility of detail sections (info cards, participant pool, team builder) for tournaments in `OPEN` status. A previous change (v1.23.1) made all detail sections conditional on the `showDetails` toggle, but the toggle button was only rendered for `RUNNING`/`DONE`/`CLOSED` statuses — causing `OPEN` tournaments to have everything hidden with no way to toggle it back when localStorage had `showDetails=false`.
+
+---
+
 ## [1.25.0] - 2026-07-08
 
 ### Features & UI — Room Layout Editor

@@ -855,7 +855,7 @@
 			</div>
 
 			<!-- Info Cards -->
-			<div class="detail-body" class:collapsed-layout={!showDetails}>
+			<div class="detail-body" class:collapsed-layout={selected?.status !== 'OPEN' && !showDetails}>
 				<div class="controls-row">
 					{#if selected?.status === 'RUNNING' || selected?.status === 'DONE' || selected?.status === 'CLOSED'}
 						<button class="toggle-details-btn glass" on:click={toggleDetails}>
@@ -915,7 +915,7 @@
 					{/if}
 				</div>
 
-				{#if showDetails}
+				{#if showDetails || selected.status === 'OPEN'}
 					<div class="info-row">
 						<div class="info-card glass"><span class="info-label">{$t("admin_tourneys_wizard_format_lbl")}</span><span class="info-value">{bracketLabel(selected.config?.bracket_type)}</span></div>
 						<div class="info-card glass"><span class="info-label">{$t("admin_tourneys_wizard_mode_lbl")}</span><span class="info-value">{selected.config?.use_teams ? `${$t('admin_tourneys_wizard_mode_teams')} (x${selected.config?.team_size || 2})` : 'Solo'}</span></div>
@@ -954,7 +954,7 @@
 					{/if}
 				{/if}
 
-			{#if showDetails}
+			{#if showDetails || selected.status === 'OPEN'}
 			<!-- Participants / Pool -->
 				{#if !useTeams || selected.status === 'OPEN' || isAdmin}
 				<div class="participants-section glass">
