@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.26.3] - 2026-07-09
+
+### Bug Fixes — Robustesse du Store Page SvelteKit
+
+- **Résilience du Store Page SvelteKit** : Ajout de guards de sécurité (`$page?.url?.pathname`) dans le layout racine pour éviter un crash Javascript (page blanche) lors de l'initialisation asynchrone des composants après déploiement.
+
+---
+
 ## [1.26.2] - 2026-07-09
 
 ### Bug Fixes — Cache-Control & Correctifs Déploiement

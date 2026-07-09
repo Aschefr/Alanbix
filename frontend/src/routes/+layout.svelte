@@ -11,7 +11,7 @@
 	});
 
 	// Reset custom page title on navigation
-	$: if ($page.url.pathname) {
+	$: if ($page && $page.url && $page.url.pathname) {
 		customPageTitle.set('');
 	}
 
@@ -46,7 +46,7 @@
 		return '';
 	}
 
-	$: pageName = $customPageTitle || getPageTitle($page.url.pathname, $t);
+	$: pageName = $customPageTitle || getPageTitle($page?.url?.pathname || '', $t);
 	$: documentTitle = pageName ? `${$eventName} - ${pageName}` : $eventName;
 </script>
 
