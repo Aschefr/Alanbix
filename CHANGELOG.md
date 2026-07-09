@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.25.3] - 2026-07-09
+
+### Bug Fixes — AI Chat Takeover & i18n Translation Tasks
+
+- **Dynamic Admin Override Updates**: Configured the player AI chat interface to immediately toggle the "Admin Override / Takeover" banner when the admin takes or hands back control, without requiring a page refresh (F5). Broadcasts a WebSocket message (`admin_override_updated`) from the backend when overridden, which Svelte listens to live.
+- **Translation Queue Visibility**: Registered bulk translation tasks in the global `ia_queue` manager. Bulk translation runs now correctly appear in the active tasks section of the Admin Settings & AI Queue page in real-time, notifying the dashboard of status changes.
+
+---
+
 ## [1.25.2] - 2026-07-09
 
 ### Bug Fix — Tournament Team Building

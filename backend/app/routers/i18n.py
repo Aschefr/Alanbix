@@ -297,44 +297,63 @@ async def bulk_translate(
 
     async def sse_generator():
         """Generate SSE events from results."""
-        # Start header event with instance count
-        yield f"data: {json.dumps({'type': 'start', 'total': total, 'instances': len(healthy), 'instance_labels': [i.get('label', i['url']) for i in healthy]})}\n\n"
+        import uuid
+        from ..ia_queue import queue_manager
+        task_id = f"bulk-translate-{uuid.uuid4().hex[:8]}"
+        entry = await queue_manager.register_active_external_task(
+            entry_id=task_id,
+            user_id=admin.id,
+            username=admin.username,
+            task_type="translate"
+        )
+        
+        try:
+            # Start header event with instance count
+            yield f"data: {json.dumps({'type': 'start', 'total': total, 'instances': len(healthy), 'instance_labels': [i.get('label', i['url']) for i in healthy]})}\n\n"
+    
+            # Launch all workers
+            tasks = []
+            for i, inst in enumerate(healthy):
+                tasks.append(asyncio.create_task(translate_worker(inst, i)))
+    
+            completed = 0
+            while not workers_done.is_set() or not result_queue.empty():
+                if entry.cancelled:
+                    for t in tasks:
+                        t.cancel()
+                    yield f"data: {json.dumps({'type': 'cancelled'})}\n\n"
+                    return
 
-        # Launch all workers
-        tasks = []
-        for i, inst in enumerate(healthy):
-            tasks.append(asyncio.create_task(translate_worker(inst, i)))
-
-        completed = 0
-        while not workers_done.is_set() or not result_queue.empty():
-            # Check client disconnect
-            if await request.is_disconnected():
-                # Cancel all workers
-                for t in tasks:
-                    t.cancel()
-                yield f"data: {json.dumps({'type': 'cancelled'})}\n\n"
-                return
-
-            try:
-                item = await asyncio.wait_for(result_queue.get(), timeout=0.5)
+                # Check client disconnect
+                if await request.is_disconnected():
+                    # Cancel all workers
+                    for t in tasks:
+                        t.cancel()
+                    yield f"data: {json.dumps({'type': 'cancelled'})}\n\n"
+                    return
+    
+                try:
+                    item = await asyncio.wait_for(result_queue.get(), timeout=0.5)
+                    completed += 1
+                    item["progress"] = completed
+                    item["total"] = total
+                    yield f"data: {json.dumps(item, ensure_ascii=False)}\n\n"
+                except asyncio.TimeoutError:
+                    # Send keepalive
+                    yield f": keepalive\n\n"
+                    continue
+    
+            # Drain any remaining
+            while not result_queue.empty():
+                item = result_queue.get_nowait()
                 completed += 1
                 item["progress"] = completed
                 item["total"] = total
                 yield f"data: {json.dumps(item, ensure_ascii=False)}\n\n"
-            except asyncio.TimeoutError:
-                # Send keepalive
-                yield f": keepalive\n\n"
-                continue
-
-        # Drain any remaining
-        while not result_queue.empty():
-            item = result_queue.get_nowait()
-            completed += 1
-            item["progress"] = completed
-            item["total"] = total
-            yield f"data: {json.dumps(item, ensure_ascii=False)}\n\n"
-
-        yield f"data: {json.dumps({'type': 'done', 'completed': completed, 'total': total})}\n\n"
+    
+            yield f"data: {json.dumps({'type': 'done', 'completed': completed, 'total': total})}\n\n"
+        finally:
+            await queue_manager.unregister_active_external_task(task_id)
 
     return StreamingResponse(
         sse_generator(),

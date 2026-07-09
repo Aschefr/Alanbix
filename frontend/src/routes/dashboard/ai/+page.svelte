@@ -311,6 +311,12 @@
 				api.get('/me').then(me => {
 					if (msg.user_id !== me.id) return;
 					
+					if (msg.type === 'admin_override_updated') {
+						if (activeId === msg.conversation_id) {
+							adminOverride = msg.admin_override;
+						}
+					}
+					
 					if (msg.type === 'admin_message') {
 						// If the user is viewing this conversation, refresh messages live and mark read
 						if (activeId === msg.conversation_id) {

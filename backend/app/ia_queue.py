@@ -279,6 +279,24 @@ class IAQueueManager:
             "instance_avg_durations": {h: round(v, 1) for h, v in self._instance_avg_durations.items()}
         }
 
+    async def register_active_external_task(self, entry_id: str, user_id: int, username: str, task_type: str) -> QueueEntry:
+        entry = QueueEntry(
+            priority=0,
+            created_at=time.time(),
+            id=entry_id,
+            user_id=user_id,
+            username=username,
+            task_type=task_type,
+        )
+        self._active[entry_id] = entry
+        await self._broadcast_queue_state()
+        return entry
+
+    async def unregister_active_external_task(self, entry_id: str):
+        if entry_id in self._active:
+            del self._active[entry_id]
+            await self._broadcast_queue_state()
+
     # --- Worker ---
 
     async def _worker(self, worker_id: int):

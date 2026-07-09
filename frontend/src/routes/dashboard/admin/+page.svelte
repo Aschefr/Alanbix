@@ -277,6 +277,9 @@
 		// Listen for user messages during admin override to auto-refresh conv view
 		wsUnsub = wsMessageStore.subscribe(msg => {
 			if (!msg) return;
+			if (msg.type === 'ia_queue_update') {
+				loadQueueAdmin();
+			}
 			if (msg.type === 'user_message_during_override') {
 				if (adminActiveConvId === msg.conversation_id) {
 					// Admin is watching this conv: refresh messages directly

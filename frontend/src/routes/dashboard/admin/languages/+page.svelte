@@ -450,15 +450,16 @@
 							translateCurrent = data.completed;
 							translateProgress = 100;
 						} else if (data.type === 'cancelled') {
-							break;
+							throw new Error('cancelled');
 						}
 					} catch (e) {
+						if (e.message === 'cancelled') throw e;
 						// Ignore parse errors (keepalive comments etc.)
 					}
 				}
 			}
 		} catch (err) {
-			if (err.name === 'AbortError') {
+			if (err.name === 'AbortError' || err.message === 'cancelled') {
 				toast($t('admin_languages_progress_banner_cancel'), 'info');
 			} else {
 				toast($t('admin_languages_toast_translate_error', { error: err.message }), 'error');

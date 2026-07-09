@@ -1154,6 +1154,12 @@ async def admin_toggle_override(conv_id: int, body: OverrideRequest, db: Session
         raise HTTPException(404)
     conv.admin_override = body.admin_override
     db.commit()
+    await ws_manager.broadcast({
+        "type": "admin_override_updated",
+        "conversation_id": conv.id,
+        "user_id": conv.user_id,
+        "admin_override": conv.admin_override
+    })
     return {"status": "ok", "admin_override": conv.admin_override}
 
 
