@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.25.1] - 2026-07-09
+## [1.25.2] - 2026-07-09
 
 ### Bug Fix — Tournament Team Building
 
