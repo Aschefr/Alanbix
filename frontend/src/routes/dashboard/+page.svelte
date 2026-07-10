@@ -572,7 +572,7 @@
 					<span class="lg-item"><span class="lg-dot occupied"></span> {$t('dash_map_legend_occupied')} ({occupiedSeats})</span>
 					<span class="lg-item"><span class="lg-dot free"></span> {$t('dash_map_legend_free')} ({totalSeats - occupiedSeats})</span>
 					{#if user?.team_name}
-						<span class="lg-item"><span class="lg-dot teammate"></span> {$t('dash_lb_teams')}</span>
+						<span class="lg-item"><span class="lg-dot teammate"></span> {$t('map_legend_teammates')}</span>
 					{/if}
 				</div>
 			</div>

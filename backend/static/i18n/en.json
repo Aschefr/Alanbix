@@ -671,6 +671,7 @@
   "map_legend_element": "Element",
   "map_legend_free": "Free",
   "map_legend_occupied": "Occupied",
+  "map_legend_teammates": "Teammates",
   "map_legend_title": "Legend",
   "map_legend_yourseat": "Your seat",
   "map_lock_error_admin": "Seating is locked by the admin.",

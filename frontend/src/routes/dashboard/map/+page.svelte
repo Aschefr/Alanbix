@@ -1035,7 +1035,7 @@
 		<div class="legend-item"><span class="dot free-dot"></span> {$t("map_legend_free")}</div>
 		<div class="legend-item"><span class="dot occupied-dot"></span> {$t("map_legend_occupied")}</div>
 		{#if user?.team_name}
-			<div class="legend-item"><span class="dot teammate-dot"></span> {$t('dash_lb_teams')}</div>
+			<div class="legend-item"><span class="dot teammate-dot"></span> {$t('map_legend_teammates')}</div>
 		{/if}
 		<div class="legend-item"><span class="dot table-dot"></span> Table</div>
 		<div class="legend-item"><span class="dot furniture-dot"></span> {$t("map_legend_element")}</div>

@@ -1,13 +1,14 @@
 # Changelog
 
-## [1.27.0] - 2026-07-10
+## [1.27.1] - 2026-07-10
 
-### Features & UI — Améliorations de l'interface du plan de salle et du dashboard
+### Features & UI — Room Plan and Dashboard UI Improvements
 
-- **Stabilité des Onglets Tournois** : Correction d'une régression visuelle où les onglets des tournois actifs (`.running-tabs`) dans le dashboard pouvaient disparaître verticalement lors du clic. Ajout de `flex-shrink: 0` et d'une hauteur minimale pour stabiliser le layout.
-- **Protection des Avatars dans le Leaderboard** : Empêche la compression visuelle des avatars (`.lb-avatar`) et des badges de rang (`.lb-rank`) par les pseudos très longs dans le classement du dashboard en forçant `flex-shrink: 0`. Les pseudos longs sont proprement tronqués avec une ellipse.
-- **Noms d'Équipes dans le Wizard** : Ajout de l'affichage dynamique et compressé (`textLength` / `lengthAdjust`) du nom d'équipe de chaque joueur sur les sièges occupés du plan de salle simplifié affiché dans le wizard d'accueil.
-- **Coloration des Sièges de Coéquipiers** : Implémentation d'une coloration distinctive orange/ambre (`--map-seat-teammate-fill` / `--map-seat-teammate-stroke`) pour les sièges occupés par des coéquipiers dans toutes les vues de plan de salle (complet, mini-map dashboard et wizard). La légende a été mise à jour de manière réactive si l'utilisateur possède une équipe.
+- **Tournament Tabs Stability**: Fixed a visual regression where active tournament tabs (`.running-tabs`) in the dashboard could disappear vertically upon click. Added `flex-shrink: 0` and a minimum height to stabilize the layout.
+- **Leaderboard Avatar Protection**: Prevented visual compression of avatars (`.lb-avatar`) and rank badges (`.lb-rank`) by very long usernames in the dashboard leaderboard by forcing `flex-shrink: 0`. Long usernames are properly truncated with an ellipsis.
+- **Team Names in Welcome Wizard**: Added dynamic and scaled (`textLength` / `lengthAdjust`) team name rendering on occupied seats in the simplified room plan shown during the welcome wizard.
+- **Teammate Seat Coloring**: Implemented a distinctive orange/amber color scheme (`--map-seat-teammate-fill` / `--map-seat-teammate-stroke`) for seats occupied by teammates across all room plan views (full map, dashboard mini-map, and welcome wizard). The map legend dynamically updates to include teammates if the user has a team.
+- **Teammates i18n Keys**: Added and synchronized the `map_legend_teammates` translation key in `fr.json`, `en.json`, and `es.json` (preserving UTF-8-sig encoding) for correct teammate seat rendering labels.
 
 ---
 

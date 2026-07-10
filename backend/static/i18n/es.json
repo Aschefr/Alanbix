@@ -671,6 +671,7 @@
   "map_legend_element": "Elemento",
   "map_legend_free": "Libre",
   "map_legend_occupied": "Ocupado",
+  "map_legend_teammates": "Compañeros",
   "map_legend_title": "Leyenda",
   "map_legend_yourseat": "Tu lugar",
   "map_lock_error_admin": "La colocación está bloqueada por el administrador.",
