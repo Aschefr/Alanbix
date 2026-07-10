@@ -1523,6 +1523,13 @@
 						tournaments = await api.get('/tournaments');
 						await selectTournament(newT.id);
 					}}
+					onGameCreated={async (newGameId) => {
+						try {
+							games = await api.get('/tournaments/games');
+						} catch {
+							games = [];
+						}
+					}}
 					onCancel={() => showCreateModal = false}
 				/>
 			</div>

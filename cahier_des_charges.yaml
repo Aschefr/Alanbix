@@ -1354,6 +1354,18 @@ future_axes:
       - "Clé dash_stat_new ajoutée et synchronisée en UTF-8-sig dans fr.json, en.json, es.json."
     priority: low
 
+  - id: AXE-60
+    title: "Mise à jour réactive des jeux et auto-sélection après création dans l'assistant de tournois"
+    status: DONE
+    description: >
+      Assurer que le nouveau jeu créé s'affiche immédiatement dans la liste de sélection des tournois.
+      Sélectionner automatiquement ce nouveau jeu dans le formulaire.
+    done:
+      - "Ajout de onGameCreated dans la vue Tournois pour rafraîchir dynamiquement la liste."
+      - "Mise à jour locale instantanée de la variable reactive 'games' et liaison auto-select active de config.game_id dans CreateTournamentWizard.svelte."
+    priority: medium
+
+
 
 
 

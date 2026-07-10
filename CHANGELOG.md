@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.26.6] - 2026-07-10
+
+### Features — UX Création Tournoi & Rafraîchissement Réactif des Jeux
+
+- **Mise à jour réactive de la liste des jeux** : La création d'un nouveau jeu depuis l'assistant de création de tournoi (vue *Tournois*) recharge désormais instantanément la liste des jeux disponibles sans forcer l'utilisateur à recharger la page.
+- **Auto-sélection intelligente** : Le nouveau jeu créé est dorénavant automatiquement pré-sélectionné dans la liste déroulante du formulaire après validation, améliorant l'expérience utilisateur et éliminant une étape manuelle superflue.
+
+---
+
 ## [1.26.5] - 2026-07-10
 
 ### Bug Fixes — Clé de traduction manquante dans l'administration

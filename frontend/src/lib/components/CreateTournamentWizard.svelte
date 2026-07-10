@@ -102,6 +102,10 @@
 
 	async function handleGameCreated(event) {
 		const newGame = event.detail;
+		// Proactively add new game to local games list if not already present
+		if (newGame && newGame.id && !games.some(g => g.id === newGame.id)) {
+			games = [...games, newGame];
+		}
 		if (onGameCreated) {
 			await onGameCreated(newGame.id);
 		}
