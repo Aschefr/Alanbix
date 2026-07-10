@@ -1384,6 +1384,20 @@ future_axes:
       - "Ajout de la liste des joueurs dépliables sous les lignes d'équipe avec héritage des points de l'équipe parente."
     priority: medium
 
+  - id: AXE-63
+    title: "Améliorations esthétiques du plan de salle et du dashboard"
+    status: DONE
+    description: >
+      Améliorer la stabilité visuelle et l'information contextuelle de l'interface (correction du défilement/disparition des onglets de tournois, correction de la compression des avatars de joueurs par les pseudos longs, ajout des noms d'équipes dans le plan de salle du wizard d'accueil, coloration distinctive en ambre des coéquipiers d'une même équipe).
+    done:
+      - "Empêcher la disparition verticale des onglets actifs de tournois (.running-tabs) dans le dashboard via flex-shrink: 0 et min-height."
+      - "Empêcher la compression visuelle des avatars (.lb-avatar, .lb-rank) par les pseudos longs dans le leaderboard du dashboard via flex-shrink: 0."
+      - "Ajouter l'affichage dynamique et compressé (textLength) des noms d'équipes sur les sièges occupés du plan de salle du wizard d'accueil."
+      - "Colorer distinctement en orange/ambre (--map-seat-teammate-fill/stroke) les sièges occupés par des coéquipiers dans toutes les vues de plan de salle."
+      - "Mettre à jour les légendes de plans de salle pour inclure la couleur des coéquipiers si l'utilisateur possède une équipe."
+    priority: medium
+
+
 
 
 

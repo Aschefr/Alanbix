@@ -508,13 +508,15 @@
 
 					{#each roomLayout.seats as seat}
 						{@const occ = getOccupant(seat.id)}
+						{@const isMine = occ && user && occ.id === user.id}
+						{@const isTeammate = occ && !isMine && user?.team_name && occ.team_name === user.team_name}
 						{@const scx = seat.x + 25}
 						{@const scy = seat.y + 25}
 						<g transform="rotate({seat.rotation || 0}, {scx}, {scy})">
 							<rect x={seat.x} y={seat.y} width="50" height="50" rx="6"
-								fill={occ ? 'var(--map-seat-mine-fill)' : 'var(--map-seat-fill)'}
-								stroke={occ ? 'var(--accent)' : 'var(--map-seat-stroke)'}
-								stroke-width="1.5"
+								fill={isMine ? 'var(--map-seat-mine-fill)' : isTeammate ? 'var(--map-seat-teammate-fill)' : occ ? 'var(--map-seat-mine-fill)' : 'var(--map-seat-fill)'}
+								stroke={isMine ? 'var(--accent)' : isTeammate ? 'var(--map-seat-teammate-stroke)' : occ ? 'var(--accent)' : 'var(--map-seat-stroke)'}
+								stroke-width={isTeammate ? '2' : '1.5'}
 							/>
 							<clipPath id="dclip-{seat.id}">
 								<rect x={seat.x + 2} y={seat.y} width="46" height="50"/>
@@ -569,6 +571,9 @@
 				<div class="map-legend">
 					<span class="lg-item"><span class="lg-dot occupied"></span> {$t('dash_map_legend_occupied')} ({occupiedSeats})</span>
 					<span class="lg-item"><span class="lg-dot free"></span> {$t('dash_map_legend_free')} ({totalSeats - occupiedSeats})</span>
+					{#if user?.team_name}
+						<span class="lg-item"><span class="lg-dot teammate"></span> {$t('dash_lb_teams')}</span>
+					{/if}
 				</div>
 			</div>
 		</section>
@@ -958,11 +963,11 @@
 	.lb-row { display: flex; align-items: center; gap: 0.6rem; padding: 0.6rem 0.5rem; border-radius: 10px; margin-bottom: 0.3rem; transition: background 0.15s; border-left: 3px solid transparent; }
 	.lb-row:hover { background: var(--hover-tint); }
 	.lb-row.top-3 { border-left-color: var(--accent); background: var(--accent-soft); }
-	.lb-rank { width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 800; border-radius: 6px; background: var(--surface-raised); color: var(--text-dim); }
+	.lb-rank { width: 22px; height: 22px; min-width: 22px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 800; border-radius: 6px; background: var(--surface-raised); color: var(--text-dim); flex-shrink: 0; }
 	.lb-rank.gold { background: rgba(255, 215, 0, 0.15); color: #ffd700; }
 	.lb-rank.silver { background: rgba(192, 192, 192, 0.15); color: #c0c0c0; }
 	.lb-rank.bronze { background: rgba(205, 127, 50, 0.15); color: #cd7f32; }
-	.lb-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--bg-tertiary); display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 700; color: var(--accent); border: 1px solid var(--glass-border); }
+	.lb-avatar { width: 28px; height: 28px; min-width: 28px; border-radius: 50%; background: var(--bg-tertiary); display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 700; color: var(--accent); border: 1px solid var(--glass-border); flex-shrink: 0; }
 	.lb-info { flex-grow: 1; min-width: 0; }
 	.lb-name { font-size: 0.8rem; font-weight: 700; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	.lb-sub { font-size: 0.55rem; color: var(--text-muted); }
@@ -995,6 +1000,7 @@
 	.lg-dot { width: 10px; height: 10px; border-radius: 3px; }
 	.lg-dot.occupied { background: rgba(59, 130, 246, 0.4); border: 1px solid var(--accent); }
 	.lg-dot.free { background: var(--map-seat-fill); border: 1px solid var(--map-seat-stroke); }
+	.lg-dot.teammate { background: var(--map-seat-teammate-fill); border: 1px solid var(--map-seat-teammate-stroke); }
 
 	/* Bracket Panel */
 	.bracket-panel { min-width: 0; }
@@ -1007,7 +1013,7 @@
 	.status-badge.running { color: var(--accent); background: rgba(59,130,246,0.1); }
 
 	/* Running tournament tabs */
-	.running-tabs { display: flex; gap: 0.25rem; padding: 0 0.8rem; overflow-x: auto; border-bottom: 1px solid var(--glass-border); }
+	.running-tabs { display: flex; gap: 0.25rem; padding: 0 0.8rem; overflow-x: auto; border-bottom: 1px solid var(--glass-border); flex-shrink: 0; min-height: 32px; align-items: flex-end; }
 	.rt-tab { padding: 0.45rem 0.7rem; font-size: 0.65rem; font-weight: 700; background: none; border: none; border-bottom: 2px solid transparent; color: var(--text-dim); cursor: pointer; white-space: nowrap; transition: all 0.15s; }
 	.rt-tab:hover { color: var(--text-main); }
 	.rt-tab.active { color: var(--accent); border-bottom-color: var(--accent); }

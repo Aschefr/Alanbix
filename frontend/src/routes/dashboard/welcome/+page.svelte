@@ -218,6 +218,7 @@
 							{@const occupant = getOccupant(seat.id)}
 							{@const isMine = selectedSeat === seat.id}
 							{@const isOccupied = !!occupant}
+							{@const isTeammate = !isMine && isOccupied && user?.team_name && occupant.team_name === user.team_name}
 							{@const scx = seat.x + SEAT_SIZE / 2}
 							{@const scy = seat.y + SEAT_SIZE / 2}
 							<!-- svelte-ignore a11y-no-static-element-interactions -->
@@ -230,13 +231,22 @@
 								style="cursor: {isOccupied && !isMine ? 'not-allowed' : 'pointer'}"
 							>
 								<rect x={seat.x} y={seat.y} width={SEAT_SIZE} height={SEAT_SIZE} rx="8" 
-									fill={isMine ? 'var(--map-seat-mine-fill)' : isOccupied ? 'var(--map-seat-occupied-fill)' : 'var(--map-seat-drop-fill)'} 
-									stroke={isMine ? 'var(--accent)' : isOccupied ? 'var(--map-seat-occupied-stroke)' : 'var(--map-seat-drop-stroke)'}
-									stroke-width={isMine ? "2" : "1"}
+									fill={isMine ? 'var(--map-seat-mine-fill)' : isTeammate ? 'var(--map-seat-teammate-fill)' : isOccupied ? 'var(--map-seat-occupied-fill)' : 'var(--map-seat-drop-fill)'} 
+									stroke={isMine ? 'var(--accent)' : isTeammate ? 'var(--map-seat-teammate-stroke)' : isOccupied ? 'var(--map-seat-occupied-stroke)' : 'var(--map-seat-drop-stroke)'}
+									stroke-width={isMine || isTeammate ? "2" : "1"}
 								/>
 								<text x={scx} y={seat.y + 13} text-anchor="middle" fill={isMine ? "var(--map-seat-player-fill)" : "var(--text-dim)"} font-size="10" font-weight="bold">{seat.id}</text>
 								{#if occupant}
-									<text x={scx} y={seat.y + 28} text-anchor="middle" fill="var(--map-seat-player-fill)" font-size="10" font-weight="bold">{occupant.username}</text>
+									<text x={scx} y={seat.y + 28} text-anchor="middle" fill="var(--map-seat-player-fill)" font-size="10" font-weight="bold"
+										textLength={occupant.username.length > 6 ? 44 : null}
+										lengthAdjust="spacingAndGlyphs"
+									>{occupant.username}</text>
+									{#if occupant.team_name}
+										<text x={scx} y={seat.y + 39} text-anchor="middle" fill="var(--accent)" font-size="7" opacity="0.8"
+											textLength={occupant.team_name.length > 8 ? 42 : null}
+											lengthAdjust="spacingAndGlyphs"
+										>{occupant.team_name}</text>
+									{/if}
 								{:else}
 									<text x={scx} y={seat.y + 32} text-anchor="middle" fill="var(--map-seat-drop-stroke)" font-size="10" font-weight="bold">Libre</text>
 								{/if}

@@ -932,11 +932,12 @@
 				{@const occupant = getOccupant(seat.id)}
 				{@const isMine = selectedSeat === seat.id}
 				{@const isOccupied = !!occupant}
+				{@const isTeammate = !isMine && isOccupied && user?.team_name && occupant.team_name === user.team_name}
 				{@const scx = seat.x + SEAT_SIZE / 2}
 				{@const scy = seat.y + SEAT_SIZE / 2}
 				<!-- svelte-ignore a11y-no-static-element-interactions -->
 				<g 
-					class="seat-group {isMine ? 'mine' : ''} {isOccupied && !isMine ? 'occupied' : ''} {draggingUserId && !isOccupied ? 'drop-target' : ''} {highlightedSeat === seat.id ? 'highlighted' : ''}"
+					class="seat-group {isMine ? 'mine' : ''} {isTeammate ? 'teammate' : (isOccupied && !isMine ? 'occupied' : '')} {draggingUserId && !isOccupied ? 'drop-target' : ''} {highlightedSeat === seat.id ? 'highlighted' : ''}"
 					transform="rotate({seat.rotation || 0}, {scx}, {scy})"
 					on:mousedown={(e) => editMode ? startDragSeat(e, seat) : null}
 					on:click={() => {
@@ -1033,6 +1034,9 @@
 		<div class="legend-item"><span class="dot mine-dot"></span> {$t("map_legend_yourseat")}</div>
 		<div class="legend-item"><span class="dot free-dot"></span> {$t("map_legend_free")}</div>
 		<div class="legend-item"><span class="dot occupied-dot"></span> {$t("map_legend_occupied")}</div>
+		{#if user?.team_name}
+			<div class="legend-item"><span class="dot teammate-dot"></span> {$t('dash_lb_teams')}</div>
+		{/if}
 		<div class="legend-item"><span class="dot table-dot"></span> Table</div>
 		<div class="legend-item"><span class="dot furniture-dot"></span> {$t("map_legend_element")}</div>
 	</div>
@@ -1167,6 +1171,7 @@
 	.seat-group:hover .seat-rect { stroke: var(--accent); stroke-width: 2; fill: var(--map-seat-hover-fill); }
 	.seat-group.mine .seat-rect { fill: var(--map-seat-mine-fill); stroke: var(--accent); stroke-width: 2; filter: drop-shadow(0 0 10px var(--accent-glow)); }
 	.seat-group.occupied .seat-rect { fill: var(--map-seat-occupied-fill); stroke: var(--map-seat-occupied-stroke); }
+	.seat-group.teammate .seat-rect { fill: var(--map-seat-teammate-fill); stroke: var(--map-seat-teammate-stroke); stroke-width: 2; }
 	.seat-group.drop-target .seat-rect { stroke: var(--map-seat-drop-stroke); stroke-width: 2; stroke-dasharray: 4 2; fill: var(--map-seat-drop-fill); }
 	.seat-group.highlighted .seat-rect { stroke: #fbbf24; stroke-width: 3; fill: rgba(251,191,36,0.15); animation: seatHighlight 1.2s ease-in-out 4; }
 	@keyframes seatHighlight {
@@ -1196,6 +1201,7 @@
 	.mine-dot { background: var(--accent); box-shadow: 0 0 6px var(--accent-glow); }
 	.free-dot { background: var(--map-free-dot-bg); border: 1px solid var(--map-free-dot-border); }
 	.occupied-dot { background: var(--map-seat-occupied-fill); border: 1px solid var(--map-seat-occupied-stroke); }
+	.teammate-dot { background: var(--map-seat-teammate-fill); border: 1px solid var(--map-seat-teammate-stroke); }
 	.table-dot { background: var(--map-table-dot-bg); border: 2px solid var(--map-table-dot-border); }
 
 	/* Player badge bar (admin drag-drop) */

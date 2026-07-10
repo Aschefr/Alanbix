@@ -95,6 +95,8 @@
   --map-seat-drop-fill: rgba(16, 185, 129, 0.08);
   --map-seat-drop-stroke: #10b981;
   --map-seat-player-fill: #ffffff;
+  --map-seat-teammate-fill: rgba(245, 158, 11, 0.22);
+  --map-seat-teammate-stroke: rgba(245, 158, 11, 0.7);
   --map-select-bg: rgba(15, 23, 42, 0.95);
   --map-select-option-bg: #1e293b;
   --map-select-option-color: #e2e8f0;
@@ -161,6 +163,8 @@
   --map-seat-drop-fill: rgba(22, 163, 74, 0.08);
   --map-seat-drop-stroke: #16a34a;
   --map-seat-player-fill: #0f172a;
+  --map-seat-teammate-fill: rgba(217, 119, 6, 0.18);
+  --map-seat-teammate-stroke: rgba(217, 119, 6, 0.65);
   --map-select-bg: rgba(255, 255, 255, 0.95);
   --map-select-option-bg: #f0f7ff;
   --map-select-option-color: #0f172a;
