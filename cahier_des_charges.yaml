@@ -1345,5 +1345,15 @@ future_axes:
       - "Schémas d'outils ia_tools adaptés avec des instructions de longueur et de langue explicites."
     priority: high
 
+  - id: AXE-59
+    title: "Correction clé de traduction dash_stat_new dans l'administration"
+    status: DONE
+    description: >
+      Ajouter la clé de traduction manquante dash_stat_new pour l'administration des conversations.
+    done:
+      - "Clé dash_stat_new ajoutée et synchronisée en UTF-8-sig dans fr.json, en.json, es.json."
+    priority: low
+
+
 
 

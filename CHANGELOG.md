@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.26.5] - 2026-07-10
+
+### Bug Fixes — Clé de traduction manquante dans l'administration
+
+- **Correction i18n dash_stat_new** : Ajout de la clé de traduction manquante `dash_stat_new` dans les dictionnaires `fr.json`, `en.json` et `es.json` (encodage UTF-8-sig préservé) pour afficher correctement le statut "NOUVEAU" dans l'administration des conversations.
+
+---
+
 ## [1.26.4] - 2026-07-09
 
 ### Features — Améliorations UX (Attente IA & Expansion des Notifications)
