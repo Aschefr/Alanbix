@@ -49,6 +49,41 @@ async def startup():
                     except Exception as e:
                         print(f"[Startup] Failed to seed i18n file {f_name}: {e}")
 
+    # ── Update i18n keys for Ollama/OpenAI instances ─────────────────────
+    import json
+    for lang in ["fr", "en", "es"]:
+        dest_file = os.path.join(data_i18n_dir, f"{lang}.json")
+        if os.path.exists(dest_file):
+            try:
+                with open(dest_file, "r", encoding="utf-8-sig") as f:
+                    data = json.load(f)
+                
+                modified = False
+                old_instances_defaults = {
+                    "fr": "Instances Ollama",
+                    "en": "Ollama Instances",
+                    "es": "Instancias Ollama"
+                }
+                old_sub_defaults = {
+                    "fr": "Serveurs distribués pour les requêtes IA — triés par priorité",
+                    "en": "Distributed servers for AI requests — sorted by priority",
+                    "es": "Servidores distribuidos para consultas de IA — ordenados por prioridad"
+                }
+                
+                if data.get("admin_settings_ai_instances") == old_instances_defaults.get(lang):
+                    data.pop("admin_settings_ai_instances")
+                    modified = True
+                if data.get("admin_settings_ai_instances_sub") == old_sub_defaults.get(lang):
+                    data.pop("admin_settings_ai_instances_sub")
+                    modified = True
+                
+                if modified:
+                    with open(dest_file, "w", encoding="utf-8-sig") as f:
+                        json.dump(data, f, indent=4, ensure_ascii=False)
+                    print(f"[Startup] Cleaned up default i18n keys in user data: {lang}.json")
+            except Exception as e:
+                print(f"[Startup] Failed to clean up user i18n file {lang}.json: {e}")
+
     # ── Prompt migration v1.18.0 ──────────────────────────────────────────
     # If data/i18n/ has the exact old default prompts (never customised by
     # the admin), replace them with the new structured Asterix-style prompts.

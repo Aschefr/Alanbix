@@ -18,6 +18,11 @@ from .websockets import manager as ws_manager
 from .ia_title_utils import _build_title_prompt, _clean_title, _is_default_title
 
 
+def is_openai_host(url: str) -> bool:
+    clean = url.rstrip("/")
+    return clean.endswith("/v1") or "/v1/" in clean or "openai" in clean.lower()
+
+
 # ---------------------------------------------------------------------------
 # Queue Entry
 # ---------------------------------------------------------------------------
@@ -441,11 +446,26 @@ class IAQueueManager:
 
                 while tool_round < max_tool_rounds:
                     tool_round += 1
-                    tool_req = {**req_data, "messages": tool_detect_msgs, "stream": False}
                     try:
+                        is_openai = is_openai_host(ollama_host)
+                        if is_openai:
+                            url = f"{ollama_host.rstrip('/')}/chat/completions"
+                            openai_req = {
+                                "model": req_data.get("model"),
+                                "messages": tool_detect_msgs,
+                                "stream": False,
+                                "temperature": req_data.get("options", {}).get("temperature", 0.2),
+                                "max_tokens": req_data.get("options", {}).get("num_predict", 4096),
+                            }
+                            if "tools" in req_data:
+                                openai_req["tools"] = req_data["tools"]
+                        else:
+                            url = f"{ollama_host.rstrip('/')}/api/chat"
+                            openai_req = {**req_data, "messages": tool_detect_msgs, "stream": False}
+
                         tool_res = await client.post(
-                            f"{ollama_host}/api/chat",
-                            json=tool_req,
+                            url,
+                            json=openai_req,
                             timeout=httpx.Timeout(connect=10.0, read=120.0, write=10.0, pool=10.0)
                         )
                         tool_data = tool_res.json()
@@ -453,10 +473,17 @@ class IAQueueManager:
                         print(f"[ToolCall] Non-streaming call failed: {e}", flush=True)
                         break
 
-                    msg = tool_data.get("message", {})
-                    tool_calls = msg.get("tool_calls")
-                    direct_content = msg.get("content", "")
-                    thinking_content = msg.get("thinking", "")
+                    if is_openai:
+                        choices = tool_data.get("choices", [{}])
+                        msg = choices[0].get("message", {})
+                        tool_calls = msg.get("tool_calls")
+                        direct_content = msg.get("content", "")
+                        thinking_content = msg.get("thinking", "")
+                    else:
+                        msg = tool_data.get("message", {})
+                        tool_calls = msg.get("tool_calls")
+                        direct_content = msg.get("content", "")
+                        thinking_content = msg.get("thinking", "")
 
                     is_xml_fallback = False
                     if not tool_calls:
@@ -518,9 +545,23 @@ class IAQueueManager:
                 tool_round += 1
                 
                 # If we're executing tools in stream_intercept mode, remove tools from later requests to avoid infinite loops
-                stream_req = {**req_data, "messages": tool_messages, "stream": True}
-                if tool_round > 1:
-                    stream_req.pop("tools", None)
+                is_openai = is_openai_host(ollama_host)
+                if is_openai:
+                    url = f"{ollama_host.rstrip('/')}/chat/completions"
+                    stream_req = {
+                        "model": req_data.get("model"),
+                        "messages": tool_messages,
+                        "stream": True,
+                        "temperature": req_data.get("options", {}).get("temperature", 0.2),
+                        "max_tokens": req_data.get("options", {}).get("num_predict", 4096),
+                    }
+                    if "tools" in req_data and tool_round == 1:
+                        stream_req["tools"] = req_data["tools"]
+                else:
+                    url = f"{ollama_host.rstrip('/')}/api/chat"
+                    stream_req = {**req_data, "messages": tool_messages, "stream": True}
+                    if tool_round > 1:
+                        stream_req.pop("tools", None)
 
                 # Variables to control streaming chunk buffer for XML detection
                 is_buffering_xml = (tools and tool_calling_mode == "stream_intercept")
@@ -532,7 +573,7 @@ class IAQueueManager:
                 in_think_block = False
                 first_token = True
 
-                async with client.stream("POST", f"{ollama_host}/api/chat",
+                async with client.stream("POST", url,
                                          json=stream_req,
                                          timeout=httpx.Timeout(connect=10.0, read=300.0, write=10.0, pool=10.0)) as response:
                     async for chunk in response.aiter_lines():
@@ -546,16 +587,52 @@ class IAQueueManager:
                                 pass
                         if not chunk:
                             continue
+
+                        chunk_str = chunk.decode("utf-8") if isinstance(chunk, bytes) else chunk
+                        chunk_str = chunk_str.strip()
+                        if not chunk_str:
+                            continue
+
+                        is_done_flag = False
+                        data = {}
+                        if is_openai:
+                            if chunk_str.startswith("data:"):
+                                chunk_str = chunk_str[5:].strip()
+                            if chunk_str == "[DONE]":
+                                is_done_flag = True
+                            else:
+                                try:
+                                    data = json.loads(chunk_str)
+                                except json.JSONDecodeError:
+                                    continue
+                        else:
+                            try:
+                                data = json.loads(chunk_str)
+                            except json.JSONDecodeError:
+                                continue
+
                         try:
-                            data = json.loads(chunk)
-                            
-                            # Check native tool calls
-                            tc_list = data.get("message", {}).get("tool_calls")
+                            # Check native tool calls & extract token
+                            if is_openai:
+                                choices = data.get("choices", [{}])
+                                if choices:
+                                    tc_list = choices[0].get("delta", {}).get("tool_calls")
+                                    token = choices[0].get("delta", {}).get("content", "")
+                                    if choices[0].get("finish_reason") is not None:
+                                        is_done_flag = True
+                                else:
+                                    tc_list = None
+                                    token = ""
+                            else:
+                                tc_list = data.get("message", {}).get("tool_calls")
+                                token = data.get("message", {}).get("content", "")
+                                if data.get("done"):
+                                    is_done_flag = True
+
                             if tc_list and tool_calling_mode == "stream_intercept":
                                 native_tool_calls.extend(tc_list)
                                 continue
 
-                            token = data.get("message", {}).get("content", "")
                             if token:
                                 full_response += token
                                 
@@ -617,11 +694,11 @@ class IAQueueManager:
                                             await entry.result_stream.put({"status": "generating"})
                                         await entry.result_stream.put({"text": token})
                                         
-                            if data.get("done") and not detected_xml_call and not native_tool_calls:
+                            if is_done_flag and not detected_xml_call and not native_tool_calls:
                                 if response_time == 0.0:
                                     response_time = max(0.1, (time.time() - t_start) - tool_time)
                                 break
-                        except json.JSONDecodeError:
+                        except Exception:
                             pass
 
                 # If a tool call was detected, execute it and do another round
@@ -768,19 +845,37 @@ class IAQueueManager:
         context_window = payload.get("context_window", 4096)
 
         try:
-            async with httpx.AsyncClient() as client:
-                res = await client.post(f"{ollama_host}/api/chat", json={
+            is_openai = is_openai_host(ollama_host)
+            if is_openai:
+                url = f"{ollama_host.rstrip('/')}/chat/completions"
+                req_json = {
+                    "model": model,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "stream": False,
+                    "response_format": {"type": "json_object"},
+                    "temperature": 0.8,
+                    "max_tokens": context_window
+                }
+            else:
+                url = f"{ollama_host.rstrip('/')}/api/chat"
+                req_json = {
                     "model": model,
                     "messages": [{"role": "user", "content": prompt}],
                     "stream": False,
                     "format": "json",
                     "options": {"temperature": 0.8, "num_predict": context_window}
-                }, timeout=120.0)
+                }
+
+            async with httpx.AsyncClient() as client:
+                res = await client.post(url, json=req_json, timeout=120.0)
 
             if res.status_code != 200:
-                raise Exception(f"Ollama returned HTTP {res.status_code}: {res.text[:200]}")
+                raise Exception(f"AI service returned HTTP {res.status_code}: {res.text[:200]}")
 
-            raw = res.json().get("message", {}).get("content", "")
+            if is_openai:
+                raw = res.json().get("choices", [{}])[0].get("message", {}).get("content", "")
+            else:
+                raw = res.json().get("message", {}).get("content", "")
             await entry.result_stream.put({"done": True, "result": raw})
         except Exception as e:
             await entry.result_stream.put({"done": True, "error": True, "result": str(e)})
@@ -791,18 +886,34 @@ class IAQueueManager:
         model = payload["model"]
         prompt = payload["prompt"]
         try:
-            async with httpx.AsyncClient() as client:
-                res = await client.post(f"{ollama_host}/api/chat", json={
+            is_openai = is_openai_host(ollama_host)
+            if is_openai:
+                url = f"{ollama_host.rstrip('/')}/chat/completions"
+                req_json = {
+                    "model": model,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "stream": False,
+                    "temperature": 0.1
+                }
+            else:
+                url = f"{ollama_host.rstrip('/')}/api/chat"
+                req_json = {
                     "model": model,
                     "messages": [{"role": "user", "content": prompt}],
                     "stream": False,
                     "options": {"temperature": 0.1}
-                }, timeout=45.0)
+                }
+
+            async with httpx.AsyncClient() as client:
+                res = await client.post(url, json=req_json, timeout=45.0)
 
             if res.status_code != 200:
-                raise Exception(f"Ollama returned HTTP {res.status_code}: {res.text[:200]}")
+                raise Exception(f"AI service returned HTTP {res.status_code}: {res.text[:200]}")
 
-            raw = res.json().get("message", {}).get("content", "")
+            if is_openai:
+                raw = res.json().get("choices", [{}])[0].get("message", {}).get("content", "")
+            else:
+                raw = res.json().get("message", {}).get("content", "")
             await entry.result_stream.put({"done": True, "result": raw})
         except Exception as e:
             await entry.result_stream.put({"done": True, "error": True, "result": str(e)})
@@ -815,16 +926,35 @@ class IAQueueManager:
         conv_id = payload["conversation_id"]
         user_id = payload["user_id"]
         try:
-            timeout = httpx.Timeout(connect=10.0, read=120.0, write=10.0, pool=5.0)
-            async with httpx.AsyncClient(timeout=timeout) as client:
-                res = await client.post(f"{ollama_host}/api/generate", json={
+            is_openai = is_openai_host(ollama_host)
+            prompt = _build_title_prompt(excerpt)
+            if is_openai:
+                url = f"{ollama_host.rstrip('/')}/chat/completions"
+                req_json = {
                     "model": model,
-                    "prompt": _build_title_prompt(excerpt),
+                    "messages": [{"role": "user", "content": prompt}],
+                    "stream": False,
+                    "temperature": 0.2,
+                    "max_tokens": 30
+                }
+            else:
+                url = f"{ollama_host.rstrip('/')}/api/generate"
+                req_json = {
+                    "model": model,
+                    "prompt": prompt,
                     "stream": False,
                     "options": {"temperature": 0.2, "num_predict": 30}
-                })
+                }
+
+            timeout = httpx.Timeout(connect=10.0, read=120.0, write=10.0, pool=5.0)
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                res = await client.post(url, json=req_json)
+
             if res.status_code == 200:
-                raw = res.json().get("response", "")
+                if is_openai:
+                    raw = res.json().get("choices", [{}])[0].get("message", {}).get("content", "")
+                else:
+                    raw = res.json().get("response", "")
                 suggestion = _clean_title(raw)
                 if suggestion:
                     await ws_manager.broadcast({
@@ -838,7 +968,7 @@ class IAQueueManager:
                 "type": "title_suggestion_ready",
                 "conversation_id": conv_id,
                 "user_id": user_id,
-                "error": f"Ollama HTTP {res.status_code}"
+                "error": f"HTTP {res.status_code}"
             })
         except Exception as e:
             await ws_manager.broadcast({
@@ -855,16 +985,35 @@ class IAQueueManager:
         excerpt = payload["excerpt"]
         conv_id = payload["conversation_id"]
         try:
-            timeout = httpx.Timeout(connect=10.0, read=120.0, write=10.0, pool=5.0)
-            async with httpx.AsyncClient(timeout=timeout) as client:
-                res = await client.post(f"{ollama_host}/api/generate", json={
+            is_openai = is_openai_host(ollama_host)
+            prompt = _build_title_prompt(excerpt)
+            if is_openai:
+                url = f"{ollama_host.rstrip('/')}/chat/completions"
+                req_json = {
                     "model": model,
-                    "prompt": _build_title_prompt(excerpt),
+                    "messages": [{"role": "user", "content": prompt}],
+                    "stream": False,
+                    "temperature": 0.2,
+                    "max_tokens": 30
+                }
+            else:
+                url = f"{ollama_host.rstrip('/')}/api/generate"
+                req_json = {
+                    "model": model,
+                    "prompt": prompt,
                     "stream": False,
                     "options": {"temperature": 0.2, "num_predict": 30}
-                })
+                }
+
+            timeout = httpx.Timeout(connect=10.0, read=120.0, write=10.0, pool=5.0)
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                res = await client.post(url, json=req_json)
+
             if res.status_code == 200:
-                raw = res.json().get("response", "")
+                if is_openai:
+                    raw = res.json().get("choices", [{}])[0].get("message", {}).get("content", "")
+                else:
+                    raw = res.json().get("response", "")
                 title_text = _clean_title(raw)
                 if title_text:
                     from .database import SessionLocal

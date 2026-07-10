@@ -60,30 +60,58 @@ def get_instances(db: Session):
         return [{"url": host, "label": "Default", "model": model, "enabled": True, "priority": 0}]
     return []
 
+def is_openai_host(url: str) -> bool:
+    clean = url.rstrip("/")
+    return clean.endswith("/v1") or "/v1/" in clean or "openai" in clean.lower()
+
 _health_cache = {}  # url -> (timestamp, ok, latency, models)
 
 async def _check_instance_health(url: str, timeout: float = 3.0):
-    """Ping an Ollama instance, return (ok, latency_ms, models). Uses cache to prevent high latency."""
+    """Ping an Ollama or OpenAI instance, return (ok, latency_ms, models). Uses cache to prevent high latency."""
     import time
     now = time.time()
     if url in _health_cache:
         cached_time, ok, latency, models = _health_cache[url]
         if now - cached_time < 10.0:
             return ok, latency, models
+
+    clean_url = url.rstrip("/")
+    is_openai = is_openai_host(clean_url)
+
     try:
         async with httpx.AsyncClient() as client:
             t0 = time.time()
-            res = await client.get(f"{url}/api/tags", timeout=timeout)
-            latency = round((time.time() - t0) * 1000)
-            if res.status_code == 200:
-                data = res.json()
-                model_names = [m.get("name", "?") for m in data.get("models", [])]
-                _health_cache[url] = (now, True, latency, model_names)
-                return True, latency, model_names
+            if is_openai:
+                res = await client.get(f"{clean_url}/models", timeout=timeout)
+                latency = round((time.time() - t0) * 1000)
+                if res.status_code == 200:
+                    data = res.json()
+                    model_names = [m.get("id", "?") for m in data.get("data", [])]
+                    _health_cache[url] = (now, True, latency, model_names)
+                    return True, latency, model_names
+            else:
+                try:
+                    res = await client.get(f"{clean_url}/api/tags", timeout=timeout)
+                    latency = round((time.time() - t0) * 1000)
+                    if res.status_code == 200:
+                        data = res.json()
+                        model_names = [m.get("name", "?") for m in data.get("models", [])]
+                        _health_cache[url] = (now, True, latency, model_names)
+                        return True, latency, model_names
+                except Exception:
+                    # Fallback check if it was configured as Ollama but is actually OpenAI
+                    res = await client.get(f"{clean_url}/v1/models", timeout=timeout)
+                    latency = round((time.time() - t0) * 1000)
+                    if res.status_code == 200:
+                        data = res.json()
+                        model_names = [m.get("id", "?") for m in data.get("data", [])]
+                        _health_cache[url] = (now, True, latency, model_names)
+                        return True, latency, model_names
     except Exception:
         pass
     _health_cache[url] = (now, False, 0, [])
     return False, 0, []
+
 
 async def pick_instance(db: Session, model: str = None):
     """Round-robin among enabled instances. Silent failover on unhealthy ones.
@@ -120,13 +148,41 @@ async def list_models(db: Session = Depends(database.get_db), admin: models.User
     seen = set()
     all_models = []
     for inst in instances:
+        url = inst["url"].rstrip("/")
+        is_openai = is_openai_host(url)
         try:
             async with httpx.AsyncClient() as client:
-                res = await client.get(f"{inst['url']}/api/tags", timeout=5.0)
-                for m in res.json().get("models", []):
-                    if m["name"] not in seen:
-                        seen.add(m["name"])
-                        all_models.append(m)
+                if is_openai:
+                    res = await client.get(f"{url}/models", timeout=5.0)
+                    if res.status_code == 200:
+                        for m in res.json().get("data", []):
+                            name = m.get("id")
+                            if name and name not in seen:
+                                seen.add(name)
+                                all_models.append({
+                                    "name": name,
+                                    "details": {"family": "openai", "parameter_size": "unknown"}
+                                })
+                else:
+                    try:
+                        res = await client.get(f"{url}/api/tags", timeout=5.0)
+                        if res.status_code == 200:
+                            for m in res.json().get("models", []):
+                                if m["name"] not in seen:
+                                    seen.add(m["name"])
+                                    all_models.append(m)
+                    except Exception:
+                        # Fallback to OpenAI endpoint on Ollama host
+                        res = await client.get(f"{url}/v1/models", timeout=5.0)
+                        if res.status_code == 200:
+                            for m in res.json().get("data", []):
+                                name = m.get("id")
+                                if name and name not in seen:
+                                    seen.add(name)
+                                    all_models.append({
+                                        "name": name,
+                                        "details": {"family": "openai", "parameter_size": "unknown"}
+                                    })
         except Exception:
             pass
     return {"models": all_models}
@@ -312,17 +368,34 @@ async def translate_prompts(req: TranslatePromptsRequest, db: Session = Depends(
 
     try:
         async with httpx.AsyncClient() as client:
-            res = await client.post(f"{ollama_host}/api/chat", json={
-                "model": model,
-                "messages": [{"role": "user", "content": translation_prompt}],
-                "stream": False,
-                "options": {"temperature": 0.2}
-            }, timeout=45.0)
+            is_openai = is_openai_host(ollama_host)
+            if is_openai:
+                url = f"{ollama_host.rstrip('/')}/chat/completions"
+                payload = {
+                    "model": model,
+                    "messages": [{"role": "user", "content": translation_prompt}],
+                    "stream": False,
+                    "temperature": 0.2
+                }
+            else:
+                url = f"{ollama_host.rstrip('/')}/api/chat"
+                payload = {
+                    "model": model,
+                    "messages": [{"role": "user", "content": translation_prompt}],
+                    "stream": False,
+                    "options": {"temperature": 0.2}
+                }
+
+            res = await client.post(url, json=payload, timeout=45.0)
             
             if res.status_code != 200:
                 raise HTTPException(500, f"AI service error (Status {res.status_code})")
                 
-            raw = res.json().get("message", {}).get("content", "").strip()
+            data = res.json()
+            if is_openai:
+                raw = data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+            else:
+                raw = data.get("message", {}).get("content", "").strip()
             if raw.startswith("```"):
                 raw = raw.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
             

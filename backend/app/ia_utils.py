@@ -74,21 +74,39 @@ def chunk_text(text: str, chunk_size: int = CHUNK_SIZE, overlap: int = CHUNK_OVE
     return chunks
 
 
+def is_openai_host(url: str) -> bool:
+    clean = url.rstrip("/")
+    return clean.endswith("/v1") or "/v1/" in clean or "openai" in clean.lower()
+
 async def get_embedding(text: str, ollama_host: str = None, timeout: float = 60.0):
-    """Get embedding vector from Ollama for a single text."""
+    """Get embedding vector from Ollama or OpenAI for a single text."""
     host = ollama_host or OLLAMA_HOST
     embed_model = _get_embed_model()
     try:
+        is_openai = is_openai_host(host)
+        if is_openai:
+            url = f"{host.rstrip('/')}/embeddings"
+            payload = {
+                "model": embed_model,
+                "input": text
+            }
+        else:
+            url = f"{host.rstrip('/')}/api/embeddings"
+            payload = {
+                "model": embed_model,
+                "prompt": text
+            }
+
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                f"{host}/api/embeddings",
-                json={
-                    "model": embed_model,
-                    "prompt": text
-                },
+                url,
+                json=payload,
                 timeout=timeout
             )
-            return response.json()["embedding"]
+            data = response.json()
+            if is_openai:
+                return data["data"][0]["embedding"]
+            return data["embedding"]
     except Exception as e:
         print(f"Embedding error: {e}")
         return None

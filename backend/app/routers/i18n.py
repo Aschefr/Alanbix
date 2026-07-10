@@ -256,18 +256,34 @@ async def bulk_translate(
 
             try:
                 bulk_translate_active_urls.add(url)
-                async with httpx.AsyncClient() as client:
-                    res = await client.post(f"{url}/api/chat", json={
+                is_openai = url.rstrip("/").endswith("/v1") or "/v1/" in url or "openai" in url.lower()
+                if is_openai:
+                    request_url = f"{url.rstrip('/')}/chat/completions"
+                    payload = {
+                        "model": model,
+                        "messages": [{"role": "user", "content": prompt}],
+                        "stream": False,
+                        "temperature": 0.1
+                    }
+                else:
+                    request_url = f"{url.rstrip('/')}/api/chat"
+                    payload = {
                         "model": model,
                         "messages": [{"role": "user", "content": prompt}],
                         "stream": False,
                         "options": {"temperature": 0.1}
-                    }, timeout=httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=10.0))
+                    }
+
+                async with httpx.AsyncClient() as client:
+                    res = await client.post(request_url, json=payload, timeout=httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=10.0))
 
                 if res.status_code != 200:
                     raise Exception(f"HTTP {res.status_code}")
 
-                raw = res.json().get("message", {}).get("content", "").strip()
+                if is_openai:
+                    raw = res.json().get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+                else:
+                    raw = res.json().get("message", {}).get("content", "").strip()
                 # Clean up common AI artifacts
                 if raw.startswith("```"):
                     raw = raw.split("\n", 1)[-1].rsplit("```", 1)[0].strip()

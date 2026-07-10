@@ -67,24 +67,64 @@ def _fit_text_to_context(text: str, instructions: str, num_ctx: int, chars_per_t
     truncated = "...[tronqué]...\n" + text[-text_budget_chars:]
     return truncated, True
 
+def is_openai_host(url: str) -> bool:
+    clean = url.rstrip("/")
+    return clean.endswith("/v1") or "/v1/" in clean or "openai" in clean.lower()
+
 async def run_compaction(text: str, url: str, model: str, num_ctx: int = 4096) -> str:
     fitted_text, _ = _fit_text_to_context(text, _COMPACT_INSTRUCTIONS, num_ctx)
     prompt = fitted_text + _COMPACT_INSTRUCTIONS
+    is_openai = is_openai_host(url)
+    if is_openai:
+        request_url = f"{url.rstrip('/')}/chat/completions"
+        payload = {
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            "stream": False,
+            "temperature": 0.1,
+            "max_tokens": 1024
+        }
+    else:
+        request_url = f"{url.rstrip('/')}/api/generate"
+        payload = {
+            "model": model,
+            "prompt": prompt,
+            "stream": False,
+            "options": {"temperature": 0.1, "num_ctx": num_ctx}
+        }
+
     async with httpx.AsyncClient() as client:
-        response = await client.post(
-            f"{url}/api/generate",
-            json={"model": model, "prompt": prompt, "stream": False, "options": {"temperature": 0.1, "num_ctx": num_ctx}},
-            timeout=180.0
-        )
-        return response.json().get("response", "").strip()
+        response = await client.post(request_url, json=payload, timeout=180.0)
+        data = response.json()
+        if is_openai:
+            return data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+        return data.get("response", "").strip()
 
 async def run_summary(text: str, url: str, model: str, num_ctx: int = 4096) -> str:
     fitted_text, _ = _fit_text_to_context(text, _SUMMARY_INSTRUCTIONS, num_ctx)
     prompt = fitted_text + _SUMMARY_INSTRUCTIONS
+    is_openai = is_openai_host(url)
+    if is_openai:
+        request_url = f"{url.rstrip('/')}/chat/completions"
+        payload = {
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            "stream": False,
+            "temperature": 0.1,
+            "max_tokens": 1024
+        }
+    else:
+        request_url = f"{url.rstrip('/')}/api/generate"
+        payload = {
+            "model": model,
+            "prompt": prompt,
+            "stream": False,
+            "options": {"temperature": 0.1, "num_ctx": num_ctx}
+        }
+
     async with httpx.AsyncClient() as client:
-        response = await client.post(
-            f"{url}/api/generate",
-            json={"model": model, "prompt": prompt, "stream": False, "options": {"temperature": 0.1, "num_ctx": num_ctx}},
-            timeout=180.0
-        )
-        return response.json().get("response", "").strip()
+        response = await client.post(request_url, json=payload, timeout=180.0)
+        data = response.json()
+        if is_openai:
+            return data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+        return data.get("response", "").strip()

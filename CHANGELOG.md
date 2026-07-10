@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.28.0] - 2026-07-10
+
+### Features — OpenAI API Compatibility & Auto-detection
+
+- **OpenAI API Integration**: Migrated the AI backend communication model to support standard OpenAI-compatible API endpoints (`/v1/chat/completions` and `/v1/embeddings`), enabling seamless integration with LM Studio, llama-server, KoboldCPP, vLLM, and other standard LLM runners in addition to native Ollama.
+- **Protocol Auto-detection**: Implemented automated API protocol detection during instance health checks and model listings. The system dynamically adjusts JSON payload structures, parameter keys, and chunk parsing mechanisms between native Ollama and OpenAI SSE streaming.
+- **Startup Translation Cleanup Migration**: Added a startup migration to clean up outdated default translation overrides (`admin_settings_ai_instances` / `admin_settings_ai_instances_sub`) in user-modified data files. This automatically updates labels for instances to reflect the new OpenAI compatibility without affecting other customizations.
+- **Synchronized i18n Labels**: Updated and synchronized instance configuration headings and descriptions across French, English, and Spanish translation dictionaries (`fr.json`, `en.json`, `es.json`) preserving UTF-8-sig encoding.
+
+---
+
 ## [1.27.1] - 2026-07-10
 
 ### Features & UI — Room Plan and Dashboard UI Improvements
