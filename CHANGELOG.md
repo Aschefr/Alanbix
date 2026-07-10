@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.26.7] - 2026-07-10
+
+### Features — Tournament Detail Hiding for All Players & Expandable Standings Team Members
+
+- **Unified Hiding Behavior**: Broadened tournament details collapsing state persistence (via local storage) so that it is processed and respected for all connected player roles, not just administrators.
+- **Expandable Team Standings**: Added the ability to expand team rows in both live and final standings views. When clicked, team rows reveal their member lists alongside their exact points details, inheriting placement, score bonus, and participation stats from their parent team instead of returning empty points.
+
+---
+
 ## [1.26.6] - 2026-07-10
 
 ### Features — UX Création Tournoi & Rafraîchissement Réactif des Jeux

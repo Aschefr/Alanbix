@@ -269,9 +269,9 @@
 			// Fetch SemVer version
 			try {
 				const res = await api.get('/health');
-				version = res.version || '1.26.6';
+				version = res.version || '1.26.7';
 			} catch {
-				version = '1.26.6';
+				version = '1.26.7';
 			}
 
 			// Admin: poll IA status

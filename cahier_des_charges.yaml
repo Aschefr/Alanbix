@@ -1365,6 +1365,26 @@ future_axes:
       - "Mise à jour locale instantanée de la variable reactive 'games' et liaison auto-select active de config.game_id dans CreateTournamentWizard.svelte."
     priority: medium
 
+  - id: AXE-61
+    title: "Généralisation du masquage des détails de tournoi à tous les joueurs"
+    status: DONE
+    description: >
+      Étendre le comportement de masquage de détails (et persistance LocalStorage) à tous les joueurs connectés.
+    done:
+      - "Retrait de currentUser des conditions d'initialisation réactives de showDetails pour autoriser son évaluation immédiate."
+    priority: low
+
+  - id: AXE-62
+    title: "Affichage des membres d'équipe dépliables dans les classements"
+    status: DONE
+    description: >
+      Pouvoir déplier une équipe dans les classements (Live et Final) pour lister ses membres et afficher le détail de leurs points individuels.
+    done:
+      - "Mise en place de l'état réactif expandedTeams dans la vue des tournois."
+      - "Ajout de la liste des joueurs dépliables sous les lignes d'équipe avec héritage des points de l'équipe parente."
+    priority: medium
+
+
 
 
 

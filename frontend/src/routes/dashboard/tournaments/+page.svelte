@@ -23,7 +23,7 @@
 	let showDetails = true;
 	let showLiveStandings = false;
 
-	$: if (selectedId && currentUser) {
+	$: if (selectedId) {
 		const savedShowDetails = localStorage.getItem('alanbix_show_details');
 		if (savedShowDetails !== null) {
 			showDetails = savedShowDetails === 'true';
@@ -58,6 +58,7 @@
 	let teams = [];
 	let newTeamName = '';
 	let standingsData = [];
+	let expandedTeams = {}; // Tracks expanded state of team IDs in standings
 
 	// Bracket pan/zoom
 	let scale = 1, panX = 0, panY = 0, isDragging = false, startX, startY;
@@ -940,14 +941,37 @@
 									<span class="res-total">Total</span>
 								</div>
 								{#each selected.results as r}
-									<div class="res-row {r.rank === 1 ? 'gold' : r.rank === 2 ? 'silver' : r.rank === 3 ? 'bronze' : ''}">
+									{@const teamId = useTeams ? -r.entity_id : null}
+									{@const teamObj = useTeams ? teams.find(t => t.id === teamId) : null}
+									<div class="res-row {r.rank === 1 ? 'gold' : r.rank === 2 ? 'silver' : r.rank === 3 ? 'bronze' : ''} {useTeams && teamObj ? 'clickable-row' : ''}"
+										on:click={() => { if(useTeams && teamObj) expandedTeams[r.entity_id] = !expandedTeams[r.entity_id]; }}>
 										<span class="res-rank">{r.rank != null && r.rank <= 3 ? ['🥇','🥈','🥉'][r.rank-1] : r.rank != null ? '#' + r.rank : '—'}</span>
-										<span class="res-name">{r.name}</span>
+										<span class="res-name">
+											{#if useTeams && teamObj}
+												{expandedTeams[r.entity_id] ? '▼' : '▶'} 
+											{/if}
+											{r.name}
+										</span>
 										<span class="res-pts">{r.placement_pts}</span>
 										<span class="res-pts">{r.score_pts}</span>
 										<span class="res-pts">{r.participation_pts}</span>
 										<span class="res-total">{r.total}</span>
 									</div>
+									{#if useTeams && teamObj && expandedTeams[r.entity_id]}
+										<div class="team-members-standings-list">
+											{#each teamObj.members || [] as m}
+												<div class="tms-member-row">
+													<span class="tms-name">👤 {m.username}</span>
+													<div class="tms-stats">
+														{#if r.placement_pts > 0}<span class="ls-bp ls-bp-place" title="Placement">🏅{r.placement_pts}</span>{/if}
+														<span class="ls-bp ls-bp-parti" title="Participation">👤{r.participation_pts}</span>
+														{#if r.score_pts > 0}<span class="ls-bp ls-bp-score" title="Score">⚡{r.score_pts}</span>{/if}
+														<span class="tms-total-pts">{r.total || 0} pts</span>
+													</div>
+												</div>
+											{/each}
+										</div>
+									{/if}
 								{/each}
 							</div>
 						</div>
@@ -1444,10 +1468,18 @@
 						</div>
 						<div class="ls-list">
 							{#each displayStandings as entry, i}
-								<div class="ls-row {entry.rank && entry.rank <= 3 ? 'ls-top' : ''}">
+								{@const teamId = useTeams ? -entry.id : null}
+								{@const teamObj = useTeams ? teams.find(t => t.id === teamId) : null}
+								<div class="ls-row {entry.rank && entry.rank <= 3 ? 'ls-top' : ''} {useTeams && teamObj ? 'clickable-row' : ''}"
+									on:click={() => { if(useTeams && teamObj) expandedTeams[entry.id] = !expandedTeams[entry.id]; }}>
 									<span class="ls-rank {entry.rank === 1 ? 'gold' : entry.rank === 2 ? 'silver' : entry.rank === 3 ? 'bronze' : ''}">{entry.rank || '—'}</span>
 									<div class="ls-info">
-										<span class="ls-name">{entry.name}</span>
+										<span class="ls-name">
+											{#if useTeams && teamObj}
+												{expandedTeams[entry.id] ? '▼' : '▶'} 
+											{/if}
+											{entry.name}
+										</span>
 										<div class="ls-breakdown">
 											{#if entry.placement_pts > 0}<span class="ls-bp ls-bp-place" title="Placement : top {entry.rank}">🏅{entry.placement_pts}</span>{/if}
 											<span class="ls-bp ls-bp-parti" title={$t('tourneys_participation_tooltip_detail', { count: entry.matches_played, plural: entry.matches_played > 1 ? 's' : '', pts: selected?.config?.pts_participation ?? 1 })}>👤{entry.participation_pts}</span>
@@ -1456,6 +1488,21 @@
 									</div>
 									<span class="ls-pts">{entry.pts} pts</span>
 								</div>
+								{#if useTeams && teamObj && expandedTeams[entry.id]}
+									<div class="team-members-standings-list">
+										{#each teamObj.members || [] as m}
+											<div class="tms-member-row">
+												<span class="tms-name">👤 {m.username}</span>
+												<div class="tms-stats">
+													{#if entry.placement_pts > 0}<span class="ls-bp ls-bp-place" title="Placement">🏅{entry.placement_pts}</span>{/if}
+													<span class="ls-bp ls-bp-parti" title="Participation">👤{entry.participation_pts}</span>
+													{#if entry.score_pts > 0}<span class="ls-bp ls-bp-score" title="Score">⚡{entry.score_pts}</span>{/if}
+													<span class="tms-total-pts">{entry.pts || 0} pts</span>
+												</div>
+											</div>
+										{/each}
+									</div>
+								{/if}
 							{/each}
 						</div>
 					</div>
@@ -2310,4 +2357,40 @@
 	.tournament-split-layout.split-active { flex-direction: row; align-items: stretch; }
 	.split-active > .bracket-section { flex: 1 1 0%; min-width: 0; }
 	.split-active > .live-standings { flex: 1 1 0%; min-width: 300px; margin-top: 0; }
+
+	/* === STANDINGS COLLAPSIBLE TEAM MEMBERS === */
+	.clickable-row { cursor: pointer; }
+	.team-members-standings-list {
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+		padding: 0.35rem 0.5rem 0.5rem 2rem;
+		background: rgba(255, 255, 255, 0.01);
+		border-left: 2px dashed var(--glass-border);
+		margin-left: 1.2rem;
+		margin-bottom: 0.25rem;
+		border-radius: 0 0 8px 8px;
+	}
+	.tms-member-row {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		font-size: 0.72rem;
+		padding: 0.2rem 0.4rem;
+		color: var(--text-dim);
+	}
+	.tms-name {
+		font-weight: 500;
+	}
+	.tms-stats {
+		display: flex;
+		align-items: center;
+		gap: 0.35rem;
+	}
+	.tms-total-pts {
+		font-weight: 700;
+		color: var(--accent);
+		min-width: 45px;
+		text-align: right;
+	}
 </style>
