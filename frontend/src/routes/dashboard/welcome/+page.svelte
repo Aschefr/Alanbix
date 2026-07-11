@@ -3,7 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { api } from '$lib/api';
 	import { startTutorial } from '$lib/tutorialStore';
-	import { eventName } from '$lib/i18nStore';
+	import { eventName, t } from '$lib/i18nStore';
 
 	let step = 1;
 	let user = null;
@@ -153,12 +153,12 @@
 	<div class="wizard-content glass animate-in {step === 2 ? 'wide' : ''}">
 		{#if step === 1}
 			<div class="step-panel">
-				<h2>Mon Équipe</h2>
-				<p class="text-dim text-sm mb-4">Si tu participes avec des amis, choisis une équipe existante ci-dessous ou saisis un nom pour en créer une nouvelle. Ce nom apparaîtra sur ta place et dans les classements.</p>
+				<h2>{$t("welcome_step1_title")}</h2>
+				<p class="text-dim text-sm mb-4">{$t("welcome_step1_desc")}</p>
 				
 				<div class="input-group">
 					<input 
-						type="text" class="input-lg" placeholder="Nom d'équipe..."
+						type="text" class="input-lg" placeholder={$t("welcome_team_placeholder")}
 						bind:value={teamName}
 						on:keydown={(e) => e.key === 'Enter' && saveTeam()}
 					/>
@@ -166,7 +166,7 @@
 
 				{#if existingTeams.length > 0}
 					<div class="existing-teams-wrap">
-						<span class="existing-teams-label">Rejoindre une équipe existante :</span>
+						<span class="existing-teams-label">{$t("welcome_team_join_existing")}</span>
 						<div class="existing-teams-list">
 							{#each existingTeams as t}
 								<button 
@@ -182,15 +182,15 @@
 				{/if}
 
 				<div class="wizard-actions">
-					<button class="btn-link" on:click={skipTeam}>Passer</button>
-					<button class="btn-primary" on:click={saveTeam} disabled={savingTeam}>Suivant →</button>
+					<button class="btn-link" on:click={skipTeam}>{$t("welcome_btn_skip_step")}</button>
+					<button class="btn-primary" on:click={saveTeam} disabled={savingTeam}>{$t("welcome_btn_next")}</button>
 				</div>
 			</div>
 
 		{:else if step === 2}
 			<div class="step-panel step-map">
-				<h2>Ma Place</h2>
-				<p class="text-dim text-sm mb-2">Clique sur un poste libre (vert) pour t'y installer. Glisse pour naviguer et molette pour zoomer.</p>
+				<h2>{$t("welcome_step2_title")}</h2>
+				<p class="text-dim text-sm mb-2">{$t("welcome_step2_desc")}</p>
 				
 				<div class="map-container" on:mouseleave={onMouseUp} on:mouseup={onMouseUp} role="presentation">
 					<!-- svelte-ignore a11y-no-static-element-interactions -->
@@ -261,7 +261,7 @@
 										>{occupant.team_name}</text>
 									{/if}
 								{:else}
-									<text x={scx} y={seat.y + 32} text-anchor="middle" fill="var(--map-seat-drop-stroke)" font-size="10" font-weight="bold">Libre</text>
+									<text x={scx} y={seat.y + 32} text-anchor="middle" fill="var(--map-seat-drop-stroke)" font-size="10" font-weight="bold">{$t("welcome_seat_free")}</text>
 								{/if}
 							</g>
 						{/each}
@@ -269,26 +269,26 @@
 				</div>
 
 				<div class="wizard-actions">
-					<button class="btn-link" on:click={skipSeat}>Passer</button>
-					<button class="btn-primary" on:click={skipSeat}>Continuer sans place →</button>
+					<button class="btn-link" on:click={skipSeat}>{$t("welcome_btn_skip_step")}</button>
+					<button class="btn-primary" on:click={skipSeat}>{$t("welcome_seat_btn_continue")}</button>
 				</div>
 			</div>
 
 		{:else if step === 3}
 			<div class="step-panel tutorial-panel" style="text-align: center;">
-				<h2 style="font-size: 2rem; margin-bottom: 1rem;">Prêt pour la LAN ! 🚀</h2>
+				<h2 style="font-size: 2rem; margin-bottom: 1rem;">{$t("welcome_step3_title")} 🚀</h2>
 				<p class="text-dim mb-6" style="font-size: 1.1rem;">
-					Ton compte est configuré. Il est temps de découvrir la plateforme en direct.
+					{$t("welcome_step3_desc")}
 				</p>
 				
 				<div class="wizard-actions mt-6" style="justify-content: center;">
 					<button class="btn-primary btn-large" style="max-width: 300px;" on:click={finishWizard}>
-						Lancer la visite guidée 🔦
+						{$t("welcome_btn_guided")} 🔦
 					</button>
 				</div>
 				<div style="margin-top: 1rem;">
 					<button class="btn-link text-dim" on:click={() => goto('/dashboard')}>
-						Passer le tutoriel
+						{$t("welcome_btn_skip")}
 					</button>
 				</div>
 			</div>
