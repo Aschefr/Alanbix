@@ -459,13 +459,8 @@
 			<div class="input-row">
 				<input 
 					type="text" class="input" placeholder="{$t('profile_team_placeholder')}"
-					bind:value={teamName} list="existing-teams"
+					bind:value={teamName}
 				/>
-				<datalist id="existing-teams">
-					{#each existingTeams as team}
-						<option value={team}></option>
-					{/each}
-				</datalist>
 				<button class="btn-primary" on:click={saveProfile} disabled={saving}>
 					{#if saving}
 						⏳
@@ -476,6 +471,23 @@
 					{/if}
 				</button>
 			</div>
+
+			{#if existingTeams.length > 0}
+				<div class="existing-teams-wrap" style="margin-top: 1rem;">
+					<span class="existing-teams-label">{$t("profile_join_existing_team")}</span>
+					<div class="existing-teams-list">
+						{#each existingTeams as t}
+							<button 
+								type="button"
+								class="btn-team-select {teamName === t ? 'active' : ''}" 
+								on:click={() => teamName = t}
+							>
+								👥 {t}
+							</button>
+						{/each}
+					</div>
+				</div>
+			{/if}
 		</section>
 
 		<section class="profile-card glass">
@@ -590,6 +602,17 @@
 	.input-row { display: flex; gap: 0.75rem; }
 	.input { flex-grow: 1; padding: 0.7rem 1rem; background: var(--input-bg); border: 1px solid var(--glass-border); border-radius: 8px; color: var(--input-color); font-size: 0.9rem; }
 	.input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+	.existing-teams-wrap { display: flex; flex-direction: column; gap: 0.5rem; }
+	.existing-teams-label { font-size: 0.8rem; color: var(--text-dim); }
+	.existing-teams-list { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+	.btn-team-select {
+		padding: 0.4rem 0.8rem; font-size: 0.8rem; border-radius: 20px;
+		border: 1px solid var(--glass-border); background: var(--surface-raised);
+		color: var(--text-dim); cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 0.3rem;
+	}
+	.btn-team-select:hover { border-color: var(--accent); color: var(--text-main); }
+	.btn-team-select.active { background: var(--accent); border-color: var(--accent); color: white; }
 
 	.info-grid { display: flex; flex-direction: column; gap: 0.75rem; }
 	.info-item { display: flex; justify-content: space-between; padding: 0.6rem 0; border-bottom: 1px solid var(--glass-border); }

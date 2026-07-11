@@ -170,10 +170,13 @@
 		try { allUsers = await api.get('/room/users'); } catch {}
 	}
 
+	let confirmingLeave = false;
+
 	async function selectTournament(id) {
 		selectedId = id;
 		localStorage.setItem('alanbix_selected_tournament', id);
 		resetZoom();
+		confirmingLeave = false;
 		try { participants = await api.get(`/tournaments/${id}/participants`); } catch { participants = []; }
 		try { teams = await api.get(`/tournaments/${id}/teams`); } catch { teams = []; }
 		try {
@@ -186,6 +189,16 @@
 		try {
 			await api.post(`/tournaments/${id}/join`, {});
 			toast($t('tourneys_toast_joined'), 'success');
+			tournaments = await api.get('/tournaments');
+			await selectTournament(id);
+		} catch (e) { toast(e.detail || e.message, 'error'); }
+	}
+
+	async function leaveTournament(id) {
+		try {
+			confirmingLeave = false;
+			await api.post(`/tournaments/${id}/leave`, {});
+			toast($t('tourneys_toast_player_removed'), 'success');
 			tournaments = await api.get('/tournaments');
 			await selectTournament(id);
 		} catch (e) { toast(e.detail || e.message, 'error'); }
@@ -841,7 +854,18 @@
 					</div>
 					{#if selected.status === 'OPEN'}
 						{#if isParticipant}
-							<span class="hero-joined">✅ {$t("tourneys_hero_joined")}</span>
+							{#if confirmingLeave}
+								<span class="inline-confirm">
+									<span class="inline-confirm-label">{$t("tourneys_confirm_leave")}</span>
+									<button class="admin-btn confirm-yes" on:click={() => leaveTournament(selected.id)}>✓ {$t("tourneys_confirm_yes")}</button>
+									<button class="admin-btn confirm-no" on:click={() => confirmingLeave = false}>✕</button>
+								</span>
+							{:else}
+								<div class="hero-joined-wrapper" style="display: flex; gap: 0.6rem; align-items: center;">
+									<span class="hero-joined">✅ {$t("tourneys_hero_joined")}</span>
+									<button class="admin-btn stop btn-xs" on:click={() => confirmingLeave = true}>❌ {$t("tourneys_btn_leave")}</button>
+								</div>
+							{/if}
 						{:else}
 							<button class="btn-primary hero-join" on:click={() => joinTournament(selected.id)}>🎮 {$t("tourneys_btn_join_text")}</button>
 						{/if}
@@ -1702,9 +1726,9 @@
 	@keyframes checkered-reveal { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
 	.hero-game { color: #60a5fa; font-weight: 600; font-size: 0.85rem; text-shadow: 0 1px 4px rgba(0,0,0,0.5); }
 	.hero-rules {
-		position: absolute; right: 1.5rem; bottom: 1rem; max-width: 280px; max-height: 140px;
+		position: absolute; right: 1.5rem; top: 1rem; max-width: 280px; max-height: 140px;
 		overflow-y: auto; padding: 0.6rem 0.8rem; border-radius: 10px;
-		background: rgba(15,23,42,0.7); backdrop-filter: blur(6px);
+		background: rgba(15,23,42,0.95);
 		border: 1px solid rgba(255,255,255,0.08);
 		z-index: 3;
 	}

@@ -3,6 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { api } from '$lib/api';
 	import { startTutorial } from '$lib/tutorialStore';
+	import { eventName } from '$lib/i18nStore';
 
 	let step = 1;
 	let user = null;
@@ -139,7 +140,7 @@
 
 <div class="welcome-wizard">
 	<div class="wizard-header">
-		<h1 class="title-premium">Bienvenue sur Alanbix !</h1>
+		<h1 class="title-premium">Bienvenue à l'évènement {$eventName} !</h1>
 		<div class="steps-indicator">
 			<div class="step-dot {step >= 1 ? 'active' : ''}">1</div>
 			<div class="step-line {step >= 2 ? 'active' : ''}"></div>
@@ -153,20 +154,32 @@
 		{#if step === 1}
 			<div class="step-panel">
 				<h2>Mon Équipe</h2>
-				<p class="text-dim text-sm mb-4">Si tu participes avec des amis, entre le nom de ton équipe. Ce nom apparaîtra sur ta place et dans les classements.</p>
+				<p class="text-dim text-sm mb-4">Si tu participes avec des amis, choisis une équipe existante ci-dessous ou saisis un nom pour en créer une nouvelle. Ce nom apparaîtra sur ta place et dans les classements.</p>
 				
 				<div class="input-group">
 					<input 
 						type="text" class="input-lg" placeholder="Nom d'équipe..."
-						bind:value={teamName} list="wizard-teams"
+						bind:value={teamName}
 						on:keydown={(e) => e.key === 'Enter' && saveTeam()}
 					/>
-					<datalist id="wizard-teams">
-						{#each existingTeams as t}
-							<option value={t}></option>
-						{/each}
-					</datalist>
 				</div>
+
+				{#if existingTeams.length > 0}
+					<div class="existing-teams-wrap">
+						<span class="existing-teams-label">Rejoindre une équipe existante :</span>
+						<div class="existing-teams-list">
+							{#each existingTeams as t}
+								<button 
+									type="button"
+									class="btn-team-select {teamName === t ? 'active' : ''}" 
+									on:click={() => teamName = t}
+								>
+									👥 {t}
+								</button>
+							{/each}
+						</div>
+					</div>
+				{/if}
 
 				<div class="wizard-actions">
 					<button class="btn-link" on:click={skipTeam}>Passer</button>
@@ -299,6 +312,17 @@
 	.input-lg { width: 100%; padding: 1rem; background: var(--input-bg); border: 1px solid var(--glass-border); border-radius: 8px; color: var(--input-color); font-size: 1.1rem; margin-bottom: 1.5rem; }
 	.input-lg:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 	
+	.existing-teams-wrap { margin-bottom: 1.5rem; display: flex; flex-direction: column; gap: 0.5rem; }
+	.existing-teams-label { font-size: 0.8rem; color: var(--text-dim); }
+	.existing-teams-list { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+	.btn-team-select {
+		padding: 0.4rem 0.8rem; font-size: 0.8rem; border-radius: 20px;
+		border: 1px solid var(--glass-border); background: var(--surface-raised);
+		color: var(--text-dim); cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 0.3rem;
+	}
+	.btn-team-select:hover { border-color: var(--accent); color: var(--text-main); }
+	.btn-team-select.active { background: var(--accent); border-color: var(--accent); color: white; }
+
 	.wizard-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 1.5rem; }
 	.btn-large { padding: 1rem 2rem; font-size: 1.1rem; width: 100%; }
 

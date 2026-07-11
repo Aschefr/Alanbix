@@ -324,9 +324,51 @@ async def delete_tournament_participant(
         raise HTTPException(status_code=404, detail="Participant not found")
     
     db.delete(participant)
+    
+    # Also remove from any teams in this tournament
+    teams = db.query(models.TournamentTeam).filter(models.TournamentTeam.tournament_id == tournament_id).all()
+    for t in teams:
+        db.query(models.TournamentTeamMember).filter(
+            models.TournamentTeamMember.team_id == t.id,
+            models.TournamentTeamMember.user_id == user_id
+        ).delete()
+        
     db.commit()
     await manager.broadcast({"type": "participant_left", "tournament_id": tournament_id, "user_id": user_id})
     return {"status": "deleted"}
+
+@router.post("/{tournament_id}/leave")
+async def leave_tournament(
+    tournament_id: int,
+    db: Session = Depends(database.get_db),
+    user: models.User = Depends(auth.get_current_user)
+):
+    tournament = db.query(models.Tournament).filter(models.Tournament.id == tournament_id).first()
+    if not tournament:
+        raise HTTPException(status_code=404, detail="Tournament not found")
+    if tournament.status != "OPEN":
+        raise HTTPException(status_code=400, detail="Tournament must be OPEN to leave")
+    
+    participant = db.query(models.TournamentParticipant).filter(
+        models.TournamentParticipant.tournament_id == tournament_id,
+        models.TournamentParticipant.user_id == user.id
+    ).first()
+    if not participant:
+        raise HTTPException(status_code=404, detail="Not registered in this tournament")
+    
+    db.delete(participant)
+    
+    # Also remove from any teams in this tournament
+    teams = db.query(models.TournamentTeam).filter(models.TournamentTeam.tournament_id == tournament_id).all()
+    for t in teams:
+        db.query(models.TournamentTeamMember).filter(
+            models.TournamentTeamMember.team_id == t.id,
+            models.TournamentTeamMember.user_id == user.id
+        ).delete()
+        
+    db.commit()
+    await manager.broadcast({"type": "participant_left", "tournament_id": tournament_id, "user_id": user.id})
+    return {"status": "left"}
 
 @router.post("/{tournament_id}/join-all")
 async def join_all_players(

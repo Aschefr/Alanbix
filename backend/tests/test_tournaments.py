@@ -799,4 +799,39 @@ def test_ffa_rollback_round(client, db_session):
     assert all(m["id"]["r"] == 1 for m in bracket)
 
 
+def test_leave_tournament(client, db_session):
+    """Verify that a player can leave a tournament and is cleaned up from teams."""
+    game = _create_game(db_session, "Leave Game", "single_elim")
+    t_id = _create_tournament(client, "Leave Tournament", game.id, {
+        "bracket_type": "single_elim"
+    })
+
+    current_user = db_session.query(models.User).filter(models.User.username == "admin").first()
+    res = client.post(f"/tournaments/{t_id}/join")
+    assert res.status_code == 200
+    
+    participants = client.get(f"/tournaments/{t_id}/participants").json()
+    assert any(p["user_id"] == current_user.id for p in participants)
+
+    team_res = client.post(f"/tournaments/{t_id}/teams", json={"name": "Leave Team"})
+    assert team_res.status_code == 200
+    team_id = team_res.json()["id"]
+
+    add_member_res = client.post(f"/tournaments/{t_id}/teams/{team_id}/members", json={"user_id": current_user.id})
+    assert add_member_res.status_code == 200
+
+    leave_res = client.post(f"/tournaments/{t_id}/leave")
+    assert leave_res.status_code == 200
+    assert leave_res.json()["status"] == "left"
+
+    participants = client.get(f"/tournaments/{t_id}/participants").json()
+    assert not any(p["user_id"] == current_user.id for p in participants)
+
+    team_member = db_session.query(models.TournamentTeamMember).filter(
+        models.TournamentTeamMember.team_id == team_id,
+        models.TournamentTeamMember.user_id == current_user.id
+    ).first()
+    assert team_member is None, "Should have been removed from the team"
+
+
 

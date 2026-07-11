@@ -67,9 +67,14 @@
 	}
 
 	let isCheckingAuth = true;
+	let eventName = 'Alanbix LAN';
 
-	onMount(() => {
+	onMount(async () => {
 		isDark = (localStorage.getItem('alanbix_theme') || 'dark') === 'dark';
+		try {
+			const stats = await api.get('/dashboard/stats');
+			eventName = stats.event_name || 'Alanbix LAN';
+		} catch {}
 		if ($authStore) {
 			window.location.href = '/dashboard';
 		} else {
@@ -97,6 +102,9 @@
 	</button>
 	<div class="login-card glass" class:register-mode={mode === 'register'}>
 		<h1 class="title-premium">Alanbix</h1>
+		<div style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent); margin-top: -0.5rem; margin-bottom: 0.8rem; font-weight: 700;">
+			🎮 {eventName}
+		</div>
 		<p class="subtitle" class:subtitle-register={mode === 'register'}>
 			{#if mode === 'register'}
 				✨ Création de ton compte

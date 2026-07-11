@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.29.0] - 2026-07-11
+
+### Features & Bug Fixes — Tournament Registration, UI Layout, and Team Selection
+
+- **Tournament Unregistration**: Added the ability for registered players to unregister themselves from `OPEN` tournaments. This action includes an inline confirmation dialog ("Se désinscrire ? ✓ / ✕") to avoid accidental leaves, and automatically removes the player from any registered team for that tournament.
+- **Rules Card Overlay Fix**: Moved the tournament rules panel (`.hero-rules`) from the bottom-right corner to the top-right corner to resolve a visual overlap with the "S'inscrire" / "Se désinscrire" button. Also removed `backdrop-filter: blur()` from rules panels to optimize GPU rendering.
+- **Welcome Wizard Team Buttons**: Introduced clickable button selectors for existing teams under the team name input field in the welcome wizard and profile page, making team selection more explicit and intuitive.
+- **Dynamic LAN Event Name**: Replaced the hardcoded wizard welcome title with a dynamic greeting displaying the custom LAN event name configured by administrators (`Bienvenue à l'évènement {eventName} !`).
+- **Autocompletion Cleanup**: Removed native browser input autocompletion datalists for team names to prevent visual overlap with the newly added team buttons.
+
+---
+
 ## [1.28.0] - 2026-07-10
 
 ### Features — OpenAI API Compatibility & Auto-detection
