@@ -55,10 +55,11 @@ Nommé en clin d'œil à *Alambix* de l'univers d'Astérix — une machinerie co
 - **Zoom centré sur le curseur** : Avec prise en charge du déplacement (pan).
 - **Éléments logistiques** : Placement de mobilier (portes, cuisine, bar, WC, racks techniques, écrans) avec rotation et drag & drop.
 
-### 🤖 Assistant IA (Ollama)
+### 🤖 Assistant IA (Ollama & OpenAI / LocalAI)
+- **Compatibilité multi-moteurs** : Supporte à la fois les instances locales d'Ollama et les API compatibles OpenAI (LocalAI, vllm, LM Studio, etc. se terminant par `/v1`).
 - **Réponses en streaming** : Affichage fluide via Server-Sent Events.
 - **Pipeline RAG** : Recherche vectorielle native avec NumPy (aucune base de données externe requise).
-- **Ollama Multi-instances** : Équilibrage de charge avec gestion des priorités et basculement automatique (failover).
+- **Équilibrage de charge / Failover** : Équilibrage multi-instances avec gestion des priorités et basculement automatique (failover).
 - **Diagnostics réseau déportés côté client** : Possibilité d'exécuter les outils de diagnostic réseau (ping, traceroute, DNS) directement depuis le navigateur de l'utilisateur pour contourner l'isolation réseau de Docker.
 - **Compression du contexte** : Troncature, compactage et résumé IA pour économiser les tokens.
 - **Édition & Retry inline** : Possibilité de modifier ses messages ou de relancer une génération directement dans le chat.
@@ -206,16 +207,13 @@ L'application sera disponible sur :
 3. Partagez l'URL aux joueurs pour qu'ils puissent s'inscrire et rejoindre l'événement.
 4. Ouvrez **/spectator** sur un projecteur pour l'affichage en direct de la salle.
 
-### Ollama (Chat IA)
+### Moteurs IA (Ollama & OpenAI / LocalAI)
 
-Si vous avez Ollama qui tourne localement sur votre machine :
+Si vous possédez une instance Ollama ou un endpoint compatible OpenAI (LocalAI, LM Studio, etc.) :
+- **Ollama** : Doit être accessible sur son port par défaut (ex: `http://localhost:11434`).
+- **Compatibles OpenAI (LocalAI, etc.)** : Utilisez l'URL se terminant par `/v1` (ex: `http://192.168.1.100:8080/v1`).
 
-```bash
-# La configuration par défaut s'attend à trouver Ollama sur http://localhost:11434
-ollama serve
-```
-
-Configurez vos instances IA dans **Administration > IA & Paramètres**.
+Configurez et gérez vos instances IA directement dans l'interface de l'application : **Administration > IA & Paramètres**.
 
 ---
 

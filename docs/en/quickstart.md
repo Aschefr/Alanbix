@@ -6,7 +6,7 @@ This guide helps you install and configure Alanbix for the first time for your e
 
 ## 💾 Prerequisites
 * **Docker & Docker Compose** installed on your LAN server.
-* **Ollama** (optional but recommended for AI) running locally or on the network.
+* **Ollama or OpenAI-compatible endpoint (LocalAI, etc.)** (optional but recommended for AI) running locally or on the network.
 
 ---
 
@@ -99,7 +99,7 @@ For features to be usable, the administrator must prepare the environment:
 
 1. **Adding Games**: In **Administration > Games**, create entries for the games featured in your tournaments. Use the integrated SearXNG search to automatically download game covers directly to your server for offline-first capabilities.
 2. **Room Plan**: In **Administration > Room Plan**, arrange seats, tables, and other logistical furniture via Drag & Drop. Players can then click on these seats to reserve their physical location in the room.
-3. **AI Activation**: In **Administration > AI & Settings**, add your Ollama instance (e.g., `http://192.168.1.100:11434`), assign it a model, and verify its status (🟢 Connected).
+3. **AI Activation**: In **Administration > AI & Settings**, add your Ollama or OpenAI-compatible instance URL (e.g., `http://192.168.1.100:11434` for Ollama, or `http://192.168.1.100:8080/v1` for OpenAI/LocalAI), assign it a model, and verify its status (🟢 Connected).
 
 ---
 
