@@ -326,6 +326,23 @@
 	.wizard-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 1.5rem; }
 	.btn-large { padding: 1rem 2rem; font-size: 1.1rem; width: 100%; }
 
+	.btn-link {
+		background: transparent;
+		border: 1px solid transparent;
+		color: var(--text-dim);
+		padding: 0.55rem 1.2rem;
+		font-size: 0.9rem;
+		font-weight: 600;
+		border-radius: 8px;
+		cursor: pointer;
+		transition: all 0.2s;
+	}
+	.btn-link:hover {
+		color: var(--text-main);
+		background: var(--hover-tint);
+		border-color: var(--glass-border);
+	}
+
 	/* Map step */
 	.step-map { width: 100%; }
 	.map-container { height: 450px; border-radius: 12px; background: var(--map-canvas-bg); border: 1px solid var(--glass-border); overflow: hidden; position: relative; cursor: grab; }
