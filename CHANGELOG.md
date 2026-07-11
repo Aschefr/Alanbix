@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.30.0] - 2026-07-11
+
+### Features & Security — AI Admin Calls, RAG suggestions, and Real-Time Chat Sync
+
+- **AI Admin Calls Tool & Manual Button**: Implemented the `call_admin` tool for the AI assistant and a manual "Call Admin" button for players. Added configurable anti-spam limits (cooldown period, daily user limit, global hourly limit) to prevent spam.
+- **Separated Call Admin Configuration**: Split the configuration toggles so that the manual button and the AI tool calling capability can be enabled or disabled independently from the admin panel.
+- **RAG Knowledge Suggestion panel**: Created a new workflow where the AI assistant can suggest additions to the RAG knowledge base. Admins can review, edit, approve, or reject suggestions directly from a newly designed "Conversations IA" section in the admin panel.
+- **Multi-language Error Handling**: Modified backend cooldown verification endpoints to return structured data (`error_code` and `params`) instead of hardcoded French text. Enhanced the client API class to pass structured errors, enabling dynamic translation of cooldown limits using `$t` Svelte helper on the player's view (supporting French, English, and Spanish).
+- **Notification Filtering via Active Chat Tracking**: Introduced an `/active-chat/{conv_id}` endpoint and a frontend ping interval (every 4 seconds) to track which conversation a player is actively viewing. If the player is looking at the chat window, database notifications are skipped on admin message interventions to prevent unread notification badges from flashing.
+- **Real-Time WebSocket Message Deletion Sync**: Integrated WebSocket broadcasts (`ia_message_deleted`) when messages are deleted. Implemented local action locks (`isProcessingLocalAction`) on the frontend to avoid race conditions and infinite reload loops during batch message deletions.
+- **AI Response Regeneration Fix**: Resolved a frontend bug where the "Retry" button on bot messages blocked the request by setting `loading = true` too early. Added support for `skip_save_user` payload flag to prevent prompt duplication in both the database and the Svelte UI during regeneration.
+- **Unified Button Styling**: Replaced the default unstyled `btn-ghost` with the project-wide semi-transparent `btn-secondary` class for Dismiss (Admin calls) and Reject (RAG suggestions) actions.
+
+## [1.29.2] - 2026-07-11
+
+### Bug Fixes — Tournament Bracket Layout & AI Chat Context
+
+- **Tournament Detail Sizing**: Fixed a layout bug where completed (status `DONE` or `CLOSED`) tournament bracket views and live standings collapsed in height when details were folded. Extended height-filling CSS classes (`collapsed-layout`, `split-fill`) to all non-`OPEN` tournament states.
+- **AI Conversation Context Continuity**: Fixed a bug where the first kept message in the active history was systematically omitted after context truncation or compression. Changed the strict inequality (`>`) comparison operator to non-strict (`>=`) for `compressed_at` timestamp filtering in both the backend database queries and frontend Svelte state calculations.
+- **AI Multi-Step Tool Calling**: Fixed an issue where the model lost context or returned generic clarification questions when follow-up queries required secondary tool calls. Corrected the tool-popping condition in `ia_queue.py` to allow multi-step tool calls up to `max_tool_rounds` (3 rounds) instead of disabling tool calls immediately after the first step.
+- **AI Stream Chunk Buffering**: Fixed an issue where the streamed AI responses were frequently cut off, truncated, or incomplete. Resolved a classic stream-splitting bug in `+page.svelte` by implementing proper line-buffering to process incomplete JSON chunks at TCP package boundaries instead of discarding them.
+- **SQLite WAL Mode on Windows Docker Mounts**: Fixed `OperationalError: unable to open database file` errors occurring during tool executions. Switched the SQLite journal mode from `WAL` (which uses shared memory `mmap` that is unsupported by Docker/VirtioFS mounts on Windows hosts) to `DELETE` mode.
+
 ## [1.29.1] - 2026-07-11
 
 ### Features & Refactoring — Modal Dialog Styling and Accessibility (a11y)

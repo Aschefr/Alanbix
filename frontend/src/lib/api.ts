@@ -23,7 +23,12 @@ async function request(path: string, options: RequestInit = {}) {
 
 	if (!response.ok) {
 		const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
-		throw new Error(error.detail || 'Request failed');
+		const errMsg = typeof error.detail === 'object' ? (error.detail.message || 'Request failed') : (error.detail || 'Request failed');
+		const errObj: any = new Error(errMsg);
+		if (typeof error.detail === 'object') {
+			Object.assign(errObj, error.detail);
+		}
+		throw errObj;
 	}
 
 	return response.json();

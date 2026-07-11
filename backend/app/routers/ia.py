@@ -37,6 +37,20 @@ def get_effective_config(db: Session):
             val["auto_moderation_enabled"] = True
         if "tool_calling_mode" not in val:
             val["tool_calling_mode"] = "stream_intercept"
+        # call_admin anti-spam settings
+        if "call_admin_enabled" not in val:
+            val["call_admin_enabled"] = True
+        if "call_admin_button_enabled" not in val:
+            val["call_admin_button_enabled"] = True
+        if "call_admin_cooldown_minutes" not in val:
+            val["call_admin_cooldown_minutes"] = 30
+        if "call_admin_daily_limit" not in val:
+            val["call_admin_daily_limit"] = 3
+        if "call_admin_global_hourly_limit" not in val:
+            val["call_admin_global_hourly_limit"] = 15
+        # rag suggestion settings
+        if "rag_suggestion_enabled" not in val:
+            val["rag_suggestion_enabled"] = True
         return val
     return {
         "ollama_host": os.getenv("OLLAMA_HOST", "http://host.docker.internal:11434"),
@@ -44,7 +58,13 @@ def get_effective_config(db: Session):
         "rag_enabled": True,
         "network_tools_enabled": True,
         "auto_moderation_enabled": True,
-        "tool_calling_mode": "stream_intercept"
+        "tool_calling_mode": "stream_intercept",
+        "call_admin_enabled": True,
+        "call_admin_button_enabled": True,
+        "call_admin_cooldown_minutes": 30,
+        "call_admin_daily_limit": 3,
+        "call_admin_global_hourly_limit": 15,
+        "rag_suggestion_enabled": True,
     }
 
 def get_instances(db: Session):
@@ -508,7 +528,7 @@ def get_messages(conv_id: int, db: Session = Depends(database.get_db), user: mod
     # Add overhead for system prompt + user identity + tool definitions (~1300 tokens)
     SYSTEM_OVERHEAD_TOKENS = 1300
     if conv.compressed_at:
-        active_msgs = [m for m in messages if m.timestamp > conv.compressed_at]
+        active_msgs = [m for m in messages if m.timestamp >= conv.compressed_at]
     else:
         active_msgs = messages
     active_chars = sum(len(m.content) for m in active_msgs)
@@ -540,7 +560,20 @@ async def compress_context(conv_id: int, req: CompressRequest, db: Session = Dep
         raise HTTPException(404)
         
     history = db.query(models.ChatMessage).filter(models.ChatMessage.conversation_id == conv_id).order_by(models.ChatMessage.timestamp.asc()).all()
-    messages_to_process = [m for m in history if not conv.compressed_at or m.timestamp > conv.compressed_at]
+
+    # Determine which messages to process
+    mode_switch = conv.compressed_at and conv.compression_mode and conv.compression_mode != req.mode
+    if mode_switch:
+        # Mode change: re-compress ONLY the original pre-compression messages (before compressed_at)
+        # to replace the summary without touching the post-compression conversation.
+        messages_to_process = [m for m in history if m.timestamp < conv.compressed_at]
+        # Preserve original cutoff — don't change compressed_at
+        preserving_cutoff = True
+    else:
+        # Normal case: compress messages after last compression boundary (new messages)
+        messages_to_process = [m for m in history if not conv.compressed_at or m.timestamp >= conv.compressed_at]
+        preserving_cutoff = False
+
     if not messages_to_process:
         return {"status": "ok"}
         
@@ -560,19 +593,22 @@ async def compress_context(conv_id: int, req: CompressRequest, db: Session = Dep
             dropped_lines = [f"- {'U' if m.role == 'user' else 'A'}: {m.content.strip().split(chr(10))[0][:120]}" for m in dropped]
             compressed = "[Tronqué]\n" + "\n".join(dropped_lines)
             conv.compressed_context = compressed
-            conv.compressed_at = kept[0].timestamp if kept else datetime.utcnow()
+            if not preserving_cutoff:
+                conv.compressed_at = kept[0].timestamp if kept else datetime.utcnow()
             conv.compression_mode = "truncate"
             conv.auto_compression_mode = "truncate"
             db.commit()
         return {"status": "ok"}
         
     text_to_compress = ""
-    if conv.compressed_context:
+    # When switching mode, don't carry over old compressed_context — start fresh from raw messages
+    if conv.compressed_context and not mode_switch:
         text_to_compress += f"=== Contexte Précédent (compressé) ===\n{conv.compressed_context}\n\n"
     for m in messages_to_process:
         text_to_compress += f"{'Utilisateur' if m.role == 'user' else 'Assistant'} : {m.content}\n\n"
         
-    cutoff_time = datetime.utcnow()
+    # For mode switches, keep original cutoff; for new compressions, use current time
+    cutoff_time = conv.compressed_at if preserving_cutoff else datetime.utcnow()
     
     # Route through AI queue for compact/summary (requires GPU)
     from ..ia_queue import queue_manager, QueueEntry
@@ -610,7 +646,8 @@ async def compress_context(conv_id: int, req: CompressRequest, db: Session = Dep
         raise HTTPException(500, "L'IA n'a pas pu compresser le contexte (réponse vide). Réessayez ou choisissez un autre mode.")
         
     conv.compressed_context = res.strip()
-    conv.compressed_at = cutoff_time
+    if not preserving_cutoff:
+        conv.compressed_at = cutoff_time
     conv.compression_mode = req.mode
     conv.auto_compression_mode = req.mode
     db.commit()
@@ -632,8 +669,17 @@ async def revert_compression(conv_id: int, db: Session = Depends(database.get_db
 async def delete_message(msg_id: int, db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
     msg = db.query(models.ChatMessage).filter(models.ChatMessage.id == msg_id).first()
     if msg:
+        if msg.role == "admin" and not user.is_admin:
+            raise HTTPException(status_code=403, detail="Vous n'êtes pas autorisé à supprimer un message de l'administrateur.")
+        
+        conversation_id = msg.conversation_id
         db.delete(msg)
         db.commit()
+        await ws_manager.broadcast({
+            "type": "ia_message_deleted",
+            "conversation_id": conversation_id,
+            "message_id": msg_id
+        })
     return {"status": "ok"}
 
 class MessageEdit(BaseModel):
@@ -744,12 +790,21 @@ async def suggest_title(conv_id: int, db: Session = Depends(database.get_db), us
     return {"status": "pending"}
 
 
+# Global dict to track user active conversations: user_id -> (conversation_id, timestamp)
+active_chats = {}
+
+@router.post("/active-chat/{conv_id}")
+async def set_active_chat(conv_id: int, user: models.User = Depends(auth.get_current_user)):
+    active_chats[user.id] = (conv_id, time.time())
+    return {"status": "ok"}
+
 
 class QueryRequest(BaseModel):
     prompt: str
     conversation_id: int
     game_id: Optional[int] = None
     image_path: Optional[str] = None
+    skip_save_user: Optional[bool] = False
 
 @router.post("/stream")
 async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
@@ -766,10 +821,11 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
     
     # Block AI when admin has taken over
     if conv.admin_override:
-        # Still save the user message so admin can see it
-        user_msg = models.ChatMessage(conversation_id=request.conversation_id, role="user", content=request.prompt, image_path=request.image_path)
-        db.add(user_msg)
-        db.commit()
+        if not request.skip_save_user:
+            # Still save the user message so admin can see it
+            user_msg = models.ChatMessage(conversation_id=request.conversation_id, role="user", content=request.prompt, image_path=request.image_path)
+            db.add(user_msg)
+            db.commit()
         # Notify admin via WS that user sent a message
         await ws_manager.broadcast({
             "type": "user_message_during_override",
@@ -803,20 +859,20 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
     # 2. History
     history_query = db.query(models.ChatMessage).filter(models.ChatMessage.conversation_id == request.conversation_id)
     if conv.compressed_at:
-        history_query = history_query.filter(models.ChatMessage.timestamp > conv.compressed_at)
+        history_query = history_query.filter(models.ChatMessage.timestamp >= conv.compressed_at)
     history = history_query.order_by(models.ChatMessage.timestamp.asc()).all()
     
-    user_msg = models.ChatMessage(conversation_id=request.conversation_id, role="user", content=request.prompt, image_path=request.image_path)
-    db.add(user_msg)
-    db.commit()
-    # Notify admin monitoring panel in real-time that a user message was sent
-    await ws_manager.broadcast({"type": "chat_updated", "conversation_id": request.conversation_id, "user_id": conv.user_id, "role": "user"})
+    user_msg_id = None
+    if not request.skip_save_user:
+        user_msg = models.ChatMessage(conversation_id=request.conversation_id, role="user", content=request.prompt, image_path=request.image_path)
+        db.add(user_msg)
+        db.commit()
+        user_msg_id = user_msg.id
+        # Notify admin monitoring panel in real-time that a user message was sent
+        await ws_manager.broadcast({"type": "chat_updated", "conversation_id": request.conversation_id, "user_id": conv.user_id, "role": "user"})
     
     # Build system prompt — read from SystemConfig, fallback to i18n JSON, then default
     system_prompt = get_active_system_prompt(db)
-    
-    # Build messages array for Ollama chat API
-    ollama_messages = [{"role": "system", "content": system_prompt}]
     
     # Inject user identity so the model knows who is asking
     user_context = f"L'utilisateur qui te parle s'appelle \"{user.username}\""
@@ -825,15 +881,15 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
     if user.is_admin:
         user_context += ", c'est un administrateur de la LAN"
     user_context += "."
-    ollama_messages.append({"role": "system", "content": user_context})
     
-    # Inject compressed context if present
+    # Consolidate all system messages into a single system prompt to prevent template/parsing issues in local models
+    system_parts = [system_prompt, user_context]
     if conv.compressed_context:
-        ollama_messages.append({"role": "system", "content": f"=== Contexte Compressé ===\n{conv.compressed_context}"})
-    
-    # Inject RAG context if present
+        system_parts.append(f"=== Contexte Compressé ===\n{conv.compressed_context}")
     if rag_context:
-        ollama_messages.append({"role": "system", "content": f"=== Base de Connaissances ===\n{rag_context}"})
+        system_parts.append(f"=== Base de Connaissances ===\n{rag_context}")
+        
+    ollama_messages = [{"role": "system", "content": "\n\n".join(system_parts)}]
     
     # Inject conversation history (include images as base64 for vision models)
     for m in history:
@@ -873,11 +929,18 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
                 continue
             enabled_tools.append(tool)
         
+    cfg_ctx = ia_cfg.get('context_window', 4096)
+    # Enforce minimum 8192 context window if tools are enabled to prevent running out of tokens due to tool schemas (~3000 tokens)
+    num_ctx = max(8192, cfg_ctx) if enabled_tools else cfg_ctx
+
     req_data = {
         "model": model_to_use,
         "messages": ollama_messages,
         "stream": True,
-        "options": {"temperature": ia_cfg.get('temperature', 0.2), "num_ctx": ia_cfg.get('context_window', 4096)},
+        "options": {
+            "temperature": ia_cfg.get('temperature', 0.2),
+            "num_ctx": num_ctx
+        },
         "tools": enabled_tools,
     }
     queue_entry = QueueEntry(
@@ -903,7 +966,7 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
         try:
             avg_dur = queue_manager._instance_avg_durations.get(ollama_host, queue_manager._avg_duration)
             # Yield model info immediately so frontend knows who we are querying
-            yield f"data: {json.dumps({'model_info': {'model': model_to_use, 'instance': instance.get('label', 'Default') if instance else 'Default'}, 'avg_duration': round(avg_dur, 1)})}\n\n"
+            yield f"data: {json.dumps({'model_info': {'model': model_to_use, 'instance': instance.get('label', 'Default') if instance else 'Default'}, 'avg_duration': round(avg_dur, 1), 'user_message_id': user_msg_id})}\n\n"
             # ── Phase 1: Queue wait (send position updates via SSE) ──
             if position > 0:
                 yield f"data: {json.dumps({'queued': True, 'position': position, 'estimated_wait': round(position * avg_dur), 'avg_duration': round(avg_dur, 1)})}\n\n"
@@ -981,13 +1044,13 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
                             models.ChatMessage.conversation_id == request.conversation_id
                         )
                         if conv_obj and conv_obj.compressed_at:
-                            post_msgs = post_msgs.filter(models.ChatMessage.timestamp > conv_obj.compressed_at)
+                            post_msgs = post_msgs.filter(models.ChatMessage.timestamp >= conv_obj.compressed_at)
                         post_msgs = post_msgs.all()
                         ctx_chars = len(conv_obj.compressed_context or "") if conv_obj else 0
                         est_tokens = int((sum(len(m.content) for m in post_msgs) + ctx_chars) / 3.5) + 1300  # +system overhead
                         
                         # ── Auto-title: queue task (G-50) ──
-                        if conv_obj and _is_default_title(conv_obj.title) and not conv_obj.title_generation_attempted:
+                        if conv_obj and not conv_obj.title_generation_attempted and _is_default_title(conv_obj.title):
                             # Mark as attempted so we never enqueue redundant generations
                             conv_obj.title_generation_attempted = True
                             s.commit()
@@ -1021,6 +1084,7 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
                                         "excerpt": _excerpt,
                                         "conversation_id": request.conversation_id,
                                         "user_id": conv_obj.user_id,
+                                        "num_ctx": num_ctx,
                                     }
                                 )
                                 await queue_manager.enqueue(entry)
@@ -1180,17 +1244,24 @@ async def admin_intervene(conv_id: int, body: AdminInterveneRequest, db: Session
         "content": body.content,
         "message_id": msg.id
     })
-    # Create notification for the user
-    notif = models.Notification(
-        user_id=conv.user_id,
-        type="admin_message",
-        title=f"🛡️ Message de {admin.username}",
-        content=body.content[:200],
-        metadata_json={"conversation_id": conv_id}
-    )
-    db.add(notif)
-    db.commit()
-    await ws_manager.broadcast({"type": "notification_new"})
+    # Create notification for the user ONLY if they are not actively looking at the conversation
+    is_active = False
+    if conv.user_id in active_chats:
+        act_conv, act_time = active_chats[conv.user_id]
+        if act_conv == conv_id and (time.time() - act_time < 8.0):
+            is_active = True
+
+    if not is_active:
+        notif = models.Notification(
+            user_id=conv.user_id,
+            type="admin_message",
+            title=f"🛡️ Message de {admin.username}",
+            content=body.content[:200],
+            metadata_json={"conversation_id": conv_id}
+        )
+        db.add(notif)
+        db.commit()
+        await ws_manager.broadcast({"type": "notification_new"})
     return {"status": "ok", "message_id": msg.id}
 
 class OverrideRequest(BaseModel):
@@ -1322,4 +1393,206 @@ async def client_tool_response(call_id: str, payload: dict):
     event, _ = pending_client_calls[call_id]
     pending_client_calls[call_id] = (event, payload)
     event.set()
+    return {"status": "ok"}
+
+
+# ---------------------------------------------------------------------------
+# Admin Call Requests endpoints
+# ---------------------------------------------------------------------------
+
+class ManualCallAdminRequest(BaseModel):
+    reason: str
+    question: str
+    conversation_id: Optional[int] = None
+
+@router.get("/call-admin/check-cooldown")
+async def check_call_admin_cooldown(db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
+    """Vérifie si l'utilisateur a le droit d'appeler l'admin ou s'il subit un cooldown/anti-spam."""
+    import datetime as dt
+    ia_cfg = get_effective_config(db)
+    
+    if not ia_cfg.get("call_admin_button_enabled", True):
+        return {"allowed": False, "error_code": "disabled", "params": {}}
+
+    cooldown_min = int(ia_cfg.get("call_admin_cooldown_minutes", 30))
+    daily_limit = int(ia_cfg.get("call_admin_daily_limit", 3))
+    global_hourly_limit = int(ia_cfg.get("call_admin_global_hourly_limit", 15))
+
+    now = dt.datetime.utcnow()
+
+    # Cooldown par utilisateur
+    cutoff_cooldown = now - dt.timedelta(minutes=cooldown_min)
+    recent = db.query(models.AdminCallRequest).filter(
+        models.AdminCallRequest.user_id == user.id,
+        models.AdminCallRequest.created_at >= cutoff_cooldown
+    ).first()
+    if recent:
+        minutes_left = cooldown_min - int((now - recent.created_at).total_seconds() / 60)
+        return {"allowed": False, "error_code": "cooldown", "params": {"minutes_left": max(1, minutes_left)}}
+
+    # Limite journalière par utilisateur
+    cutoff_day = now - dt.timedelta(hours=24)
+    daily_count = db.query(models.AdminCallRequest).filter(
+        models.AdminCallRequest.user_id == user.id,
+        models.AdminCallRequest.created_at >= cutoff_day
+    ).count()
+    if daily_count >= daily_limit:
+        return {"allowed": False, "error_code": "daily_limit", "params": {"limit": daily_limit}}
+
+    # Limite globale horaire
+    cutoff_hour = now - dt.timedelta(hours=1)
+    global_count = db.query(models.AdminCallRequest).filter(
+        models.AdminCallRequest.created_at >= cutoff_hour
+    ).count()
+    if global_count >= global_hourly_limit:
+        return {"allowed": False, "error_code": "global_limit", "params": {}}
+
+    return {"allowed": True}
+
+
+@router.post("/call-admin")
+async def manual_call_admin(req: ManualCallAdminRequest, db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
+    """Déclenchement manuel du bouton 'Appeler un Admin' côté joueur."""
+    from ..ia_tools import _tool_call_admin
+    ia_cfg = get_effective_config(db)
+    if not ia_cfg.get("call_admin_button_enabled", True):
+        raise HTTPException(400, "Le bouton manuel d'appel admin est désactivé par l'administrateur.")
+
+    result_json = await _tool_call_admin(
+        db, models,
+        {"reason": req.reason, "question": req.question},
+        user_id=user.id,
+        conversation_id=req.conversation_id or 0,
+        bypass_enabled_check=True
+    )
+    import json as _json
+    result = _json.loads(result_json)
+    if result.get("error"):
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "message": result["error"],
+                "error_code": result.get("error_code", "cooldown"),
+                "params": result.get("params", {})
+            }
+        )
+    return result
+
+@router.get("/admin-calls")
+async def list_admin_calls(status: Optional[str] = "pending", db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
+    """Liste des appels admin (admin seulement)."""
+    if not user.is_admin:
+        raise HTTPException(403)
+    query = db.query(models.AdminCallRequest)
+    if status:
+        query = query.filter(models.AdminCallRequest.status == status)
+    calls = query.order_by(models.AdminCallRequest.created_at.desc()).all()
+    result = []
+    for c in calls:
+        caller = db.query(models.User).filter(models.User.id == c.user_id).first()
+        result.append({
+            "id": c.id, "username": caller.username if caller else f"#{c.user_id}",
+            "reason": c.reason, "question": c.question, "source": c.source,
+            "status": c.status, "created_at": c.created_at.isoformat(),
+            "conversation_id": c.conversation_id, "resolution_note": c.resolution_note
+        })
+    return result
+
+@router.put("/admin-calls/{call_id}/resolve")
+async def resolve_admin_call(call_id: int, payload: dict, db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
+    if not user.is_admin:
+        raise HTTPException(403)
+    call = db.query(models.AdminCallRequest).filter(models.AdminCallRequest.id == call_id).first()
+    if not call:
+        raise HTTPException(404)
+    call.status = "resolved"
+    call.resolved_by = user.id
+    call.resolved_at = datetime.utcnow()
+    call.resolution_note = payload.get("note", "")
+    db.commit()
+    return {"status": "ok"}
+
+@router.put("/admin-calls/{call_id}/dismiss")
+async def dismiss_admin_call(call_id: int, db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
+    if not user.is_admin:
+        raise HTTPException(403)
+    call = db.query(models.AdminCallRequest).filter(models.AdminCallRequest.id == call_id).first()
+    if not call:
+        raise HTTPException(404)
+    call.status = "dismissed"
+    call.resolved_by = user.id
+    call.resolved_at = datetime.utcnow()
+    db.commit()
+    return {"status": "ok"}
+
+
+# ---------------------------------------------------------------------------
+# RAG Suggestions endpoints
+# ---------------------------------------------------------------------------
+
+@router.get("/rag-suggestions")
+async def list_rag_suggestions(status: Optional[str] = "pending", db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
+    """Liste des suggestions RAG (admin seulement)."""
+    if not user.is_admin:
+        raise HTTPException(403)
+    query = db.query(models.RagSuggestion)
+    if status:
+        query = query.filter(models.RagSuggestion.status == status)
+    suggestions = query.order_by(models.RagSuggestion.created_at.desc()).all()
+    result = []
+    for s in suggestions:
+        submitter = db.query(models.User).filter(models.User.id == s.user_id).first()
+        result.append({
+            "id": s.id, "username": submitter.username if submitter else f"#{s.user_id}",
+            "question": s.question, "context": s.context, "category": s.category,
+            "status": s.status, "created_at": s.created_at.isoformat(),
+            "conversation_id": s.conversation_id, "approved_content": s.approved_content
+        })
+    return result
+
+@router.put("/rag-suggestions/{suggestion_id}/approve")
+async def approve_rag_suggestion(suggestion_id: int, payload: dict, db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
+    """Approuver une suggestion RAG et l'injecter dans la base de connaissances."""
+    if not user.is_admin:
+        raise HTTPException(403)
+    suggestion = db.query(models.RagSuggestion).filter(models.RagSuggestion.id == suggestion_id).first()
+    if not suggestion:
+        raise HTTPException(404)
+    answer = payload.get("answer", "").strip()
+    if not answer:
+        raise HTTPException(400, "La réponse admin est requise pour approuver une suggestion.")
+
+    # Injection dans la base RAG : format Q&R
+    content = f"Q: {suggestion.question}\nR: {answer}"
+    meta = {"category": suggestion.category or "general", "source": "rag_suggestion", "suggestion_id": suggestion_id}
+    
+    # Embed and store in KnowledgeBase
+    from ..ia_utils import get_embedding
+    embedding = await get_embedding(content)
+    import json as _json
+    kb_entry = models.KnowledgeBase(
+        content=content,
+        metadata_json=meta,
+        embedding_json=_json.dumps(embedding) if embedding else None
+    )
+    db.add(kb_entry)
+
+    suggestion.status = "approved"
+    suggestion.approved_by = user.id
+    suggestion.approved_at = datetime.utcnow()
+    suggestion.approved_content = answer
+    db.commit()
+    return {"status": "ok", "message": "Suggestion approuvée et injectée dans la base RAG."}
+
+@router.put("/rag-suggestions/{suggestion_id}/reject")
+async def reject_rag_suggestion(suggestion_id: int, db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
+    if not user.is_admin:
+        raise HTTPException(403)
+    suggestion = db.query(models.RagSuggestion).filter(models.RagSuggestion.id == suggestion_id).first()
+    if not suggestion:
+        raise HTTPException(404)
+    suggestion.status = "rejected"
+    suggestion.approved_by = user.id
+    suggestion.approved_at = datetime.utcnow()
+    db.commit()
     return {"status": "ok"}

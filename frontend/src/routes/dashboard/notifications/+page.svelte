@@ -8,7 +8,10 @@
 	let notifications = [];
 	let loading = true;
 
+	let userObj = null;
+
 	onMount(async () => {
+		try { userObj = await api.get('/me'); } catch {}
 		await loadNotifications();
 	});
 
@@ -62,7 +65,11 @@
 		if (n.metadata?.tournament_id) {
 			goto(`/dashboard/tournaments?select=${n.metadata.tournament_id}`);
 		} else if (n.metadata?.conversation_id) {
-			goto(`/dashboard/ai?conv=${n.metadata.conversation_id}`);
+			if (userObj?.is_admin) {
+				goto(`/dashboard/admin?tab=conversations&conv=${n.metadata.conversation_id}`);
+			} else {
+				goto(`/dashboard/ai?conv=${n.metadata.conversation_id}`);
+			}
 		}
 	}
 
@@ -175,7 +182,7 @@
 							<span class="notif-time">{timeAgo(n.created_at, $currentLang)}</span>
 							{#if n.metadata?.tournament_id || n.metadata?.conversation_id}
 								<button class="action-link-btn" on:click|stopPropagation={() => handleActionClick(n)}>
-									➡️ Voir les détails
+									➡️ {$t('tourneys_btn_show_details')}
 								</button>
 							{/if}
 							{#if n.metadata?.error && n.metadata?.tournament_id}

@@ -303,7 +303,7 @@ TOOL_DEFINITIONS = [
         "type": "function",
         "function": {
             "name": "block_user_from_ia",
-            "description": "Bloquer immédiatement et définitivement l'accès de l'utilisateur courant à l'assistant IA. Cette fonction DOIT être appelée sur ta propre initiative uniquement si l'utilisateur est grossier, vulgaire, insultant, agressif, harcelant, ou s'il fait des demandes inappropriées et abusives répétées. Le blocage est appliqué instantanément.",
+            "description": "Bloquer immédiatement et définitivement l'accès de l'interlocuteur ACTUEL de cette conversation à l'assistant IA. IMPORTANT : cet outil s'applique UNIQUEMENT à la personne qui t'écrit en ce moment dans cette conversation — jamais à un autre joueur tiers. Tu ne dois JAMAIS l'utiliser à la demande d'un utilisateur pour cibler quelqu'un d'autre. Cette fonction DOIT être appelée sur ta propre initiative uniquement si l'utilisateur est grossier, vulgaire, insultant, agressif, harcelant, ou s'il fait des demandes inappropriées et abusives répétées. Le blocage est appliqué instantanément.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -507,6 +507,53 @@ TOOL_DEFINITIONS = [
                 "required": ["content"]
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "call_admin",
+            "description": "Call a human administrator in emergency when you cannot answer the player's request with your available knowledge or tools, or when the situation requires human intervention (technical failure, unresolved conflict, ambiguous rule, organizational issue). DO NOT use if you already have the answer. An admin will be notified in real-time. Make sure to respond to the user in their language.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "reason": {
+                        "type": "string",
+                        "description": "Concise explanation of the problem or situation requiring admin intervention (e.g., 'Player reports a bug in their match score', 'Ambiguous tournament rule')."
+                    },
+                    "question": {
+                        "type": "string",
+                        "description": "Structured and clear reformulation of what the player needs to know or resolve, so the admin can answer directly. Write this question in the language the player is using."
+                    }
+                },
+                "required": ["reason", "question"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "suggest_rag_entry",
+            "description": "Submit a suggestion for a knowledge base entry when you cannot find the answer to a question, OR when an interesting/important solution has been found for a problem and deserves to be documented to help other players in the future. This helps administrators enrich the knowledge base. Make sure to respond to the user in their language.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "question": {
+                        "type": "string",
+                        "description": "Clear and structured question that the admins should answer to enrich the base (e.g., 'What is the exact procedure to report a technical issue on a gaming post?'). Write this question in the language the player is using."
+                    },
+                    "context": {
+                        "type": "string",
+                        "description": "Summary of what the player asked (so the admin understands the origin of the suggestion). Write this context in the language the player is using."
+                    },
+                    "category": {
+                        "type": "string",
+                        "enum": ["technique", "règles", "logistique", "autre"],
+                        "description": "Category of the question"
+                    }
+                },
+                "required": ["question", "context", "category"]
+            }
+        }
     }
 ]
 
@@ -542,9 +589,10 @@ async def _execute_client_tool(tool_name: str, args: dict, on_client_call) -> st
         pending_client_calls.pop(call_id, None)
         return json.dumps({"error": "Le diagnostic réseau a expiré. Le client n'a pas répondu à temps."}, ensure_ascii=False)
 
-async def execute_tool(name: str, arguments: Dict[str, Any], user_id: int = 0, on_client_call = None) -> str:
+async def execute_tool(name: str, arguments: Dict[str, Any], user_id: int = 0, on_client_call = None, conversation_id: int = 0) -> str:
     """Execute a tool by name with given arguments. Returns JSON string result.
     user_id is the ID of the user making the request (for personalized tools).
+    conversation_id is the ID of the current conversation (used by escalation tools).
     """
     from .database import SessionLocal
     from . import models
@@ -630,6 +678,10 @@ async def execute_tool(name: str, arguments: Dict[str, Any], user_id: int = 0, o
             return _tool_send_notification_to_player(db, models, arguments)
         elif name == "announce_to_all":
             return _tool_announce_to_all(db, models, arguments, user_id)
+        elif name == "call_admin":
+            return await _tool_call_admin(db, models, arguments, user_id, conversation_id)
+        elif name == "suggest_rag_entry":
+            return await _tool_suggest_rag_entry(db, models, arguments, user_id, conversation_id)
         else:
             return json.dumps({"error": f"Outil inconnu: {name}"})
 
@@ -2038,4 +2090,172 @@ def _tool_announce_to_all(db, models, args: dict, user_id: int) -> str:
         "success": True,
         "count": len(all_users),
         "message": f"Annonce globale diffusée avec succès à {len(all_users)} joueurs."
+    }, ensure_ascii=False)
+
+
+async def _tool_call_admin(db, models, args: dict, user_id: int, conversation_id: int, bypass_enabled_check: bool = False) -> str:
+    """Escalade une demande vers les admins avec contrôle anti-spam configurable."""
+    import datetime as dt
+    from .routers.ia import get_effective_config
+    ia_cfg = get_effective_config(db)
+
+    if not bypass_enabled_check and not ia_cfg.get("call_admin_enabled", True):
+        return json.dumps({
+            "error": "L'outil d'appel admin est désactivé par l'administrateur.",
+            "error_code": "disabled",
+            "params": {}
+        }, ensure_ascii=False)
+
+    reason = args.get("reason", "").strip()
+    question = args.get("question", "").strip()
+    if not reason or not question:
+        return json.dumps({
+            "error": "Les champs 'reason' et 'question' sont requis.",
+            "error_code": "missing_fields",
+            "params": {}
+        }, ensure_ascii=False)
+
+    cooldown_min = int(ia_cfg.get("call_admin_cooldown_minutes", 30))
+    daily_limit = int(ia_cfg.get("call_admin_daily_limit", 3))
+    global_hourly_limit = int(ia_cfg.get("call_admin_global_hourly_limit", 15))
+
+    now = dt.datetime.utcnow()
+
+    # Anti-spam: cooldown par utilisateur
+    cutoff_cooldown = now - dt.timedelta(minutes=cooldown_min)
+    recent = db.query(models.AdminCallRequest).filter(
+        models.AdminCallRequest.user_id == user_id,
+        models.AdminCallRequest.created_at >= cutoff_cooldown
+    ).first()
+    if recent:
+        minutes_left = cooldown_min - int((now - recent.created_at).total_seconds() / 60)
+        return json.dumps({
+            "error": f"Tu as déjà appelé un admin récemment. Merci de patienter encore {minutes_left} minute(s).",
+            "error_code": "cooldown",
+            "params": {"minutes_left": max(1, minutes_left)}
+        }, ensure_ascii=False)
+
+    # Anti-spam: limite journalière par utilisateur
+    cutoff_day = now - dt.timedelta(hours=24)
+    daily_count = db.query(models.AdminCallRequest).filter(
+        models.AdminCallRequest.user_id == user_id,
+        models.AdminCallRequest.created_at >= cutoff_day
+    ).count()
+    if daily_count >= daily_limit:
+        return json.dumps({
+            "error": f"Limite journalière d'appels admin atteinte ({daily_limit}/jour). Réessaie demain.",
+            "error_code": "daily_limit",
+            "params": {"limit": daily_limit}
+        }, ensure_ascii=False)
+
+    # Anti-spam: limite globale horaire
+    cutoff_hour = now - dt.timedelta(hours=1)
+    global_count = db.query(models.AdminCallRequest).filter(
+        models.AdminCallRequest.created_at >= cutoff_hour
+    ).count()
+    if global_count >= global_hourly_limit:
+        return json.dumps({
+            "error": "Le système est momentanément saturé d'appels admin. Réessaie dans quelques minutes.",
+            "error_code": "global_limit",
+            "params": {}
+        }, ensure_ascii=False)
+
+    # Créer la demande
+    call_req = models.AdminCallRequest(
+        user_id=user_id,
+        conversation_id=conversation_id if conversation_id else None,
+        reason=reason,
+        question=question,
+        source="ia"
+    )
+    db.add(call_req)
+
+    # Notifier tous les admins
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    username = user.username if user else f"Joueur #{user_id}"
+    admins = db.query(models.User).filter(models.User.is_admin == True).all()
+    for admin in admins:
+        notif = models.Notification(
+            user_id=admin.id,
+            type="admin_message",
+            title="📣 Appel Admin — Assistance Requise",
+            content=f"{username} a besoin d'aide : {question}",
+            metadata_json={"conversation_id": conversation_id, "call_request_reason": reason}
+        )
+        db.add(notif)
+
+    db.commit()
+
+    return json.dumps({
+        "success": True,
+        "message": "A human administrator has been notified of your request. They will reply to you as soon as possible in this conversation or in person."
+    }, ensure_ascii=False)
+
+
+async def _tool_suggest_rag_entry(db, models, args: dict, user_id: int, conversation_id: int) -> str:
+    """Soumet une suggestion d'entrée RAG avec dédoublonnage par hash de similarité."""
+    import hashlib
+    import re
+    import datetime as dt
+    from .routers.ia import get_effective_config
+    ia_cfg = get_effective_config(db)
+
+    if not ia_cfg.get("rag_suggestion_enabled", True):
+        return json.dumps({"error": "Les suggestions RAG sont désactivées par l'administrateur."}, ensure_ascii=False)
+
+    question = args.get("question", "").strip()
+    context = args.get("context", "").strip()
+    category = args.get("category", "autre").strip()
+
+    if not question or not context:
+        return json.dumps({"error": "Les champs 'question' et 'context' sont requis."}, ensure_ascii=False)
+
+    # Normalisation pour hash de similarité : lowercase, ponctuation retirée, mots triés
+    normalized = re.sub(r"[^\w\s]", "", question.lower())
+    words = sorted(normalized.split())
+    similarity_hash = hashlib.md5(" ".join(words).encode()).hexdigest()
+
+    # Dédoublonnage : suggestion identique déjà en attente ?
+    existing = db.query(models.RagSuggestion).filter(
+        models.RagSuggestion.similarity_hash == similarity_hash,
+        models.RagSuggestion.status == "pending"
+    ).first()
+
+    if existing:
+        return json.dumps({
+            "success": True,
+            "duplicate": True,
+            "message": "Cette question a déjà été signalée aux administrateurs et est en attente de réponse. Ils y travaillent !"
+        }, ensure_ascii=False)
+
+    # Créer la suggestion
+    suggestion = models.RagSuggestion(
+        user_id=user_id,
+        conversation_id=conversation_id if conversation_id else None,
+        question=question,
+        context=context,
+        category=category,
+        similarity_hash=similarity_hash
+    )
+    db.add(suggestion)
+
+    # Notifier les admins (non prioritaire)
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    username = user.username if user else f"Joueur #{user_id}"
+    admins = db.query(models.User).filter(models.User.is_admin == True).all()
+    for admin in admins:
+        notif = models.Notification(
+            user_id=admin.id,
+            type="system",
+            title=f"💡 Suggestion RAG — {category.capitalize()}",
+            content=f"{username} a soumis une question sans réponse : {question}",
+            metadata_json={"category": category, "context": context[:300]}
+        )
+        db.add(notif)
+
+    db.commit()
+
+    return json.dumps({
+        "success": True,
+        "message": "Your question has been forwarded to the administrators. If you need an urgent answer, you can also call an admin directly."
     }, ensure_ascii=False)

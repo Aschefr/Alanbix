@@ -267,7 +267,7 @@ async def test_ia_queue_xml_fallback_parsing(db_session):
             p.start()
         try:
             tool_time, resp_time = await queue_manager._process_chat(entry, entry.payload)
-            mock_exec.assert_called_once_with("get_current_datetime", {}, user_id=player1.id)
+            mock_exec.assert_called_once_with("get_current_datetime", {}, user_id=player1.id, conversation_id=0)
         finally:
             for p in patched_targets:
                 p.stop()

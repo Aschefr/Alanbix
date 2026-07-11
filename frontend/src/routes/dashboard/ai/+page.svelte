@@ -43,6 +43,9 @@
 	}
 
 	let conversations = [];
+	let currentUserMsgId = null;
+	let pollInterval = null;
+	let activeChatPingInterval = null;
 	let activeId = null;
 	let messages = [];
 	let usage = { estimated_tokens: 0 };
@@ -55,6 +58,70 @@
 	let isAutoScrolling = false;
 	let textareaRef;
 
+	// Call Admin modal
+	let showCallAdminModal = false;
+	let callAdminReason = '';
+	let callAdminLoading = false;
+
+	function getCallAdminErrorText(errCode, params) {
+		if (errCode === 'disabled') return $t('ai_call_admin_err_disabled');
+		if (errCode === 'cooldown') return $t('ai_call_admin_err_cooldown', { minutes_left: params?.minutes_left || 0 });
+		if (errCode === 'daily_limit') return $t('ai_call_admin_err_daily_limit', { limit: params?.limit || 0 });
+		if (errCode === 'global_limit') return $t('ai_call_admin_err_global_limit');
+		return $t('ai_call_admin_toast_cooldown');
+	}
+
+	async function callAdmin() {
+		if (!callAdminReason.trim()) return;
+		callAdminLoading = true;
+		try {
+			const res = await api.post('/ia/call-admin', {
+				reason: callAdminReason,
+				question: callAdminReason,
+				conversation_id: activeId
+			});
+			showCallAdminModal = false;
+			callAdminReason = '';
+			// Toast inline in the conversation
+			messages = [...messages, { role: 'system', content: $t('ai_call_admin_toast_ok'), timestamp: new Date().toISOString() }];
+		} catch(err) {
+			modalTitle = $t('error');
+			// If backend returned a JSON body with err_code
+			let msg = err.message || $t('ai_call_admin_toast_cooldown');
+			if (err.error_code) {
+				msg = getCallAdminErrorText(err.error_code, err.params);
+			}
+			modalMessage = msg;
+			modalType = 'error';
+			modalConfirmCallback = null;
+			showModal = true;
+		} finally {
+			callAdminLoading = false;
+		}
+	}
+
+	async function checkAndOpenCallAdmin() {
+		try {
+			const check = await api.get('/ia/call-admin/check-cooldown');
+			if (check.allowed) {
+				showCallAdminModal = true;
+			} else {
+				modalTitle = $t('error');
+				modalMessage = getCallAdminErrorText(check.error_code, check.params);
+				modalType = 'error';
+				modalConfirmCallback = null;
+				showModal = true;
+			}
+		} catch(err) {
+			console.error('checkCallAdmin error', err);
+			modalTitle = $t('error');
+			modalMessage = err.message || 'Erreur lors de la vérification de disponibilité.';
+			modalType = 'error';
+			modalConfirmCallback = null;
+			showModal = true;
+		}
+	}
+
 	function handleScroll() {
 		if (isAutoScrolling || !chatContainer) return;
 		const threshold = 50;
@@ -63,30 +130,48 @@
 	}
 
 	// Live token counting — only count messages that Ollama will actually receive
-	// +1300 tokens overhead for system prompt + user identity + tool definitions
-	const SYSTEM_OVERHEAD_TOKENS = 1300;
+	$: toolsEnabled = iaConfig.tool_calling_mode !== 'disabled';
+	$: systemPromptTokens = iaConfig.system_prompt ? Math.ceil(iaConfig.system_prompt.length / 3.5) : 800;
+	// 500 tokens buffer for user profile details, Ollama wrapping tags, and potential RAG database search context chunks
+	$: systemOverhead = systemPromptTokens + 500 + (toolsEnabled ? 3000 : 0);
+
 	$: liveTokens = (() => {
 		let activeMessages = compression.compressed_at
-			? messages.filter(m => !m.timestamp || m.timestamp > compression.compressed_at)
+			? messages.filter(m => {
+				if (!m.timestamp) return true;
+				return new Date(m.timestamp).getTime() >= new Date(compression.compressed_at).getTime();
+			})
 			: messages;
 		let total = activeMessages.reduce((sum, m) => sum + (m.content ? m.content.length : 0), 0);
 		if (compression.context) total += compression.context.length;
 		total += query.length;
-		return Math.ceil(total / 3.5) + SYSTEM_OVERHEAD_TOKENS;
+		return Math.ceil(total / 3.5) + systemOverhead;
 	})();
-	$: contextWindow = iaConfig.context_window || 4096;
-	$: tokenPct = Math.min(100, (liveTokens / contextWindow) * 100);
+	$: contextWindow = (() => {
+		const cfgVal = iaConfig.context_window || 4096;
+		return toolsEnabled ? Math.max(8192, cfgVal) : cfgVal;
+	})();
+	$: usedTokens = Math.max(0, liveTokens - systemOverhead);
+	$: availableTokens = Math.max(0, contextWindow - systemOverhead);
+	$: tokenPct = (() => {
+		if (availableTokens <= 0) return 0;
+		return Math.min(100, Math.round((usedTokens / availableTokens) * 100));
+	})();
 
-	// Find the index of the first message after compression (to insert context block inline)
 	$: compressionInsertIdx = (() => {
 		if (!compression.compressed_at || !compression.mode) return -1;
-		const idx = messages.findIndex(m => m.timestamp && m.timestamp > compression.compressed_at);
+		const compTime = new Date(compression.compressed_at).getTime();
+		const idx = messages.findIndex(m => {
+			const mTime = m.timestamp ? new Date(m.timestamp).getTime() : Date.now();
+			return mTime >= compTime;
+		});
 		return idx >= 0 ? idx : messages.length; // if no messages after, insert at end
 	})();
 
 	// Admin notification
 	let adminNotification = null;
 	let unsub = null;
+	let isMounted = true;
 
 	function dismissNotification() { adminNotification = null; }
 	function goToNotifiedConv() {
@@ -292,70 +377,83 @@
 	}
 
 	onMount(async () => {
+		isMounted = true;
 		aiUnreadCount.set(0);
 		await loadConversations();
+		if (!isMounted) return;
 		iaConfig = await api.get('/ia/config');
+		if (!isMounted) return;
 		try { userObj = await api.get('/me'); iaBlocked = !!userObj.ia_blocked; } catch(e) {}
+		if (!isMounted) return;
 		try {
 			const qs = await api.get('/ia/queue/status');
 			if (qs && qs.avg_duration !== undefined) {
 				avgDuration = qs.avg_duration;
 			}
 		} catch {}
+		if (!isMounted) return;
+
+		// Periodically ping backend to indicate we are actively viewing the activeId conversation
+		activeChatPingInterval = setInterval(async () => {
+			if (activeId) {
+				try { await api.post(`/ia/active-chat/${activeId}`, {}); } catch(e) {}
+			}
+		}, 4000);
 
 		// Listen for admin intervention and chat updates via WebSocket
 		unsub = wsMessageStore.subscribe(msg => {
 			if (msg && msg.user_id !== undefined) {
 				// Only process messages targeting this user (unless it's an admin listening, but here we are on the player page)
-				// Get active user ID if we fetched it
-				api.get('/me').then(me => {
-					if (msg.user_id !== me.id) return;
-					
-					if (msg.type === 'admin_override_updated') {
-						if (activeId === msg.conversation_id) {
-							adminOverride = msg.admin_override;
+				if (!userObj || msg.user_id !== userObj.id) return;
+				
+				if (msg.type === 'admin_override_updated') {
+					if (activeId === msg.conversation_id) {
+						adminOverride = msg.admin_override;
+					}
+				}
+				
+				if (msg.type === 'admin_message') {
+					// If the user is viewing this conversation, refresh messages live and mark read
+					if (activeId === msg.conversation_id) {
+						selectConversation(activeId);
+					} else {
+						// Otherwise, mark conversation as having unread messages
+						const conv = conversations.find(c => c.id === msg.conversation_id);
+						if (conv) {
+							conv.has_new_messages = true;
+							conv.unread_count = (conv.unread_count || 0) + 1;
+							conversations = conversations;
 						}
 					}
-					
-					if (msg.type === 'admin_message') {
-						// If the user is viewing this conversation, refresh messages live and mark read
-						if (activeId === msg.conversation_id) {
-							selectConversation(activeId);
-						} else {
-							// Otherwise, mark conversation as having unread messages
-							const conv = conversations.find(c => c.id === msg.conversation_id);
-							if (conv) {
-								conv.has_new_messages = true;
-								conv.unread_count = (conv.unread_count || 0) + 1;
-								conversations = conversations;
-							}
-						}
-						// Show notification
-						adminNotification = msg;
-						// Auto-dismiss after 10s
-						setTimeout(() => { if (adminNotification && adminNotification.message_id === msg.message_id) adminNotification = null; }, 10000);
+					// Show notification
+					adminNotification = msg;
+					// Auto-dismiss after 10s
+					setTimeout(() => { if (adminNotification && adminNotification.message_id === msg.message_id) adminNotification = null; }, 10000);
+				}
+				if (msg && msg.type === 'ia_message_deleted') {
+					if (activeId === msg.conversation_id && !isProcessingLocalAction) {
+						selectConversation(activeId);
 					}
-					if (msg && msg.type === 'chat_updated' && msg.role === 'bot') {
-						// Bot/AI finished writing or responded
-						if (activeId === msg.conversation_id) {
-							selectConversation(activeId);
-						} else {
-							const conv = conversations.find(c => c.id === msg.conversation_id);
-							if (conv) {
-								conv.has_new_messages = true;
-								conv.unread_count = (conv.unread_count || 0) + 1;
-								conversations = conversations;
-							}
+				}
+				if (msg && msg.type === 'chat_updated' && msg.role === 'bot') {
+					// Bot/AI finished writing or responded
+					if (activeId === msg.conversation_id) {
+						selectConversation(activeId);
+					} else {
+						const conv = conversations.find(c => c.id === msg.conversation_id);
+						if (conv) {
+							conv.has_new_messages = true;
+							conv.unread_count = (conv.unread_count || 0) + 1;
+							conversations = conversations;
 						}
 					}
-				}).catch(() => {});
-			}
-			// Auto-title arrives asynchronously via background task
-			if (msg && msg.type === 'conv_title_updated') {
-				const conv = conversations.find(c => c.id === msg.conversation_id);
-				if (conv) {
-					conv.title = msg.title;
-					conversations = conversations;
+				}
+				if (msg && msg.type === 'conv_title_updated') {
+					const conv = conversations.find(c => c.id === msg.conversation_id);
+					if (conv) {
+						conv.title = msg.title;
+						conversations = conversations;
+					}
 				}
 			}
 			// AI title suggestion result (fire-and-forget → WebSocket push)
@@ -373,8 +471,12 @@
 	});
 
 	onDestroy(() => {
+		isMounted = false;
 		if (unsub) unsub();
 		if (progressInterval) clearInterval(progressInterval);
+		if (activeChatPingInterval) clearInterval(activeChatPingInterval);
+		if (typingInterval) clearInterval(typingInterval);
+		if (pollInterval) clearInterval(pollInterval);
 	});
 
 	async function loadConversations() {
@@ -387,6 +489,8 @@
 	async function selectConversation(id, forceScroll = false) {
 		const isNew = id !== activeId;
 		activeId = id;
+		// Send immediate ping on active conversation change
+		try { api.post(`/ia/active-chat/${id}`, {}); } catch(e) {}
 		const res = await api.get(`/ia/conversations/${id}/messages`);
 		messages = res.messages;
 		usage = res.usage || { estimated_tokens: 0 };
@@ -441,8 +545,9 @@
 					// Record initial DB message count for change detection
 					const initialCount = res.messages.length;
 					// Poll for completion: check if bot message appeared in DB
-					const pollId = setInterval(async () => {
-						if (activeId !== id) { clearInterval(pollId); return; }
+					if (pollInterval) clearInterval(pollInterval);
+					pollInterval = setInterval(async () => {
+						if (activeId !== id) { clearInterval(pollInterval); pollInterval = null; return; }
 						try {
 							const fresh = await api.get(`/ia/conversations/${id}/messages`);
 							const qsNow = await api.get('/ia/queue/status');
@@ -463,7 +568,8 @@
 								}
 							}
 							if (fresh.messages.length > initialCount || !qsNow || !qsNow.status) {
-								clearInterval(pollId);
+								clearInterval(pollInterval);
+								pollInterval = null;
 								if (progressInterval) { clearInterval(progressInterval); progressInterval = null; }
 								if (typingInterval) { clearInterval(typingInterval); typingInterval = null; }
 								messages = fresh.messages;
@@ -473,7 +579,8 @@
 								scrollToBottom();
 							}
 						} catch { 
-							clearInterval(pollId); 
+							clearInterval(pollInterval); 
+							pollInterval = null;
 							if (progressInterval) { clearInterval(progressInterval); progressInterval = null; }
 							if (typingInterval) { clearInterval(typingInterval); typingInterval = null; }
 							loading = false; 
@@ -550,26 +657,47 @@
 		});
 	}
 
+	let isProcessingLocalAction = false;
+
 	async function deleteMsg(id) {
 		askConfirm($t('ai_confirm_delete_msg_title'), $t('ai_confirm_delete_msg_desc'), 'error', async () => {
-			await api.delete(`/ia/message/${id}`);
-			messages = messages.filter(m => m.id !== id);
+			isProcessingLocalAction = true;
+			try {
+				const idx = messages.findIndex(m => m.id === id);
+				if (idx === -1) return;
+				const toDelete = messages.slice(idx);
+				for (const m of toDelete) {
+					await api.delete(`/ia/message/${m.id}`);
+				}
+				
+				// If all messages after compression are deleted, automatically revert the compression
+				const remainingAfterDelete = messages.slice(0, idx).filter(m => {
+					if (m.role !== 'user' && m.role !== 'bot') return false;
+					if (!compression.compressed_at) return true;
+					const mTime = m.timestamp ? new Date(m.timestamp).getTime() : Date.now();
+					return mTime >= new Date(compression.compressed_at).getTime();
+				});
+				if (remainingAfterDelete.length === 0 && compression.mode) {
+					await api.delete(`/ia/compress/${activeId}`);
+				}
+				
+				await selectConversation(activeId);
+			} finally {
+				isProcessingLocalAction = false;
+			}
 		});
 	}
 
 	async function regenerate() {
-		askConfirm($t('ai_confirm_regen_title'), $t('ai_confirm_regen_desc'), 'warning', async () => {
-			loading = true;
-			try {
-				const res = await api.post(`/ia/regenerate/${activeId}`, {});
-				query = res.last_user_content;
-				await selectConversation(activeId);
-				await send();
-			} catch (e) {
-				alert(e.message);
-				loading = false;
-			}
-		});
+		try {
+			const res = await api.post(`/ia/regenerate/${activeId}`, {});
+			query = res.last_user_content;
+			await selectConversation(activeId);
+			await send(true);
+		} catch (e) {
+			alert(e.message);
+			loading = false;
+		}
 	}
 
 	async function editMsg(msg) {
@@ -577,11 +705,15 @@
 		editingMsgContent = msg.content;
 	}
 
-	async function saveEdit() {
+	async function saveEdit(msg) {
 		if (!editingMsgId) return;
-		await api.put(`/ia/message/${editingMsgId}`, { content: editingMsgContent });
-		editingMsgId = null;
-		await selectConversation(activeId);
+		if (editingMsgContent !== msg.content) {
+			await editAndResend();
+		} else {
+			await api.put(`/ia/message/${editingMsgId}`, { content: editingMsgContent });
+			editingMsgId = null;
+			await selectConversation(activeId);
+		}
 	}
 
 	async function cancelEdit() {
@@ -590,32 +722,56 @@
 	}
 
 	async function retryFromMsg(msg) {
-		// Delete all messages after this user message, then re-send
-		const idx = messages.findIndex(m => m.id === msg.id);
-		const toDelete = messages.slice(idx + 1);
-		for (const m of toDelete) {
-			await api.delete(`/ia/message/${m.id}`);
+		isProcessingLocalAction = true;
+		try {
+			// Delete all messages after this user message, then re-send
+			const idx = messages.findIndex(m => m.id === msg.id);
+			const toDelete = messages.slice(idx + 1);
+			for (const m of toDelete) {
+				await api.delete(`/ia/message/${m.id}`);
+			}
+			query = msg.content;
+			// Delete the original user message too (send() will re-create it)
+			await api.delete(`/ia/message/${msg.id}`);
+			await selectConversation(activeId);
+			await send();
+		} finally {
+			isProcessingLocalAction = false;
 		}
-		query = msg.content;
-		// Delete the original user message too (send() will re-create it)
-		await api.delete(`/ia/message/${msg.id}`);
-		await selectConversation(activeId);
-		await send();
 	}
 
 	async function editAndResend(msg) {
-		// Save the edit, then retry from this message
-		await api.put(`/ia/message/${editingMsgId}`, { content: editingMsgContent });
-		const idx = messages.findIndex(m => m.id === editingMsgId);
-		const toDelete = messages.slice(idx + 1);
-		for (const m of toDelete) {
-			await api.delete(`/ia/message/${m.id}`);
+		isProcessingLocalAction = true;
+		try {
+			// Save the edit, then retry from this message
+			await api.put(`/ia/message/${editingMsgId}`, { content: editingMsgContent });
+			const idx = messages.findIndex(m => m.id === editingMsgId);
+			const toDelete = messages.slice(idx + 1);
+			for (const m of toDelete) {
+				await api.delete(`/ia/message/${m.id}`);
+			}
+			query = editingMsgContent;
+			await api.delete(`/ia/message/${editingMsgId}`);
+			editingMsgId = null;
+			await selectConversation(activeId);
+			await send();
+		} finally {
+			isProcessingLocalAction = false;
 		}
-		query = editingMsgContent;
-		await api.delete(`/ia/message/${editingMsgId}`);
-		editingMsgId = null;
-		await selectConversation(activeId);
-		await send();
+	}
+
+	function autoResize(node) {
+		const resize = () => {
+			node.style.height = 'auto';
+			node.style.height = (node.scrollHeight + 4) + 'px';
+		};
+		setTimeout(resize, 0);
+		node.addEventListener('input', resize);
+		return {
+			destroy() {
+				node.removeEventListener('input', resize);
+			}
+		};
 	}
 
 	function startEditContext() {
@@ -717,17 +873,25 @@
 		}
 	}
 
-	async function send() {
+	async function send(skipSaveUser = false) {
 		if ((!query && !pendingImage) || loading || !activeId) return;
+		currentUserMsgId = null;
 
-		// Check context budget BEFORE sending — if over 85%, intercept and show compression picker
-		const nextTokens = liveTokens + Math.ceil((query || '').length / 3.5);
-		if (nextTokens > contextWindow * 0.85 && !compression.mode) {
-			// Defer the message, show compression modal
-			pendingQuery = query;
-			compressionReason = 'auto';
-			showCompressionModal = true;
-			return;
+		// Check context budget BEFORE sending — if over 85% of available chat budget, intercept
+		const queryTokens = Math.ceil((query || '').length / 3.5);
+		if (usedTokens + queryTokens > availableTokens * 0.85) {
+			if (!compression.mode) {
+				// Defer the message, show compression modal
+				pendingQuery = query;
+				compressionReason = 'auto';
+				showCompressionModal = true;
+				return;
+			} else {
+				// Auto-trigger compression using the active mode, and defer the message
+				pendingQuery = query;
+				await applyCompression(compression.mode);
+				return;
+			}
 		}
 
 		const userMsg = query || '(image)';
@@ -747,22 +911,27 @@
 			clearPendingImage();
 		}
 
-		messages = [...messages, { id: Date.now(), role: 'user', content: userMsg, image_path: imagePath }];
+		if (!skipSaveUser) {
+			messages = [...messages, { id: Date.now(), role: 'user', content: userMsg, image_path: imagePath }];
+		}
 		loading = true;
 		queued = false;
 		queuePosition = 0;
 		queueEntryId = null;
 
-		let botMsgIdx = messages.length;
-		messages = [...messages, { 
-			id: Date.now()+1, 
-			role: 'bot', 
-			content: '', 
-			think_content: '', 
-			status: 'thinking', 
-			model_info: null, 
-			active_tool: null 
-		}];
+		let botMsgIdx = -1;
+		if (!adminOverride) {
+			botMsgIdx = messages.length;
+			messages = [...messages, { 
+				id: Date.now()+1, 
+				role: 'bot', 
+				content: '', 
+				think_content: '', 
+				status: 'thinking', 
+				model_info: null, 
+				active_tool: null 
+			}];
+		}
 		autoScrollEnabled = true;
 		scrollToBottom();
 
@@ -777,112 +946,134 @@
 				body: JSON.stringify({
 					prompt: userMsg,
 					conversation_id: activeId,
-					image_path: imagePath
+					image_path: imagePath,
+					skip_save_user: skipSaveUser
 				})
 			});
 
-			const reader = response.body.getReader();
-			const decoder = new TextDecoder("utf-8");
+			if (adminOverride) {
+				// Under admin override, just add a system notification and reload
+				messages = [...messages, { role: 'system', content: $t('ai_override_message_sent', { default: '🛡️ Un administrateur gère cette conversation. Votre message a été transmis.' }), timestamp: new Date().toISOString() }];
+			} else {
+				const reader = response.body.getReader();
+				const decoder = new TextDecoder("utf-8");
+				let buffer = "";
 
-			while (true) {
-				const { value, done } = await reader.read();
-				if (done) break;
-				
-				const chunk = decoder.decode(value, { stream: true });
-				const lines = chunk.split('\n');
-				for (let line of lines) {
-					if (line.startsWith('data: ')) {
-						const dataStr = line.replace('data: ', '');
-						try {
-							const data = JSON.parse(dataStr);
-							if (data.avg_duration !== undefined) {
-								avgDuration = data.avg_duration;
-							}
-							// Model and instance metadata
-							if (data.model_info) {
-								messages[botMsgIdx].model_info = data.model_info;
-								messages = messages;
-								continue;
-							}
-							// Queue events (G-52)
-							if (data.queued) {
-								queued = true;
-								queuePosition = data.position || 1;
-								queueEstWait = data.estimated_wait || 0;
-								queueEntryId = data.entry_id || null;
-								messages[botMsgIdx].status = 'queued';
-								messages = messages;
-								continue;
-							}
-							if (data.position !== undefined && !data.done) {
-								queuePosition = data.position;
-								queueEstWait = data.estimated_wait || 0;
-								messages[botMsgIdx].status = 'queued';
-								messages = messages;
-								continue;
-							}
-							if (data.processing) {
-								queued = false;
-								queuePosition = 0;
-								messages[botMsgIdx].status = 'thinking';
-								messages = messages;
-								continue;
-							}
-							// Status updates (thinking, Qwen reasoning stream, tool execution)
-							if (data.status) {
-								messages[botMsgIdx].status = data.status;
-								if (data.status === 'tool_call') {
-									messages[botMsgIdx].active_tool = data.tool_name;
-									if (!messages[botMsgIdx].used_tools) {
-										messages[botMsgIdx].used_tools = [];
+				while (true) {
+					const { value, done } = await reader.read();
+					if (done) break;
+					
+					buffer += decoder.decode(value, { stream: true });
+					const lines = buffer.split('\n');
+					buffer = lines.pop() || "";
+					
+					for (let line of lines) {
+						if (line.startsWith('data: ')) {
+							const dataStr = line.replace('data: ', '');
+							try {
+								const data = JSON.parse(dataStr);
+								if (data.avg_duration !== undefined) {
+									avgDuration = data.avg_duration;
+								}
+								if (data.user_message_id) {
+									currentUserMsgId = data.user_message_id;
+								}
+								// Model and instance metadata
+								if (data.model_info) {
+									messages[botMsgIdx].model_info = data.model_info;
+									messages = messages;
+									continue;
+								}
+								// Queue events (G-52)
+								if (data.queued) {
+									queued = true;
+									queuePosition = data.position || 1;
+									queueEstWait = data.estimated_wait || 0;
+									queueEntryId = data.entry_id || null;
+									messages[botMsgIdx].status = 'queued';
+									messages = messages;
+									continue;
+								}
+								if (data.position !== undefined && !data.done) {
+									queuePosition = data.position;
+									queueEstWait = data.estimated_wait || 0;
+									messages[botMsgIdx].status = 'queued';
+									messages = messages;
+									messages = messages;
+									continue;
+								}
+								if (data.processing) {
+									queued = false;
+									queuePosition = 0;
+									messages[botMsgIdx].status = 'thinking';
+									messages = messages;
+									continue;
+								}
+								// Status updates (thinking, Qwen reasoning stream, tool execution)
+								if (data.status) {
+									messages[botMsgIdx].status = data.status;
+									if (data.status === 'tool_call') {
+										messages[botMsgIdx].active_tool = data.tool_name;
+										if (!messages[botMsgIdx].used_tools) {
+											messages[botMsgIdx].used_tools = [];
+										}
+										if (!messages[botMsgIdx].used_tools.includes(data.tool_name)) {
+											messages[botMsgIdx].used_tools.push(data.tool_name);
+										}
 									}
-									if (!messages[botMsgIdx].used_tools.includes(data.tool_name)) {
-										messages[botMsgIdx].used_tools.push(data.tool_name);
+									if (data.status === 'client_tool_call') {
+										messages[botMsgIdx].active_tool = data.tool_name;
+										if (!messages[botMsgIdx].used_tools) {
+											messages[botMsgIdx].used_tools = [];
+										}
+										if (!messages[botMsgIdx].used_tools.includes(data.tool_name)) {
+											messages[botMsgIdx].used_tools.push(data.tool_name);
+										}
+										runClientTool(data.tool_name, data.arguments, data.call_id);
+									}
+									if (data.status === 'thinking' && data.think_chunk) {
+										messages[botMsgIdx].think_content = (messages[botMsgIdx].think_content || '') + data.think_chunk;
+									}
+									messages = messages;
+									scrollToBottom();
+									continue;
+								}
+								// Normal token streaming
+								if (data.text) {
+									if (messages[botMsgIdx].status === 'thinking' || messages[botMsgIdx].status === 'queued') {
+										messages[botMsgIdx].status = 'generating';
+									}
+									messages[botMsgIdx].content += data.text;
+									messages = messages; // trigger Svelte reactivity
+									scrollToBottom();
+								}
+								if (data.done) {
+									messages[botMsgIdx].status = 'done';
+									if (data.meta) {
+										messages[botMsgIdx].meta = data.meta;
+									}
+									messages = messages;
+									// Update token estimate from server
+									if (data.estimated_tokens) {
+										usage = { estimated_tokens: data.estimated_tokens };
 									}
 								}
-								if (data.status === 'client_tool_call') {
-									messages[botMsgIdx].active_tool = data.tool_name;
-									if (!messages[botMsgIdx].used_tools) {
-										messages[botMsgIdx].used_tools = [];
-									}
-									if (!messages[botMsgIdx].used_tools.includes(data.tool_name)) {
-										messages[botMsgIdx].used_tools.push(data.tool_name);
-									}
-									runClientTool(data.tool_name, data.arguments, data.call_id);
-								}
-								if (data.status === 'thinking' && data.think_chunk) {
-									messages[botMsgIdx].think_content = (messages[botMsgIdx].think_content || '') + data.think_chunk;
-								}
-								messages = messages;
-								scrollToBottom();
-								continue;
-							}
-							// Normal token streaming
-							if (data.text) {
-								if (messages[botMsgIdx].status === 'thinking' || messages[botMsgIdx].status === 'queued') {
-									messages[botMsgIdx].status = 'generating';
-								}
-								messages[botMsgIdx].content += data.text;
-								messages = messages; // trigger Svelte reactivity
-								scrollToBottom();
-							}
-							if (data.done) {
-								messages[botMsgIdx].status = 'done';
-								if (data.meta) {
-									messages[botMsgIdx].meta = data.meta;
-								}
-								messages = messages;
-								// Update token estimate from server
-								if (data.estimated_tokens) {
-									usage = { estimated_tokens: data.estimated_tokens };
-								}
-							}
-						} catch (e) {}
+							} catch (e) {}
+						}
 					}
 				}
 			}
 		} catch (e) {
 			alert(e.message);
+			if (currentUserMsgId) {
+				try {
+					await api.delete(`/ia/message/${currentUserMsgId}`);
+					query = userMsg;
+				} catch (err) {
+					console.error("Failed to clean up failed message from DB:", err);
+				}
+				currentUserMsgId = null;
+			}
 		} finally {
 			loading = false;
 			queued = false;
@@ -954,7 +1145,6 @@
 						{#if compression.mode}
 							<div class="compression-badge" title="Mode de compression actif">
 								🗜️ {compression.mode}
-								<button on:click={revertCompression} class="revert-btn">×</button>
 							</div>
 						{/if}
 						<div class="rag-status">
@@ -963,9 +1153,9 @@
 					</div>
 					<div class="usage-bar mt-1">
 						<div class="flex-row justify-between">
-							<span class="text-xs text-dim">{$t("ai_label_context")} {liveTokens} / {contextWindow} tokens</span>
+							<span class="text-xs text-dim" style="white-space: nowrap;">{$t("ai_label_context")} {tokenPct}% ({usedTokens} / {availableTokens} tokens)</span>
 							{#if tokenPct > 80}
-								<span class="text-xs text-danger warning-text">{$t("ai_context_limit")}</span>
+								<span class="text-xs text-danger warning-text" style="white-space: nowrap;">{$t("ai_context_limit")}</span>
 							{/if}
 						</div>
 						<div class="progress-bg">
@@ -976,9 +1166,6 @@
 				<div class="flex-row gap-2">
 					<button class="btn-sentinel" on:click={() => { compressionReason = 'manual'; showCompressionModal = true; }} title={$t('ai_btn_context_tooltip')} disabled={iaBlocked}>
 						{$t("ai_btn_context_label")}
-					</button>
-					<button class="btn-sentinel danger" on:click={regenerate} title={$t('ai_btn_regenerate_tooltip')} disabled={iaBlocked}>
-						{$t("ai_btn_regenerate_label")}
 					</button>
 				</div>
 			</header>
@@ -1079,7 +1266,7 @@
 										{/if}
 									</summary>
 									{#if editingContext}
-										<textarea class="edit-textarea" bind:value={editContextText} rows="4"></textarea>
+										<textarea class="edit-textarea" bind:value={editContextText} use:autoResize></textarea>
 										<div class="edit-actions">
 											<button class="btn-xs-save" on:click={saveContextEdit}>✓ {$t('info_btn_save')}</button>
 											<button class="btn-xs-cancel" on:click={() => editingContext = false}>✕ {$t("info_btn_cancel")}</button>
@@ -1147,10 +1334,9 @@
 									</div>
 								{/if}
 								{#if editingMsgId === msg.id}
-									<textarea class="edit-textarea" bind:value={editingMsgContent} rows="3"></textarea>
+									<textarea class="edit-textarea" bind:value={editingMsgContent} use:autoResize></textarea>
 									<div class="edit-actions">
-										<button class="btn-xs-save" on:click={saveEdit}>✓ {$t('info_btn_save')}</button>
-										<button class="btn-xs-save accent" on:click={editAndResend}>↻ {$t('ai_resend')}</button>
+										<button class="btn-xs-save" on:click={() => saveEdit(msg)}>✓ {$t('info_btn_save')}</button>
 										<button class="btn-xs-cancel" on:click={cancelEdit}>✕</button>
 									</div>
 								{:else}
@@ -1185,18 +1371,53 @@
 						</div>
 						{#if !iaBlocked}
 							<div class="msg-actions">
-								{#if msg.role === 'user'}
-									<button class="action-btn" on:click={() => editMsg(msg)} title={$t('ai_tooltip_edit')}>✏️</button>
-									<button class="action-btn" on:click={() => retryFromMsg(msg)} title={$t('ai_tooltip_retry')}>🔄</button>
+								{#if !adminOverride}
+									{#if msg.role === 'user'}
+										<button class="action-btn" on:click={() => editMsg(msg)} title={$t('ai_tooltip_edit')}>✏️</button>
+										<button class="action-btn" on:click={() => retryFromMsg(msg)} title={$t('ai_tooltip_retry')}>🔄</button>
+									{/if}
+									{#if msg.role === 'bot' && idx === messages.length - 1}
+										<button class="action-btn" on:click={regenerate} title={$t('ai_tooltip_regenerate')}>🔄</button>
+									{/if}
 								{/if}
-								{#if msg.role === 'bot' && idx === messages.length - 1}
-									<button class="action-btn" on:click={regenerate} title={$t('ai_tooltip_regenerate')}>🔄</button>
+								{#if msg.role !== 'admin'}
+									<button class="action-btn" on:click={() => deleteMsg(msg.id)} title={$t('ai_tooltip_delete')}>🗑️</button>
 								{/if}
-								<button class="action-btn" on:click={() => deleteMsg(msg.id)} title={$t('ai_tooltip_delete')}>🗑️</button>
 							</div>
 						{/if}
 					</div>
 				{/each}
+				{#if compressionInsertIdx >= messages.length && compression.mode}
+					<div class="msg-wrapper system">
+						<div class="msg-row system">
+							<div class="avatar">🗜️</div>
+							<div class="msg-content glass context-block">
+								<details class="context-details">
+									<summary class="context-summary">
+										<span class="context-label">{$t("ai_context_compressed", { mode: compression.mode })}</span>
+										<span class="context-size">{compression.context ? Math.ceil(compression.context.length / 3.5) + ' tokens' : '⚠️ vide'}</span>
+										{#if !iaBlocked}
+											<button class="action-btn" on:click|stopPropagation={startEditContext} title={$t('ai_tooltip_edit')}>✏️</button>
+										{/if}
+									</summary>
+									{#if editingContext}
+										<textarea class="edit-textarea" bind:value={editContextText} use:autoResize></textarea>
+										<div class="edit-actions">
+											<button class="btn-xs-save" on:click={saveContextEdit}>✓ {$t('info_btn_save')}</button>
+											<button class="btn-xs-cancel" on:click={() => editingContext = false}>✕ {$t("info_btn_cancel")}</button>
+										</div>
+									{:else}
+										{#if compression.context}
+											<div class="context-text">{compression.context}</div>
+										{:else}
+											<div class="context-text" style="opacity:0.5;font-style:italic">{$t("ai_context_empty")}</div>
+										{/if}
+									{/if}
+								</details>
+							</div>
+						</div>
+					</div>
+				{/if}
 				{#if compressing}
 					<div class="msg-wrapper system">
 						<div class="msg-row system">
@@ -1268,6 +1489,9 @@
 					{:else if busyOtherConv}
 						<button class="btn-stop" type="button" on:click={async () => { await cancelQueue(); busyOtherConv = false; }} title={$t('ai_tooltip_cancel')}>{$t("ai_release")}</button>
 					{:else}
+						{#if !userObj?.is_admin && !iaBlocked && iaConfig.call_admin_button_enabled !== false && messages.some(m => m.role === 'assistant' || m.role === 'bot')}
+							<button type="button" class="btn-call-admin" title={$t('ai_call_admin_button')} on:click={checkAndOpenCallAdmin}>📣</button>
+						{/if}
 						<button class="btn-primary" type="submit" disabled={iaBlocked}>{$t("ai_btn_send")}</button>
 					{/if}
 				</div>
@@ -1290,6 +1514,31 @@
 	type={modalType} 
 	onConfirm={modalConfirmCallback} 
 />
+
+{#if showCallAdminModal}
+	<div class="call-admin-overlay" on:click|self={() => showCallAdminModal = false}>
+		<div class="call-admin-modal glass">
+			<h3>📣 {$t('ai_call_admin_modal_title')}</h3>
+			<p class="text-dim" style="font-size:0.85rem;margin:0">{$t('ai_call_admin_modal_reason')}</p>
+			<p class="text-dim" style="font-size:0.75rem;margin:0.1rem 0 0.75rem 0;color:var(--warning,#f97316)">
+				{$t('ai_call_admin_cooldown_hint', { cooldown: iaConfig.call_admin_cooldown_minutes || 30, limit: iaConfig.call_admin_daily_limit || 3 })}
+			</p>
+			<textarea
+				bind:value={callAdminReason}
+				placeholder={$t('ai_call_admin_modal_reason_placeholder')}
+				rows="4"
+				class="edit-textarea"
+				autofocus
+			></textarea>
+			<div class="flex-row" style="gap:0.5rem;margin-top:0.75rem;justify-content:flex-end">
+				<button class="btn-secondary" type="button" on:click={() => showCallAdminModal = false}>{$t('cancel')}</button>
+				<button class="btn-primary" type="button" disabled={!callAdminReason.trim() || callAdminLoading} on:click={callAdmin}>
+					{callAdminLoading ? '...' : $t('ai_call_admin_modal_submit')}
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
 
 <style>
 	.ai-page { height: calc(100vh - 4rem); gap: 2rem; align-items: stretch; }
@@ -1449,19 +1698,25 @@
 	.comp-btn.primary-outline { border-color: var(--accent); background: rgba(59, 130, 246, 0.1); }
 	.comp-btn.primary-outline:hover { background: rgba(59, 130, 246, 0.2); }
 
-	/* Inline edit */
-	.edit-textarea { width: 100%; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 8px; padding: 0.5rem; color: var(--text-main); font-size: 0.85rem; resize: vertical; font-family: inherit; }
+	.edit-textarea { width: 100%; display: block; box-sizing: border-box; margin: 0.5rem 0 0 0; background: var(--bg-primary); border: 1px solid var(--glass-border); border-radius: 8px; padding: 0.5rem; color: var(--text-main); font-size: 0.85rem; resize: vertical; font-family: inherit; }
 	.edit-actions { display: flex; gap: 0.3rem; margin-top: 0.3rem; }
 	.btn-xs-save { background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.3); color: #10b981; border-radius: 6px; padding: 0.2rem 0.6rem; font-size: 0.7rem; font-weight: 700; cursor: pointer; }
 	.btn-xs-save:hover { background: rgba(16,185,129,0.3); }
 	.btn-xs-save.accent { background: rgba(59,130,246,0.15); border-color: rgba(59,130,246,0.3); color: var(--accent); }
 	.btn-xs-save.accent:hover { background: rgba(59,130,246,0.3); }
 	.btn-xs-cancel { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2); color: var(--danger); border-radius: 6px; padding: 0.2rem 0.5rem; font-size: 0.7rem; cursor: pointer; }
+	.btn-xs-cancel:hover { background: rgba(239,68,68,0.2); }
+	
+	/* High contrast overrides inside the blue user message bubble */
+	.user .btn-xs-save { background: #10b981; border-color: #10b981; color: white; }
+	.user .btn-xs-save:hover { background: #059669; border-color: #059669; }
+	.user .btn-xs-cancel { background: #ef4444; border-color: #ef4444; color: white; }
+	.user .btn-xs-cancel:hover { background: #dc2626; border-color: #dc2626; }
 
 	/* Compressed context block */
 	.msg-wrapper.system { align-self: stretch; max-width: 100%; }
 	.msg-row.system { flex-direction: row; }
-	.context-block { background: rgba(16,185,129,0.06) !important; border-color: rgba(16,185,129,0.2) !important; border-radius: 12px !important; }
+	.context-block { width: 100%; background: rgba(16,185,129,0.06) !important; border-color: rgba(16,185,129,0.2) !important; border-radius: 12px !important; }
 	.context-details { width: 100%; }
 	.context-details summary { list-style: none; cursor: pointer; }
 	.context-details summary::-webkit-details-marker { display: none; }
@@ -1602,11 +1857,11 @@
 	.markdown-body :global(pre code) { background: none; padding: 0; font-size: 0.85em; }
 	.markdown-body :global(blockquote) { border-left: 3px solid var(--accent); margin: 0.5em 0; padding: 0.3em 0.8em; opacity: 0.85; }
 	.markdown-body :global(table) { border-collapse: collapse; width: 100%; margin: 0.5em 0; font-size: 0.88em; }
-	.markdown-body :global(th), .markdown-body :global(td) { border: 1px solid rgba(255,255,255,0.12); padding: 0.35em 0.6em; text-align: left; }
-	.markdown-body :global(th) { background: rgba(255,255,255,0.05); font-weight: 600; }
+	.markdown-body :global(th), .markdown-body :global(td) { border: 1px solid var(--glass-border); padding: 0.35em 0.6em; text-align: left; }
+	.markdown-body :global(th) { background: var(--surface-sunken); font-weight: 600; }
 	.markdown-body :global(a) { color: var(--accent); text-decoration: underline; }
 	.markdown-body :global(strong) { font-weight: 600; }
-	.markdown-body :global(hr) { border: none; border-top: 1px solid rgba(255,255,255,0.1); margin: 0.6em 0; }
+	.markdown-body :global(hr) { border: none; border-top: 1px solid var(--glass-border); margin: 0.6em 0; }
 	.user-text { white-space: pre-wrap; }
 	.msg-content { white-space: normal; }
 
@@ -1655,6 +1910,12 @@
 	.chat-textarea::placeholder { color: var(--text-muted); }
 	.btn-attach { background: var(--hover-tint); border: 1px solid var(--glass-border); color: var(--text-dim); width: 40px; height: 40px; border-radius: 8px; cursor: pointer; font-size: 1.1rem; display: flex; align-items: center; justify-content: center; transition: all 0.2s; flex-shrink: 0; }
 	.btn-attach:hover { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+	.btn-call-admin { background: var(--hover-tint); border: 1px solid var(--glass-border); color: var(--text-dim); width: 40px; height: 40px; border-radius: 8px; cursor: pointer; font-size: 1.1rem; display: flex; align-items: center; justify-content: center; transition: all 0.2s; flex-shrink: 0; }
+	.btn-call-admin:hover { background: rgba(251,146,60,0.15); border-color: #f97316; color: #f97316; }
+	.call-admin-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 1000; display: flex; align-items: center; justify-content: center; }
+	.call-admin-modal { background: var(--bg-secondary); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); padding: 1.5rem; width: min(480px, 90vw); display: flex; flex-direction: column; gap: 0.5rem; }
+	.call-admin-modal h3 { margin: 0 0 0.25rem; font-size: 1.05rem; color: var(--text-main); }
+
 
 	/* Admin takeover banner */
 	.admin-takeover-banner {

@@ -252,12 +252,21 @@
 		auto_moderation_enabled: true,
 		temperature: 0.7, context_window: 4096,
 		ollama_instances: [], embedding_model: '',
-		tool_calling_mode: 'stream_intercept'
+		tool_calling_mode: 'stream_intercept',
+		call_admin_enabled: true,
+		call_admin_button_enabled: true,
+		call_admin_cooldown_minutes: 30,
+		call_admin_daily_limit: 3,
+		call_admin_global_hourly_limit: 15,
+		rag_suggestion_enabled: true
 	};
 	let newDocContent = '';
 	let instanceStatuses = [];
 	let knowledgeDocs = [];
 	let editingDocId = null;
+	let adminCalls = [];
+	let ragSuggestions = [];
+	let ragAnswers = {}; // suggestion_id -> answer text
 	let editDocContent = '';
 	let editDocLoading = false;
 	let editDocSaving = false;
@@ -290,12 +299,31 @@
 			return;
 		}
 
-		loadData();
+		await loadData();
+
+		// Parse query params to select specific tab and conversation
+		const params = new URLSearchParams(window.location.search);
+		const tabParam = params.get('tab');
+		const convParam = params.get('conv');
+		if (tabParam) {
+			activeTab = tabParam;
+		}
+		if (activeTab === 'conversations' && convParam) {
+			const convId = parseInt(convParam, 10);
+			if (!isNaN(convId)) {
+				selectAdminConv(convId);
+			}
+		}
 		// Listen for user messages during admin override to auto-refresh conv view
 		wsUnsub = wsMessageStore.subscribe(msg => {
 			if (!msg) return;
 			if (msg.type === 'ia_queue_update') {
 				loadQueueAdmin();
+			}
+			if (msg.type === 'ia_message_deleted') {
+				if (adminActiveConvId === msg.conversation_id) {
+					selectAdminConv(adminActiveConvId);
+				}
 			}
 			if (msg.type === 'user_message_during_override') {
 				if (adminActiveConvId === msg.conversation_id) {
@@ -409,6 +437,8 @@
 			loadInstanceStatuses();
 		} catch {}
 		loadKnowledge();
+		loadAdminCalls();
+		loadRagSuggestions();
 		loadQueueAdmin();
 		try {
 			const stats = await api.get('/dashboard/stats');
@@ -527,6 +557,43 @@
 		try {
 			knowledgeDocs = await api.get('/ia/knowledge');
 		} catch { knowledgeDocs = []; }
+	}
+
+	async function loadAdminCalls() {
+		try { adminCalls = await api.get('/ia/admin-calls?status=pending'); } catch { adminCalls = []; }
+	}
+	async function resolveAdminCall(id, note = '') {
+		try {
+			await api.put(`/ia/admin-calls/${id}/resolve`, { note });
+			await loadAdminCalls();
+			toast('Demande marquée comme résolue', 'success');
+		} catch(e) { toast(e.message || 'Erreur', 'error'); }
+	}
+	async function dismissAdminCall(id) {
+		try {
+			await api.put(`/ia/admin-calls/${id}/dismiss`, {});
+			await loadAdminCalls();
+		} catch(e) { toast(e.message || 'Erreur', 'error'); }
+	}
+
+	async function loadRagSuggestions() {
+		try { ragSuggestions = await api.get('/ia/rag-suggestions?status=pending'); } catch { ragSuggestions = []; }
+	}
+	async function approveRagSuggestion(id) {
+		const answer = (ragAnswers[id] || '').trim();
+		if (!answer) { toast('Saisissez une réponse avant d\'approuver', 'error'); return; }
+		try {
+			await api.put(`/ia/rag-suggestions/${id}/approve`, { answer });
+			await loadRagSuggestions();
+			delete ragAnswers[id];
+			toast('Suggestion approuvée et injectée dans la base RAG', 'success');
+		} catch(e) { toast(e.message || 'Erreur', 'error'); }
+	}
+	async function rejectRagSuggestion(id) {
+		try {
+			await api.put(`/ia/rag-suggestions/${id}/reject`, {});
+			await loadRagSuggestions();
+		} catch(e) { toast(e.message || 'Erreur', 'error'); }
 	}
 
 	async function deleteKnowledge(docId) {
@@ -2080,6 +2147,9 @@
 										</button>
 									{/each}
 								</div>
+								<span class="range-hint text-xs" style="color: var(--text-muted); font-size: 0.65rem; display: block; margin-top: 0.25rem; line-height: 1.2;">
+									{$t('admin_settings_ai_context_hint')}
+								</span>
 							</div>
 
 							<!-- Embedding Model -->
@@ -2120,6 +2190,46 @@
 									<span class="toggle-slider"></span>
 								</label>
 							</div>
+
+							<!-- Appel Admin Outil -->
+							<div style="display: flex; align-items: center; justify-content: space-between; padding-top: 0.4rem; border-top: 1px solid var(--glass-border);">
+								<span class="compact-label" style="font-weight: 600;">{$t('ai_setting_call_admin_tool_enabled')}</span>
+								<label class="toggle-switch-mini">
+									<input type="checkbox" bind:checked={iaConfig.call_admin_enabled} on:change={saveIAConfig} />
+									<span class="toggle-slider"></span>
+								</label>
+							</div>
+
+							<!-- Appel Admin Bouton Manuel -->
+							<div style="display: flex; align-items: center; justify-content: space-between; padding-top: 0.4rem; border-top: 1px solid var(--glass-border);">
+								<span class="compact-label" style="font-weight: 600;">{$t('ai_setting_call_admin_btn_enabled')}</span>
+								<label class="toggle-switch-mini">
+									<input type="checkbox" bind:checked={iaConfig.call_admin_button_enabled} on:change={saveIAConfig} />
+									<span class="toggle-slider"></span>
+								</label>
+							</div>
+							{#if iaConfig.call_admin_enabled || iaConfig.call_admin_button_enabled}
+							<div style="display: flex; flex-direction: column; gap: 0.4rem; padding: 0.5rem 0;">
+								<label class="compact-label">{$t('ai_setting_call_admin_cooldown')}
+									<input type="number" min="1" max="1440" bind:value={iaConfig.call_admin_cooldown_minutes} on:change={saveIAConfig} style="width:70px;margin-left:0.5rem;" />
+								</label>
+								<label class="compact-label">{$t('ai_setting_call_admin_daily')}
+									<input type="number" min="1" max="50" bind:value={iaConfig.call_admin_daily_limit} on:change={saveIAConfig} style="width:70px;margin-left:0.5rem;" />
+								</label>
+								<label class="compact-label">{$t('ai_setting_call_admin_global_hourly')}
+									<input type="number" min="1" max="500" bind:value={iaConfig.call_admin_global_hourly_limit} on:change={saveIAConfig} style="width:70px;margin-left:0.5rem;" />
+								</label>
+							</div>
+							{/if}
+
+							<!-- Suggestions RAG -->
+							<div style="display: flex; align-items: center; justify-content: space-between; padding-top: 0.4rem; border-top: 1px solid var(--glass-border);">
+								<span class="compact-label" style="font-weight: 600;">{$t('ai_setting_rag_suggestion_enabled')}</span>
+								<label class="toggle-switch-mini">
+									<input type="checkbox" bind:checked={iaConfig.rag_suggestion_enabled} on:change={saveIAConfig} />
+									<span class="toggle-slider"></span>
+								</label>
+							</div>
 						</div>
 					</div>
 
@@ -2148,6 +2258,7 @@
 							</div>
 						</div>
 					</div>
+
 
 					<!-- RAG -->
 					<div class="sc glass sc-full">
@@ -2383,6 +2494,85 @@
 					{/if}
 				</section>
 			</div>
+		<!-- Appels Admin & Suggestions RAG -->
+		<div style="display:flex;gap:1.5rem;flex-wrap:wrap;padding:1rem 0">
+			<!-- Appels Admin IA -->
+			<section class="list glass" style="flex:1;min-width:300px">
+				<div class="list-header">
+					<div class="flex-row items-center gap-3">
+						<div class="list-icon">📣</div>
+						<div>
+							<h2 style="margin:0">{$t('ai_admin_calls_title')}</h2>
+							<span class="text-xs text-dim">{$t('ia_queue_admin_badge', { waiting: adminCalls.length })}</span>
+						</div>
+					</div>
+					<div style="display:flex;gap:0.5rem;align-items:center">
+						{#if adminCalls.length > 0}<span class="badge-count" style="background:#f97316">{adminCalls.length}</span>{/if}
+						<button class="btn-icon-sm" on:click={loadAdminCalls} title="Rafraîchir">🔄</button>
+					</div>
+				</div>
+				<div class="item-list" style="display:flex;flex-direction:column;gap:0.75rem;padding:0.75rem">
+					{#if adminCalls.length === 0}
+						<p class="text-dim" style="text-align:center;padding:1rem 0">{$t('ai_admin_calls_empty')}</p>
+					{:else}
+						{#each adminCalls as call}
+							<div class="admin-item-card" style="flex-direction:column;align-items:flex-start;gap:0.5rem;border-left:3px solid #f97316">
+								<div style="display:flex;justify-content:space-between;width:100%;align-items:center">
+									<span style="font-weight:600;color:#f97316">📣 {call.username}</span>
+									<span class="text-dim" style="font-size:0.75rem">{new Date(call.created_at).toLocaleString('fr-FR',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'})}</span>
+								</div>
+								<p style="margin:0;font-size:0.9rem;line-height:1.4">{call.question}</p>
+								{#if call.conversation_id}
+									<button class="btn-secondary" style="font-size:0.8rem;padding:0.2rem 0.6rem" on:click={() => selectAdminConv(call.conversation_id)}>💬 Voir la conversation</button>
+								{/if}
+								<div style="display:flex;gap:0.4rem">
+									<button class="btn-primary" style="font-size:0.8rem;padding:0.25rem 0.75rem" on:click={() => resolveAdminCall(call.id)}>{$t('ai_call_admin_resolve_btn')}</button>
+									<button class="btn-secondary" style="font-size:0.8rem;padding:0.25rem 0.75rem" on:click={() => dismissAdminCall(call.id)}>{$t('ai_call_admin_dismiss_btn')}</button>
+								</div>
+							</div>
+						{/each}
+					{/if}
+				</div>
+			</section>
+			<!-- Suggestions RAG -->
+			<section class="list glass" style="flex:1;min-width:300px">
+				<div class="list-header">
+					<div class="flex-row items-center gap-3">
+						<div class="list-icon">💡</div>
+						<div>
+							<h2 style="margin:0">{$t('ai_rag_suggestions_title')}</h2>
+							<span class="text-xs text-dim">{$t('ia_queue_admin_badge', { waiting: ragSuggestions.length })}</span>
+						</div>
+					</div>
+					<div style="display:flex;gap:0.5rem;align-items:center">
+						{#if ragSuggestions.length > 0}<span class="badge-count">{ragSuggestions.length}</span>{/if}
+						<button class="btn-icon-sm" on:click={loadRagSuggestions} title="Rafraîchir">🔄</button>
+					</div>
+				</div>
+				<div class="item-list" style="display:flex;flex-direction:column;gap:0.75rem;padding:0.75rem">
+					{#if ragSuggestions.length === 0}
+						<p class="text-dim" style="text-align:center;padding:1rem 0">{$t('ai_rag_suggestions_empty')}</p>
+					{:else}
+						{#each ragSuggestions as s}
+							<div class="admin-item-card" style="flex-direction:column;align-items:flex-start;gap:0.5rem;border-left:3px solid var(--accent)">
+								<div style="display:flex;justify-content:space-between;width:100%;align-items:center">
+									<span style="font-weight:600">{s.username} — <em style="color:var(--accent)">{s.category}</em></span>
+									<span class="text-dim" style="font-size:0.75rem">{new Date(s.created_at).toLocaleString('fr-FR',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'})}</span>
+								</div>
+								<p style="margin:0;font-size:0.9rem;font-weight:500;line-height:1.4">{s.question}</p>
+								<p style="margin:0;font-size:0.8rem;color:var(--text-dim);line-height:1.3">{s.context}</p>
+								<textarea bind:value={ragAnswers[s.id]} placeholder={$t('ai_rag_answer_placeholder')} rows="3" style="width:100%;box-sizing:border-box;font-size:0.85rem;resize:vertical;" class="edit-textarea"></textarea>
+								<div style="display:flex;gap:0.4rem">
+									<button class="btn-primary" style="font-size:0.8rem;padding:0.25rem 0.75rem" on:click={() => approveRagSuggestion(s.id)}>{$t('ai_rag_approve_btn')}</button>
+									<button class="btn-secondary" style="font-size:0.8rem;padding:0.25rem 0.75rem" on:click={() => rejectRagSuggestion(s.id)}>{$t('ai_rag_reject_btn')}</button>
+								</div>
+							</div>
+						{/each}
+					{/if}
+				</div>
+			</section>
+		</div>
+
 		{:else if activeTab === 'awards'}
 			<div class="admin-grid">
 				<!-- Explanation and Sync controls -->

@@ -215,3 +215,35 @@ class Award(Base):
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
     user = relationship("User", backref="awards")
+
+class AdminCallRequest(Base):
+    """Demandes d'escalade vers un admin déclenchées par l'IA ou manuellement."""
+    __tablename__ = "admin_call_requests"
+    id               = Column(Integer, primary_key=True, index=True)
+    user_id          = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
+    conversation_id  = Column(Integer, ForeignKey("conversations.id", ondelete="SET NULL"), nullable=True)
+    reason           = Column(Text)           # Explication concise du problème
+    question         = Column(Text)           # Reformulation structurée de la demande non résolue
+    source           = Column(String, default="manual")  # "manual" | "ia"
+    status           = Column(String, default="pending")  # pending / resolved / dismissed
+    created_at       = Column(DateTime, default=datetime.datetime.utcnow)
+    resolved_at      = Column(DateTime, nullable=True)
+    resolved_by      = Column(Integer, ForeignKey("users.id"), nullable=True)
+    resolution_note  = Column(Text, nullable=True)
+
+class RagSuggestion(Base):
+    """Suggestions de contenu RAG générées par l'IA en cas de lacune de connaissance."""
+    __tablename__ = "rag_suggestions"
+    id               = Column(Integer, primary_key=True, index=True)
+    user_id          = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
+    conversation_id  = Column(Integer, ForeignKey("conversations.id", ondelete="SET NULL"), nullable=True)
+    question         = Column(Text)           # Question structurée générée par l'IA
+    context          = Column(Text)           # Ce que l'utilisateur a demandé (texte brut)
+    category         = Column(String, nullable=True)  # technique / règles / logistique / autre
+    similarity_hash  = Column(String, nullable=True, index=True)  # MD5 normalisé pour dédoublonnage
+    status           = Column(String, default="pending")  # pending / approved / rejected
+    created_at       = Column(DateTime, default=datetime.datetime.utcnow)
+    approved_at      = Column(DateTime, nullable=True)
+    approved_by      = Column(Integer, ForeignKey("users.id"), nullable=True)
+    approved_content = Column(Text, nullable=True)   # Réponse admin avant injection RAG
+

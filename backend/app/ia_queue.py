@@ -525,7 +525,7 @@ class IAQueueManager:
                             used_tools.append(fn_name)
                         t_tool_start = time.time()
                         try:
-                            result = await execute_tool(fn_name, fn_args, user_id=entry.user_id)
+                            result = await execute_tool(fn_name, fn_args, user_id=entry.user_id, conversation_id=entry.conversation_id or 0)
                         except Exception as e:
                             result = json.dumps({"error": str(e)})
                         tool_time += (time.time() - t_tool_start)
@@ -555,12 +555,12 @@ class IAQueueManager:
                         "temperature": req_data.get("options", {}).get("temperature", 0.2),
                         "max_tokens": req_data.get("options", {}).get("num_predict", 4096),
                     }
-                    if "tools" in req_data and tool_round == 1:
+                    if "tools" in req_data and tool_round < max_tool_rounds:
                         stream_req["tools"] = req_data["tools"]
                 else:
                     url = f"{ollama_host.rstrip('/')}/api/chat"
                     stream_req = {**req_data, "messages": tool_messages, "stream": True}
-                    if tool_round > 1:
+                    if tool_round >= max_tool_rounds:
                         stream_req.pop("tools", None)
 
                 # Variables to control streaming chunk buffer for XML detection
@@ -698,8 +698,9 @@ class IAQueueManager:
                                 if response_time == 0.0:
                                     response_time = max(0.1, (time.time() - t_start) - tool_time)
                                 break
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            import traceback
+                            traceback.print_exc()
 
                 # If a tool call was detected, execute it and do another round
                 has_tool_call = bool(native_tool_calls) or detected_xml_call
@@ -751,7 +752,7 @@ class IAQueueManager:
                             used_tools.append(fn_name)
                         t_tool_start = time.time()
                         try:
-                            result = await execute_tool(fn_name, fn_args, user_id=entry.user_id)
+                            result = await execute_tool(fn_name, fn_args, user_id=entry.user_id, conversation_id=entry.conversation_id or 0)
                         except Exception as e:
                             result = json.dumps({"error": str(e)})
                         tool_time += (time.time() - t_tool_start)
@@ -984,6 +985,7 @@ class IAQueueManager:
         model = payload["model"]
         excerpt = payload["excerpt"]
         conv_id = payload["conversation_id"]
+        num_ctx = payload.get("num_ctx")
         try:
             is_openai = is_openai_host(ollama_host)
             prompt = _build_title_prompt(excerpt)
@@ -998,11 +1000,14 @@ class IAQueueManager:
                 }
             else:
                 url = f"{ollama_host.rstrip('/')}/api/generate"
+                options = {"temperature": 0.2, "num_predict": 30}
+                if num_ctx:
+                    options["num_ctx"] = num_ctx
                 req_json = {
                     "model": model,
                     "prompt": prompt,
                     "stream": False,
-                    "options": {"temperature": 0.2, "num_predict": 30}
+                    "options": options
                 }
 
             timeout = httpx.Timeout(connect=10.0, read=120.0, write=10.0, pool=5.0)
@@ -1027,7 +1032,8 @@ class IAQueueManager:
                             await ws_manager.broadcast({
                                 "type": "conv_title_updated",
                                 "conversation_id": conv_id,
-                                "title": title_text
+                                "title": title_text,
+                                "user_id": payload.get("user_id")
                             })
         except Exception as e:
             print(f"[IA Queue] Auto-title generation error: {e}", flush=True)

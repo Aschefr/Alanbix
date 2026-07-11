@@ -82,4 +82,13 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 ---
 
+## 7. Outils IA (Tool Calling) & Langue
+
+**Utiliser l'anglais pour la définition et l'usage des outils IA, mais répondre dans la langue de l'utilisateur.**
+
+- Les définitions d'outils, descriptions, schémas de paramètres et messages de retour JSON des outils dans `ia_tools.py` doivent être rédigés en **anglais**.
+- L'IA doit toujours formuler sa réponse finale dans la langue de l'utilisateur (ex. français) et ne pas conserver la langue d'usage des outils ou de sa réflexion interne.
+
+---
+
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.

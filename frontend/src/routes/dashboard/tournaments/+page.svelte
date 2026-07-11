@@ -839,7 +839,7 @@
 	</aside>
 
 	<!-- Main Detail -->
-	<main class="t-detail" class:collapsed-layout={selected?.status === 'RUNNING' && !showDetails}>
+	<main class="t-detail" class:collapsed-layout={selected?.status !== 'OPEN' && !showDetails}>
 		{#if selected}
 			<!-- Hero -->
 			<div class="detail-hero" style="background-image: url({selectedGame?.image_url || ''})">
@@ -1140,7 +1140,7 @@
 
 				{/if}
 
-			<div class="tournament-split-layout" class:split-active={showLiveStandings && liveStandings.length > 0} class:split-fill={selected?.status === 'RUNNING' && !showDetails}>
+			<div class="tournament-split-layout" class:split-active={showLiveStandings && liveStandings.length > 0} class:split-fill={selected?.status !== 'OPEN' && !showDetails}>
 			<!-- Bracket -->
 				<div class="bracket-section glass" class:bracket-expanded={hasBracket}>
 					<div class="section-title">

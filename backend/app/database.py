@@ -18,11 +18,11 @@ engine = create_engine(
     echo=False
 )
 
-# Enable WAL mode for concurrent read/write safety
+# Disable WAL mode on Windows Docker mounts due to mmap/shared-memory limitations on host mounts
 @event.listens_for(engine, "connect")
 def set_sqlite_pragma(dbapi_conn, connection_record):
     cursor = dbapi_conn.cursor()
-    cursor.execute("PRAGMA journal_mode=WAL")
+    cursor.execute("PRAGMA journal_mode=DELETE")
     cursor.execute("PRAGMA busy_timeout=5000")
     cursor.execute("PRAGMA foreign_keys=ON")
     cursor.close()
