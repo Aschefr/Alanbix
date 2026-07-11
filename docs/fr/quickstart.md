@@ -38,12 +38,18 @@ Si vous souhaitez modifier le code ou exécuter le projet en local avec le recha
    git clone https://github.com/Aschefr/Alanbix.git
    cd Alanbix
    ```
-2. Lancez les conteneurs de développement (Frontend sur `8080`, Backend sur `8000`) :
+2. **(Optionnel - Pour l'accès réseau LAN)** : Si vous souhaitez y accéder depuis d'autres appareils de votre réseau local :
+   * Copiez le fichier de configuration d'exemple :
+     ```bash
+     cp .env.example .env
+     ```
+   * Ouvrez `.env` et définissez `LAN_IP` avec l'adresse IP locale de votre machine hôte (ex: `LAN_IP=192.168.1.50`).
+3. Lancez les conteneurs :
    ```bash
    docker compose up -d --build
    ```
-3. L'application est alors accessible sur :
-   * **Interface Web (Frontend)** : `http://localhost:41481`
+4. L'application est alors accessible sur :
+   * **Interface Web (Frontend)** : `http://localhost:41481` (ou `http://<IP_DE_VOTRE_PC>:41481` depuis le LAN)
    * **Documentation de l'API (Backend)** : `http://localhost:8000/docs`
 
 ---

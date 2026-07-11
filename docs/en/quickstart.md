@@ -38,12 +38,18 @@ If you wish to modify the code or run the project locally with Hot Module Replac
    git clone https://github.com/Aschefr/Alanbix.git
    cd Alanbix
    ```
-2. Launch the development containers (Frontend on `8080`, Backend on `8000`):
+2. **(Optional - For LAN network access)**: If you want to access the app from other devices on your local network:
+   * Copy the example environment file:
+     ```bash
+     cp .env.example .env
+     ```
+   * Open `.env` and set `LAN_IP` to your server's local IP address (e.g., `LAN_IP=192.168.1.50`).
+3. Launch the development containers:
    ```bash
    docker compose up -d --build
    ```
-3. The application is then accessible at:
-   * **Web Interface (Frontend)**: `http://localhost:41481`
+4. The application is then accessible at:
+   * **Web Interface (Frontend)**: `http://localhost:41481` (or `http://<YOUR_LAN_IP>:41481` from the LAN)
    * **API Documentation (Backend)**: `http://localhost:8000/docs`
 
 ---

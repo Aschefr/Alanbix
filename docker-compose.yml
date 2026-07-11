@@ -5,7 +5,8 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - OLLAMA_HOST=http://host.docker.internal:11434
+      - OLLAMA_HOST=${OLLAMA_HOST:-http://host.docker.internal:11434}
+      - CORS_ORIGINS=${CORS_ORIGINS:-*}
     volumes:
       - ./backend:/app
       - ./data:/app/data
@@ -20,8 +21,8 @@ services:
     ports:
       - "41481:5173"
     environment:
-      - VITE_API_URL=http://localhost:8000
-      - VITE_SSR_API_URL=http://backend:8000
+      - VITE_API_URL=${VITE_API_URL:-http://localhost:8000}
+      - VITE_SSR_API_URL=${VITE_SSR_API_URL:-http://backend:8000}
     volumes:
       - ./frontend:/app
       - /app/node_modules

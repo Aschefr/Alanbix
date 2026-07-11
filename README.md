@@ -167,11 +167,23 @@ Configurez les instances Ollama, ajustez les limites de contexte et gérez les p
 
 ### Installation (Serveur ou Local)
 
-```bash
-git clone https://github.com/Aschefr/Alanbix.git
-cd Alanbix
-docker compose up -d --build
-```
+1. Clonez le dépôt et accédez au dossier :
+   ```bash
+   git clone https://github.com/Aschefr/Alanbix.git
+   cd Alanbix
+   ```
+
+2. *(Optionnel - Pour l'accès réseau LAN)* : Si vous souhaitez y accéder depuis d'autres appareils de votre réseau local :
+   * Copiez le fichier de configuration d'exemple :
+     ```bash
+     cp .env.example .env
+     ```
+   * Ouvrez `.env` et remplacez `localhost` par l'IP locale de votre machine hôte (ex: `LAN_IP=192.168.1.50`).
+
+3. Lancez les conteneurs :
+   ```bash
+   docker compose up -d --build
+   ```
 
 ### Installation (Unraid OS)
 
