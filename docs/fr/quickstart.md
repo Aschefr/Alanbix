@@ -83,8 +83,22 @@ Alanbix dispose d'un modèle officiel pour Unraid :
 2. Cliquez sur **Add Container**.
 3. Dans le menu déroulant **Template**, sélectionnez **User Templates > Alanbix**.
 4. *(Si le modèle n'apparaît pas)* : Copiez le fichier `unraid-template.xml` présent à la racine du dépôt Git dans le répertoire `/boot/config/plugins/dockerMan/templates-user/alanbix.xml` de votre clé USB Unraid.
-5. Renseignez le port (par défaut `41481`) et le chemin d'accès `appdata` pour la persistance des données.
 6. Cliquez sur **Apply** pour démarrer le conteneur !
+
+#### 🔍 (Optionnel) Configurer SearXNG sur Unraid
+Si vous hébergez Alanbix sur Unraid et souhaitez activer la recherche automatique de jaquettes :
+1. Allez dans l'onglet **Apps** (Community Applications) d'Unraid, recherchez **SearXNG** et installez-le.
+2. Éditez le fichier de configuration de SearXNG dans votre dossier appdata d'Unraid :
+   Généralement accessible sur le partage à `/mnt/user/appdata/searxng/settings.yml`.
+3. Assurez-vous d'activer le format JSON en ajoutant `json` aux formats de recherche :
+   ```yaml
+   search:
+     formats:
+       - html
+       - json
+   ```
+4. Redémarrez le conteneur SearXNG depuis l'interface Unraid.
+5. Dans le panneau d'administration d'Alanbix, renseignez l'URL de votre API SearXNG (ex : `http://<IP_DE_VOTRE_UNRAID>:<PORT_SEARXNG>`).
 
 ---
 

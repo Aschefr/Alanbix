@@ -83,8 +83,22 @@ Alanbix has an official Unraid template:
 2. Click on **Add Container**.
 3. In the **Template** dropdown, select **User Templates > Alanbix**.
 4. *(If the template does not appear)*: Copy the `unraid-template.xml` file located at the root of the Git repository into the `/boot/config/plugins/dockerMan/templates-user/alanbix.xml` directory of your Unraid USB flash drive.
-5. Enter the port (default `41481`) and the `appdata` path for data persistence.
 6. Click **Apply** to start the container!
+
+#### 🔍 (Optional) Setting up SearXNG on Unraid
+If you run Alanbix on Unraid and want game cover search:
+1. Go to the **Apps** tab (Community Applications) on Unraid, search for **SearXNG** and install it.
+2. Edit the SearXNG configuration file located on your Unraid appdata share:
+   Usually at `/mnt/user/appdata/searxng/settings.yml`.
+3. Ensure JSON output is enabled by adding `json` to the search formats:
+   ```yaml
+   search:
+     formats:
+       - html
+       - json
+   ```
+4. Restart the SearXNG container in Unraid.
+5. In the Alanbix Admin Dashboard, set the SearXNG URL to `http://<YOUR_UNRAID_IP>:<SEARXNG_PORT>`.
 
 ---
 
