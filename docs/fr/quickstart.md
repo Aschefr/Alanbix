@@ -28,6 +28,28 @@ docker run -d \
 * L'application tourne sur le port unique `41481` (qui sert à la fois le frontend et le backend).
 * Les données de la base SQLite et des téléversements de fichiers sont conservées dans le volume `alanbix_data`.
 
+#### 🔍 (Optionnel) Déployer SearXNG pour la recherche de jaquettes
+Si vous utilisez le déploiement Docker Hub (Option A) et souhaitez bénéficier de la recherche automatique de jaquettes de jeux, vous devez lancer une instance SearXNG à côté :
+1. Créez un fichier `settings.yml` en activant le format de sortie JSON (requis par le backend) :
+   ```yaml
+   use_default_settings: true
+   server:
+     secret_key: "remplacez_ceci_par_une_cle_securisee_aleatoire"
+   search:
+     formats:
+       - html
+       - json
+   ```
+2. Lancez le conteneur SearXNG :
+   ```bash
+   docker run -d \
+     -p 8888:8080 \
+     -v /chemin/vers/votre/settings.yml:/etc/searxng/settings.yml \
+     --name alanbix_searxng \
+     searxng/searxng:latest
+   ```
+3. Dans le panneau d'administration d'Alanbix (**Administration > Paramètres**), renseignez l'URL de votre API SearXNG (ex: `http://<IP_DE_VOTRE_SERVEUR>:8888`).
+
 ---
 
 ### Option B : Clonage du Dépôt (Pour le Développement et la modification du code)

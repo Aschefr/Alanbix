@@ -28,6 +28,28 @@ docker run -d \
 * The application runs on the single port `41481` (which serves both the frontend and the backend).
 * SQLite database files and uploads are stored in the persistent volume `alanbix_data`.
 
+#### 🔍 (Optional) Deploying SearXNG for Game Cover Search
+If you want to use the automated game cover search feature with the Docker Hub image, you must run a SearXNG instance alongside it:
+1. Create a `settings.yml` file with JSON format enabled (required by the backend):
+   ```yaml
+   use_default_settings: true
+   server:
+     secret_key: "change_this_to_a_secure_random_string"
+   search:
+     formats:
+       - html
+       - json
+   ```
+2. Start the SearXNG container:
+   ```bash
+   docker run -d \
+     -p 8888:8080 \
+     -v /path/to/settings.yml:/etc/searxng/settings.yml \
+     --name alanbix_searxng \
+     searxng/searxng:latest
+   ```
+3. In the Alanbix Admin Dashboard (**Administration > Settings**), enter your SearXNG URL (e.g. `http://<YOUR_SERVER_IP>:8888`).
+
 ---
 
 ### Option B: Clone the Repository (For Development and Code Changes)
