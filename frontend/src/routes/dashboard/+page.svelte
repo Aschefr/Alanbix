@@ -322,6 +322,14 @@
 		setTimeout(() => focusAdvancedRound(), 150);
 	}
 
+	let overlayMouseDown = false;
+
+	function handleKeydown(e) {
+		if (showPlayerStatsModal && e.key === 'Escape') {
+			showPlayerStatsModal = false;
+		}
+	}
+
 	function portal(node) {
 		document.body.appendChild(node);
 		return {
@@ -354,6 +362,8 @@
 		}
 	}
 </script>
+
+<svelte:window on:keydown={handleKeydown} />
 
 <div class="hq-dashboard">
 	<!-- Top Command Bar -->
@@ -824,8 +834,11 @@
 </div>
 
 {#if showPlayerStatsModal}
+	<!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
 	<!-- svelte-ignore a11y-click-events-have-key-events -->
-	<div class="player-modal-overlay" use:portal on:click={() => showPlayerStatsModal = false}>
+	<div class="modal-overlay-global" use:portal role="dialog" aria-modal="true"
+		on:mousedown={(e) => { if (e.target === e.currentTarget) overlayMouseDown = true; }} 
+		on:mouseup={(e) => { if (overlayMouseDown && e.target === e.currentTarget) showPlayerStatsModal = false; overlayMouseDown = false; }}>
 		<div class="player-modal-card glass" on:click|stopPropagation>
 			<header class="player-modal-header">
 				<div class="player-modal-profile">
@@ -1085,19 +1098,6 @@
 	.team-av { background: rgba(139,92,246,0.2) !important; color: #a78bfa !important; border-color: rgba(139,92,246,0.3) !important; }
 
 	/* Player Stats Modal Styles */
-	.player-modal-overlay {
-		position: fixed;
-		top: 0;
-		left: 0;
-		width: 100vw;
-		height: 100vh;
-		background: rgba(0, 0, 0, 0.82);
-		z-index: 10000;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		animation: fadeIn 0.2s ease-out forwards;
-	}
 	.player-modal-card {
 		width: 90%;
 		max-width: 800px;

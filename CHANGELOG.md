@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.29.1] - 2026-07-11
+
+### Features & Refactoring — Modal Dialog Styling and Accessibility (a11y)
+
+- **Modal Styles Unification**: Centralized CSS properties for modals, overlay dialogs, and cards into the global stylesheet (`app.css`) using `.modal-overlay-global` and `.modal-card-global` to reduce redundancy.
+- **Keyboard Accessibility (a11y)**: Added global keyboard event listeners for the `Escape` key to instantly dismiss all active modal dialogs, alongside ARIA accessibility attributes (`role="dialog"`, `aria-modal="true"`, `aria-label="Close"`).
+- **Accidental Close Protection**: Upgraded all modal overlays to track `mousedown` and `mouseup` events separately. This prevents overlays from closing automatically when text selections drag out of the modal card area.
+
+---
+
 ## [1.29.0] - 2026-07-11
 
 ### Features & Bug Fixes — Tournament Registration, UI Layout, and Team Selection

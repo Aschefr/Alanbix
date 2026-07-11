@@ -136,20 +136,30 @@
 			}
 		};
 	}
+
+	function handleKeydown(e) {
+		if (show && e.key === 'Escape') {
+			closeModal();
+		}
+	}
 </script>
+
+<svelte:window on:keydown={handleKeydown} />
 
 <svelte:head>
 	<link rel="stylesheet" href="https://unpkg.com/easymde/dist/easymde.min.css" />
 </svelte:head>
 
 {#if show}
-	<div class="edit-overlay" use:portal
+	<!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
+	<!-- svelte-ignore a11y-click-events-have-key-events -->
+	<div class="modal-overlay-global" use:portal role="dialog" aria-modal="true"
 		on:mousedown={(e) => { if (e.target === e.currentTarget) overlayMouseDown = true; }} 
 		on:mouseup={(e) => { if (overlayMouseDown && e.target === e.currentTarget) closeModal(); overlayMouseDown = false; }}>
-		<div class="edit-modal glass" on:click|stopPropagation>
+		<div class="modal-card-global glass" on:click|stopPropagation>
 			<header class="edit-modal-header">
 				<h3>➕ {$t("admin_games_add") || 'Ajouter un Jeu'}</h3>
-				<button class="close-btn" on:click={closeModal}>✕</button>
+				<button class="close-btn" on:click={closeModal} aria-label="Fermer">✕</button>
 			</header>
 			<div class="edit-modal-body">
 				<div class="flex-col gap-4">
@@ -222,8 +232,6 @@
 
 <style>
 	.flex-col { display: flex; flex-direction: column; gap: 0.8rem; }
-	.edit-overlay { position: fixed; inset: 0; background: var(--overlay-bg); backdrop-filter: blur(4px); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 2rem; }
-	.edit-modal { width: 580px; max-width: 100%; max-height: 85vh; overflow-y: auto; border-radius: 20px; border: 1px solid var(--glass-border); box-shadow: 0 25px 60px rgba(0,0,0,0.3); background: var(--bg-secondary) !important; }
 	.edit-modal-header { display: flex; justify-content: space-between; align-items: center; padding: 1.2rem 1.5rem; border-bottom: 1px solid var(--glass-border); background: rgba(59, 130, 246, 0.08); }
 	.edit-modal-header h3 { font-size: 1rem; margin: 0; }
 	.close-btn { background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 1.2rem; padding: 0.2rem; }

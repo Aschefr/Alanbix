@@ -127,6 +127,22 @@
 		};
 	}
 
+	function handleKeydown(e) {
+		if (e.key === 'Escape') {
+			if (showPromptModal) {
+				showPromptModal = false;
+			} else if (editingPlayer) {
+				editingPlayer = null;
+			} else if (resetPwdPlayer) {
+				resetPwdPlayer = null;
+			} else if (editingGame) {
+				editingGame = null;
+			} else if (gameToDeleteWithTournaments) {
+				gameToDeleteWithTournaments = null;
+			}
+		}
+	}
+
 	let showModal = false;
 	let modalTitle = '';
 	let modalMessage = '';
@@ -1177,6 +1193,8 @@
 	<link rel="stylesheet" href="https://unpkg.com/easymde/dist/easymde.min.css" />
 </svelte:head>
 
+<svelte:window on:keydown={handleKeydown} />
+
 {#if authorized}
 <div class="admin-view">
 	<header class="flex-row justify-between items-center">
@@ -1344,13 +1362,15 @@
 
 		<!-- Delete Game Double Confirmation Modal -->
 		{#if gameToDeleteWithTournaments}
-			<div class="edit-overlay" use:portal
+			<!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
+			<!-- svelte-ignore a11y-click-events-have-key-events -->
+			<div class="modal-overlay-global" use:portal role="dialog" aria-modal="true"
 				on:mousedown={(e) => { if (e.target === e.currentTarget) overlayMouseDown = true; }} 
 				on:mouseup={(e) => { if (overlayMouseDown && e.target === e.currentTarget) gameToDeleteWithTournaments = null; overlayMouseDown = false; }}>
-				<div class="edit-modal glass" on:click|stopPropagation style="max-width: 480px">
+				<div class="modal-card-global glass" on:click|stopPropagation style="max-width: 480px">
 					<header class="edit-modal-header danger-zone" style="border-bottom: 1px solid rgba(239, 68, 68, 0.25);">
 						<h3>⚠️ Suppression Critique</h3>
-						<button class="close-btn" on:click={() => gameToDeleteWithTournaments = null}>✕</button>
+						<button class="close-btn" on:click={() => gameToDeleteWithTournaments = null} aria-label="Fermer">✕</button>
 					</header>
 					<div class="edit-modal-body">
 						<div class="flex-col gap-3">
@@ -1400,13 +1420,15 @@
 
 		<!-- Edit Game Modal -->
 		{#if editingGame}
-			<div class="edit-overlay" use:portal
+			<!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
+			<!-- svelte-ignore a11y-click-events-have-key-events -->
+			<div class="modal-overlay-global" use:portal role="dialog" aria-modal="true"
 				on:mousedown={(e) => { if (e.target === e.currentTarget) overlayMouseDown = true; }} 
 				on:mouseup={(e) => { if (overlayMouseDown && e.target === e.currentTarget) editingGame = null; overlayMouseDown = false; }}>
-				<div class="edit-modal glass" on:click|stopPropagation>
+				<div class="modal-card-global glass" on:click|stopPropagation>
 					<header class="edit-modal-header">
 						<h3>✏️ Éditer — {editingGame.name}</h3>
-						<button class="close-btn" on:click={() => editingGame = null}>✕</button>
+						<button class="close-btn" on:click={() => editingGame = null} aria-label="Fermer">✕</button>
 					</header>
 					<div class="edit-modal-body">
 						<div class="flex-col gap-4">
@@ -1577,13 +1599,15 @@
 			</div>
 
 			{#if editingPlayer}
-				<div class="edit-overlay" use:portal
+				<!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
+				<!-- svelte-ignore a11y-click-events-have-key-events -->
+				<div class="modal-overlay-global" use:portal role="dialog" aria-modal="true"
 					on:mousedown={(e) => { if (e.target === e.currentTarget) overlayMouseDown = true; }} 
 					on:mouseup={(e) => { if (overlayMouseDown && e.target === e.currentTarget) editingPlayer = null; overlayMouseDown = false; }}>
-					<div class="edit-modal glass" on:click|stopPropagation style="max-width: 400px">
+					<div class="modal-card-global glass" on:click|stopPropagation style="max-width: 400px">
 						<header class="edit-modal-header">
 							<h3>✏️ Modifier — {editingPlayer.username}</h3>
-							<button class="close-btn" on:click={() => editingPlayer = null}>✕</button>
+							<button class="close-btn" on:click={() => editingPlayer = null} aria-label="Fermer">✕</button>
 						</header>
 						<div class="edit-modal-body">
 							{#if editingPlayer.avatar_url}
@@ -1628,13 +1652,15 @@
 			{/if}
 
 			{#if resetPwdPlayer}
-				<div class="edit-overlay" use:portal
+				<!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
+				<!-- svelte-ignore a11y-click-events-have-key-events -->
+				<div class="modal-overlay-global" use:portal role="dialog" aria-modal="true"
 					on:mousedown={(e) => { if (e.target === e.currentTarget) overlayMouseDown = true; }} 
 					on:mouseup={(e) => { if (overlayMouseDown && e.target === e.currentTarget) resetPwdPlayer = null; overlayMouseDown = false; }}>
-					<div class="edit-modal glass" on:click|stopPropagation style="max-width: 400px">
+					<div class="modal-card-global glass" on:click|stopPropagation style="max-width: 400px">
 						<header class="edit-modal-header">
 							<h3>🔑 Réinitialiser MDP — {resetPwdPlayer.username}</h3>
-							<button class="close-btn" on:click={() => resetPwdPlayer = null}>✕</button>
+							<button class="close-btn" on:click={() => resetPwdPlayer = null} aria-label="Fermer">✕</button>
 						</header>
 						<div class="edit-modal-body">
 							<div class="edit-field">

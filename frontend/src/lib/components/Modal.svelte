@@ -5,6 +5,7 @@
 	export let type = "info"; // info, success, error
 	export let onConfirm = null;
 
+	let overlayMouseDown = false;
 
 	function close() {
 		show = false;
@@ -13,6 +14,13 @@
 	function handleConfirm() {
 		if (onConfirm) onConfirm();
 		close();
+	}
+
+	// Escape key listener for accessibility
+	function handleKeydown(e) {
+		if (show && e.key === 'Escape') {
+			close();
+		}
 	}
 
 	// Svelte portal action to avoid transform containing block clipping (G-49 / scroll fix)
@@ -28,12 +36,18 @@
 	}
 </script>
 
+<svelte:window on:keydown={handleKeydown} />
+
 {#if show}
-	<div class="modal-overlay animate-in" use:portal on:click={close}>
-		<div class="modal-card glass" on:click|stopPropagation>
+	<!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
+	<!-- svelte-ignore a11y-click-events-have-key-events -->
+	<div class="modal-overlay-global" use:portal role="dialog" aria-modal="true"
+		on:mousedown={(e) => { if (e.target === e.currentTarget) overlayMouseDown = true; }}
+		on:mouseup={(e) => { if (overlayMouseDown && e.target === e.currentTarget) close(); overlayMouseDown = false; }}>
+		<div class="modal-card-global glass" style="width: 400px;" on:click|stopPropagation>
 			<header class="modal-header {type}">
 				<h3>{title}</h3>
-				<button class="close-btn" on:click={close}>✕</button>
+				<button class="close-btn" on:click={close} aria-label="Fermer">✕</button>
 			</header>
 			<div class="modal-body">
 				<p>{message}</p>
@@ -52,18 +66,6 @@
 
 
 <style>
-	.modal-overlay {
-		position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-		background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(4px);
-		z-index: 9999; display: flex; align-items: center; justify-content: center;
-		padding: 2rem;
-	}
-	.modal-card { 
-		width: 400px; max-width: 100%; padding: 0; overflow: hidden; 
-		border: 1px solid var(--glass-border); border-radius: 20px;
-		box-shadow: 0 20px 50px rgba(0,0,0,0.5);
-	}
-
 	.modal-header { padding: 1rem 1.5rem; display: flex; justify-content: space-between; align-items: center; }
 	.modal-header.success { background: rgba(16, 185, 129, 0.2); color: #10b981; }
 	.modal-header.error { background: rgba(239, 68, 68, 0.2); color: var(--danger); }
@@ -74,3 +76,4 @@
 	
 	.close-btn { background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 1.2rem; }
 </style>
+

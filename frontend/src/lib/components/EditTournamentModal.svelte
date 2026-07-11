@@ -11,6 +11,7 @@
 	let editConfig = {};
 	let lastTournamentId = null;
 	let lastShow = false;
+	let overlayMouseDown = false;
 
 	$: if (tournament && (tournament.id !== lastTournamentId || (show && !lastShow))) {
 		editConfig = {
@@ -53,6 +54,12 @@
 		dispatch('save', { editConfig });
 	}
 
+	function handleKeydown(e) {
+		if (show && e.key === 'Escape') {
+			close();
+		}
+	}
+
 	function portal(node) {
 		document.body.appendChild(node);
 		return {
@@ -65,9 +72,15 @@
 	}
 </script>
 
+<svelte:window on:keydown={handleKeydown} />
+
 {#if show && tournament}
-	<div class="edit-overlay" use:portal on:click={close}>
-		<div class="edit-modal glass" on:click|stopPropagation>
+	<!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
+	<!-- svelte-ignore a11y-click-events-have-key-events -->
+	<div class="modal-overlay-global" use:portal role="dialog" aria-modal="true"
+		on:mousedown={(e) => { if (e.target === e.currentTarget) overlayMouseDown = true; }} 
+		on:mouseup={(e) => { if (overlayMouseDown && e.target === e.currentTarget) close(); overlayMouseDown = false; }}>
+		<div class="modal-card-global glass" on:click|stopPropagation>
 			<header class="edit-modal-header">
 				<div class="header-title-wrapper">
 					<span class="header-emoji">✏️</span>
@@ -259,40 +272,6 @@
 {/if}
 
 <style>
-	.edit-overlay {
-		position: fixed;
-		inset: 0;
-		background: rgba(0, 0, 0, 0.45);
-		backdrop-filter: blur(8px);
-		-webkit-backdrop-filter: blur(8px);
-		z-index: 9999;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		padding: 1.5rem;
-		animation: modalFadeIn 0.2s ease-out forwards;
-	}
-	@keyframes modalFadeIn {
-		from { opacity: 0; }
-		to { opacity: 1; }
-	}
-	.edit-modal {
-		width: 580px;
-		max-width: 100%;
-		max-height: 85vh;
-		border-radius: 16px;
-		border: 1px solid var(--glass-border);
-		box-shadow: 0 30px 70px rgba(0, 0, 0, 0.45);
-		background: var(--bg-primary);
-		display: flex;
-		flex-direction: column;
-		overflow: hidden;
-		animation: modalSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-	}
-	@keyframes modalSlideUp {
-		from { transform: translateY(20px) scale(0.97); }
-		to { transform: translateY(0) scale(1); }
-	}
 	.edit-modal-header {
 		display: flex;
 		justify-content: space-between;
