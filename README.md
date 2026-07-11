@@ -240,6 +240,7 @@ Alanbix/
 │   ├── static/           # Polices, images de jeux
 │   └── Dockerfile
 ├── docker-compose.yml    # Orchestration Docker
+├── .env.example          # Modèle de configuration réseau/LAN
 ├── VERSION               # Version SemVer
 └── cahier_des_charges.yaml  # Spécifications complètes du projet
 ```
