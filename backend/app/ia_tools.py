@@ -512,7 +512,7 @@ TOOL_DEFINITIONS = [
         "type": "function",
         "function": {
             "name": "call_admin",
-            "description": "Call a human administrator in emergency when you cannot answer the player's request with your available knowledge or tools, or when the situation requires human intervention (technical failure, unresolved conflict, ambiguous rule, organizational issue). DO NOT use if you already have the answer. An admin will be notified in real-time. Make sure to respond to the user in their language.",
+            "description": "Call a human administrator in emergency when you cannot answer the player's request with your available knowledge or tools, or when the situation requires human intervention (technical failure, unresolved conflict, ambiguous rule, organizational issue). DO NOT use if you already have the answer. An admin will be notified in real-time. Make sure to respond to the user in their language. IMPORTANT: This tool can fail due to user cooldown (spam protection) or limits. If the returned JSON contains an 'error' or 'error_code', the administrator WAS NOT notified. You MUST explicitly inform the user that the admin could not be contacted due to cooldown/limits and that they should try again later. NEVER claim the request was transmitted if an error is returned.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -533,7 +533,7 @@ TOOL_DEFINITIONS = [
         "type": "function",
         "function": {
             "name": "suggest_rag_entry",
-            "description": "Submit a suggestion for a knowledge base entry when you cannot find the answer to a question, OR when an interesting/important solution has been found for a problem and deserves to be documented to help other players in the future. This helps administrators enrich the knowledge base. Make sure to respond to the user in their language.",
+            "description": "Submit a suggestion for a knowledge base entry when you cannot find the answer to a question, OR when an interesting/important solution has been found for a problem, OR when general information/facts about the LAN room, venue, or infrastructure should be documented to help other players in the future (e.g. toilet door is broken, coffee machine location). This helps administrators enrich the knowledge base. Make sure to respond to the user in their language.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -2186,6 +2186,18 @@ async def _tool_call_admin(db, models, args: dict, user_id: int, conversation_id
 
     db.commit()
 
+    from .websockets import manager as ws_manager
+    async def run_broadcast():
+        await ws_manager.broadcast({"type": "admin_calls_updated"})
+        await ws_manager.broadcast({"type": "notification_new"})
+        
+    import asyncio
+    try:
+        loop = asyncio.get_running_loop()
+        loop.create_task(run_broadcast())
+    except RuntimeError:
+        asyncio.run(run_broadcast())
+
     return json.dumps({
         "success": True,
         "message": "A human administrator has been notified of your request. They will reply to you as soon as possible in this conversation or in person."
@@ -2238,6 +2250,7 @@ async def _tool_suggest_rag_entry(db, models, args: dict, user_id: int, conversa
         similarity_hash=similarity_hash
     )
     db.add(suggestion)
+    db.flush()
 
     # Notifier les admins (non prioritaire)
     user = db.query(models.User).filter(models.User.id == user_id).first()
@@ -2249,11 +2262,23 @@ async def _tool_suggest_rag_entry(db, models, args: dict, user_id: int, conversa
             type="system",
             title=f"💡 Suggestion RAG — {category.capitalize()}",
             content=f"{username} a soumis une question sans réponse : {question}",
-            metadata_json={"category": category, "context": context[:300]}
+            metadata_json={"category": category, "context": context[:300], "rag_suggestion_id": suggestion.id}
         )
         db.add(notif)
 
     db.commit()
+
+    from .websockets import manager as ws_manager
+    async def run_broadcast():
+        await ws_manager.broadcast({"type": "rag_suggestions_updated"})
+        await ws_manager.broadcast({"type": "notification_new"})
+        
+    import asyncio
+    try:
+        loop = asyncio.get_running_loop()
+        loop.create_task(run_broadcast())
+    except RuntimeError:
+        asyncio.run(run_broadcast())
 
     return json.dumps({
         "success": True,

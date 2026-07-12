@@ -1000,5 +1000,6 @@
     "ai_call_admin_err_disabled": "The call admin button has been disabled by the administrator.",
     "ai_call_admin_err_cooldown": "You have already called an admin recently. Please wait another {minutes_left} minute(s).",
     "ai_call_admin_err_daily_limit": "Daily call admin limit reached ({limit}/day). Try again tomorrow.",
-    "ai_call_admin_err_global_limit": "The system is temporarily saturated with admin calls. Try again in a few minutes."
+    "ai_call_admin_err_global_limit": "The system is temporarily saturated with admin calls. Try again in a few minutes.",
+    "ai_setting_call_admin_antispam_section_title": "Anti-spam limits (Button & AI Tool)"
 }

@@ -70,6 +70,10 @@
 			} else {
 				goto(`/dashboard/ai?conv=${n.metadata.conversation_id}`);
 			}
+		} else if (n.metadata?.rag_suggestion_id || (n.title && n.title.includes('Suggestion RAG'))) {
+			if (userObj?.is_admin) {
+				goto(`/dashboard/admin?tab=conversations&scroll_to=rag-suggestions-section`);
+			}
 		}
 	}
 
@@ -180,7 +184,7 @@
 						<p class="notif-content">{n.content}</p>
 						<div class="notif-footer-row">
 							<span class="notif-time">{timeAgo(n.created_at, $currentLang)}</span>
-							{#if n.metadata?.tournament_id || n.metadata?.conversation_id}
+							{#if n.metadata?.tournament_id || n.metadata?.conversation_id || n.metadata?.rag_suggestion_id || (n.title && n.title.includes('Suggestion RAG'))}
 								<button class="action-link-btn" on:click|stopPropagation={() => handleActionClick(n)}>
 									➡️ {$t('tourneys_btn_show_details')}
 								</button>

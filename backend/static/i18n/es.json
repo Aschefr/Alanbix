@@ -1000,5 +1000,6 @@
     "ai_call_admin_err_disabled": "El botón de llamada al administrador ha sido desactivado por el administrador.",
     "ai_call_admin_err_cooldown": "Ya has llamado a un administrador recientemente. Por favor espera {minutes_left} minuto(s) más.",
     "ai_call_admin_err_daily_limit": "Límite diario de llamadas al administrador alcanzado ({limit}/día). Inténtalo de nuevo mañana.",
-    "ai_call_admin_err_global_limit": "El sistema está temporalmente saturado de llamadas al administrador. Inténtalo de nuevo en unos minutos."
+    "ai_call_admin_err_global_limit": "El sistema está temporalmente saturado de llamadas al administrador. Inténtalo de nuevo en unos minutos.",
+    "ai_setting_call_admin_antispam_section_title": "Límites anti-spam (Botón y Herramienta IA)"
 }

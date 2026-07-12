@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.30.2] - 2026-07-12
+
+### Features & Bug Fixes — RAG Vectorization, LLM Rate Limit Context, and Notifications Sync
+
+- **RAG Auto-Vectorization**: Modified `approve_rag_suggestion` to lookup the correct active Ollama instance dynamically instead of using localhost default. Added real-time refresh sync on Svelte UI using `knowledge_updated` WS events.
+- **LLM Rate Limit Context Injection**: Added system prompt restrictions in `stream_query` detailing active `call_admin` cooldown/limits, allowing local and remote LLM models to know rate limits beforehand instead of generating false promises or contradicting themselves.
+- **WebSocket Broadcast Simplification**: Simplified `_tool_call_admin` and `_tool_suggest_rag_entry` WebSocket broadcast tasks to use a single global `"notification_new"` event, avoiding database session context expiration (`DetachedInstanceError`).
+- **Notification Details Navigation**: Added Action detail redirect buttons on RAG notifications, routing administrators directly to the `Conversations IA` tab (`tab=conversations`) and automatically scrolling to target elements.
+
 ## [1.30.1] - 2026-07-12
 
 ### Bug Fixes & Improvements — Tournament Scoring System

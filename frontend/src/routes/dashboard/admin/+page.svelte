@@ -305,6 +305,8 @@
 		const params = new URLSearchParams(window.location.search);
 		const tabParam = params.get('tab');
 		const convParam = params.get('conv');
+		const subtabParam = params.get('subtab');
+		const scrollToParam = params.get('scroll_to');
 		if (tabParam) {
 			activeTab = tabParam;
 		}
@@ -314,9 +316,29 @@
 				selectAdminConv(convId);
 			}
 		}
+		if (activeTab === 'settings' && subtabParam) {
+			settingsSubTab = subtabParam;
+		}
+		if (scrollToParam) {
+			setTimeout(() => {
+				const el = document.getElementById(scrollToParam);
+				if (el) {
+					el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+				}
+			}, 300);
+		}
 		// Listen for user messages during admin override to auto-refresh conv view
 		wsUnsub = wsMessageStore.subscribe(msg => {
 			if (!msg) return;
+			if (msg.type === 'admin_calls_updated') {
+				loadAdminCalls();
+			}
+			if (msg.type === 'rag_suggestions_updated') {
+				loadRagSuggestions();
+			}
+			if (msg.type === 'knowledge_updated') {
+				loadKnowledge();
+			}
 			if (msg.type === 'ia_queue_update') {
 				loadQueueAdmin();
 			}
@@ -2209,16 +2231,24 @@
 								</label>
 							</div>
 							{#if iaConfig.call_admin_enabled || iaConfig.call_admin_button_enabled}
-							<div style="display: flex; flex-direction: column; gap: 0.4rem; padding: 0.5rem 0;">
-								<label class="compact-label">{$t('ai_setting_call_admin_cooldown')}
-									<input type="number" min="1" max="1440" bind:value={iaConfig.call_admin_cooldown_minutes} on:change={saveIAConfig} style="width:70px;margin-left:0.5rem;" />
-								</label>
-								<label class="compact-label">{$t('ai_setting_call_admin_daily')}
-									<input type="number" min="1" max="50" bind:value={iaConfig.call_admin_daily_limit} on:change={saveIAConfig} style="width:70px;margin-left:0.5rem;" />
-								</label>
-								<label class="compact-label">{$t('ai_setting_call_admin_global_hourly')}
-									<input type="number" min="1" max="500" bind:value={iaConfig.call_admin_global_hourly_limit} on:change={saveIAConfig} style="width:70px;margin-left:0.5rem;" />
-								</label>
+							<div style="padding: 0.6rem; margin-top: 0.4rem; background: rgba(255, 255, 255, 0.03); border: 1px dashed var(--glass-border); border-radius: 4px; display: flex; flex-direction: column; gap: 0.5rem;">
+								<span class="compact-label" style="font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);">
+									{$t('ai_setting_call_admin_antispam_section_title')}
+								</span>
+								<div style="display: flex; flex-direction: column; gap: 0.4rem;">
+									<label class="compact-label" style="display: flex; align-items: center; justify-content: space-between;">
+										<span>{$t('ai_setting_call_admin_cooldown')}</span>
+										<input type="number" min="1" max="1440" bind:value={iaConfig.call_admin_cooldown_minutes} on:change={saveIAConfig} style="width:70px;" />
+									</label>
+									<label class="compact-label" style="display: flex; align-items: center; justify-content: space-between;">
+										<span>{$t('ai_setting_call_admin_daily')}</span>
+										<input type="number" min="1" max="50" bind:value={iaConfig.call_admin_daily_limit} on:change={saveIAConfig} style="width:70px;" />
+									</label>
+									<label class="compact-label" style="display: flex; align-items: center; justify-content: space-between;">
+										<span>{$t('ai_setting_call_admin_global_hourly')}</span>
+										<input type="number" min="1" max="500" bind:value={iaConfig.call_admin_global_hourly_limit} on:change={saveIAConfig} style="width:70px;" />
+									</label>
+								</div>
 							</div>
 							{/if}
 
@@ -2535,7 +2565,7 @@
 				</div>
 			</section>
 			<!-- Suggestions RAG -->
-			<section class="list glass" style="flex:1;min-width:300px">
+			<section id="rag-suggestions-section" class="list glass" style="flex:1;min-width:300px">
 				<div class="list-header">
 					<div class="flex-row items-center gap-3">
 						<div class="list-icon">💡</div>

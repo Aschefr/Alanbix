@@ -884,6 +884,60 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
     
     # Consolidate all system messages into a single system prompt to prevent template/parsing issues in local models
     system_parts = [system_prompt, user_context]
+
+    # Inject call_admin restriction status if currently limited / on cooldown
+    try:
+        import datetime as dt
+        cooldown_min = int(ia_cfg.get("call_admin_cooldown_minutes", 30))
+        daily_limit = int(ia_cfg.get("call_admin_daily_limit", 3))
+        global_hourly_limit = int(ia_cfg.get("call_admin_global_hourly_limit", 15))
+        now = dt.datetime.utcnow()
+        
+        # User cooldown
+        cutoff_cooldown = now - dt.timedelta(minutes=cooldown_min)
+        recent = db.query(models.AdminCallRequest).filter(
+            models.AdminCallRequest.user_id == user.id,
+            models.AdminCallRequest.created_at >= cutoff_cooldown
+        ).first()
+        
+        # User daily limit
+        cutoff_day = now - dt.timedelta(hours=24)
+        daily_count = db.query(models.AdminCallRequest).filter(
+            models.AdminCallRequest.user_id == user.id,
+            models.AdminCallRequest.created_at >= cutoff_day
+        ).count()
+        
+        # Global hourly limit
+        cutoff_hour = now - dt.timedelta(hours=1)
+        global_count = db.query(models.AdminCallRequest).filter(
+            models.AdminCallRequest.created_at >= cutoff_hour
+        ).count()
+        
+        cooldown_reasons = []
+        if not ia_cfg.get("call_admin_enabled", True):
+            cooldown_reasons.append("The admin call tool is currently disabled by configuration.")
+        elif recent:
+            minutes_left = cooldown_min - int((now - recent.created_at).total_seconds() / 60)
+            minutes_left = max(1, minutes_left)
+            cooldown_reasons.append(f"The player is currently on cooldown. They must wait {minutes_left} more minute(s) before a new request can be transmitted.")
+        elif daily_count >= daily_limit:
+            cooldown_reasons.append(f"Daily limit of admin calls reached ({daily_limit}/day) for this player.")
+        elif global_count >= global_hourly_limit:
+            cooldown_reasons.append("The system is temporarily saturated with admin calls globally.")
+            
+        if cooldown_reasons:
+            reasons_str = "\n".join(f"- {r}" for r in cooldown_reasons)
+            tool_restrictions = (
+                "=== TOOL RESTRICTIONS (CRITICAL) ===\n"
+                "The `call_admin` tool is CURRENTLY BLOCKED for this user due to the following spam/limit rule:\n"
+                f"{reasons_str}\n\n"
+                "Do NOT invoke the `call_admin` tool. Directly and politely explain to the player (in their language, e.g. French) "
+                "that you cannot contact the administrators right now due to anti-spam/frequency limits, "
+                "and ask them to wait."
+            )
+            system_parts.append(tool_restrictions)
+    except Exception as e:
+        print(f"[Error checking cooldown context] {e}")
     if conv.compressed_context:
         system_parts.append(f"=== Contexte Compressé ===\n{conv.compressed_context}")
     if rag_context:
@@ -1510,6 +1564,7 @@ async def resolve_admin_call(call_id: int, payload: dict, db: Session = Depends(
     call.resolved_at = datetime.utcnow()
     call.resolution_note = payload.get("note", "")
     db.commit()
+    await ws_manager.broadcast({"type": "admin_calls_updated"})
     return {"status": "ok"}
 
 @router.put("/admin-calls/{call_id}/dismiss")
@@ -1523,6 +1578,7 @@ async def dismiss_admin_call(call_id: int, db: Session = Depends(database.get_db
     call.resolved_by = user.id
     call.resolved_at = datetime.utcnow()
     db.commit()
+    await ws_manager.broadcast({"type": "admin_calls_updated"})
     return {"status": "ok"}
 
 
@@ -1568,7 +1624,9 @@ async def approve_rag_suggestion(suggestion_id: int, payload: dict, db: Session 
     
     # Embed and store in KnowledgeBase
     from ..ia_utils import get_embedding
-    embedding = await get_embedding(content)
+    instance = await pick_instance(db)
+    host = instance["url"] if instance else get_effective_config(db).get('ollama_host', 'http://localhost:11434')
+    embedding = await get_embedding(content, ollama_host=host)
     import json as _json
     kb_entry = models.KnowledgeBase(
         content=content,
@@ -1582,6 +1640,8 @@ async def approve_rag_suggestion(suggestion_id: int, payload: dict, db: Session 
     suggestion.approved_at = datetime.utcnow()
     suggestion.approved_content = answer
     db.commit()
+    await ws_manager.broadcast({"type": "rag_suggestions_updated"})
+    await ws_manager.broadcast({"type": "knowledge_updated"})
     return {"status": "ok", "message": "Suggestion approuvée et injectée dans la base RAG."}
 
 @router.put("/rag-suggestions/{suggestion_id}/reject")
@@ -1595,4 +1655,5 @@ async def reject_rag_suggestion(suggestion_id: int, db: Session = Depends(databa
     suggestion.approved_by = user.id
     suggestion.approved_at = datetime.utcnow()
     db.commit()
+    await ws_manager.broadcast({"type": "rag_suggestions_updated"})
     return {"status": "ok"}
