@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.31.0] - 2026-07-12
+
+### Features & Bug Fixes — Performance Optimizations, Unread Messages Separator, and Theme-Aware Scroll to Bottom Button
+
+- **Performance Optimizations**: Resolved severe waterfall load patterns in the dashboard and tournament detail pages by wrapping concurrent API requests in Svelte components with `Promise.all()`. Implemented in-memory caching for i18n database endpoints and eliminated N+1 database queries on tournament standings calculations and dashboard statistics, significantly boosting page loading speed and database concurrency.
+- **Unread Message Indicators**: Integrated visual unread separator lines ("New messages") across the entire messaging ecosystem, including player-to-player direct messages, team/inter-team group channels, player AI chat, and admin AI conversations. The separator accurately highlights where a conversation continued since the last time it was viewed.
+- **Theme-Aware Scroll to Bottom Button**: Added a floating quick scroll button inside chat windows, dynamically adjusting to light/dark themes using the application's CSS design tokens (`--glass-bg`, `--glass-border`, `--text-main`, `--glass-shadow` and `--hover-tint`) to ensure optimal contrast and premium appearance.
+- **Backend Read-State Integration**: Updated `GET /api/ia/conversations/{conv_id}/messages`, `GET /api/ia/admin/conversations/{conv_id}/messages`, `GET /api/players/messages/{peer_id}`, and `GET /api/players/group/channel/{channel_key}` endpoints to capture and return the `last_read_message_id` before committing updates to the database.
+
 ## [1.30.2] - 2026-07-12
 
 ### Features & Bug Fixes — RAG Vectorization, LLM Rate Limit Context, and Notifications Sync

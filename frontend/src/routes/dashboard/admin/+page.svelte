@@ -1059,7 +1059,12 @@
 	let adminConvInfo = null;
 	let adminInterveneText = '';
 	let adminChatContainer = null;
+	let adminLastReadMessageId = null;
+	let adminFirstUnreadIdx = -1;
+	let adminShowScrollToBottom = false;
+
 	let adminPendingImage = null;
+
 	let adminImagePreview = '';
 	let adminFileInput = null;
 
@@ -1097,6 +1102,13 @@
 		if (adminChatContainer) adminChatContainer.scrollTop = adminChatContainer.scrollHeight;
 	}
 
+	function handleAdminChatScroll() {
+		if (!adminChatContainer) return;
+		adminShowScrollToBottom = adminChatContainer.scrollTop + adminChatContainer.clientHeight < adminChatContainer.scrollHeight - 300;
+	}
+
+
+
 	async function loadAdminConversations() {
 		try {
 			const fresh = await api.get('/ia/admin/conversations');
@@ -1113,6 +1125,7 @@
 	}
 
 	async function selectAdminConv(id) {
+		const isNew = id !== adminActiveConvId;
 		adminActiveConvId = id;
 		// Immediately clear unread badge for instant visual feedback
 		adminConversations = adminConversations.map(c =>
@@ -1120,7 +1133,11 @@
 		);
 		try {
 			const res = await api.get(`/ia/admin/conversations/${id}/messages`);
+			adminLastReadMessageId = res.last_read_message_id || 0;
 			adminConvMessages = res.messages;
+			if (isNew) {
+				adminFirstUnreadIdx = (adminLastReadMessageId && adminConvMessages.length) ? adminConvMessages.findIndex((m, i) => i > 0 && m.id > adminLastReadMessageId && m.role !== 'admin') : -1;
+			}
 			adminConvInfo = res.conversation;
 			adminScrollToBottom();
 			// Refresh list but keep the active conv as read
@@ -2439,7 +2456,7 @@
 				</section>
 
 				<!-- Conversation detail -->
-				<section class="list glass" style="max-height:80vh;display:flex;flex-direction:column">
+				<section class="list glass" style="max-height:80vh;display:flex;flex-direction:column;position:relative">
 					{#if adminActiveConvId && adminConvInfo}
 						<div class="list-header">
 							<div class="flex-row items-center gap-3">
@@ -2457,8 +2474,15 @@
 								{/if}
 							</div>
 						</div>
-						<div bind:this={adminChatContainer} style="flex:1;overflow-y:auto;padding:1rem;display:flex;flex-direction:column;gap:0.75rem">
-							{#each adminConvMessages as m}
+						<div bind:this={adminChatContainer} on:scroll={handleAdminChatScroll} style="flex:1;overflow-y:auto;padding:1rem;display:flex;flex-direction:column;gap:0.75rem;position:relative">
+							{#each adminConvMessages as m, idx}
+								{#if idx === adminFirstUnreadIdx}
+									<div class="unread-separator">
+										<span class="unread-separator-line"></span>
+										<span class="unread-separator-text">{$t('chat_new_messages')}</span>
+										<span class="unread-separator-line"></span>
+									</div>
+								{/if}
 								<div style="display:flex;gap:0.5rem;{m.role === 'user' ? 'flex-direction:row-reverse' : ''}">
 									<div style="font-size:1.1rem">{m.role === 'bot' ? '🤖' : m.role === 'admin' ? '🛡️' : '👤'}</div>
 									<div style="display:flex;flex-direction:column;max-width:80%;align-items:{m.role === 'user' ? 'flex-end' : 'flex-start'}">
@@ -2496,6 +2520,11 @@
 								</div>
 							{/each}
 						</div>
+						{#if adminShowScrollToBottom}
+							<button class="scroll-to-bottom-btn glass" type="button" on:click={adminScrollToBottom}>
+								👇 {$t('chat_scroll_to_bottom')}
+							</button>
+						{/if}
 						{#if adminConvInfo.admin_override}
 							<div style="padding:0.75rem 1rem;border-top:1px solid var(--glass-border);display:flex;flex-direction:column;gap:0.5rem">
 								{#if adminImagePreview}
@@ -3486,6 +3515,52 @@
 		background: var(--bg-secondary, #0f172a);
 		color: var(--text-main, white);
 		border-left: 1px solid var(--glass-border);
+	}
+
+	/* Unread message separator & scroll to bottom */
+	.unread-separator {
+		display: flex;
+		align-items: center;
+		margin: 1.5rem 0;
+		color: var(--text-muted, #94a3b8);
+		font-size: 0.8rem;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		width: 100%;
+	}
+	.unread-separator-line {
+		flex: 1;
+		height: 1px;
+		background: linear-gradient(90deg, transparent, rgba(239, 68, 68, 0.4), transparent);
+	}
+	.unread-separator-text {
+		padding: 0 0.8rem;
+		color: #f87171;
+	}
+	.scroll-to-bottom-btn {
+		position: absolute;
+		bottom: 90px;
+		right: 20px;
+		background: var(--glass-bg);
+		border: 1px solid var(--glass-border);
+		color: var(--text-main);
+		padding: 0.5rem 1rem;
+		border-radius: 9999px;
+		font-size: 0.85rem;
+		cursor: pointer;
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+		z-index: 10;
+		box-shadow: var(--glass-shadow);
+		backdrop-filter: blur(10px);
+		-webkit-backdrop-filter: blur(10px);
+		transition: all 0.2s ease;
+	}
+	.scroll-to-bottom-btn:hover {
+		background: var(--hover-tint);
+		transform: translateY(-2px);
 	}
 </style>
 

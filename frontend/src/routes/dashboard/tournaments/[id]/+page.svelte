@@ -39,9 +39,14 @@
 
 	async function loadData() {
 		try {
-			tournament = await api.get(`/tournaments/${id}`);
-			participants = await api.get(`/tournaments/${id}/participants`);
-			currentUser = await api.get('/me');
+			const [tourneyRes, partsRes, userRes] = await Promise.all([
+				api.get(`/tournaments/${id}`),
+				api.get(`/tournaments/${id}/participants`),
+				api.get('/me')
+			]);
+			tournament = tourneyRes;
+			participants = partsRes;
+			currentUser = userRes;
 			if (currentUser?.is_admin) {
 				allUsers = await api.get('/room/users');
 			}

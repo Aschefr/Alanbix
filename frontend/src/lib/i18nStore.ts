@@ -67,22 +67,19 @@ export async function initI18n() {
 	let lang: string = 'fr';
 	
 	try {
-		// Fetch list of available languages
-		const langRes = await fetch(`${API_URL}/i18n/languages`);
-		if (langRes.ok) {
+		const [langRes, statsRes] = await Promise.all([
+			fetch(`${API_URL}/i18n/languages`).catch(() => null),
+			fetch(`${API_URL}/dashboard/stats`).catch(() => null)
+		]);
+
+		if (langRes && langRes.ok) {
 			const data = await langRes.json();
 			if (data.languages && Array.isArray(data.languages)) {
 				availableLanguages.set(data.languages);
 			}
 		}
-	} catch (e) {
-		console.error('Failed to fetch languages list:', e);
-	}
 
-	try {
-		// Fetch public stats to get default system configurations
-		const statsRes = await fetch(`${API_URL}/dashboard/stats`);
-		if (statsRes.ok) {
+		if (statsRes && statsRes.ok) {
 			const stats = await statsRes.json();
 			lanMultilingual.set(!!stats.lan_multilingual);
 			eventName.set(stats.event_name || 'Alanbix LAN');
@@ -90,17 +87,17 @@ export async function initI18n() {
 			const savedLang = localStorage.getItem('alanbix_lang');
 			const list = get(availableLanguages);
 			
-			// Decide language: if a valid language is saved in localStorage, respect it.
-			// This allows admins to test languages and keeps the preference through F5.
-			// The stats.lan_multilingual flag controls the visibility of the language picker.
 			if (savedLang && list.includes(savedLang)) {
 				lang = savedLang;
 			} else {
 				lang = stats.lan_default_language || 'fr';
 			}
+		} else {
+			const savedLang = localStorage.getItem('alanbix_lang');
+			lang = savedLang || 'fr';
 		}
 	} catch (e) {
-		console.error('Failed to fetch stats for i18n config:', e);
+		console.error('Failed to initialize i18n config:', e);
 		const savedLang = localStorage.getItem('alanbix_lang');
 		lang = savedLang || 'fr';
 	}

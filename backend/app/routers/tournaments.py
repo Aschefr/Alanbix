@@ -2199,15 +2199,40 @@ def _compute_projected_standings(tournament, db):
     placement_map = {1: pts_winner, 2: pts_second, 3: pts_third}
     team_map = config.get("_team_map", {})
 
-    # Team member counts
+    # Team member counts — optimized to query all counts in 2 SQL queries instead of N
     team_member_counts = {}
     if use_teams:
+        from sqlalchemy import func
         teams_db = db.query(models.TournamentTeam).filter(
             models.TournamentTeam.tournament_id == tournament.id).all()
         for t in teams_db:
-            count = db.query(models.TournamentTeamMember).filter(
-                models.TournamentTeamMember.team_id == t.id).count()
-            team_member_counts[-t.id] = max(count, 1)
+            team_member_counts[-t.id] = 1
+            
+        counts = db.query(
+            models.TournamentTeamMember.team_id, 
+            func.count(models.TournamentTeamMember.user_id)
+        ).join(
+            models.TournamentTeam, 
+            models.TournamentTeam.id == models.TournamentTeamMember.team_id
+        ).filter(
+            models.TournamentTeam.tournament_id == tournament.id
+        ).group_by(models.TournamentTeamMember.team_id).all()
+        
+        for team_id, count in counts:
+            team_member_counts[-team_id] = max(count, 1)
+
+    # Collect all user IDs to pre-fetch usernames in a single query
+    participants = db.query(models.TournamentParticipant).filter(
+        models.TournamentParticipant.tournament_id == tournament.id).all()
+    user_ids = [entry["entity_id"] for entry in ranked if not (use_teams and entry["entity_id"] < 0)]
+    if not use_teams:
+        for p in participants:
+            user_ids.append(p.user_id)
+            
+    users_cache = {}
+    if user_ids:
+        users_db = db.query(models.User).filter(models.User.id.in_(user_ids)).all()
+        users_cache = {u.id: u.username for u in users_db}
 
     # Step 4: Build results with ex-aequo support
     # Compute dense competition ranks (1,1,2,2,3...) based on rank_score
@@ -2241,8 +2266,7 @@ def _compute_projected_standings(tournament, db):
         if use_teams and eid < 0:
             name = team_map.get(str(eid), f"Team #{abs(eid)}")
         else:
-            user = db.query(models.User).filter(models.User.id == eid).first()
-            name = user.username if user else f"#{eid}"
+            name = users_cache.get(eid, f"#{eid}")
             
         member_count = team_member_counts.get(eid, 1) if use_teams else 1
         per_member = total  # No division — each member gets full team points
@@ -2259,15 +2283,13 @@ def _compute_projected_standings(tournament, db):
 
     # Include participants not in bracket
     placed_eids = {r["entity_id"] for r in results}
-    participants = db.query(models.TournamentParticipant).filter(
-        models.TournamentParticipant.tournament_id == tournament.id).all()
     if not use_teams:
         for p in participants:
             if p.user_id not in placed_eids:
-                user = db.query(models.User).filter(models.User.id == p.user_id).first()
+                name = users_cache.get(p.user_id, f"#{p.user_id}")
                 results.append({
                     "rank": None, "entity_id": p.user_id,
-                    "name": user.username if user else f"#{p.user_id}",
+                    "name": name,
                     "wins": 0, "placement_pts": 0, "participation_pts": 0,
                     "score_pts": 0, "total": 0, "per_member": 0,
                     "member_count": 1, "team_name": None,
@@ -2289,12 +2311,24 @@ def get_tournament_standings(tournament_id: int, db: Session = Depends(database.
         results = []
         team_member_counts = {}
         if use_teams:
+            from sqlalchemy import func
             teams_db = db.query(models.TournamentTeam).filter(
                 models.TournamentTeam.tournament_id == tournament_id).all()
             for t in teams_db:
-                count = db.query(models.TournamentTeamMember).filter(
-                    models.TournamentTeamMember.team_id == t.id).count()
-                team_member_counts[-t.id] = max(count, 1)
+                team_member_counts[-t.id] = 1
+                
+            counts = db.query(
+                models.TournamentTeamMember.team_id, 
+                func.count(models.TournamentTeamMember.user_id)
+            ).join(
+                models.TournamentTeam, 
+                models.TournamentTeam.id == models.TournamentTeamMember.team_id
+            ).filter(
+                models.TournamentTeam.tournament_id == tournament_id
+            ).group_by(models.TournamentTeamMember.team_id).all()
+            
+            for team_id, count in counts:
+                team_member_counts[-team_id] = max(count, 1)
         for r in tournament.results:
             entry = dict(r)
             eid = entry.get("entity_id")

@@ -23,6 +23,10 @@ DATA_DIR = os.path.dirname(os.getenv("DATABASE_PATH", "/app/data/alanbix.db"))
 DATA_I18N_DIR = os.path.join(DATA_DIR, "i18n")
 os.makedirs(DATA_I18N_DIR, exist_ok=True)
 
+# In-memory dictionary cache to prevent disk reads on every client load
+_I18N_CACHE: Dict[str, dict] = {}
+
+
 RESERVED_LANGS = {"bulk-translate", "auto-translate"}
 
 def _sanitize_lang(lang: str) -> str:
@@ -392,9 +396,12 @@ def get_language_static(lang: str):
 @router.get("/{lang}")
 def get_language(lang: str):
     lang = _sanitize_lang(lang)
+    if lang in _I18N_CACHE:
+        return _I18N_CACHE[lang]
     data = load_i18n_merged(lang)
     if data is None:
         raise HTTPException(status_code=404, detail="Language not found")
+    _I18N_CACHE[lang] = data
     return data
 
 @router.post("/{lang}")
@@ -409,6 +416,7 @@ def create_language(lang: str, admin: models.User = Depends(auth.get_current_adm
         os.makedirs(DATA_I18N_DIR, exist_ok=True)
         with open(data_path, "w", encoding="utf-8-sig") as f:
             json.dump({}, f, indent=4, ensure_ascii=False)
+        _I18N_CACHE.pop(lang, None)
         return {"message": f"Language {lang} created"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -426,6 +434,8 @@ def update_language(lang: str, translations: Dict[str, str] = Body(...), admin: 
         os.makedirs(DATA_I18N_DIR, exist_ok=True)
         with open(write_path, "w", encoding="utf-8-sig") as f:
             json.dump(translations, f, indent=4, ensure_ascii=False)
+        # Update cache
+        _I18N_CACHE[lang] = translations
         return {"message": "Translations updated successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -445,6 +455,8 @@ def delete_language(lang: str, admin: models.User = Depends(auth.get_current_adm
     try:
         if os.path.exists(data_path):
             os.remove(data_path)
+        # Invalidate cache
+        _I18N_CACHE.pop(lang, None)
         # Note: don't delete static files (shipped with app)
         return {"message": f"Language {lang} deleted"}
     except Exception as e:
@@ -474,6 +486,8 @@ def sync_language(lang: str, admin: models.User = Depends(auth.get_current_admin
         os.makedirs(DATA_I18N_DIR, exist_ok=True)
         with open(write_path, "w", encoding="utf-8-sig") as f:
             json.dump(target_data, f, indent=4, ensure_ascii=False)
+        # Invalidate cache
+        _I18N_CACHE.pop(lang, None)
     
     return {
         "missing_count": len(missing_keys),

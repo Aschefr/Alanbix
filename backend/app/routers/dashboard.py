@@ -57,13 +57,25 @@ def get_stats(db: Session = Depends(database.get_db)):
     
     leaderboard = leaderboard[:10]
     
-    # Participation counts
+    # Participation counts (optimized using group by and in_ query)
+    top_usernames = [entry["username"] for entry in leaderboard]
+    user_id_map = {u.username: u.id for u in all_users if u.username in top_usernames}
+    
+    from sqlalchemy import func
+    participation_counts = {}
+    if user_id_map:
+        counts = db.query(
+            models.TournamentParticipant.user_id,
+            func.count(models.TournamentParticipant.id)
+        ).filter(
+            models.TournamentParticipant.user_id.in_(user_id_map.values())
+        ).group_by(models.TournamentParticipant.user_id).all()
+        for uid, cnt in counts:
+            participation_counts[uid] = cnt
+            
     for entry in leaderboard:
-        user = db.query(models.User).filter(models.User.username == entry["username"]).first()
-        if user:
-            entry["participations"] = db.query(models.TournamentParticipant).filter(
-                models.TournamentParticipant.user_id == user.id
-            ).count()
+        uid = user_id_map.get(entry["username"])
+        entry["participations"] = participation_counts.get(uid, 0)
     
     # Get event name from system config
     event_config = db.query(models.SystemConfig).filter(models.SystemConfig.key == "event_name").first()

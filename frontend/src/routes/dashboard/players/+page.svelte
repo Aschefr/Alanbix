@@ -21,6 +21,11 @@
 	let chatInput = '';
 	let chatLoading = false;
 	let chatEl = null; // scroll container ref
+	let lastReadMessageId = null;
+	let playersFirstUnreadIdx = -1;
+	let showScrollToBottom = false;
+
+
 
 	// Points detail expand
 	let expandedPlayerId = null;
@@ -229,6 +234,14 @@
 		return result;
 	})();
 
+
+
+	function handleChatScroll() {
+		if (!chatEl) return;
+		showScrollToBottom = chatEl.scrollTop + chatEl.clientHeight < chatEl.scrollHeight - 300;
+	}
+
+
 	// Group players by team
 	$: grouped = (() => {
 		const teams = {};
@@ -281,7 +294,11 @@
 		try {
 			const data = await api.get(`/players/messages/${peerId}`);
 			chatPeer = data.peer;
+			lastReadMessageId = data.last_read_message_id || 0;
 			chatMessages = data.messages || [];
+			if (!silent) {
+				playersFirstUnreadIdx = (lastReadMessageId && chatMessages.length) ? chatMessages.findIndex((m, i) => i > 0 && m.id > lastReadMessageId && m.sender_id !== currentUser?.id) : -1;
+			}
 			await tick();
 			scrollChat();
 		} catch { chatMessages = []; }
@@ -336,10 +353,14 @@
 		try {
 			const data = await api.get(`/players/group/channel/${channelKey}`);
 			chatChannelInfo = data.channel;
+			lastReadMessageId = data.last_read_message_id || 0;
 			chatMessages = (data.messages || []).map(m => ({
 				...m, sender_id: m.sender_id, sender_name: m.sender_name
 			}));
 			chatChannelMembers = data.members || [];
+			if (!silent) {
+				playersFirstUnreadIdx = (lastReadMessageId && chatMessages.length) ? chatMessages.findIndex((m, i) => i > 0 && m.id > lastReadMessageId && m.sender_id !== currentUser?.id) : -1;
+			}
 			await tick();
 			scrollChat();
 		} catch { chatMessages = []; chatChannelInfo = null; }
@@ -380,8 +401,12 @@
 		localStorage.removeItem('alanbix_players_group_chat');
 	}
 
-	function scrollChat() {
-		if (chatEl) chatEl.scrollTop = chatEl.scrollHeight;
+	async function scrollChat() {
+		await tick();
+		if (chatEl) {
+			chatEl.scrollTop = chatEl.scrollHeight;
+			showScrollToBottom = false;
+		}
 	}
 
 	function handleKeydown(e) {
@@ -661,11 +686,18 @@
 					<button class="chat-close" on:click={closeChat} title="{$t('players_chat_tooltip_close')}">✕</button>
 				</div>
 
-				<div class="chat-messages" bind:this={chatEl}>
+				<div class="chat-messages" bind:this={chatEl} on:scroll={handleChatScroll}>
 					{#if chatMessages.length === 0}
 						<div class="chat-no-msg"><p>{$t('players_chat_no_msg')}</p></div>
 					{:else}
-						{#each chatMessages as msg}
+						{#each chatMessages as msg, idx}
+							{#if idx === playersFirstUnreadIdx}
+								<div class="unread-separator">
+									<span class="unread-separator-line"></span>
+									<span class="unread-separator-text">{$t('chat_new_messages')}</span>
+									<span class="unread-separator-line"></span>
+								</div>
+							{/if}
 							<div class="chat-bubble {msg.sender_id === currentUser?.id ? 'mine' : 'theirs'}">
 								<div class="bubble-content">{msg.content}</div>
 								<span class="bubble-time">{timeAgo(msg.created_at, $t)}</span>
@@ -673,6 +705,11 @@
 						{/each}
 					{/if}
 				</div>
+				{#if showScrollToBottom}
+					<button class="scroll-to-bottom-btn glass" type="button" on:click={scrollChat}>
+						👇 {$t('chat_scroll_to_bottom')}
+					</button>
+				{/if}
 
 				<div class="chat-input-bar">
 					<textarea class="chat-input" bind:value={chatInput} on:keydown={handleKeydown} placeholder={$t('players_chat_placeholder_single')} rows="1"></textarea>
@@ -702,11 +739,18 @@
 					<button class="chat-close" on:click={closeChat} title="{$t('players_chat_tooltip_close')}">✕</button>
 				</div>
 
-				<div class="chat-messages" bind:this={chatEl}>
+				<div class="chat-messages" bind:this={chatEl} on:scroll={handleChatScroll}>
 					{#if chatMessages.length === 0}
 						<div class="chat-no-msg"><p>{$t("players_chat_empty")}</p></div>
 					{:else}
-						{#each chatMessages as msg}
+						{#each chatMessages as msg, idx}
+							{#if idx === playersFirstUnreadIdx}
+								<div class="unread-separator">
+									<span class="unread-separator-line"></span>
+									<span class="unread-separator-text">{$t('chat_new_messages')}</span>
+									<span class="unread-separator-line"></span>
+								</div>
+							{/if}
 							<div class="chat-bubble {msg.sender_id === currentUser?.id ? 'mine' : 'theirs'}">
 								{#if msg.sender_id !== currentUser?.id}
 									<span class="bubble-sender">{msg.sender_name}</span>
@@ -717,6 +761,11 @@
 						{/each}
 					{/if}
 				</div>
+				{#if showScrollToBottom}
+					<button class="scroll-to-bottom-btn glass" type="button" on:click={scrollChat}>
+						👇 {$t('chat_scroll_to_bottom')}
+					</button>
+				{/if}
 
 				<div class="chat-input-bar">
 					<textarea class="chat-input" bind:value={chatInput} on:keydown={handleKeydown} placeholder="{$t('players_chat_placeholder')}" rows="1"></textarea>
@@ -828,7 +877,7 @@
 	.resizer { width: 8px; cursor: col-resize; border-radius: 4px; transition: background 0.2s; position: relative; z-index: 10; margin: 0 -4px; }
 	.resizer:hover, .resizer.active { background: var(--accent); opacity: 0.5; }
 
-	.chat-col { display: flex; flex-direction: column; overflow: hidden; border-radius: 12px; min-width: 0; }
+	.chat-col { display: flex; flex-direction: column; overflow: hidden; border-radius: 12px; min-width: 0; position: relative; }
 	.chat-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; gap: 0.5rem; color: var(--text-muted); font-size: 0.85rem; }
 	.chat-empty-icon { font-size: 2.5rem; opacity: 0.3; }
 
@@ -927,5 +976,51 @@
 		height: 100%;
 		object-fit: cover;
 		border-radius: 50%;
+	}
+
+	/* Unread separator & scroll to bottom */
+	.unread-separator {
+		display: flex;
+		align-items: center;
+		margin: 1rem 0;
+		color: var(--text-muted, #94a3b8);
+		font-size: 0.72rem;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		width: 100%;
+	}
+	.unread-separator-line {
+		flex: 1;
+		height: 1px;
+		background: linear-gradient(90deg, transparent, rgba(239, 68, 68, 0.4), transparent);
+	}
+	.unread-separator-text {
+		padding: 0 0.6rem;
+		color: #f87171;
+	}
+	.scroll-to-bottom-btn {
+		position: absolute;
+		bottom: 75px;
+		right: 20px;
+		background: var(--glass-bg);
+		border: 1px solid var(--glass-border);
+		color: var(--text-main);
+		padding: 0.4rem 0.8rem;
+		border-radius: 9999px;
+		font-size: 0.78rem;
+		cursor: pointer;
+		display: flex;
+		align-items: center;
+		gap: 0.3rem;
+		z-index: 10;
+		box-shadow: var(--glass-shadow);
+		backdrop-filter: blur(10px);
+		-webkit-backdrop-filter: blur(10px);
+		transition: all 0.2s ease;
+	}
+	.scroll-to-bottom-btn:hover {
+		background: var(--hover-tint);
+		transform: translateY(-2px);
 	}
 </style>

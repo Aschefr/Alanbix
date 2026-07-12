@@ -52,21 +52,36 @@
 	onDestroy(() => { if (wsUnsub) wsUnsub(); });
 
 	async function refreshAll() {
-		user = await api.get('/me');
 		previousLeaderboard = [...(stats.leaderboard || [])];
-		stats = await api.get('/dashboard/stats');
-		tournaments = await api.get('/tournaments');
-		const res = await api.get('/room/layout');
-		roomLayout = res.layout || { seats: [], tables: [], furniture: [] };
-		if (!roomLayout.tables) roomLayout.tables = [];
-		if (!roomLayout.seats) roomLayout.seats = [];
-		if (!roomLayout.furniture) roomLayout.furniture = [];
-		allUsers = await api.get('/room/users');
-		try { games = await api.get('/tournaments/games'); } catch { games = []; }
-		roomLayout = roomLayout;
-		try { teamLeaderboard = await api.get('/dashboard/team-leaderboard'); } catch { teamLeaderboard = []; }
-		if (runningTournaments.length > 0) {
-			await loadParticipants(runningTournaments[selectedRunningIdx]?.id || runningTournaments[0].id);
+		try {
+			const [userRes, statsRes, tournamentsRes, layoutRes, roomUsersRes, gamesRes, teamLbRes] = await Promise.all([
+				api.get('/me'),
+				api.get('/dashboard/stats'),
+				api.get('/tournaments'),
+				api.get('/room/layout'),
+				api.get('/room/users'),
+				api.get('/tournaments/games').catch(() => []),
+				api.get('/dashboard/team-leaderboard').catch(() => [])
+			]);
+
+			user = userRes;
+			stats = statsRes;
+			tournaments = tournamentsRes;
+			const res = layoutRes || { layout: { seats: [], tables: [], furniture: [] } };
+			roomLayout = res.layout || { seats: [], tables: [], furniture: [] };
+			if (!roomLayout.tables) roomLayout.tables = [];
+			if (!roomLayout.seats) roomLayout.seats = [];
+			if (!roomLayout.furniture) roomLayout.furniture = [];
+			allUsers = roomUsersRes;
+			games = gamesRes;
+			teamLeaderboard = teamLbRes;
+
+			const activeRunning = tournaments.filter(t => t.status === 'RUNNING');
+			if (activeRunning.length > 0) {
+				await loadParticipants(activeRunning[selectedRunningIdx]?.id || activeRunning[0].id);
+			}
+		} catch (err) {
+			console.error("Error refreshing dashboard stats:", err);
 		}
 	}
 

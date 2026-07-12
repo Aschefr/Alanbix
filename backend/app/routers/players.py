@@ -220,6 +220,14 @@ def pm_conversations(db: Session = Depends(database.get_db), user: models.User =
 @router.get("/messages/{peer_id}")
 def pm_read(peer_id: int, db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
     """Read conversation with a specific peer. Auto-marks received messages as read."""
+    # Find last read message ID from peer before updating
+    last_read_msg = db.query(models.PrivateMessage).filter(
+        models.PrivateMessage.sender_id == peer_id,
+        models.PrivateMessage.receiver_id == user.id,
+        models.PrivateMessage.is_read == True
+    ).order_by(models.PrivateMessage.id.desc()).first()
+    old_last_read = last_read_msg.id if last_read_msg else 0
+
     # Mark unread messages from peer as read
     db.query(models.PrivateMessage).filter(
         models.PrivateMessage.sender_id == peer_id,
@@ -245,6 +253,7 @@ def pm_read(peer_id: int, db: Session = Depends(database.get_db), user: models.U
             "avatar_url": peer.avatar_url, "avatar_shape": peer.avatar_shape,
             "is_online": peer.is_online
         } if peer else None,
+        "last_read_message_id": old_last_read,
         "messages": [{
             "id": m.id, "sender_id": m.sender_id, "receiver_id": m.receiver_id,
             "content": m.content, "is_read": m.is_read,
@@ -423,16 +432,21 @@ def group_read(channel_key: str, db: Session = Depends(database.get_db), user: m
     if not _user_can_access_channel(user, channel):
         raise HTTPException(403, "Access denied to this channel")
 
+    # Get old last read before updating
+    old_last_read = 0
+    read_record = db.query(models.GroupMessageRead).filter(
+        models.GroupMessageRead.channel_id == channel.id,
+        models.GroupMessageRead.user_id == user.id
+    ).first()
+    if read_record:
+        old_last_read = read_record.last_read_message_id or 0
+
     # Mark as read
     last_msg = db.query(models.GroupMessage).filter(
         models.GroupMessage.channel_id == channel.id
     ).order_by(models.GroupMessage.id.desc()).first()
 
     if last_msg:
-        read_record = db.query(models.GroupMessageRead).filter(
-            models.GroupMessageRead.channel_id == channel.id,
-            models.GroupMessageRead.user_id == user.id
-        ).first()
         if read_record:
             read_record.last_read_message_id = last_msg.id
         else:
@@ -467,6 +481,7 @@ def group_read(channel_key: str, db: Session = Depends(database.get_db), user: m
             "channel_type": channel.channel_type,
             "team_names": channel.team_names or []
         },
+        "last_read_message_id": old_last_read,
         "messages": [{
             "id": m.id, "sender_id": m.sender_id,
             "sender_name": users_map.get(m.sender_id, "?"),

@@ -164,10 +164,20 @@
 	});
 
 	async function loadAll() {
-		tournaments = await api.get('/tournaments');
-		try { games = await api.get('/tournaments/games'); } catch { games = []; }
-		try { currentUser = await api.get('/me'); } catch {}
-		try { allUsers = await api.get('/room/users'); } catch {}
+		try {
+			const [tourneysRes, gamesRes, userRes, roomUsersRes] = await Promise.all([
+				api.get('/tournaments'),
+				api.get('/tournaments/games').catch(() => []),
+				api.get('/me').catch(() => null),
+				api.get('/room/users').catch(() => [])
+			]);
+			tournaments = tourneysRes;
+			games = gamesRes;
+			currentUser = userRes;
+			allUsers = roomUsersRes;
+		} catch (err) {
+			console.error("Error loading all tournaments page data:", err);
+		}
 	}
 
 	let confirmingLeave = false;
@@ -177,12 +187,21 @@
 		localStorage.setItem('alanbix_selected_tournament', id);
 		resetZoom();
 		confirmingLeave = false;
-		try { participants = await api.get(`/tournaments/${id}/participants`); } catch { participants = []; }
-		try { teams = await api.get(`/tournaments/${id}/teams`); } catch { teams = []; }
 		try {
-			const res = await api.get(`/tournaments/${id}/standings`);
-			standingsData = res.standings || [];
-		} catch { standingsData = []; }
+			const [partsRes, teamsRes, standingsRes] = await Promise.all([
+				api.get(`/tournaments/${id}/participants`).catch(() => []),
+				api.get(`/tournaments/${id}/teams`).catch(() => []),
+				api.get(`/tournaments/${id}/standings`).catch(() => ({ standings: [] }))
+			]);
+			participants = partsRes;
+			teams = teamsRes;
+			standingsData = standingsRes.standings || [];
+		} catch (err) {
+			console.error("Error selecting tournament:", err);
+			participants = [];
+			teams = [];
+			standingsData = [];
+		}
 	}
 
 	async function joinTournament(id) {

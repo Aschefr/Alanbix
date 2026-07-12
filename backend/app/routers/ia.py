@@ -520,6 +520,7 @@ def delete_conversation(conv_id: int, db: Session = Depends(database.get_db), us
 def get_messages(conv_id: int, db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
     conv = db.query(models.Conversation).filter(models.Conversation.id == conv_id).first()
     messages = db.query(models.ChatMessage).filter(models.ChatMessage.conversation_id == conv_id).order_by(models.ChatMessage.timestamp.asc()).all()
+    old_last_read = conv.player_last_read_message_id or 0
     if messages:
         conv.player_last_read_message_id = messages[-1].id
         db.commit()
@@ -542,6 +543,7 @@ def get_messages(conv_id: int, db: Session = Depends(database.get_db), user: mod
         ],
         "usage": {"estimated_tokens": est_tokens},
         "admin_override": conv.admin_override or False,
+        "last_read_message_id": old_last_read,
         "compression": {
             "mode": conv.compression_mode,
             "auto_mode": conv.auto_compression_mode,
@@ -1250,6 +1252,7 @@ async def admin_get_messages(conv_id: int, db: Session = Depends(database.get_db
         models.ChatMessage.conversation_id == conv_id
     ).order_by(models.ChatMessage.timestamp.asc()).all()
     
+    old_last_read = conv.admin_last_read_message_id or 0
     if messages:
         conv.admin_last_read_message_id = messages[-1].id
         db.commit()
@@ -1262,6 +1265,7 @@ async def admin_get_messages(conv_id: int, db: Session = Depends(database.get_db
             "username": user.username if user else "?",
             "admin_override": conv.admin_override or False
         },
+        "last_read_message_id": old_last_read,
         "messages": [
             {"id": m.id, "role": m.role, "content": m.content, "image_path": m.image_path, "timestamp": m.timestamp.isoformat(), "meta": m.meta}
             for m in messages

@@ -57,6 +57,11 @@
 	let autoScrollEnabled = true;
 	let isAutoScrolling = false;
 	let textareaRef;
+	let lastReadMessageId = null;
+	let firstUnreadIdx = -1;
+	let showScrollToBottom = false;
+
+
 
 	// Call Admin modal
 	let showCallAdminModal = false;
@@ -127,7 +132,9 @@
 		const threshold = 50;
 		const isAtBottom = chatContainer.scrollHeight - chatContainer.scrollTop - chatContainer.clientHeight < threshold;
 		autoScrollEnabled = isAtBottom;
+		showScrollToBottom = chatContainer.scrollTop + chatContainer.clientHeight < chatContainer.scrollHeight - 300;
 	}
+
 
 	// Live token counting — only count messages that Ollama will actually receive
 	$: toolsEnabled = iaConfig.tool_calling_mode !== 'disabled';
@@ -167,6 +174,8 @@
 		});
 		return idx >= 0 ? idx : messages.length; // if no messages after, insert at end
 	})();
+
+
 
 	// Admin notification
 	let adminNotification = null;
@@ -492,7 +501,11 @@
 		// Send immediate ping on active conversation change
 		try { api.post(`/ia/active-chat/${id}`, {}); } catch(e) {}
 		const res = await api.get(`/ia/conversations/${id}/messages`);
+		lastReadMessageId = res.last_read_message_id || 0;
 		messages = res.messages;
+		if (isNew) {
+			firstUnreadIdx = (lastReadMessageId && messages.length) ? messages.findIndex((m, i) => i > 0 && m.id > lastReadMessageId && m.role !== 'user') : -1;
+		}
 		usage = res.usage || { estimated_tokens: 0 };
 		compression = res.compression || { mode: null };
 		adminOverride = res.admin_override || false;
@@ -1252,6 +1265,13 @@
 					</div>
 				{/if}
 				{#each messages as msg, idx}
+					{#if idx === firstUnreadIdx}
+						<div class="unread-separator">
+							<span class="unread-separator-line"></span>
+							<span class="unread-separator-text">{$t('chat_new_messages')}</span>
+							<span class="unread-separator-line"></span>
+						</div>
+					{/if}
 					{#if idx === compressionInsertIdx && compression.mode}
 						<div class="msg-wrapper system">
 							<div class="msg-row system">
@@ -1429,6 +1449,13 @@
 					</div>
 				{/if}
 			</div>
+
+			{#if showScrollToBottom}
+				<button class="scroll-to-bottom-btn glass" type="button" on:click={() => { autoScrollEnabled = true; scrollToBottom(); }}>
+					👇 {$t('chat_scroll_to_bottom')}
+				</button>
+			{/if}
+
 
 			{#if adminOverride}
 				<div class="admin-takeover-banner">
@@ -2020,5 +2047,50 @@
 	}
 	.pulse-progress {
 		animation: pulseProgress 2s infinite ease-in-out !important;
+	}
+
+	/* Unread message separator & scroll to bottom */
+	.unread-separator {
+		display: flex;
+		align-items: center;
+		margin: 1.5rem 0;
+		color: var(--text-muted, #94a3b8);
+		font-size: 0.8rem;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+	}
+	.unread-separator-line {
+		flex: 1;
+		height: 1px;
+		background: linear-gradient(90deg, transparent, rgba(239, 68, 68, 0.4), transparent);
+	}
+	.unread-separator-text {
+		padding: 0 0.8rem;
+		color: #f87171;
+	}
+	.scroll-to-bottom-btn {
+		position: absolute;
+		bottom: 90px;
+		right: 20px;
+		background: var(--glass-bg);
+		border: 1px solid var(--glass-border);
+		color: var(--text-main);
+		padding: 0.5rem 1rem;
+		border-radius: 9999px;
+		font-size: 0.85rem;
+		cursor: pointer;
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+		z-index: 10;
+		box-shadow: var(--glass-shadow);
+		backdrop-filter: blur(10px);
+		-webkit-backdrop-filter: blur(10px);
+		transition: all 0.2s ease;
+	}
+	.scroll-to-bottom-btn:hover {
+		background: var(--hover-tint);
+		transform: translateY(-2px);
 	}
 </style>
