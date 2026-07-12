@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, JSON, Text
+from sqlalchemy import Column, Integer, Float, String, Boolean, ForeignKey, DateTime, JSON, Text
 from sqlalchemy.orm import relationship
 from .database import Base
 import datetime
@@ -12,7 +12,7 @@ class User(Base):
     seat_id = Column(String, nullable=True) # Mapping Poste 2D
     team_name = Column(String, nullable=True) # Nom d'équipe
     ia_blocked = Column(Boolean, default=False) # Admin can block user from AI chat
-    points = Column(Integer, default=0) # Accumulated tournament points
+    points = Column(Float, default=0) # Accumulated tournament points
     avatar_url = Column(String, nullable=True) # URL / path of user avatar
     avatar_shape = Column(String, default="circle") # Display shape: circle, rounded, square
     last_active_at = Column(DateTime, nullable=True)

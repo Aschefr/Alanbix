@@ -503,11 +503,11 @@
 			use_teams: selected.config?.use_teams || false,
 			team_size: selected.config?.team_size || 1,
 			bracket_type: selected.config?.bracket_type || 'single_elim',
-			pts_winner: selected.config?.pts_winner ?? 10,
-			pts_second: selected.config?.pts_second ?? 6,
-			pts_third: selected.config?.pts_third ?? 4,
-			pts_participation: selected.config?.pts_participation ?? 1,
-			pts_per_match: selected.config?.pts_per_match ?? selected.config?.pts_per_goal ?? 1.0,
+			pts_winner: selected.config?.pts_winner ?? 1.5,
+			pts_second: selected.config?.pts_second ?? 1.3,
+			pts_third: selected.config?.pts_third ?? 1.0,
+			pts_participation: selected.config?.pts_participation ?? 1.0,
+			pts_per_match: selected.config?.pts_per_match ?? 0.5,
 			lower_score_is_better: selected.config?.lower_score_is_better || false,
 			boolean_mode: selected.config?.boolean_mode || false,
 			allow_draws: selected.config?.allow_draws || false,
@@ -944,7 +944,7 @@
 					<div class="info-row">
 						<div class="info-card glass"><span class="info-label">{$t("admin_tourneys_wizard_format_lbl")}</span><span class="info-value">{bracketLabel(selected.config?.bracket_type)}</span></div>
 						<div class="info-card glass"><span class="info-label">{$t("admin_tourneys_wizard_mode_lbl")}</span><span class="info-value">{selected.config?.use_teams ? `${$t('admin_tourneys_wizard_mode_teams')} (x${selected.config?.team_size || 2})` : 'Solo'}</span></div>
-						<div class="info-card glass"><span class="info-label">{$t("admin_tourneys_wizard_points_lbl")}</span><span class="info-value accent" style="font-size:0.85rem">🥇{selected.config?.pts_winner ?? 10} 🥈{selected.config?.pts_second ?? 6} 🥉{selected.config?.pts_third ?? 4} 👤{selected.config?.pts_participation ?? 1}/m ⚡{selected.config?.pts_per_match ?? selected.config?.pts_per_goal ?? 1.0}</span></div>
+						<div class="info-card glass"><span class="info-label">{$t("admin_tourneys_wizard_points_lbl")}</span><span class="info-value accent" style="font-size:0.85rem">🥇{selected.config?.pts_winner ?? 1.5} 🥈{selected.config?.pts_second ?? 1.3} 🥉{selected.config?.pts_third ?? 1.0} 👤{selected.config?.pts_participation ?? 1.0}/m ⚡{selected.config?.pts_per_match ?? 0.5}</span></div>
 						<div class="info-card glass"><span class="info-label">{$t("dash_stat_players")}</span><span class="info-value">{participants.length}</span></div>
 						{#if selected.config?.lower_score_is_better}
 							<div class="info-card glass"><span class="info-label">{$t("admin_tourneys_wizard_format_lbl")}</span><span class="info-value" style="color:#f59e0b">{$t("tourneys_opt_reverse")}</span></div>
@@ -1484,11 +1484,11 @@
 					<div class="live-standings glass">
 						<div class="section-title"><h3>📊 {$t(selected?.status === 'RUNNING' ? 'tourneys_standings_live' : 'tourneys_standings_final')}</h3>{#if selected?.status === 'RUNNING'}<span class="live-badge">⚡ LIVE</span>{:else}<span class="live-badge" style="color:#3b82f6;background:rgba(59,130,246,0.1);border-color:rgba(59,130,246,0.2)">✅ FINAL</span>{/if}</div>
 						<div class="ls-config-summary">
-							<span class="ls-cfg" title={$t('tourneys_pts_1st_tooltip')}>🥇 {selected?.config?.pts_winner ?? 10}</span>
-							<span class="ls-cfg" title={$t('tourneys_pts_2nd_tooltip')}>🥈 {selected?.config?.pts_second ?? 6}</span>
-							<span class="ls-cfg" title={$t('tourneys_pts_3rd_tooltip')}>🥉 {selected?.config?.pts_third ?? 4}</span>
-							<span class="ls-cfg" title={$t('tourneys_pts_participation_tooltip')}>👤 {selected?.config?.pts_participation ?? 1}{$t('tourneys_per_match')}</span>
-							<span class="ls-cfg" title={$t('tourneys_pts_bonus_tooltip')}>⚡ {selected?.config?.pts_per_match ?? selected?.config?.pts_per_goal ?? 1.0} {$t('admin_tourneys_wizard_points_bonus')}</span>
+							<span class="ls-cfg" title={$t('tourneys_pts_1st_tooltip')}>🥇 {selected?.config?.pts_winner ?? 1.5}</span>
+							<span class="ls-cfg" title={$t('tourneys_pts_2nd_tooltip')}>🥈 {selected?.config?.pts_second ?? 1.3}</span>
+							<span class="ls-cfg" title={$t('tourneys_pts_3rd_tooltip')}>🥉 {selected?.config?.pts_third ?? 1.0}</span>
+							<span class="ls-cfg" title={$t('tourneys_pts_participation_tooltip')}>👤 {selected?.config?.pts_participation ?? 1.0}{$t('tourneys_per_match')}</span>
+							<span class="ls-cfg" title={$t('tourneys_pts_bonus_tooltip')}>⚡ {selected?.config?.pts_per_match ?? 0.5} {$t('admin_tourneys_wizard_points_bonus')}</span>
 						</div>
 						<div class="ls-list">
 							{#each displayStandings as entry, i}

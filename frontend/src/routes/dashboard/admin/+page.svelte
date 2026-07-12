@@ -196,11 +196,11 @@
 			group_size: t.config?.group_size || 4,
 			advancers_count: t.config?.advancers_count || 2,
 			bracket_type: t.config?.bracket_type || 'single_elim',
-			pts_winner: t.config?.pts_winner ?? 10,
-			pts_second: t.config?.pts_second ?? 6,
-			pts_third: t.config?.pts_third ?? 4,
-			pts_participation: t.config?.pts_participation ?? 1,
-			pts_per_match: t.config?.pts_per_match ?? t.config?.pts_per_goal ?? 1.0,
+			pts_winner: t.config?.pts_winner ?? 1.5,
+			pts_second: t.config?.pts_second ?? 1.3,
+			pts_third: t.config?.pts_third ?? 1.0,
+			pts_participation: t.config?.pts_participation ?? 1.0,
+			pts_per_match: t.config?.pts_per_match ?? 0.5,
 			lower_score_is_better: t.config?.lower_score_is_better || false,
 			boolean_mode: t.config?.boolean_mode || false,
 			allow_draws: t.config?.allow_draws || false,
@@ -1335,7 +1335,7 @@
 										<span class="status-pill-sm {tourney.status.toLowerCase()}">{tourney.status === 'OPEN' ? $t('admin_tourneys_status_pill_open') : tourney.status === 'RUNNING' ? $t('admin_tourneys_status_pill_running') : tourney.status === 'CLOSED' ? $t('admin_tourneys_status_pill_closed') : $t('admin_tourneys_status_pill_done')}</span>
 									</div>
 									<div class="item-meta">
-										{games.find(g => g.id === tourney.game_id)?.name || '—'} • {tourney.participants?.length || 0} Joueur{(tourney.participants?.length || 0) > 1 ? 's' : ''} • 🥇{tourney.config?.pts_winner ?? 10}/🥈{tourney.config?.pts_second ?? 6}/🥉{tourney.config?.pts_third ?? 4} 👤{tourney.config?.pts_participation ?? 1}/m ⚡{tourney.config?.pts_per_match ?? tourney.config?.pts_per_goal ?? 1.0}
+										{games.find(g => g.id === tourney.game_id)?.name || '—'} • {tourney.participants?.length || 0} Joueur{(tourney.participants?.length || 0) > 1 ? 's' : ''} • 🥇{tourney.config?.pts_winner ?? 1.5}/🥈{tourney.config?.pts_second ?? 1.3}/🥉{tourney.config?.pts_third ?? 1.0} 👤{tourney.config?.pts_participation ?? 1.0}/m ⚡{tourney.config?.pts_per_match ?? 0.5}
 									</div>
 								</div>
 								<div class="item-actions">

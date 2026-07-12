@@ -722,7 +722,7 @@ def test_live_leaderboard_zero_scores(client, db_session):
         "lower_score_is_better": False,
         "pts_winner": 3, "pts_second": 0, "pts_third": 0,
         "pts_participation": 0, "pts_per_match": 0,
-        "pts_per_win": 3, "pts_per_goal": 1
+        "pts_per_win": 3
     })
 
     user_ids = _get_user_ids(db_session, 2)
@@ -834,4 +834,199 @@ def test_leave_tournament(client, db_session):
     assert team_member is None, "Should have been removed from the team"
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# TEST 13 — Fix 2: Decimal points survive close without int() truncation
+# ═══════════════════════════════════════════════════════════════════════════
 
+def test_decimal_points_no_truncation(client, db_session):
+    """Close with decimal pts config (1.5/1.3/1.0). User.points must NOT be truncated to int."""
+    game = _create_game(db_session, "Decimal RR", "round_robin")
+    t_id = _create_tournament(client, "Decimal League", game.id, {
+        "bracket_type": "round_robin",
+        "lower_score_is_better": False,
+        "pts_winner": 1.5, "pts_second": 1.3, "pts_third": 1.0,
+        "pts_participation": 0.7, "pts_per_match": 0
+    })
+
+    user_ids = _get_user_ids(db_session, 3)
+    _join_players(client, t_id, user_ids)
+    _start(client, t_id)
+
+    bracket = _get_bracket(client, t_id)
+    # 3 players RR = 3 matches.
+    # Control scores to get a deterministic ranking:
+    # Match ordering: we score so that in each match, p[0] wins.
+    # This gives a clear winner hierarchy based on how many matches each player wins.
+    # We need to identify players and score to ensure p0 > p1 > p2 in wins.
+    
+    # Score match 0: winner gets +1 win
+    _score(client, t_id, bracket[0], [5, 1])
+    # Score match 1: winner gets +1 win
+    _score(client, t_id, bracket[1], [5, 1])
+    # Score match 2: winner gets +1 win
+    _score(client, t_id, bracket[2], [5, 1])
+
+    close_res = _close(client, t_id)
+    results = close_res["results"]
+
+    # Verify rank 1 exists and got decimal placement_pts
+    first = next(r for r in results if r["rank"] == 1)
+    assert first["placement_pts"] == 1.5, f"1st: expected 1.5 placement_pts, got {first['placement_pts']}"
+
+    # Verify that total includes the decimal (placement 1.5 + participation 0.7 * matches)
+    assert first["total"] != int(first["total"]), \
+        f"Total should be decimal, got {first['total']} which equals int({int(first['total'])})"
+
+    # Critical: verify User.points in DB preserves decimals, NOT truncated by int()
+    db_session.expire_all()
+    first_user = db_session.query(models.User).filter(models.User.id == first["entity_id"]).first()
+    assert first_user.points == round(first["total"], 1), \
+        f"DB points ({first_user.points}) should match results total ({first['total']}), not be truncated to {int(first['total'])}"
+
+    # Verify ALL players got decimal participation_pts (0.7 per match, not truncated to 0)
+    for r in results:
+        if r["matches_played"] > 0:
+            expected_part = round(0.7 * r["matches_played"], 1)
+            assert r["participation_pts"] == expected_part, \
+                f"{r['name']}: expected {expected_part} participation_pts, got {r['participation_pts']}"
+
+    # Also verify reopen correctly rolls back decimal points
+    client.post(f"/tournaments/{t_id}/reopen")
+    db_session.expire_all()
+    first_user = db_session.query(models.User).filter(models.User.id == first["entity_id"]).first()
+    assert (first_user.points or 0) == 0, \
+        f"After reopen, points should be 0, got {first_user.points}"
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# TEST 14 — Fix 3: Single Elim ranks ALL 8 players (not just top 3)
+# ═══════════════════════════════════════════════════════════════════════════
+
+def test_single_elim_complete_ranks(client, db_session):
+    """SE 8 players: verify ALL players get a rank, not just top 3.
+    Expected: 1×rank 1, 1×rank 2, 2×rank 3, 4×rank 5."""
+    game = _create_game(db_session, "Full Rank SE", "single_elim")
+    t_id = _create_tournament(client, "Full Rank Cup", game.id, {
+        "bracket_type": "single_elim",
+        "lower_score_is_better": False,
+        "pts_winner": 10, "pts_second": 6, "pts_third": 4,
+        "pts_participation": 1, "pts_per_match": 0
+    })
+
+    user_ids = _get_user_ids(db_session, 8)
+    _join_players(client, t_id, user_ids)
+    _start(client, t_id)
+
+    # Score all rounds: p[0] always wins
+    for _ in range(10):  # iterate until all matches scored
+        bracket = _get_bracket(client, t_id)
+        unscored = [
+            m for m in bracket
+            if m["p"][0] != 0 and m["p"][1] != 0
+            and (m["score"][0] is None or m["score"][0] == 0)
+            and (m["score"][1] is None or m["score"][1] == 0)
+        ]
+        if not unscored:
+            break
+        for m in unscored:
+            _score(client, t_id, m, [3, 1])
+            break
+
+    # Close and check results
+    close_res = _close(client, t_id)
+    results = close_res["results"]
+
+    # ALL 8 players must have a rank
+    ranked = [r for r in results if r["rank"] is not None]
+    assert len(ranked) == 8, f"Expected all 8 players ranked, got {len(ranked)}: {[(r['name'], r['rank']) for r in results]}"
+
+    # Rank distribution: 1×R1, 1×R2, 2×R3, 4×R5
+    rank_counts = {}
+    for r in results:
+        rk = r["rank"]
+        rank_counts[rk] = rank_counts.get(rk, 0) + 1
+
+    assert rank_counts.get(1) == 1, f"Expected 1 player at rank 1, got {rank_counts.get(1)}"
+    assert rank_counts.get(2) == 1, f"Expected 1 player at rank 2, got {rank_counts.get(2)}"
+    assert rank_counts.get(3) == 2, f"Expected 2 players at rank 3, got {rank_counts.get(3)}"
+    assert rank_counts.get(5) == 4, f"Expected 4 players at rank 5, got {rank_counts.get(5)}"
+
+    # Placement points: only top 3 get placement pts, rank 5 gets 0
+    for r in results:
+        if r["rank"] == 5:
+            assert r["placement_pts"] == 0, f"Rank 5 should get 0 placement pts, got {r['placement_pts']}"
+
+    # But rank 5 players should still have participation pts (1 match played)
+    for r in results:
+        if r["rank"] == 5:
+            assert r["participation_pts"] > 0, f"Rank 5 should have participation pts, got {r['participation_pts']}"
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# TEST 15 — Fix 3: Double Elim ranks ALL 8 players via LB elimination
+# ═══════════════════════════════════════════════════════════════════════════
+
+def test_double_elim_complete_ranks(client, db_session):
+    """DE 8 players: verify ALL players get a rank based on their LB elimination round."""
+    game = _create_game(db_session, "Full Rank DE", "double_elim")
+    t_id = _create_tournament(client, "Full Rank DE Cup", game.id, {
+        "bracket_type": "double_elim",
+        "lower_score_is_better": False,
+        "pts_winner": 10, "pts_second": 6, "pts_third": 4,
+        "pts_participation": 1, "pts_per_match": 0
+    })
+
+    user_ids = _get_user_ids(db_session, 8)
+    _join_players(client, t_id, user_ids)
+    _start(client, t_id)
+
+    # Score all matches iteratively until DONE
+    for _ in range(40):
+        bracket = _get_bracket(client, t_id)
+        unscored = [
+            m for m in bracket
+            if m["p"][0] != 0 and m["p"][1] != 0
+            and (m["score"][0] is None or m["score"][0] == 0)
+            and (m["score"][1] is None or m["score"][1] == 0)
+        ]
+        if not unscored:
+            break
+        for m in unscored:
+            _score(client, t_id, m, [3, 1])
+            break
+
+    # Verify tournament is DONE
+    res = client.get(f"/tournaments/{t_id}")
+    assert res.json()["status"] == "DONE", f"Expected DONE, got {res.json()['status']}"
+
+    # Close and check results
+    close_res = _close(client, t_id)
+    results = close_res["results"]
+
+    # ALL 8 players must have a rank
+    ranked = [r for r in results if r["rank"] is not None]
+    assert len(ranked) == 8, \
+        f"Expected all 8 players ranked, got {len(ranked)}: {[(r['name'], r['rank']) for r in results]}"
+
+    # Ranks should be monotonically ordered: rank 1 has most points, last rank has least
+    sorted_results = sorted(results, key=lambda r: r["rank"] or 999)
+    for i in range(len(sorted_results) - 1):
+        assert sorted_results[i]["total"] >= sorted_results[i + 1]["total"], \
+            f"Rank {sorted_results[i]['rank']} ({sorted_results[i]['total']} pts) should have >= pts than rank {sorted_results[i+1]['rank']} ({sorted_results[i+1]['total']} pts)"
+
+    # Rank 1 and 2 must exist
+    assert any(r["rank"] == 1 for r in results), "Must have a rank 1"
+    assert any(r["rank"] == 2 for r in results), "Must have a rank 2"
+    assert any(r["rank"] == 3 for r in results), "Must have a rank 3"
+
+    # Placement points for top 3 only
+    for r in results:
+        if r["rank"] == 1:
+            assert r["placement_pts"] == 10
+        elif r["rank"] == 2:
+            assert r["placement_pts"] == 6
+        elif r["rank"] == 3:
+            assert r["placement_pts"] == 4
+        else:
+            assert r["placement_pts"] == 0, \
+                f"Rank {r['rank']} should get 0 placement pts, got {r['placement_pts']}"

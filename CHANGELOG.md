@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.30.1] - 2026-07-12
+
+### Bug Fixes & Improvements — Tournament Scoring System
+
+- **Scoring Configuration Fallbacks**: Aligned all frontend wizard, edit modals, and list displays to use consistent fallback defaults (`1.5/1.3/1.0/1.0/0.5`) matching backend settings instead of conflicting defaults (`10/6/4`).
+- **Precision Floating Point Storage**: Upgraded `User.points` column from `Integer` to `Float` in the SQLite database and updated close/reopen paths to store scores rounded to 1 decimal place (`round(total, 1)`) instead of casting to `int()`.
+- **Complete Elimination Rankings**: Rewrote `_compute_standings` to assign precise ranks to all players in Single and Double Elimination formats based on their round of elimination (rather than only ranking the top 3).
+- **Legacy Property Removal**: Cleaned up deprecated `pts_per_goal` config property references in the frontend and replaced them with standard `pts_per_match`.
+
 ## [1.30.0] - 2026-07-11
 
 ### Features & Security — AI Admin Calls, RAG suggestions, and Real-Time Chat Sync

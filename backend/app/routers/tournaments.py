@@ -1373,11 +1373,11 @@ async def close_tournament(
             for uid in member_uids:
                 user = db.query(models.User).filter(models.User.id == uid).first()
                 if user:
-                    user.points = (user.points or 0) + int(total)
+                    user.points = (user.points or 0) + round(total, 1)
         elif not use_teams and entity_id > 0:
             user = db.query(models.User).filter(models.User.id == entity_id).first()
             if user:
-                user.points = (user.points or 0) + int(total)
+                user.points = (user.points or 0) + round(total, 1)
     
     tournament.results = results
     tournament.status = "CLOSED"
@@ -1427,7 +1427,7 @@ async def reopen_tournament(
     # --- Rollback points from results ---
     rolled_back_uids = set()
     for r in results:
-        total = int(r.get("total", 0))
+        total = round(float(r.get("total", 0)), 1)
         if total <= 0:
             continue
         entity_id = r.get("entity_id")
@@ -1983,9 +1983,20 @@ def _compute_standings(bracket, bracket_type, lower_is_better=False):
             standings.append((current_rank, pid))
         return standings
     
-    # Single/Double elim: find final match winner
+    # Single/Double elim: rank ALL players based on elimination round
     max_wb = max((m["id"]["r"] for m in bracket if m["id"]["s"] == 1), default=0)
-    final = next((m for m in bracket if m["id"]["s"] == 1 and m["id"]["r"] == max_wb and m["id"]["m"] == 1), None)
+    has_lb = any(m["id"]["s"] == 2 for m in bracket)
+    max_lb = max((m["id"]["r"] for m in bracket if m["id"]["s"] == 2), default=0) if has_lb else 0
+    
+    # In double_elim, the Grand Final is the last WB round (max_wb)
+    # The "real" WB final is max_wb - 1
+    wb_final_r = max_wb - 1 if bracket_type == "double_elim" else max_wb
+    
+    placed_ids = set()
+    
+    # --- Grand Final / Final ---
+    final_r = max_wb  # For both single and double elim, the last WB match
+    final = next((m for m in bracket if m["id"]["s"] == 1 and m["id"]["r"] == final_r and m["id"]["m"] == 1), None)
     
     if final:
         s = final.get("score", [0, 0])
@@ -1994,12 +2005,16 @@ def _compute_standings(bracket, bracket_type, lower_is_better=False):
         if s0 != s1:
             w_idx = 0 if s0 > s1 else 1
             l_idx = 1 - w_idx
-            standings.append((1, final["p"][w_idx]))  # 1st
-            standings.append((2, final["p"][l_idx]))  # 2nd
+            if final["p"][w_idx] and final["p"][w_idx] != 0:
+                standings.append((1, final["p"][w_idx]))
+                placed_ids.add(final["p"][w_idx])
+            if final["p"][l_idx] and final["p"][l_idx] != 0:
+                standings.append((2, final["p"][l_idx]))
+                placed_ids.add(final["p"][l_idx])
     
-    # 3rd place: loser of WB semi-final or LB semi-final
-    if bracket_type == "double_elim":
-        max_lb = max((m["id"]["r"] for m in bracket if m["id"]["s"] == 2), default=0)
+    # --- 3rd place ---
+    if bracket_type == "double_elim" and max_lb > 0:
+        # LB final loser = 3rd
         lb_final = next((m for m in bracket if m["id"]["s"] == 2 and m["id"]["r"] == max_lb and m["id"]["m"] == 1), None)
         if lb_final:
             s = lb_final.get("score", [0, 0])
@@ -2008,10 +2023,11 @@ def _compute_standings(bracket, bracket_type, lower_is_better=False):
             if s0 != s1:
                 l_idx = 1 if s0 > s1 else 0
                 loser_id = lb_final["p"][l_idx]
-                if loser_id and loser_id != 0 and loser_id not in [x[1] for x in standings]:
+                if loser_id and loser_id != 0 and loser_id not in placed_ids:
                     standings.append((3, loser_id))
+                    placed_ids.add(loser_id)
     elif bracket_type == "single_elim" and max_wb >= 2:
-        # Semi-final losers get 3rd
+        # Semi-final losers = 3rd (ex-aequo)
         semis = [m for m in bracket if m["id"]["s"] == 1 and m["id"]["r"] == max_wb - 1]
         for semi in semis:
             s = semi.get("score", [0, 0])
@@ -2020,8 +2036,51 @@ def _compute_standings(bracket, bracket_type, lower_is_better=False):
             if s0 != s1:
                 l_idx = 1 if s0 > s1 else 0
                 loser_id = semi["p"][l_idx]
-                if loser_id and loser_id != 0 and loser_id not in [x[1] for x in standings]:
+                if loser_id and loser_id != 0 and loser_id not in placed_ids:
                     standings.append((3, loser_id))
+                    placed_ids.add(loser_id)
+    
+    # --- Ranks 4+ : losers from earlier rounds ---
+    if bracket_type == "single_elim":
+        # Single elim: losers of round R get rank 2^(max_wb - R) + 1
+        # E.g. 8-player bracket (max_wb=3): R1 losers→rank 5, R2 losers→rank 3 (already placed above)
+        for r in range(max_wb - 2, 0, -1):  # From quarter-finals down to R1
+            rank = 2 ** (max_wb - r) + 1  # R1 of 8-bracket: 2^(3-1)+1 = 5
+            round_matches = [m for m in bracket if m["id"]["s"] == 1 and m["id"]["r"] == r]
+            for match in round_matches:
+                s = match.get("score", [0, 0])
+                s0 = s[0] if len(s) > 0 and s[0] is not None else 0
+                s1 = s[1] if len(s) > 1 and s[1] is not None else 0
+                if s0 != s1:
+                    l_idx = 1 if s0 > s1 else 0
+                    loser_id = match["p"][l_idx]
+                    if loser_id and loser_id != 0 and loser_id not in placed_ids:
+                        standings.append((rank, loser_id))
+                        placed_ids.add(loser_id)
+    
+    elif bracket_type == "double_elim" and max_lb > 0:
+        # Double elim: rank by LB elimination round (later = better rank)
+        # LB losers from later rounds get better ranks
+        # Walk LB rounds from max_lb-1 down to 1
+        current_rank = max(r for r, _ in standings) + 1 if standings else 4
+        
+        for lb_r in range(max_lb - 1, 0, -1):
+            lb_matches = [m for m in bracket if m["id"]["s"] == 2 and m["id"]["r"] == lb_r]
+            round_losers = []
+            for match in lb_matches:
+                s = match.get("score", [0, 0])
+                s0 = s[0] if len(s) > 0 and s[0] is not None else 0
+                s1 = s[1] if len(s) > 1 and s[1] is not None else 0
+                if s0 != s1:
+                    l_idx = 1 if s0 > s1 else 0
+                    loser_id = match["p"][l_idx]
+                    if loser_id and loser_id != 0 and loser_id not in placed_ids:
+                        round_losers.append(loser_id)
+            if round_losers:
+                for lid in round_losers:
+                    standings.append((current_rank, lid))
+                    placed_ids.add(lid)
+                current_rank += len(round_losers)
     
     return standings
 

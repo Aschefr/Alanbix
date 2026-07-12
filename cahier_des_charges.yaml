@@ -75,10 +75,10 @@ core_features_deep_dive:
     - mechanism: "Clôture de Tournoi & Distribution de Points (Implémenté)"
       details: >
         POST /tournaments/{id}/close calcule les standings puis distribue les points :
-        - pts_winner (1er, défaut 10), pts_second (2ème, défaut 6), pts_third (3ème, défaut 4)
-        - pts_participation (tous, défaut 1), pts_per_goal (par point marqué, défaut 0.5)
-        - Les points sont cumulés dans User.points et les résultats stockés dans tournament.results (JSON).
-        - En mode équipes, les points sont distribués à tous les membres.
+        - pts_winner (1er, défaut 1.5), pts_second (2ème, défaut 1.3), pts_third (3ème, défaut 1.0)
+        - pts_participation (par match joué, défaut 1.0), pts_per_match (bonus score normalisé, défaut 0.5)
+        - Les points sont cumulés dans User.points (Float) et les résultats stockés dans tournament.results (JSON).
+        - En mode équipes, chaque membre reçoit le total des points de l'équipe (pas de division).
       pitfalls: "La clôture est réversible via POST /tournaments/{id}/reopen (AXE-01). Attention : le _team_map peut être perdu lors d'éditions config intermédiaires, le close endpoint le reconstruit automatiquement."
     - mechanism: "Édition Inline des Tournois (Implémenté)"
       details: >
@@ -90,7 +90,7 @@ core_features_deep_dive:
     - mechanism: "Classement Live (Frontend-only, Implémenté)"
       details: >
         Pendant un tournoi RUNNING, computeLiveStandings() projette un classement provisoire
-        basé sur les données du bracket (wins × points_per_win + goals × pts_per_goal).
+        basé sur les données du bracket (wins × points_per_win + score_bonus normalisé).
         Ce calcul est purement frontend — aucune mutation de User.points en DB.
         Affiché comme mini-leaderboard avec badge LIVE sous le bracket.
       pitfalls: "Le classement live ne tient pas compte des placements (1er/2ème/3ème) qui ne sont calculés qu'à la clôture."
@@ -274,7 +274,7 @@ development_phases_detailed:
     name: "Phase 5 - Système de Points Avancé & Vue Projecteur"
     sub_tasks:
       1. "Endpoint POST /tournaments/{id}/close avec calcul des standings et distribution des points (placement + score)."
-      2. "Grille de répartition des points configurable par tournoi (pts_winner, pts_second, pts_third, pts_participation, pts_per_goal) dans config JSON."
+      2. "Grille de répartition des points configurable par tournoi (pts_winner, pts_second, pts_third, pts_participation, pts_per_match) dans config JSON."
       3. "Édition inline des tournois dans l'admin (panneau dépliable, remplacement du modal)."
       4. "Classement live frontend-only pendant les phases RUNNING (computeLiveStandings)."
       5. "Endpoint GET /dashboard/team-leaderboard avec groupement par User.team_name et double mode scoring (weighted/raw)."
@@ -407,8 +407,10 @@ global_rules:
     rule: Points Distribution — Configuration Granulaire
     description: >
       Chaque tournoi peut configurer sa propre grille de points dans config JSON :
-      pts_winner (1er), pts_second (2ème), pts_third (3ème), pts_participation (tous),
-      pts_per_goal (multiplicateur par point marqué). Defaults : 10/6/4/1/0.5.
+      pts_winner (1er), pts_second (2ème), pts_third (3ème), pts_participation (par match joué),
+      pts_per_match (bonus score normalisé). Defaults : 1.5/1.3/1.0/1.0/0.5.
+      Les rangs sont attribués à tous les joueurs en élimination (pas seulement top 3).
+      Les points de placement ne sont distribués qu'au top 3.
       Le wizard de création et l'édition inline exposent tous ces champs.
 
   - id: G-30
