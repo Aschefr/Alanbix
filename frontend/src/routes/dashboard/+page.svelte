@@ -1,9 +1,14 @@
 <script>
-	import { api } from '$lib/api';
 	import { onMount, onDestroy } from 'svelte';
+	import { api } from '$lib/api';
 	import { wsMessageStore } from '$lib/ws';
 	import { t } from '$lib/i18nStore';
 	import PublicChat from '$lib/components/PublicChat.svelte';
+
+	import DashboardLeaderboard from './components/DashboardLeaderboard.svelte';
+	import DashboardFloorMap from './components/DashboardFloorMap.svelte';
+	import DashboardBracketPreview from './components/DashboardBracketPreview.svelte';
+	import DashboardPlayerModal from './components/DashboardPlayerModal.svelte';
 
 	let stats = {
 		tournaments: 0,
@@ -14,22 +19,20 @@
 	};
 	let user = null;
 	let tournaments = [];
-	let roomLayout = { seats: [], tables: [] };
+	let roomLayout = { seats: [], tables: [], furniture: [] };
 	let allUsers = [];
 	let participants = [];
 	let dashTeams = [];
 	let games = [];
 	let selectedRunningIdx = 0;
-	let lbMode = 'players'; // 'players' | 'teams'
 	let teamLeaderboard = [];
 	let previousLeaderboard = [];
-	let expandedTeamIdx = -1;
 
 	let showPlayerStatsModal = false;
 	let selectedPlayerStats = null;
 	let loadingPlayerStats = false;
 
-	// Public Chat interactive animations
+	// Public Chat interactive animations on the map
 	let hoveredSeatId = null;
 	let activePulsingSeats = {};
 	let activeBeams = [];
@@ -101,7 +104,6 @@
 
 	function scheduleRefreshAll() {
 		if (refreshDebounceTimer) clearTimeout(refreshDebounceTimer);
-		// Debounce 250ms + random jitter 0-100ms to avoid synchronous spikes across all LAN clients
 		const jitter = Math.floor(Math.random() * 100);
 		refreshDebounceTimer = setTimeout(async () => {
 			if (isRefreshing) {
@@ -130,37 +132,37 @@
 			const t = msg.type;
 			if (t === 'public_chat_message' && msg.seat_id) {
 				triggerSeatPulse(msg.seat_id);
-			} else if (t === 'tournament_created' || t === 'tournament_updated' || t === 'tournament_deleted' ||
+			} else if (
+				t === 'tournament_created' || t === 'tournament_updated' || t === 'tournament_deleted' ||
 				t === 'tournament_started' || t === 'tournament_closed' ||
 				t === 'score_updated' || t === 'ffa_advanced' ||
 				t === 'participant_joined' || t === 'participant_left' ||
 				t === 'room_updated' || t === 'users_updated' ||
 				t === 'teams_updated' || t === 'games_updated' ||
-				t === 'config_updated' || t === 'ia_config_updated') {
+				t === 'config_updated' || t === 'ia_config_updated'
+			) {
 				scheduleRefreshAll();
 			}
 		});
 	});
 
 	function triggerSeatPulse(seatId) {
-		if (!seatId) return;
+		if (!seatId || !roomLayout?.seats) return;
 		const seat = roomLayout.seats.find(s => String(s.id) === String(seatId));
 		if (!seat) return;
 
 		activePulsingSeats = { ...activePulsingSeats, [seatId]: true };
 		const bubbleId = ++beamCounter;
-		const sx = seat.x + 25; // exact seat center X
-		const sy = seat.y + 25; // exact seat center Y
-		const targetY = mapVb.y; // top of SVG map
+		const sx = seat.x + 25;
+		const sy = seat.y + 25;
+		const targetY = -40; // top offset
 
 		activeBeams = [...activeBeams, { id: bubbleId, x: sx, startY: sy, endY: targetY }];
 
-		// Chat bubble pops, drifts and flies up in ~900ms
 		setTimeout(() => {
 			activeBeams = activeBeams.filter(b => b.id !== bubbleId);
 		}, 950);
 
-		// Seat highlight gracefully fades out
 		setTimeout(() => {
 			const copy = { ...activePulsingSeats };
 			delete copy[seatId];
@@ -177,7 +179,6 @@
 			window.removeEventListener('pointercancel', stopSplitterDrag);
 		}
 	});
-
 
 	async function refreshAll() {
 		previousLeaderboard = [...(stats.leaderboard || [])];
@@ -223,269 +224,8 @@
 		if (runningTournaments[idx]) await loadParticipants(runningTournaments[idx].id);
 	}
 
-	function getOccupant(seatId) {
-		return allUsers.find(u => u.seat_id === seatId);
-	}
-
-	$: dashNameMap = (() => {
-		const m = {};
-		participants.forEach(p => { m[p.user_id] = p.username; });
-		// Primary source: config._team_map (set at tournament start)
-		const tm = activeTournament?.config?._team_map || {};
-		Object.entries(tm).forEach(([id, name]) => { m[id] = name; });
-		// Fallback: rebuild from live teams data (survives config loss on reopen/re-close)
-		dashTeams.forEach(t => { const key = String(-t.id); if (!m[key]) m[key] = t.name; });
-		return m;
-	})();
-
-	function getPlayerName(userId, map) {
-		if (userId === 0) return 'TBD';
-		if (userId < 0) return map[String(userId)] || `${$t('admin_tourneys_wizard_mode_teams')} #${Math.abs(userId)}`;
-		return map[userId] || `#${userId}`;
-	}
-
-	function getRounds(bracket) {
-		if (!bracket || !Array.isArray(bracket)) return [];
-		const rounds = {};
-		bracket.forEach(m => { if (!rounds[m.id.r]) rounds[m.id.r] = []; rounds[m.id.r].push(m); });
-		return Object.keys(rounds).sort((a,b) => a-b).map(k => rounds[k]);
-	}
-
-	function getFFAMatchRank(match, scoreIndex, lowerIsBetter) {
-		const score = match.score?.[scoreIndex];
-		if (!score || score <= 0) return null;
-		const validScores = [...match.score].filter(s => s > 0).sort((a, b) => lowerIsBetter ? a - b : b - a);
-		let rank = 1;
-		let prevScore = validScores[0];
-		for (let i = 0; i < validScores.length; i++) {
-			if (validScores[i] !== prevScore) { rank++; prevScore = validScores[i]; }
-			if (validScores[i] === score) return rank;
-		}
-		return null;
-	}
-
-	function getRankDelta(username, currentIdx) {
-		if (previousLeaderboard.length === 0) return null;
-		const prevIdx = previousLeaderboard.findIndex(p => p.username === username);
-		if (prevIdx === -1) return { type: 'new', text: 'NEW' };
-		if (prevIdx === currentIdx) return null;
-		const diff = Math.abs(prevIdx - currentIdx);
-		return prevIdx > currentIdx ? { type: 'up', text: '↑' + diff } : { type: 'down', text: '↓' + diff };
-	}
-
-	$: occupiedSeats = roomLayout.seats.filter(s => getOccupant(s.id)).length;
-	$: totalSeats = roomLayout.seats.length;
-	$: runningTournaments = tournaments.filter(t => t.status === 'RUNNING');
-	$: activeTournament = runningTournaments[selectedRunningIdx] || null;
-	$: bracketRounds = activeTournament ? getRounds(activeTournament.bracket) : [];
-	$: activeBracketType = activeTournament?.config?.bracket_type || 'single_elim';
-
-	$: dashRRGroups = (() => {
-		if (activeBracketType !== 'round_robin' || !activeTournament) return [];
-		const groups = {};
-		(activeTournament.bracket || []).forEach(m => {
-			if (!groups[m.id.s]) groups[m.id.s] = [];
-			groups[m.id.s].push(m);
-		});
-		return Object.keys(groups).sort((a,b) => a-b).map(k => ({
-			id: k,
-			rounds: getRounds(groups[k])
-		}));
-	})();
-
-	$: wbRounds = activeBracketType === 'double_elim' ? getRounds((activeTournament?.bracket || []).filter(m => m.id.s === 1)) : bracketRounds;
-	$: lbRoundsRaw = activeBracketType === 'double_elim' ? getRounds((activeTournament?.bracket || []).filter(m => m.id.s === 2)) : [];
-	$: lbRounds = lbRoundsRaw.map((roundMatches, ri) => {
-		const hasVisible = roundMatches.some(m => {
-			const isBye = m.p[0] === 0 && m.p[1] === 0;
-			const s0 = m.score?.[0] ?? null, s1 = m.score?.[1] ?? null;
-			const isAutoWin = (m.p[0] === 0 || m.p[1] === 0) && (s0 > 0 || s1 > 0);
-			return !isBye && !isAutoWin;
-		});
-		return hasVisible ? { matches: roundMatches, originalIndex: ri } : null;
-	}).filter(Boolean);
-
-	// --- Pan/Zoom for map preview ---
-	let mapVb = { x: 0, y: 0, w: 900, h: 600 };
-	let mapVbInit = false;
-	let mapPan = null;
-
-	$: if (!mapVbInit && (roomLayout.seats.length > 0 || roomLayout.tables.length > 0)) {
-		const items = [...roomLayout.seats.map(s => ({ x: s.x, y: s.y, w: 50, h: 50 })),
-			...roomLayout.tables.map(t => ({ x: t.x, y: t.y, w: t.w, h: t.h })),
-			...(roomLayout.furniture || []).map(f => ({ x: f.x, y: f.y, w: f.w, h: f.h }))];
-		if (items.length > 0) {
-			const pad = 40;
-			mapVb = {
-				x: Math.min(...items.map(i => i.x)) - pad,
-				y: Math.min(...items.map(i => i.y)) - pad,
-				w: Math.max(...items.map(i => i.x + i.w)) + pad - (Math.min(...items.map(i => i.x)) - pad),
-				h: Math.max(...items.map(i => i.y + i.h)) + pad - (Math.min(...items.map(i => i.y)) - pad)
-			};
-			mapVbInit = true;
-		}
-	}
-
-	function mapWheel(e) {
-		e.preventDefault();
-		const svg = e.currentTarget;
-		const rect = svg.getBoundingClientRect();
-		const mx = (e.clientX - rect.left) / rect.width;
-		const my = (e.clientY - rect.top) / rect.height;
-		const factor = e.deltaY > 0 ? 1.15 : 0.87;
-		const nw = mapVb.w * factor, nh = mapVb.h * factor;
-		mapVb.x += (mapVb.w - nw) * mx;
-		mapVb.y += (mapVb.h - nh) * my;
-		mapVb.w = nw; mapVb.h = nh;
-	}
-	function mapDown(e) {
-		if (e.button === 0) { mapPan = { x: e.clientX, y: e.clientY, vx: mapVb.x, vy: mapVb.y }; }
-	}
-	function mapMove(e) {
-		if (!mapPan) return;
-		const svg = e.currentTarget;
-		const r = svg.getBoundingClientRect();
-		const sx = mapVb.w / r.width, sy = mapVb.h / r.height;
-		mapVb.x = mapPan.vx - (e.clientX - mapPan.x) * sx;
-		mapVb.y = mapPan.vy - (e.clientY - mapPan.y) * sy;
-	}
-	function mapUp() { mapPan = null; }
-
-	// --- Pan/Zoom for bracket preview (CSS transform) ---
-	let brScale = 0.7, brPanX = 0, brPanY = 0;
-	let brDrag = false, brStartX, brStartY;
-	let brViewportEl, brCanvasEl;
-
-	// AXE-29: Clamping
-	const BR_ZOOM_MIN = 0.3, BR_ZOOM_MAX = 2.0;
-	function brClampPan() {
-		if (!brViewportEl || !brCanvasEl) return;
-		const vw = brViewportEl.clientWidth;
-		const vh = brViewportEl.clientHeight;
-		const cw = brCanvasEl.scrollWidth * brScale;
-		const ch = brCanvasEl.scrollHeight * brScale;
-		const margin = 40;
-		if (cw <= vw) {
-			const minX = -margin;
-			const maxX = vw - cw + margin;
-			brPanX = Math.min(maxX, Math.max(brPanX, minX));
-		} else {
-			brPanX = Math.min(margin, Math.max(brPanX, vw - cw - margin));
-		}
-		if (ch <= vh) {
-			const minY = -margin;
-			const maxY = vh - ch + margin;
-			brPanY = Math.min(maxY, Math.max(brPanY, minY));
-		} else {
-			brPanY = Math.min(margin, Math.max(brPanY, vh - ch - margin));
-		}
-	}
-
-	function brWheel(e) {
-		e.preventDefault();
-		const rect = e.currentTarget.getBoundingClientRect();
-		const mx = e.clientX - rect.left, my = e.clientY - rect.top;
-		const old = brScale;
-		brScale *= e.deltaY < 0 ? 1.12 : 0.89;
-		brScale = Math.min(Math.max(BR_ZOOM_MIN, brScale), BR_ZOOM_MAX);
-		brPanX = mx - (mx - brPanX) * (brScale / old);
-		brPanY = my - (my - brPanY) * (brScale / old);
-		brClampPan();
-	}
-	function brDown(e) { brDrag = true; brStartX = e.clientX - brPanX; brStartY = e.clientY - brPanY; }
-	function brMove(e) { if (!brDrag) return; brPanX = e.clientX - brStartX; brPanY = e.clientY - brStartY; brClampPan(); }
-	function brUp() { brDrag = false; }
-	function brPanTo(dx, dy) { brPanX += dx; brPanY += dy; brClampPan(); }
-
-	// AXE-29: Directional arrows for bracket
-	$: brArrowLeft = brPanX < -10;
-	$: brArrowRight = brViewportEl && brCanvasEl ? (brPanX + brCanvasEl.scrollWidth * brScale > brViewportEl.clientWidth + 10) : false;
-	$: brArrowUp = brPanY < -10;
-	$: brArrowDown = brViewportEl && brCanvasEl ? (brPanY + brCanvasEl.scrollHeight * brScale > brViewportEl.clientHeight + 10) : false;
-	$: if (brPanX !== undefined || brPanY !== undefined || brScale) { brArrowLeft = brPanX < -10; brArrowRight = brViewportEl && brCanvasEl ? (brPanX + brCanvasEl.scrollWidth * brScale > brViewportEl.clientWidth + 10) : false; brArrowUp = brPanY < -10; brArrowDown = brViewportEl && brCanvasEl ? (brPanY + brCanvasEl.scrollHeight * brScale > brViewportEl.clientHeight + 10) : false; }
-
-	// AXE-29: Smart active round centering algorithms
-	function getMostAdvancedRoundIndex(rounds) {
-		if (!rounds || rounds.length === 0) return 0;
-		let maxRi = 0;
-		// First pass: find the highest round index with an active (unplayed but has actual players) match
-		for (let ri = 0; ri < rounds.length; ri++) {
-			const hasActive = rounds[ri].some(m => {
-				const s0 = m.score?.[0] ?? null;
-				const s1 = m.score?.[1] ?? null;
-				const isDone = s0 !== null && s1 !== null && (s0 !== 0 || s1 !== 0);
-				const hasPlayers = m.p && m.p[0] > 0 && m.p[1] > 0;
-				return hasPlayers && !isDone;
-			});
-			if (hasActive) maxRi = ri;
-		}
-		if (maxRi > 0) return maxRi;
-
-		// Second pass: if no active matches, find the highest round with any played match
-		for (let ri = 0; ri < rounds.length; ri++) {
-			const hasPlayed = rounds[ri].some(m => {
-				const s0 = m.score?.[0] ?? null;
-				const s1 = m.score?.[1] ?? null;
-				return s0 !== null && s1 !== null && (s0 !== 0 || s1 !== 0);
-			});
-			if (hasPlayed) maxRi = ri;
-		}
-		return maxRi;
-	}
-
-	function focusAdvancedRound() {
-		if (!brViewportEl || !brCanvasEl || bracketRounds.length === 0) return;
-		const ri = getMostAdvancedRoundIndex(bracketRounds);
-		const vw = brViewportEl.clientWidth || 340;
-		const vh = brViewportEl.clientHeight || 280;
-
-		// Focus "en gros": set scale to 0.75 so it's clearly readable and fits well in the dashboard card!
-		brScale = 0.75;
-
-		// Column width is 150px, gap is 24px (1.5rem)
-		const colWidth = 150;
-		const gap = 24;
-
-		// Center on the active round and the preceding round if possible, to show the transition/context
-		const startRi = Math.max(0, ri - 1);
-		const endRi = ri;
-		const centerIndex = (startRi + endRi) / 2;
-		const colCenter = centerIndex * (colWidth + gap) + (colWidth / 2);
-		brPanX = (vw / 2) - (colCenter * brScale);
-
-		// Center vertically as well
-		const canvasHeight = brCanvasEl.scrollHeight || 250;
-		brPanY = (vh / 2) - ((canvasHeight * brScale) / 2);
-
-		brClampPan();
-	}
-
-	// Auto-focus on the most advanced round on load / update
-	$: if (bracketRounds && brViewportEl) {
-		setTimeout(() => focusAdvancedRound(), 150);
-	}
-
-	let overlayMouseDown = false;
-
-	function handleKeydown(e) {
-		if (showPlayerStatsModal && e.key === 'Escape') {
-			showPlayerStatsModal = false;
-		}
-	}
-
-	function portal(node) {
-		document.body.appendChild(node);
-		return {
-			destroy() {
-				if (node.parentNode) {
-					node.parentNode.removeChild(node);
-				}
-			}
-		};
-	}
-
 	async function openPlayerStats(username) {
-		const foundUser = allUsers.find(u => u.username === username);
+		const foundUser = (allUsers || []).find(u => u.username === username);
 		if (!foundUser) return;
 		loadingPlayerStats = true;
 		showPlayerStatsModal = true;
@@ -504,9 +244,10 @@
 			loadingPlayerStats = false;
 		}
 	}
-</script>
 
-<svelte:window on:keydown={handleKeydown} />
+	$: runningTournaments = tournaments.filter(t => t.status === 'RUNNING');
+	$: activeTournament = runningTournaments[selectedRunningIdx] || null;
+</script>
 
 <div class="hq-dashboard">
 	<!-- Top Command Bar -->
@@ -539,72 +280,12 @@
 	<!-- 3-Column Main Grid -->
 	<div class="main-triptych">
 		<!-- LEFT: Leaderboard -->
-		<section class="panel leaderboard-panel glass">
-			<div class="panel-header">
-				<h2>{$t('dash_lb_title')}</h2>
-				<div class="lb-tabs">
-					<button class="lb-tab {lbMode === 'players' ? 'active' : ''}" on:click={() => lbMode = 'players'}>{$t('dash_lb_players')}</button>
-					<button class="lb-tab {lbMode === 'teams' ? 'active' : ''}" on:click={() => lbMode = 'teams'}>{$t('dash_lb_teams')}</button>
-				</div>
-			</div>
-			<div class="leaderboard-list">
-				{#if lbMode === 'players'}
-				{#each stats.leaderboard as entry, i}
-					<div class="lb-row {i < 3 ? 'top-3' : ''} clickable" on:click={() => openPlayerStats(entry.username)}>
-						<span class="lb-rank {i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : ''}">{i + 1}</span>
-						<div class="lb-avatar avatar-shape-{entry.avatar_shape || 'circle'}">
-							{#if entry.avatar_url}
-								<img src={entry.avatar_url} alt="" class="lb-avatar-img" />
-							{:else}
-								{entry.username[0].toUpperCase()}
-							{/if}
-						</div>
-						<div class="lb-info">
-							<span class="lb-name">{entry.username}</span>
-							<span class="lb-sub">{entry.team_name || 'GamerTag'}</span>
-						</div>
-						{#if getRankDelta(entry.username, i)}
-							<span class="lb-delta {getRankDelta(entry.username, i).type}">{getRankDelta(entry.username, i).text}</span>
-						{/if}
-						<div class="lb-score">
-							<span class="score-val">{entry.points}</span>
-							<span class="score-label">Pts</span>
-						</div>
-					</div>
-				{:else}
-					<p class="text-dim text-sm" style="padding: 1rem;">{$t('dash_lb_no_players')}</p>
-				{/each}
-				{:else}
-				{#each teamLeaderboard as team, i}
-					<div class="lb-row {i < 3 ? 'top-3' : ''} clickable" on:click={() => expandedTeamIdx = expandedTeamIdx === i ? -1 : i}>
-						<span class="lb-rank {i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : ''}">{i + 1}</span>
-						<div class="lb-avatar team-av">{team.team_name[0].toUpperCase()}</div>
-						<div class="lb-info">
-							<span class="lb-name">{team.team_name}</span>
-							<span class="lb-sub">{team.member_count}{$t('dash_lb_member_suffix', { plural: team.member_count > 1 ? 's' : '' })} {expandedTeamIdx === i ? '▲' : '▼'}</span>
-						</div>
-						<div class="lb-score">
-							<span class="score-val">{team.score}</span>
-							<span class="score-label">Pts</span>
-						</div>
-					</div>
-					{#if expandedTeamIdx === i && team.members}
-						<div class="team-expand">
-							{#each team.members.sort((a,b) => b.points - a.points) as member}
-								<!-- svelte-ignore a11y-click-events-have-key-events -->
-								<div class="team-member-row clickable" on:click={() => openPlayerStats(member.username)} style="cursor: pointer;">
-									<span class="tm-name">👤 {member.username}</span>
-									<span class="tm-pts">{member.points} pts</span>
-								</div>
-							{/each}
-						</div>
-					{/if}
-				{:else}
-					<p class="text-dim text-sm" style="padding: 1rem;">{$t('dash_lb_no_teams')}</p>
-				{/each}
-				{/if}
-			</div>
-		</section>
+		<DashboardLeaderboard
+			{stats}
+			{teamLeaderboard}
+			{previousLeaderboard}
+			on:openPlayerStats={(e) => openPlayerStats(e.detail)}
+		/>
 
 		<!-- CENTER COLUMN: Public Chat (Top) + Resizer + Arena Floor Map (Bottom) -->
 		<div class="center-column" bind:this={centerColEl}>
@@ -633,382 +314,29 @@
 			</div>
 
 			<!-- BOTTOM: Arena Floor Map Preview -->
-			<section class="panel map-panel glass" class:no-transition={isDraggingSplitter} style="height: calc({100 - chatSplitRatio}% - 14px);">
-				<div class="panel-header">
-					<div>
-						<h2>{$t('dash_map_title')}</h2>
-						<span class="subtitle">{$t('dash_map_subtitle')}</span>
-					</div>
-					<div class="flex-row gap-2">
-						<a href="/dashboard/map" class="btn-chip">{$t('dash_map_open')}</a>
-					</div>
-				</div>
-				<div class="map-preview-canvas">
-					<!-- svelte-ignore a11y-no-static-element-interactions -->
-					<svg viewBox="{mapVb.x} {mapVb.y} {mapVb.w} {mapVb.h}" class="mini-map"
-						on:wheel={mapWheel}
-						on:mousedown={mapDown}
-						on:mousemove={mapMove}
-						on:mouseup={mapUp}
-						on:mouseleave={mapUp}
-						style="cursor: {mapPan ? 'grabbing' : 'grab'}"
-					>
-						<defs>
-							<pattern id="dash-grid" width="40" height="40" patternUnits="userSpaceOnUse">
-								<path d="M 40 0 L 0 0 0 40" fill="none" stroke="var(--map-grid-stroke)" stroke-width="1"/>
-							</pattern>
-							<filter id="neon-glow" x="-50%" y="-50%" width="200%" height="200%">
-								<feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur1" />
-								<feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur2" />
-								<feMerge>
-									<feMergeNode in="blur2" />
-									<feMergeNode in="blur1" />
-									<feMergeNode in="SourceGraphic" />
-								</feMerge>
-							</filter>
-							<linearGradient id="bubble-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-								<stop offset="0%" stop-color="#38bdf8" />
-								<stop offset="50%" stop-color="#6366f1" />
-								<stop offset="100%" stop-color="#a855f7" />
-							</linearGradient>
-						</defs>
-						<rect width="100%" height="100%" fill="url(#dash-grid)"/>
-
-						{#each roomLayout.tables as table}
-							{@const cx = table.x + table.w / 2}
-							{@const cy = table.y + table.h / 2}
-							<g transform="rotate({table.rotation || 0}, {cx}, {cy})">
-								<rect x={table.x} y={table.y} width={table.w} height={table.h} rx="6"
-									fill="var(--map-table-fill)" stroke="var(--map-table-stroke)" stroke-width="1.5"/>
-								<text x={cx} y={cy + 4} text-anchor="middle" fill="var(--text-muted)" font-size="10" font-weight="700">{table.label}</text>
-							</g>
-						{/each}
-
-						{#each (roomLayout.furniture || []) as furn}
-							{@const fcx = furn.x + furn.w / 2}
-							{@const fcy = furn.y + furn.h / 2}
-							<g transform="rotate({furn.rotation || 0}, {fcx}, {fcy})">
-								<rect x={furn.x} y={furn.y} width={furn.w} height={furn.h} rx="4"
-									fill="rgba(245,158,11,0.1)" stroke="rgba(245,158,11,0.4)" stroke-width="1.5" stroke-dasharray="4 2"/>
-								<foreignObject x={furn.x} y={furn.y} width={furn.w} height={furn.h} style="pointer-events:none">
-									<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;height:100%;line-height:1.1;">
-										<span style="font-size: {furn.h <= 40 ? '18px' : '26px'};">{furn.icon}</span>
-										<span style="font-size: {furn.h <= 40 ? '10px' : '12px'};font-weight:700;color:#f59e0b;margin-top:2px;text-align:center;word-break:break-all;padding:0 4px;">{furn.label}</span>
-									</div>
-								</foreignObject>
-							</g>
-						{/each}
-
-						{#each roomLayout.seats as seat}
-							{@const occ = getOccupant(seat.id)}
-							{@const isMine = occ && user && occ.id === user.id}
-							{@const isTeammate = occ && !isMine && user?.team_name && occ.team_name === user.team_name}
-							{@const isPulsing = activePulsingSeats[seat.id]}
-							{@const isHovered = hoveredSeatId === seat.id}
-							{@const scx = seat.x + 25}
-							{@const scy = seat.y + 25}
-							<g transform="rotate({seat.rotation || 0}, {scx}, {scy})" class="seat-node {isPulsing ? 'pulse-active' : ''} {isHovered ? 'hover-active' : ''}">
-								<rect x={seat.x} y={seat.y} width="50" height="50" rx="6"
-									fill={isPulsing ? 'rgba(56, 189, 248, 0.45)' : isHovered ? 'rgba(168, 85, 247, 0.35)' : isMine ? 'var(--map-seat-mine-fill)' : isTeammate ? 'var(--map-seat-teammate-fill)' : occ ? 'var(--map-seat-mine-fill)' : 'var(--map-seat-fill)'}
-									stroke={isPulsing ? '#38bdf8' : isHovered ? '#c084fc' : isMine ? 'var(--accent)' : isTeammate ? 'var(--map-seat-teammate-stroke)' : occ ? 'var(--accent)' : 'var(--map-seat-stroke)'}
-									stroke-width={isPulsing || isHovered ? '3' : isTeammate ? '2' : '1.5'}
-									filter={isPulsing || isHovered ? 'url(#neon-glow)' : null}
-								/>
-								<clipPath id="dclip-{seat.id}">
-									<rect x={seat.x + 2} y={seat.y} width="46" height="50"/>
-								</clipPath>
-								<g clip-path="url(#dclip-{seat.id})">
-									{#if occ}
-										{#if occ.avatar_url}
-											<text x={scx} y={seat.y + 9} text-anchor="middle" fill="var(--text-muted)" font-size="5" font-weight="800">{seat.id}</text>
-											<clipPath id="davatar-clip-{seat.id}">
-												{#if occ.avatar_shape === 'rounded'}
-													<rect x={scx - 9} y={seat.y + 11} width="18" height="18" rx="3" ry="3" />
-												{:else if occ.avatar_shape === 'square'}
-													<rect x={scx - 9} y={seat.y + 11} width="18" height="18" />
-												{:else}
-													<circle cx={scx} cy={seat.y + 20} r="9" />
-												{/if}
-											</clipPath>
-											<image href={occ.avatar_url} x={scx - 9} y={seat.y + 11} width="18" height="18" clip-path="url(#davatar-clip-{seat.id})" />
-											<text x={scx} y={seat.y + 39} text-anchor="middle" fill="var(--map-seat-player-fill)" font-size="6" font-weight="700"
-												textLength={occ.username.length > 7 ? 44 : null}
-												lengthAdjust="spacingAndGlyphs"
-											>{occ.username}</text>
-											{#if occ.team_name}
-												<text x={scx} y={seat.y + 46} text-anchor="middle" fill="var(--accent)" font-size="4.5" opacity="0.7"
-													textLength={occ.team_name.length > 8 ? 42 : null}
-													lengthAdjust="spacingAndGlyphs"
-												>{occ.team_name}</text>
-											{/if}
-										{:else}
-											<text x={scx} y={seat.y + 13} text-anchor="middle" fill="var(--text-muted)" font-size="6" font-weight="800">{seat.id}</text>
-											<text x={scx} y={seat.y + 28} text-anchor="middle" fill="var(--map-seat-player-fill)" font-size="7" font-weight="700"
-												textLength={occ.username.length > 7 ? 44 : null}
-												lengthAdjust="spacingAndGlyphs"
-											>{occ.username}</text>
-											{#if occ.team_name}
-												<text x={scx} y={seat.y + 38} text-anchor="middle" fill="var(--accent)" font-size="5" opacity="0.7"
-													textLength={occ.team_name.length > 8 ? 42 : null}
-													lengthAdjust="spacingAndGlyphs"
-												>{occ.team_name}</text>
-											{/if}
-										{/if}
-									{:else}
-										<text x={scx} y={seat.y + 13} text-anchor="middle" fill="var(--text-muted)" font-size="6" font-weight="800">{seat.id}</text>
-										<text x={scx} y={seat.y + 32} text-anchor="middle" fill="var(--text-muted)" font-size="7">{$t('dash_map_legend_free')}</text>
-									{/if}
-								</g>
-							</g>
-						{/each}
-
-						<!-- Floating Chat Bubble icon rising from Seat to Top towards Chat -->
-						{#each activeBeams as bubble (bubble.id)}
-							<g transform="translate({bubble.x}, {bubble.startY})">
-								<g
-									class="chat-bubble-flyer"
-									style="--fly-dist: {bubble.endY - bubble.startY}px;"
-								>
-									<!-- Chat Bubble Vector -->
-									<path
-										d="M -11,-9 h 22 a 6,6 0 0 1 6,6 v 8 a 6,6 0 0 1 -6,6 h -13 l -5,5 v -5 a 6,6 0 0 1 -4,-6 v -8 a 6,6 0 0 1 6,-6 z"
-										fill="url(#bubble-grad)"
-										stroke="#ffffff"
-										stroke-width="1.2"
-										filter="url(#neon-glow)"
-									/>
-									<!-- 3 glowing dots inside bubble -->
-									<circle cx="-5" cy="-2" r="1.5" fill="#ffffff" />
-									<circle cx="0" cy="-2" r="1.5" fill="#ffffff" />
-									<circle cx="5" cy="-2" r="1.5" fill="#ffffff" />
-								</g>
-							</g>
-						{/each}
-					</svg>
-				</div>
-				<div class="map-footer">
-					<div class="map-legend">
-						<span class="lg-item"><span class="lg-dot occupied"></span> {$t('dash_map_legend_occupied')} ({occupiedSeats})</span>
-						<span class="lg-item"><span class="lg-dot free"></span> {$t('dash_map_legend_free')} ({totalSeats - occupiedSeats})</span>
-						{#if user?.team_name}
-							<span class="lg-item"><span class="lg-dot teammate"></span> {$t('map_legend_teammates')}</span>
-						{/if}
-					</div>
-				</div>
-			</section>
+			<DashboardFloorMap
+				{roomLayout}
+				{allUsers}
+				{user}
+				{hoveredSeatId}
+				{activePulsingSeats}
+				{activeBeams}
+				{isDraggingSplitter}
+				{chatSplitRatio}
+			/>
 		</div>
 
-
 		<!-- RIGHT: Tournament Bracket Preview -->
-		<section class="panel bracket-panel glass">
-			<div class="panel-header">
-				<div>
-					<h2>{activeTournament?.name || $t('dash_bracket_title')}</h2>
-					<span class="subtitle">{games.find(g => g.id === activeTournament?.game_id)?.name || (runningTournaments.length + ' ' + $t('dash_pill_active').toLowerCase() + (runningTournaments.length > 1 ? 's' : ''))}</span>
-				</div>
-			</div>
-			{#if runningTournaments.length > 0}
-				<!-- Tabs -->
-				{#if runningTournaments.length > 1}
-					<div class="running-tabs">
-						{#each runningTournaments as rt, i}
-							<button class="rt-tab {selectedRunningIdx === i ? 'active' : ''}" on:click={() => selectRunning(i)}>{rt.name}</button>
-						{/each}
-					</div>
-				{/if}
-				<div class="bracket-preview">
-					<div class="bracket-info-grid">
-						<div class="bi-card">
-							<span class="bi-val">{participants.length}</span>
-							<span class="bi-label">{$t('dash_stat_players')}</span>
-						</div>
-						<div class="bi-card">
-							<span class="bi-val">{activeBracketType === 'round_robin' ? 'RR' : activeBracketType === 'double_elim' ? 'DE' : activeBracketType === 'ffa' ? 'FFA' : 'SE'}</span>
-							<span class="bi-label">{$t('admin_tourneys_wizard_format_lbl')}</span>
-						</div>
-						<div class="bi-card">
-							<span class="bi-val status-badge {activeTournament?.status?.toLowerCase() || ''}">{activeTournament?.status === 'RUNNING' ? $t('tourneys_status_running').toUpperCase() : activeTournament?.status === 'CLOSED' ? $t('tourneys_status_closed').toUpperCase() : activeTournament?.status || ''}</span>
-							<span class="bi-label">Status</span>
-						</div>
-					</div>
-
-					{#if bracketRounds.length > 0}
-						{#if activeBracketType === 'ffa'}
-							<!-- FFA compact view -->
-							<div class="dash-ffa">
-								{#each bracketRounds as roundMatches, ri}
-									{@const isLatest = ri === bracketRounds.length - 1}
-									<div class="dash-ffa-round" class:ffa-latest={isLatest}>
-										<div class="dash-ffa-hdr" style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.8rem; background: var(--surface-sunken); border-radius: 8px 8px 0 0; font-weight: 700; color: var(--accent); margin-bottom: 0.5rem;">
-											{$t('dash_bracket_ffa_round', { round: ri+1, count: roundMatches.length })}
-										</div>
-										<div class="dash-ffa-matches" style="display: flex; flex-direction: column; gap: 0.8rem; padding: 0 0.5rem 0.5rem;">
-										{#each roundMatches as match, mi}
-											<div class="dash-ffa-match-box">
-												<div class="dash-ffa-count" style="font-size: 0.7rem; color: var(--text-muted); font-weight: 600; margin-bottom: 0.3rem;">Match {mi + 1} - {$t(match.p.length > 1 ? 'admin_tourneys_players_count_plural' : 'admin_tourneys_players_count_singular', { count: match.p.length })}</div>
-												{#each match.p as pid, pi}
-													{@const mRank = getFFAMatchRank(match, pi, activeTournament?.config?.lower_score_is_better)}
-													<div class="dash-ffa-row {mRank === 1 ? 'gold' : mRank === 2 ? 'silver' : mRank === 3 ? 'bronze' : ''}">
-														<span class="dash-ffa-pos">{mRank ? '#' + mRank : '—'}</span>
-														<span style="flex:1">{getPlayerName(pid, dashNameMap)}</span>
-														{#if match.score?.[pi] > 0}
-															<span class="dash-ffa-score">{match.score[pi]}</span>
-														{/if}
-													</div>
-												{/each}
-											</div>
-										{/each}
-										</div>
-									</div>
-								{/each}
-							</div>
-						{:else if activeBracketType === 'round_robin'}
-							<!-- Round Robin view -->
-							<div class="dash-rr">
-								{#each dashRRGroups as group}
-									<div class="dash-rr-group" style="margin-bottom: 1.5rem; width: 100%;">
-										{#if dashRRGroups.length > 1}
-											<h4 style="color: var(--accent); font-weight: 800; margin-bottom: 0.5rem;">Poule {String.fromCharCode(64 + parseInt(group.id))}</h4>
-										{/if}
-										<div class="dash-rr-rounds" style="display: flex; flex-wrap: wrap; gap: 1rem;">
-											{#each group.rounds as roundMatches, ri}
-												<div class="dash-rr-round" style="min-width: 250px; flex: 1;">
-													<div class="dash-rr-hdr" style="font-weight: 700; color: var(--text-muted); margin-bottom: 0.5rem; font-size: 0.8rem; text-transform: uppercase;">{$t('spec_matchday_num', { num: ri + 1 })}</div>
-													<div class="dash-rr-matches" style="display: flex; flex-direction: column; gap: 0.4rem;">
-														{#each roundMatches as match}
-															{@const s0 = match.score?.[0] ?? null}
-															{@const s1 = match.score?.[1] ?? null}
-															{@const isDone = s0 !== null && s1 !== null && (s0 !== 0 || s1 !== 0) && (s0 !== s1 || activeTournament?.config?.allow_draws)}
-															{@const lowerIsBetter = activeTournament?.config?.lower_score_is_better}
-															{@const p0Winner = isDone && (lowerIsBetter ? s0 < s1 : s0 > s1)}
-															{@const p1Winner = isDone && (lowerIsBetter ? s1 < s0 : s1 > s0)}
-															<div class="dash-rr-match {isDone ? 'done' : ''}" style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: var(--surface-sunken); border-radius: 6px; border: 1px solid var(--glass-border);">
-																<span class="dash-rr-p {p0Winner ? 'winner' : ''}" style="flex: 1; {p0Winner ? 'color: var(--text-main); font-weight: 700;' : 'color: var(--text-muted);'}">{getPlayerName(match.p[0], dashNameMap)}</span>
-																
-																<span class="dash-rr-score" style="font-weight: 800; color: var(--accent); padding: 0 0.5rem;">
-																	{#if activeTournament?.config?.boolean_mode}
-																		{#if isDone}
-																			{p0Winner ? '✅' : (s0 === s1 && s0 !== 0 ? '🤝' : '❌')} - {p1Winner ? '✅' : (s0 === s1 && s0 !== 0 ? '🤝' : '❌')}
-																		{:else}—{/if}
-																	{:else}
-																		{s0 ?? 0} - {s1 ?? 0}
-																	{/if}
-																</span>
-																
-																<span class="dash-rr-p {p1Winner ? 'winner' : ''}" style="flex: 1; text-align: right; {p1Winner ? 'color: var(--text-main); font-weight: 700;' : 'color: var(--text-muted);'}">{getPlayerName(match.p[1], dashNameMap)}</span>
-															</div>
-														{/each}
-													</div>
-												</div>
-											{/each}
-										</div>
-									</div>
-								{/each}
-							</div>
-						{:else}
-							<!-- Duel bracket -->
-							<div class="bracket-visual">
-								<!-- svelte-ignore a11y-no-static-element-interactions -->
-								<div class="dash-bracket-viewport" bind:this={brViewportEl} on:wheel={brWheel} on:mousedown={brDown} on:mousemove={brMove} on:mouseup={brUp} on:mouseleave={brUp} style="cursor: {brDrag ? 'grabbing' : 'grab'}">
-									<div class="dash-bracket-canvas" bind:this={brCanvasEl} style="transform: translate({brPanX}px, {brPanY}px) scale({brScale});">
-										<div class="dash-rounds">
-											{#each wbRounds as roundMatches, ri}
-												<div class="dash-round-col">
-													<div class="dash-round-hdr">R{ri + 1}</div>
-													<div class="dash-matches-col">
-														{#each roundMatches as match}
-															{@const s0 = match.score?.[0] ?? null}
-															{@const s1 = match.score?.[1] ?? null}
-															{@const isDone = s0 !== null && s1 !== null && (s0 !== 0 || s1 !== 0) && s0 !== s1}
-															{@const isBye = match.p[0] === 0 && match.p[1] === 0}
-															{@const isAutoWin = (match.p[0] === 0 || match.p[1] === 0) && (s0 > 0 || s1 > 0)}
-															{#if !isBye && !isAutoWin}
-															{@const lowerIsBetter = activeTournament?.config?.lower_score_is_better}
-															{@const p0Winner = isDone && (lowerIsBetter ? s0 < s1 : s0 > s1)}
-															{@const p0Loser = isDone && (lowerIsBetter ? s0 > s1 : s0 < s1)}
-															{@const p1Winner = isDone && (lowerIsBetter ? s1 < s0 : s1 > s0)}
-															{@const p1Loser = isDone && (lowerIsBetter ? s1 > s0 : s1 < s0)}
-															<div class="dash-match {isDone ? 'done' : ''}">
-																<div class="dm-player {match.p[0] ? 'filled' : ''} {p0Winner ? 'winner' : ''} {p0Loser ? 'loser' : ''}">
-																	<span>{getPlayerName(match.p[0], dashNameMap)}</span>
-																	<span class="dm-score">{#if activeTournament?.config?.boolean_mode}{#if p0Winner}✅{:else if p0Loser}❌{:else if isDone}🤝{:else}—{/if}{:else}{s0 ?? 0}{/if}</span>
-																</div>
-																<div class="dm-div"></div>
-																<div class="dm-player {match.p[1] ? 'filled' : ''} {p1Winner ? 'winner' : ''} {p1Loser ? 'loser' : ''}">
-																	<span>{getPlayerName(match.p[1], dashNameMap)}</span>
-																	<span class="dm-score">{#if activeTournament?.config?.boolean_mode}{#if p1Winner}✅{:else if p1Loser}❌{:else if isDone}🤝{:else}—{/if}{:else}{s1 ?? 0}{/if}</span>
-																</div>
-															</div>
-															{/if}
-														{/each}
-													</div>
-												</div>
-											{/each}
-										</div>
-										{#if activeBracketType === 'double_elim' && lbRounds.length > 0}
-											<div style="margin: 0 1rem; align-self: center; font-weight: 800; color: var(--text-muted); text-transform: uppercase; font-size: 0.8rem; letter-spacing: 0.1em; padding: 1rem 0; text-align: center;">Losers Bracket</div>
-											<div class="dash-rounds">
-												{#each lbRounds as lbRound, ri}
-													<div class="dash-round-col">
-														<div class="dash-round-hdr">{lbRound.originalIndex === lbRoundsRaw.length - 1 ? 'LB Finale' : 'LB R' + (lbRound.originalIndex + 1)}</div>
-														<div class="dash-matches-col">
-															{#each lbRound.matches as match}
-																{@const s0 = match.score?.[0] ?? null}
-																{@const s1 = match.score?.[1] ?? null}
-																{@const isDone = s0 !== null && s1 !== null && (s0 !== 0 || s1 !== 0) && s0 !== s1}
-																{@const isBye = match.p[0] === 0 && match.p[1] === 0}
-																{@const isAutoWin = (match.p[0] === 0 || match.p[1] === 0) && (s0 > 0 || s1 > 0)}
-																{#if !isBye && !isAutoWin}
-																{@const lowerIsBetter = activeTournament?.config?.lower_score_is_better}
-																{@const p0Winner = isDone && (lowerIsBetter ? s0 < s1 : s0 > s1)}
-																{@const p0Loser = isDone && (lowerIsBetter ? s0 > s1 : s0 < s1)}
-																{@const p1Winner = isDone && (lowerIsBetter ? s1 < s0 : s1 > s0)}
-																{@const p1Loser = isDone && (lowerIsBetter ? s1 > s0 : s1 < s0)}
-																<div class="dash-match {isDone ? 'done' : ''}" style="opacity: 0.9;">
-																	<div class="dm-player {match.p[0] ? 'filled' : ''} {p0Winner ? 'winner' : ''} {p0Loser ? 'loser' : ''}">
-																		<span>{getPlayerName(match.p[0], dashNameMap)}</span>
-																		<span class="dm-score">{#if activeTournament?.config?.boolean_mode}{#if p0Winner}✅{:else if p0Loser}❌{:else if isDone}🤝{:else}—{/if}{:else}{s0 ?? 0}{/if}</span>
-																	</div>
-																	<div class="dm-div"></div>
-																	<div class="dm-player {match.p[1] ? 'filled' : ''} {p1Winner ? 'winner' : ''} {p1Loser ? 'loser' : ''}">
-																		<span>{getPlayerName(match.p[1], dashNameMap)}</span>
-																		<span class="dm-score">{#if activeTournament?.config?.boolean_mode}{#if p1Winner}✅{:else if p1Loser}❌{:else if isDone}🤝{:else}—{/if}{:else}{s1 ?? 0}{/if}</span>
-																	</div>
-																</div>
-																{/if}
-															{/each}
-														</div>
-													</div>
-												{/each}
-											</div>
-										{/if}
-									</div>
-								</div>
-								{#if brArrowLeft}<div class="pan-arrow pan-arrow-left" on:click={() => brPanTo(100, 0)}>‹</div>{/if}
-								{#if brArrowRight}<div class="pan-arrow pan-arrow-right" on:click={() => brPanTo(-100, 0)}>›</div>{/if}
-								{#if brArrowUp}<div class="pan-arrow pan-arrow-up" on:click={() => brPanTo(0, 100)}>‹</div>{/if}
-								{#if brArrowDown}<div class="pan-arrow pan-arrow-down" on:click={() => brPanTo(0, -100)}>‹</div>{/if}
-							</div>
-						{/if}
-					{:else}
-						<div class="no-bracket-data">
-							<span>📊</span>
-							<p class="text-dim text-xs">{$t('dash_bracket_waiting')}</p>
-						</div>
-					{/if}
-
-					<a href="/dashboard/tournaments" class="btn-chip full-width">{$t('dash_bracket_view_all')}</a>
-				</div>
-			{:else}
-				<div class="no-tournament">
-					<span class="no-tourney-icon">🏆</span>
-					<p>{$t('dash_no_tournament')}</p>
-					{#if user?.is_admin}
-						<a href="/dashboard/admin" class="btn-chip">{$t('dash_no_tournament_create')}</a>
-					{/if}
-				</div>
-			{/if}
-		</section>
+		<DashboardBracketPreview
+			{runningTournaments}
+			{activeTournament}
+			{selectedRunningIdx}
+			{participants}
+			{dashTeams}
+			{games}
+			{user}
+			on:selectRunning={(e) => selectRunning(e.detail)}
+		/>
 	</div>
 
 	<!-- Bottom Stats Row -->
@@ -1044,175 +372,95 @@
 	</div>
 </div>
 
-{#if showPlayerStatsModal}
-	<!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
-	<!-- svelte-ignore a11y-click-events-have-key-events -->
-	<div class="modal-overlay-global" use:portal role="dialog" aria-modal="true"
-		on:mousedown={(e) => { if (e.target === e.currentTarget) overlayMouseDown = true; }} 
-		on:mouseup={(e) => { if (overlayMouseDown && e.target === e.currentTarget) showPlayerStatsModal = false; overlayMouseDown = false; }}>
-		<div class="player-modal-card glass" on:click|stopPropagation>
-			<header class="player-modal-header">
-				<div class="player-modal-profile">
-					<div class="player-modal-avatar avatar-shape-{allUsers.find(u => u.username === selectedPlayerStats?.username)?.avatar_shape || 'circle'}">
-						{#if allUsers.find(u => u.username === selectedPlayerStats?.username)?.avatar_url}
-							<img src={allUsers.find(u => u.username === selectedPlayerStats?.username).avatar_url} alt="" class="player-modal-avatar-img" />
-						{:else}
-							{selectedPlayerStats?.username ? selectedPlayerStats.username[0].toUpperCase() : '?'}
-						{/if}
-					</div>
-					<div class="player-modal-identity">
-						<h3>{selectedPlayerStats?.username || 'Chargement...'}</h3>
-						<span class="player-modal-team">{allUsers.find(u => u.username === selectedPlayerStats?.username)?.team_name || $t('dash_modal_team_fallback')}</span>
-					</div>
-				</div>
-				<button class="player-modal-close" on:click={() => showPlayerStatsModal = false}>✕</button>
-			</header>
-
-			<div class="player-modal-body">
-				{#if loadingPlayerStats}
-					<div class="player-modal-loading">
-						<div class="spinner"></div>
-						<span>{$t('dash_modal_stats_loading')}</span>
-					</div>
-				{:else if selectedPlayerStats}
-					<!-- Stats cards summary -->
-					<div class="player-modal-summary">
-						<div class="summary-stat-card">
-							<span class="val accent-gradient">{selectedPlayerStats.total_points}</span>
-							<span class="lbl">{$t('dash_modal_points_total')}</span>
-						</div>
-						<div class="summary-stat-card">
-							<span class="val">{selectedPlayerStats.history.length}</span>
-							<span class="lbl">{$t('dash_modal_participations')}</span>
-						</div>
-						<div class="summary-stat-card">
-							<span class="val">{selectedPlayerStats.awards.length}</span>
-							<span class="lbl">{$t('dash_modal_trophies')}</span>
-						</div>
-					</div>
-
-					<div class="player-modal-details">
-						<!-- Tournaments Section -->
-						<div class="details-section">
-							<h4>{$t('dash_modal_tournaments_title')}</h4>
-							<div class="tournaments-list-scroll">
-								{#each selectedPlayerStats.history as hist}
-									<div class="tournament-stat-row">
-										<div class="t-main">
-											<span class="t-game-emoji">🎮</span>
-											<div class="t-names">
-												<span class="t-name">{hist.tournament_name}</span>
-												<span class="t-game">{hist.game_name || 'Jeu inconnu'}</span>
-											</div>
-										</div>
-										<div class="t-details">
-											{#if hist.status === 'OPEN'}
-												<span class="status-badge open">{$t('tourneys_status_open').toUpperCase()}</span>
-											{:else if hist.status === 'RUNNING'}
-												<span class="status-badge running">{$t('tourneys_status_running').toUpperCase()}</span>
-											{:else}
-												<span class="status-badge closed">{$t('tourneys_status_done').toUpperCase()}</span>
-											{/if}
-
-											<div class="t-rank-pts">
-												<span class="t-rank">{hist.rank ? `#${hist.rank}` : '—'}</span>
-												<span class="t-pts-total">{hist.total} pts</span>
-											</div>
-										</div>
-									</div>
-									<div class="pts-breakdown">
-										<span>{@html $t('dash_modal_points_breakdown', { p: hist.participation_pts, pl: hist.placement_pts })}</span>
-										{#if hist.score_pts > 0}
-											<span>{@html $t('dash_modal_points_bonus', { b: hist.score_pts })}</span>
-										{/if}
-										{#if hist.team_name}
-											<span class="team-lbl">{@html $t('dash_modal_team_lbl', { name: hist.team_name })}</span>
-										{/if}
-									</div>
-								{:else}
-									<p class="empty-msg">{$t('dash_modal_no_tournaments')}</p>
-								{/each}
-							</div>
-						</div>
-
-						<!-- Awards Section -->
-						<div class="details-section">
-							<h4>{$t('dash_modal_awards_title')}</h4>
-							<div class="awards-list-scroll">
-								{#each selectedPlayerStats.awards as award}
-									<div class="award-item-card">
-										<span class="award-icon">⭐</span>
-										<div class="award-info">
-											<span class="award-title">{award.title}</span>
-											<p class="award-desc">{award.description || ''}</p>
-										</div>
-									</div>
-								{:else}
-									<p class="empty-msg">{$t('dash_modal_no_awards')}</p>
-								{/each}
-							</div>
-						</div>
-					</div>
-				{/if}
-			</div>
-		</div>
-	</div>
-{/if}
+<DashboardPlayerModal
+	bind:show={showPlayerStatsModal}
+	{selectedPlayerStats}
+	{loadingPlayerStats}
+	{allUsers}
+	on:close={() => showPlayerStatsModal = false}
+/>
 
 <style>
-	.hq-dashboard { display: flex; flex-direction: column; gap: 1.5rem; height: calc(100vh - 4rem); }
+	.hq-dashboard {
+		display: flex;
+		flex-direction: column;
+		gap: 1.5rem;
+		height: calc(100vh - 4rem);
+	}
 
 	/* Command Bar */
-	.command-bar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
-	.cmd-left h1 { font-size: 1.4rem; white-space: nowrap; }
-	.cmd-center { display: flex; gap: 0.75rem; }
-	.info-chip { display: flex; flex-direction: column; padding: 0.4rem 1rem; border-radius: 10px; min-width: 100px; }
-	.chip-label { font-size: 0.6rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em; }
-	.chip-value { font-size: 0.95rem; font-weight: 800; color: var(--text-main); }
-	.cmd-right { display: flex; align-items: center; }
-	.status-live { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; color: var(--success); font-weight: 700; background: rgba(16, 185, 129, 0.08); padding: 0.5rem 1rem; border-radius: 20px; border: 1px solid rgba(16, 185, 129, 0.2); }
-	.pulse { width: 8px; height: 8px; background: var(--success); border-radius: 50%; box-shadow: 0 0 8px var(--success); animation: pulse-g 2s infinite; will-change: opacity; }
-	@keyframes pulse-g { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+	.command-bar {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		flex-shrink: 0;
+	}
+	.cmd-left h1 {
+		font-size: 1.4rem;
+		white-space: nowrap;
+	}
+	.cmd-center {
+		display: flex;
+		gap: 0.75rem;
+	}
+	.info-chip {
+		display: flex;
+		flex-direction: column;
+		padding: 0.4rem 1rem;
+		border-radius: 10px;
+		min-width: 100px;
+	}
+	.chip-label {
+		font-size: 0.6rem;
+		color: var(--text-muted);
+		text-transform: uppercase;
+		font-weight: 700;
+		letter-spacing: 0.05em;
+	}
+	.chip-value {
+		font-size: 0.95rem;
+		font-weight: 800;
+		color: var(--text-main);
+	}
+	.cmd-right {
+		display: flex;
+		align-items: center;
+	}
+	.status-live {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		font-size: 0.8rem;
+		color: var(--success);
+		font-weight: 700;
+		background: rgba(16, 185, 129, 0.08);
+		padding: 0.5rem 1rem;
+		border-radius: 20px;
+		border: 1px solid rgba(16, 185, 129, 0.2);
+	}
+	.pulse {
+		width: 8px;
+		height: 8px;
+		background: var(--success);
+		border-radius: 50%;
+		box-shadow: 0 0 8px var(--success);
+		animation: pulse-g 2s infinite;
+		will-change: opacity;
+	}
+	@keyframes pulse-g {
+		0%, 100% { opacity: 1; }
+		50% { opacity: 0.3; }
+	}
 
-	/* 3-Column Triptych — AXE-29: reduced map, wider bracket */
-	.main-triptych { display: grid; grid-template-columns: 280px 1fr 340px; gap: 1.2rem; flex-grow: 1; min-height: 0; }
-	.panel { display: flex; flex-direction: column; border-radius: 16px; overflow: hidden; min-height: 0; }
-	.panel-header { padding: 1rem 1.2rem; border-bottom: 1px solid var(--glass-border); display: flex; justify-content: space-between; align-items: flex-start; }
-	.panel-header h2 { font-size: 0.85rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; }
-	.panel-header .subtitle { font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
-
-	/* Leaderboard */
-	.leaderboard-panel { min-width: 0; }
-	.leaderboard-list { flex-grow: 1; overflow-y: auto; padding: 0.5rem; }
-	.lb-row { display: flex; align-items: center; gap: 0.6rem; padding: 0.6rem 0.5rem; border-radius: 10px; margin-bottom: 0.3rem; transition: background 0.15s; border-left: 3px solid transparent; }
-	.lb-row:hover { background: var(--hover-tint); }
-	.lb-row.top-3 { border-left-color: var(--accent); background: var(--accent-soft); }
-	.lb-rank { width: 22px; height: 22px; min-width: 22px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 800; border-radius: 6px; background: var(--surface-raised); color: var(--text-dim); flex-shrink: 0; }
-	.lb-rank.gold { background: rgba(255, 215, 0, 0.15); color: #ffd700; }
-	.lb-rank.silver { background: rgba(192, 192, 192, 0.15); color: #c0c0c0; }
-	.lb-rank.bronze { background: rgba(205, 127, 50, 0.15); color: #cd7f32; }
-	.lb-avatar { width: 28px; height: 28px; min-width: 28px; border-radius: 50%; background: var(--bg-tertiary); display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 700; color: var(--accent); border: 1px solid var(--glass-border); flex-shrink: 0; }
-	.lb-info { flex-grow: 1; min-width: 0; }
-	.lb-name { font-size: 0.8rem; font-weight: 700; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-	.lb-sub { font-size: 0.55rem; color: var(--text-muted); }
-	.lb-score { text-align: right; }
-	.score-val { font-size: 0.85rem; font-weight: 800; color: var(--accent); }
-	.score-label { font-size: 0.5rem; color: var(--text-muted); display: block; }
-
-	/* AXE-01: Ranking movement indicators */
-	.lb-delta { font-size: 0.6rem; font-weight: 800; padding: 0.1rem 0.3rem; border-radius: 4px; min-width: 1.5rem; text-align: center; }
-	.lb-delta.up { color: #10b981; background: rgba(16,185,129,0.12); }
-	.lb-delta.down { color: #ef4444; background: rgba(239,68,68,0.12); }
-	.lb-delta.new { color: #f59e0b; background: rgba(245,158,11,0.12); font-size: 0.5rem; }
-
-	/* AXE-04: Expandable team detail */
-	.lb-row.clickable { cursor: pointer; }
-	.lb-row.clickable:hover { background: var(--hover-tint); }
-	.team-expand { padding: 0.3rem 0.5rem 0.5rem 2.5rem; border-bottom: 1px solid var(--glass-border); }
-	.team-member-row { display: flex; justify-content: space-between; align-items: center; padding: 0.2rem 0.4rem; font-size: 0.7rem; border-radius: 4px; }
-	.team-member-row:nth-child(odd) { background: rgba(59,130,246,0.04); }
-	.tm-name { color: var(--text-secondary); }
-	.tm-pts { font-weight: 700; color: var(--accent); font-size: 0.65rem; }
+	/* 3-Column Triptych */
+	.main-triptych {
+		display: grid;
+		grid-template-columns: 280px 1fr 340px;
+		gap: 1.2rem;
+		flex-grow: 1;
+		min-height: 0;
+	}
 
 	/* Center Column (Public Chat + Resizer + Arena Map) */
 	.center-column {
@@ -1228,13 +476,6 @@
 		min-height: 120px;
 		min-width: 0;
 		overflow: hidden;
-		display: flex;
-		flex-direction: column;
-		transition: height 0.1s ease-out;
-	}
-	.map-panel {
-		min-height: 90px;
-		min-width: 0;
 		display: flex;
 		flex-direction: column;
 		transition: height 0.1s ease-out;
@@ -1257,6 +498,7 @@
 		margin: 0;
 		padding: 2px 0;
 		transition: background 0.2s ease;
+		flex-shrink: 0;
 	}
 	.chat-map-splitter::before {
 		content: '';
@@ -1305,455 +547,32 @@
 		background: #ffffff;
 		width: 28px;
 	}
-	.map-preview-canvas { flex-grow: 1; padding: 0.4rem; min-height: 0; }
-	.mini-map { width: 100%; height: 100%; border-radius: 8px; background: var(--surface-sunken); }
-	.map-footer { padding: 0.4rem 1rem; border-top: 1px solid var(--glass-border); }
-	.map-legend { display: flex; gap: 1.5rem; justify-content: center; font-size: 0.7rem; color: var(--text-dim); }
-	.lg-item { display: flex; align-items: center; gap: 0.4rem; }
-	.lg-dot { width: 10px; height: 10px; border-radius: 3px; }
-	.lg-dot.occupied { background: rgba(59, 130, 246, 0.4); border: 1px solid var(--accent); }
-	.lg-dot.free { background: var(--map-seat-fill); border: 1px solid var(--map-seat-stroke); }
-	.lg-dot.teammate { background: var(--map-seat-teammate-fill); border: 1px solid var(--map-seat-teammate-stroke); }
-
-	/* Interactive Seat Highlight & Luminous Orb Animation */
-	.seat-node {
-		transition: transform 0.25s ease-out, filter 0.25s ease-out;
-		transform-box: fill-box;
-		transform-origin: center center;
-	}
-	.seat-node.pulse-active {
-		animation: seatQuickHighlight 0.75s ease-out forwards;
-	}
-	.seat-node.hover-active {
-		transform: translateY(-3px);
-		filter: drop-shadow(0 0 10px #c084fc);
-	}
-	@keyframes seatQuickHighlight {
-		0% {
-			transform: translateY(0);
-			filter: drop-shadow(0 0 2px #38bdf8);
-		}
-		30% {
-			transform: translateY(-4px);
-			filter: drop-shadow(0 0 14px #38bdf8) drop-shadow(0 0 20px rgba(99, 102, 241, 0.6));
-		}
-		100% {
-			transform: translateY(0);
-			filter: drop-shadow(0 0 0px transparent);
-		}
-	}
-
-	/* Floating Chat Bubble rising toward Chat */
-	.chat-bubble-flyer {
-		animation: bubblePopAndFly 0.95s cubic-bezier(0.2, 0.8, 0.25, 1) forwards;
-		pointer-events: none;
-	}
-	@keyframes bubblePopAndFly {
-		0% {
-			transform: translate(0, 0) scale(0.25);
-			opacity: 0;
-		}
-		25% {
-			/* Pops up directly centered above the seat */
-			transform: translate(0, -18px) scale(1.15);
-			opacity: 1;
-		}
-		45% {
-			/* Hovers gracefully right above the seat */
-			transform: translate(0, -24px) scale(1);
-			opacity: 1;
-		}
-		100% {
-			/* Soars straight up toward the public chat panel */
-			transform: translate(0, calc(var(--fly-dist, -250px) - 20px)) scale(0.6);
-			opacity: 0;
-		}
-	}
-
-
-	/* Bracket Panel */
-	.bracket-panel { min-width: 0; }
-	.bracket-preview { flex-grow: 1; display: flex; flex-direction: column; padding: 0.8rem; gap: 0.8rem; min-height: 0; }
-	.bracket-info-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem; }
-	.bi-card { display: flex; flex-direction: column; align-items: center; padding: 0.6rem; background: var(--surface-raised); border-radius: 10px; border: 1px solid var(--glass-border); }
-	.bi-val { font-size: 1rem; font-weight: 800; }
-	.bi-label { font-size: 0.55rem; color: var(--text-muted); text-transform: uppercase; }
-	.status-badge { font-size: 0.7rem; padding: 0.15rem 0.5rem; border-radius: 6px; }
-	.status-badge.running { color: var(--accent); background: rgba(59,130,246,0.1); }
-
-	/* Running tournament tabs */
-	.running-tabs { display: flex; gap: 0.25rem; padding: 0 0.8rem; overflow-x: auto; border-bottom: 1px solid var(--glass-border); flex-shrink: 0; min-height: 32px; align-items: flex-end; }
-	.rt-tab { padding: 0.45rem 0.7rem; font-size: 0.65rem; font-weight: 700; background: none; border: none; border-bottom: 2px solid transparent; color: var(--text-dim); cursor: pointer; white-space: nowrap; transition: all 0.15s; }
-	.rt-tab:hover { color: var(--text-main); }
-	.rt-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
-
-	/* Bracket visual (CSS transform zoom) */
-	.bracket-visual { flex-grow: 1; display: flex; flex-direction: column; min-height: 0; position: relative; }
-	.dash-bracket-viewport { flex-grow: 1; overflow: hidden; border-radius: 8px; border: 1px solid var(--glass-border); background: var(--surface-sunken); min-height: 200px; user-select: none; -webkit-user-select: none; }
-	.dash-bracket-canvas { transform-origin: 0 0; transition: transform 0.08s ease-out; padding: 1rem; display: inline-block; min-width: 100%; }
-
-	/* AXE-29: Directional pan arrows (dashboard) */
-	.pan-arrow { position: absolute; display: flex; align-items: center; justify-content: center; color: var(--accent); font-size: 1.2rem; font-weight: 900; opacity: 0.6; pointer-events: auto; cursor: pointer; z-index: 5; animation: panArrowPulse 1.5s ease-in-out infinite; transition: opacity 0.15s; }
-	.pan-arrow:hover { opacity: 1; animation: none; }
-	.pan-arrow-left { left: 4px; top: 50%; transform: translateY(-50%); width: 22px; height: 40px; background: linear-gradient(90deg, rgba(59,130,246,0.15), transparent); border-radius: 4px; }
-	.pan-arrow-right { right: 4px; top: 50%; transform: translateY(-50%); width: 22px; height: 40px; background: linear-gradient(-90deg, rgba(59,130,246,0.15), transparent); border-radius: 4px; }
-	.pan-arrow-up { top: 4px; left: 50%; transform: translateX(-50%) rotate(90deg); width: 22px; height: 40px; background: linear-gradient(90deg, rgba(59,130,246,0.15), transparent); border-radius: 4px; }
-	.pan-arrow-down { bottom: 4px; left: 50%; transform: translateX(-50%) rotate(-90deg); width: 22px; height: 40px; background: linear-gradient(90deg, rgba(59,130,246,0.15), transparent); border-radius: 4px; }
-	@keyframes panArrowPulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 0.85; } }
-
-	/* Dashboard FFA */
-	.dash-ffa { display: flex; flex-direction: column; gap: 0.5rem; flex-grow: 1; min-height: 0; overflow-y: auto; padding: 0.25rem; }
-	.dash-ffa-round { border: 1px solid var(--glass-border); border-radius: 8px; padding: 0.5rem; opacity: 0.5; }
-	.dash-ffa-round.ffa-latest { opacity: 1; background: rgba(59,130,246,0.05); border-color: rgba(59,130,246,0.2); }
-	.dash-ffa-hdr { font-weight: 800; font-size: 0.55rem; text-transform: uppercase; letter-spacing: 1px; color: var(--accent); margin-bottom: 0.3rem; }
-	.dash-ffa-row { display: flex; align-items: center; gap: 0.4rem; padding: 0.2rem 0.3rem; font-size: 0.6rem; border-radius: 4px; }
-	.dash-ffa-row.gold { background: rgba(255,215,0,0.1); border-left: 2px solid #ffd700; }
-	.dash-ffa-row.silver { background: rgba(192,192,192,0.08); border-left: 2px solid #c0c0c0; }
-	.dash-ffa-row.bronze { background: rgba(205,127,50,0.08); border-left: 2px solid #cd7f32; }
-	.dash-ffa-pos { font-weight: 800; color: var(--accent); min-width: 20px; font-size: 0.55rem; }
-	.dash-ffa-score { font-weight: 800; font-size: 0.55rem; color: #fbbf24; background: rgba(251,191,36,0.15); padding: 0.1rem 0.35rem; border-radius: 4px; }
-	.dash-ffa-more { font-size: 0.5rem; color: var(--text-dim); padding: 0.15rem 0.3rem; font-style: italic; }
-	.dash-rounds { display: flex; gap: 1.5rem; }
-	.dash-round-col { display: flex; flex-direction: column; gap: 0.5rem; }
-	.dash-round-hdr { text-align: center; font-weight: 700; color: var(--accent); font-size: 0.55rem; text-transform: uppercase; letter-spacing: 1px; }
-	.dash-matches-col { display: flex; flex-direction: column; justify-content: space-around; flex-grow: 1; gap: 0.6rem; }
-	.dash-match { width: 150px; background: var(--surface-raised); border: 1px solid var(--glass-border); border-radius: 6px; overflow: hidden; }
-	.dm-player { display: flex; justify-content: space-between; padding: 0.3rem 0.5rem; font-size: 0.6rem; color: var(--text-muted); background: var(--surface-sunken); }
-	.dm-player.filled { color: var(--text-main); background: var(--accent-soft); }
-	.dm-player.winner { background: rgba(34, 197, 94, 0.18) !important; color: #4ade80 !important; font-weight: 700; }
-	.dm-player.winner .dm-score { color: #4ade80 !important; }
-	.dm-player.loser { opacity: 0.65; }
-	.dm-player span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-	.dm-score { font-weight: 800; color: var(--accent); min-width: 14px; text-align: right; flex-shrink: 0; }
-	.dm-div { height: 1px; background: var(--glass-border); }
-	.no-bracket-data { display: flex; flex-direction: column; align-items: center; justify-content: center; flex-grow: 1; gap: 0.3rem; padding: 1rem; }
-
-	.no-tournament { display: flex; flex-direction: column; align-items: center; justify-content: center; flex-grow: 1; gap: 0.75rem; padding: 2rem; }
-	.no-tourney-icon { font-size: 2.5rem; opacity: 0.3; }
-	.no-tournament p { color: var(--text-muted); font-size: 0.85rem; }
-
-	/* Chips / Buttons */
-	.btn-chip { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.4rem 0.9rem; background: var(--map-badge-bg); border: 1px solid var(--map-badge-border); color: var(--accent); border-radius: 8px; font-size: 0.7rem; font-weight: 700; text-decoration: none; transition: all 0.15s; cursor: pointer; }
-	.btn-chip:hover { background: var(--map-badge-hover); }
-	.btn-chip.full-width { justify-content: center; width: 100%; }
 
 	/* Bottom Stats Bar */
-	.stats-bar { display: flex; gap: 1rem; }
-	.stat-pill { flex: 1; display: flex; align-items: center; gap: 0.75rem; padding: 0.8rem 1.2rem; border-radius: 12px; }
-	.stat-pill.accent { border-color: var(--accent); box-shadow: 0 0 15px var(--accent-glow); }
+	.stats-bar {
+		display: flex;
+		gap: 1rem;
+		flex-shrink: 0;
+	}
+	.stat-pill {
+		flex: 1;
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		padding: 0.8rem 1.2rem;
+		border-radius: 12px;
+	}
+	.stat-pill.accent {
+		border-color: var(--accent);
+		box-shadow: 0 0 15px var(--accent-glow);
+	}
 	.sp-icon { font-size: 1.3rem; }
 	.sp-data { display: flex; flex-direction: column; }
 	.sp-val { font-size: 1.2rem; font-weight: 800; line-height: 1; }
-	.sp-label { font-size: 0.6rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; }
-
-	/* Leaderboard tabs */
-	.lb-tabs { display: flex; gap: 0.2rem; }
-	.lb-tab { padding: 0.25rem 0.6rem; font-size: 0.6rem; font-weight: 700; border: 1px solid var(--glass-border); border-radius: 6px; background: transparent; color: var(--text-dim); cursor: pointer; transition: all 0.2s; }
-	.lb-tab:hover { border-color: var(--accent); }
-	.lb-tab.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
-	.team-av { background: rgba(139,92,246,0.2) !important; color: #a78bfa !important; border-color: rgba(139,92,246,0.3) !important; }
-
-	/* Player Stats Modal Styles */
-	.player-modal-card {
-		width: 90%;
-		max-width: 800px;
-		max-height: 85vh;
-		background: var(--bg-secondary);
-		border: 1px solid var(--glass-border);
-		border-radius: var(--radius-xl);
-		display: flex;
-		flex-direction: column;
-		overflow: hidden;
-		box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5), 0 0 35px var(--accent-soft);
-		animation: scaleUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-	}
-	.player-modal-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		padding: 1.2rem 1.5rem;
-		border-bottom: 1px solid var(--glass-border);
-		background: rgba(255, 255, 255, 0.02);
-	}
-	.player-modal-profile {
-		display: flex;
-		align-items: center;
-		gap: 1rem;
-	}
-	.player-modal-avatar {
-		width: 48px;
-		height: 48px;
-		border-radius: 50%;
-		background: var(--accent-soft);
-		color: var(--accent);
-		border: 1px solid var(--accent);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		font-size: 1.4rem;
-		font-weight: 800;
-		box-shadow: 0 0 10px var(--accent-glow);
-	}
-	.player-modal-identity h3 {
-		margin: 0;
-		font-size: 1.2rem;
-		font-weight: 800;
-		color: var(--text-main);
-	}
-	.player-modal-team {
-		font-size: 0.75rem;
-		color: var(--accent);
-		font-weight: 600;
-	}
-	.player-modal-close {
-		background: none;
-		border: none;
-		color: var(--text-muted);
-		font-size: 1.3rem;
-		cursor: pointer;
-		transition: color 0.15s;
-	}
-	.player-modal-close:hover {
-		color: var(--danger);
-	}
-	.player-modal-body {
-		flex: 1;
-		overflow-y: auto;
-		padding: 1.5rem;
-		display: flex;
-		flex-direction: column;
-		gap: 1.5rem;
-	}
-	.player-modal-loading {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		gap: 1rem;
-		padding: 4rem 1rem;
-		color: var(--text-muted);
-	}
-	.player-modal-loading .spinner {
-		width: 35px;
-		height: 35px;
-		border: 3px solid var(--glass-border);
-		border-top-color: var(--accent);
-		border-radius: 50%;
-		animation: spin 1s linear infinite;
-	}
-	.player-modal-summary {
-		display: grid;
-		grid-template-columns: 1fr 1fr 1fr;
-		gap: 1rem;
-	}
-	.summary-stat-card {
-		background: var(--surface-raised);
-		border: 1px solid var(--glass-border);
-		border-radius: 12px;
-		padding: 1rem;
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-	}
-	.summary-stat-card .val {
-		font-size: 1.8rem;
-		font-weight: 800;
-		color: var(--text-main);
-	}
-	.summary-stat-card .val.accent-gradient {
-		color: var(--accent);
-		text-shadow: 0 0 10px var(--accent-glow);
-	}
-	.summary-stat-card .lbl {
-		font-size: 0.7rem;
+	.sp-label {
+		font-size: 0.6rem;
 		color: var(--text-muted);
 		text-transform: uppercase;
 		font-weight: 700;
-		margin-top: 0.2rem;
-	}
-	.player-modal-details {
-		display: grid;
-		grid-template-columns: 1.2fr 0.8fr;
-		gap: 1.5rem;
-		min-height: 250px;
-	}
-	@media (max-width: 600px) {
-		.player-modal-details {
-			grid-template-columns: 1fr;
-		}
-		.player-modal-summary {
-			grid-template-columns: 1fr;
-		}
-	}
-	.details-section {
-		display: flex;
-		flex-direction: column;
-		gap: 0.8rem;
-	}
-	.details-section h4 {
-		margin: 0;
-		font-size: 0.85rem;
-		font-weight: 800;
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
-		color: var(--text-secondary);
-		border-bottom: 1px solid var(--glass-border);
-		padding-bottom: 0.4rem;
-	}
-	.tournaments-list-scroll, .awards-list-scroll {
-		display: flex;
-		flex-direction: column;
-		gap: 0.6rem;
-		overflow-y: auto;
-		max-height: 250px;
-		padding-right: 0.25rem;
-	}
-	.tournament-stat-row {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		background: var(--surface-raised);
-		border: 1px solid var(--glass-border);
-		border-radius: 8px;
-		padding: 0.6rem 0.8rem;
-		gap: 0.5rem;
-	}
-	.t-main {
-		display: flex;
-		align-items: center;
-		gap: 0.6rem;
-		min-width: 0;
-	}
-	.t-game-emoji {
-		font-size: 1.1rem;
-	}
-	.t-names {
-		display: flex;
-		flex-direction: column;
-		min-width: 0;
-	}
-	.t-name {
-		font-size: 0.8rem;
-		font-weight: 700;
-		color: var(--text-main);
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-	.t-game {
-		font-size: 0.65rem;
-		color: var(--text-muted);
-	}
-	.t-details {
-		display: flex;
-		align-items: center;
-		gap: 0.6rem;
-		flex-shrink: 0;
-	}
-	.t-rank-pts {
-		display: flex;
-		flex-direction: column;
-		align-items: flex-end;
-	}
-	.t-rank {
-		font-size: 0.8rem;
-		font-weight: 800;
-		color: var(--accent);
-	}
-	.t-pts-total {
-		font-size: 0.7rem;
-		font-weight: 700;
-		color: var(--text-secondary);
-	}
-	.pts-breakdown {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.8rem;
-		font-size: 0.65rem;
-		color: var(--text-muted);
-		padding: 0.2rem 0.8rem 0.5rem 0.8rem;
-		border-bottom: 1px dashed var(--glass-border);
-		margin-top: -0.4rem;
-		margin-bottom: 0.2rem;
-	}
-	.pts-breakdown strong {
-		color: var(--text-secondary);
-	}
-	.pts-breakdown .team-lbl {
-		color: var(--accent);
-		font-style: italic;
-	}
-	.status-badge.open {
-		background: rgba(59, 130, 246, 0.12);
-		color: #3b82f6;
-		border: 1px solid rgba(59, 130, 246, 0.25);
-		font-size: 0.55rem;
-		padding: 0.1rem 0.35rem;
-		border-radius: 4px;
-		font-weight: 800;
-	}
-	.status-badge.closed {
-		background: rgba(156, 163, 175, 0.12);
-		color: #9ca3af;
-		border: 1px solid rgba(156, 163, 175, 0.25);
-		font-size: 0.55rem;
-		padding: 0.1rem 0.35rem;
-		border-radius: 4px;
-		font-weight: 800;
-	}
-	.award-item-card {
-		display: flex;
-		align-items: flex-start;
-		gap: 0.6rem;
-		background: rgba(251, 191, 36, 0.05);
-		border: 1px solid rgba(251, 191, 36, 0.2);
-		border-radius: 8px;
-		padding: 0.6rem 0.8rem;
-	}
-	.award-icon {
-		font-size: 1.2rem;
-		color: #fbbf24;
-		text-shadow: 0 0 8px rgba(251, 191, 36, 0.5);
-	}
-	.award-info {
-		display: flex;
-		flex-direction: column;
-	}
-	.award-title {
-		font-size: 0.8rem;
-		font-weight: 700;
-		color: #fbbf24;
-	}
-	.award-desc {
-		margin: 0.15rem 0 0 0;
-		font-size: 0.68rem;
-		color: var(--text-dim);
-		line-height: 1.3;
-	}
-	.empty-msg {
-		font-size: 0.75rem;
-		color: var(--text-muted);
-		font-style: italic;
-		margin: 1rem 0;
-		text-align: center;
-	}
-	.lb-avatar {
-		overflow: hidden;
-	}
-	.lb-avatar-img {
-		width: 100%;
-		height: 100%;
-		object-fit: cover;
-		border-radius: 50%;
-	}
-	.player-modal-avatar {
-		overflow: hidden;
-	}
-	.player-modal-avatar-img {
-		width: 100%;
-		height: 100%;
-		object-fit: cover;
-		border-radius: 50%;
 	}
 </style>
