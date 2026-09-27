@@ -232,19 +232,21 @@
 
 <style>
 	.flex-col { display: flex; flex-direction: column; gap: 0.8rem; }
-	.edit-modal-header { display: flex; justify-content: space-between; align-items: center; padding: 1.2rem 1.5rem; border-bottom: 1px solid var(--glass-border); background: rgba(59, 130, 246, 0.08); }
-	.edit-modal-header h3 { font-size: 1rem; margin: 0; }
-	.close-btn { background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 1.2rem; padding: 0.2rem; }
-	.edit-modal-body { padding: 1.5rem; }
-	.edit-modal-footer { display: flex; justify-content: flex-end; gap: 0.75rem; padding: 1rem 1.5rem; border-top: 1px solid var(--glass-border); }
+	.edit-modal-header { display: flex; justify-content: space-between; align-items: center; padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--glass-border); background: var(--surface-sunken); flex-shrink: 0; }
+	.edit-modal-header h3 { font-family: var(--font-title); font-size: 1.15rem; font-weight: 800; margin: 0; color: var(--text-main); display: flex; align-items: center; gap: 0.5rem; }
+	.close-btn { background: var(--hover-tint); border: 1px solid var(--glass-border); color: var(--text-dim); cursor: pointer; font-size: 0.85rem; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: all 0.2s; }
+	.close-btn:hover { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); transform: rotate(90deg); }
+	.edit-modal-body { padding: 1.5rem; overflow-y: auto; flex: 1; min-height: 0; font-family: var(--font-main); }
+	.edit-modal-footer { display: flex; justify-content: flex-end; gap: 0.75rem; padding: 1rem 1.5rem; border-top: 1px solid var(--glass-border); background: var(--surface-sunken); flex-shrink: 0; }
 	.edit-field { display: flex; flex-direction: column; gap: 0.4rem; }
 	.edit-field.full-width { grid-column: 1 / -1; }
-	.edit-field label { font-size: 0.75rem; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; }
+	.edit-field label { font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; font-family: var(--font-main); }
 
 	.btn-primary {
 		padding: 0.55rem 1.2rem;
-		font-size: 0.8rem;
+		font-size: 0.85rem;
 		font-weight: 700;
+		font-family: var(--font-main);
 		border-radius: 8px;
 		cursor: pointer;
 		border: 1px solid transparent;
@@ -261,8 +263,9 @@
 	
 	.btn-secondary {
 		padding: 0.55rem 1.2rem;
-		font-size: 0.8rem;
+		font-size: 0.85rem;
 		font-weight: 700;
+		font-family: var(--font-main);
 		border-radius: 8px;
 		cursor: pointer;
 		border: 1px solid var(--glass-border);
@@ -272,22 +275,24 @@
 	}
 	.btn-secondary:hover { background: var(--hover-tint); }
 
-	label { font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+	label { font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; font-family: var(--font-main); }
 	input[type="text"],
 	textarea {
 		width: 100%;
-		padding: 0.5rem 0.8rem;
+		padding: 0.55rem 0.85rem;
 		border-radius: 8px;
 		border: 1px solid var(--glass-border);
-		background: var(--surface-sunken);
-		color: var(--text-main);
-		font-size: 0.8rem;
+		background: var(--input-bg);
+		color: var(--input-color);
+		font-size: 0.85rem;
+		font-family: var(--font-main);
 		outline: none;
-		transition: border-color 0.15s;
+		transition: border-color 0.15s, box-shadow 0.15s;
 	}
 	input:focus,
 	textarea:focus {
 		border-color: var(--accent);
+		box-shadow: 0 0 0 3px var(--accent-soft);
 	}
 
 	/* Search bar */
@@ -300,7 +305,7 @@
 	.cover-pick { overflow: hidden; border: 2px solid var(--glass-border); border-radius: 8px; cursor: pointer; transition: all 0.15s; background: none; padding: 0; position: relative; }
 	.cover-pick:hover { border-color: var(--accent); transform: scale(1.03); }
 	.cover-pick img { width: 100%; height: 70px; object-fit: cover; display: block; }
-	.cover-name { display: block; padding: 0.2rem 0.3rem; font-size: 0.6rem; font-weight: 600; color: var(--text-dim); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background: var(--surface-sunken); }
+	.cover-name { display: block; padding: 0.2rem 0.3rem; font-size: 0.65rem; font-weight: 600; color: var(--text-dim); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background: var(--surface-sunken); font-family: var(--font-main); }
 
 	/* Image preview */
 	.img-preview { position: relative; width: 100%; max-height: 120px; border-radius: 8px; overflow: hidden; border: 1px solid var(--glass-border); }
@@ -309,12 +314,12 @@
 
 	/* Image mode tabs */
 	.img-mode-tabs { display: flex; gap: 0.3rem; }
-	.img-tab { padding: 0.35rem 0.7rem; font-size: 0.7rem; font-weight: 600; border: 1px solid var(--glass-border); border-radius: 8px; background: var(--hover-tint); color: var(--text-dim); cursor: pointer; transition: all 0.15s; }
+	.img-tab { padding: 0.35rem 0.7rem; font-size: 0.75rem; font-weight: 600; font-family: var(--font-main); border: 1px solid var(--glass-border); border-radius: 8px; background: var(--hover-tint); color: var(--text-dim); cursor: pointer; transition: all 0.15s; }
 	.img-tab:hover { border-color: var(--accent); }
 	.img-tab.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 	.mt-2 { margin-top: 0.5rem; }
 
-	/* EasyMDE theme overrides for dark mode */
+	/* EasyMDE theme overrides for dark and light modes */
 	.editor-container :global(.EasyMDEContainer) {
 		background: transparent;
 		border: 1px solid var(--glass-border);
@@ -322,43 +327,44 @@
 		overflow: hidden;
 	}
 	.editor-container :global(.EasyMDEContainer .CodeMirror) {
-		background: var(--bg-secondary, #0f172a);
-		color: var(--text-main, white);
+		background: var(--input-bg);
+		color: var(--input-color);
 		border: none;
 		border-radius: 0;
-		font-size: 0.8rem;
+		font-size: 0.85rem;
+		font-family: var(--font-main);
 	}
 	.editor-container :global(.editor-toolbar) {
-		background: var(--hover-tint, rgba(255,255,255,0.03));
+		background: var(--hover-tint);
 		border: none;
 		border-bottom: 1px solid var(--glass-border);
 		opacity: 1;
 		padding: 4px;
 	}
 	.editor-container :global(.editor-toolbar button) {
-		color: var(--text-dim, #94a3b8) !important;
+		color: var(--text-dim) !important;
 		border: none !important;
 		width: 26px !important;
 		height: 26px !important;
 	}
 	.editor-container :global(.editor-toolbar button:hover),
 	.editor-container :global(.editor-toolbar button.active) {
-		background: var(--accent-soft, rgba(59,130,246,0.15)) !important;
-		color: var(--accent, #3b82f6) !important;
+		background: var(--accent-soft) !important;
+		color: var(--accent) !important;
 		border-radius: 4px;
 	}
 	.editor-container :global(.editor-toolbar i.separator) {
 		border-left-color: var(--glass-border) !important;
 	}
-	.editor-container :global(.CodeMirror-cursor) { border-left-color: var(--accent, #3b82f6); }
-	.editor-container :global(.CodeMirror-selected) { background: var(--accent-soft, rgba(59,130,246,0.2)) !important; }
+	.editor-container :global(.CodeMirror-cursor) { border-left-color: var(--accent); }
+	.editor-container :global(.CodeMirror-selected) { background: var(--accent-soft) !important; }
 	.editor-container :global(.editor-preview) {
-		background: var(--bg-secondary, #0f172a);
-		color: var(--text-main, white);
+		background: var(--input-bg);
+		color: var(--input-color);
 	}
 	.editor-container :global(.editor-preview-side) {
-		background: var(--bg-secondary, #0f172a);
-		color: var(--text-main, white);
+		background: var(--input-bg);
+		color: var(--input-color);
 		border-left: 1px solid var(--glass-border);
 	}
 </style>

@@ -425,8 +425,8 @@
 		on:mousedown={(e) => { if (e.target === e.currentTarget) overlayMouseDown = true; }} 
 		on:mouseup={(e) => { if (overlayMouseDown && e.target === e.currentTarget) gameToDeleteWithTournaments = null; overlayMouseDown = false; }}>
 		<div class="modal-card-global glass" on:click|stopPropagation style="max-width: 480px">
-			<header class="edit-modal-header danger-zone" style="border-bottom: 1px solid rgba(239, 68, 68, 0.25);">
-				<h3>⚠️ Suppression Critique</h3>
+			<header class="edit-modal-header danger-zone">
+				<h3>⚠️ {$t('admin_games_nuke_title')}</h3>
 				<button class="close-btn" on:click={() => gameToDeleteWithTournaments = null} aria-label="Fermer">✕</button>
 			</header>
 			<div class="edit-modal-body">
@@ -484,7 +484,7 @@
 		on:mouseup={(e) => { if (overlayMouseDown && e.target === e.currentTarget) editingGame = null; overlayMouseDown = false; }}>
 		<div class="modal-card-global glass" on:click|stopPropagation>
 			<header class="edit-modal-header">
-				<h3>✏️ Éditer — {editingGame.name}</h3>
+				<h3>✏️ {$t('admin_games_edit_title', { name: editingGame.name })}</h3>
 				<button class="close-btn" on:click={() => editingGame = null} aria-label="Fermer">✕</button>
 			</header>
 			<div class="edit-modal-body">
@@ -494,7 +494,7 @@
 						<input type="text" bind:value={editGameData.name} />
 					</div>
 					<div class="edit-field full-width">
-						<label>Image</label>
+						<label>{$t('admin_games_lbl_image')}</label>
 						<div class="img-mode-tabs">
 							<button class="img-tab {gameImageMode === 'search' ? 'active' : ''}" on:click={() => gameImageMode = 'search'}>{$t('admin_games_btn_search')}</button>
 							<button class="img-tab {gameImageMode === 'url' ? 'active' : ''}" on:click={() => gameImageMode = 'url'}>{$t('admin_games_btn_url')}</button>

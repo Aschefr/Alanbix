@@ -286,6 +286,13 @@
 		align-items: center;
 		gap: 0.75rem;
 	}
+	.header-title-wrapper h3 {
+		margin: 0;
+		font-family: var(--font-title);
+		font-size: 1.15rem;
+		font-weight: 800;
+		color: var(--text-main);
+	}
 	.header-emoji {
 		font-size: 1.3rem;
 	}
@@ -293,6 +300,7 @@
 		font-size: 0.72rem;
 		color: var(--text-dim);
 		font-weight: 500;
+		font-family: var(--font-main);
 	}
 	.close-btn {
 		background: var(--hover-tint);
@@ -322,6 +330,7 @@
 		overflow-y: auto;
 		flex: 1;
 		min-height: 0;
+		font-family: var(--font-main);
 	}
 	.edit-section-card {
 		background: var(--surface-raised);
@@ -334,7 +343,8 @@
 		box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
 	}
 	.section-title {
-		font-size: 0.75rem;
+		font-family: var(--font-title);
+		font-size: 0.85rem;
 		font-weight: 800;
 		color: var(--text-main);
 		margin: 0;
@@ -360,29 +370,31 @@
 		grid-column: 1 / -1;
 	}
 	.edit-field label {
-		font-size: 0.65rem;
+		font-size: 0.68rem;
 		font-weight: 700;
-		color: var(--text-dim);
+		color: var(--text-muted);
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
+		font-family: var(--font-main);
 	}
 	.edit-field input[type="text"],
 	.edit-field input[type="number"],
 	.edit-field select {
 		width: 100%;
-		padding: 0.5rem 0.75rem;
-		font-size: 0.8rem;
-		background: var(--surface-sunken);
+		padding: 0.55rem 0.85rem;
+		font-size: 0.85rem;
+		font-family: var(--font-main);
+		background: var(--input-bg);
 		border: 1px solid var(--glass-border);
 		border-radius: 8px;
-		color: var(--text-main);
+		color: var(--input-color);
+		outline: none;
 		transition: all 0.2s;
 	}
 	.edit-field input:focus,
 	.edit-field select:focus {
-		outline: none;
 		border-color: var(--accent);
-		box-shadow: 0 0 0 3px var(--accent-glow);
+		box-shadow: 0 0 0 3px var(--accent-soft);
 	}
 	.edit-sub-row {
 		display: flex;
@@ -485,7 +497,8 @@
 		width: 100%;
 	}
 	.specific-title {
-		font-size: 0.7rem;
+		font-family: var(--font-title);
+		font-size: 0.75rem;
 		font-weight: 800;
 		color: var(--text-dim);
 		margin: 0;

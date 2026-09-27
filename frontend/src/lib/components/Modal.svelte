@@ -1,9 +1,13 @@
 <script>
+	import { t } from '$lib/i18nStore';
+
 	export let show = false;
 	export let title = "Notification";
 	export let message = "";
 	export let type = "info"; // info, success, error
 	export let onConfirm = null;
+	export let cancelText = null;
+	export let confirmText = null;
 
 	let overlayMouseDown = false;
 
@@ -44,36 +48,66 @@
 	<div class="modal-overlay-global" use:portal role="dialog" aria-modal="true"
 		on:mousedown={(e) => { if (e.target === e.currentTarget) overlayMouseDown = true; }}
 		on:mouseup={(e) => { if (overlayMouseDown && e.target === e.currentTarget) close(); overlayMouseDown = false; }}>
-		<div class="modal-card-global glass" style="width: 400px;" on:click|stopPropagation>
+		<div class="modal-card-global glass" style="width: 420px;" on:click|stopPropagation>
 			<header class="modal-header {type}">
-				<h3>{title}</h3>
+				<h3 class="modal-title">{title}</h3>
 				<button class="close-btn" on:click={close} aria-label="Fermer">✕</button>
 			</header>
 			<div class="modal-body">
 				<p>{message}</p>
 			</div>
 			<footer class="modal-footer gap-2">
-				<button class="btn-secondary" on:click={close}>Annuler</button>
 				{#if onConfirm}
-					<button class="btn-primary {type === 'error' ? 'danger' : ''}" on:click={handleConfirm}>Confirmer</button>
+					<button class="btn-secondary" on:click={close}>{cancelText || $t('cancel')}</button>
+					<button class="btn-primary {type === 'error' ? 'danger' : ''}" on:click={handleConfirm}>{confirmText || $t('info_confirm')}</button>
 				{:else}
-					<button class="btn-primary" on:click={close}>D'accord</button>
+					<button class="btn-primary" on:click={close}>{confirmText || $t('modal_ok')}</button>
 				{/if}
 			</footer>
 		</div>
 	</div>
 {/if}
 
-
 <style>
-	.modal-header { padding: 1rem 1.5rem; display: flex; justify-content: space-between; align-items: center; }
-	.modal-header.success { background: rgba(16, 185, 129, 0.2); color: #10b981; }
-	.modal-header.error { background: rgba(239, 68, 68, 0.2); color: var(--danger); }
-	.modal-header.info { background: rgba(59, 130, 246, 0.2); color: var(--accent); }
+	.modal-header {
+		padding: 1.1rem 1.5rem;
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		border-bottom: 1px solid var(--glass-border);
+		flex-shrink: 0;
+	}
+	.modal-header.success { background: rgba(16, 185, 129, 0.12); color: #10b981; border-bottom-color: rgba(16, 185, 129, 0.25); }
+	.modal-header.error { background: rgba(239, 68, 68, 0.12); color: var(--danger); border-bottom-color: rgba(239, 68, 68, 0.25); }
+	.modal-header.info { background: rgba(59, 130, 246, 0.12); color: var(--accent); border-bottom-color: rgba(59, 130, 246, 0.25); }
 	
-	.modal-body { padding: 2rem 1.5rem; font-size: 0.95rem; }
-	.modal-footer { padding: 1rem; display: flex; justify-content: flex-end; border-top: 1px solid var(--glass-border); }
-	
-	.close-btn { background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 1.2rem; }
+	.modal-title {
+		font-family: var(--font-title);
+		font-size: 1.15rem;
+		font-weight: 800;
+		margin: 0;
+	}
+
+	.modal-body {
+		padding: 1.75rem 1.5rem;
+		font-size: 0.95rem;
+		line-height: 1.5;
+		color: var(--text-main);
+		font-family: var(--font-main);
+	}
+	.modal-body p { margin: 0; }
+
+	.modal-footer {
+		padding: 1rem 1.5rem;
+		display: flex;
+		justify-content: flex-end;
+		border-top: 1px solid var(--glass-border);
+		background: var(--surface-sunken);
+		flex-shrink: 0;
+	}
+	.modal-footer button {
+		font-family: var(--font-main);
+		font-weight: 700;
+	}
 </style>
 

@@ -2,6 +2,29 @@
 
 ## [Unreleased]
 
+### UI & Design Coherence — Global Modal System Harmonization, Typography & i18n Overhaul
+
+- **Standardized Global Modal Architecture (`app.css`)**:
+  - Integrated global CSS classes under `/* === Global Modal / Overlay System === */` for modal structure (`.edit-modal-header`, `.edit-modal-body`, `.edit-modal-footer`, `.close-btn`, and `.edit-field`).
+  - Guaranteed automatic theme adaptation across all modals in dark and light modes via `--surface-sunken`, `--glass-border`, `--input-bg`, `--input-color`, and `--accent-soft`.
+- **Universal Alert/Confirm Component (`Modal.svelte`)**:
+  - Internationalized action buttons with fallback props (`cancel`, `info_confirm`, `modal_ok`), eliminating hardcoded French button text.
+  - Applied `--font-title` (Outfit) to the modal header title (`.modal-title`), normalized line-height and typography in `.modal-body`, and improved light/dark contrast on `success`, `error`, and `info` status headers.
+- **Admin Player Management Modals (`AdminPlayersTab.svelte`)**:
+  - Resolved missing scoped CSS for `.edit-modal-header/body/footer`, restoring structured padding, divider borders, and flex alignments on "Modifier Joueur" and "Réinitialiser Mot de passe" modals.
+  - Replaced hardcoded French strings with 11 localized i18n keys (`admin_players_modal_edit_title`, `admin_players_modal_delete_avatar`, `admin_players_modal_team_name`, `admin_players_modal_seat`, `admin_players_modal_points`, `admin_players_modal_is_admin`, `admin_players_modal_block_ai`, `admin_players_modal_reset_pwd_title`, `admin_players_modal_new_pwd`, `admin_players_modal_reset_btn`).
+- **Admin Tournament & Game Modals (`AdminTournamentsTab.svelte`)**:
+  - Restored structured modal layout for "Suppression Critique Jeu" and "Éditer Jeu" modals.
+  - Localized modal titles and image selector labels (`admin_games_nuke_title`, `admin_games_edit_title`, `admin_games_lbl_image`).
+- **Game Import & Tournament Editing Modals (`AddGameModal.svelte` & `EditTournamentModal.svelte`)**:
+  - Applied `--font-title` (Outfit) on modal headers and section titles, and `--font-main` (Inter) on buttons and form controls.
+  - Synchronized EasyMDE markdown editor theme overrides in `AddGameModal` to `--input-bg` and `--input-color` for seamless dark and light mode rendering.
+- **Player Profile & Awards Popover (`DashboardPlayerModal.svelte`)**:
+  - Applied `--font-title` (Outfit) to the player's username header, section headers, and key statistic values (total points, participation count, trophy count).
+  - Switched background to `--bg-primary` and header to `--surface-sunken` to align with the active theme.
+- **Full Internationalization (i18n)**:
+  - Synchronized 16 new keys across `fr.json`, `en.json`, and `es.json` with strict UTF-8-BOM adherence and zero emoji rules, verified via `verify_i18n.py`.
+
 ### UI & Design Coherence — Secondary Pages Aesthetic, Typography & Theme Contrast Overhaul (Info, Profile, Spectator)
 
 - **LAN Guidelines & Info Page (`info/+page.svelte`)**:

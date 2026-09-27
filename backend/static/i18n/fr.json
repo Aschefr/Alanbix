@@ -158,7 +158,7 @@
   "admin_players_modal_btn_reset": "Réinitialiser",
   "admin_players_modal_btn_save": "Enregistrer",
   "admin_players_modal_delete_avatar": "Supprimer l'avatar",
-  "admin_players_modal_edit_title": "Modifier le Joueur",
+  "admin_players_modal_edit_title": "Modifier - {name}",
   "admin_players_modal_ia_blocked": "Bloquer l'accès IA",
   "admin_players_modal_is_admin": "Est Administrateur",
   "admin_players_modal_modify_title": "Modifier — {name}",
@@ -1106,5 +1106,17 @@
   "info_copy_path_tooltip": "Cliquer pour copier le chemin",
   "spec_losers_bracket": "Tableau de Repechage",
   "spec_lb_finale": "Finale LB",
-  "spec_group_num": "Poule {group}"
+  "spec_group_num": "Poule {group}",
+  "modal_ok": "D'accord",
+  "admin_players_modal_team_name": "Nom d'equipe",
+  "admin_players_modal_no_team": "Aucune equipe",
+  "admin_players_modal_seat": "Place assignee (Poste ID)",
+  "admin_players_modal_no_seat": "Aucun poste (ex: A01)",
+  "admin_players_modal_points": "Points cumules",
+  "admin_players_modal_block_ai": "Bloquer l'acces IA",
+  "admin_players_modal_reset_pwd_title": "Reinitialiser MDP - {name}",
+  "admin_players_modal_new_pwd": "Nouveau mot de passe",
+  "admin_players_modal_reset_btn": "Reinitialiser",
+  "admin_games_edit_title": "Editer - {name}",
+  "admin_games_lbl_image": "Illustration"
 }

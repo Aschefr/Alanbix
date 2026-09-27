@@ -155,14 +155,15 @@
 		width: 90%;
 		max-width: 800px;
 		max-height: 85vh;
-		background: var(--bg-secondary);
+		background: var(--bg-primary);
 		border: 1px solid var(--glass-border);
 		border-radius: var(--radius-xl);
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
-		box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5), 0 0 35px var(--accent-soft);
+		box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 0 0 35px var(--accent-soft);
 		animation: scaleUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+		font-family: var(--font-main);
 	}
 	@keyframes scaleUp {
 		from { transform: scale(0.95); opacity: 0; }
@@ -174,7 +175,7 @@
 		align-items: center;
 		padding: 1.2rem 1.5rem;
 		border-bottom: 1px solid var(--glass-border);
-		background: rgba(255, 255, 255, 0.02);
+		background: var(--surface-sunken);
 	}
 	.player-modal-profile {
 		display: flex;
@@ -204,11 +205,13 @@
 	}
 	.player-modal-identity h3 {
 		margin: 0;
-		font-size: 1.2rem;
+		font-family: var(--font-title);
+		font-size: 1.3rem;
 		font-weight: 800;
 		color: var(--text-main);
 	}
 	.player-modal-team {
+		font-family: var(--font-main);
 		font-size: 0.75rem;
 		color: var(--accent);
 		font-weight: 600;
@@ -267,6 +270,7 @@
 		justify-content: center;
 	}
 	.summary-stat-card .val {
+		font-family: var(--font-title);
 		font-size: 1.8rem;
 		font-weight: 800;
 		color: var(--text-main);
@@ -276,6 +280,7 @@
 		text-shadow: 0 0 10px var(--accent-glow);
 	}
 	.summary-stat-card .lbl {
+		font-family: var(--font-main);
 		font-size: 0.7rem;
 		color: var(--text-muted);
 		text-transform: uppercase;
@@ -303,6 +308,7 @@
 	}
 	.details-section h4 {
 		margin: 0;
+		font-family: var(--font-title);
 		font-size: 0.85rem;
 		font-weight: 800;
 		text-transform: uppercase;

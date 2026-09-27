@@ -276,9 +276,9 @@
 	<div class="modal-overlay-global" use:portal role="dialog" aria-modal="true"
 		on:mousedown={(e) => { if (e.target === e.currentTarget) overlayMouseDown = true; }} 
 		on:mouseup={(e) => { if (overlayMouseDown && e.target === e.currentTarget) editingPlayer = null; overlayMouseDown = false; }}>
-		<div class="modal-card-global glass" on:click|stopPropagation style="max-width: 400px">
+		<div class="modal-card-global glass" on:click|stopPropagation style="max-width: 440px">
 			<header class="edit-modal-header">
-				<h3>✏️ Modifier — {editingPlayer.username}</h3>
+				<h3>✏️ {$t('admin_players_modal_edit_title', { name: editingPlayer.username })}</h3>
 				<button class="close-btn" on:click={() => editingPlayer = null} aria-label="Fermer">✕</button>
 			</header>
 			<div class="edit-modal-body">
@@ -287,7 +287,7 @@
 						<div class="admin-avatar-lg avatar-shape-{editingPlayer.avatar_shape || 'circle'}">
 							<img src={editingPlayer.avatar_url} alt="" />
 						</div>
-						<button class="btn-danger-sm" type="button" on:click={() => adminDeleteAvatar(editingPlayer.id)}>Supprimer l'avatar</button>
+						<button class="btn-danger-sm" type="button" on:click={() => adminDeleteAvatar(editingPlayer.id)}>{$t('admin_players_modal_delete_avatar')}</button>
 					</div>
 				{/if}
 				<div class="edit-field mb-3">
@@ -295,26 +295,26 @@
 					<input type="text" bind:value={editPlayerData.username} />
 				</div>
 				<div class="edit-field mb-3">
-					<label>Nom d'équipe</label>
-					<input type="text" bind:value={editPlayerData.team_name} list="admin-existing-teams" placeholder="Aucune équipe" />
+					<label>{$t('admin_players_modal_team_name')}</label>
+					<input type="text" bind:value={editPlayerData.team_name} list="admin-existing-teams" placeholder="{$t('admin_players_modal_no_team')}" />
 				</div>
 				<div class="edit-field mb-3">
-					<label>Place assignée (Poste ID)</label>
-					<input type="text" bind:value={editPlayerData.seat_id} placeholder="Aucun poste (ex: A01)" />
+					<label>{$t('admin_players_modal_seat')}</label>
+					<input type="text" bind:value={editPlayerData.seat_id} placeholder="{$t('admin_players_modal_no_seat')}" />
 				</div>
 				<div class="edit-field mb-3">
-					<label>Points cumulés</label>
+					<label>{$t('admin_players_modal_points')}</label>
 					<input type="number" bind:value={editPlayerData.points} placeholder="0" />
 				</div>
 				<div class="player-toggle-row mb-3">
-					<span class="player-toggle-label">Est Administrateur 👑</span>
+					<span class="player-toggle-label">{$t('admin_players_modal_is_admin')} 👑</span>
 					<label class="toggle-switch-mini">
 						<input type="checkbox" bind:checked={editPlayerData.is_admin} />
 						<span class="toggle-slider"></span>
 					</label>
 				</div>
 				<div class="player-toggle-row mb-3">
-					<span class="player-toggle-label">Bloquer l'accès IA 🚫</span>
+					<span class="player-toggle-label">{$t('admin_players_modal_block_ai')} 🚫</span>
 					<label class="toggle-switch-mini">
 						<input type="checkbox" bind:checked={editPlayerData.ia_blocked} />
 						<span class="toggle-slider"></span>
@@ -335,20 +335,20 @@
 	<div class="modal-overlay-global" use:portal role="dialog" aria-modal="true"
 		on:mousedown={(e) => { if (e.target === e.currentTarget) overlayMouseDown = true; }} 
 		on:mouseup={(e) => { if (overlayMouseDown && e.target === e.currentTarget) resetPwdPlayer = null; overlayMouseDown = false; }}>
-		<div class="modal-card-global glass" on:click|stopPropagation style="max-width: 400px">
+		<div class="modal-card-global glass" on:click|stopPropagation style="max-width: 440px">
 			<header class="edit-modal-header">
-				<h3>🔑 Réinitialiser MDP — {resetPwdPlayer.username}</h3>
+				<h3>🔑 {$t('admin_players_modal_reset_pwd_title', { name: resetPwdPlayer.username })}</h3>
 				<button class="close-btn" on:click={() => resetPwdPlayer = null} aria-label="Fermer">✕</button>
 			</header>
 			<div class="edit-modal-body">
 				<div class="edit-field">
-					<label>Nouveau mot de passe</label>
+					<label>{$t('admin_players_modal_new_pwd')}</label>
 					<input type="text" bind:value={resetPwdValue} />
 				</div>
 			</div>
 			<footer class="edit-modal-footer">
 				<button class="btn-secondary" on:click={() => resetPwdPlayer = null}>{$t('admin_settings_cancel')}</button>
-				<button class="btn-primary" on:click={resetPassword}>✅ Réinitialiser</button>
+				<button class="btn-primary" on:click={resetPassword}>✅ {$t('admin_players_modal_reset_btn')}</button>
 			</footer>
 		</div>
 	</div>
