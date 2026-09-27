@@ -1,4 +1,4 @@
-name: Verify i18n Translations
+name: Verify i18n & Production Build
 
 on:
   push:
@@ -19,5 +19,20 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Run verification script
+      - name: Run i18n verification script
         run: python scripts/verify_i18n.py
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build frontend
+        run: |
+          cd frontend
+          npm install
+          npm run build
+          cd ..
+
+      - name: Verify production bundle and config
+        run: python scripts/verify_production_bundle.py

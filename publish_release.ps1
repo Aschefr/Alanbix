@@ -34,6 +34,13 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
+Write-Host "Vérification de la configuration de production (ports & bundle)..." -ForegroundColor Cyan
+python scripts/verify_production_bundle.py
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Erreur : La vérification de production a échoué (détection de ports de développement). La publication a été annulée." -ForegroundColor Red
+    exit 1
+}
+
 Write-Host "Construction de l'image Docker (Architecture courante, generalement x86_64)..." -ForegroundColor Cyan
 docker build -f Dockerfile.standalone -t aschefr/alanbix:$CleanVersion -t aschefr/alanbix:latest .
 
