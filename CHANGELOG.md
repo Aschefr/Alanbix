@@ -2,6 +2,25 @@
 
 ## [Unreleased]
 
+### UI & Design Coherence — Secondary Pages Aesthetic, Typography & Theme Contrast Overhaul (Info, Profile, Spectator)
+
+- **LAN Guidelines & Info Page (`info/+page.svelte`)**:
+  - Integrated global typography tokens: applied `--font-title` (Outfit) to headers (`.info-header h1`, `.files-header h2`, and markdown `h1, h2, h3`), and `--font-main` (Inter) across buttons and file cards.
+  - Fully theme-adapted EasyMDE markdown editor: mapped dynamic CodeMirror wrapper, toolbar, preview, and status bar to design tokens (`--input-bg`, `--input-color`, `--glass-border`, `--hover-tint`, `--accent-soft`), ensuring seamless contrast and readability in both dark and light modes.
+  - Modernized File Manager card design with subtle glassmorphism borders, theme-aware hover elevations, and localized notifications/modals (`info_saved`, `info_save_error`, `info_uploading`, `info_upload_error`, `info_delete_error`, `info_nuke_error`, `info_files_nuke_btn`, `info_confirm_count`, `info_confirm`, `info_copy_path_tooltip`, `info_markdown_placeholder`).
+- **Player Profile & Avatar Studio (`profile/+page.svelte`)**:
+  - Standardized typography with `--font-title` for headers (`.profile-header h1`, `.card-title`, `.pts-number`) and `--font-main` for badges, input fields, and action buttons.
+  - Replaced hardcoded black crop modal overlay with `backdrop-filter: blur(8px)` and theme-adapted modal background (`--surface-raised`).
+  - Added CSS transparency checkerboard pattern to the avatar canvas viewport (`.canvas-wrapper`) to make transparent avatar backgrounds immediately distinguishable from black/dark backgrounds in any theme.
+  - Replaced hardcoded title gradient with theme-safe token and localized all crop modal action buttons and points breakdown tooltips (`profile_pts_tooltip_placement`, `profile_pts_tooltip_participation`, `profile_pts_tooltip_bonus`).
+- **Fullscreen Arena Spectator (`spectator/+page.svelte`)**:
+  - Replaced hardcoded text gradient fallback on `.spec-title` with `linear-gradient(135deg, var(--text-main) 30%, var(--accent) 100%)` ensuring high contrast and readability on both dark and light themes, while preserving `.hero-title` white text-shadow on tournament wallpaper backdrops.
+  - Applied `--font-title` (Outfit) to `.spec-event`, `.hero-title`, `.spec-group-title`, `.spec-round-hdr`, `.spec-ffa-hdr`, and `.spec-lb-title`.
+  - Replaced hardcoded inline styles in FFA and Round-Robin match cards with clean semantic classes (`.spec-ffa-match-card`, `.spec-ffa-match-hdr`, `.spec-rr-match`, `.spec-rr-score`) mapped to `--surface-raised`, `--surface-sunken`, and `--glass-border`.
+  - Localized tournament display strings: `spec_losers_bracket`, `spec_lb_finale`, and `spec_group_num`.
+- **Full Internationalization (i18n)**:
+  - Synchronized 14 new and updated localization keys across `fr.json`, `en.json`, and `es.json` with strict adherence to BOM and UTF-8 encoding rules, verified via `verify_i18n.py`.
+
 ### UI & Design Coherence — Admin Settings Theme Contrast, Symmetrical 3-Card Grid & Full i18n Synchronization
 
 - **Admin Public Chat & Anti-Spam Theme Contrast**: Replaced hardcoded dark slate backgrounds (`rgba(15, 23, 42, 0.6)`) with theme-aware tokens (`--input-bg`, `--input-color`, `--glass-border`, and `--accent-soft` focus ring) on all chat inputs (Slowmode, Max Length, Cooldown, Banned Words) to ensure flawless readability and contrast in both light and dark themes.

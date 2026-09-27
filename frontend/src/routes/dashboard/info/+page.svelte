@@ -3,6 +3,7 @@
 	import { onMount, onDestroy, tick } from 'svelte';
 	import { marked } from 'marked';
 	import { t } from '$lib/i18nStore';
+	import { get } from 'svelte/store';
 
 	let content = '';
 	let spectatorContent = '';
@@ -63,7 +64,7 @@
 			autofocus: false,
 			status: false,
 			minHeight: '350px',
-			placeholder: 'Rédigez votre contenu en Markdown...',
+			placeholder: get(t)('info_markdown_placeholder'),
 			toolbar: [
 				'bold', 'italic', 'heading', '|',
 				'quote', 'unordered-list', 'ordered-list', '|',
@@ -127,10 +128,10 @@
 			spectatorContent = finalSpec;
 			destroyEditors();
 			editing = false;
-			saveMsg = '✓ Sauvegardé';
+			saveMsg = '✓ ' + get(t)('info_saved');
 			setTimeout(() => saveMsg = '', 3000);
 		} catch (e) {
-			saveMsg = '✕ Erreur: ' + e.message;
+			saveMsg = '✕ ' + get(t)('info_save_error') + ' ' + e.message;
 		}
 		saving = false;
 	}
@@ -152,7 +153,7 @@
 			await loadFiles();
 			fileInput.value = ''; // reset
 		} catch (e) {
-			saveMsg = '✕ Erreur upload: ' + e.message;
+			saveMsg = '✕ ' + get(t)('info_upload_error') + ' ' + e.message;
 			setTimeout(() => saveMsg = '', 3000);
 		}
 		uploading = false;
@@ -164,7 +165,7 @@
 			deleteConfirm = null;
 			await loadFiles();
 		} catch (e) {
-			saveMsg = '✕ Erreur suppression: ' + e.message;
+			saveMsg = '✕ ' + get(t)('info_delete_error') + ' ' + e.message;
 			setTimeout(() => saveMsg = '', 3000);
 		}
 	}
@@ -175,7 +176,7 @@
 			nukeConfirm = false;
 			await loadFiles();
 		} catch (e) {
-			saveMsg = '✕ Erreur nuke: ' + e.message;
+			saveMsg = '✕ ' + get(t)('info_nuke_error') + ' ' + e.message;
 			setTimeout(() => saveMsg = '', 3000);
 		}
 	}
@@ -205,14 +206,15 @@
 		// Pre-process: wrap Windows paths BEFORE marked parsing
 		// so that marked doesn't eat the backslashes
 		// 1) UNC paths: \\server\share
+		const tooltip = get(t)('info_copy_path_tooltip');
 		text = text.replace(
 			/(\\\\[\w.\-]+(?:\\[\w.\-]+)*\\?)/g,
-			(match) => `<span class="net-path" data-path="${match}" title="Cliquer pour copier le chemin">${match}</span>`
+			(match) => `<span class="net-path" data-path="${match}" title="${tooltip}">${match}</span>`
 		);
 		// 2) Local drive paths: C:\Games\Something
 		text = text.replace(
 			/([A-Za-z]:\\[\w.\-\s]+(?:\\[\w.\-\s]+)*\\?)/g,
-			(match) => `<span class="net-path" data-path="${match}" title="Cliquer pour copier le chemin">${match}</span>`
+			(match) => `<span class="net-path" data-path="${match}" title="${tooltip}">${match}</span>`
 		);
 		return marked.parse(text, { breaks: true });
 	}
@@ -304,15 +306,15 @@
 				{#if isAdmin}
 					<div class="files-admin-btns">
 						<label class="btn-upload" class:uploading>
-							{uploading ? '⏳ Upload...' : $t('info_files_add')}
+							{uploading ? '⏳ ' + $t('info_uploading') : '📁 ' + $t('info_files_add')}
 							<input type="file" bind:this={fileInput} on:change={uploadFile} style="display:none" />
 						</label>
 						{#if files.length > 0}
 							{#if nukeConfirm}
-								<button class="btn-nuke confirm" on:click={nukeFiles}>✓ Confirmer ({files.length})</button>
+								<button class="btn-nuke confirm" on:click={nukeFiles}>✓ {$t('info_confirm_count', { count: files.length })}</button>
 								<button class="btn-nuke cancel" on:click={() => nukeConfirm = false}>✕</button>
 							{:else}
-								<button class="btn-nuke" on:click={() => nukeConfirm = true} title={$t('info_files_nuke_tooltip')}>☢️ Nuke</button>
+								<button class="btn-nuke" on:click={() => nukeConfirm = true} title={$t('info_files_nuke_tooltip')}>🗑️ {$t('info_files_nuke_btn')}</button>
 							{/if}
 						{/if}
 					</div>
@@ -332,7 +334,7 @@
 							<a href="{f.url}" download class="file-dl" title={$t('info_files_download_tooltip')}>⬇️</a>
 							{#if isAdmin}
 								{#if deleteConfirm === f.name}
-									<button class="file-del confirm" on:click={() => deleteFile(f.name)}>✓ Confirmer</button>
+									<button class="file-del confirm" on:click={() => deleteFile(f.name)}>✓ {$t('info_confirm')}</button>
 									<button class="file-del cancel" on:click={() => deleteConfirm = null}>✕</button>
 								{:else}
 									<button class="file-del" on:click={() => deleteConfirm = f.name} title={$t('info_files_delete_tooltip')}>🗑️</button>
@@ -347,7 +349,7 @@
 </div>
 
 <style>
-	.info-page { max-width: 960px; margin: 0 auto; }
+	.info-page { max-width: 960px; margin: 0 auto; font-family: var(--font-main); }
 
 	.info-header {
 		display: flex; align-items: center; gap: 1rem; margin-bottom: 2rem;
@@ -355,72 +357,73 @@
 	.info-header h1 {
 		font-size: 1.8rem; font-weight: 800; margin: 0; flex: 1;
 		color: var(--accent);
+		font-family: var(--font-title);
+		letter-spacing: -0.02em;
 	}
-	.save-msg { font-size: 0.85rem; font-weight: 600; color: #10b981; animation: fadeIn 0.3s; }
+	.save-msg { font-size: 0.85rem; font-weight: 600; color: #10b981; animation: fadeIn 0.3s; font-family: var(--font-main); }
 	.save-msg.error { color: #ef4444; }
 
 	.btn-edit {
 		padding: 0.6rem 1.2rem; border-radius: var(--radius-md);
 		background: var(--accent); color: white; border: none;
 		font-weight: 700; font-size: 0.85rem; cursor: pointer;
-		transition: all 0.2s;
+		transition: all 0.2s; font-family: var(--font-main);
 	}
 	.btn-edit:hover { transform: translateY(-1px); box-shadow: 0 4px 15px var(--accent-glow); }
 
 	/* Editor */
 	.editor-area { display: flex; flex-direction: column; gap: 1rem; }
 
-	.editor-tabs { display: flex; gap: 0.3rem; background: var(--glass-bg); border-radius: var(--radius-md); padding: 0.3rem; }
+	.editor-tabs { display: flex; gap: 0.3rem; background: var(--glass-bg); border-radius: var(--radius-md); padding: 0.3rem; border: 1px solid var(--glass-border); }
 	.tab {
 		flex: 1; padding: 0.7rem 1rem; border: none; background: none;
 		color: var(--text-dim); font-weight: 700; font-size: 0.85rem;
 		border-radius: var(--radius-sm, 6px); cursor: pointer; transition: all 0.2s;
+		font-family: var(--font-main);
 	}
 	.tab.active { background: var(--accent-soft); color: var(--accent); }
 	.tab:hover:not(.active) { background: var(--hover-tint); }
 
 	.editor-container {
 		border: 1px solid var(--glass-border); border-radius: var(--radius-md);
-		overflow: hidden; background: var(--glass-bg);
+		overflow: hidden; background: var(--input-bg);
 	}
 
-	/* EasyMDE theme overrides for dark mode */
+	/* EasyMDE theme overrides for dark & light mode */
 	.editor-container :global(.EasyMDEContainer) { background: transparent; }
 	.editor-container :global(.EasyMDEContainer .CodeMirror) {
-		background: var(--bg-secondary, #0f172a);
-		color: var(--text-main, white);
+		background: var(--input-bg);
+		color: var(--input-color);
 		border: none;
 		border-radius: 0;
 		font-size: 0.9rem;
+		font-family: 'JetBrains Mono', monospace;
 	}
 	.editor-container :global(.editor-toolbar) {
-		background: var(--hover-tint, rgba(255,255,255,0.03));
+		background: var(--hover-tint);
 		border: none;
 		border-bottom: 1px solid var(--glass-border);
 		opacity: 1;
 	}
 	.editor-container :global(.editor-toolbar button) {
-		color: var(--text-dim, #94a3b8) !important;
+		color: var(--text-muted) !important;
 		border: none !important;
 	}
 	.editor-container :global(.editor-toolbar button:hover),
 	.editor-container :global(.editor-toolbar button.active) {
-		background: var(--accent-soft, rgba(59,130,246,0.15)) !important;
-		color: var(--accent, #3b82f6) !important;
+		background: var(--accent-soft) !important;
+		color: var(--accent) !important;
 		border-radius: 4px;
 	}
 	.editor-container :global(.editor-toolbar i.separator) {
 		border-left-color: var(--glass-border) !important;
 	}
-	.editor-container :global(.CodeMirror-cursor) { border-left-color: var(--accent, #3b82f6); }
-	.editor-container :global(.CodeMirror-selected) { background: var(--accent-soft, rgba(59,130,246,0.2)) !important; }
-	.editor-container :global(.editor-preview) {
-		background: var(--bg-secondary, #0f172a);
-		color: var(--text-main, white);
-	}
+	.editor-container :global(.CodeMirror-cursor) { border-left-color: var(--accent); }
+	.editor-container :global(.CodeMirror-selected) { background: var(--accent-soft) !important; }
+	.editor-container :global(.editor-preview),
 	.editor-container :global(.editor-preview-side) {
-		background: var(--bg-secondary, #0f172a);
-		color: var(--text-main, white);
+		background: var(--input-bg);
+		color: var(--input-color);
 		border-left: 1px solid var(--glass-border);
 	}
 
@@ -429,42 +432,44 @@
 		padding: 0.7rem 1.5rem; border-radius: var(--radius-md);
 		background: #10b981; color: white; border: none;
 		font-weight: 700; font-size: 0.85rem; cursor: pointer; transition: all 0.2s;
+		font-family: var(--font-main);
 	}
-	.btn-save:hover { background: #059669; transform: translateY(-1px); }
+	.btn-save:hover { background: #059669; transform: translateY(-1px); box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3); }
 	.btn-save:disabled { opacity: 0.6; cursor: not-allowed; }
 	.btn-cancel {
 		padding: 0.7rem 1.5rem; border-radius: var(--radius-md);
 		background: transparent; color: var(--text-dim); border: 1px solid var(--glass-border);
 		font-weight: 700; font-size: 0.85rem; cursor: pointer; transition: all 0.2s;
+		font-family: var(--font-main);
 	}
 	.btn-cancel:hover { border-color: var(--danger); color: var(--danger); }
 
 	/* Content display */
 	.info-content { padding: 2rem; border-radius: var(--radius-lg, 16px); }
-	.markdown-body { line-height: 1.7; color: var(--text-main); }
-	.markdown-body :global(h1) { font-size: 1.8rem; font-weight: 800; margin: 0 0 1rem; color: var(--accent); }
-	.markdown-body :global(h2) { font-size: 1.4rem; font-weight: 700; margin: 1.5rem 0 0.75rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 0.3rem; }
-	.markdown-body :global(h3) { font-size: 1.1rem; font-weight: 700; margin: 1rem 0 0.5rem; }
+	.markdown-body { line-height: 1.7; color: var(--text-main); font-family: var(--font-main); }
+	.markdown-body :global(h1) { font-size: 1.8rem; font-weight: 800; margin: 0 0 1rem; color: var(--accent); font-family: var(--font-title); }
+	.markdown-body :global(h2) { font-size: 1.4rem; font-weight: 700; margin: 1.5rem 0 0.75rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 0.3rem; font-family: var(--font-title); color: var(--text-main); }
+	.markdown-body :global(h3) { font-size: 1.1rem; font-weight: 700; margin: 1rem 0 0.5rem; font-family: var(--font-title); color: var(--text-main); }
 	.markdown-body :global(p) { margin: 0.5rem 0; }
 	.markdown-body :global(ul), .markdown-body :global(ol) { padding-left: 1.5rem; }
 	.markdown-body :global(li) { margin: 0.3rem 0; }
-	.markdown-body :global(code) { background: var(--hover-tint); padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.85em; }
-	.markdown-body :global(pre) { background: var(--surface-sunken, rgba(0,0,0,0.2)); padding: 1rem; border-radius: var(--radius-md); overflow-x: auto; }
+	.markdown-body :global(code) { background: var(--hover-tint); padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.85em; font-family: 'JetBrains Mono', monospace; }
+	.markdown-body :global(pre) { background: var(--surface-sunken); padding: 1rem; border-radius: var(--radius-md); overflow-x: auto; border: 1px solid var(--glass-border); }
 	.markdown-body :global(blockquote) { border-left: 3px solid var(--accent); padding-left: 1rem; margin: 0.75rem 0; color: var(--text-dim); font-style: italic; }
-	.markdown-body :global(a) { color: var(--accent); text-decoration: none; }
+	.markdown-body :global(a) { color: var(--accent); text-decoration: none; font-weight: 600; }
 	.markdown-body :global(a:hover) { text-decoration: underline; }
 	.markdown-body :global(table) { width: 100%; border-collapse: collapse; margin: 1rem 0; }
 	.markdown-body :global(th), .markdown-body :global(td) { padding: 0.5rem 0.75rem; border: 1px solid var(--glass-border); text-align: left; }
-	.markdown-body :global(th) { background: var(--hover-tint); font-weight: 700; }
+	.markdown-body :global(th) { background: var(--hover-tint); font-weight: 700; color: var(--text-main); }
 	.markdown-body :global(hr) { border: none; border-top: 1px solid var(--glass-border); margin: 1.5rem 0; }
 	.markdown-body :global(img) { max-width: 100%; border-radius: var(--radius-md); }
 	.markdown-body :global(.net-path) {
 		color: var(--accent); font-weight: 600; font-family: 'JetBrains Mono', monospace;
-		background: var(--accent-soft, rgba(59,130,246,0.1)); padding: 0.15rem 0.5rem;
-		border-radius: 4px; white-space: nowrap;
+		background: var(--accent-soft); padding: 0.15rem 0.5rem;
+		border-radius: 4px; white-space: nowrap; border: 1px solid var(--glass-border);
 	}
 	.markdown-body :global(.net-path::before) { content: '📂 '; }
-	.markdown-body :global(.net-path:hover) { background: var(--accent-soft, rgba(59,130,246,0.2)); cursor: pointer; }
+	.markdown-body :global(.net-path:hover) { background: var(--accent-soft); cursor: pointer; border-color: var(--accent); }
 	.markdown-body :global(.net-path:active) { transform: scale(0.97); }
 
 	/* Copy toast */
@@ -474,7 +479,7 @@
 		border-radius: var(--radius-md); font-size: 0.85rem; font-weight: 600;
 		box-shadow: 0 8px 30px rgba(16,185,129,0.3);
 		animation: toastIn 0.3s ease;
-		z-index: 999;
+		z-index: 999; font-family: var(--font-main);
 	}
 	@keyframes toastIn { from { opacity: 0; transform: translateX(-50%) translateY(10px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
 
@@ -489,40 +494,49 @@
 	/* File Manager (AXE-13) */
 	.files-section { margin-top: 2rem; padding: 1.5rem; border-radius: var(--radius-lg, 16px); }
 	.files-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
-	.files-header h2 { margin: 0; font-size: 1.1rem; font-weight: 800; color: var(--accent); }
+	.files-header h2 { margin: 0; font-size: 1.2rem; font-weight: 800; color: var(--accent); font-family: var(--font-title); }
 	.btn-upload {
 		padding: 0.5rem 1rem; border-radius: var(--radius-md);
 		background: linear-gradient(135deg, #8b5cf6, #6d28d9); color: white;
 		font-weight: 700; font-size: 0.8rem; cursor: pointer;
-		transition: all 0.2s; border: none; display: inline-block;
+		transition: all 0.2s; border: none; display: inline-flex; align-items: center; gap: 0.4rem;
+		font-family: var(--font-main);
 	}
 	.btn-upload:hover { transform: translateY(-1px); box-shadow: 0 4px 15px rgba(139,92,246,0.4); }
 	.btn-upload.uploading { opacity: 0.6; cursor: wait; }
 	.files-empty { color: var(--text-muted); font-size: 0.85rem; font-style: italic; text-align: center; padding: 1rem; }
-	.files-list { display: flex; flex-direction: column; gap: 0.4rem; }
+	.files-list { display: flex; flex-direction: column; gap: 0.5rem; }
 	.file-card {
-		display: flex; align-items: center; gap: 0.7rem;
-		padding: 0.6rem 0.8rem; border-radius: var(--radius-md, 8px);
-		background: var(--hover-tint, rgba(255,255,255,0.03));
-		border: 1px solid var(--glass-border); transition: all 0.15s;
+		display: flex; align-items: center; gap: 0.85rem;
+		padding: 0.75rem 1rem; border-radius: var(--radius-md, 8px);
+		background: var(--hover-tint);
+		border: 1px solid var(--glass-border); transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 	}
-	.file-card:hover { border-color: rgba(139,92,246,0.3); background: rgba(139,92,246,0.04); }
+	.file-card:hover {
+		border-color: var(--glass-border-highlight);
+		background: var(--surface-sunken);
+		transform: translateY(-1px);
+		box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+	}
 	.file-icon { font-size: 1.3rem; flex-shrink: 0; }
 	.file-info { flex: 1; min-width: 0; }
 	.file-name {
-		display: block; font-weight: 700; font-size: 0.85rem; color: var(--accent);
+		display: block; font-weight: 700; font-size: 0.88rem; color: var(--text-main);
 		text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+		font-family: var(--font-main); transition: color 0.15s;
 	}
-	.file-name:hover { text-decoration: underline; }
-	.file-size { font-size: 0.65rem; color: var(--text-muted); }
+	.file-name:hover { color: var(--accent); }
+	.file-size { font-size: 0.68rem; color: var(--text-muted); font-family: var(--font-main); margin-top: 0.15rem; }
 	.file-dl {
-		font-size: 1rem; text-decoration: none; padding: 0.3rem;
+		font-size: 1rem; text-decoration: none; padding: 0.35rem 0.5rem;
 		border-radius: 6px; transition: all 0.15s; flex-shrink: 0;
+		background: var(--hover-tint); border: 1px solid var(--glass-border);
 	}
-	.file-dl:hover { background: rgba(59,130,246,0.1); transform: scale(1.15); }
+	.file-dl:hover { background: var(--accent-soft); border-color: var(--accent); transform: scale(1.1); }
 	.file-del {
 		background: none; border: 1px solid var(--glass-border); border-radius: 6px;
-		font-size: 0.75rem; padding: 0.25rem 0.4rem; cursor: pointer; transition: all 0.15s; color: var(--text-dim);
+		font-size: 0.75rem; padding: 0.35rem 0.55rem; cursor: pointer; transition: all 0.15s; color: var(--text-dim);
+		font-family: var(--font-main);
 	}
 	.file-del:hover { border-color: var(--danger); color: var(--danger); }
 	.file-del.confirm { background: var(--danger); color: white; border-color: var(--danger); font-weight: 700; }
@@ -532,6 +546,7 @@
 		padding: 0.5rem 0.8rem; border-radius: var(--radius-md);
 		background: transparent; color: var(--danger, #ef4444); border: 1px solid var(--danger, #ef4444);
 		font-weight: 700; font-size: 0.75rem; cursor: pointer; transition: all 0.2s;
+		font-family: var(--font-main);
 	}
 	.btn-nuke:hover { background: rgba(239,68,68,0.1); transform: translateY(-1px); }
 	.btn-nuke.confirm { background: var(--danger); color: white; }

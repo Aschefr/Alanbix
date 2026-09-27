@@ -540,27 +540,27 @@
 						<div class="spec-bracket-content" bind:clientHeight={roundsHeight} style="transform: translateY({translateY}px) translateZ(0); transition: {isAnimating ? 'transform ' + scrollDuration + 's linear' : 'none'};">
 							{#if bracketType === 'ffa'}
 								<!-- FFA View (Block Layout) -->
-								<div class="spec-ffa-area" style="display: block; width: 100%; max-width: 1600px; margin: 0 auto; padding: 2rem 0;">
+								<div class="spec-ffa-area">
 									{#each bracketRounds as roundMatches, ri}
 										{@const isLatest = ri === bracketRounds.length - 1}
-										<div class="spec-ffa-round-block {isLatest ? 'current' : 'past'}" style="background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 16px; overflow: hidden; opacity: {isLatest ? '1' : '0.6'}; margin-bottom: 2.5rem;">
-											<div class="spec-ffa-hdr" style="background: var(--surface-sunken); padding: 1rem 1.5rem; font-size: 1.4rem; font-weight: 800; color: var(--accent); border-bottom: 1px solid var(--glass-border); display: flex; align-items: center; justify-content: space-between;">
+										<div class="spec-ffa-round-block {isLatest ? 'current' : 'past'}">
+											<div class="spec-ffa-hdr">
 												<span>{$t("spec_round_num", { num: ri + 1 })}</span>
-												<span style="font-size: 1rem; color: var(--text-muted); font-weight: 600;">{roundMatches.length} Match{roundMatches.length > 1 ? 's' : ''}</span>
+												<span class="spec-ffa-match-count">{roundMatches.length} Match{roundMatches.length > 1 ? 's' : ''}</span>
 											</div>
-											<div class="spec-ffa-matches-wrap" style="display: flex; flex-wrap: wrap; gap: 1.5rem; padding: 1.5rem; align-items: flex-start; justify-content: center;">
+											<div class="spec-ffa-matches-wrap">
 											{#each roundMatches as match, mi}
-												<div class="spec-ffa-match-card" style="background: rgba(0,0,0,0.2); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden; flex: 1 1 320px; max-width: 600px;">
-													<div class="spec-ffa-match-hdr" style="padding: 0.6rem 1rem; background: rgba(0,0,0,0.3); font-weight: 700; font-size: 0.9rem; color: var(--text-dim); display: flex; justify-content: space-between;">
+												<div class="spec-ffa-match-card">
+													<div class="spec-ffa-match-hdr">
 														<span>Match {mi + 1}</span>
 														<span>{$t("spec_players_count", { count: match.p.length })}</span>
 													</div>
-													<div class="spec-ffa-players" style="padding: 0.5rem;">
+													<div class="spec-ffa-players">
 														{#each match.p as playerId, pi}
 															{@const mRank = getFFAMatchRank(match, pi, specLowerIsBetter)}
-															<div class="spec-ffa-row {mRank === 1 ? 'gold' : mRank === 2 ? 'silver' : mRank === 3 ? 'bronze' : ''}" style="margin-bottom: 0.25rem;">
+															<div class="spec-ffa-row {mRank === 1 ? 'gold' : mRank === 2 ? 'silver' : mRank === 3 ? 'bronze' : ''}">
 																<span class="spec-ffa-rank">{#if mRank}#{mRank}{:else}—{/if}</span>
-																<span class="spec-ffa-name" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{getPlayerName(playerId)}</span>
+																<span class="spec-ffa-name">{getPlayerName(playerId)}</span>
 																{#if match.score?.[pi] > 0}
 																	<span class="spec-ffa-score">{match.score[pi]}</span>
 																{/if}
@@ -577,11 +577,11 @@
 								<!-- Round Robin -->
 								<div class="spec-rr-area">
 									{#each rrGroups as group}
-										<div class="spec-rr-group" style="width: 100%; margin-bottom: 2rem;">
+										<div class="spec-rr-group">
 											{#if rrGroups.length > 1}
-												<h2 class="spec-group-title" style="text-align: center; color: var(--accent); margin-bottom: 1rem; font-weight: 800;">Poule {String.fromCharCode(64 + parseInt(group.id))}</h2>
+												<h2 class="spec-group-title">{$t('spec_group_num', { group: String.fromCharCode(64 + parseInt(group.id)) })}</h2>
 											{/if}
-											<div class="spec-rr-group-rounds" style="display: flex; flex-wrap: wrap; gap: 1.5rem; justify-content: center;">
+											<div class="spec-rr-group-rounds">
 												{#each group.rounds as roundMatches, ri}
 													<div class="spec-rr-round">
 														<div class="spec-round-hdr">{$t("spec_matchday_num", { num: ri + 1 })}</div>
@@ -607,7 +607,7 @@
 								</div>
 							{:else}
 								<!-- Duel bracket (single/double elim) -->
-								<div class="spec-bracket-area" style="flex-direction: column; align-items: center; justify-content: flex-start; gap: 4rem; overflow-y: visible; padding-top: 2rem; padding-bottom: 4rem;">
+								<div class="spec-bracket-area spec-bracket-duel">
 									<div class="spec-rounds">
 										{#each wbRounds as roundMatches, ri}
 											<div class="spec-round-col">
@@ -638,13 +638,13 @@
 										{/each}
 									</div>
 									{#if bracketType === 'double_elim' && lbRounds.length > 0}
-										<div style="display: flex; flex-direction: column; align-items: center; gap: 1.5rem; width: 100%;">
-											<div style="width: 80%; height: 2px; background: var(--glass-border);"></div>
-											<h3 style="color: var(--text-muted); font-size: 1.5rem; font-weight: 800; letter-spacing: 0.2em; text-transform: uppercase;">Losers Bracket</h3>
+										<div class="spec-lb-wrap">
+											<div class="spec-lb-divider"></div>
+											<h3 class="spec-lb-title">{$t('spec_losers_bracket')}</h3>
 											<div class="spec-rounds">
 												{#each lbRounds as lbRound, ri}
 													<div class="spec-round-col">
-														<div class="spec-round-hdr">{lbRound.originalIndex === lbRoundsRaw.length - 1 ? 'LB Finale' : 'LB R' + (lbRound.originalIndex + 1)}</div>
+														<div class="spec-round-hdr">{lbRound.originalIndex === lbRoundsRaw.length - 1 ? $t('spec_lb_finale') : 'LB R' + (lbRound.originalIndex + 1)}</div>
 														<div class="spec-matches">
 															{#each lbRound.matches as match}
 																{@const s0 = match.score?.[0] ?? null}
@@ -700,16 +700,16 @@
 		position: relative;
 		height: 100vh; width: 100vw; display: flex; flex-direction: column;
 		background: radial-gradient(ellipse at 30% 20%, rgba(59,130,246,0.08) 0%, transparent 50%), radial-gradient(ellipse at 70% 80%, rgba(139,92,246,0.06) 0%, transparent 50%), var(--bg-primary, #020617);
-		color: var(--text-main, white); font-family: 'Inter', sans-serif;
+		color: var(--text-main, white); font-family: var(--font-main);
 	}
 	.spectator-mode.bracket-active { background: transparent; }
 
 	.spec-header { position: relative; z-index: 1; display: flex; justify-content: space-between; align-items: center; padding: 1.5rem 3rem; border-bottom: 1px solid var(--glass-border, rgba(255,255,255,0.06)); }
-	.spec-event { font-size: 1.2rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent, #3b82f6); margin: 0; }
+	.spec-event { font-family: var(--font-title); font-size: 1.2rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent, #3b82f6); margin: 0; }
 	.spec-nav { display: flex; align-items: center; gap: 0.75rem; }
 	.nav-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--text-muted); opacity: 0.35; cursor: pointer; transition: all 0.2s; border: 1px solid var(--glass-border); }
 	.nav-dot.active { background: var(--accent, #3b82f6); opacity: 1; box-shadow: 0 0 10px rgba(59,130,246,0.5); transform: scale(1.3); border-color: transparent; }
-	.pause-badge { font-size: 0.6rem; font-weight: 800; color: #fbbf24; background: rgba(251,191,36,0.1); padding: 0.2rem 0.6rem; border-radius: 20px; border: 1px solid rgba(251,191,36,0.2); }
+	.pause-badge { font-family: var(--font-main); font-size: 0.6rem; font-weight: 800; color: #fbbf24; background: rgba(251,191,36,0.1); padding: 0.2rem 0.6rem; border-radius: 20px; border: 1px solid rgba(251,191,36,0.2); }
 
 	.spec-content { flex-grow: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding: 2rem 4rem; min-height: 0; overflow-y: auto; }
 	.bracket-active .spec-content { padding: 1rem; align-items: stretch; min-height: 0; height: 0; }
@@ -721,7 +721,7 @@
 
 	.spec-bracket-viewport { width: 100%; flex-grow: 1; overflow: hidden; position: relative; display: flex; flex-direction: column; min-height: 0; }
 	.spec-bracket-content { width: 100%; display: flex; flex-direction: column; transform-origin: top center; }
-	.spec-title { font-size: 3rem; font-weight: 800; text-align: center; margin-bottom: 2.5rem; background: linear-gradient(135deg, var(--title-gradient-from, white) 0%, var(--title-gradient-to, rgba(255,255,255,0.6)) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+	.spec-title { font-family: var(--font-title); font-size: 3rem; font-weight: 800; text-align: center; margin-bottom: 2.5rem; background: linear-gradient(135deg, var(--text-main) 30%, var(--accent) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
 
 	/* Leaderboard */
 	.spec-lb { display: flex; flex-direction: column; gap: 0.8rem; }
@@ -747,12 +747,13 @@
 	.game-fullscreen-bg { position: fixed; inset: 0; z-index: 0; background-size: cover; background-position: center; background-repeat: no-repeat; }
 	.game-fullscreen-vignette { position: fixed; inset: 0; z-index: 0; pointer-events: none; background: radial-gradient(ellipse at center, rgba(10,15,30,0.6) 0%, rgba(10,15,30,0.82) 40%, rgba(10,15,30,0.96) 70%, rgba(10,15,30,1) 100%); }
 	.bracket-top-info { position: relative; z-index: 1; text-align: center; padding: 0.5rem 0 0.8rem; }
-	.hero-title { margin: 0; font-size: 2rem; color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; background: none !important; text-shadow: 0 2px 16px rgba(0,0,0,0.9), 0 0 40px rgba(0,0,0,0.5); }
+	.hero-title { font-family: var(--font-title); margin: 0; font-size: 2rem; color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; background: none !important; text-shadow: 0 2px 16px rgba(0,0,0,0.9), 0 0 40px rgba(0,0,0,0.5); }
 	.hero-game-name { font-size: 0.85rem; font-weight: 600; color: #ffffff; opacity: 0.85; text-shadow: 0 1px 8px rgba(0,0,0,0.8); }
 	.spec-bracket-area { position: relative; z-index: 1; flex: 1; overflow-x: auto; overflow-y: hidden; display: flex; align-items: flex-start; justify-content: center; padding: 0.5rem 0; width: 100%; }
+	.spec-bracket-duel { flex-direction: column; align-items: center; justify-content: flex-start; gap: 4rem; overflow-y: visible; padding-top: 2rem; padding-bottom: 4rem; }
 	.spec-rounds { display: flex; gap: 2.5rem; align-items: flex-start; min-width: min-content; }
 	.spec-round-col { display: flex; flex-direction: column; min-width: 240px; flex-shrink: 0; }
-	.spec-round-hdr { text-align: center; font-weight: 800; color: var(--accent); font-size: 1.1rem; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 1rem; padding: 0.4rem 1rem; background: var(--glass-bg); border-radius: 8px; }
+	.spec-round-hdr { font-family: var(--font-title); text-align: center; font-weight: 800; color: var(--accent); font-size: 1.1rem; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 1rem; padding: 0.4rem 1rem; background: var(--glass-bg); border-radius: 8px; border: 1px solid var(--glass-border); }
 	.spec-matches { display: flex; flex-direction: column; justify-content: space-around; flex-grow: 1; gap: 1rem; }
 	.spec-match { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 12px; overflow: hidden; transition: all 0.2s; }
 	.spec-match.done { border-color: rgba(59,130,246,0.25); box-shadow: 0 0 15px rgba(59,130,246,0.05); }
@@ -764,19 +765,28 @@
 	.spec-pscore { font-size: 1.3rem; font-weight: 900; color: var(--accent, #3b82f6); min-width: 2rem; text-align: right; }
 	.spec-match-div { height: 1px; background: var(--glass-border); }
 
+	/* Losers Bracket wrap */
+	.spec-lb-wrap { display: flex; flex-direction: column; align-items: center; gap: 1.5rem; width: 100%; }
+	.spec-lb-divider { width: 80%; height: 2px; background: var(--glass-border); }
+	.spec-lb-title { font-family: var(--font-title); color: var(--text-muted); font-size: 1.5rem; font-weight: 800; letter-spacing: 0.2em; text-transform: uppercase; margin: 0; }
+
 	/* Tournament nav tabs (multiple running) */
 	.spec-tourney-nav { position: sticky; top: 0; z-index: 2; display: flex; gap: 0.3rem; justify-content: center; margin-bottom: 1rem; padding: 0.3rem; background: var(--glass-bg); border-radius: 10px; }
-	.spec-tourney-tab { padding: 0.5rem 1.2rem; background: none; border: none; color: var(--text-muted); font-size: 1rem; font-weight: 700; cursor: pointer; border-radius: 8px; transition: all 0.2s; }
+	.spec-tourney-tab { font-family: var(--font-main); padding: 0.5rem 1.2rem; background: none; border: none; color: var(--text-muted); font-size: 1rem; font-weight: 700; cursor: pointer; border-radius: 8px; transition: all 0.2s; }
 	.spec-tourney-tab.active { background: var(--accent-soft); color: var(--accent); }
 
 	/* FFA spectator */
-	.spec-ffa-area { position: relative; z-index: 1; flex: 1; overflow-y: auto; display: flex; flex-wrap: wrap; gap: 1.5rem; justify-content: center; padding: 0 2rem; }
-	.spec-ffa-round { min-width: 300px; max-width: 500px; flex: 1; background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 16px; overflow: hidden; }
-	.spec-ffa-round.past { opacity: 0.4; }
-	.spec-ffa-hdr { display: flex; justify-content: space-between; align-items: center; padding: 0.7rem 1rem; background: var(--surface-sunken); font-weight: 800; font-size: 1.1rem; color: var(--accent); text-transform: uppercase; letter-spacing: 0.1em; }
-	.spec-ffa-count { font-size: 0.7rem; color: var(--text-muted); font-weight: 600; text-transform: none; letter-spacing: 0; }
-	.spec-ffa-players { padding: 0.3rem 0; }
-	.spec-ffa-row { display: flex; align-items: center; gap: 0.8rem; padding: 0.5rem 1rem; transition: all 0.2s; }
+	.spec-ffa-area { position: relative; z-index: 1; flex: 1; overflow-y: auto; display: block; width: 100%; max-width: 1600px; margin: 0 auto; padding: 2rem 0; }
+	.spec-ffa-round-block { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 16px; overflow: hidden; margin-bottom: 2.5rem; transition: opacity 0.2s; }
+	.spec-ffa-round-block.past { opacity: 0.6; }
+	.spec-ffa-hdr { display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.5rem; background: var(--surface-sunken); font-family: var(--font-title); font-weight: 800; font-size: 1.3rem; color: var(--accent); text-transform: uppercase; letter-spacing: 0.1em; border-bottom: 1px solid var(--glass-border); }
+	.spec-ffa-match-count { font-size: 1rem; color: var(--text-muted); font-weight: 600; text-transform: none; letter-spacing: 0; }
+	.spec-ffa-matches-wrap { display: flex; flex-wrap: wrap; gap: 1.5rem; padding: 1.5rem; align-items: flex-start; justify-content: center; }
+	.spec-ffa-match-card { background: var(--surface-raised); border-radius: 12px; border: 1px solid var(--glass-border); overflow: hidden; flex: 1 1 320px; max-width: 600px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+	.spec-ffa-match-hdr { padding: 0.6rem 1rem; background: var(--surface-sunken); font-weight: 700; font-size: 0.85rem; color: var(--text-dim); display: flex; justify-content: space-between; border-bottom: 1px solid var(--glass-border); }
+	.spec-ffa-players { padding: 0.5rem; }
+	.spec-ffa-row { display: flex; align-items: center; gap: 0.8rem; padding: 0.5rem 1rem; border-radius: 6px; transition: all 0.2s; margin-bottom: 0.25rem; }
+	.spec-ffa-row:last-child { margin-bottom: 0; }
 	.spec-ffa-row.gold { background: rgba(255,215,0,0.1); }
 	.spec-ffa-row.silver { background: rgba(192,192,192,0.08); }
 	.spec-ffa-row.bronze { background: rgba(205,127,50,0.08); }
@@ -784,24 +794,28 @@
 	.spec-ffa-row.gold .spec-ffa-rank { color: #ffd700; }
 	.spec-ffa-row.silver .spec-ffa-rank { color: #c0c0c0; }
 	.spec-ffa-row.bronze .spec-ffa-rank { color: #cd7f32; }
-	.spec-ffa-name { font-size: 1.1rem; font-weight: 600; flex: 1; color: var(--text-main); }
+	.spec-ffa-name { font-size: 1.1rem; font-weight: 600; flex: 1; color: var(--text-main); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	.spec-ffa-score { font-size: 1.1rem; font-weight: 900; color: var(--accent); min-width: 2rem; text-align: right; }
 
 	/* Round Robin spectator */
 	.spec-rr-area { flex: 1; overflow-y: auto; display: flex; flex-wrap: wrap; gap: 1.5rem; justify-content: center; padding: 0 2rem; }
+	.spec-rr-group { width: 100%; margin-bottom: 2rem; }
+	.spec-group-title { font-family: var(--font-title); font-size: 1.5rem; text-align: center; color: var(--accent); margin-bottom: 1rem; font-weight: 800; }
+	.spec-rr-group-rounds { display: flex; flex-wrap: wrap; gap: 1.5rem; justify-content: center; }
 	.spec-rr-round { min-width: 300px; max-width: 420px; flex: 1; }
-	.spec-rr-match { display: flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1rem; background: var(--glass-bg, rgba(0,0,0,0.6)); border: 1px solid var(--glass-border, rgba(255,255,255,0.1)); border-radius: 8px; margin-bottom: 0.4rem; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
-	.spec-rr-match.done { border-color: rgba(59,130,246,0.3); background: var(--surface-sunken, rgba(0,0,0,0.8)); }
+	.spec-rr-match { display: flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1rem; background: var(--surface-raised); border: 1px solid var(--glass-border); border-radius: 8px; margin-bottom: 0.4rem; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+	.spec-rr-match.done { border-color: rgba(59,130,246,0.3); background: var(--surface-sunken); }
 	.spec-rr-p { flex: 1; font-size: 1rem; color: var(--text-main); font-weight: 500; }
 	.spec-rr-p:last-child { text-align: right; }
 	.spec-rr-p.winner { color: var(--accent); font-weight: 800; text-shadow: 0 0 10px rgba(59,130,246,0.4); }
-	.spec-rr-score { font-size: 1.1rem; font-weight: 900; color: white; min-width: 3.5rem; text-align: center; background: rgba(0,0,0,0.4); padding: 0.2rem 0.5rem; border-radius: 6px; }
+	.spec-rr-score { font-size: 1.1rem; font-weight: 900; color: var(--text-main); min-width: 3.5rem; text-align: center; background: var(--surface-sunken); border: 1px solid var(--glass-border); padding: 0.2rem 0.5rem; border-radius: 6px; }
 
 	/* Info spectator */
 	.spec-info-content {
 		max-width: 800px; margin: 0 auto;
 		font-size: 1.8rem; line-height: 1.6; color: var(--text-main, white);
 		text-align: center; padding: 0 2rem;
+		font-family: var(--font-main);
 	}
 	.spec-avatar {
 		width: 48px;

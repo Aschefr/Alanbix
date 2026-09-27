@@ -552,9 +552,9 @@
 									</td>
 									<td class="pts-col">
 										<div class="ph-breakdown">
-											{#if h.placement_pts > 0}<span class="ph-bp ph-bp-place" title="Placement : top {h.rank}">🏅+{h.placement_pts}</span>{/if}
-											<span class="ph-bp ph-bp-parti" title="Points de participation">👤+{h.participation_pts}</span>
-											{#if h.score_pts > 0}<span class="ph-bp ph-bp-score" title="Bonus/Score — distribué selon le score cumulé">⚡+{h.score_pts}</span>{/if}
+											{#if h.placement_pts > 0}<span class="ph-bp ph-bp-place" title={$t('profile_pts_tooltip_placement', { rank: h.rank })}>🏅+{h.placement_pts}</span>{/if}
+											<span class="ph-bp ph-bp-parti" title={$t('profile_pts_tooltip_participation')}>👤+{h.participation_pts}</span>
+											{#if h.score_pts > 0}<span class="ph-bp ph-bp-score" title={$t('profile_pts_tooltip_bonus')}>⚡+{h.score_pts}</span>{/if}
 										</div>
 									</td>
 									<td class="pts-col total-col"><strong>{h.live ? '~' : '+'}{h.total}</strong></td>
@@ -575,7 +575,7 @@
 {/if}
 
 <style>
-	.profile-page { display: flex; flex-direction: column; gap: 1.5rem; }
+	.profile-page { display: flex; flex-direction: column; gap: 1.5rem; font-family: var(--font-main); }
 	.profile-header { display: flex; align-items: center; gap: 1.5rem; padding: 2rem; border-radius: 16px; }
 	.avatar-container { display: flex; align-items: center; gap: 1rem; position: relative; }
 	.avatar-lg { width: 64px; height: 64px; background: var(--bg-tertiary); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; font-weight: 800; color: var(--accent); border: 2px solid var(--accent-soft); position: relative; overflow: hidden; cursor: pointer; }
@@ -586,21 +586,21 @@
 	.btn-danger-icon { background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); color: #ef4444; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.15s; font-size: 0.9rem; margin-left: -0.5rem; }
 	.btn-danger-icon:hover { background: rgba(239, 68, 68, 0.2); transform: scale(1.08); }
 	.header-info { flex: 1; }
-	.header-info h1 { margin-bottom: 0.3rem; }
-	.role-badge { display: inline-block; padding: 0.3rem 0.8rem; border-radius: 20px; font-size: 0.75rem; font-weight: 700; }
+	.header-info h1 { margin-bottom: 0.3rem; font-family: var(--font-title); letter-spacing: -0.02em; }
+	.role-badge { display: inline-block; padding: 0.3rem 0.8rem; border-radius: 20px; font-size: 0.75rem; font-weight: 700; font-family: var(--font-main); }
 	.role-badge.admin { background: rgba(251, 191, 36, 0.1); color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.2); }
 	.role-badge.player { background: rgba(59, 130, 246, 0.1); color: var(--accent); border: 1px solid rgba(59, 130, 246, 0.2); }
 
 	.total-pts-badge { display: flex; flex-direction: column; align-items: center; padding: 0.8rem 1.5rem; background: linear-gradient(135deg, rgba(251,191,36,0.15), rgba(245,158,11,0.08)); border: 1px solid rgba(251,191,36,0.3); border-radius: 16px; }
-	.pts-number { font-size: 2rem; font-weight: 900; color: #fbbf24; line-height: 1; }
-	.pts-label { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-dim); margin-top: 0.2rem; }
+	.pts-number { font-size: 2rem; font-weight: 900; color: #fbbf24; line-height: 1; font-family: var(--font-title); }
+	.pts-label { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-dim); margin-top: 0.2rem; font-family: var(--font-main); }
 
 	.profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
 	.profile-card { padding: 1.5rem; border-radius: 16px; }
-	.card-title { font-size: 0.85rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.75rem; color: var(--text-main); }
+	.card-title { font-size: 0.9rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.75rem; color: var(--text-main); font-family: var(--font-title); }
 
 	.input-row { display: flex; gap: 0.75rem; }
-	.input { flex-grow: 1; padding: 0.7rem 1rem; background: var(--input-bg); border: 1px solid var(--glass-border); border-radius: 8px; color: var(--input-color); font-size: 0.9rem; }
+	.input { flex-grow: 1; padding: 0.7rem 1rem; background: var(--input-bg); border: 1px solid var(--glass-border); border-radius: 8px; color: var(--input-color); font-size: 0.9rem; font-family: var(--font-main); }
 	.input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 
 	.existing-teams-wrap { display: flex; flex-direction: column; gap: 0.5rem; }
@@ -656,7 +656,9 @@
 	.crop-modal-overlay {
 		position: fixed;
 		top: 0; left: 0; right: 0; bottom: 0;
-		background: rgba(0, 0, 0, 0.9);
+		background: rgba(0, 0, 0, 0.75);
+		backdrop-filter: blur(8px);
+		-webkit-backdrop-filter: blur(8px);
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -673,29 +675,39 @@
 		flex-direction: column;
 		align-items: center;
 		gap: 1.5rem;
-		max-width: 400px;
+		max-width: 420px;
 		width: 90%;
+		background: var(--surface-raised, rgba(17, 24, 39, 0.95));
 		border: 1px solid var(--glass-border);
-		box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+		box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
 	}
 	.crop-modal-title {
 		font-size: 1.25rem;
 		font-weight: 800;
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
-		background: linear-gradient(135deg, #fff 0%, var(--accent) 100%);
-		-webkit-background-clip: text;
-		-webkit-text-fill-color: transparent;
+		font-family: var(--font-title);
+		color: var(--text-main);
 		margin: 0;
 	}
 	.canvas-wrapper {
-		background: #090d16;
+		background-color: var(--surface-sunken);
+		background-image: 
+			linear-gradient(45deg, rgba(128, 128, 128, 0.15) 25%, transparent 25%), 
+			linear-gradient(-45deg, rgba(128, 128, 128, 0.15) 25%, transparent 25%), 
+			linear-gradient(45deg, transparent 75%, rgba(128, 128, 128, 0.15) 75%), 
+			linear-gradient(-45deg, transparent 75%, rgba(128, 128, 128, 0.15) 75%);
+		background-size: 16px 16px;
+		background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
 		border-radius: var(--radius-lg);
 		overflow: hidden;
 		border: 2px solid var(--glass-border);
-		box-shadow: inset 0 0 20px rgba(0,0,0,0.6);
+		box-shadow: inset 0 0 20px rgba(0,0,0,0.3);
 		width: 300px;
 		height: 300px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
 	}
 	.crop-controls {
 		width: 100%;
@@ -714,6 +726,7 @@
 		text-transform: uppercase;
 		color: var(--text-dim);
 		letter-spacing: 0.05em;
+		font-family: var(--font-main);
 	}
 	.control-group input[type="range"] {
 		width: 100%;
@@ -739,6 +752,7 @@
 		cursor: pointer;
 		font-size: 0.75rem;
 		font-weight: 700;
+		font-family: var(--font-main);
 		transition: all 0.2s;
 		display: flex;
 		align-items: center;
@@ -766,6 +780,7 @@
 		flex: 1;
 		padding: 0.8rem;
 		font-weight: 700;
+		font-family: var(--font-main);
 	}
 	.bg-color-selector {
 		display: flex;
@@ -793,8 +808,8 @@
 		box-shadow: 0 0 10px var(--accent-glow);
 	}
 	.transparent-btn {
-		background: #eee;
-		color: #555;
+		background: var(--surface-sunken);
+		color: var(--text-muted);
 		font-size: 1.1rem;
 		display: flex;
 		align-items: center;
@@ -956,9 +971,9 @@
 			</div>
 			
 			<div class="control-group">
-				<label>{$t("profile_crop_change_image") || "Changer d'image"}</label>
+				<label>{$t("profile_crop_change_image")}</label>
 				<label class="shape-btn" style="cursor: pointer; width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.5rem; box-sizing: border-box;">
-					📁 {$t("profile_crop_choose_file") || "Choisir un fichier"}
+					📁 {$t("profile_crop_choose_file")}
 					<input 
 						type="file" 
 						accept="image/*" 

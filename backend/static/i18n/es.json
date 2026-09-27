@@ -1092,5 +1092,19 @@
   "admin_public_chat_purge_confirm_btn": "Sí, vaciar",
   "admin_public_chat_purge_success": "Historial del chat público vaciado con éxito",
   "admin_public_chat_save_success": "Ajustes del chat público guardados",
-  "dash_chat_disabled_admin_hint": "Chat publico desactivado para jugadores (acceso admin activo)"
+  "dash_chat_disabled_admin_hint": "Chat publico desactivado para jugadores (acceso admin activo)",
+  "info_saved": "Cambios guardados con exito",
+  "info_save_error": "Error al guardar cambios:",
+  "info_uploading": "Subiendo...",
+  "info_upload_error": "Error al subir:",
+  "info_delete_error": "Error al eliminar:",
+  "info_nuke_error": "Error al eliminar todos los archivos:",
+  "info_files_nuke_btn": "Eliminar todo",
+  "info_confirm_count": "Confirmar ({count})",
+  "info_confirm": "Confirmar",
+  "info_markdown_placeholder": "Escriba su contenido en Markdown...",
+  "info_copy_path_tooltip": "Clic para copiar ruta",
+  "spec_losers_bracket": "Cuadro de Perdedores",
+  "spec_lb_finale": "Final LB",
+  "spec_group_num": "Grupo {group}"
 }

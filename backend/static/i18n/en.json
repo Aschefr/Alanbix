@@ -1092,5 +1092,19 @@
   "admin_public_chat_purge_confirm_btn": "Yes, clear",
   "admin_public_chat_purge_success": "Public chat history cleared successfully",
   "admin_public_chat_save_success": "Public chat settings saved",
-  "dash_chat_disabled_admin_hint": "Public chat disabled for players (admin access active)"
+  "dash_chat_disabled_admin_hint": "Public chat disabled for players (admin access active)",
+  "info_saved": "Changes saved successfully",
+  "info_save_error": "Error saving changes:",
+  "info_uploading": "Uploading...",
+  "info_upload_error": "Upload error:",
+  "info_delete_error": "Deletion error:",
+  "info_nuke_error": "Error deleting all files:",
+  "info_files_nuke_btn": "Delete all",
+  "info_confirm_count": "Confirm ({count})",
+  "info_confirm": "Confirm",
+  "info_markdown_placeholder": "Write your content in Markdown...",
+  "info_copy_path_tooltip": "Click to copy path",
+  "spec_losers_bracket": "Losers Bracket",
+  "spec_lb_finale": "LB Final",
+  "spec_group_num": "Group {group}"
 }

@@ -1092,5 +1092,19 @@
   "admin_public_chat_purge_confirm_btn": "Oui, vider",
   "admin_public_chat_purge_success": "Historique du chat public purgé avec succès",
   "admin_public_chat_save_success": "Paramètres du chat public enregistrés",
-  "dash_chat_disabled_admin_hint": "Chat public desactive pour les joueurs (acces admin actif)"
+  "dash_chat_disabled_admin_hint": "Chat public desactive pour les joueurs (acces admin actif)",
+  "info_saved": "Modifications enregistrees avec succes",
+  "info_save_error": "Erreur lors de l enregistrement :",
+  "info_uploading": "Envoi en cours...",
+  "info_upload_error": "Erreur lors de l envoi :",
+  "info_delete_error": "Erreur de suppression :",
+  "info_nuke_error": "Erreur lors de la suppression totale :",
+  "info_files_nuke_btn": "Tout supprimer",
+  "info_confirm_count": "Confirmer ({count})",
+  "info_confirm": "Confirmer",
+  "info_markdown_placeholder": "Redigez votre contenu en Markdown...",
+  "info_copy_path_tooltip": "Cliquer pour copier le chemin",
+  "spec_losers_bracket": "Tableau de Repechage",
+  "spec_lb_finale": "Finale LB",
+  "spec_group_num": "Poule {group}"
 }
