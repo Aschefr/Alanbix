@@ -2,6 +2,24 @@
 
 ## [Unreleased]
 
+### Fix — Floating-Point Arithmetic Display Artifacts in Player & Team Points
+
+- **Centralized Points Formatting (`formatPoints` in `$lib/utils.ts`)**:
+  - Implemented a reusable `formatPoints(val, maxDecimals = 2)` helper eliminating IEEE-754 precision drift (e.g. `24.700000000000003` -> `24.7`, `25.0` -> `25`).
+  - Integrated across all point-displaying surfaces:
+    - **Player Profile Header Badge & Points History Table (`profile/+page.svelte`)**: Cleaned sum reduction in header badge and individual breakdown badges (`placement_pts`, `participation_pts`, `score_pts`, `total`).
+    - **Player Stats Modal (`DashboardPlayerModal.svelte`)**: Applied clean rounding to total points, per-tournament points, breakdown formulas, and bonuses.
+    - **Dashboard Leaderboard (`DashboardLeaderboard.svelte`)**: Formatted player scores, team scores, and team member breakdowns.
+    - **Players Directory (`players/+page.svelte`)**: Formatted player cards, solo cards, and collapsible points breakdown history.
+    - **Tournaments Live Standings & Teams (`tournaments/+page.svelte`, `TournamentStandings.svelte`)**: Applied clean formatting to live standings rows, closed results rows, and team member scores.
+    - **Spectator Arena View (`spectator/+page.svelte`)**: Formatted player and team leaderboard scores.
+    - **Admin Players Tab (`AdminPlayersTab.svelte`)**: Formatted points column and edit modal input.
+- **Backend Defense-in-Depth Rounding**:
+  - **`backend/app/routers/dashboard.py`**: Cleaned team leaderboard points summation and weighted average scoring with explicit `round(..., 1)`.
+  - **`backend/app/routers/users.py`**: Cleaned points history returned by `/me/points-history`, admin user list, and admin points update endpoint.
+  - **`backend/app/routers/players.py`**: Cleaned live projected points and calculated totals in `/{user_id}/points-history`.
+  - **`backend/app/routers/tournaments.py`**: Rounded points additions and subtractions to 1 decimal place during tournament closing and reopening.
+
 ### UI & Design Coherence — Global Modal System Harmonization, Typography & i18n Overhaul
 
 - **Standardized Global Modal Architecture (`app.css`)**:

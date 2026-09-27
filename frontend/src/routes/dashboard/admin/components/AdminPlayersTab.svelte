@@ -3,6 +3,7 @@
 	import { onMount } from 'svelte';
 	import { api } from '$lib/api';
 	import { t } from '$lib/i18nStore';
+	import { formatPoints } from '$lib/utils';
 
 	export let toast = (msg, type) => {};
 
@@ -232,10 +233,10 @@
 						{/if}
 					</span>
 					<span class="pt-col pt-team">{p.team_name || '—'}</span>
-					<span class="pt-col pt-pts">{p.points || 0}</span>
+					<span class="pt-col pt-pts">{formatPoints(p.points || 0)}</span>
 					<span class="pt-col pt-actions">
 						{#if !p.is_admin}
-							<button class="btn-icon" title="{$t('admin_players_tooltip_edit')}" on:click={() => { editingPlayer = p; editPlayerData = { username: p.username, team_name: p.team_name || '', seat_id: p.seat_id || '', points: p.points || 0, is_admin: p.is_admin || false, ia_blocked: p.ia_blocked || false }; }}>✏️</button>
+							<button class="btn-icon" title="{$t('admin_players_tooltip_edit')}" on:click={() => { editingPlayer = p; editPlayerData = { username: p.username, team_name: p.team_name || '', seat_id: p.seat_id || '', points: formatPoints(p.points || 0), is_admin: p.is_admin || false, ia_blocked: p.ia_blocked || false }; }}>✏️</button>
 							<button class="btn-icon" title="{$t('admin_players_tooltip_resetpw')}" on:click={() => { resetPwdPlayer = p; resetPwdValue = 'lan2025'; }}>🔑</button>
 							<button class="btn-icon {p.ia_blocked ? 'btn-icon-danger' : ''}" title="{p.ia_blocked ? $t('admin_players_tooltip_unblockai') : $t('admin_players_tooltip_blockai')}" on:click={() => toggleIaBlocked(p)}>
 								{p.ia_blocked ? '🔓' : '🚫'}
@@ -304,7 +305,7 @@
 				</div>
 				<div class="edit-field mb-3">
 					<label>{$t('admin_players_modal_points')}</label>
-					<input type="number" bind:value={editPlayerData.points} placeholder="0" />
+					<input type="number" step="any" bind:value={editPlayerData.points} placeholder="0" />
 				</div>
 				<div class="player-toggle-row mb-3">
 					<span class="player-toggle-label">{$t('admin_players_modal_is_admin')} 👑</span>

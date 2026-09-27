@@ -162,17 +162,17 @@ def get_team_leaderboard(db: Session = Depends(database.get_db)):
             continue
         if tn not in teams:
             teams[tn] = {"members": [], "total_points": 0}
-        total_u = (u.points or 0) + live_pts.get(u.id, 0)
-        teams[tn]["members"].append({"username": u.username, "points": round(total_u, 1)})
+        total_u = round((u.points or 0) + live_pts.get(u.id, 0), 1)
+        teams[tn]["members"].append({"username": u.username, "points": total_u})
         teams[tn]["total_points"] += total_u
     
     # Build result
     result = []
     for team_name, data in teams.items():
         count = len(data["members"])
-        total = data["total_points"]
+        total = round(data["total_points"], 1)
         avg = round(total / count, 1) if count > 0 else 0
-        score = avg if mode == "weighted" else total
+        score = round(avg if mode == "weighted" else total, 1)
         result.append({
             "team_name": team_name,
             "total_points": total,

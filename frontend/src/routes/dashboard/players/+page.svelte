@@ -5,6 +5,7 @@
 	import { page } from '$app/stores';
 	import { pmUnreadCount, groupUnreadCount } from '$lib/pmStore';
 	import { t } from '$lib/i18nStore';
+	import { formatPoints } from '$lib/utils';
 
 	let players = [];
 	let currentUser = null;
@@ -504,7 +505,7 @@
 										</div>
 										<div class="player-info">
 											<span class="player-username">{player.username}</span>
-											<span class="player-pts">{player.points} pts</span>
+											<span class="player-pts">{formatPoints(player.points)} pts</span>
 										</div>
 										<div class="player-actions">
 											{#if player.seat_id}
@@ -521,13 +522,13 @@
 												<span class="pts-loading">⏳</span>
 											{:else}
 												{#if pointsHistory && pointsHistory.history && pointsHistory.history.length > 0}
-													<div class="pts-total">{$t("players_info_total")} <strong>{pointsHistory.total_points} pts</strong></div>
+													<div class="pts-total">{$t("players_info_total")} <strong>{formatPoints(pointsHistory.total_points)} pts</strong></div>
 													{#each pointsHistory.history as h}
 														<div class="pts-row">
 															<span class="pts-rank">{getRankEmoji(h.rank)}</span>
 															<span class="pts-tourney">{h.tournament_name}</span>
 															{#if h.game_name}<span class="pts-game">{h.game_name}</span>{/if}
-															<span class="pts-val">+{h.total}</span>
+															<span class="pts-val">+{formatPoints(h.total)}</span>
 															{#if h.live}<span class="pts-live">LIVE</span>{/if}
 														</div>
 													{/each}
@@ -588,7 +589,7 @@
 										</div>
 										<div class="player-info">
 											<span class="player-username">{player.username}</span>
-											<span class="player-pts">{player.points} pts</span>
+											<span class="player-pts">{formatPoints(player.points)} pts</span>
 										</div>
 										<div class="player-actions">
 											{#if player.seat_id}
@@ -605,17 +606,17 @@
 												<span class="pts-loading">⏳</span>
 											{:else}
 												{#if pointsHistory && pointsHistory.history && pointsHistory.history.length > 0}
-													<div class="pts-total">{$t("players_info_total")} <strong>{pointsHistory.total_points} pts</strong></div>
+													<div class="pts-total">{$t("players_info_total")} <strong>{formatPoints(pointsHistory.total_points)} pts</strong></div>
 													{#each pointsHistory.history as h}
 														<div class="pts-row">
 															<span class="pts-rank">{getRankEmoji(h.rank)}</span>
 															<span class="pts-tourney">{h.tournament_name}</span>
 															<div class="pts-bp-wrap">
-																{#if h.placement_pts > 0}<span class="pts-bp pts-bp-place" title="Placement">🏅{h.placement_pts}</span>{/if}
-																<span class="pts-bp pts-bp-parti" title="Participation">👤{h.participation_pts}</span>
-																{#if h.score_pts > 0}<span class="pts-bp pts-bp-score" title="Bonus/Score — distribué selon le score cumulé">⚡{h.score_pts}</span>{/if}
+																{#if h.placement_pts > 0}<span class="pts-bp pts-bp-place" title="Placement">🏅{formatPoints(h.placement_pts)}</span>{/if}
+																<span class="pts-bp pts-bp-parti" title="Participation">👤{formatPoints(h.participation_pts)}</span>
+																{#if h.score_pts > 0}<span class="pts-bp pts-bp-score" title="Bonus/Score — distribué selon le score cumulé">⚡{formatPoints(h.score_pts)}</span>{/if}
 															</div>
-															<span class="pts-val">{h.live ? '~' : '+'}{h.total}</span>
+															<span class="pts-val">{h.live ? '~' : '+'}{formatPoints(h.total)}</span>
 															{#if h.live}<span class="pts-live">LIVE</span>{/if}
 														</div>
 													{/each}

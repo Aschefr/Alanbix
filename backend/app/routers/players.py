@@ -128,17 +128,17 @@ def get_player_points_history(user_id: int, db: Session = Depends(database.get_d
                         "placement_pts": round(entry["placement_pts"] / mc, 1),
                         "participation_pts": round(entry["participation_pts"] / mc, 1),
                         "score_pts": round(entry["score_pts"] / mc, 1),
-                        "total": entry["per_member"], "team_name": team_name_found
+                        "total": round(entry["per_member"], 1), "team_name": team_name_found
                     })
                 else:
                     history.append({
                         "tournament_id": t.id, "tournament_name": t.name,
                         "game_name": game_name, "status": t.status, "live": True,
                         "rank": entry["rank"],
-                        "placement_pts": entry["placement_pts"],
-                        "participation_pts": entry["participation_pts"],
-                        "score_pts": entry["score_pts"],
-                        "total": entry["total"], "team_name": team_name_found
+                        "placement_pts": round(entry["placement_pts"], 1),
+                        "participation_pts": round(entry["participation_pts"], 1),
+                        "score_pts": round(entry["score_pts"], 1),
+                        "total": round(entry["total"], 1), "team_name": team_name_found
                     })
             else:
                 history.append({

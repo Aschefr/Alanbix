@@ -1373,11 +1373,11 @@ async def close_tournament(
             for uid in member_uids:
                 user = db.query(models.User).filter(models.User.id == uid).first()
                 if user:
-                    user.points = (user.points or 0) + round(total, 1)
+                    user.points = round((user.points or 0) + round(total, 1), 1)
         elif not use_teams and entity_id > 0:
             user = db.query(models.User).filter(models.User.id == entity_id).first()
             if user:
-                user.points = (user.points or 0) + round(total, 1)
+                user.points = round((user.points or 0) + round(total, 1), 1)
     
     tournament.results = results
     tournament.status = "CLOSED"
@@ -1440,13 +1440,13 @@ async def reopen_tournament(
             for m in members:
                 user = db.query(models.User).filter(models.User.id == m.user_id).first()
                 if user:
-                    user.points = max(0, (user.points or 0) - total)
+                    user.points = round(max(0.0, (user.points or 0) - total), 1)
                     rolled_back_uids.add(m.user_id)
         else:
             # Solo player (including rank=None participation-only entries)
             user = db.query(models.User).filter(models.User.id == entity_id).first()
             if user:
-                user.points = max(0, (user.points or 0) - total)
+                user.points = round(max(0.0, (user.points or 0) - total), 1)
                 rolled_back_uids.add(entity_id)
 
     # Also rollback participation-only players not in results (legacy data before fix)

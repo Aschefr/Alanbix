@@ -6,6 +6,7 @@
 	import { goto } from '$app/navigation';
 	import Modal from '$lib/components/Modal.svelte';
 	import { wsMessageStore } from '$lib/ws';
+	import { formatPoints } from '$lib/utils';
 
 	let user = null;
 	let teamName = '';
@@ -446,7 +447,7 @@
 		</div>
 		{#if pointsData}
 			<div class="total-pts-badge">
-			<span class="pts-number">{pointsData.history.reduce((s, h) => s + (h.total || 0), 0)}</span>
+				<span class="pts-number">{formatPoints(pointsData.history.reduce((s, h) => s + (h.total || 0), 0))}</span>
 				<span class="pts-label">{$t("profile_pts_points")}</span>
 			</div>
 		{/if}
@@ -552,12 +553,12 @@
 									</td>
 									<td class="pts-col">
 										<div class="ph-breakdown">
-											{#if h.placement_pts > 0}<span class="ph-bp ph-bp-place" title={$t('profile_pts_tooltip_placement', { rank: h.rank })}>🏅+{h.placement_pts}</span>{/if}
-											<span class="ph-bp ph-bp-parti" title={$t('profile_pts_tooltip_participation')}>👤+{h.participation_pts}</span>
-											{#if h.score_pts > 0}<span class="ph-bp ph-bp-score" title={$t('profile_pts_tooltip_bonus')}>⚡+{h.score_pts}</span>{/if}
+											{#if h.placement_pts > 0}<span class="ph-bp ph-bp-place" title={$t('profile_pts_tooltip_placement', { rank: h.rank })}>🏅+{formatPoints(h.placement_pts)}</span>{/if}
+											<span class="ph-bp ph-bp-parti" title={$t('profile_pts_tooltip_participation')}>👤+{formatPoints(h.participation_pts)}</span>
+											{#if h.score_pts > 0}<span class="ph-bp ph-bp-score" title={$t('profile_pts_tooltip_bonus')}>⚡+{formatPoints(h.score_pts)}</span>{/if}
 										</div>
 									</td>
-									<td class="pts-col total-col"><strong>{h.live ? '~' : '+'}{h.total}</strong></td>
+									<td class="pts-col total-col"><strong>{h.live ? '~' : '+'}{formatPoints(h.total)}</strong></td>
 									<td>
 										<button class="btn-goto" on:click={() => goToTournament(h.tournament_id)} title="{$t('profile_pts_tooltip_view')}">
 											→

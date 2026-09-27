@@ -8,6 +8,7 @@
 	import { authStore } from '$lib/auth';
 	import CreateTournamentWizard from '$lib/components/CreateTournamentWizard.svelte';
 	import EditTournamentModal from '$lib/components/EditTournamentModal.svelte';
+	import { formatPoints } from '$lib/utils';
 
 	import TournamentParticipants from './components/TournamentParticipants.svelte';
 	import TournamentTeams from './components/TournamentTeams.svelte';
@@ -596,9 +597,9 @@
 	}).filter(Boolean);
 
 	$: liveStandings = standingsData.map(s => ({
-		id: s.entity_id, name: s.name, pts: s.total, rank: s.rank,
-		placement_pts: s.placement_pts, participation_pts: s.participation_pts,
-		score_pts: s.score_pts, per_member: s.per_member, member_count: s.member_count,
+		id: s.entity_id, name: s.name, pts: formatPoints(s.total), rank: s.rank,
+		placement_pts: formatPoints(s.placement_pts), participation_pts: formatPoints(s.participation_pts),
+		score_pts: formatPoints(s.score_pts), per_member: formatPoints(s.per_member), member_count: s.member_count,
 		wins: s.wins ?? 0, matches_played: s.matches_played ?? 0, pts_per_match: s.pts_per_match ?? 1.0,
 		cumulated_score: s.cumulated_score ?? 0
 	}));
@@ -631,11 +632,11 @@
 			if (playerTeam) {
 				const teamBracketId = -playerTeam.id;
 				const teamEntry = standings.find(s => s.id === teamBracketId);
-				if (teamEntry) return teamEntry.pts;
+				if (teamEntry) return formatPoints(teamEntry.pts);
 			}
 		}
 		const entry = standings.find(s => s.id === userId);
-		return entry ? entry.pts : 0;
+		return entry ? formatPoints(entry.pts) : 0;
 	}
 </script>
 

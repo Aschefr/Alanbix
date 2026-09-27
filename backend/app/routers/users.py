@@ -110,10 +110,10 @@ def get_points_history(db: Session = Depends(database.get_db), user: models.User
                         "tournament_id": t.id, "tournament_name": t.name,
                         "game_name": game_name, "status": t.status, "live": False,
                         "rank": r.get("rank"),
-                        "placement_pts": r.get("placement_pts", 0),
-                        "participation_pts": r.get("participation_pts", 0),
-                        "score_pts": r.get("score_pts", 0),
-                        "total": r.get("total", 0), "team_name": None
+                        "placement_pts": round(float(r.get("placement_pts", 0)), 1),
+                        "participation_pts": round(float(r.get("participation_pts", 0)), 1),
+                        "score_pts": round(float(r.get("score_pts", 0)), 1),
+                        "total": round(float(r.get("total", 0)), 1), "team_name": None
                     })
                     break
                 elif use_teams and isinstance(eid, int) and eid < 0:
@@ -129,10 +129,10 @@ def get_points_history(db: Session = Depends(database.get_db), user: models.User
                             "tournament_id": t.id, "tournament_name": t.name,
                             "game_name": game_name, "status": t.status, "live": False,
                             "rank": r.get("rank"),
-                            "placement_pts": r.get("placement_pts", 0),
-                            "participation_pts": r.get("participation_pts", 0),
-                            "score_pts": r.get("score_pts", 0),
-                            "total": r.get("total", 0), "team_name": r.get("name")
+                            "placement_pts": round(float(r.get("placement_pts", 0)), 1),
+                            "participation_pts": round(float(r.get("participation_pts", 0)), 1),
+                            "score_pts": round(float(r.get("score_pts", 0)), 1),
+                            "total": round(float(r.get("total", 0)), 1), "team_name": r.get("name")
                         })
                         break
         else:
@@ -161,10 +161,10 @@ def get_points_history(db: Session = Depends(database.get_db), user: models.User
                     "tournament_id": t.id, "tournament_name": t.name,
                     "game_name": game_name, "status": t.status, "live": True,
                     "rank": entry["rank"],
-                    "placement_pts": entry["placement_pts"],
-                    "participation_pts": entry["participation_pts"],
-                    "score_pts": entry["score_pts"],
-                    "total": entry["total"],
+                    "placement_pts": round(float(entry["placement_pts"]), 1),
+                    "participation_pts": round(float(entry["participation_pts"]), 1),
+                    "score_pts": round(float(entry["score_pts"]), 1),
+                    "total": round(float(entry["total"]), 1),
                     "team_name": team_name_found
                 })
             else:
@@ -190,7 +190,7 @@ def get_points_history(db: Session = Depends(database.get_db), user: models.User
             "created_at": a.created_at.isoformat() if a.created_at else None
         } for a in awards]
 
-    return {"total_points": user.points or 0, "history": history, "awards": awards_list}
+    return {"total_points": round(float(user.points or 0), 1), "history": history, "awards": awards_list}
 
 # --- ADMIN: User Management ---
 
@@ -198,7 +198,7 @@ def get_points_history(db: Session = Depends(database.get_db), user: models.User
 def admin_list_users(db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
     """List all users with details for admin management."""
     users = db.query(models.User).all()
-    return [{"id": u.id, "username": u.username, "team_name": u.team_name, "is_admin": u.is_admin, "ia_blocked": u.ia_blocked or False, "seat_id": u.seat_id, "points": u.points, "avatar_url": u.avatar_url, "avatar_shape": u.avatar_shape, "is_online": u.is_online} for u in users]
+    return [{"id": u.id, "username": u.username, "team_name": u.team_name, "is_admin": u.is_admin, "ia_blocked": u.ia_blocked or False, "seat_id": u.seat_id, "points": round(float(u.points), 1) if u.points is not None else 0, "avatar_url": u.avatar_url, "avatar_shape": u.avatar_shape, "is_online": u.is_online} for u in users]
 
 @router.put("/admin/users/{user_id}")
 async def admin_update_user(user_id: int, data: dict, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
@@ -219,7 +219,7 @@ async def admin_update_user(user_id: int, data: dict, db: Session = Depends(data
         target.seat_id = data["seat_id"].strip() if data["seat_id"] else None
     if "points" in data:
         try:
-            target.points = int(data["points"])
+            target.points = round(float(data["points"]), 1)
         except (ValueError, TypeError):
             pass
     if "is_admin" in data:
@@ -229,7 +229,7 @@ async def admin_update_user(user_id: int, data: dict, db: Session = Depends(data
     db.commit()
     db.refresh(target)
     await ws_manager.broadcast({"type": "users_updated"})
-    return {"status": "updated", "id": target.id, "username": target.username, "team_name": target.team_name, "seat_id": target.seat_id, "points": target.points, "is_admin": target.is_admin, "ia_blocked": target.ia_blocked or False, "avatar_url": target.avatar_url, "avatar_shape": target.avatar_shape}
+    return {"status": "updated", "id": target.id, "username": target.username, "team_name": target.team_name, "seat_id": target.seat_id, "points": round(float(target.points), 1) if target.points is not None else 0, "is_admin": target.is_admin, "ia_blocked": target.ia_blocked or False, "avatar_url": target.avatar_url, "avatar_shape": target.avatar_shape}
 
 @router.post("/admin/users/{user_id}/reset-password")
 def admin_reset_password(user_id: int, data: dict, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):

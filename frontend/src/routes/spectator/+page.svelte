@@ -5,6 +5,7 @@
 	import { wsMessageStore } from '$lib/ws';
 	import { connectWS } from '$lib/ws';
 	import { API_URL } from '$lib/config';
+	import { formatPoints } from '$lib/utils';
 
 	const VIEWS = ['leaderboard', 'teams', 'map', 'bracket', 'info'];
 	let currentIdx = 0;
@@ -398,7 +399,7 @@
 							{/if}
 							<span class="spec-name">{entry.username}</span>
 							{#if entry.team_name}<span class="spec-team">{entry.team_name}</span>{/if}
-							<span class="spec-pts">{entry.points} pts</span>
+							<span class="spec-pts">{formatPoints(entry.points)} pts</span>
 						</div>
 					{:else}
 						<p class="spec-empty">{$t("spec_empty_leaderboard")}</p>
@@ -415,7 +416,7 @@
 							<span class="spec-rank {team.rank === 1 ? 'gold' : team.rank === 2 ? 'silver' : team.rank === 3 ? 'bronze' : ''}">{team.rank || '—'}</span>
 							<span class="spec-name">{team.team_name}</span>
 							<span class="spec-members">{$t("spec_players_count", { count: team.member_count })}</span>
-							<span class="spec-pts">{team.score} pts</span>
+							<span class="spec-pts">{formatPoints(team.score)} pts</span>
 						</div>
 					{:else}
 						<p class="spec-empty">{$t("spec_empty_teams")}</p>

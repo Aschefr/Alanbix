@@ -1,5 +1,6 @@
 <script>
 	import { t } from '$lib/i18nStore';
+	import { formatPoints } from '$lib/utils';
 
 	export let mode = 'live'; // 'live' | 'results'
 	export let selected;
@@ -43,10 +44,10 @@
 							{/if}
 							{r.name}
 						</span>
-						<span class="res-pts">{r.placement_pts}</span>
-						<span class="res-pts">{r.score_pts}</span>
-						<span class="res-pts">{r.participation_pts}</span>
-						<span class="res-total">{r.total}</span>
+						<span class="res-pts">{formatPoints(r.placement_pts)}</span>
+						<span class="res-pts">{formatPoints(r.score_pts)}</span>
+						<span class="res-pts">{formatPoints(r.participation_pts)}</span>
+						<span class="res-total">{formatPoints(r.total)}</span>
 					</div>
 					{#if useTeams && teamObj && expandedTeams[r.entity_id]}
 						<div class="team-members-standings-list">
@@ -54,10 +55,10 @@
 								<div class="tms-member-row">
 									<span class="tms-name">👤 {m.username}</span>
 									<div class="tms-stats">
-										{#if r.placement_pts > 0}<span class="ls-bp ls-bp-place" title="Placement">🏅{r.placement_pts}</span>{/if}
-										<span class="ls-bp ls-bp-parti" title="Participation">👤{r.participation_pts}</span>
-										{#if r.score_pts > 0}<span class="ls-bp ls-bp-score" title="Score">⚡{r.score_pts}</span>{/if}
-										<span class="tms-total-pts">{r.total || 0} pts</span>
+										{#if r.placement_pts > 0}<span class="ls-bp ls-bp-place" title="Placement">🏅{formatPoints(r.placement_pts)}</span>{/if}
+										<span class="ls-bp ls-bp-parti" title="Participation">👤{formatPoints(r.participation_pts)}</span>
+										{#if r.score_pts > 0}<span class="ls-bp ls-bp-score" title="Score">⚡{formatPoints(r.score_pts)}</span>{/if}
+										<span class="tms-total-pts">{formatPoints(r.total || 0)} pts</span>
 									</div>
 								</div>
 							{/each}
@@ -101,12 +102,12 @@
 							{entry.name}
 						</span>
 						<div class="ls-breakdown">
-							{#if entry.placement_pts > 0}<span class="ls-bp ls-bp-place" title="Placement : top {entry.rank}">🏅{entry.placement_pts}</span>{/if}
-							<span class="ls-bp ls-bp-parti" title={$t('tourneys_participation_tooltip_detail', { count: entry.matches_played, plural: entry.matches_played > 1 ? 's' : '', pts: selected?.config?.pts_participation ?? 1 })}>👤{entry.participation_pts}</span>
-							{#if entry.score_pts > 0}<span class="ls-bp ls-bp-score" title={$t('tourneys_pts_bonus_detail_tooltip', { score: entry.cumulated_score, floor: entry.pts_per_match, ceiling: Math.round(entry.pts_per_match * 2 * 10) / 10 })}>⚡{entry.score_pts}</span>{/if}
+							{#if entry.placement_pts > 0}<span class="ls-bp ls-bp-place" title="Placement : top {entry.rank}">🏅{formatPoints(entry.placement_pts)}</span>{/if}
+							<span class="ls-bp ls-bp-parti" title={$t('tourneys_participation_tooltip_detail', { count: entry.matches_played, plural: entry.matches_played > 1 ? 's' : '', pts: selected?.config?.pts_participation ?? 1 })}>👤{formatPoints(entry.participation_pts)}</span>
+							{#if entry.score_pts > 0}<span class="ls-bp ls-bp-score" title={$t('tourneys_pts_bonus_detail_tooltip', { score: entry.cumulated_score, floor: entry.pts_per_match, ceiling: Math.round(entry.pts_per_match * 2 * 10) / 10 })}>⚡{formatPoints(entry.score_pts)}</span>{/if}
 						</div>
 					</div>
-					<span class="ls-pts">{entry.pts} pts</span>
+					<span class="ls-pts">{formatPoints(entry.pts)} pts</span>
 				</div>
 				{#if useTeams && teamObj && expandedTeams[entry.id]}
 					<div class="team-members-standings-list">
@@ -114,10 +115,10 @@
 							<div class="tms-member-row">
 								<span class="tms-name">👤 {m.username}</span>
 								<div class="tms-stats">
-									{#if entry.placement_pts > 0}<span class="ls-bp ls-bp-place" title="Placement">🏅{entry.placement_pts}</span>{/if}
-									<span class="ls-bp ls-bp-parti" title="Participation">👤{entry.participation_pts}</span>
-									{#if entry.score_pts > 0}<span class="ls-bp ls-bp-score" title="Score">⚡{entry.score_pts}</span>{/if}
-									<span class="tms-total-pts">{entry.pts || 0} pts</span>
+									{#if entry.placement_pts > 0}<span class="ls-bp ls-bp-place" title="Placement">🏅{formatPoints(entry.placement_pts)}</span>{/if}
+									<span class="ls-bp ls-bp-parti" title="Participation">👤{formatPoints(entry.participation_pts)}</span>
+									{#if entry.score_pts > 0}<span class="ls-bp ls-bp-score" title="Score">⚡{formatPoints(entry.score_pts)}</span>{/if}
+									<span class="tms-total-pts">{formatPoints(entry.pts || 0)} pts</span>
 								</div>
 							</div>
 						{/each}

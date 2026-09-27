@@ -1,6 +1,7 @@
 <script>
 	import { createEventDispatcher } from 'svelte';
 	import { t } from '$lib/i18nStore';
+	import { formatPoints } from '$lib/utils';
 
 	export let stats = { leaderboard: [] };
 	export let teamLeaderboard = [];
@@ -54,7 +55,7 @@
 						<span class="lb-delta {getRankDelta(entry.username, i).type}">{getRankDelta(entry.username, i).text}</span>
 					{/if}
 					<div class="lb-score">
-						<span class="score-val">{entry.points}</span>
+						<span class="score-val">{formatPoints(entry.points)}</span>
 						<span class="score-label">Pts</span>
 					</div>
 				</div>
@@ -72,7 +73,7 @@
 						<span class="lb-sub">{team.member_count}{$t('dash_lb_member_suffix', { plural: team.member_count > 1 ? 's' : '' })} {expandedTeamIdx === i ? '▲' : '▼'}</span>
 					</div>
 					<div class="lb-score">
-						<span class="score-val">{team.score}</span>
+						<span class="score-val">{formatPoints(team.score)}</span>
 						<span class="score-label">Pts</span>
 					</div>
 				</div>
@@ -82,7 +83,7 @@
 							<!-- svelte-ignore a11y-click-events-have-key-events -->
 							<div class="team-member-row clickable" on:click={() => handlePlayerClick(member.username)} style="cursor: pointer;">
 								<span class="tm-name">👤 {member.username}</span>
-								<span class="tm-pts">{member.points} pts</span>
+								<span class="tm-pts">{formatPoints(member.points)} pts</span>
 							</div>
 						{/each}
 					</div>

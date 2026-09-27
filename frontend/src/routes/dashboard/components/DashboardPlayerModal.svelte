@@ -1,6 +1,7 @@
 <script>
 	import { createEventDispatcher } from 'svelte';
 	import { t } from '$lib/i18nStore';
+	import { formatPoints } from '$lib/utils';
 
 	export let show = false;
 	export let selectedPlayerStats = null;
@@ -69,7 +70,7 @@
 					<!-- Stats cards summary -->
 					<div class="player-modal-summary">
 						<div class="summary-stat-card">
-							<span class="val accent-gradient">{selectedPlayerStats.total_points}</span>
+							<span class="val accent-gradient">{formatPoints(selectedPlayerStats.total_points)}</span>
 							<span class="lbl">{$t('dash_modal_points_total')}</span>
 						</div>
 						<div class="summary-stat-card">
@@ -107,14 +108,14 @@
 
 											<div class="t-rank-pts">
 												<span class="t-rank">{hist.rank ? `#${hist.rank}` : '—'}</span>
-												<span class="t-pts-total">{hist.total} pts</span>
+												<span class="t-pts-total">{formatPoints(hist.total)} pts</span>
 											</div>
 										</div>
 									</div>
 									<div class="pts-breakdown">
-										<span>{@html $t('dash_modal_points_breakdown', { p: hist.participation_pts, pl: hist.placement_pts })}</span>
+										<span>{@html $t('dash_modal_points_breakdown', { p: formatPoints(hist.participation_pts), pl: formatPoints(hist.placement_pts) })}</span>
 										{#if hist.score_pts > 0}
-											<span>{@html $t('dash_modal_points_bonus', { b: hist.score_pts })}</span>
+											<span>{@html $t('dash_modal_points_bonus', { b: formatPoints(hist.score_pts) })}</span>
 										{/if}
 										{#if hist.team_name}
 											<span class="team-lbl">{@html $t('dash_modal_team_lbl', { name: hist.team_name })}</span>
