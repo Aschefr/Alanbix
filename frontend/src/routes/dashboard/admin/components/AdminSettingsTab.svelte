@@ -313,7 +313,7 @@
 				ai_cooldown_seconds: Number(publicChatConfig.ai_cooldown_seconds) || 15
 			};
 			await api.put('/public-chat/config', payload);
-			toast('Paramètres du Chat Public enregistrés', 'success');
+			toast(get(t)('admin_public_chat_save_success') || 'Paramètres du Chat Public enregistrés', 'success');
 		} catch (e) {
 			toast(e.message || 'Erreur de sauvegarde', 'error');
 		}
@@ -322,7 +322,7 @@
 	async function clearChatHistoryAdmin() {
 		try {
 			await api.post('/public-chat/clear', {});
-			toast('Historique du chat public purgé avec succès', 'success');
+			toast(get(t)('admin_public_chat_purge_success') || 'Historique du chat public purgé avec succès', 'success');
 		} catch (e) {
 			toast(e.message || 'Erreur lors de la purge', 'error');
 		} finally {
@@ -664,85 +664,116 @@
 			</div>
 			<div class="sc-body">
 				<div class="pca-container">
-					<!-- Toggles Grid -->
+					<!-- Toggles Grid: 3 Symmetrical Cards -->
 					<div class="pca-toggles-grid">
-						<label class="pca-toggle-card">
-							<div class="pca-toggle-info">
-								<span class="pca-toggle-title">{$t("admin_public_chat_enable") || 'Activer le Chat Public'}</span>
-								<span class="pca-toggle-desc">{$t("admin_public_chat_enable_sub") || "Permettre aux joueurs d'écrire dans le chat central"}</span>
+						<label class="pca-toggle-card" class:active={publicChatConfig.enabled}>
+							<div class="pca-toggle-top">
+								<div class="pca-card-icon">💬</div>
+								<div class="toggle-switch-mini">
+									<input type="checkbox" bind:checked={publicChatConfig.enabled} />
+									<span class="toggle-slider"></span>
+								</div>
 							</div>
-							<div class="toggle-switch-mini">
-								<input type="checkbox" bind:checked={publicChatConfig.enabled} />
-								<span class="toggle-slider"></span>
+							<div class="pca-toggle-info">
+								<span class="pca-toggle-title">{$t("admin_public_chat_enable")}</span>
+								<span class="pca-toggle-desc">{$t("admin_public_chat_enable_sub")}</span>
 							</div>
 						</label>
 
-						<label class="pca-toggle-card">
-							<div class="pca-toggle-info">
-								<span class="pca-toggle-title">{$t("admin_public_chat_block_dup") || 'Anti-Répétition'}</span>
-								<span class="pca-toggle-desc">{$t("admin_public_chat_block_dup_desc") || 'Bloquer les messages consécutifs identiques'}</span>
+						<label class="pca-toggle-card" class:active={publicChatConfig.block_duplicates}>
+							<div class="pca-toggle-top">
+								<div class="pca-card-icon">🛡️</div>
+								<div class="toggle-switch-mini">
+									<input type="checkbox" bind:checked={publicChatConfig.block_duplicates} />
+									<span class="toggle-slider"></span>
+								</div>
 							</div>
-							<div class="toggle-switch-mini">
-								<input type="checkbox" bind:checked={publicChatConfig.block_duplicates} />
-								<span class="toggle-slider"></span>
+							<div class="pca-toggle-info">
+								<span class="pca-toggle-title">{$t("admin_public_chat_block_dup")}</span>
+								<span class="pca-toggle-desc">{$t("admin_public_chat_block_dup_desc")}</span>
 							</div>
 						</label>
 
-						<label class="pca-toggle-card full-width">
-							<div class="pca-toggle-info">
-								<span class="pca-toggle-title">{$t("admin_public_chat_ai_mention") || "Activer l'IA @Alanbix"}</span>
-								<span class="pca-toggle-desc">{$t("admin_public_chat_ai_mention_sub") || "L'IA répond quand mentionnée (@Alanbix) dans le chat public"}</span>
+						<label class="pca-toggle-card" class:active={publicChatConfig.ai_mention_enabled}>
+							<div class="pca-toggle-top">
+								<div class="pca-card-icon">🤖</div>
+								<div class="toggle-switch-mini">
+									<input type="checkbox" bind:checked={publicChatConfig.ai_mention_enabled} />
+									<span class="toggle-slider"></span>
+								</div>
 							</div>
-							<div class="toggle-switch-mini">
-								<input type="checkbox" bind:checked={publicChatConfig.ai_mention_enabled} />
-								<span class="toggle-slider"></span>
+							<div class="pca-toggle-info">
+								<span class="pca-toggle-title">{$t("admin_public_chat_ai_mention")}</span>
+								<span class="pca-toggle-desc">{$t("admin_public_chat_ai_mention_sub")}</span>
 							</div>
 						</label>
 					</div>
 
-					<!-- Parameters Inputs Grid -->
-					<div class="pca-inputs-grid">
-						<div class="pca-field">
-							<label class="compact-label">{$t("admin_public_chat_slowmode") || 'Slowmode (secondes)'}</label>
-							<input type="number" bind:value={publicChatConfig.slowmode_seconds} min="0" max="120" placeholder="0 = désactivé" />
-							<span class="pca-hint">Délai minimum entre deux envois d'un joueur</span>
+					<!-- Limits & Delays Section -->
+					<div class="pca-section">
+						<div class="pca-section-header">
+							<span class="pca-section-icon">⏱️</span>
+							<span class="compact-label">{$t("admin_public_chat_section_limits")}</span>
 						</div>
 
-						<div class="pca-field">
-							<label class="compact-label">{$t("admin_public_chat_max_len") || 'Longueur max message'}</label>
-							<input type="number" bind:value={publicChatConfig.max_length} min="10" max="1000" placeholder="250" />
-							<span class="pca-hint">Nombre maximum de caractères par message</span>
-						</div>
-
-						{#if publicChatConfig.ai_mention_enabled}
+						<div class="pca-inputs-grid">
 							<div class="pca-field">
-								<label class="compact-label">{$t("admin_public_chat_ai_cooldown") || 'Cooldown IA @Alanbix (s)'}</label>
-								<input type="number" bind:value={publicChatConfig.ai_cooldown_seconds} min="5" max="300" placeholder="15" />
-								<span class="pca-hint">Temps de repos de l'IA entre deux réponses</span>
+								<label class="compact-label" for="pca-slowmode">{$t("admin_public_chat_slowmode")}</label>
+								<div class="pca-input-wrapper">
+									<input id="pca-slowmode" type="number" bind:value={publicChatConfig.slowmode_seconds} min="0" max="120" placeholder="0" />
+									<span class="pca-input-suffix">sec</span>
+								</div>
+								<span class="pca-hint">{$t("admin_public_chat_slowmode_hint")}</span>
 							</div>
-						{/if}
+
+							<div class="pca-field">
+								<label class="compact-label" for="pca-maxlen">{$t("admin_public_chat_max_len")}</label>
+								<div class="pca-input-wrapper">
+									<input id="pca-maxlen" type="number" bind:value={publicChatConfig.max_length} min="10" max="1000" placeholder="250" />
+									<span class="pca-input-suffix">car.</span>
+								</div>
+								<span class="pca-hint">{$t("admin_public_chat_max_len_hint")}</span>
+							</div>
+
+							<div class="pca-field" class:disabled={!publicChatConfig.ai_mention_enabled}>
+								<label class="compact-label" for="pca-cooldown">{$t("admin_public_chat_ai_cooldown")}</label>
+								<div class="pca-input-wrapper">
+									<input id="pca-cooldown" type="number" bind:value={publicChatConfig.ai_cooldown_seconds} min="5" max="300" placeholder="15" disabled={!publicChatConfig.ai_mention_enabled} />
+									<span class="pca-input-suffix">sec</span>
+								</div>
+								<span class="pca-hint">{$t("admin_public_chat_ai_cooldown_hint")}</span>
+							</div>
+						</div>
+					</div>
+
+					<!-- Moderation Filter Section -->
+					<div class="pca-section">
+						<div class="pca-section-header">
+							<span class="pca-section-icon">🚫</span>
+							<span class="compact-label">{$t("admin_public_chat_section_filters")}</span>
+						</div>
 
 						<div class="pca-field full-width">
-							<label class="compact-label">{$t("admin_public_chat_banned_words") || 'Mots interdits (séparés par une virgule)'}</label>
-							<input type="text" bind:value={publicChatConfig.banned_words_text} placeholder="ex: spam, hack, insult..." />
-							<span class="pca-hint">Les termes spécifiés seront automatiquement masqués dans le chat</span>
+							<label class="compact-label" for="pca-banned-words">{$t("admin_public_chat_banned_words")}</label>
+							<input id="pca-banned-words" type="text" bind:value={publicChatConfig.banned_words_text} placeholder={$t("admin_public_chat_banned_words_placeholder")} />
+							<span class="pca-hint">{$t("admin_public_chat_banned_words_hint")}</span>
 						</div>
 					</div>
 
 					<!-- Action Buttons -->
 					<div class="pca-actions">
 						<button class="btn-primary" on:click={savePublicChatConfig}>
-							💾 {$t("admin_public_chat_save_btn") || 'Enregistrer les paramètres du chat'}
+							💾 {$t("admin_public_chat_save_btn")}
 						</button>
 						{#if purgeChatConfirm}
 							<div class="purge-confirm-group">
-								<span class="purge-confirm-text">⚠️ Confirmer la purge du chat ?</span>
-								<button class="btn-danger-sm" on:click={clearChatHistoryAdmin}>Oui, vider</button>
-								<button class="btn-secondary btn-xs" on:click={() => purgeChatConfirm = false}>Annuler</button>
+								<span class="purge-confirm-text">⚠️ {$t("admin_public_chat_purge_confirm")}</span>
+								<button class="btn-danger-sm" on:click={clearChatHistoryAdmin}>{$t("admin_public_chat_purge_confirm_btn")}</button>
+								<button class="btn-secondary btn-xs" on:click={() => purgeChatConfirm = false}>{$t("admin_settings_cancel") || 'Annuler'}</button>
 							</div>
 						{:else}
 							<button class="btn-outline-danger" on:click={() => purgeChatConfirm = true}>
-								🗑️ {$t("admin_public_chat_purge_btn") || 'Vider les messages du chat'}
+								🗑️ {$t("admin_public_chat_purge_btn")}
 							</button>
 						{/if}
 					</div>
@@ -1475,24 +1506,178 @@
 
 	/* Public Chat Grid & Modern Controls */
 	.pca-container { display: flex; flex-direction: column; gap: 1.25rem; width: 100%; }
-	.pca-toggles-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 0.75rem; width: 100%; }
-	.pca-toggle-card { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.85rem 1.1rem; border-radius: 10px; background: var(--hover-tint); border: 1px solid var(--glass-border); cursor: pointer; transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1); user-select: none; }
-	.pca-toggle-card:hover { background: var(--surface-sunken); border-color: var(--glass-border-highlight); transform: translateY(-1px); }
-	.pca-toggle-card.full-width { grid-column: 1 / -1; }
-	.pca-toggle-info { display: flex; flex-direction: column; gap: 0.2rem; }
-	.pca-toggle-title { font-size: 0.85rem; font-weight: 700; color: var(--text-main); font-family: var(--font-main); }
-	.pca-toggle-desc { font-size: 0.72rem; color: var(--text-muted); font-family: var(--font-main); line-height: 1.3; }
+	
+	/* 3-Card Symmetrical Grid */
+	.pca-toggles-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+		gap: 0.85rem;
+		width: 100%;
+	}
+	.pca-toggle-card {
+		display: flex;
+		flex-direction: column;
+		justify-content: space-between;
+		gap: 0.75rem;
+		padding: 1rem 1.1rem;
+		border-radius: 12px;
+		background: var(--hover-tint);
+		border: 1px solid var(--glass-border);
+		cursor: pointer;
+		transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+		user-select: none;
+		min-height: 110px;
+	}
+	.pca-toggle-card:hover {
+		background: var(--surface-sunken);
+		border-color: var(--glass-border-highlight);
+		transform: translateY(-2px);
+		box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+	}
+	.pca-toggle-card.active {
+		border-color: rgba(59, 130, 246, 0.4);
+		background: rgba(59, 130, 246, 0.05);
+	}
+	.pca-toggle-top {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		width: 100%;
+	}
+	.pca-card-icon {
+		width: 32px;
+		height: 32px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 1.1rem;
+		border-radius: 8px;
+		background: var(--surface-sunken);
+		border: 1px solid var(--glass-border);
+	}
+	.pca-toggle-info {
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+	}
+	.pca-toggle-title {
+		font-size: 0.88rem;
+		font-weight: 700;
+		color: var(--text-main);
+		font-family: var(--font-title);
+		line-height: 1.25;
+	}
+	.pca-toggle-desc {
+		font-size: 0.72rem;
+		color: var(--text-muted);
+		font-family: var(--font-main);
+		line-height: 1.35;
+	}
 
-	.pca-inputs-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; width: 100%; }
-	.pca-field { display: flex; flex-direction: column; gap: 0.35rem; }
-	.pca-field.full-width { grid-column: 1 / -1; }
-	.pca-field input[type="text"], .pca-field input[type="number"] { width: 100%; padding: 0.65rem 0.85rem; border-radius: var(--radius-md); background: var(--input-bg); border: 1px solid var(--glass-border); color: var(--input-color); font-family: var(--font-main); font-size: 0.85rem; transition: all 0.2s; box-sizing: border-box; }
-	.pca-field input[type="text"]:focus, .pca-field input[type="number"]:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
-	.pca-hint { font-size: 0.68rem; color: var(--text-muted); font-family: var(--font-main); }
+	/* Section Dividers & Panels */
+	.pca-section {
+		display: flex;
+		flex-direction: column;
+		gap: 0.85rem;
+		padding: 1.1rem 1.25rem;
+		border-radius: 12px;
+		background: var(--hover-tint);
+		border: 1px solid var(--glass-border);
+	}
+	.pca-section-header {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding-bottom: 0.5rem;
+		border-bottom: 1px solid var(--glass-border);
+	}
+	.pca-section-icon {
+		font-size: 0.9rem;
+	}
 
-	.pca-actions { display: flex; align-items: center; justify-content: flex-start; gap: 1rem; margin-top: 0.5rem; flex-wrap: wrap; }
-	.purge-confirm-group { display: flex; align-items: center; gap: 0.5rem; background: rgba(239, 68, 68, 0.08); border: 1px dashed rgba(239, 68, 68, 0.3); border-radius: 8px; padding: 0.4rem 0.8rem; }
-	.purge-confirm-text { font-size: 0.75rem; font-weight: 700; color: var(--danger); font-family: var(--font-main); }
+	.pca-inputs-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+		gap: 1rem;
+		width: 100%;
+	}
+	.pca-field {
+		display: flex;
+		flex-direction: column;
+		gap: 0.35rem;
+	}
+	.pca-field.disabled {
+		opacity: 0.45;
+		pointer-events: none;
+	}
+	.pca-input-wrapper {
+		position: relative;
+		display: flex;
+		align-items: center;
+		width: 100%;
+	}
+	.pca-input-wrapper input {
+		width: 100%;
+		padding-right: 2.8rem;
+	}
+	.pca-input-suffix {
+		position: absolute;
+		right: 0.8rem;
+		font-size: 0.72rem;
+		font-weight: 600;
+		color: var(--text-muted);
+		pointer-events: none;
+	}
+	.pca-field input[type="text"],
+	.pca-field input[type="number"] {
+		width: 100%;
+		padding: 0.65rem 0.85rem;
+		border-radius: var(--radius-md);
+		background: var(--input-bg);
+		border: 1px solid var(--glass-border);
+		color: var(--input-color);
+		font-family: var(--font-main);
+		font-size: 0.85rem;
+		transition: all 0.2s;
+		box-sizing: border-box;
+	}
+	.pca-field input[type="text"]:focus,
+	.pca-field input[type="number"]:focus {
+		outline: none;
+		border-color: var(--accent);
+		box-shadow: 0 0 0 3px var(--accent-soft);
+	}
+	.pca-hint {
+		font-size: 0.68rem;
+		color: var(--text-muted);
+		font-family: var(--font-main);
+		line-height: 1.3;
+	}
+
+	.pca-actions {
+		display: flex;
+		align-items: center;
+		justify-content: flex-start;
+		gap: 1rem;
+		margin-top: 0.25rem;
+		flex-wrap: wrap;
+	}
+	.purge-confirm-group {
+		display: flex;
+		align-items: center;
+		gap: 0.6rem;
+		background: rgba(239, 68, 68, 0.08);
+		border: 1px dashed rgba(239, 68, 68, 0.3);
+		border-radius: 8px;
+		padding: 0.4rem 0.85rem;
+		animation: fadeIn 0.2s ease;
+	}
+	.purge-confirm-text {
+		font-size: 0.75rem;
+		font-weight: 700;
+		color: var(--danger);
+		font-family: var(--font-main);
+	}
 
 	/* SearXNG Result */
 	.searx-result-box { display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1rem; border-radius: 8px; font-size: 0.85rem; font-family: var(--font-main); margin-top: 0.5rem; width: 100%; border: 1px solid transparent; box-sizing: border-box; }
