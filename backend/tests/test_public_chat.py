@@ -139,3 +139,31 @@ def test_delete_message_and_clear_chat(client, db_session):
         list_res = client.get("/public-chat/messages")
         assert list_res.status_code == 200
         assert len(list_res.json()) == 0
+
+
+def test_public_chat_pagination_cursor(client, db_session):
+    with patch("app.routers.public_chat.manager.broadcast", new_callable=AsyncMock):
+        # Post 5 sequential messages
+        ids = []
+        for i in range(1, 6):
+            res = client.post("/public-chat/messages", json={"content": f"Pagination test message {i}"})
+            assert res.status_code == 200
+            ids.append(res.json()["id"])
+
+        # Fetch latest 2 messages
+        res_latest = client.get("/public-chat/messages?limit=2")
+        assert res_latest.status_code == 200
+        latest_msgs = res_latest.json()
+        assert len(latest_msgs) == 2
+        assert latest_msgs[-1]["id"] == ids[-1]
+        assert latest_msgs[0]["id"] == ids[-2]
+
+        # Fetch 2 messages before the oldest retrieved id
+        oldest_retrieved_id = latest_msgs[0]["id"]
+        res_before = client.get(f"/public-chat/messages?limit=2&before_id={oldest_retrieved_id}")
+        assert res_before.status_code == 200
+        before_msgs = res_before.json()
+        assert len(before_msgs) == 2
+        assert before_msgs[-1]["id"] == ids[-3]
+        assert before_msgs[0]["id"] == ids[-4]
+

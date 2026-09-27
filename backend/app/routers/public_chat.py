@@ -203,18 +203,25 @@ async def report_typing(
 @router.get("/messages")
 def get_recent_messages(
     limit: int = 50,
+    before_id: Optional[int] = None,
     db: Session = Depends(database.get_db),
     user: models.User = Depends(auth.get_current_user)
 ):
-    """Get the latest non-deleted public chat messages."""
+    """Get the latest non-deleted public chat messages with optional before_id cursor."""
     limit = min(max(1, limit), 100)
-    messages = (
+    query = (
         db.query(models.PublicChatMessage)
         .options(
             joinedload(models.PublicChatMessage.user),
             joinedload(models.PublicChatMessage.reply_to).joinedload(models.PublicChatMessage.user)
         )
         .filter(models.PublicChatMessage.is_deleted == False)
+    )
+    if before_id is not None:
+        query = query.filter(models.PublicChatMessage.id < before_id)
+
+    messages = (
+        query
         .order_by(models.PublicChatMessage.id.desc())
         .limit(limit)
         .all()

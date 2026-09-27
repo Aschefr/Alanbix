@@ -37,6 +37,8 @@
 
 	let lastReadMessageId = 0;
 	let unreadDividerIndex = -1;
+	let hasMoreEarlier = false;
+	let isLoadingEarlier = false;
 
 	let slowmodeRemaining = 0;
 	let slowmodeInterval = null;
@@ -366,7 +368,12 @@
 	async function loadMessages() {
 		try {
 			const res = await api.get('/public-chat/messages?limit=50');
-			messages = res || [];
+			const loaded = res || [];
+			loaded.forEach(m => {
+				m._formattedContent = renderFormattedText(m.content);
+			});
+			messages = loaded;
+			hasMoreEarlier = loaded.length >= 50;
 
 			// Find unread divider position
 			if (lastReadMessageId > 0 && messages.length > 0) {
@@ -408,11 +415,58 @@
 		}
 	}
 
+	async function loadEarlierMessages() {
+		if (isLoadingEarlier || !hasMoreEarlier || messages.length === 0) return;
+		isLoadingEarlier = true;
+		const oldestId = messages[0].id;
+		const scrollEl = chatScrollEl;
+		const prevScrollHeight = scrollEl ? scrollEl.scrollHeight : 0;
+		const prevScrollTop = scrollEl ? scrollEl.scrollTop : 0;
+
+		try {
+			const res = await api.get(`/public-chat/messages?limit=50&before_id=${oldestId}`);
+			const older = res || [];
+			if (older.length < 50) {
+				hasMoreEarlier = false;
+			}
+			if (older.length > 0) {
+				older.forEach(m => {
+					m._formattedContent = renderFormattedText(m.content);
+				});
+				if (unreadDividerIndex !== -1) {
+					unreadDividerIndex += older.length;
+				}
+				messages = [...older, ...messages];
+
+				await tick();
+				if (scrollEl) {
+					const heightDiff = scrollEl.scrollHeight - prevScrollHeight;
+					scrollEl.scrollTop = prevScrollTop + heightDiff;
+				}
+			}
+		} catch (e) {
+			console.error("Failed to load earlier messages:", e);
+		} finally {
+			isLoadingEarlier = false;
+		}
+	}
+
 	function handleIncomingMessage(newMsg) {
 		// Avoid duplicate if already present
 		if (messages.some(m => m.id === newMsg.id)) return;
 
-		messages = [...messages, newMsg];
+		newMsg._formattedContent = renderFormattedText(newMsg.content);
+
+		// DOM capping: if user is at bottom and buffer grows beyond 200 items, prune oldest to maintain 60 FPS
+		if (!isScrolledUp && messages.length >= 200) {
+			messages = [...messages.slice(messages.length - 150), newMsg];
+			hasMoreEarlier = true;
+			if (unreadDividerIndex !== -1) {
+				unreadDividerIndex = Math.max(-1, unreadDividerIndex - 50);
+			}
+		} else {
+			messages = [...messages, newMsg];
+		}
 
 		// Play notification chime if user is directly mentioned (Point 5)
 		if (user && newMsg.user_id !== user.id && newMsg.mentions?.user_ids?.includes(user.id)) {
@@ -448,6 +502,11 @@
 			isScrolledUp = false;
 			unreadCountSinceScroll = 0;
 			markAllRead();
+		}
+
+		// Infinite backward scroll: automatically load earlier history when reaching top
+		if (scrollTop < 30 && hasMoreEarlier && !isLoadingEarlier) {
+			loadEarlierMessages();
 		}
 	}
 
@@ -789,9 +848,18 @@
 		replyingTo = null;
 	}
 
-	function scrollToAndHighlightMessage(targetId) {
+	async function scrollToAndHighlightMessage(targetId) {
 		if (!targetId) return;
-		const targetEl = document.getElementById(`public-chat-msg-${targetId}`);
+		let targetEl = document.getElementById(`public-chat-msg-${targetId}`);
+		if (!targetEl && hasMoreEarlier) {
+			let attempts = 0;
+			while (!targetEl && hasMoreEarlier && attempts < 4) {
+				attempts++;
+				await loadEarlierMessages();
+				await tick();
+				targetEl = document.getElementById(`public-chat-msg-${targetId}`);
+			}
+		}
 		if (targetEl) {
 			targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
 			highlightedMessageId = targetId;
@@ -1021,6 +1089,24 @@
 					<p>{$t('dash_chat_empty')}</p>
 				</div>
 			{:else}
+				{#if hasMoreEarlier}
+					<div class="load-earlier-container">
+						<button
+							class="btn-load-earlier"
+							on:click={loadEarlierMessages}
+							disabled={isLoadingEarlier}
+							title="Charger les messages plus anciens"
+						>
+							{#if isLoadingEarlier}
+								<span class="mini-spinner"></span>
+								<span>{$t('dash_chat_loading_earlier') || 'Chargement...'}</span>
+							{:else}
+								<span>↑ {$t('dash_chat_load_earlier') || 'Charger les messages précédents'}</span>
+							{/if}
+						</button>
+					</div>
+				{/if}
+
 				{#each messages as msg, idx (msg.id)}
 					<!-- Unread Divider Line -->
 					{#if idx === unreadDividerIndex}
@@ -1197,7 +1283,7 @@
 							<!-- Text Content -->
 							{#if msg.content}
 								<div class="msg-text">
-									{@html renderFormattedText(msg.content)}
+									{@html msg._formattedContent !== undefined ? msg._formattedContent : renderFormattedText(msg.content)}
 								</div>
 							{/if}
 
@@ -1500,6 +1586,37 @@
 		flex-direction: column;
 		gap: 0.65rem;
 		min-height: 100%;
+	}
+
+	/* Load Earlier Messages */
+	.load-earlier-container {
+		display: flex;
+		justify-content: center;
+		padding: 0.25rem 0 0.5rem 0;
+	}
+	.btn-load-earlier {
+		background: var(--surface-raised);
+		border: 1px solid var(--glass-border);
+		color: var(--text-muted);
+		font-size: 0.68rem;
+		font-weight: 600;
+		padding: 0.3rem 0.8rem;
+		border-radius: 20px;
+		cursor: pointer;
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
+		transition: all 0.2s ease;
+	}
+	.btn-load-earlier:hover:not(:disabled) {
+		background: var(--surface-sunken);
+		color: var(--accent);
+		border-color: var(--accent);
+		transform: translateY(-1px);
+	}
+	.btn-load-earlier:disabled {
+		opacity: 0.6;
+		cursor: not-allowed;
 	}
 
 	.chat-empty-state {
