@@ -103,63 +103,151 @@
 			}
 		}
 
+		// Subscribe to WS updates
+		wsUnsub = wsMessageStore.subscribe(handleWsMessage);
 	});
 
-	// WS: re-fetch data when another client modifies tournament state
+	// WS: Debounced & jittered refresh to prevent thundering herd across LAN clients
 	let wsUnsub = null;
+	let refreshDebounceTimer = null;
+	let isRefreshing = false;
+	let pendingRefresh = false;
+
+	let needTournaments = false;
+	let needParticipants = false;
+	let needTeams = false;
+	let needStandings = false;
+	let needGames = false;
+	let needUsers = false;
+	let deletedTourneyId = null;
+
 	function refreshStandings() {
-		if (selectedId) api.get(`/tournaments/${selectedId}/standings`).then(r => { standingsData = r.standings || []; }).catch(() => {});
-	}
-	$: {
-		if (!wsUnsub) {
-			wsUnsub = wsMessageStore.subscribe(msg => {
-				if (!msg) return;
-				if (msg.type === 'teams_updated' && msg.tournament_id && selectedId === msg.tournament_id) {
-					api.get(`/tournaments/${msg.tournament_id}/teams`).then(t => { teams = t; }).catch(() => {});
-					refreshStandings();
-				}
-				if ((msg.type === 'score_updated' || msg.type === 'ffa_advanced' || msg.type === 'ffa_rolled_back') && msg.tournament_id) {
-					api.get('/tournaments').then(t => { tournaments = t; }).catch(() => {});
-					if (selectedId === msg.tournament_id) refreshStandings();
-				}
-				if (msg.type === 'tournament_started' || msg.type === 'tournament_closed' || msg.type === 'tournament_reopened') {
-					api.get('/tournaments').then(t => { tournaments = t; }).catch(() => {});
-					if (msg.id && selectedId === msg.id || msg.tournament_id && selectedId === msg.tournament_id) {
-						const tid = msg.id || msg.tournament_id;
-						api.get(`/tournaments/${tid}/participants`).then(p => { participants = p; }).catch(() => {});
-						api.get(`/tournaments/${tid}/teams`).then(t => { teams = t; }).catch(() => {});
-						refreshStandings();
-					}
-				}
-				// --- New real-time events ---
-				if (msg.type === 'tournament_created' || msg.type === 'tournament_updated') {
-					api.get('/tournaments').then(t => { tournaments = t; }).catch(() => {});
-					if (msg.type === 'tournament_updated' && msg.data?.id && selectedId === msg.data.id) {
-						api.get(`/tournaments/${selectedId}/participants`).then(p => { participants = p; }).catch(() => {});
-						api.get(`/tournaments/${selectedId}/teams`).then(t => { teams = t; }).catch(() => {});
-						refreshStandings();
-					}
-				}
-				if (msg.type === 'tournament_deleted') {
-					api.get('/tournaments').then(t => {
-						tournaments = t;
-						if (selectedId === msg.tournament_id) {
-							selectedId = tournaments.length > 0 ? tournaments[0].id : null;
-							if (selectedId) selectTournament(selectedId);
-						}
-					}).catch(() => {});
-				}
-				if ((msg.type === 'participant_joined' || msg.type === 'participant_left') && msg.tournament_id) {
-					api.get('/tournaments').then(t => { tournaments = t; }).catch(() => {});
-					if (selectedId === msg.tournament_id) {
-						api.get(`/tournaments/${msg.tournament_id}/participants`).then(p => { participants = p; }).catch(() => {});
-						refreshStandings();
-					}
-				}
-			});
+		if (selectedId) {
+			needStandings = true;
+			scheduleTournamentRefresh();
 		}
 	}
+
+	function scheduleTournamentRefresh() {
+		if (refreshDebounceTimer) clearTimeout(refreshDebounceTimer);
+		// Debounce 250ms + random jitter 0-100ms to avoid synchronous spikes across all LAN clients
+		const jitter = Math.floor(Math.random() * 100);
+		refreshDebounceTimer = setTimeout(async () => {
+			if (isRefreshing) {
+				pendingRefresh = true;
+				return;
+			}
+			isRefreshing = true;
+
+			// Snapshot flags
+			const fetchTournaments = needTournaments;
+			const fetchParts = needParticipants && !!selectedId;
+			const fetchTeams = needTeams && !!selectedId;
+			const fetchStandings = needStandings && !!selectedId;
+			const fetchGames = needGames;
+			const fetchUsers = needUsers;
+			const checkDeletedId = deletedTourneyId;
+
+			// Reset flags
+			needTournaments = false;
+			needParticipants = false;
+			needTeams = false;
+			needStandings = false;
+			needGames = false;
+			needUsers = false;
+			deletedTourneyId = null;
+
+			try {
+				const currentSelectedId = selectedId;
+				const promises = [
+					fetchTournaments ? api.get('/tournaments').catch(() => null) : Promise.resolve(null),
+					fetchParts ? api.get(`/tournaments/${currentSelectedId}/participants`).catch(() => null) : Promise.resolve(null),
+					fetchTeams ? api.get(`/tournaments/${currentSelectedId}/teams`).catch(() => null) : Promise.resolve(null),
+					fetchStandings ? api.get(`/tournaments/${currentSelectedId}/standings`).catch(() => null) : Promise.resolve(null),
+					fetchGames ? api.get('/tournaments/games').catch(() => null) : Promise.resolve(null),
+					fetchUsers ? api.get('/room/users').catch(() => null) : Promise.resolve(null)
+				];
+
+				const [newTourneys, newParts, newTeams, newStandings, newGames, newUsers] = await Promise.all(promises);
+
+				if (newTourneys) {
+					tournaments = newTourneys;
+					if (checkDeletedId && currentSelectedId === checkDeletedId) {
+						selectedId = tournaments.length > 0 ? tournaments[0].id : null;
+						if (selectedId) await selectTournament(selectedId);
+					}
+				}
+				if (newParts && selectedId === currentSelectedId) participants = newParts;
+				if (newTeams && selectedId === currentSelectedId) teams = newTeams;
+				if (newStandings && selectedId === currentSelectedId) standingsData = newStandings.standings || [];
+				if (newGames) games = newGames;
+				if (newUsers) allUsers = newUsers;
+			} catch (err) {
+				console.error("Error during debounced tournament refresh:", err);
+			} finally {
+				isRefreshing = false;
+				if (pendingRefresh) {
+					pendingRefresh = false;
+					scheduleTournamentRefresh();
+				}
+			}
+		}, 250 + jitter);
+	}
+
+	function handleWsMessage(msg) {
+		if (!msg) return;
+		const t = msg.type;
+		const tid = msg.tournament_id || msg.id || msg.data?.id;
+		const isCurrentSelected = selectedId && (tid === selectedId || !tid);
+
+		if (t === 'games_updated') {
+			needGames = true;
+		} else if (t === 'users_updated' || t === 'room_updated') {
+			needUsers = true;
+		} else if (t === 'teams_updated') {
+			if (isCurrentSelected) {
+				needTeams = true;
+				needStandings = true;
+			}
+		} else if (t === 'score_updated' || t === 'ffa_advanced' || t === 'ffa_rolled_back') {
+			needTournaments = true;
+			if (isCurrentSelected) {
+				needStandings = true;
+			}
+		} else if (t === 'tournament_started' || t === 'tournament_closed' || t === 'tournament_reopened') {
+			needTournaments = true;
+			if (isCurrentSelected) {
+				needParticipants = true;
+				needTeams = true;
+				needStandings = true;
+			}
+		} else if (t === 'tournament_created') {
+			needTournaments = true;
+		} else if (t === 'tournament_updated') {
+			needTournaments = true;
+			if (isCurrentSelected) {
+				needParticipants = true;
+				needTeams = true;
+				needStandings = true;
+			}
+		} else if (t === 'tournament_deleted') {
+			needTournaments = true;
+			if (msg.tournament_id) deletedTourneyId = msg.tournament_id;
+		} else if (t === 'participant_joined' || t === 'participant_left') {
+			needTournaments = true;
+			if (isCurrentSelected) {
+				needParticipants = true;
+				needStandings = true;
+			}
+		} else {
+			return;
+		}
+
+		scheduleTournamentRefresh();
+	}
+
 	onDestroy(() => {
+		if (refreshDebounceTimer) clearTimeout(refreshDebounceTimer);
 		if (wsUnsub) wsUnsub();
 	});
 

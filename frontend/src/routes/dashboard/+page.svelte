@@ -95,6 +95,31 @@
 	}
 
 	let wsUnsub = null;
+	let refreshDebounceTimer = null;
+	let isRefreshing = false;
+	let pendingRefresh = false;
+
+	function scheduleRefreshAll() {
+		if (refreshDebounceTimer) clearTimeout(refreshDebounceTimer);
+		// Debounce 250ms + random jitter 0-100ms to avoid synchronous spikes across all LAN clients
+		const jitter = Math.floor(Math.random() * 100);
+		refreshDebounceTimer = setTimeout(async () => {
+			if (isRefreshing) {
+				pendingRefresh = true;
+				return;
+			}
+			isRefreshing = true;
+			try {
+				await refreshAll();
+			} finally {
+				isRefreshing = false;
+				if (pendingRefresh) {
+					pendingRefresh = false;
+					scheduleRefreshAll();
+				}
+			}
+		}, 250 + jitter);
+	}
 
 	onMount(async () => {
 		await refreshAll();
@@ -112,7 +137,7 @@
 				t === 'room_updated' || t === 'users_updated' ||
 				t === 'teams_updated' || t === 'games_updated' ||
 				t === 'config_updated' || t === 'ia_config_updated') {
-				refreshAll();
+				scheduleRefreshAll();
 			}
 		});
 	});
@@ -144,6 +169,7 @@
 	}
 
 	onDestroy(() => {
+		if (refreshDebounceTimer) clearTimeout(refreshDebounceTimer);
 		if (wsUnsub) wsUnsub();
 		if (typeof window !== 'undefined') {
 			window.removeEventListener('pointermove', onSplitterDrag);

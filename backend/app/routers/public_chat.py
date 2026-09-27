@@ -10,12 +10,13 @@ from urllib.parse import urlparse
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status, BackgroundTasks
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy import func
 
 from .. import models, schemas, auth, database
 from ..websockets import manager as ws_manager
+manager = ws_manager
 
 router = APIRouter(prefix="/public-chat", tags=["Public Chat"])
 
@@ -180,7 +181,7 @@ async def update_config(
         cfg_row.value = cfg_dict
     db.commit()
     await ws_manager.broadcast({"type": "public_chat_config_updated", "config": cfg_dict})
-    return {"status": "ok", "config": cfg_dict}
+    return {**cfg_dict, "status": "ok", "config": cfg_dict}
 
 
 @router.post("/typing")
@@ -209,6 +210,10 @@ def get_recent_messages(
     limit = min(max(1, limit), 100)
     messages = (
         db.query(models.PublicChatMessage)
+        .options(
+            joinedload(models.PublicChatMessage.user),
+            joinedload(models.PublicChatMessage.reply_to).joinedload(models.PublicChatMessage.user)
+        )
         .filter(models.PublicChatMessage.is_deleted == False)
         .order_by(models.PublicChatMessage.id.desc())
         .limit(limit)
@@ -278,7 +283,7 @@ async def send_message(
             )
 
     # 5. Duplicate Message check
-    if not user.is_admin and config.get("block_duplicates", True):
+    if config.get("block_duplicates", True):
         last_content = _user_last_post_content.get(user.id, "")
         if content and content.lower() == last_content.lower() and (now - _user_last_post_time.get(user.id, 0)) < 60:
             raise HTTPException(
@@ -588,7 +593,15 @@ def get_pinned_message(db: Session = Depends(database.get_db)):
     if not msg_id:
         return {"pinned": None}
     
-    msg = db.query(models.PublicChatMessage).filter(models.PublicChatMessage.id == msg_id, models.PublicChatMessage.is_deleted == False).first()
+    msg = (
+        db.query(models.PublicChatMessage)
+        .options(
+            joinedload(models.PublicChatMessage.user),
+            joinedload(models.PublicChatMessage.reply_to).joinedload(models.PublicChatMessage.user)
+        )
+        .filter(models.PublicChatMessage.id == msg_id, models.PublicChatMessage.is_deleted == False)
+        .first()
+    )
     if not msg:
         return {"pinned": None}
 
@@ -692,7 +705,7 @@ async def clear_chat(
         await ws_manager.broadcast({"type": "public_chat_pinned_updated", "pinned": None})
 
     await ws_manager.broadcast({"type": "public_chat_cleared"})
-    return {"status": "ok"}
+    return {"status": "ok", "cleared": True}
 
 
 @router.post("/mute/{user_id}")
@@ -718,5 +731,6 @@ async def mute_user(
     return {
         "status": "ok",
         "user_id": target.id,
+        "is_muted": target.public_chat_muted_until is not None,
         "muted_until": target.public_chat_muted_until.isoformat() if target.public_chat_muted_until else None
     }

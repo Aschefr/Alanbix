@@ -29,14 +29,19 @@ def get_stats(db: Session = Depends(database.get_db)):
         standings = _compute_projected_standings(t, db)
         if use_teams:
             teams_db = db.query(models.TournamentTeam).filter(models.TournamentTeam.tournament_id == t.id).all()
-            for team in teams_db:
-                entity_id = -team.id
-                entry = next((item for item in standings if item["entity_id"] == entity_id), None)
-                if entry and entry["total"] > 0:
-                    members = db.query(models.TournamentTeamMember).filter(models.TournamentTeamMember.team_id == team.id).all()
-                    for mem in members:
-                        if mem.user_id in user_pts:
-                            user_pts[mem.user_id]["points"] += entry["total"]
+            if teams_db:
+                team_ids = [team.id for team in teams_db]
+                all_members = db.query(models.TournamentTeamMember).filter(models.TournamentTeamMember.team_id.in_(team_ids)).all()
+                members_by_team = {}
+                for mem in all_members:
+                    members_by_team.setdefault(mem.team_id, []).append(mem.user_id)
+                for team in teams_db:
+                    entity_id = -team.id
+                    entry = next((item for item in standings if item["entity_id"] == entity_id), None)
+                    if entry and entry["total"] > 0:
+                        for uid in members_by_team.get(team.id, []):
+                            if uid in user_pts:
+                                user_pts[uid]["points"] += entry["total"]
         else:
             for entry in standings:
                 eid = entry["entity_id"]
@@ -131,13 +136,18 @@ def get_team_leaderboard(db: Session = Depends(database.get_db)):
         standings = _compute_projected_standings(t, db)
         if use_teams_t:
             teams_db = db.query(models.TournamentTeam).filter(models.TournamentTeam.tournament_id == t.id).all()
-            for team_t in teams_db:
-                entity_id = -team_t.id
-                entry = next((item for item in standings if item["entity_id"] == entity_id), None)
-                if entry and entry["total"] > 0:
-                    members = db.query(models.TournamentTeamMember).filter(models.TournamentTeamMember.team_id == team_t.id).all()
-                    for mem in members:
-                        live_pts[mem.user_id] = live_pts.get(mem.user_id, 0) + entry["total"]
+            if teams_db:
+                team_ids = [team.id for team in teams_db]
+                all_members = db.query(models.TournamentTeamMember).filter(models.TournamentTeamMember.team_id.in_(team_ids)).all()
+                members_by_team = {}
+                for mem in all_members:
+                    members_by_team.setdefault(mem.team_id, []).append(mem.user_id)
+                for team_t in teams_db:
+                    entity_id = -team_t.id
+                    entry = next((item for item in standings if item["entity_id"] == entity_id), None)
+                    if entry and entry["total"] > 0:
+                        for uid in members_by_team.get(team_t.id, []):
+                            live_pts[uid] = live_pts.get(uid, 0) + entry["total"]
         else:
             for entry in standings:
                 eid = entry["entity_id"]

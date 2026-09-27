@@ -187,11 +187,47 @@
 
 		startSlideshow(12000);
 
+		let refreshDebounceTimer = null;
+		let isRefreshing = false;
+		let pendingRefresh = false;
+
+		function scheduleRefreshData() {
+			if (refreshDebounceTimer) clearTimeout(refreshDebounceTimer);
+			refreshDebounceTimer = setTimeout(async () => {
+				if (isRefreshing) {
+					pendingRefresh = true;
+					return;
+				}
+				isRefreshing = true;
+				try {
+					await refreshData();
+				} finally {
+					isRefreshing = false;
+					if (pendingRefresh) {
+						pendingRefresh = false;
+						scheduleRefreshData();
+					}
+				}
+			}, 300);
+		}
+
+		const relevantTypes = [
+			'tournament_created', 'tournament_updated', 'tournament_deleted',
+			'tournament_started', 'tournament_closed', 'tournament_reopened',
+			'score_updated', 'ffa_advanced', 'ffa_rolled_back',
+			'participant_joined', 'participant_left',
+			'room_updated', 'users_updated', 'teams_updated', 'games_updated',
+			'config_updated'
+		];
+
 		const unsubscribe = wsMessageStore.subscribe(msg => {
-			if (msg) refreshData();
+			if (msg && msg.type && relevantTypes.includes(msg.type)) {
+				scheduleRefreshData();
+			}
 		});
 
 		return () => {
+			if (refreshDebounceTimer) clearTimeout(refreshDebounceTimer);
 			clearTimeout(slideTimeout);
 			clearTimeout(bracketScrollTimeout);
 			unsubscribe();

@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Performance & Architecture — Anti-Thundering Herd, Database Indexing, and Admin Modularization
+
+- **Anti-Thundering Herd Protection (Tournaments, Dashboard, Spectator)**: Added debouncing (250ms), randomized client jitter (0–100ms), and in-flight request guarding on WebSocket event listeners across `tournaments/+page.svelte`, `dashboard/+page.svelte`, and `spectator/+page.svelte`. Batched parallel queries via `Promise.all()` to prevent simultaneous network storms from hammering the backend when scores, standings, or participants update during LAN matches.
+- **High-Performance Database Indexing & Safe Migrations**: Added `index=True` across critical foreign keys, status filters, and sorting timestamp columns in SQLAlchemy models (`models.py`) and integrated safe, idempotent `CREATE INDEX IF NOT EXISTS` execution in `init_db()` (`database.py`). Eliminates sequential table scans on `public_chat_messages`, `chat_messages`, `tournament_participants`, `tournament_teams`, `notifications`, and `admin_call_requests` for existing and new databases alike.
+- **Backend N+1 Query Elimination**: Optimized `GET /dashboard/stats` with SQL aggregations and eager-loaded relationship lookups in `GET /public-chat/messages` to remove cascading sequential queries.
+- **Admin Dashboard Modularization**: Refactored the monolithic 1,600+ line Admin view (`dashboard/admin/+page.svelte`) into a clean orchestrator with 5 dedicated subcomponents (`AdminTournamentsTab.svelte`, `AdminPlayersTab.svelte`, `AdminSettingsTab.svelte`, `AdminConversationsTab.svelte`, `AdminAwardsTab.svelte`). Preserved full feature parity, responsive glassmorphism navigation menu layout, live unread badges, and added `Escape` keyboard shortcuts on all admin modals.
+
 ### Features & Improvements — Modern Public Chat (Reactions, Replies, Pinned Messages, Mention Sounds)
 
 - **Interactive Emoji Reactions & Comprehensive Picker**: Added a compact reaction trigger on each message row displaying **4 recently used emojis** (persisted in `localStorage`) alongside an expand button (`➕`). Opening the expanded picker provides an exhaustive catalog categorized into 7 tabs (Recent, All, Gaming & LAN, Gamer Tags like `GG`, `EZ`, `WP`, `GLHF`, `RIP`, `MVP`, `CLUTCH`, Smileys & Emotions, Hands & Gestures, and Symbols & Hearts) with live keyword search filtering. Interactive reaction pills underneath messages display live participant counts, reacting user tooltips, and real-time WebSocket synchronization (`public_chat_reaction_updated`).

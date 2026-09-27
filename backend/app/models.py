@@ -44,8 +44,8 @@ class Tournament(Base):
     __tablename__ = "tournaments"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String)
-    status = Column(String, default="OPEN") # OPEN, RUNNING, DONE, CLOSED
-    game_id = Column(Integer, ForeignKey("games.id", ondelete="CASCADE"))
+    status = Column(String, default="OPEN", index=True) # OPEN, RUNNING, DONE, CLOSED
+    game_id = Column(Integer, ForeignKey("games.id", ondelete="CASCADE"), index=True)
     config = Column(JSON, nullable=True) # Settings: bracket_type, use_teams, pts_*, etc.
     bracket = Column(JSON, nullable=True) # Match data after start
     results = Column(JSON, nullable=True) # Final standings + points distributed at close
@@ -59,8 +59,8 @@ class Tournament(Base):
 class TournamentParticipant(Base):
     __tablename__ = "tournament_participants"
     id = Column(Integer, primary_key=True, index=True)
-    tournament_id = Column(Integer, ForeignKey("tournaments.id", ondelete="CASCADE"))
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
+    tournament_id = Column(Integer, ForeignKey("tournaments.id", ondelete="CASCADE"), index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
     team_name = Column(String, nullable=True)
     
     tournament = relationship("Tournament", back_populates="participants")
@@ -69,9 +69,9 @@ class TournamentParticipant(Base):
 class TournamentTeam(Base):
     __tablename__ = "tournament_teams"
     id = Column(Integer, primary_key=True, index=True)
-    tournament_id = Column(Integer, ForeignKey("tournaments.id", ondelete="CASCADE"))
+    tournament_id = Column(Integer, ForeignKey("tournaments.id", ondelete="CASCADE"), index=True)
     name = Column(String)
-    created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     
     tournament = relationship("Tournament", back_populates="teams")
     members = relationship("TournamentTeamMember", back_populates="team", cascade="all, delete-orphan")
@@ -79,8 +79,8 @@ class TournamentTeam(Base):
 class TournamentTeamMember(Base):
     __tablename__ = "tournament_team_members"
     id = Column(Integer, primary_key=True, index=True)
-    team_id = Column(Integer, ForeignKey("tournament_teams.id", ondelete="CASCADE"))
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
+    team_id = Column(Integer, ForeignKey("tournament_teams.id", ondelete="CASCADE"), index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
     
     team = relationship("TournamentTeam", back_populates="members")
 
@@ -101,18 +101,18 @@ class RoomMap(Base):
 class MatchReport(Base):
     __tablename__ = "match_reports"
     id = Column(Integer, primary_key=True, index=True)
-    tournament_id = Column(Integer, ForeignKey("tournaments.id", ondelete="CASCADE"))
+    tournament_id = Column(Integer, ForeignKey("tournaments.id", ondelete="CASCADE"), index=True)
     match_s = Column(Integer) # Bracket section
     match_r = Column(Integer) # Round
     match_m = Column(Integer) # Match index
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
     score = Column(JSON) # [score_p1, score_p2]
     timestamp = Column(DateTime, default=datetime.datetime.utcnow)
 
 class Conflict(Base):
     __tablename__ = "conflicts"
     id = Column(Integer, primary_key=True, index=True)
-    tournament_id = Column(Integer, ForeignKey("tournaments.id", ondelete="CASCADE"))
+    tournament_id = Column(Integer, ForeignKey("tournaments.id", ondelete="CASCADE"), index=True)
     match_id_str = Column(String) # e.g. "WB R1 M1"
     resolved = Column(Boolean, default=False)
     admin_notes = Column(Text, nullable=True)
@@ -126,7 +126,7 @@ class SystemConfig(Base):
 class Conversation(Base):
     __tablename__ = "conversations"
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
     title = Column(String, default="Nouvelle conversation")
     model = Column(String, nullable=True) # Specific model for this conversation
     summary = Column(Text, nullable=True) # Intelligent context persistence
@@ -140,18 +140,18 @@ class Conversation(Base):
     player_last_read_message_id = Column(Integer, default=0)
     title_generation_attempted = Column(Boolean, default=False, server_default="0")
 
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow, index=True)
     
     messages = relationship("ChatMessage", back_populates="conversation", cascade="all, delete-orphan")
 
 class ChatMessage(Base):
     __tablename__ = "chat_messages"
     id = Column(Integer, primary_key=True, index=True)
-    conversation_id = Column(Integer, ForeignKey("conversations.id", ondelete="CASCADE"))
+    conversation_id = Column(Integer, ForeignKey("conversations.id", ondelete="CASCADE"), index=True)
     role = Column(String) # user, bot
     content = Column(Text)
     image_path = Column(String, nullable=True)  # Relative path to attached image
-    timestamp = Column(DateTime, default=datetime.datetime.utcnow)
+    timestamp = Column(DateTime, default=datetime.datetime.utcnow, index=True)
     meta = Column(JSON, nullable=True)
     
     conversation = relationship("Conversation", back_populates="messages")
@@ -159,22 +159,22 @@ class ChatMessage(Base):
 class Notification(Base):
     __tablename__ = "notifications"
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
     type = Column(String)  # "tournament_closed", "admin_message", "system"
     title = Column(String)
     content = Column(Text)
-    is_read = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    is_read = Column(Boolean, default=False, index=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow, index=True)
     metadata_json = Column(JSON, nullable=True)  # tournament_id, conversation_id, etc.
 
 class PrivateMessage(Base):
     __tablename__ = "private_messages"
     id = Column(Integer, primary_key=True, index=True)
-    sender_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
-    receiver_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
+    sender_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    receiver_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
     content = Column(Text)
     is_read = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow, index=True)
 
 class GroupChannel(Base):
     """Canal de groupe (team-only ou inter-team). AXE-12."""
@@ -191,10 +191,10 @@ class GroupMessage(Base):
     """Message dans un canal de groupe. AXE-12."""
     __tablename__ = "group_messages"
     id = Column(Integer, primary_key=True, index=True)
-    channel_id = Column(Integer, ForeignKey("group_channels.id", ondelete="CASCADE"))
+    channel_id = Column(Integer, ForeignKey("group_channels.id", ondelete="CASCADE"), index=True)
     sender_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
     content = Column(Text)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow, index=True)
 
     channel = relationship("GroupChannel", back_populates="messages")
 
@@ -202,15 +202,15 @@ class GroupMessageRead(Base):
     """Dernier message lu par user dans un channel. AXE-12."""
     __tablename__ = "group_message_reads"
     id = Column(Integer, primary_key=True, index=True)
-    channel_id = Column(Integer, ForeignKey("group_channels.id", ondelete="CASCADE"))
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
+    channel_id = Column(Integer, ForeignKey("group_channels.id", ondelete="CASCADE"), index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
     last_read_message_id = Column(Integer, default=0)
 
 class Award(Base):
     """Prix loufoques et classiques de fin de LAN."""
     __tablename__ = "awards"
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     award_key = Column(String, nullable=True)
     title = Column(String, nullable=False)
     description = Column(Text, nullable=True)
@@ -222,12 +222,12 @@ class AdminCallRequest(Base):
     """Demandes d'escalade vers un admin déclenchées par l'IA ou manuellement."""
     __tablename__ = "admin_call_requests"
     id               = Column(Integer, primary_key=True, index=True)
-    user_id          = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
-    conversation_id  = Column(Integer, ForeignKey("conversations.id", ondelete="SET NULL"), nullable=True)
+    user_id          = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    conversation_id  = Column(Integer, ForeignKey("conversations.id", ondelete="SET NULL"), nullable=True, index=True)
     reason           = Column(Text)           # Explication concise du problème
     question         = Column(Text)           # Reformulation structurée de la demande non résolue
     source           = Column(String, default="manual")  # "manual" | "ia"
-    status           = Column(String, default="pending")  # pending / resolved / dismissed
+    status           = Column(String, default="pending", index=True)  # pending / resolved / dismissed
     created_at       = Column(DateTime, default=datetime.datetime.utcnow)
     resolved_at      = Column(DateTime, nullable=True)
     resolved_by      = Column(Integer, ForeignKey("users.id"), nullable=True)
@@ -237,13 +237,13 @@ class RagSuggestion(Base):
     """Suggestions de contenu RAG générées par l'IA en cas de lacune de connaissance."""
     __tablename__ = "rag_suggestions"
     id               = Column(Integer, primary_key=True, index=True)
-    user_id          = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
-    conversation_id  = Column(Integer, ForeignKey("conversations.id", ondelete="SET NULL"), nullable=True)
+    user_id          = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    conversation_id  = Column(Integer, ForeignKey("conversations.id", ondelete="SET NULL"), nullable=True, index=True)
     question         = Column(Text)           # Question structurée générée par l'IA
     context          = Column(Text)           # Ce que l'utilisateur a demandé (texte brut)
     category         = Column(String, nullable=True)  # technique / règles / logistique / autre
     similarity_hash  = Column(String, nullable=True, index=True)  # MD5 normalisé pour dédoublonnage
-    status           = Column(String, default="pending")  # pending / approved / rejected
+    status           = Column(String, default="pending", index=True)  # pending / approved / rejected
     created_at       = Column(DateTime, default=datetime.datetime.utcnow)
     approved_at      = Column(DateTime, nullable=True)
     approved_by      = Column(Integer, ForeignKey("users.id"), nullable=True)
@@ -253,17 +253,17 @@ class PublicChatMessage(Base):
     """Message du Chat Public avec gestion des médias, mentions et bots."""
     __tablename__ = "public_chat_messages"
     id               = Column(Integer, primary_key=True, index=True)
-    user_id          = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
+    user_id          = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
     sender_name      = Column(String, nullable=True) # Nom d'affichage pour Alanbix ou Système
     is_bot           = Column(Boolean, default=False)
     content          = Column(Text, nullable=False)
     image_path       = Column(String, nullable=True) # Image ou GIF uploadé
     link_preview     = Column(JSON, nullable=True) # { url, title, description, image, site_name }
     mentions         = Column(JSON, nullable=True) # { user_ids: [...], has_alanbix: bool }
-    is_deleted       = Column(Boolean, default=False) # Soft delete pour modération
+    is_deleted       = Column(Boolean, default=False, index=True) # Soft delete pour modération
     reactions        = Column(JSON, nullable=True, default=dict) # {"🔥": [user_id_1, user_id_2]}
-    reply_to_id      = Column(Integer, ForeignKey("public_chat_messages.id", ondelete="SET NULL"), nullable=True)
-    created_at       = Column(DateTime, default=datetime.datetime.utcnow)
+    reply_to_id      = Column(Integer, ForeignKey("public_chat_messages.id", ondelete="SET NULL"), nullable=True, index=True)
+    created_at       = Column(DateTime, default=datetime.datetime.utcnow, index=True)
 
     user             = relationship("User", backref="public_chat_messages")
     reply_to         = relationship("PublicChatMessage", remote_side=[id], foreign_keys=[reply_to_id], backref="replies")
