@@ -306,13 +306,19 @@
 					<label>Points cumulés</label>
 					<input type="number" bind:value={editPlayerData.points} placeholder="0" />
 				</div>
-				<div class="edit-field mb-3" style="display: flex; align-items: center; gap: 0.5rem;">
-					<input type="checkbox" id="edit-is-admin" bind:checked={editPlayerData.is_admin} style="width: auto;" />
-					<label for="edit-is-admin" style="margin: 0; cursor: pointer;">Est Administrateur 👑</label>
+				<div class="player-toggle-row mb-3">
+					<span class="player-toggle-label">Est Administrateur 👑</span>
+					<label class="toggle-switch-mini">
+						<input type="checkbox" bind:checked={editPlayerData.is_admin} />
+						<span class="toggle-slider"></span>
+					</label>
 				</div>
-				<div class="edit-field mb-3" style="display: flex; align-items: center; gap: 0.5rem;">
-					<input type="checkbox" id="edit-ia-blocked" bind:checked={editPlayerData.ia_blocked} style="width: auto;" />
-					<label for="edit-ia-blocked" style="margin: 0; cursor: pointer;">Bloquer l'accès IA 🚫</label>
+				<div class="player-toggle-row mb-3">
+					<span class="player-toggle-label">Bloquer l'accès IA 🚫</span>
+					<label class="toggle-switch-mini">
+						<input type="checkbox" bind:checked={editPlayerData.ia_blocked} />
+						<span class="toggle-slider"></span>
+					</label>
 				</div>
 			</div>
 			<footer class="edit-modal-footer">
@@ -400,4 +406,14 @@
 	.edit-field label { font-size: 0.75rem; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; }
 	.ia-blocked-badge { font-size: 0.7rem; margin-left: 0.3rem; opacity: 0.8; }
 	.chat-muted-badge { font-size: 0.85rem; margin-left: 0.2rem; }
+
+	/* Player Modal Toggles */
+	.player-toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 0.7rem 0.9rem; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: var(--radius-md); }
+	.player-toggle-label { font-size: 0.8rem; font-weight: 600; color: var(--text-main); font-family: var(--font-main); }
+	.toggle-switch-mini { position: relative; display: inline-block; width: 32px; height: 18px; cursor: pointer; flex-shrink: 0; }
+	.toggle-switch-mini input { opacity: 0; width: 0; height: 0; position: absolute; }
+	.toggle-switch-mini .toggle-slider { position: absolute; inset: 0; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 18px; transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
+	.toggle-switch-mini .toggle-slider::before { content: ''; position: absolute; height: 12px; width: 12px; left: 2px; bottom: 2px; background: var(--text-dim); border-radius: 50%; transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
+	.toggle-switch-mini input:checked + .toggle-slider { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 10px var(--accent-glow); }
+	.toggle-switch-mini input:checked + .toggle-slider::before { transform: translateX(14px); background: #ffffff; }
 </style>

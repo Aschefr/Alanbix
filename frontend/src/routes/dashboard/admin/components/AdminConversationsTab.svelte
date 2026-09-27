@@ -552,8 +552,8 @@
 	.btn-attach:hover { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 	.btn-icon-sm { background: var(--hover-tint); border: 1px solid var(--glass-border); border-radius: 6px; padding: 0.2rem 0.4rem; cursor: pointer; font-size: 0.8rem; }
 	.btn-icon-sm:hover { background: var(--accent-soft); border-color: var(--accent); }
-	.edit-textarea { background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 8px; padding: 0.5rem; color: var(--text-main); }
-	.edit-textarea:focus { border-color: var(--accent); outline: none; }
+	.edit-textarea { background: var(--input-bg); border: 1px solid var(--glass-border); border-radius: 8px; padding: 0.6rem 0.8rem; color: var(--input-color); font-family: var(--font-main); font-size: 0.85rem; transition: all 0.2s; }
+	.edit-textarea:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
 	.admin-conv-md :global(p) { margin: 0.3em 0; }
 	.admin-conv-md :global(p:first-child) { margin-top: 0; }
 	.admin-conv-md :global(p:last-child) { margin-bottom: 0; }

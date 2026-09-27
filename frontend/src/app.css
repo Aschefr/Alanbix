@@ -370,6 +370,48 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: 0 0 10px var(--danger-glow);
 }
 
+.btn-danger {
+  background: var(--danger);
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 14px 0 var(--danger-glow);
+}
+.btn-danger:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px 0 var(--danger-glow);
+  filter: brightness(1.1);
+}
+.btn-danger:active {
+  transform: translateY(0);
+}
+
+.btn-outline-danger {
+  background: transparent;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: var(--danger);
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.btn-outline-danger:hover {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: var(--danger);
+  box-shadow: 0 0 12px var(--danger-glow);
+}
+
+button {
+  font-family: var(--font-main);
+}
+
 /* Inputs */
 input, select, textarea {
   background: var(--input-bg);
@@ -452,7 +494,7 @@ body::before,
 .glass,
 .title-premium,
 input, select, textarea,
-.btn-primary, .btn-secondary, .btn-success {
+.btn-primary, .btn-secondary, .btn-success, .btn-danger, .btn-outline-danger {
   transition: background 0.35s ease, color 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease;
 }
 

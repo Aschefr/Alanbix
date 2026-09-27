@@ -149,7 +149,7 @@
 					</div>
 				</div>
 			{:else}
-				<button class="btn-danger" style="width: 100%; padding: 0.6rem 1rem;" on:click={() => nukeConfirm.awards = true} disabled={awardsLoading}>
+				<button class="btn-danger-full" on:click={() => nukeConfirm.awards = true} disabled={awardsLoading}>
 					{$t('admin_awards_btn_purge')}
 				</button>
 			{/if}
@@ -203,12 +203,12 @@
 					<div style="display: flex; flex-direction: column; gap: 0.8rem;">
 						<div class="edit-field full-width" style="margin: 0;">
 							<label class="compact-label" style="font-weight: 700; font-size: 0.75rem; color: var(--text-dim);">{$t("admin_awards_edit_title")}</label>
-							<input type="text" bind:value={award.title} placeholder={award.default_title} style="width: 100%; padding: 0.4rem 0.6rem; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 8px; color: var(--text-main); font-size: 0.85rem;" />
+							<input type="text" bind:value={award.title} placeholder={award.default_title} class="award-input" />
 						</div>
 						
 						<div class="edit-field full-width" style="margin: 0;">
 							<label class="compact-label" style="font-weight: 700; font-size: 0.75rem; color: var(--text-dim);">{$t("admin_awards_edit_desc")}</label>
-							<textarea bind:value={award.description} placeholder={award.default_description} rows="2" style="width: 100%; padding: 0.4rem 0.6rem; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 8px; color: var(--text-main); font-size: 0.85rem; font-family: inherit; resize: vertical;"></textarea>
+							<textarea bind:value={award.description} placeholder={award.default_description} rows="2" class="award-textarea"></textarea>
 						</div>
 					</div>
 
@@ -249,4 +249,21 @@
 	.empty-list { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 3rem 1rem; gap: 0.5rem; }
 	.empty-icon { font-size: 2.5rem; opacity: 0.5; }
 	.empty-list p { color: var(--text-dim); font-weight: 600; margin: 0; }
+	.award-input, .award-textarea {
+		width: 100%;
+		padding: 0.5rem 0.75rem;
+		background: var(--input-bg);
+		border: 1px solid var(--glass-border);
+		border-radius: var(--radius-md);
+		color: var(--input-color);
+		font-family: var(--font-main);
+		font-size: 0.85rem;
+		transition: all 0.2s;
+		box-sizing: border-box;
+	}
+	.award-input:focus, .award-textarea:focus {
+		outline: none;
+		border-color: var(--accent);
+		box-shadow: 0 0 0 3px var(--accent-soft);
+	}
 </style>

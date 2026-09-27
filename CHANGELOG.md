@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### UI & Design Coherence — Admin Settings Theme Contrast, Modern Switches & Harmonized Typography
+
+- **Admin Public Chat & Anti-Spam Theme Contrast**: Replaced hardcoded dark slate backgrounds (`rgba(15, 23, 42, 0.6)`) with theme-aware tokens (`--input-bg`, `--input-color`, `--glass-border`, and `--accent-soft` focus ring) on all chat inputs (Slowmode, Max Length, Cooldown, Banned Words) to ensure flawless readability and contrast in both light and dark themes.
+- **Sleek Interactive Toggle Cards**: Upgraded raw browser checkboxes across Public Chat settings and the Player management modal into tactile `.pca-toggle-card` and `.player-toggle-row` controls driven by smooth animated `.toggle-switch-mini` sliding pills with accent glow.
+- **Typography & Aesthetics Harmonization**: Aligned form labels across all admin subcomponents with uppercase letter-spaced metadata typography (`.compact-label`), set `--font-title` (Outfit) for section headers and `--font-main` (Inter) across all buttons, inputs, and tabs. Standardized global `.btn-danger` and `.btn-outline-danger` styling in `app.css` with non-blocking inline confirmation states for sensitive actions.
+
 ### Performance & Architecture — Anti-Thundering Herd, Database Indexing, and Admin Modularization
 
 - **Anti-Thundering Herd Protection (Tournaments, Dashboard, Spectator)**: Added debouncing (250ms), randomized client jitter (0–100ms), and in-flight request guarding on WebSocket event listeners across `tournaments/+page.svelte`, `dashboard/+page.svelte`, and `spectator/+page.svelte`. Batched parallel queries via `Promise.all()` to prevent simultaneous network storms from hammering the backend when scores, standings, or participants update during LAN matches.

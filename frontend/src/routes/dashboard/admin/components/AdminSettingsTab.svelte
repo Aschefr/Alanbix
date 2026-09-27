@@ -49,6 +49,7 @@
 		ai_mention_enabled: true,
 		ai_cooldown_seconds: 15
 	};
+	let purgeChatConfirm = false;
 
 	// IA Settings
 	let iaConfig = { 
@@ -319,12 +320,13 @@
 	}
 
 	async function clearChatHistoryAdmin() {
-		if (!confirm(get(t)('dash_chat_clear_confirm') || 'Effacer tout l\'historique du chat public ?')) return;
 		try {
 			await api.post('/public-chat/clear', {});
-			toast('Historique du chat public purgé', 'success');
+			toast('Historique du chat public purgé avec succès', 'success');
 		} catch (e) {
-			toast(e.message, 'error');
+			toast(e.message || 'Erreur lors de la purge', 'error');
+		} finally {
+			purgeChatConfirm = false;
 		}
 	}
 
@@ -642,15 +644,10 @@
 					</div>
 					
 					{#if searxngTestResult}
-						{#if searxngTestResult.ok}
-							<div style="padding: 0.75rem; border-radius: 6px; font-size: 0.9rem; border: 1px solid rgba(16, 185, 129, 0.25); background: rgba(16, 185, 129, 0.08); color: #34d399; margin-top: 0.5rem; text-align: left; width: 100%;">
-								✅ {searxngTestResult.message}
-							</div>
-						{:else}
-							<div style="padding: 0.75rem; border-radius: 6px; font-size: 0.9rem; border: 1px solid rgba(239, 68, 68, 0.25); background: rgba(239, 68, 68, 0.08); color: #f87171; margin-top: 0.5rem; text-align: left; width: 100%;">
-								❌ {searxngTestResult.message}
-							</div>
-						{/if}
+						<div class="searx-result-box {searxngTestResult.ok ? 'success' : 'error'}">
+							<span>{searxngTestResult.ok ? '✅' : '❌'}</span>
+							<span>{searxngTestResult.message}</span>
+						</div>
 					{/if}
 				</div>
 			</div>
@@ -666,57 +663,88 @@
 				</div>
 			</div>
 			<div class="sc-body">
-				<div class="public-chat-admin-grid">
-					<div class="pca-row full-width">
-						<label class="toggle-label">
-							<input type="checkbox" bind:checked={publicChatConfig.enabled} />
-							<span><strong>{$t("admin_public_chat_enable") || 'Activer le Chat Public'}</strong> — {$t("admin_public_chat_enable_sub") || "Permettre aux joueurs d'écrire dans le chat central"}</span>
+				<div class="pca-container">
+					<!-- Toggles Grid -->
+					<div class="pca-toggles-grid">
+						<label class="pca-toggle-card">
+							<div class="pca-toggle-info">
+								<span class="pca-toggle-title">{$t("admin_public_chat_enable") || 'Activer le Chat Public'}</span>
+								<span class="pca-toggle-desc">{$t("admin_public_chat_enable_sub") || "Permettre aux joueurs d'écrire dans le chat central"}</span>
+							</div>
+							<div class="toggle-switch-mini">
+								<input type="checkbox" bind:checked={publicChatConfig.enabled} />
+								<span class="toggle-slider"></span>
+							</div>
+						</label>
+
+						<label class="pca-toggle-card">
+							<div class="pca-toggle-info">
+								<span class="pca-toggle-title">{$t("admin_public_chat_block_dup") || 'Anti-Répétition'}</span>
+								<span class="pca-toggle-desc">{$t("admin_public_chat_block_dup_desc") || 'Bloquer les messages consécutifs identiques'}</span>
+							</div>
+							<div class="toggle-switch-mini">
+								<input type="checkbox" bind:checked={publicChatConfig.block_duplicates} />
+								<span class="toggle-slider"></span>
+							</div>
+						</label>
+
+						<label class="pca-toggle-card full-width">
+							<div class="pca-toggle-info">
+								<span class="pca-toggle-title">{$t("admin_public_chat_ai_mention") || "Activer l'IA @Alanbix"}</span>
+								<span class="pca-toggle-desc">{$t("admin_public_chat_ai_mention_sub") || "L'IA répond quand mentionnée (@Alanbix) dans le chat public"}</span>
+							</div>
+							<div class="toggle-switch-mini">
+								<input type="checkbox" bind:checked={publicChatConfig.ai_mention_enabled} />
+								<span class="toggle-slider"></span>
+							</div>
 						</label>
 					</div>
 
-					<div class="pca-field">
-						<label>{$t("admin_public_chat_slowmode") || 'Slowmode (secondes par message)'}</label>
-						<input type="number" bind:value={publicChatConfig.slowmode_seconds} min="0" max="120" />
-					</div>
-
-					<div class="pca-field">
-						<label>{$t("admin_public_chat_max_len") || 'Longueur max message (caractères)'}</label>
-						<input type="number" bind:value={publicChatConfig.max_length} min="10" max="1000" />
-					</div>
-
-					<div class="pca-row full-width">
-						<label class="toggle-label">
-							<input type="checkbox" bind:checked={publicChatConfig.block_duplicates} />
-							<span>{$t("admin_public_chat_block_dup") || 'Bloquer les messages consécutifs identiques'}</span>
-						</label>
-					</div>
-
-					<div class="pca-field full-width">
-						<label>{$t("admin_public_chat_banned_words") || 'Mots interdits (séparés par une virgule)'}</label>
-						<input type="text" bind:value={publicChatConfig.banned_words_text} placeholder="ex: spam, hack, insult..." />
-					</div>
-
-					<div class="pca-row full-width">
-						<label class="toggle-label">
-							<input type="checkbox" bind:checked={publicChatConfig.ai_mention_enabled} />
-							<span><strong>{$t("admin_public_chat_ai_mention") || "Activer l'IA @Alanbix"}</strong> — {$t("admin_public_chat_ai_mention_sub") || "L'IA répond quand mentionnée (@Alanbix) dans le chat public"}</span>
-						</label>
-					</div>
-
-					{#if publicChatConfig.ai_mention_enabled}
+					<!-- Parameters Inputs Grid -->
+					<div class="pca-inputs-grid">
 						<div class="pca-field">
-							<label>{$t("admin_public_chat_ai_cooldown") || 'Cooldown IA @Alanbix (secondes)'}</label>
-							<input type="number" bind:value={publicChatConfig.ai_cooldown_seconds} min="5" max="300" />
+							<label class="compact-label">{$t("admin_public_chat_slowmode") || 'Slowmode (secondes)'}</label>
+							<input type="number" bind:value={publicChatConfig.slowmode_seconds} min="0" max="120" placeholder="0 = désactivé" />
+							<span class="pca-hint">Délai minimum entre deux envois d'un joueur</span>
 						</div>
-					{/if}
 
-					<div class="pca-actions full-width flex-row gap-3 mt-3">
+						<div class="pca-field">
+							<label class="compact-label">{$t("admin_public_chat_max_len") || 'Longueur max message'}</label>
+							<input type="number" bind:value={publicChatConfig.max_length} min="10" max="1000" placeholder="250" />
+							<span class="pca-hint">Nombre maximum de caractères par message</span>
+						</div>
+
+						{#if publicChatConfig.ai_mention_enabled}
+							<div class="pca-field">
+								<label class="compact-label">{$t("admin_public_chat_ai_cooldown") || 'Cooldown IA @Alanbix (s)'}</label>
+								<input type="number" bind:value={publicChatConfig.ai_cooldown_seconds} min="5" max="300" placeholder="15" />
+								<span class="pca-hint">Temps de repos de l'IA entre deux réponses</span>
+							</div>
+						{/if}
+
+						<div class="pca-field full-width">
+							<label class="compact-label">{$t("admin_public_chat_banned_words") || 'Mots interdits (séparés par une virgule)'}</label>
+							<input type="text" bind:value={publicChatConfig.banned_words_text} placeholder="ex: spam, hack, insult..." />
+							<span class="pca-hint">Les termes spécifiés seront automatiquement masqués dans le chat</span>
+						</div>
+					</div>
+
+					<!-- Action Buttons -->
+					<div class="pca-actions">
 						<button class="btn-primary" on:click={savePublicChatConfig}>
 							💾 {$t("admin_public_chat_save_btn") || 'Enregistrer les paramètres du chat'}
 						</button>
-						<button class="btn-outline-danger" on:click={clearChatHistoryAdmin}>
-							🗑️ {$t("admin_public_chat_purge_btn") || 'Vider les messages du chat'}
-						</button>
+						{#if purgeChatConfirm}
+							<div class="purge-confirm-group">
+								<span class="purge-confirm-text">⚠️ Confirmer la purge du chat ?</span>
+								<button class="btn-danger-sm" on:click={clearChatHistoryAdmin}>Oui, vider</button>
+								<button class="btn-secondary btn-xs" on:click={() => purgeChatConfirm = false}>Annuler</button>
+							</div>
+						{:else}
+							<button class="btn-outline-danger" on:click={() => purgeChatConfirm = true}>
+								🗑️ {$t("admin_public_chat_purge_btn") || 'Vider les messages du chat'}
+							</button>
+						{/if}
 					</div>
 				</div>
 			</div>
@@ -1292,10 +1320,10 @@
 
 <style>
 	.settings-view { display: flex; flex-direction: column; gap: 0; }
-	.settings-tabs { display: flex; gap: 0.25rem; padding: 0.25rem; background: var(--surface-sunken); border-radius: 12px; margin-bottom: 1.5rem; }
-	.stab { flex: 1; padding: 0.7rem 1rem; background: none; border: none; color: var(--text-dim); font-size: 0.85rem; font-weight: 600; cursor: pointer; border-radius: 10px; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 0.4rem; }
+	.settings-tabs { display: flex; gap: 0.35rem; padding: 0.35rem; background: var(--surface-sunken); border-radius: 12px; margin-bottom: 1.5rem; border: 1px solid var(--glass-border); }
+	.stab { flex: 1; padding: 0.7rem 1rem; background: none; border: none; color: var(--text-dim); font-size: 0.85rem; font-weight: 600; font-family: var(--font-main); cursor: pointer; border-radius: 8px; transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1); display: flex; align-items: center; justify-content: center; gap: 0.5rem; }
 	.stab:hover { color: var(--text-main); background: var(--hover-tint); }
-	.stab.active { background: rgba(59,130,246,0.12); color: var(--accent); box-shadow: 0 0 12px rgba(59,130,246,0.1); }
+	.stab.active { background: var(--accent); color: white; box-shadow: 0 4px 14px var(--accent-glow); font-weight: 700; }
 	.stab-icon { font-size: 1rem; }
 	.stab-content {
 		display: grid;
@@ -1316,10 +1344,10 @@
 	.sc.sc-full { grid-column: 1 / -1; }
 	.sc-head { display: flex; align-items: center; gap: 0.6rem; padding: 0.75rem 1rem; border-bottom: 1px solid var(--glass-border); background: var(--hover-tint); }
 	.sc-head.compact { padding: 0.5rem 0.8rem; }
-	.sc-head h3 { font-size: 0.9rem; color: var(--text-main); margin: 0; }
+	.sc-head h3 { font-family: var(--font-title); font-size: 0.95rem; font-weight: 700; color: var(--text-main); margin: 0; letter-spacing: -0.01em; }
 	.sc-icon { font-size: 1rem; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; background: rgba(59,130,246,0.08); border-radius: 8px; flex-shrink: 0; }
 	.sc-icon.sm { font-size: 0.85rem; width: 22px; height: 22px; border-radius: 6px; }
-	.sc-sub { font-size: 0.68rem; color: var(--text-muted); margin: 0.1rem 0 0; }
+	.sc-sub { font-family: var(--font-main); font-size: 0.72rem; color: var(--text-muted); margin: 0.15rem 0 0; line-height: 1.3; }
 	.sc-body { flex: 1; padding: 0.8rem 1rem; display: flex; flex-direction: column; }
 
 	/* Scoring toggle */
@@ -1328,8 +1356,8 @@
 	.score-opt:hover { border-color: rgba(59,130,246,0.3); background: rgba(59,130,246,0.04); }
 	.score-opt.active { border-color: var(--accent); background: rgba(59,130,246,0.1); box-shadow: 0 0 15px rgba(59,130,246,0.1); }
 	.score-opt-icon { font-size: 1.2rem; }
-	.score-opt-label { font-size: 0.85rem; font-weight: 700; color: var(--text-main); }
-	.score-opt-desc { font-size: 0.65rem; color: var(--text-muted); }
+	.score-opt-label { font-family: var(--font-title); font-size: 0.85rem; font-weight: 700; color: var(--text-main); }
+	.score-opt-desc { font-family: var(--font-main); font-size: 0.65rem; color: var(--text-muted); }
 
 	/* Default Points Grid */
 	.default-pts-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0.5rem; }
@@ -1387,12 +1415,12 @@
 	.btn-add.btn-xs { padding: 0.2rem 0.5rem; font-size: 0.65rem; border-radius: 6px; }
 
 	/* Switches */
-	.toggle-switch-mini { position: relative; display: inline-block; width: 28px; height: 16px; cursor: pointer; }
-	.toggle-switch-mini input { opacity: 0; width: 0; height: 0; }
-	.toggle-switch-mini .toggle-slider { position: absolute; inset: 0; background: var(--surface-sunken); border-radius: 8px; transition: 0.2s; }
-	.toggle-switch-mini .toggle-slider::before { content: ''; position: absolute; height: 12px; width: 12px; left: 2px; bottom: 2px; background: var(--text-dim); border-radius: 50%; transition: 0.2s; }
-	.toggle-switch-mini input:checked + .toggle-slider { background: rgba(59,130,246,0.35); }
-	.toggle-switch-mini input:checked + .toggle-slider::before { transform: translateX(12px); background: var(--accent); }
+	.toggle-switch-mini { position: relative; display: inline-block; width: 32px; height: 18px; cursor: pointer; flex-shrink: 0; }
+	.toggle-switch-mini input { opacity: 0; width: 0; height: 0; position: absolute; }
+	.toggle-switch-mini .toggle-slider { position: absolute; inset: 0; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 18px; transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
+	.toggle-switch-mini .toggle-slider::before { content: ''; position: absolute; height: 12px; width: 12px; left: 2px; bottom: 2px; background: var(--text-dim); border-radius: 50%; transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
+	.toggle-switch-mini input:checked + .toggle-slider { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 10px var(--accent-glow); }
+	.toggle-switch-mini input:checked + .toggle-slider::before { transform: translateX(14px); background: #ffffff; }
 
 	/* Queue */
 	.queue-stats-badges { display: flex; gap: 0.4rem; }
@@ -1445,15 +1473,31 @@
 	.btn-icon:hover { background: var(--accent-soft); border-color: var(--accent); }
 	.btn-icon-danger:hover { border-color: var(--danger, #ef4444); background: rgba(239,68,68,0.15); }
 
-	/* Public Chat Grid */
-	.public-chat-admin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; width: 100%; }
-	.pca-field { display: flex; flex-direction: column; gap: 0.4rem; }
-	.pca-field label { font-size: 0.82rem; color: var(--text-dim, #94a3b8); font-weight: 500; }
-	.pca-field input[type="text"], .pca-field input[type="number"] { width: 100%; padding: 0.6rem 0.8rem; border-radius: var(--radius-sm, 6px); background: rgba(15, 23, 42, 0.6); border: 1px solid var(--glass-border); color: var(--text-main, white); font-size: 0.9rem; }
-	.pca-row { display: flex; align-items: center; }
-	.full-width { grid-column: 1 / -1; }
-	.toggle-label { display: flex; align-items: center; gap: 0.6rem; cursor: pointer; font-size: 0.9rem; color: var(--text-main, white); }
-	.toggle-label input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-color: var(--accent, #6366f1); }
+	/* Public Chat Grid & Modern Controls */
+	.pca-container { display: flex; flex-direction: column; gap: 1.25rem; width: 100%; }
+	.pca-toggles-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 0.75rem; width: 100%; }
+	.pca-toggle-card { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.85rem 1.1rem; border-radius: 10px; background: var(--hover-tint); border: 1px solid var(--glass-border); cursor: pointer; transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1); user-select: none; }
+	.pca-toggle-card:hover { background: var(--surface-sunken); border-color: var(--glass-border-highlight); transform: translateY(-1px); }
+	.pca-toggle-card.full-width { grid-column: 1 / -1; }
+	.pca-toggle-info { display: flex; flex-direction: column; gap: 0.2rem; }
+	.pca-toggle-title { font-size: 0.85rem; font-weight: 700; color: var(--text-main); font-family: var(--font-main); }
+	.pca-toggle-desc { font-size: 0.72rem; color: var(--text-muted); font-family: var(--font-main); line-height: 1.3; }
+
+	.pca-inputs-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; width: 100%; }
+	.pca-field { display: flex; flex-direction: column; gap: 0.35rem; }
+	.pca-field.full-width { grid-column: 1 / -1; }
+	.pca-field input[type="text"], .pca-field input[type="number"] { width: 100%; padding: 0.65rem 0.85rem; border-radius: var(--radius-md); background: var(--input-bg); border: 1px solid var(--glass-border); color: var(--input-color); font-family: var(--font-main); font-size: 0.85rem; transition: all 0.2s; box-sizing: border-box; }
+	.pca-field input[type="text"]:focus, .pca-field input[type="number"]:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+	.pca-hint { font-size: 0.68rem; color: var(--text-muted); font-family: var(--font-main); }
+
+	.pca-actions { display: flex; align-items: center; justify-content: flex-start; gap: 1rem; margin-top: 0.5rem; flex-wrap: wrap; }
+	.purge-confirm-group { display: flex; align-items: center; gap: 0.5rem; background: rgba(239, 68, 68, 0.08); border: 1px dashed rgba(239, 68, 68, 0.3); border-radius: 8px; padding: 0.4rem 0.8rem; }
+	.purge-confirm-text { font-size: 0.75rem; font-weight: 700; color: var(--danger); font-family: var(--font-main); }
+
+	/* SearXNG Result */
+	.searx-result-box { display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1rem; border-radius: 8px; font-size: 0.85rem; font-family: var(--font-main); margin-top: 0.5rem; width: 100%; border: 1px solid transparent; box-sizing: border-box; }
+	.searx-result-box.success { background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.3); color: var(--success); }
+	.searx-result-box.error { background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.3); color: var(--danger); }
 
 	/* Danger Zone */
 	.danger-zone { border: 1px solid rgba(239, 68, 68, 0.2) !important; background: rgba(239, 68, 68, 0.03) !important; }
