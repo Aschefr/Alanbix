@@ -2,99 +2,33 @@
 
 ## [Unreleased]
 
-### Fix — Floating-Point Arithmetic Display Artifacts in Player & Team Points
+## [1.32.0] - 2026-09-27
 
-- **Centralized Points Formatting (`formatPoints` in `$lib/utils.ts`)**:
-  - Implemented a reusable `formatPoints(val, maxDecimals = 2)` helper eliminating IEEE-754 precision drift (e.g. `24.700000000000003` -> `24.7`, `25.0` -> `25`).
-  - Integrated across all point-displaying surfaces:
-    - **Player Profile Header Badge & Points History Table (`profile/+page.svelte`)**: Cleaned sum reduction in header badge and individual breakdown badges (`placement_pts`, `participation_pts`, `score_pts`, `total`).
-    - **Player Stats Modal (`DashboardPlayerModal.svelte`)**: Applied clean rounding to total points, per-tournament points, breakdown formulas, and bonuses.
-    - **Dashboard Leaderboard (`DashboardLeaderboard.svelte`)**: Formatted player scores, team scores, and team member breakdowns.
-    - **Players Directory (`players/+page.svelte`)**: Formatted player cards, solo cards, and collapsible points breakdown history.
-    - **Tournaments Live Standings & Teams (`tournaments/+page.svelte`, `TournamentStandings.svelte`)**: Applied clean formatting to live standings rows, closed results rows, and team member scores.
-    - **Spectator Arena View (`spectator/+page.svelte`)**: Formatted player and team leaderboard scores.
-    - **Admin Players Tab (`AdminPlayersTab.svelte`)**: Formatted points column and edit modal input.
-- **Backend Defense-in-Depth Rounding**:
-  - **`backend/app/routers/dashboard.py`**: Cleaned team leaderboard points summation and weighted average scoring with explicit `round(..., 1)`.
-  - **`backend/app/routers/users.py`**: Cleaned points history returned by `/me/points-history`, admin user list, and admin points update endpoint.
-  - **`backend/app/routers/players.py`**: Cleaned live projected points and calculated totals in `/{user_id}/points-history`.
-  - **`backend/app/routers/tournaments.py`**: Rounded points additions and subtractions to 1 decimal place during tournament closing and reopening.
+### 💬 Chat Public Moderne & Interactif
 
-### UI & Design Coherence — Global Modal System Harmonization, Typography & i18n Overhaul
+- **Réactions Émojis en direct** : Réagissez aux messages avec un sélecteur d'émojis complet (catégories LAN/Gaming, recherche instantanée) et un accès direct aux 4 émojis récents.
+- **Réponses & Citations contextuelles** : Répondez précisément à un message avec aperçu au-dessus de la saisie et clic sur la citation pour retrouver le message d'origine dans le fil.
+- **Annonces Épinglées** : Les organisateurs peuvent épingler des messages importants, visibles sous forme de bannière en haut du chat avec accès direct au message.
+- **Indicateurs de saisie en temps réel** : Visibilité immédiate des personnes en train d'écrire, avec des punchlines humoristiques et le statut de réflexion du bot `@Alanbix`.
+- **Alertes sonores douces** : Signal audio léger lors d'une mention directe `@votre_nom` (désactivable d'un clic avec le bouton silencieux).
 
-- **Standardized Global Modal Architecture (`app.css`)**:
-  - Integrated global CSS classes under `/* === Global Modal / Overlay System === */` for modal structure (`.edit-modal-header`, `.edit-modal-body`, `.edit-modal-footer`, `.close-btn`, and `.edit-field`).
-  - Guaranteed automatic theme adaptation across all modals in dark and light modes via `--surface-sunken`, `--glass-border`, `--input-bg`, `--input-color`, and `--accent-soft`.
-- **Universal Alert/Confirm Component (`Modal.svelte`)**:
-  - Internationalized action buttons with fallback props (`cancel`, `info_confirm`, `modal_ok`), eliminating hardcoded French button text.
-  - Applied `--font-title` (Outfit) to the modal header title (`.modal-title`), normalized line-height and typography in `.modal-body`, and improved light/dark contrast on `success`, `error`, and `info` status headers.
-- **Admin Player Management Modals (`AdminPlayersTab.svelte`)**:
-  - Resolved missing scoped CSS for `.edit-modal-header/body/footer`, restoring structured padding, divider borders, and flex alignments on "Modifier Joueur" and "Réinitialiser Mot de passe" modals.
-  - Replaced hardcoded French strings with 11 localized i18n keys (`admin_players_modal_edit_title`, `admin_players_modal_delete_avatar`, `admin_players_modal_team_name`, `admin_players_modal_seat`, `admin_players_modal_points`, `admin_players_modal_is_admin`, `admin_players_modal_block_ai`, `admin_players_modal_reset_pwd_title`, `admin_players_modal_new_pwd`, `admin_players_modal_reset_btn`).
-- **Admin Tournament & Game Modals (`AdminTournamentsTab.svelte`)**:
-  - Restored structured modal layout for "Suppression Critique Jeu" and "Éditer Jeu" modals.
-  - Localized modal titles and image selector labels (`admin_games_nuke_title`, `admin_games_edit_title`, `admin_games_lbl_image`).
-- **Game Import & Tournament Editing Modals (`AddGameModal.svelte` & `EditTournamentModal.svelte`)**:
-  - Applied `--font-title` (Outfit) on modal headers and section titles, and `--font-main` (Inter) on buttons and form controls.
-  - Synchronized EasyMDE markdown editor theme overrides in `AddGameModal` to `--input-bg` and `--input-color` for seamless dark and light mode rendering.
-- **Player Profile & Awards Popover (`DashboardPlayerModal.svelte`)**:
-  - Applied `--font-title` (Outfit) to the player's username header, section headers, and key statistic values (total points, participation count, trophy count).
-  - Switched background to `--bg-primary` and header to `--surface-sunken` to align with the active theme.
-- **Full Internationalization (i18n)**:
-  - Synchronized 16 new keys across `fr.json`, `en.json`, and `es.json` with strict UTF-8-BOM adherence and zero emoji rules, verified via `verify_i18n.py`.
+### ⚡ Fluidité & Performances en LAN (Anti-Lag)
 
-### UI & Design Coherence — Secondary Pages Aesthetic, Typography & Theme Contrast Overhaul (Info, Profile, Spectator)
+- **Protection anti-saturation (Thundering Herd)** : Fin des ralentissements réseau lors des saisies simultanées de scores ou des lancements de tournois grâce au lissage intelligent des actualisations.
+- **Défilement ultra-fluide du Chat** : Chargement progressif des anciens messages à la demande (défilement continu sans saut d'écran) et affichage instantané même en cas de spam d'émojis ou de GIFs.
+- **Base de données accélérée** : Indexation complète pour des temps de réponse instantanés sur l'ensemble du tableau de bord.
 
-- **LAN Guidelines & Info Page (`info/+page.svelte`)**:
-  - Integrated global typography tokens: applied `--font-title` (Outfit) to headers (`.info-header h1`, `.files-header h2`, and markdown `h1, h2, h3`), and `--font-main` (Inter) across buttons and file cards.
-  - Fully theme-adapted EasyMDE markdown editor: mapped dynamic CodeMirror wrapper, toolbar, preview, and status bar to design tokens (`--input-bg`, `--input-color`, `--glass-border`, `--hover-tint`, `--accent-soft`), ensuring seamless contrast and readability in both dark and light modes.
-  - Modernized File Manager card design with subtle glassmorphism borders, theme-aware hover elevations, and localized notifications/modals (`info_saved`, `info_save_error`, `info_uploading`, `info_upload_error`, `info_delete_error`, `info_nuke_error`, `info_files_nuke_btn`, `info_confirm_count`, `info_confirm`, `info_copy_path_tooltip`, `info_markdown_placeholder`).
-- **Player Profile & Avatar Studio (`profile/+page.svelte`)**:
-  - Standardized typography with `--font-title` for headers (`.profile-header h1`, `.card-title`, `.pts-number`) and `--font-main` for badges, input fields, and action buttons.
-  - Replaced hardcoded black crop modal overlay with `backdrop-filter: blur(8px)` and theme-adapted modal background (`--surface-raised`).
-  - Added CSS transparency checkerboard pattern to the avatar canvas viewport (`.canvas-wrapper`) to make transparent avatar backgrounds immediately distinguishable from black/dark backgrounds in any theme.
-  - Replaced hardcoded title gradient with theme-safe token and localized all crop modal action buttons and points breakdown tooltips (`profile_pts_tooltip_placement`, `profile_pts_tooltip_participation`, `profile_pts_tooltip_bonus`).
-- **Fullscreen Arena Spectator (`spectator/+page.svelte`)**:
-  - Replaced hardcoded text gradient fallback on `.spec-title` with `linear-gradient(135deg, var(--text-main) 30%, var(--accent) 100%)` ensuring high contrast and readability on both dark and light themes, while preserving `.hero-title` white text-shadow on tournament wallpaper backdrops.
-  - Applied `--font-title` (Outfit) to `.spec-event`, `.hero-title`, `.spec-group-title`, `.spec-round-hdr`, `.spec-ffa-hdr`, and `.spec-lb-title`.
-  - Replaced hardcoded inline styles in FFA and Round-Robin match cards with clean semantic classes (`.spec-ffa-match-card`, `.spec-ffa-match-hdr`, `.spec-rr-match`, `.spec-rr-score`) mapped to `--surface-raised`, `--surface-sunken`, and `--glass-border`.
-  - Localized tournament display strings: `spec_losers_bracket`, `spec_lb_finale`, and `spec_group_num`.
-- **Full Internationalization (i18n)**:
-  - Synchronized 14 new and updated localization keys across `fr.json`, `en.json`, and `es.json` with strict adherence to BOM and UTF-8 encoding rules, verified via `verify_i18n.py`.
+### 🎨 Design, Lisibilité & Cohérence Visuelle
 
-### UI & Design Coherence — Admin Settings Theme Contrast, Symmetrical 3-Card Grid & Full i18n Synchronization
+- **Harmonisation complète des thèmes (Sombre & Clair)** : Contrastes, typographies et couleurs de fond ajustés sur toutes les pages (Règlement/Info, Profil, Arène Spectateur, Paramètres Admin).
+- **Modales & Fenêtres unifiées** : Nouveau design standardisé pour toutes les boîtes de dialogue et popups avec typographie moderne (Outfit) et fermeture rapide par la touche `Échap`.
+- **Studio Avatar amélioré** : Grille de transparence visible pour faciliter le détourage et l'ajustement des photos de profil.
 
-- **Admin Public Chat & Anti-Spam Theme Contrast**: Replaced hardcoded dark slate backgrounds (`rgba(15, 23, 42, 0.6)`) with theme-aware tokens (`--input-bg`, `--input-color`, `--glass-border`, and `--accent-soft` focus ring) on all chat inputs (Slowmode, Max Length, Cooldown, Banned Words) to ensure flawless readability and contrast in both light and dark themes.
-- **Symmetrical 3-Card Toggle Layout & Reactive Auto-Save**: Redesigned the Public Chat toggle controls into a balanced 3-column grid (`.pca-toggles-grid`) featuring distinct icon badges (`💬`, `🛡️`, `🤖`), active colored highlights, and custom `.toggle-switch-mini` sliding pills, eliminating previous awkward multi-row stretching. Converted toggle cards to interactive switches (`togglePublicChatField`) with immediate backend persistence (`PUT /public-chat/config`), real-time WebSocket broadcast, and feedback toast, fixing previous behavior where toggling switches only altered local Svelte state without saving and reverted upon F5 reload.
-- **Structured Grouping, Auto-Saving Inputs & Unit Suffixes**: Organized rate limits into dedicated visual panels with concise uppercase labels (`.compact-label`), inline numeric unit badges (`sec`, `car.`), helpful localized hints, and auto-saving on field blur/change (`on:change={savePublicChatConfig}`).
-- **Backend Mutation Tracking & Admin Feedback**: Added SQLAlchemy `flag_modified` and session refresh in `PUT /public-chat/config` (`public_chat.py`) to prevent JSON column caching issues. Added `dash_chat_disabled_admin_hint` placeholder in `PublicChat.svelte` to clearly notify administrators when the chat is disabled for regular players while admin override remains active.
-- **Full Internationalization (i18n)**: Synchronized 27 keys across `fr.json`, `en.json`, `es.json`, and `de.json` with strict `verify_i18n.py` compliance, resolving missing description keys (like `admin_public_chat_block_dup_desc`), section headers, input hints, admin status notices, and toast notifications.
+### 🏆 Calculs & Administration
 
-### Performance & Architecture — Anti-Thundering Herd, Database Indexing, and Admin Modularization
-
-- **Anti-Thundering Herd Protection (Tournaments, Dashboard, Spectator)**: Added debouncing (250ms), randomized client jitter (0–100ms), and in-flight request guarding on WebSocket event listeners across `tournaments/+page.svelte`, `dashboard/+page.svelte`, and `spectator/+page.svelte`. Batched parallel queries via `Promise.all()` to prevent simultaneous network storms from hammering the backend when scores, standings, or participants update during LAN matches.
-- **High-Performance Database Indexing & Safe Migrations**: Added `index=True` across critical foreign keys, status filters, and sorting timestamp columns in SQLAlchemy models (`models.py`) and integrated safe, idempotent `CREATE INDEX IF NOT EXISTS` execution in `init_db()` (`database.py`). Eliminates sequential table scans on `public_chat_messages`, `chat_messages`, `tournament_participants`, `tournament_teams`, `notifications`, and `admin_call_requests` for existing and new databases alike.
-- **Backend N+1 Query Elimination**: Optimized `GET /dashboard/stats` with SQL aggregations and eager-loaded relationship lookups in `GET /public-chat/messages` to remove cascading sequential queries.
-- **Admin Dashboard Modularization**: Refactored the monolithic 1,600+ line Admin view (`dashboard/admin/+page.svelte`) into a clean orchestrator with 5 dedicated subcomponents (`AdminTournamentsTab.svelte`, `AdminPlayersTab.svelte`, `AdminSettingsTab.svelte`, `AdminConversationsTab.svelte`, `AdminAwardsTab.svelte`). Preserved full feature parity, responsive glassmorphism navigation menu layout, live unread badges, and added `Escape` keyboard shortcuts on all admin modals.
-- **Tournament View Modularization**: Refactored the massive 2,500+ line Tournament component (`dashboard/tournaments/+page.svelte`) down to ~550 lines by breaking it into 4 dedicated subcomponents (`TournamentParticipants.svelte`, `TournamentTeams.svelte`, `TournamentStandings.svelte`, and `TournamentBracket.svelte`). Encapsulated SVG pan/zoom, score delay countdowns, boolean-mode toggles, FFA/Round-robin match rendering, and team drag-and-drop while drastically speeding up frontend hot-reloading and maintainability.
-- **Public Chat DOM Optimization & Cursor-Based Pagination**: Optimized `PublicChat.svelte` rendering performance to ensure smooth 60 FPS scrolling and typing during crowded LAN chats. Added backward cursor pagination (`before_id` parameter on `GET /public-chat/messages`) with zero-scroll-jump position anchoring when loading earlier message batches, integrated memoization on formatted HTML content (`_formattedContent`) to eliminate redundant regular-expression parsing on Svelte render cycles, capped live mounted DOM nodes to 200 items when streaming high-frequency incoming messages, and made quote jump navigation automatically fetch missing parent messages on demand.
-- **Dashboard View Modularization**: Refactored the monolithic 1,760-line main Dashboard view (`dashboard/+page.svelte`) down to ~430 lines by extracting 4 dedicated subcomponents (`DashboardLeaderboard.svelte`, `DashboardFloorMap.svelte`, `DashboardBracketPreview.svelte`, and `DashboardPlayerModal.svelte`). Preserved complete feature parity including the resizable neon chat/map splitter, SVG arena pan/zoom, interactive floating chat bubble animations, pulsing seats, multi-format brackets (Single/Double Elim, Round Robin, FFA), and the global player profile modal with `Escape` key dismissal.
-
-### Features & Improvements — Modern Public Chat (Reactions, Replies, Pinned Messages, Mention Sounds)
-
-- **Interactive Emoji Reactions & Comprehensive Picker**: Added a compact reaction trigger on each message row displaying **4 recently used emojis** (persisted in `localStorage`) alongside an expand button (`➕`). Opening the expanded picker provides an exhaustive catalog categorized into 7 tabs (Recent, All, Gaming & LAN, Gamer Tags like `GG`, `EZ`, `WP`, `GLHF`, `RIP`, `MVP`, `CLUTCH`, Smileys & Emotions, Hands & Gestures, and Symbols & Hearts) with live keyword search filtering. Interactive reaction pills underneath messages display live participant counts, reacting user tooltips, and real-time WebSocket synchronization (`public_chat_reaction_updated`).
-- **Contextual Replies & Quotes**: Implemented reply actions with a dedicated preview bar above the input field (cancelable via `✕` or `Escape`). Sent replies render an interactive quoted block above the message body that smoothly scrolls and highlights the source message upon click.
-- **Pinned Announcements Banner**: Added an elegant retractable announcement banner beneath the chat header displaying the latest pinned message. Users can click to jump directly to the announcement with visual highlight. Administrators can pin/unpin messages on demand (`POST /public-chat/pin`), synchronized globally via WebSockets (`public_chat_pinned_updated`).
-- **Offline Synthetic Mention Sound Notifications (G-17)**: Integrated a gentle two-tone chime synthesized natively with the Web Audio API without requiring any external audio files. Triggers exclusively when an active user is directly mentioned (`@username`). Includes a persistent audio mute toggle (`🔔` / `🔕`) in the chat header.
-- **Database Schema Upgrades (G-09, G-22)**: Added safe column migrations for `reactions` (JSON) and `reply_to_id` (ForeignKey) on `public_chat_messages` with explicit `flag_modified()` mutation tracking and `SystemConfig` persistence for pinned messages.
-- **Multilingual Localization (i18n)**: Fully translated and synchronized all new UI tooltips, action labels, and announcement titles across `fr.json`, `en.json`, and `es.json` with strict `verify_i18n.py` compliance.
-
-### Features & Improvements — Public Chat Typing Indicators & AI Assistant State
-
-- **Real-Time Typing Indicators**: Implemented real-time typing indicators in the public chat via `POST /public-chat/typing` and WebSocket `public_chat_typing` broadcast events.
-- **AI Assistant Typing Awareness**: Broadcasts typing status for the `@Alanbix` AI bot when background queue generation is in progress, automatically clearing it upon completion or error.
-- **Dynamic Humorous Punchlines**: Displays typers unified as `"User1, User2, Alanbix … [humorous phrase]"` with rotating gaming and Gaulish-themed phrases adapted to singular and plural forms.
-- **Full Internationalization (i18n)**: Added synchronized and translated typing punchlines in `fr.json`, `en.json`, and `es.json` validated with `verify_i18n.py`.
+- **Affichage propre des points** : Élimination définitive des artefacts de calcul décimal (ex. `24.7 pts` net au lieu de `24.700000000000003 pts`).
+- **Nouveau panneau d'administration du Chat** : Contrôles réorganisés en cartes claires, avec sauvegarde instantanée des réglages anti-spam et du slowmode.
+- **Traductions complètes (i18n)** : 100 % de l'interface traduite en français, anglais et espagnol sans texte tronqué ni bouton brut.
 
 ## [1.31.0] - 2026-07-12
 

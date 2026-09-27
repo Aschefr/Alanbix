@@ -1429,6 +1429,23 @@ future_axes:
       - "Synchronisation et vérification des traductions fr, en et es validée avec verify_i18n.py."
     priority: medium
 
+  - id: AXE-66
+    title: "Optimisation performances LAN, harmonisation visuelle & refactorisation modulaire (v1.32.0)"
+    status: DONE
+    description: >
+      Sécurisation des performances sous forte charge (anti-thundering herd, indexation SQLite, requêtes groupées),
+      modularisation des grands composants frontend (Admin, Tournois, Dashboard), harmonisation des contrastes et thèmes
+      sur l'ensemble des pages et correction de la précision flottante des points.
+    done:
+      - "Protection anti-thundering herd et lissage aléatoire (jitter) sur les écouteurs d'événements WebSocket."
+      - "Indexation automatique et idempotente des clés étrangères et colonnes de filtrage SQLite dans database.py et models.py."
+      - "Modularisation de la vue administration (admin/+page.svelte) et de la vue tournois en sous-composants dédiés."
+      - "Harmonisation globale des contrastes, styles de modales et de la typographie (Outfit / Inter) sur l'ensemble des pages."
+      - "Correction de l'imprécision des nombres flottants dans les calculs et l'affichage des points joueurs et équipes."
+      - "Validation complète i18n et passage de la suite de tests unitaires."
+    priority: high
+
+
 
 
 
