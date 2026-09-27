@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [1.32.1] - 2026-09-27
+
+### 🐛 Correction — Connexion Docker Standalone & Unraid
+
+- **Rétablissement de la connexion conteneur (Port 41481)** : Correction du routage des requêtes API et WebSockets en production. Le conteneur unifié utilise désormais correctement le port unique d'Alanbix (41481) ou votre reverse proxy sans tenter de contacter le port de développement 8000.
+
 ## [1.32.0] - 2026-09-27
 
 ### 💬 Chat Public Moderne & Interactif
