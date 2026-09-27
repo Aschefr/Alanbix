@@ -1,0 +1,210 @@
+export interface EmojiItem {
+	emoji: string;
+	name: string;
+	cat: 'gaming' | 'gaming_tags' | 'smileys' | 'gestures' | 'symbols';
+	isTag?: boolean;
+}
+
+export interface EmojiCategory {
+	id: string;
+	labelKey: string;
+	icon: string;
+}
+
+export const EMOJI_CATEGORIES: EmojiCategory[] = [
+	{ id: 'recent', labelKey: 'dash_chat_cat_recent', icon: '🕒' },
+	{ id: 'all', labelKey: 'dash_chat_cat_all', icon: '🌟' },
+	{ id: 'gaming', labelKey: 'dash_chat_cat_gaming', icon: '🎮' },
+	{ id: 'gaming_tags', labelKey: 'dash_chat_cat_tags', icon: '🏷️' },
+	{ id: 'smileys', labelKey: 'dash_chat_cat_smileys', icon: '😀' },
+	{ id: 'gestures', labelKey: 'dash_chat_cat_gestures', icon: '👋' },
+	{ id: 'symbols', labelKey: 'dash_chat_cat_symbols', icon: '❤️' }
+];
+
+export const DEFAULT_RECENT_EMOJIS = ['👍', '🔥', '🏆', '❤️'];
+
+export const EMOJI_CATALOG: EmojiItem[] = [
+	// ==========================================
+	// GAMING & LAN
+	// ==========================================
+	{ emoji: '🎮', name: 'Manette Controller Console Gaming Play Video Game', cat: 'gaming' },
+	{ emoji: '🕹️', name: 'Joystick Arcade Retro Game Vintage Bornier', cat: 'gaming' },
+	{ emoji: '🎲', name: 'Dé Dice Hasard Jeu Chance Random Roll', cat: 'gaming' },
+	{ emoji: '🎯', name: 'Cible Bullseye Target Precision Headshot Focus', cat: 'gaming' },
+	{ emoji: '👾', name: 'Monstre Alien Space Invader Pixel Retro 8bit', cat: 'gaming' },
+	{ emoji: '🤖', name: 'Robot Bot AI Cyborg Alanbix Machine', cat: 'gaming' },
+	{ emoji: '🏆', name: 'Trophée Trophy Winner Victoire First Top 1 Champion', cat: 'gaming' },
+	{ emoji: '🥇', name: 'Médaille or Gold Medal First Premier Winner', cat: 'gaming' },
+	{ emoji: '🥈', name: 'Médaille argent Silver Medal Second Deuxième', cat: 'gaming' },
+	{ emoji: '🥉', name: 'Médaille bronze Bronze Medal Troisième Podium', cat: 'gaming' },
+	{ emoji: '👑', name: 'Couronne Crown King Reine Boss Leader Roi Carry', cat: 'gaming' },
+	{ emoji: '⚔️', name: 'Épées Swords Combat Battle Fight Duel PVP War', cat: 'gaming' },
+	{ emoji: '🛡️', name: 'Bouclier Shield Defense Tank Armor Protect Guard', cat: 'gaming' },
+	{ emoji: '🏹', name: 'Arc Flèche Bow Arrow Sniper Archer Shoot', cat: 'gaming' },
+	{ emoji: '💣', name: 'Bombe Bomb Explode Boom Defuse Plant C4', cat: 'gaming' },
+	{ emoji: '🧨', name: 'Dynamite Pétard Boom TNT Firecracker Kaboom', cat: 'gaming' },
+	{ emoji: '💥', name: 'Explosion Boom Bang Collision Impact Crash Hit', cat: 'gaming' },
+	{ emoji: '⚡', name: 'Éclair Lightning Volt Electric Speed Fast Rush Turbo', cat: 'gaming' },
+	{ emoji: '🔥', name: 'Feu Fire Flame Hot Hype Lit Warm Chaud Flamme', cat: 'gaming' },
+	{ emoji: '🍕', name: 'Pizza LAN Food Miam Bouffe Snack Pause', cat: 'gaming' },
+	{ emoji: '🥤', name: 'Boisson Soda Gobelet Cup Drink Energy Redbull', cat: 'gaming' },
+	{ emoji: '☕', name: 'Café Coffee Tea Pause Chill Boost Matin', cat: 'gaming' },
+	{ emoji: '🔋', name: 'Batterie Battery Charge Full Power Energy Pile', cat: 'gaming' },
+	{ emoji: '🚀', name: 'Fusée Rocket Space Moon Fast Up Rush Carry ToTheMoon', cat: 'gaming' },
+	{ emoji: '💻', name: 'PC Ordinateur Computer Laptop Setup Tech Rig', cat: 'gaming' },
+	{ emoji: '🖥️', name: 'Écran Desktop Monitor Setup Display Ultrawide 144Hz', cat: 'gaming' },
+	{ emoji: '🎧', name: 'Casque Headset Audio Sound Musique Micro Comms Discord', cat: 'gaming' },
+	{ emoji: '⌨️', name: 'Clavier Keyboard Mech Typing Click Switch', cat: 'gaming' },
+	{ emoji: '🖱️', name: 'Souris Mouse Aim Click DPI Sensor Optical', cat: 'gaming' },
+
+	// ==========================================
+	// GAMER TAGS
+	// ==========================================
+	{ emoji: 'GG', name: 'Good Game Bien joué Bravo Win Victoire Fin', cat: 'gaming_tags', isTag: true },
+	{ emoji: 'EZ', name: 'Easy Facile No sweat Simple Tranquille Izi', cat: 'gaming_tags', isTag: true },
+	{ emoji: 'WP', name: 'Well Played Bien joué Pro Skill Solide Masterclass', cat: 'gaming_tags', isTag: true },
+	{ emoji: 'GLHF', name: 'Good Luck Have Fun Bonne chance Amusez vous Début Match', cat: 'gaming_tags', isTag: true },
+	{ emoji: 'RIP', name: 'Rest In Peace Mort Défaite Cheh Dead F Tombe', cat: 'gaming_tags', isTag: true },
+	{ emoji: 'MVP', name: 'Most Valuable Player Meilleur Joueur Carry Ace Patron', cat: 'gaming_tags', isTag: true },
+	{ emoji: 'WTF', name: 'What The Quoi Nani Comment Incroyable Choc Insensé', cat: 'gaming_tags', isTag: true },
+	{ emoji: 'SUS', name: 'Suspicious Louche Among Us Imposteur Doute Traître', cat: 'gaming_tags', isTag: true },
+	{ emoji: 'OP', name: 'Overpowered Trop fort Abusé Cheaté Nerf Broken S-Tier', cat: 'gaming_tags', isTag: true },
+	{ emoji: 'CLUTCH', name: 'Clutch Sauvetage 1vX Masterclass Miracle Gagne Clutch or kick', cat: 'gaming_tags', isTag: true },
+	{ emoji: 'NT', name: 'Nice Try Bien essayé Presque Dommage Close', cat: 'gaming_tags', isTag: true },
+	{ emoji: 'AFK', name: 'Away From Keyboard Absent Pause BRB Toilette AFK', cat: 'gaming_tags', isTag: true },
+
+	// ==========================================
+	// SMILEYS & EMOTIONS
+	// ==========================================
+	{ emoji: '😀', name: 'Sourire Grin Happy Heureux Content Joie', cat: 'smileys' },
+	{ emoji: '😃', name: 'Grand sourire Happy Joie Smile Riante', cat: 'smileys' },
+	{ emoji: '😄', name: 'Sourire yeux rieurs Joy Laugh Rire Dents', cat: 'smileys' },
+	{ emoji: '😁', name: 'Sourire radieux Beaming Smile Happy Dents', cat: 'smileys' },
+	{ emoji: '😆', name: 'Rire aux éclats Laugh Mdr Lol Haha Mort de rire', cat: 'smileys' },
+	{ emoji: '😅', name: 'Sueur sourire Sweat Smile Ouf Gêné Sauvé', cat: 'smileys' },
+	{ emoji: '😂', name: 'MDR Pleurer de rire Tears Joy Lol Haha Dead Ptdr', cat: 'smileys' },
+	{ emoji: '🤣', name: 'ROFL Roulant par terre Rire Laugh Lol Ptdr Xptdr', cat: 'smileys' },
+	{ emoji: '🥲', name: 'Sourire larme Emotion Fier Touché Sad smile Ému', cat: 'smileys' },
+	{ emoji: '🥹', name: 'Yeux brillants Pleurer émotion Touché Mignon Pitié Larmes', cat: 'smileys' },
+	{ emoji: '😊', name: 'Sourire doux Blush Timide Gentil Warm', cat: 'smileys' },
+	{ emoji: '😇', name: 'Innocent Ange Halo Pure Gentil Sage Saint', cat: 'smileys' },
+	{ emoji: '🙂', name: 'Sourire léger Ok Neutral Calme D\'accord', cat: 'smileys' },
+	{ emoji: '🙃', name: 'À l\'envers Upside down Ironie Sarcastique Chaos', cat: 'smileys' },
+	{ emoji: '😉', name: 'Clin d\'œil Wink Complicité Flirt Clin', cat: 'smileys' },
+	{ emoji: '😌', name: 'Soulagé Relieved Zen Apaisé Calme Repos', cat: 'smileys' },
+	{ emoji: '😍', name: 'Yeux cœur In love Amour Fan Sublime Magnifique Waouh', cat: 'smileys' },
+	{ emoji: '🥰', name: 'Amoureux Hearts Love Mignon Tendresse Cœurs', cat: 'smileys' },
+	{ emoji: '😘', name: 'Bisou Kiss Amour Bisous Flirt Cœur', cat: 'smileys' },
+	{ emoji: '😋', name: 'Miam Delicious Yummy Bon Délicieux Gourmand Food', cat: 'smileys' },
+	{ emoji: '😛', name: 'Langue Tongue Taquin Blague Joke Tire la langue', cat: 'smileys' },
+	{ emoji: '😜', name: 'Clin d\'œil langue Winking tongue Fun Taquin Fou Délire', cat: 'smileys' },
+	{ emoji: '🤪', name: 'Fou Zany Crazy Déjanté Lol Wtf Dingue', cat: 'smileys' },
+	{ emoji: '😎', name: 'Lunettes Cool Swag Boss Pro Chill Style BG', cat: 'smileys' },
+	{ emoji: '🤓', name: 'Nerd Geek Lunettes Smart Intellectuel Code Dev', cat: 'smileys' },
+	{ emoji: '🧐', name: 'Monocle Enquête Curieux Analyser Examen Hum Inspecteur', cat: 'smileys' },
+	{ emoji: '🥳', name: 'Fête Party Celebration Chapeau Confetti Birthday Anniversaire', cat: 'smileys' },
+	{ emoji: '😏', name: 'Sourire en coin Smirk Malicieux Hehe Confiant Drague', cat: 'smileys' },
+	{ emoji: '😒', name: 'Blasé Unamused Pas drôle Saoulé Bof Soûlé', cat: 'smileys' },
+	{ emoji: '😞', name: 'Déçu Disappointed Sad Triste Dommage Dépité', cat: 'smileys' },
+	{ emoji: '😔', name: 'Pensif Sad Triste Regret Coup dur Mélancolie', cat: 'smileys' },
+	{ emoji: '🥺', name: 'Pitié Suppliant Please Svp Cutie Adorable Please', cat: 'smileys' },
+	{ emoji: '😭', name: 'Pleurer Crying Sanglots Sad Larmes Triste Nooo Chialer', cat: 'smileys' },
+	{ emoji: '😤', name: 'Fier Triomphe Déterminé Rage Ennuyé Vapeur', cat: 'smileys' },
+	{ emoji: '😠', name: 'En colère Angry Énervé Pas content Rage Fâché', cat: 'smileys' },
+	{ emoji: '😡', name: 'Rage Furieux Rouge Mad Angry Tilt Colère', cat: 'smileys' },
+	{ emoji: '🤬', name: 'Insultes Censure Juron Rager Ragequit Salé Cursing Gros mots', cat: 'smileys' },
+	{ emoji: '🤯', name: 'Cerveau explose Mind blown Incroyable Choc Wow Insane Incroyable', cat: 'smileys' },
+	{ emoji: '😳', name: 'Choqué Flushed Gêné Honte Yeux ronds Blush Surprise', cat: 'smileys' },
+	{ emoji: '🥵', name: 'Chaud Hot Transpire Sueur Tilt Pression Canicule', cat: 'smileys' },
+	{ emoji: '🥶', name: 'Froid Cold Gelé Freeze Claquer des dents Glaçon', cat: 'smileys' },
+	{ emoji: '😱', name: 'Cri Scream Peur Panique Terreur Horror Omg Munch', cat: 'smileys' },
+	{ emoji: '🤔', name: 'Réfléchir Think Pensif Doute Pourquoi Hum Idée', cat: 'smileys' },
+	{ emoji: '🤫', name: 'Chut Silence Shh Secret Discret Discrétion Taisez-vous', cat: 'smileys' },
+	{ emoji: '🤥', name: 'Menteur Pinocchio Lying Fake Mythomane Mensonge Nez', cat: 'smileys' },
+	{ emoji: '😶', name: 'Sans bouche Muet Pas de mot Silence Shocked Sans voix', cat: 'smileys' },
+	{ emoji: '😐', name: 'Neutre Neutral Bof Sérieux Poker face Sans avis', cat: 'smileys' },
+	{ emoji: '😑', name: 'Inexpressif Expressionless Sans commentaire Blasé Dépité', cat: 'smileys' },
+	{ emoji: '😬', name: 'Grimace Malaise Awkward Gênant Aïe Ouch Crispation', cat: 'smileys' },
+	{ emoji: '🙄', name: 'Yeux au ciel Roll eyes Déprimant Pff Relou Exaspéré', cat: 'smileys' },
+	{ emoji: '🥱', name: 'Bâiller Yawn Fatigué Sommeil Bored Ennui Sleepy Nuit', cat: 'smileys' },
+	{ emoji: '😴', name: 'Dormir Sleep Zzz Dodo Fatigué Nuit Nounours', cat: 'smileys' },
+	{ emoji: '😵', name: 'KO Dizzy Étourdi Sonné Mort Knockout Évanoui', cat: 'smileys' },
+	{ emoji: '🤐', name: 'Bouche cousue Zipper Secret Silence Motus Motus', cat: 'smileys' },
+	{ emoji: '🤢', name: 'Nausée Sick Dégout Beurk Malade Disgusted Écœuré', cat: 'smileys' },
+	{ emoji: '🤮', name: 'Vomir Puke Dégout Horrible Disgusting Gerbe', cat: 'smileys' },
+	{ emoji: '🤧', name: 'Éternuer Rhume Malade Sneezing Allergie Mouchoir', cat: 'smileys' },
+	{ emoji: '😷', name: 'Masque Mask Malade Protégé Covid Chirurgical', cat: 'smileys' },
+	{ emoji: '🤑', name: 'Argent Money Dollar Riche Cash Richesse Gain Jackpot', cat: 'smileys' },
+	{ emoji: '🤠', name: 'Cowboy Chapeau Western Sheriff Salut Texas', cat: 'smileys' },
+	{ emoji: '😈', name: 'Diable souriant Devil Malicieux Démon Troll Evil Violet', cat: 'smileys' },
+	{ emoji: '👿', name: 'Diable fâché Angry devil Démon Furieux Rage Diablotin', cat: 'smileys' },
+	{ emoji: '💀', name: 'Crâne Skull Mort Dead Cheh Rire Squelette RIP Dead', cat: 'smileys' },
+	{ emoji: '☠️', name: 'Tête de mort Pirate Poison Danger Fatal Os Corsaire', cat: 'smileys' },
+	{ emoji: '🤡', name: 'Clown Circus Bête Ridicule Troll Idiot Cirque', cat: 'smileys' },
+	{ emoji: '💩', name: 'Caca Poop Nul Merde Shit Troll Bouse Étron', cat: 'smileys' },
+	{ emoji: '👻', name: 'Fantôme Ghost Boo Halloween Invisible Disparu Casper', cat: 'smileys' },
+
+	// ==========================================
+	// GESTURES & HANDS
+	// ==========================================
+	{ emoji: '👍', name: 'Pouce levé Thumbs up Like Validé Yes Oui Good Top Daccord', cat: 'gestures' },
+	{ emoji: '👎', name: 'Pouce bas Thumbs down Dislike Nul Non Disagree Bad Refus', cat: 'gestures' },
+	{ emoji: '👊', name: 'Poing Fist Brofist Check Coup de poing Force Attaque', cat: 'gestures' },
+	{ emoji: '✊', name: 'Poing levé Fist Power Résistance Solidarité Combat Force', cat: 'gestures' },
+	{ emoji: '🤛', name: 'Check gauche Left fist Brofist Fist bump Salut', cat: 'gestures' },
+	{ emoji: '🤜', name: 'Check droit Right fist Brofist Fist bump Salut', cat: 'gestures' },
+	{ emoji: '👏', name: 'Applaudissements Clap Bravo Félicitations Clapping GG Oration', cat: 'gestures' },
+	{ emoji: '🙌', name: 'Mains levées Celebration Hype Gloire Yes Victoire Joie', cat: 'gestures' },
+	{ emoji: '🤝', name: 'Poignée de main Handshake Accord Marché Deal Partenariat Entente', cat: 'gestures' },
+	{ emoji: '🙏', name: 'Mains jointes Pray Merci Svp Hope Espoir Prière Pardon', cat: 'gestures' },
+	{ emoji: '✍️', name: 'Écrire Writing Write Note Stratégie Crayon Signature', cat: 'gestures' },
+	{ emoji: '💪', name: 'Biceps Muscle Force Fort Musclé Power Puissance Carry Bras', cat: 'gestures' },
+	{ emoji: '✌️', name: 'Victoire Peace V Sign Paix Deux Salut V', cat: 'gestures' },
+	{ emoji: '🤞', name: 'Doigts croisés Crossed fingers Chance Hope Espoir Bonne chance Vœu', cat: 'gestures' },
+	{ emoji: '🫰', name: 'Cœur avec doigts Finger heart Love Kpop Mignon Petit cœur', cat: 'gestures' },
+	{ emoji: '🤟', name: 'Love you Signe amour Rock Métal Affection I love you', cat: 'gestures' },
+	{ emoji: '🤘', name: 'Signe des cornes Rock Metal Hype Heavy Concert', cat: 'gestures' },
+	{ emoji: '🤙', name: 'Signe Shaka Call me Cool Appel Salut Chill Surf', cat: 'gestures' },
+	{ emoji: '👈', name: 'Pointe gauche Point left Regarde Voici Gauche', cat: 'gestures' },
+	{ emoji: '👉', name: 'Pointe droite Point right Regarde Là-bas Droite', cat: 'gestures' },
+	{ emoji: '👆', name: 'Pointe haut Point up Au-dessus Voir haut +1 Haut', cat: 'gestures' },
+	{ emoji: '👇', name: 'Pointe bas Point down En-dessous Voir bas Bas', cat: 'gestures' },
+	{ emoji: '☝️', name: 'Index levé Point up Une minute Attention Idée Point', cat: 'gestures' },
+	{ emoji: '👋', name: 'Coucou Waving hand Hello Bonjour Salut Bye Au revoir Main', cat: 'gestures' },
+	{ emoji: '✋', name: 'Main levée High five Stop Attends Pose Cinq Pause', cat: 'gestures' },
+	{ emoji: '🖖', name: 'Salut vulcain Vulcan Spock Star Trek Geek Prospérité', cat: 'gestures' },
+	{ emoji: '🫡', name: 'Salut militaire Salute Respect Compris Chef Oui capitaine Respect', cat: 'gestures' },
+
+	// ==========================================
+	// SYMBOLS & HEARTS
+	// ==========================================
+	{ emoji: '❤️', name: 'Cœur rouge Red heart Love Amour Jaime Like', cat: 'symbols' },
+	{ emoji: '🧡', name: 'Cœur orange Orange heart Love Amitié', cat: 'symbols' },
+	{ emoji: '💛', name: 'Cœur jaune Yellow heart Amitié Soleil', cat: 'symbols' },
+	{ emoji: '💚', name: 'Cœur vert Green heart Nature Bio', cat: 'symbols' },
+	{ emoji: '💙', name: 'Cœur bleu Blue heart Confiance Calme', cat: 'symbols' },
+	{ emoji: '💜', name: 'Cœur violet Purple heart Style Twitch Alanbix', cat: 'symbols' },
+	{ emoji: '🖤', name: 'Cœur noir Black heart Dark Goth Sombre', cat: 'symbols' },
+	{ emoji: '🤍', name: 'Cœur blanc White heart Pureté Paix', cat: 'symbols' },
+	{ emoji: '💔', name: 'Cœur brisé Broken heart Déception Sad Triste Rupture Seum', cat: 'symbols' },
+	{ emoji: '❤️‍🔥', name: 'Cœur en feu Heart on fire Passion Flamboyant Hype Ardent', cat: 'symbols' },
+	{ emoji: '✨', name: 'Étincelles Sparkles Magie Magic Brillant Étoiles Clean Nouveau', cat: 'symbols' },
+	{ emoji: '⭐', name: 'Étoile Star Favori Favorite Top Gold Étoile dorée', cat: 'symbols' },
+	{ emoji: '🌟', name: 'Étoile brillante Glowing star Star VIP Super Brillant', cat: 'symbols' },
+	{ emoji: '💫', name: 'Étoile tournante Dizzy star Magie Flash Tournis', cat: 'symbols' },
+	{ emoji: '🎉', name: 'Tada Confetti Party Fête Victoire Bravo GG Youpi', cat: 'symbols' },
+	{ emoji: '🎊', name: 'Boule confettis Celebration Fête Festin Gala', cat: 'symbols' },
+	{ emoji: '💯', name: '100 Cent pour cent Perfect Parfait Validé Top Best Score', cat: 'symbols' },
+	{ emoji: '💢', name: 'Colère Anger Manga Anime Énervé Tilt Symbole', cat: 'symbols' },
+	{ emoji: '💬', name: 'Bulle parole Speech bubble Chat Discussion Message SMS', cat: 'symbols' },
+	{ emoji: '🔔', name: 'Cloche Bell Notification Alerte Rappel Ring Sonnette', cat: 'symbols' },
+	{ emoji: '💡', name: 'Ampoule Light bulb Idée Brain Solution Astuce Eureka', cat: 'symbols' },
+	{ emoji: '❓', name: 'Point interrogation Question Pourquoi What Hein Aide', cat: 'symbols' },
+	{ emoji: '❗', name: 'Point exclamation Exclamation Important Attention Wow Alerte', cat: 'symbols' },
+	{ emoji: '‼️', name: 'Double exclamation Double mark Alerte Urgent Choc', cat: 'symbols' },
+	{ emoji: '✔️', name: 'Coché Check Validé Ok Yes Terminé Fait Bon Validé', cat: 'symbols' },
+	{ emoji: '❌', name: 'Croix rouge Cross Non Faux Erreur Refusé Cancel Faux', cat: 'symbols' },
+	{ emoji: '🚫', name: 'Interdit Prohibited Ban Stop Bloqué Non No Entry', cat: 'symbols' },
+	{ emoji: '⚠️', name: 'Attention Warning Danger Prudence Alerte Alarme Attention', cat: 'symbols' },
+	{ emoji: '🛑', name: 'Stop Panneau Arrêt Pause Frein Octogone Rouge', cat: 'symbols' }
+];

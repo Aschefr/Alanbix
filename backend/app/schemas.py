@@ -1,5 +1,5 @@
 from pydantic import BaseModel, ConfigDict
-from typing import Optional, List, Any
+from typing import Optional, List, Any, Dict
 from datetime import datetime
 
 class UserBase(BaseModel):
@@ -12,6 +12,7 @@ class User(UserBase):
     id: int
     is_admin: bool
     ia_blocked: Optional[bool] = False
+    public_chat_muted_until: Optional[datetime] = None
     seat_id: Optional[str] = None
     team_name: Optional[str] = None
     avatar_url: Optional[str] = None
@@ -96,3 +97,49 @@ class Conversation(ConversationBase):
     user_id: int
     created_at: datetime
     model_config = ConfigDict(from_attributes=True)
+
+
+# Public Chat Schemas
+class PublicChatMessageCreate(BaseModel):
+    content: str
+    image_path: Optional[str] = None
+    reply_to_id: Optional[int] = None
+
+class PublicChatMessageResponse(BaseModel):
+    id: int
+    user_id: Optional[int] = None
+    sender_name: Optional[str] = None
+    is_bot: bool = False
+    content: str
+    image_path: Optional[str] = None
+    link_preview: Optional[Any] = None
+    mentions: Optional[Any] = None
+    reactions: Optional[Dict[str, List[int]]] = None
+    reply_to: Optional[Any] = None
+    created_at: datetime
+    username: Optional[str] = None
+    avatar_url: Optional[str] = None
+    avatar_shape: Optional[str] = "circle"
+    team_name: Optional[str] = None
+    seat_id: Optional[str] = None
+    is_admin: Optional[bool] = False
+    model_config = ConfigDict(from_attributes=True)
+
+class PublicChatConfig(BaseModel):
+    enabled: bool = True
+    slowmode_seconds: int = 3
+    max_length: int = 250
+    block_duplicates: bool = True
+    banned_words: List[str] = []
+    ai_mention_enabled: bool = True
+    ai_cooldown_seconds: int = 15
+
+class PublicChatTypingRequest(BaseModel):
+    is_typing: bool
+
+class PublicChatReactionRequest(BaseModel):
+    emoji: str
+
+class PublicChatPinRequest(BaseModel):
+    message_id: Optional[int] = None
+

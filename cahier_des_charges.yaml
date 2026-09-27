@@ -1397,6 +1397,36 @@ future_axes:
       - "Ajouter l'affichage dynamique et compressé (textLength) des noms d'équipes sur les sièges occupés du plan de salle du wizard d'accueil."
       - "Colorer distinctement en orange/ambre (--map-seat-teammate-fill/stroke) les sièges occupés par des coéquipiers dans toutes les vues de plan de salle."
       - "Mettre à jour les légendes de plans de salle pour inclure la couleur des coéquipiers si l'utilisateur possède une équipe."
+  - id: AXE-64
+    title: "Indicateur de saisie en temps réel pour le chat public (joueurs & assistant IA)"
+    status: DONE
+    description: >
+      Permettre l'affichage en temps réel de qui est en train de rédiger un message dans le chat public,
+      y compris l'assistant IA Alanbix lorsqu'il prépare sa réponse. Phrase humoristique contextuelle unifiée.
+    done:
+      - "Endpoint POST /public-chat/typing pour la diffusion en temps réel de l'état de saisie avec broadcast WebSocket public_chat_typing."
+      - "Émission automatique de l'état de frappe pour la mascotte @Alanbix durant la génération asynchrone via la file d'attente IA."
+      - "Composant visuel chat-typing-bar dans PublicChat.svelte regroupant les rédacteurs au format 'Untel, untel, Alanbix … [phrase humoristique]' avec dots animés."
+      - "Synchronisation et internationalisation complète des phrases humoristiques (singulier/pluriel) dans fr.json, en.json et es.json validée par verify_i18n.py."
+    priority: medium
+
+  - id: AXE-65
+    title: "Modernisation du chat public (Réactions émojis, Réponses/Citations, Messages épinglés, Notifications sonores de mention)"
+    status: DONE
+    description: >
+      Enrichir le chat public de la LAN avec les fonctionnalités modernes attendues : réactions émojis interactives,
+      réponses avec citations cliquables et navigation vers le message source, bannière de messages épinglés pour les annonces
+      administrateur, et synthèse audio locale par l'API Web Audio pour notifier les mentions de pseudo en 100% offline.
+    done:
+      - "Migrations safe ALTER TABLE dans init_db() pour les colonnes reactions (JSON) et reply_to_id (ForeignKey) sur public_chat_messages."
+      - "Gestion du toggle des réactions émojis avec persistance flag_modified (G-22) et broadcast WebSocket public_chat_reaction_updated."
+      - "Endpoints d'épinglage POST /public-chat/pin et GET /public-chat/pinned adossés à SystemConfig (G-25) avec désépinglage automatique lors de la suppression du message."
+      - "Composant bannière d'annonce épinglée rétractable en tête de chat avec saut et surbrillance temporaire du message d'origine."
+      - "Barre de prévisualisation de réponse au-dessus du champ de texte avec annulation (✕/Échap) et bloc de citation cliquable dans les messages."
+      - "Module de carillon bicolore via l'API Web Audio sans dépendance externe (G-17) avec bouton toggle sonore persistant (🔔/🔕) dans le header."
+      - "Barre de réaction rapide avec 4 émojis récents persistés dans le localStorage et bouton ➕ sans rallonger la barre d'action au survol."
+      - "Sélecteur d'émojis standard exhaustif catégorisé (Récents, Tous, Gaming, Tags Gamer, Smileys, Gestes, Symboles) avec recherche instantanée et tags gamer (GG, EZ, WP, GLHF, RIP, MVP, CLUTCH)."
+      - "Synchronisation et vérification des traductions fr, en et es validée avec verify_i18n.py."
     priority: medium
 
 

@@ -63,12 +63,81 @@
 	let closingPrompt = '';
 	let promptPreviewId = null;
 	let promptPreviewText = '';
-	let promptPreviewTokens = 0;
 	let loadingPreview = false;
+
+	// Public Chat Admin State
+	let publicChatConfig = {
+		enabled: true,
+		slowmode_seconds: 3,
+		max_length: 250,
+		block_duplicates: true,
+		banned_words_text: '',
+		ai_mention_enabled: true,
+		ai_cooldown_seconds: 15
+	};
+
+	async function loadPublicChatConfig() {
+		try {
+			const res = await api.get('/public-chat/config');
+			if (res) {
+				publicChatConfig = {
+					...res,
+					banned_words_text: (res.banned_words || []).join(', ')
+				};
+			}
+		} catch (e) {
+			console.error("Failed to load public chat config in admin:", e);
+		}
+	}
+
+	async function savePublicChatConfig() {
+		try {
+			const words = (publicChatConfig.banned_words_text || '')
+				.split(',')
+				.map(w => w.trim())
+				.filter(Boolean);
+			const payload = {
+				enabled: publicChatConfig.enabled,
+				slowmode_seconds: Number(publicChatConfig.slowmode_seconds) || 0,
+				max_length: Number(publicChatConfig.max_length) || 250,
+				block_duplicates: !!publicChatConfig.block_duplicates,
+				banned_words: words,
+				ai_mention_enabled: !!publicChatConfig.ai_mention_enabled,
+				ai_cooldown_seconds: Number(publicChatConfig.ai_cooldown_seconds) || 15
+			};
+			await api.put('/public-chat/config', payload);
+			toast('Paramètres du Chat Public enregistrés', 'success');
+		} catch (e) {
+			toast(e.message || 'Erreur de sauvegarde', 'error');
+		}
+	}
+
+	async function clearChatHistoryAdmin() {
+		if (!confirm(get(t)('dash_chat_clear_confirm') || 'Effacer tout l\'historique du chat public ?')) return;
+		try {
+			await api.post('/public-chat/clear', {});
+			toast('Historique du chat public purgé', 'success');
+		} catch (e) {
+			toast(e.message, 'error');
+		}
+	}
+
+	async function toggleMutePlayer(p) {
+		const isMuted = p.public_chat_muted_until && new Date(p.public_chat_muted_until) > new Date();
+		const minutes = isMuted ? 0 : 30;
+		try {
+			await api.post(`/public-chat/mute/${p.id}`, { duration_minutes: minutes });
+			toast(isMuted ? `${p.username} est démuté du chat public` : `${p.username} est muté pour 30 minutes`, 'success');
+			await loadPlayers();
+		} catch (e) {
+			toast(e.message, 'error');
+		}
+	}
 
 	// System Prompt Editor Modal
 	let showPromptModal = false;
 	let promptModalDraft = '';
+
 
 	const DEFAULT_PROMPT_SECTIONS = [
 		{ key: 'identity', icon: '🧙' },
@@ -390,6 +459,9 @@
 					// For bot responses to other conversations: no unread badge update needed
 				}
 			}
+			if (msg.type === 'public_chat_config_updated') {
+				loadPublicChatConfig();
+			}
 			if (msg.type === 'users_updated') {
 				loadPlayers();
 			}
@@ -462,6 +534,7 @@
 		loadAdminCalls();
 		loadRagSuggestions();
 		loadQueueAdmin();
+		loadPublicChatConfig();
 		try {
 			const stats = await api.get('/dashboard/stats');
 			teamScoringMode = stats.team_scoring_mode || 'weighted';
@@ -1667,6 +1740,9 @@
 									{/if}
 									{#if p.is_admin}<span class="admin-badge">⭐</span>{/if}
 									{#if p.ia_blocked}<span class="ia-blocked-badge" title="{$t('admin_players_ia_blocked_tooltip')}">🚫</span>{/if}
+									{#if p.public_chat_muted_until && new Date(p.public_chat_muted_until) > new Date()}
+										<span class="chat-muted-badge" title="Mute chat public">🔇</span>
+									{/if}
 								</span>
 								<span class="pt-col pt-team">{p.team_name || '—'}</span>
 								<span class="pt-col pt-pts">{p.points || 0}</span>
@@ -1676,6 +1752,9 @@
 										<button class="btn-icon" title="{$t('admin_players_tooltip_resetpw')}" on:click={() => { resetPwdPlayer = p; resetPwdValue = 'lan2025'; }}>🔑</button>
 										<button class="btn-icon {p.ia_blocked ? 'btn-icon-danger' : ''}" title="{p.ia_blocked ? $t('admin_players_tooltip_unblockai') : $t('admin_players_tooltip_blockai')}" on:click={() => toggleIaBlocked(p)}>
 											{p.ia_blocked ? '🔓' : '🚫'}
+										</button>
+										<button class="btn-icon {p.public_chat_muted_until && new Date(p.public_chat_muted_until) > new Date() ? 'btn-icon-danger' : ''}" title="{p.public_chat_muted_until && new Date(p.public_chat_muted_until) > new Date() ? ($t('admin_players_tooltip_unmute') || 'Démuter') : ($t('admin_players_tooltip_mute') || 'Muter 30m')}" on:click={() => toggleMutePlayer(p)}>
+											{p.public_chat_muted_until && new Date(p.public_chat_muted_until) > new Date() ? '🔇' : '🎙️'}
 										</button>
 										{#if promoteConfirmPlayerId === p.id}
 											<button class="btn-primary-sm" on:click={() => { toggleAdmin(p); promoteConfirmPlayerId = null; }}>{$t("admin_players_promote_confirm")}</button>
@@ -1891,6 +1970,72 @@
 						</div>
 					</div>
 
+
+					<!-- Public Chat & Anti-Spam Settings -->
+					<div class="sc glass sc-full">
+						<div class="sc-head">
+							<div class="sc-icon">💬</div>
+							<div>
+								<h3>{$t("admin_public_chat_title") || 'Chat Public & Anti-Spam'}</h3>
+								<p class="sc-sub">{$t("admin_public_chat_sub") || 'Modération en temps réel, filtres anti-spam et IA participante'}</p>
+							</div>
+						</div>
+						<div class="sc-body">
+							<div class="public-chat-admin-grid">
+								<div class="pca-row full-width">
+									<label class="toggle-label">
+										<input type="checkbox" bind:checked={publicChatConfig.enabled} />
+										<span><strong>{$t("admin_public_chat_enable") || 'Activer le Chat Public'}</strong> — {$t("admin_public_chat_enable_sub") || "Permettre aux joueurs d'écrire dans le chat central"}</span>
+									</label>
+								</div>
+
+								<div class="pca-field">
+									<label>{$t("admin_public_chat_slowmode") || 'Slowmode (secondes par message)'}</label>
+									<input type="number" bind:value={publicChatConfig.slowmode_seconds} min="0" max="120" />
+								</div>
+
+								<div class="pca-field">
+									<label>{$t("admin_public_chat_max_len") || 'Longueur max message (caractères)'}</label>
+									<input type="number" bind:value={publicChatConfig.max_length} min="10" max="1000" />
+								</div>
+
+								<div class="pca-row full-width">
+									<label class="toggle-label">
+										<input type="checkbox" bind:checked={publicChatConfig.block_duplicates} />
+										<span>{$t("admin_public_chat_block_dup") || 'Bloquer les messages consécutifs identiques'}</span>
+									</label>
+								</div>
+
+								<div class="pca-field full-width">
+									<label>{$t("admin_public_chat_banned_words") || 'Mots interdits (séparés par une virgule)'}</label>
+									<input type="text" bind:value={publicChatConfig.banned_words_text} placeholder="ex: spam, hack, insult..." />
+								</div>
+
+								<div class="pca-row full-width">
+									<label class="toggle-label">
+										<input type="checkbox" bind:checked={publicChatConfig.ai_mention_enabled} />
+										<span><strong>{$t("admin_public_chat_ai_mention") || "Activer l'IA @Alanbix"}</strong> — {$t("admin_public_chat_ai_mention_sub") || "L'IA répond quand mentionnée (@Alanbix) dans le chat public"}</span>
+									</label>
+								</div>
+
+								{#if publicChatConfig.ai_mention_enabled}
+									<div class="pca-field">
+										<label>{$t("admin_public_chat_ai_cooldown") || 'Cooldown IA @Alanbix (secondes)'}</label>
+										<input type="number" bind:value={publicChatConfig.ai_cooldown_seconds} min="5" max="300" />
+									</div>
+								{/if}
+
+								<div class="pca-actions full-width flex-row gap-3 mt-3">
+									<button class="btn-primary" on:click={savePublicChatConfig}>
+										💾 {$t("admin_public_chat_save_btn") || 'Enregistrer les paramètres du chat'}
+									</button>
+									<button class="btn-outline-danger" on:click={clearChatHistoryAdmin}>
+										🗑️ {$t("admin_public_chat_purge_btn") || 'Vider les messages du chat'}
+									</button>
+								</div>
+							</div>
+						</div>
+					</div>
 
 					<!-- Danger Zone -->
 					<div class="sc danger-zone sc-full">
@@ -3561,6 +3706,59 @@
 	.scroll-to-bottom-btn:hover {
 		background: var(--hover-tint);
 		transform: translateY(-2px);
+	}
+
+	/* Public Chat Admin Styles */
+	.public-chat-admin-grid {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 1.25rem;
+		width: 100%;
+	}
+	.pca-field {
+		display: flex;
+		flex-direction: column;
+		gap: 0.4rem;
+	}
+	.pca-field label {
+		font-size: 0.82rem;
+		color: var(--text-dim, #94a3b8);
+		font-weight: 500;
+	}
+	.pca-field input[type="text"],
+	.pca-field input[type="number"] {
+		width: 100%;
+		padding: 0.6rem 0.8rem;
+		border-radius: var(--radius-sm, 6px);
+		background: rgba(15, 23, 42, 0.6);
+		border: 1px solid var(--glass-border);
+		color: var(--text-main, white);
+		font-size: 0.9rem;
+	}
+	.pca-row {
+		display: flex;
+		align-items: center;
+	}
+	.full-width {
+		grid-column: 1 / -1;
+	}
+	.toggle-label {
+		display: flex;
+		align-items: center;
+		gap: 0.6rem;
+		cursor: pointer;
+		font-size: 0.9rem;
+		color: var(--text-main, white);
+	}
+	.toggle-label input[type="checkbox"] {
+		width: 18px;
+		height: 18px;
+		cursor: pointer;
+		accent-color: var(--accent, #6366f1);
+	}
+	.chat-muted-badge {
+		font-size: 0.85rem;
+		margin-left: 0.2rem;
 	}
 </style>
 

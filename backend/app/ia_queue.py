@@ -382,6 +382,8 @@ class IAQueueManager:
 
         if task_type == "chat":
             return await self._process_chat(entry, payload)
+        elif task_type == "public_chat":
+            await self._process_public_chat(entry, payload)
         elif task_type == "compress":
             await self._process_compress(entry, payload)
         elif task_type == "notification":
@@ -878,6 +880,51 @@ class IAQueueManager:
             else:
                 raw = res.json().get("message", {}).get("content", "")
             await entry.result_stream.put({"done": True, "result": raw})
+        except Exception as e:
+            await entry.result_stream.put({"done": True, "error": True, "result": str(e)})
+
+    async def _process_public_chat(self, entry: QueueEntry, payload: dict):
+        """Process a public chat message generation request for @Alanbix mention (concise non-streaming)."""
+        ollama_host = payload["ollama_host"]
+        model = payload["model"]
+        messages = payload["messages"]
+        context_window = payload.get("context_window", 4096)
+        temperature = payload.get("temperature", 0.7)
+
+        try:
+            is_openai = is_openai_host(ollama_host)
+            if is_openai:
+                url = f"{ollama_host.rstrip('/')}/chat/completions"
+                req_json = {
+                    "model": model,
+                    "messages": messages,
+                    "stream": False,
+                    "temperature": temperature,
+                    "max_tokens": 500
+                }
+            else:
+                url = f"{ollama_host.rstrip('/')}/api/chat"
+                req_json = {
+                    "model": model,
+                    "messages": messages,
+                    "stream": False,
+                    "options": {"temperature": temperature, "num_predict": 500, "num_ctx": context_window}
+                }
+
+            async with httpx.AsyncClient() as client:
+                res = await client.post(url, json=req_json, timeout=45.0)
+
+            if res.status_code != 200:
+                raise Exception(f"AI service returned HTTP {res.status_code}: {res.text[:200]}")
+
+            if is_openai:
+                raw = res.json().get("choices", [{}])[0].get("message", {}).get("content", "")
+            else:
+                raw = res.json().get("message", {}).get("content", "")
+
+            import re
+            clean = re.sub(r'<think>.*?</think>', '', raw, flags=re.DOTALL).strip()
+            await entry.result_stream.put({"done": True, "result": clean})
         except Exception as e:
             await entry.result_stream.put({"done": True, "error": True, "result": str(e)})
 

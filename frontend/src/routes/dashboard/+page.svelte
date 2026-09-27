@@ -3,6 +3,7 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { wsMessageStore } from '$lib/ws';
 	import { t } from '$lib/i18nStore';
+	import PublicChat from '$lib/components/PublicChat.svelte';
 
 	let stats = {
 		tournaments: 0,
@@ -28,16 +29,83 @@
 	let selectedPlayerStats = null;
 	let loadingPlayerStats = false;
 
+	// Public Chat interactive animations
+	let hoveredSeatId = null;
+	let activePulsingSeats = {};
+	let activeBeams = [];
+	let beamCounter = 0;
+
+	// Resizable splitter between Public Chat and Floor Map
+	let centerColEl = null;
+	let chatSplitRatio = 55; // percentage: 55% chat / 45% map
+	let isDraggingSplitter = false;
+
+	if (typeof localStorage !== 'undefined') {
+		const savedSplit = localStorage.getItem('alanbix_dash_chat_split');
+		if (savedSplit) {
+			const parsed = parseFloat(savedSplit);
+			if (!isNaN(parsed) && parsed >= 15 && parsed <= 85) {
+				chatSplitRatio = parsed;
+			}
+		}
+	}
+
+	function startSplitterDrag(e) {
+		e.preventDefault();
+		isDraggingSplitter = true;
+		if (typeof document !== 'undefined') {
+			document.body.style.cursor = 'row-resize';
+			document.body.style.userSelect = 'none';
+		}
+		window.addEventListener('pointermove', onSplitterDrag);
+		window.addEventListener('pointerup', stopSplitterDrag);
+		window.addEventListener('pointercancel', stopSplitterDrag);
+	}
+
+	function onSplitterDrag(e) {
+		if (!isDraggingSplitter || !centerColEl) return;
+		const rect = centerColEl.getBoundingClientRect();
+		if (rect.height <= 0) return;
+		const offsetY = e.clientY - rect.top;
+		const newRatio = Math.min(Math.max((offsetY / rect.height) * 100, 15), 85);
+		chatSplitRatio = Math.round(newRatio * 10) / 10;
+	}
+
+	function stopSplitterDrag() {
+		if (isDraggingSplitter) {
+			isDraggingSplitter = false;
+			if (typeof document !== 'undefined') {
+				document.body.style.cursor = '';
+				document.body.style.userSelect = '';
+			}
+			if (typeof localStorage !== 'undefined') {
+				localStorage.setItem('alanbix_dash_chat_split', String(chatSplitRatio));
+			}
+		}
+		window.removeEventListener('pointermove', onSplitterDrag);
+		window.removeEventListener('pointerup', stopSplitterDrag);
+		window.removeEventListener('pointercancel', stopSplitterDrag);
+	}
+
+	function resetSplitter() {
+		chatSplitRatio = 55;
+		if (typeof localStorage !== 'undefined') {
+			localStorage.setItem('alanbix_dash_chat_split', '55');
+		}
+	}
+
 	let wsUnsub = null;
 
 	onMount(async () => {
 		await refreshAll();
 
-		// WS: auto-refresh on tournament mutations
+		// WS: auto-refresh on tournament mutations & public chat seat pulse
 		wsUnsub = wsMessageStore.subscribe(msg => {
 			if (!msg) return;
 			const t = msg.type;
-			if (t === 'tournament_created' || t === 'tournament_updated' || t === 'tournament_deleted' ||
+			if (t === 'public_chat_message' && msg.seat_id) {
+				triggerSeatPulse(msg.seat_id);
+			} else if (t === 'tournament_created' || t === 'tournament_updated' || t === 'tournament_deleted' ||
 				t === 'tournament_started' || t === 'tournament_closed' ||
 				t === 'score_updated' || t === 'ffa_advanced' ||
 				t === 'participant_joined' || t === 'participant_left' ||
@@ -49,7 +117,41 @@
 		});
 	});
 
-	onDestroy(() => { if (wsUnsub) wsUnsub(); });
+	function triggerSeatPulse(seatId) {
+		if (!seatId) return;
+		const seat = roomLayout.seats.find(s => String(s.id) === String(seatId));
+		if (!seat) return;
+
+		activePulsingSeats = { ...activePulsingSeats, [seatId]: true };
+		const bubbleId = ++beamCounter;
+		const sx = seat.x + 25; // exact seat center X
+		const sy = seat.y + 25; // exact seat center Y
+		const targetY = mapVb.y; // top of SVG map
+
+		activeBeams = [...activeBeams, { id: bubbleId, x: sx, startY: sy, endY: targetY }];
+
+		// Chat bubble pops, drifts and flies up in ~900ms
+		setTimeout(() => {
+			activeBeams = activeBeams.filter(b => b.id !== bubbleId);
+		}, 950);
+
+		// Seat highlight gracefully fades out
+		setTimeout(() => {
+			const copy = { ...activePulsingSeats };
+			delete copy[seatId];
+			activePulsingSeats = copy;
+		}, 800);
+	}
+
+	onDestroy(() => {
+		if (wsUnsub) wsUnsub();
+		if (typeof window !== 'undefined') {
+			window.removeEventListener('pointermove', onSplitterDrag);
+			window.removeEventListener('pointerup', stopSplitterDrag);
+			window.removeEventListener('pointercancel', stopSplitterDrag);
+		}
+	});
+
 
 	async function refreshAll() {
 		previousLeaderboard = [...(stats.leaderboard || [])];
@@ -478,130 +580,198 @@
 			</div>
 		</section>
 
-		<!-- CENTER: Arena Floor Map Preview -->
-		<section class="panel map-panel glass">
-			<div class="panel-header">
-				<div>
-					<h2>{$t('dash_map_title')}</h2>
-					<span class="subtitle">{$t('dash_map_subtitle')}</span>
-				</div>
-				<div class="flex-row gap-2">
-					<a href="/dashboard/map" class="btn-chip">{$t('dash_map_open')}</a>
+		<!-- CENTER COLUMN: Public Chat (Top) + Resizer + Arena Floor Map (Bottom) -->
+		<div class="center-column" bind:this={centerColEl}>
+			<!-- TOP: Public Chat -->
+			<div class="center-chat-panel" class:no-transition={isDraggingSplitter} style="height: {chatSplitRatio}%;">
+				<PublicChat
+					{user}
+					{allUsers}
+					on:seatHover={(e) => hoveredSeatId = e.detail}
+					on:seatLeave={() => hoveredSeatId = null}
+				/>
+			</div>
+
+			<!-- SPLITTER DIVIDER / RESIZER -->
+			<!-- svelte-ignore a11y-no-static-element-interactions -->
+			<div
+				class="chat-map-splitter"
+				class:dragging={isDraggingSplitter}
+				on:pointerdown={startSplitterDrag}
+				on:dblclick={resetSplitter}
+				title="Glisser pour redimensionner (Double-clic pour réinitialiser)"
+			>
+				<div class="splitter-handle">
+					<span class="splitter-pill"></span>
 				</div>
 			</div>
-			<div class="map-preview-canvas">
-				<!-- svelte-ignore a11y-no-static-element-interactions -->
-				<svg viewBox="{mapVb.x} {mapVb.y} {mapVb.w} {mapVb.h}" class="mini-map"
-					on:wheel={mapWheel}
-					on:mousedown={mapDown}
-					on:mousemove={mapMove}
-					on:mouseup={mapUp}
-					on:mouseleave={mapUp}
-					style="cursor: {mapPan ? 'grabbing' : 'grab'}"
-				>
-					<defs>
-						<pattern id="dash-grid" width="40" height="40" patternUnits="userSpaceOnUse">
-							<path d="M 40 0 L 0 0 0 40" fill="none" stroke="var(--map-grid-stroke)" stroke-width="1"/>
-						</pattern>
-					</defs>
-					<rect width="100%" height="100%" fill="url(#dash-grid)"/>
 
-					{#each roomLayout.tables as table}
-						{@const cx = table.x + table.w / 2}
-						{@const cy = table.y + table.h / 2}
-						<g transform="rotate({table.rotation || 0}, {cx}, {cy})">
-							<rect x={table.x} y={table.y} width={table.w} height={table.h} rx="6"
-								fill="var(--map-table-fill)" stroke="var(--map-table-stroke)" stroke-width="1.5"/>
-							<text x={cx} y={cy + 4} text-anchor="middle" fill="var(--text-muted)" font-size="10" font-weight="700">{table.label}</text>
-						</g>
-					{/each}
+			<!-- BOTTOM: Arena Floor Map Preview -->
+			<section class="panel map-panel glass" class:no-transition={isDraggingSplitter} style="height: calc({100 - chatSplitRatio}% - 14px);">
+				<div class="panel-header">
+					<div>
+						<h2>{$t('dash_map_title')}</h2>
+						<span class="subtitle">{$t('dash_map_subtitle')}</span>
+					</div>
+					<div class="flex-row gap-2">
+						<a href="/dashboard/map" class="btn-chip">{$t('dash_map_open')}</a>
+					</div>
+				</div>
+				<div class="map-preview-canvas">
+					<!-- svelte-ignore a11y-no-static-element-interactions -->
+					<svg viewBox="{mapVb.x} {mapVb.y} {mapVb.w} {mapVb.h}" class="mini-map"
+						on:wheel={mapWheel}
+						on:mousedown={mapDown}
+						on:mousemove={mapMove}
+						on:mouseup={mapUp}
+						on:mouseleave={mapUp}
+						style="cursor: {mapPan ? 'grabbing' : 'grab'}"
+					>
+						<defs>
+							<pattern id="dash-grid" width="40" height="40" patternUnits="userSpaceOnUse">
+								<path d="M 40 0 L 0 0 0 40" fill="none" stroke="var(--map-grid-stroke)" stroke-width="1"/>
+							</pattern>
+							<filter id="neon-glow" x="-50%" y="-50%" width="200%" height="200%">
+								<feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur1" />
+								<feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur2" />
+								<feMerge>
+									<feMergeNode in="blur2" />
+									<feMergeNode in="blur1" />
+									<feMergeNode in="SourceGraphic" />
+								</feMerge>
+							</filter>
+							<linearGradient id="bubble-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+								<stop offset="0%" stop-color="#38bdf8" />
+								<stop offset="50%" stop-color="#6366f1" />
+								<stop offset="100%" stop-color="#a855f7" />
+							</linearGradient>
+						</defs>
+						<rect width="100%" height="100%" fill="url(#dash-grid)"/>
 
-					{#each (roomLayout.furniture || []) as furn}
-						{@const fcx = furn.x + furn.w / 2}
-						{@const fcy = furn.y + furn.h / 2}
-						<g transform="rotate({furn.rotation || 0}, {fcx}, {fcy})">
-							<rect x={furn.x} y={furn.y} width={furn.w} height={furn.h} rx="4"
-								fill="rgba(245,158,11,0.1)" stroke="rgba(245,158,11,0.4)" stroke-width="1.5" stroke-dasharray="4 2"/>
-							<foreignObject x={furn.x} y={furn.y} width={furn.w} height={furn.h} style="pointer-events:none">
-								<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;height:100%;line-height:1.1;">
-									<span style="font-size: {furn.h <= 40 ? '18px' : '26px'};">{furn.icon}</span>
-									<span style="font-size: {furn.h <= 40 ? '10px' : '12px'};font-weight:700;color:#f59e0b;margin-top:2px;text-align:center;word-break:break-all;padding:0 4px;">{furn.label}</span>
-								</div>
-							</foreignObject>
-						</g>
-					{/each}
+						{#each roomLayout.tables as table}
+							{@const cx = table.x + table.w / 2}
+							{@const cy = table.y + table.h / 2}
+							<g transform="rotate({table.rotation || 0}, {cx}, {cy})">
+								<rect x={table.x} y={table.y} width={table.w} height={table.h} rx="6"
+									fill="var(--map-table-fill)" stroke="var(--map-table-stroke)" stroke-width="1.5"/>
+								<text x={cx} y={cy + 4} text-anchor="middle" fill="var(--text-muted)" font-size="10" font-weight="700">{table.label}</text>
+							</g>
+						{/each}
 
-					{#each roomLayout.seats as seat}
-						{@const occ = getOccupant(seat.id)}
-						{@const isMine = occ && user && occ.id === user.id}
-						{@const isTeammate = occ && !isMine && user?.team_name && occ.team_name === user.team_name}
-						{@const scx = seat.x + 25}
-						{@const scy = seat.y + 25}
-						<g transform="rotate({seat.rotation || 0}, {scx}, {scy})">
-							<rect x={seat.x} y={seat.y} width="50" height="50" rx="6"
-								fill={isMine ? 'var(--map-seat-mine-fill)' : isTeammate ? 'var(--map-seat-teammate-fill)' : occ ? 'var(--map-seat-mine-fill)' : 'var(--map-seat-fill)'}
-								stroke={isMine ? 'var(--accent)' : isTeammate ? 'var(--map-seat-teammate-stroke)' : occ ? 'var(--accent)' : 'var(--map-seat-stroke)'}
-								stroke-width={isTeammate ? '2' : '1.5'}
-							/>
-							<clipPath id="dclip-{seat.id}">
-								<rect x={seat.x + 2} y={seat.y} width="46" height="50"/>
-							</clipPath>
-							<g clip-path="url(#dclip-{seat.id})">
-								{#if occ}
-									{#if occ.avatar_url}
-										<text x={scx} y={seat.y + 9} text-anchor="middle" fill="var(--text-muted)" font-size="5" font-weight="800">{seat.id}</text>
-										<clipPath id="davatar-clip-{seat.id}">
-											{#if occ.avatar_shape === 'rounded'}
-												<rect x={scx - 9} y={seat.y + 11} width="18" height="18" rx="3" ry="3" />
-											{:else if occ.avatar_shape === 'square'}
-												<rect x={scx - 9} y={seat.y + 11} width="18" height="18" />
-											{:else}
-												<circle cx={scx} cy={seat.y + 20} r="9" />
-											{/if}
-										</clipPath>
-										<image href={occ.avatar_url} x={scx - 9} y={seat.y + 11} width="18" height="18" clip-path="url(#davatar-clip-{seat.id})" />
-										<text x={scx} y={seat.y + 39} text-anchor="middle" fill="var(--map-seat-player-fill)" font-size="6" font-weight="700"
-											textLength={occ.username.length > 7 ? 44 : null}
-											lengthAdjust="spacingAndGlyphs"
-										>{occ.username}</text>
-										{#if occ.team_name}
-											<text x={scx} y={seat.y + 46} text-anchor="middle" fill="var(--accent)" font-size="4.5" opacity="0.7"
-												textLength={occ.team_name.length > 8 ? 42 : null}
+						{#each (roomLayout.furniture || []) as furn}
+							{@const fcx = furn.x + furn.w / 2}
+							{@const fcy = furn.y + furn.h / 2}
+							<g transform="rotate({furn.rotation || 0}, {fcx}, {fcy})">
+								<rect x={furn.x} y={furn.y} width={furn.w} height={furn.h} rx="4"
+									fill="rgba(245,158,11,0.1)" stroke="rgba(245,158,11,0.4)" stroke-width="1.5" stroke-dasharray="4 2"/>
+								<foreignObject x={furn.x} y={furn.y} width={furn.w} height={furn.h} style="pointer-events:none">
+									<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;height:100%;line-height:1.1;">
+										<span style="font-size: {furn.h <= 40 ? '18px' : '26px'};">{furn.icon}</span>
+										<span style="font-size: {furn.h <= 40 ? '10px' : '12px'};font-weight:700;color:#f59e0b;margin-top:2px;text-align:center;word-break:break-all;padding:0 4px;">{furn.label}</span>
+									</div>
+								</foreignObject>
+							</g>
+						{/each}
+
+						{#each roomLayout.seats as seat}
+							{@const occ = getOccupant(seat.id)}
+							{@const isMine = occ && user && occ.id === user.id}
+							{@const isTeammate = occ && !isMine && user?.team_name && occ.team_name === user.team_name}
+							{@const isPulsing = activePulsingSeats[seat.id]}
+							{@const isHovered = hoveredSeatId === seat.id}
+							{@const scx = seat.x + 25}
+							{@const scy = seat.y + 25}
+							<g transform="rotate({seat.rotation || 0}, {scx}, {scy})" class="seat-node {isPulsing ? 'pulse-active' : ''} {isHovered ? 'hover-active' : ''}">
+								<rect x={seat.x} y={seat.y} width="50" height="50" rx="6"
+									fill={isPulsing ? 'rgba(56, 189, 248, 0.45)' : isHovered ? 'rgba(168, 85, 247, 0.35)' : isMine ? 'var(--map-seat-mine-fill)' : isTeammate ? 'var(--map-seat-teammate-fill)' : occ ? 'var(--map-seat-mine-fill)' : 'var(--map-seat-fill)'}
+									stroke={isPulsing ? '#38bdf8' : isHovered ? '#c084fc' : isMine ? 'var(--accent)' : isTeammate ? 'var(--map-seat-teammate-stroke)' : occ ? 'var(--accent)' : 'var(--map-seat-stroke)'}
+									stroke-width={isPulsing || isHovered ? '3' : isTeammate ? '2' : '1.5'}
+									filter={isPulsing || isHovered ? 'url(#neon-glow)' : null}
+								/>
+								<clipPath id="dclip-{seat.id}">
+									<rect x={seat.x + 2} y={seat.y} width="46" height="50"/>
+								</clipPath>
+								<g clip-path="url(#dclip-{seat.id})">
+									{#if occ}
+										{#if occ.avatar_url}
+											<text x={scx} y={seat.y + 9} text-anchor="middle" fill="var(--text-muted)" font-size="5" font-weight="800">{seat.id}</text>
+											<clipPath id="davatar-clip-{seat.id}">
+												{#if occ.avatar_shape === 'rounded'}
+													<rect x={scx - 9} y={seat.y + 11} width="18" height="18" rx="3" ry="3" />
+												{:else if occ.avatar_shape === 'square'}
+													<rect x={scx - 9} y={seat.y + 11} width="18" height="18" />
+												{:else}
+													<circle cx={scx} cy={seat.y + 20} r="9" />
+												{/if}
+											</clipPath>
+											<image href={occ.avatar_url} x={scx - 9} y={seat.y + 11} width="18" height="18" clip-path="url(#davatar-clip-{seat.id})" />
+											<text x={scx} y={seat.y + 39} text-anchor="middle" fill="var(--map-seat-player-fill)" font-size="6" font-weight="700"
+												textLength={occ.username.length > 7 ? 44 : null}
 												lengthAdjust="spacingAndGlyphs"
-											>{occ.team_name}</text>
+											>{occ.username}</text>
+											{#if occ.team_name}
+												<text x={scx} y={seat.y + 46} text-anchor="middle" fill="var(--accent)" font-size="4.5" opacity="0.7"
+													textLength={occ.team_name.length > 8 ? 42 : null}
+													lengthAdjust="spacingAndGlyphs"
+												>{occ.team_name}</text>
+											{/if}
+										{:else}
+											<text x={scx} y={seat.y + 13} text-anchor="middle" fill="var(--text-muted)" font-size="6" font-weight="800">{seat.id}</text>
+											<text x={scx} y={seat.y + 28} text-anchor="middle" fill="var(--map-seat-player-fill)" font-size="7" font-weight="700"
+												textLength={occ.username.length > 7 ? 44 : null}
+												lengthAdjust="spacingAndGlyphs"
+											>{occ.username}</text>
+											{#if occ.team_name}
+												<text x={scx} y={seat.y + 38} text-anchor="middle" fill="var(--accent)" font-size="5" opacity="0.7"
+													textLength={occ.team_name.length > 8 ? 42 : null}
+													lengthAdjust="spacingAndGlyphs"
+												>{occ.team_name}</text>
+											{/if}
 										{/if}
 									{:else}
 										<text x={scx} y={seat.y + 13} text-anchor="middle" fill="var(--text-muted)" font-size="6" font-weight="800">{seat.id}</text>
-										<text x={scx} y={seat.y + 28} text-anchor="middle" fill="var(--map-seat-player-fill)" font-size="7" font-weight="700"
-											textLength={occ.username.length > 7 ? 44 : null}
-											lengthAdjust="spacingAndGlyphs"
-										>{occ.username}</text>
-										{#if occ.team_name}
-											<text x={scx} y={seat.y + 38} text-anchor="middle" fill="var(--accent)" font-size="5" opacity="0.7"
-												textLength={occ.team_name.length > 8 ? 42 : null}
-												lengthAdjust="spacingAndGlyphs"
-											>{occ.team_name}</text>
-										{/if}
+										<text x={scx} y={seat.y + 32} text-anchor="middle" fill="var(--text-muted)" font-size="7">{$t('dash_map_legend_free')}</text>
 									{/if}
-								{:else}
-									<text x={scx} y={seat.y + 13} text-anchor="middle" fill="var(--text-muted)" font-size="6" font-weight="800">{seat.id}</text>
-									<text x={scx} y={seat.y + 32} text-anchor="middle" fill="var(--text-muted)" font-size="7">{$t('dash_map_legend_free')}</text>
-								{/if}
+								</g>
 							</g>
-						</g>
-					{/each}
-				</svg>
-			</div>
-			<div class="map-footer">
-				<div class="map-legend">
-					<span class="lg-item"><span class="lg-dot occupied"></span> {$t('dash_map_legend_occupied')} ({occupiedSeats})</span>
-					<span class="lg-item"><span class="lg-dot free"></span> {$t('dash_map_legend_free')} ({totalSeats - occupiedSeats})</span>
-					{#if user?.team_name}
-						<span class="lg-item"><span class="lg-dot teammate"></span> {$t('map_legend_teammates')}</span>
-					{/if}
+						{/each}
+
+						<!-- Floating Chat Bubble icon rising from Seat to Top towards Chat -->
+						{#each activeBeams as bubble (bubble.id)}
+							<g transform="translate({bubble.x}, {bubble.startY})">
+								<g
+									class="chat-bubble-flyer"
+									style="--fly-dist: {bubble.endY - bubble.startY}px;"
+								>
+									<!-- Chat Bubble Vector -->
+									<path
+										d="M -11,-9 h 22 a 6,6 0 0 1 6,6 v 8 a 6,6 0 0 1 -6,6 h -13 l -5,5 v -5 a 6,6 0 0 1 -4,-6 v -8 a 6,6 0 0 1 6,-6 z"
+										fill="url(#bubble-grad)"
+										stroke="#ffffff"
+										stroke-width="1.2"
+										filter="url(#neon-glow)"
+									/>
+									<!-- 3 glowing dots inside bubble -->
+									<circle cx="-5" cy="-2" r="1.5" fill="#ffffff" />
+									<circle cx="0" cy="-2" r="1.5" fill="#ffffff" />
+									<circle cx="5" cy="-2" r="1.5" fill="#ffffff" />
+								</g>
+							</g>
+						{/each}
+					</svg>
 				</div>
-			</div>
-		</section>
+				<div class="map-footer">
+					<div class="map-legend">
+						<span class="lg-item"><span class="lg-dot occupied"></span> {$t('dash_map_legend_occupied')} ({occupiedSeats})</span>
+						<span class="lg-item"><span class="lg-dot free"></span> {$t('dash_map_legend_free')} ({totalSeats - occupiedSeats})</span>
+						{#if user?.team_name}
+							<span class="lg-item"><span class="lg-dot teammate"></span> {$t('map_legend_teammates')}</span>
+						{/if}
+					</div>
+				</div>
+			</section>
+		</div>
+
 
 		<!-- RIGHT: Tournament Bracket Preview -->
 		<section class="panel bracket-panel glass">
@@ -1018,17 +1188,162 @@
 	.tm-name { color: var(--text-secondary); }
 	.tm-pts { font-weight: 700; color: var(--accent); font-size: 0.65rem; }
 
-	/* Map Panel */
-	.map-panel { min-width: 0; }
-	.map-preview-canvas { flex-grow: 1; padding: 0.5rem; min-height: 0; }
+	/* Center Column (Public Chat + Resizer + Arena Map) */
+	.center-column {
+		display: flex;
+		flex-direction: column;
+		gap: 0;
+		min-height: 0;
+		min-width: 0;
+		height: 100%;
+		position: relative;
+	}
+	.center-chat-panel {
+		min-height: 120px;
+		min-width: 0;
+		overflow: hidden;
+		display: flex;
+		flex-direction: column;
+		transition: height 0.1s ease-out;
+	}
+	.map-panel {
+		min-height: 90px;
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+		transition: height 0.1s ease-out;
+	}
+	.no-transition {
+		transition: none !important;
+	}
+
+	/* Sleek Neon Draggable Splitter */
+	.chat-map-splitter {
+		height: 14px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		cursor: row-resize;
+		user-select: none;
+		-webkit-user-select: none;
+		position: relative;
+		z-index: 15;
+		margin: 0;
+		padding: 2px 0;
+		transition: background 0.2s ease;
+	}
+	.chat-map-splitter::before {
+		content: '';
+		position: absolute;
+		left: 8%;
+		right: 8%;
+		height: 1px;
+		background: linear-gradient(90deg, transparent, var(--glass-border, rgba(255,255,255,0.15)), transparent);
+		transition: all 0.25s ease;
+	}
+	.splitter-handle {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 48px;
+		height: 8px;
+		border-radius: 9999px;
+		background: rgba(15, 23, 42, 0.85);
+		border: 1px solid var(--glass-border, rgba(255,255,255,0.18));
+		box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+		transition: all 0.2s ease;
+		backdrop-filter: blur(8px);
+	}
+	.splitter-pill {
+		width: 18px;
+		height: 2px;
+		border-radius: 1px;
+		background: var(--text-muted, #94a3b8);
+		transition: all 0.2s ease;
+	}
+	.chat-map-splitter:hover::before,
+	.chat-map-splitter.dragging::before {
+		background: linear-gradient(90deg, transparent, var(--accent, #6366f1), transparent);
+		height: 2px;
+		box-shadow: 0 0 10px var(--accent, #6366f1);
+	}
+	.chat-map-splitter:hover .splitter-handle,
+	.chat-map-splitter.dragging .splitter-handle {
+		width: 62px;
+		border-color: var(--accent, #6366f1);
+		background: rgba(99, 102, 241, 0.25);
+		box-shadow: 0 0 12px rgba(99, 102, 241, 0.5);
+	}
+	.chat-map-splitter:hover .splitter-pill,
+	.chat-map-splitter.dragging .splitter-pill {
+		background: #ffffff;
+		width: 28px;
+	}
+	.map-preview-canvas { flex-grow: 1; padding: 0.4rem; min-height: 0; }
 	.mini-map { width: 100%; height: 100%; border-radius: 8px; background: var(--surface-sunken); }
-	.map-footer { padding: 0.6rem 1rem; border-top: 1px solid var(--glass-border); }
+	.map-footer { padding: 0.4rem 1rem; border-top: 1px solid var(--glass-border); }
 	.map-legend { display: flex; gap: 1.5rem; justify-content: center; font-size: 0.7rem; color: var(--text-dim); }
 	.lg-item { display: flex; align-items: center; gap: 0.4rem; }
 	.lg-dot { width: 10px; height: 10px; border-radius: 3px; }
 	.lg-dot.occupied { background: rgba(59, 130, 246, 0.4); border: 1px solid var(--accent); }
 	.lg-dot.free { background: var(--map-seat-fill); border: 1px solid var(--map-seat-stroke); }
 	.lg-dot.teammate { background: var(--map-seat-teammate-fill); border: 1px solid var(--map-seat-teammate-stroke); }
+
+	/* Interactive Seat Highlight & Luminous Orb Animation */
+	.seat-node {
+		transition: transform 0.25s ease-out, filter 0.25s ease-out;
+		transform-box: fill-box;
+		transform-origin: center center;
+	}
+	.seat-node.pulse-active {
+		animation: seatQuickHighlight 0.75s ease-out forwards;
+	}
+	.seat-node.hover-active {
+		transform: translateY(-3px);
+		filter: drop-shadow(0 0 10px #c084fc);
+	}
+	@keyframes seatQuickHighlight {
+		0% {
+			transform: translateY(0);
+			filter: drop-shadow(0 0 2px #38bdf8);
+		}
+		30% {
+			transform: translateY(-4px);
+			filter: drop-shadow(0 0 14px #38bdf8) drop-shadow(0 0 20px rgba(99, 102, 241, 0.6));
+		}
+		100% {
+			transform: translateY(0);
+			filter: drop-shadow(0 0 0px transparent);
+		}
+	}
+
+	/* Floating Chat Bubble rising toward Chat */
+	.chat-bubble-flyer {
+		animation: bubblePopAndFly 0.95s cubic-bezier(0.2, 0.8, 0.25, 1) forwards;
+		pointer-events: none;
+	}
+	@keyframes bubblePopAndFly {
+		0% {
+			transform: translate(0, 0) scale(0.25);
+			opacity: 0;
+		}
+		25% {
+			/* Pops up directly centered above the seat */
+			transform: translate(0, -18px) scale(1.15);
+			opacity: 1;
+		}
+		45% {
+			/* Hovers gracefully right above the seat */
+			transform: translate(0, -24px) scale(1);
+			opacity: 1;
+		}
+		100% {
+			/* Soars straight up toward the public chat panel */
+			transform: translate(0, calc(var(--fly-dist, -250px) - 20px)) scale(0.6);
+			opacity: 0;
+		}
+	}
+
 
 	/* Bracket Panel */
 	.bracket-panel { min-width: 0; }

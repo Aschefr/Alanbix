@@ -60,6 +60,10 @@ def init_db():
         _safe_add_column(conn, "conversations", "admin_last_read_message_id", "INTEGER DEFAULT 0")
         _safe_add_column(conn, "conversations", "player_last_read_message_id", "INTEGER DEFAULT 0")
         _safe_add_column(conn, "conversations", "title_generation_attempted", "BOOLEAN DEFAULT 0")
+        _safe_add_column(conn, "users", "public_chat_muted_until", "TIMESTAMP")
+        _safe_add_column(conn, "public_chat_messages", "reactions", "JSON")
+        _safe_add_column(conn, "public_chat_messages", "reply_to_id", "INTEGER")
+
         
         # Purge any orphan/legacy tournaments with NULL game_id or missing games (due to previous SQLAlchemy missing cascade behavior)
         conn.execute(__import__('sqlalchemy').text("DELETE FROM tournaments WHERE game_id IS NULL OR game_id NOT IN (SELECT id FROM games)"))

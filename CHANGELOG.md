@@ -1,5 +1,23 @@
 # Changelog
 
+## [Unreleased]
+
+### Features & Improvements — Modern Public Chat (Reactions, Replies, Pinned Messages, Mention Sounds)
+
+- **Interactive Emoji Reactions & Comprehensive Picker**: Added a compact reaction trigger on each message row displaying **4 recently used emojis** (persisted in `localStorage`) alongside an expand button (`➕`). Opening the expanded picker provides an exhaustive catalog categorized into 7 tabs (Recent, All, Gaming & LAN, Gamer Tags like `GG`, `EZ`, `WP`, `GLHF`, `RIP`, `MVP`, `CLUTCH`, Smileys & Emotions, Hands & Gestures, and Symbols & Hearts) with live keyword search filtering. Interactive reaction pills underneath messages display live participant counts, reacting user tooltips, and real-time WebSocket synchronization (`public_chat_reaction_updated`).
+- **Contextual Replies & Quotes**: Implemented reply actions with a dedicated preview bar above the input field (cancelable via `✕` or `Escape`). Sent replies render an interactive quoted block above the message body that smoothly scrolls and highlights the source message upon click.
+- **Pinned Announcements Banner**: Added an elegant retractable announcement banner beneath the chat header displaying the latest pinned message. Users can click to jump directly to the announcement with visual highlight. Administrators can pin/unpin messages on demand (`POST /public-chat/pin`), synchronized globally via WebSockets (`public_chat_pinned_updated`).
+- **Offline Synthetic Mention Sound Notifications (G-17)**: Integrated a gentle two-tone chime synthesized natively with the Web Audio API without requiring any external audio files. Triggers exclusively when an active user is directly mentioned (`@username`). Includes a persistent audio mute toggle (`🔔` / `🔕`) in the chat header.
+- **Database Schema Upgrades (G-09, G-22)**: Added safe column migrations for `reactions` (JSON) and `reply_to_id` (ForeignKey) on `public_chat_messages` with explicit `flag_modified()` mutation tracking and `SystemConfig` persistence for pinned messages.
+- **Multilingual Localization (i18n)**: Fully translated and synchronized all new UI tooltips, action labels, and announcement titles across `fr.json`, `en.json`, and `es.json` with strict `verify_i18n.py` compliance.
+
+### Features & Improvements — Public Chat Typing Indicators & AI Assistant State
+
+- **Real-Time Typing Indicators**: Implemented real-time typing indicators in the public chat via `POST /public-chat/typing` and WebSocket `public_chat_typing` broadcast events.
+- **AI Assistant Typing Awareness**: Broadcasts typing status for the `@Alanbix` AI bot when background queue generation is in progress, automatically clearing it upon completion or error.
+- **Dynamic Humorous Punchlines**: Displays typers unified as `"User1, User2, Alanbix … [humorous phrase]"` with rotating gaming and Gaulish-themed phrases adapted to singular and plural forms.
+- **Full Internationalization (i18n)**: Added synchronized and translated typing punchlines in `fr.json`, `en.json`, and `es.json` validated with `verify_i18n.py`.
+
 ## [1.31.0] - 2026-07-12
 
 ### Features & Bug Fixes — Performance Optimizations, Unread Messages Separator, and Theme-Aware Scroll to Bottom Button

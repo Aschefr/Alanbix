@@ -16,6 +16,7 @@ class User(Base):
     avatar_url = Column(String, nullable=True) # URL / path of user avatar
     avatar_shape = Column(String, default="circle") # Display shape: circle, rounded, square
     last_active_at = Column(DateTime, nullable=True)
+    public_chat_muted_until = Column(DateTime, nullable=True) # Mute public chat
     
     @property
     def is_online(self) -> bool:
@@ -27,6 +28,7 @@ class User(Base):
         return (datetime.datetime.utcnow() - last_active).total_seconds() < 120
     
     tournaments = relationship("TournamentParticipant", back_populates="user")
+
 
 class Game(Base):
     __tablename__ = "games"
@@ -246,4 +248,24 @@ class RagSuggestion(Base):
     approved_at      = Column(DateTime, nullable=True)
     approved_by      = Column(Integer, ForeignKey("users.id"), nullable=True)
     approved_content = Column(Text, nullable=True)   # Réponse admin avant injection RAG
+
+class PublicChatMessage(Base):
+    """Message du Chat Public avec gestion des médias, mentions et bots."""
+    __tablename__ = "public_chat_messages"
+    id               = Column(Integer, primary_key=True, index=True)
+    user_id          = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
+    sender_name      = Column(String, nullable=True) # Nom d'affichage pour Alanbix ou Système
+    is_bot           = Column(Boolean, default=False)
+    content          = Column(Text, nullable=False)
+    image_path       = Column(String, nullable=True) # Image ou GIF uploadé
+    link_preview     = Column(JSON, nullable=True) # { url, title, description, image, site_name }
+    mentions         = Column(JSON, nullable=True) # { user_ids: [...], has_alanbix: bool }
+    is_deleted       = Column(Boolean, default=False) # Soft delete pour modération
+    reactions        = Column(JSON, nullable=True, default=dict) # {"🔥": [user_id_1, user_id_2]}
+    reply_to_id      = Column(Integer, ForeignKey("public_chat_messages.id", ondelete="SET NULL"), nullable=True)
+    created_at       = Column(DateTime, default=datetime.datetime.utcnow)
+
+    user             = relationship("User", backref="public_chat_messages")
+    reply_to         = relationship("PublicChatMessage", remote_side=[id], foreign_keys=[reply_to_id], backref="replies")
+
 

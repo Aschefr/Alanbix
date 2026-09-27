@@ -24,6 +24,25 @@ Pour les besoins tactiques et communautaires de la LAN, Alanbix intègre un syst
   * *Clé de canal* : `inter:[NomEquipeA]|[NomEquipeB]`. Les noms sont systématiquement triés par ordre alphabétique pour garantir que le canal soit identique quel que soit l'initiateur du chat.
   * *Contrôle de Sécurité* : Seuls les membres des deux équipes concernées (ou un administrateur) peuvent lire ou poster dans ce canal. Le backend réjete toute autre tentative.
 
+### 3. Chat Public de la Salle & Mascotte IA (Dashboard)
+Le Dashboard principal intègre un espace de discussion public accessible à l'ensemble des joueurs et organisateurs de la LAN :
+* **Interactions avec la Salle & la Carte** : Lorsqu'un joueur assis dans la salle envoie un message, son siège sur le plan interactif s'illumine et une bulle de chat s'élève vers le panneau de discussion.
+* **Mascotte IA `@Alanbix`** : En mentionnant `@Alanbix`, l'assistant IA local prend part à la conversation avec son ton gamer et bienveillant (pipeline asynchrone protégé par la file d'attente IA).
+* **Indicateur de Saisie Temps Réel (Typing Indicator)** :
+  * Détecte instantanément quand un ou plusieurs joueurs tapent au clavier, ainsi que lorsque la mascotte `@Alanbix` prépare sa réponse.
+  * Regroupe les rédacteurs dans une phrase unifiée au format `"Untel, untel, Alanbix …"` accompagnée de punchlines humoristiques tournantes adaptées en singulier et pluriel (ex. *"distille un chef-d'œuvre"*, *"font chauffer leurs claviers mécaniques"*).
+  * Système résilient avec expiration automatique après 5-6 secondes d'inactivité et arrêt immédiat à l'envoi du message.
+* **Fonctionnalités avancées** :
+  * **Réactions Émojis & Sélecteur Complet** :
+    * Barre de survol compacte avec déclencheur `🙂+`.
+    * Menu rapide affichant les **4 émojis récents** de l'utilisateur (mémorisés dans le `localStorage`) et un bouton `➕ Plus d'émojis`.
+    * Sélecteur d'émojis standard exhaustif : recherche en direct, 7 onglets thématiques (Récents, Tous, Gaming & LAN, Tags Gamer comme `GG`, `EZ`, `WP`, `GLHF`, `RIP`, `MVP`, `CLUTCH`, Smileys, Gestes, Symboles), navigation au clavier et fermeture au clic extérieur.
+    * Pilules de compteurs interactives sous les messages avec toggle instantané, infobulle listant les votants, et synchronisation WebSocket en temps réel.
+  * **Réponses & Citations contextuelles** : Bouton `↩️ Répondre` ouvrant une barre de prévisualisation au-dessus du champ de texte (annulable via `✕` ou la touche `Échap`). Le message envoyé intègre un encart de citation cliquable permettant de faire défiler la vue vers le message d'origine avec une brève animation de surbrillance.
+  * **Message Épinglé & Annonces Admin** : Bannière discrète et élégante épinglée sous l'en-tête du chat pour diffuser les annonces cruciales de l'organisation. Un clic sur la bannière fait défiler directement la discussion jusqu'au message d'origine. Contrôle d'épinglage et de désépinglage immédiat réservé aux organisateurs.
+  * **Notifications sonores synthétiques des mentions (G-17)** : Carillon bicolore doux généré nativement via l'API Web Audio (100% offline, aucun fichier externe), retentissant uniquement lorsqu'un joueur est directement mentionné (`@MonPseudo`). Bouton de bascule persistant (`🔔`/`🔕`) intégré dans l'en-tête du chat.
+  * **Médias & Modération** : Partage d'images et de GIFs (jusqu'à 8 Mo), aperçus de liens OpenGraph, ligne de démarcation des messages non-lus avec bouton de retour rapide, et réglages de modération (slowmode, mots interdits, anti-flood).
+
 ---
 
 ## 🔔 Le Centre de Notifications (Temps Réel)

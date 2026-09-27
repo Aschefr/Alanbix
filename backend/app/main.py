@@ -332,7 +332,7 @@ def list_languages():
         pass
     return {"languages": ["fr", "en"]}
 
-from app.routers import users, tournaments, room, ia, dashboard, i18n
+from app.routers import users, tournaments, room, ia, dashboard, i18n, public_chat
 
 app.include_router(users.router)
 app.include_router(tournaments.router)
@@ -342,6 +342,7 @@ app.include_router(dashboard.router)
 app.include_router(i18n.router)
 app.include_router(notifications.router)
 app.include_router(players.router)
+app.include_router(public_chat.router)
 
 # Serve uploaded images (legacy static mount)
 from fastapi.staticfiles import StaticFiles
@@ -351,12 +352,13 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Serve chat images from data volume
 DATA_DIR = os.path.dirname(os.getenv("DATABASE_PATH", "/app/data/alanbix.db"))
-os.makedirs(os.path.join(DATA_DIR, "chat_images"), exist_ok=True)
+os.makedirs(os.path.join(DATA_DIR, "chat_images", "public"), exist_ok=True)
 os.makedirs(os.path.join(DATA_DIR, "info_files"), exist_ok=True)
 os.makedirs(os.path.join(DATA_DIR, "avatars"), exist_ok=True)
 os.makedirs(os.path.join(DATA_DIR, "i18n"), exist_ok=True)
 os.makedirs(os.path.join(DATA_DIR, "game_images"), exist_ok=True)
 app.mount("/data", StaticFiles(directory=DATA_DIR), name="data")
+
 
 
 
