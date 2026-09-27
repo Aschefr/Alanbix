@@ -1091,5 +1091,6 @@
   "admin_public_chat_purge_confirm": "Confirm clearing public chat?",
   "admin_public_chat_purge_confirm_btn": "Yes, clear",
   "admin_public_chat_purge_success": "Public chat history cleared successfully",
-  "admin_public_chat_save_success": "Public chat settings saved"
+  "admin_public_chat_save_success": "Public chat settings saved",
+  "dash_chat_disabled_admin_hint": "Public chat disabled for players (admin access active)"
 }

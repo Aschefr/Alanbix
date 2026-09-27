@@ -1091,5 +1091,6 @@
   "admin_public_chat_purge_confirm": "¿Confirmar el vaciado del chat público?",
   "admin_public_chat_purge_confirm_btn": "Sí, vaciar",
   "admin_public_chat_purge_success": "Historial del chat público vaciado con éxito",
-  "admin_public_chat_save_success": "Ajustes del chat público guardados"
+  "admin_public_chat_save_success": "Ajustes del chat público guardados",
+  "dash_chat_disabled_admin_hint": "Chat publico desactivado para jugadores (acceso admin activo)"
 }

@@ -1455,7 +1455,7 @@
 				on:keydown={handleKeydown}
 				on:input={handleInput}
 				on:paste={handlePaste}
-				placeholder={!chatConfig.enabled && !user?.is_admin ? $t('dash_chat_disabled_msg') : $t('dash_chat_placeholder')}
+				placeholder={!chatConfig.enabled ? (user?.is_admin ? $t('dash_chat_disabled_admin_hint') : $t('dash_chat_disabled_msg')) : $t('dash_chat_placeholder')}
 				disabled={!chatConfig.enabled && !user?.is_admin}
 				rows="1"
 				maxlength={maxChars + 10}

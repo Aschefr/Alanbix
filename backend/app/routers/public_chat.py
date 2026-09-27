@@ -179,7 +179,9 @@ async def update_config(
         db.add(cfg_row)
     else:
         cfg_row.value = cfg_dict
+        flag_modified(cfg_row, "value")
     db.commit()
+    db.refresh(cfg_row)
     await ws_manager.broadcast({"type": "public_chat_config_updated", "config": cfg_dict})
     return {**cfg_dict, "status": "ok", "config": cfg_dict}
 

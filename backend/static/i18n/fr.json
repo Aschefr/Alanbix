@@ -1091,5 +1091,6 @@
   "admin_public_chat_purge_confirm": "Confirmer la purge du chat public ?",
   "admin_public_chat_purge_confirm_btn": "Oui, vider",
   "admin_public_chat_purge_success": "Historique du chat public purgé avec succès",
-  "admin_public_chat_save_success": "Paramètres du chat public enregistrés"
+  "admin_public_chat_save_success": "Paramètres du chat public enregistrés",
+  "dash_chat_disabled_admin_hint": "Chat public desactive pour les joueurs (acces admin actif)"
 }

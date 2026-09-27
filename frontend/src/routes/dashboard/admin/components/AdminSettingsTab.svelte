@@ -131,7 +131,15 @@
 				loadQueueAdmin();
 			}
 			if (msg.type === 'public_chat_config_updated') {
-				loadPublicChatConfig();
+				if (msg.config) {
+					publicChatConfig = {
+						...publicChatConfig,
+						...msg.config,
+						banned_words_text: (msg.config.banned_words || []).join(', ')
+					};
+				} else {
+					loadPublicChatConfig();
+				}
 			}
 			if (msg.type === 'config_updated') {
 				api.get('/dashboard/stats').then(stats => {
@@ -297,6 +305,11 @@
 		}
 	}
 
+	async function togglePublicChatField(key) {
+		publicChatConfig[key] = !publicChatConfig[key];
+		await savePublicChatConfig();
+	}
+
 	async function savePublicChatConfig() {
 		try {
 			const words = (publicChatConfig.banned_words_text || '')
@@ -304,17 +317,20 @@
 				.map(w => w.trim())
 				.filter(Boolean);
 			const payload = {
-				enabled: publicChatConfig.enabled,
+				enabled: Boolean(publicChatConfig.enabled),
 				slowmode_seconds: Number(publicChatConfig.slowmode_seconds) || 0,
 				max_length: Number(publicChatConfig.max_length) || 250,
-				block_duplicates: !!publicChatConfig.block_duplicates,
+				block_duplicates: Boolean(publicChatConfig.block_duplicates),
 				banned_words: words,
-				ai_mention_enabled: !!publicChatConfig.ai_mention_enabled,
+				ai_mention_enabled: Boolean(publicChatConfig.ai_mention_enabled),
 				ai_cooldown_seconds: Number(publicChatConfig.ai_cooldown_seconds) || 15
 			};
-			await api.put('/public-chat/config', payload);
-			toast(get(t)('admin_public_chat_save_success') || 'Paramètres du Chat Public enregistrés', 'success');
+			const res = await api.put('/public-chat/config', payload);
+			if (res) {
+				toast(get(t)('admin_public_chat_save_success'), 'success');
+			}
 		} catch (e) {
+			console.error("Failed to save public chat config:", e);
 			toast(e.message || 'Erreur de sauvegarde', 'error');
 		}
 	}
@@ -666,11 +682,18 @@
 				<div class="pca-container">
 					<!-- Toggles Grid: 3 Symmetrical Cards -->
 					<div class="pca-toggles-grid">
-						<label class="pca-toggle-card" class:active={publicChatConfig.enabled}>
+						<button
+							type="button"
+							class="pca-toggle-card"
+							class:active={publicChatConfig.enabled}
+							on:click={() => togglePublicChatField('enabled')}
+							role="switch"
+							aria-checked={publicChatConfig.enabled}
+						>
 							<div class="pca-toggle-top">
 								<div class="pca-card-icon">💬</div>
 								<div class="toggle-switch-mini">
-									<input type="checkbox" bind:checked={publicChatConfig.enabled} />
+									<input type="checkbox" checked={publicChatConfig.enabled} tabindex="-1" style="pointer-events: none;" />
 									<span class="toggle-slider"></span>
 								</div>
 							</div>
@@ -678,13 +701,20 @@
 								<span class="pca-toggle-title">{$t("admin_public_chat_enable")}</span>
 								<span class="pca-toggle-desc">{$t("admin_public_chat_enable_sub")}</span>
 							</div>
-						</label>
+						</button>
 
-						<label class="pca-toggle-card" class:active={publicChatConfig.block_duplicates}>
+						<button
+							type="button"
+							class="pca-toggle-card"
+							class:active={publicChatConfig.block_duplicates}
+							on:click={() => togglePublicChatField('block_duplicates')}
+							role="switch"
+							aria-checked={publicChatConfig.block_duplicates}
+						>
 							<div class="pca-toggle-top">
 								<div class="pca-card-icon">🛡️</div>
 								<div class="toggle-switch-mini">
-									<input type="checkbox" bind:checked={publicChatConfig.block_duplicates} />
+									<input type="checkbox" checked={publicChatConfig.block_duplicates} tabindex="-1" style="pointer-events: none;" />
 									<span class="toggle-slider"></span>
 								</div>
 							</div>
@@ -692,13 +722,20 @@
 								<span class="pca-toggle-title">{$t("admin_public_chat_block_dup")}</span>
 								<span class="pca-toggle-desc">{$t("admin_public_chat_block_dup_desc")}</span>
 							</div>
-						</label>
+						</button>
 
-						<label class="pca-toggle-card" class:active={publicChatConfig.ai_mention_enabled}>
+						<button
+							type="button"
+							class="pca-toggle-card"
+							class:active={publicChatConfig.ai_mention_enabled}
+							on:click={() => togglePublicChatField('ai_mention_enabled')}
+							role="switch"
+							aria-checked={publicChatConfig.ai_mention_enabled}
+						>
 							<div class="pca-toggle-top">
 								<div class="pca-card-icon">🤖</div>
 								<div class="toggle-switch-mini">
-									<input type="checkbox" bind:checked={publicChatConfig.ai_mention_enabled} />
+									<input type="checkbox" checked={publicChatConfig.ai_mention_enabled} tabindex="-1" style="pointer-events: none;" />
 									<span class="toggle-slider"></span>
 								</div>
 							</div>
@@ -706,7 +743,7 @@
 								<span class="pca-toggle-title">{$t("admin_public_chat_ai_mention")}</span>
 								<span class="pca-toggle-desc">{$t("admin_public_chat_ai_mention_sub")}</span>
 							</div>
-						</label>
+						</button>
 					</div>
 
 					<!-- Limits & Delays Section -->
@@ -720,7 +757,7 @@
 							<div class="pca-field">
 								<label class="compact-label" for="pca-slowmode">{$t("admin_public_chat_slowmode")}</label>
 								<div class="pca-input-wrapper">
-									<input id="pca-slowmode" type="number" bind:value={publicChatConfig.slowmode_seconds} min="0" max="120" placeholder="0" />
+									<input id="pca-slowmode" type="number" bind:value={publicChatConfig.slowmode_seconds} min="0" max="120" placeholder="0" on:change={savePublicChatConfig} />
 									<span class="pca-input-suffix">sec</span>
 								</div>
 								<span class="pca-hint">{$t("admin_public_chat_slowmode_hint")}</span>
@@ -729,7 +766,7 @@
 							<div class="pca-field">
 								<label class="compact-label" for="pca-maxlen">{$t("admin_public_chat_max_len")}</label>
 								<div class="pca-input-wrapper">
-									<input id="pca-maxlen" type="number" bind:value={publicChatConfig.max_length} min="10" max="1000" placeholder="250" />
+									<input id="pca-maxlen" type="number" bind:value={publicChatConfig.max_length} min="10" max="1000" placeholder="250" on:change={savePublicChatConfig} />
 									<span class="pca-input-suffix">car.</span>
 								</div>
 								<span class="pca-hint">{$t("admin_public_chat_max_len_hint")}</span>
@@ -738,7 +775,7 @@
 							<div class="pca-field" class:disabled={!publicChatConfig.ai_mention_enabled}>
 								<label class="compact-label" for="pca-cooldown">{$t("admin_public_chat_ai_cooldown")}</label>
 								<div class="pca-input-wrapper">
-									<input id="pca-cooldown" type="number" bind:value={publicChatConfig.ai_cooldown_seconds} min="5" max="300" placeholder="15" disabled={!publicChatConfig.ai_mention_enabled} />
+									<input id="pca-cooldown" type="number" bind:value={publicChatConfig.ai_cooldown_seconds} min="5" max="300" placeholder="15" disabled={!publicChatConfig.ai_mention_enabled} on:change={savePublicChatConfig} />
 									<span class="pca-input-suffix">sec</span>
 								</div>
 								<span class="pca-hint">{$t("admin_public_chat_ai_cooldown_hint")}</span>
@@ -755,7 +792,7 @@
 
 						<div class="pca-field full-width">
 							<label class="compact-label" for="pca-banned-words">{$t("admin_public_chat_banned_words")}</label>
-							<input id="pca-banned-words" type="text" bind:value={publicChatConfig.banned_words_text} placeholder={$t("admin_public_chat_banned_words_placeholder")} />
+							<input id="pca-banned-words" type="text" bind:value={publicChatConfig.banned_words_text} placeholder={$t("admin_public_chat_banned_words_placeholder")} on:change={savePublicChatConfig} />
 							<span class="pca-hint">{$t("admin_public_chat_banned_words_hint")}</span>
 						</div>
 					</div>
@@ -1447,8 +1484,8 @@
 
 	/* Switches */
 	.toggle-switch-mini { position: relative; display: inline-block; width: 32px; height: 18px; cursor: pointer; flex-shrink: 0; }
-	.toggle-switch-mini input { opacity: 0; width: 0; height: 0; position: absolute; }
-	.toggle-switch-mini .toggle-slider { position: absolute; inset: 0; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 18px; transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
+	.toggle-switch-mini input { opacity: 0; width: 0; height: 0; position: absolute; pointer-events: none; }
+	.toggle-switch-mini .toggle-slider { position: absolute; inset: 0; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 18px; transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1); pointer-events: none; }
 	.toggle-switch-mini .toggle-slider::before { content: ''; position: absolute; height: 12px; width: 12px; left: 2px; bottom: 2px; background: var(--text-dim); border-radius: 50%; transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
 	.toggle-switch-mini input:checked + .toggle-slider { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 10px var(--accent-glow); }
 	.toggle-switch-mini input:checked + .toggle-slider::before { transform: translateX(14px); background: #ffffff; }
@@ -1527,12 +1564,24 @@
 		transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 		user-select: none;
 		min-height: 110px;
+		text-align: left;
+		color: inherit;
+		font-family: inherit;
+		font-size: inherit;
+		box-sizing: border-box;
+		width: 100%;
+		appearance: none;
+		-webkit-appearance: none;
 	}
 	.pca-toggle-card:hover {
 		background: var(--surface-sunken);
 		border-color: var(--glass-border-highlight);
 		transform: translateY(-2px);
 		box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+	}
+	.pca-toggle-card:focus-visible {
+		outline: 2px solid var(--accent);
+		outline-offset: 2px;
 	}
 	.pca-toggle-card.active {
 		border-color: rgba(59, 130, 246, 0.4);
