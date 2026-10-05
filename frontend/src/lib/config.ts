@@ -38,10 +38,35 @@ function resolveApiUrl(): string {
 
 export const API_URL = resolveApiUrl();
 
+// Helper to derive ws(s):// URL from an absolute http(s):// endpoint
+function toWsFromHttp(url: string): string {
+	const clean = url.replace(/\/+$/, '');
+	let ws = clean;
+	if (clean.startsWith('https://')) {
+		ws = clean.replace(/^https:\/\//, 'wss://');
+	} else if (clean.startsWith('http://')) {
+		// Upgrade to wss if current page is served over HTTPS to avoid mixed content block
+		const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
+		ws = clean.replace(/^http:\/\//, isHttps ? 'wss://' : 'ws://');
+	}
+	return `${ws}/ws`;
+}
+
 // For WebSockets, we need absolute URLs
 function resolveWsUrl(): string {
+	// 0. Explicit WebSocket URL override if provided
+	const envWsUrl = import.meta.env.VITE_WS_URL;
+	if (envWsUrl && envWsUrl !== 'undefined' && envWsUrl !== '') {
+		return envWsUrl;
+	}
+
 	// 1. In DEVELOPMENT mode only (vite dev)
 	if (import.meta.env.DEV) {
+		const envApiUrl = import.meta.env.VITE_API_URL;
+		if (envApiUrl && envApiUrl !== 'undefined' && envApiUrl !== '' && (envApiUrl.startsWith('http://') || envApiUrl.startsWith('https://'))) {
+			return toWsFromHttp(envApiUrl);
+		}
+
 		if (typeof window !== 'undefined') {
 			const hostname = window.location.hostname;
 			const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -51,6 +76,12 @@ function resolveWsUrl(): string {
 	}
 
 	// 2. In PRODUCTION (standalone Docker / Unraid / Docker Hub):
+	// If an explicit API URL was passed (split deployments), derive WS from it
+	const envApiUrl = import.meta.env.VITE_API_URL;
+	if (envApiUrl && envApiUrl !== 'undefined' && envApiUrl !== '' && (envApiUrl.startsWith('http://') || envApiUrl.startsWith('https://'))) {
+		return toWsFromHttp(envApiUrl);
+	}
+
 	if (typeof window !== 'undefined') {
 		const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 		return `${protocol}//${window.location.host}/ws`;

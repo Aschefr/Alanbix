@@ -706,11 +706,15 @@
 				removePendingImage();
 			}
 
-			await api.post('/public-chat/messages', {
+			const postedMsg = await api.post('/public-chat/messages', {
 				content: sentText,
 				image_path: imagePath,
 				reply_to_id: replyToId
 			});
+
+			if (postedMsg && postedMsg.id) {
+				handleIncomingMessage(postedMsg);
+			}
 
 			// Apply slowmode cooldown
 			if (!user?.is_admin && chatConfig.slowmode_seconds > 0) {

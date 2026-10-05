@@ -68,6 +68,23 @@ def test_config_ts_production_defaults():
     )
 
 
+def test_config_ts_websocket_handles_split_api_url():
+    """
+    Ensure config.ts derives WebSocket URL from VITE_API_URL when provided,
+    supporting split deployments where frontend and backend are hosted on separate domains.
+    """
+    assert CONFIG_PATH.exists()
+    content = CONFIG_PATH.read_text(encoding="utf-8")
+
+    assert "toWsFromHttp" in content, (
+        "config.ts must define a helper to derive ws(s):// from http(s):// API URL"
+    )
+    assert "VITE_API_URL" in content, (
+        "resolveWsUrl must reference VITE_API_URL to support split API domains"
+    )
+
+
+
 def test_dockerfile_standalone_exposed_port():
     """
     Ensure Dockerfile.standalone consistently exposes and runs on port 41481.

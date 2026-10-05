@@ -1,6 +1,12 @@
 # Changelog
 
-## [Unreleased]
+## [1.32.2] - 2026-10-05
+
+### 🐛 Correction — Synchronisation Temps Réel (WebSockets & Chat)
+- **Routage WebSocket multi-domaines (`VITE_API_URL`)** : Résolution du problème où le WebSocket tentait de contacter le port de développement `8000` ou l'hôte frontend au lieu de dériver l'URL depuis l'API backend (`VITE_API_URL` / `VITE_WS_URL`). Permet le fonctionnement instantané du chat et des événements sans aucun rafraîchissement (F5) sur les déploiements séparés (ex: `https://alanbix.amify-studio.fr` et `https://api-alanbix.amify-studio.fr`).
+- **Heartbeat & Keepalive WebSocket (25s)** : Ajout d'un ping régulier pour empêcher la fermeture de la connexion WebSocket par les reverse proxies (Cloudflare, Nginx) lors des périodes d'inactivité.
+- **Affichage optimiste des messages envoyés** : Le message posté apparaît instantanément pour l'expéditeur dès confirmation de l'API sans attendre l'écho WebSocket.
+
 
 ## [1.32.1] - 2026-09-27
 
