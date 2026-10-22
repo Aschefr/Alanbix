@@ -81,10 +81,17 @@ Le pseudo du joueur connecté (ou le nom de son équipe globale/de tournoi) est 
 
 Lorsque l'option **Utiliser des équipes** (`config.use_teams = true`) est activée pour un tournoi :
 
-1. **Création d'Équipe** : Tout joueur inscrit au tournoi peut créer sa propre équipe de jeu via le bouton `Créer une équipe`. Le créateur en devient le "propriétaire" (`created_by`).
-2. **Rejoindre une Équipe** : Un joueur inscrit et n'ayant pas d'équipe voit un bouton `⭐ Rejoindre` sur les équipes qui ne sont pas complètes.
+1. **Création d'Équipe** : Tout joueur inscrit au tournoi peut créer sa propre équipe de jeu via le bouton `Créer une équipe`. Le créateur en devient le "propriétaire" (`created_by`) et le référent/capitaine (`👑`).
+2. **Rejoindre une Équipe** : Un joueur inscrit et n'ayant pas d'équipe voit un bouton `⭐ Rejoindre` sur les équipes qui ne sont ni complètes ni verrouillées.
 3. **Contrainte de taille (`team_size`)** : Le backend vérifie via l'endpoint `add_team_member` que la taille de l'équipe ne dépasse pas la limite définie sous peine de renvoyer un code HTTP 400.
 4. **ID Équipes Négatifs** : Pour distinguer les joueurs des équipes dans les tables SQLite, les identifiants d'équipes dans le bracket sont négatifs (`-team_id`). Un dictionnaire `config._team_map` maintient la liaison Nom ↔ ID pour l'affichage en temps réel.
+5. **Verrouillage d'Équipes & Rôle de Capitaine (`👑`)** :
+   * **3 modes configurables par tournoi** : Ouvert (`open`), Contrôle Capitaine (`captain_only`), ou Contrôle Strict Admin (`admin_only`).
+   * Le capitaine peut verrouiller/déverrouiller son équipe en un clic (`🔒`/`🔓`).
+   * Un joueur peut quitter une équipe même si elle est verrouillée (empêche les entrées sans bloquer les sorties).
+   * L'administrateur conserve un droit de bypass absolu (assignation de joueur, nomination de capitaine, forçage de verrou).
+6. **Accordéons / Repliage des Équipes** : Boutons `Tout replier` et `Tout déplier` dans l'en-tête de la section pour naviguer fluidement dans les tournois réunissant des dizaines d'équipes.
+7. **Édition à chaud & Changement de jeu (Game Swap)** : Modale d'édition accessible aux organisateurs permettant d'ajuster le nom, les consignes et de permuter le jeu associé (`game_id`) sans jamais altérer les matchs joués ou les scores enregistrés.
 
 ---
 

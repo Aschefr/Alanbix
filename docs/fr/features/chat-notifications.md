@@ -10,8 +10,8 @@ Alanbix gère les flux de discussion via des connexions WebSocket persistantes (
 
 ### 1. Chat Privé de Joueur à Joueur (P2P)
 * En cliquant sur un profil de joueur depuis l'annuaire, un espace de messagerie directe s'ouvre.
-* Les messages sont stockés dans la table SQLite `messages`.
-* Le système génère automatiquement des badges de notification rouges avec un compteur de messages non-lus sur le nom de l'expéditeur dans l'annuaire et sur l'onglet messagerie global de la barre latérale.
+* Les messages sont stockés dans la table SQLite `private_messages`.
+* Le système génère automatiquement des badges de notification violets avec un compteur de messages non-lus sur le nom de l'expéditeur dans l'annuaire et sur l'onglet messagerie global de la barre latérale.
 
 ![Annuaire et Chat](../../../screenshots/alanbix_joueurs.png)
 
@@ -22,7 +22,17 @@ Pour les besoins tactiques et communautaires de la LAN, Alanbix intègre un syst
   * Les boutons d'accès de l'interface possèdent une animation de pulsation violette distinctive.
 * **Chat inter-équipes (⚔️)** : Permet à deux équipes distinctes de s'envoyer des défis ou de discuter.
   * *Clé de canal* : `inter:[NomEquipeA]|[NomEquipeB]`. Les noms sont systématiquement triés par ordre alphabétique pour garantir que le canal soit identique quel que soit l'initiateur du chat.
-  * *Contrôle de Sécurité* : Seuls les membres des deux équipes concernées (ou un administrateur) peuvent lire ou poster dans ce canal. Le backend réjete toute autre tentative.
+  * *Contrôle de Sécurité* : Seuls les membres des deux équipes concernées (ou un administrateur) peuvent lire ou poster dans ce canal. Le backend rejette toute autre tentative.
+
+### 3. Fonctionnalités Modernes Communes (P2P & Groupes)
+Les discussions directes et de groupes bénéficient de toute la richesse du chat public :
+* **Réactions Émojis en direct** : Barre rapide au survol (`👍`, `🔥`, `🏆`, `➕` avec sélecteur exhaustif catégorisé) et pastilles de compteurs cliquables sous les messages.
+* **Réponses & Citations contextuelles** : Bouton Répondre (`↩`) avec mise en surbrillance et défilement immédiat vers le message source.
+* **Pièces jointes & Images** : Envoi d'images et mèmes (PNG, JPG, WebP, GIF jusqu'à 8 Mo) par glisser-déposer, presse-papiers (`Ctrl+V`) ou bouton trombone, avec aperçu miniature et agrandissement plein écran (lightbox).
+* **Aperçus de liens automatiques (OpenGraph)** : Cartes visuelles avec titre, résumé et miniature pour toute URL partagée.
+* **Indicateur de saisie en temps réel** : Visibilité immédiate des correspondants en train de taper au clavier via WebSockets.
+* **Notifications sonores & Filtre anti-propos** : Signal audio léger lors d'une mention directe `@pseudo` (désactivable via `🔊`/`🔇`) et bouclier de courtoisie (`🛡️`/`👁️`) pour masquer les grossièretés (`putain` -> `p****n`).
+* **Confidentialité & Exclusion stricte de l'IA** : L'assistant `@Alanbix` reste exclusivement confiné au salon public du Dashboard et n'intervient jamais dans les discussions privées ou d'équipes.
 
 ### 3. Chat Public de la Salle & Mascotte IA (Dashboard)
 Le Dashboard principal intègre un espace de discussion public accessible à l'ensemble des joueurs et organisateurs de la LAN :

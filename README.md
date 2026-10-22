@@ -23,6 +23,8 @@ Nommé en clin d'œil à *Alambix* de l'univers d'Astérix — une machinerie co
 - **Annuler/Rollback** : Réouverture des tournois clôturés avec annulation automatique des points distribués.
 - **Drapeau à damier** : Bannière visuelle claire lorsqu'un tournoi est terminé.
 - **Vérouillage des scores** : Délai de saisie (5s) pour les joueurs, verrouillage automatique des matchs terminés, indicateur 🔒 visuel. Seuls les admins peuvent corriger un score verrouillé.
+- **Édition à chaud & Changement de jeu (Game Swap)** : Modification du nom, des règles spécifiques et du jeu lié d'un tournoi déjà créé ou en cours sans perte d'historique ou de progression.
+- **Verrouillage d'équipes & Rôle de Référent (👑)** : Configuration fine des inscriptions (ouvert à tous, contrôle capitaine ou contrôle admin strict) et accordéons repliables ("Tout replier" / "Tout déplier").
 
 ### 📊 Dashboard & Classements
 - **Classement global** : Leaderboard avec indicateurs de progression (↑↓ NEW).
@@ -34,7 +36,8 @@ Nommé en clin d'œil à *Alambix* de l'univers d'Astérix — une machinerie co
 
 ### 👥 Joueurs & Communauté
 - **Annuaire organisé** : Visualisation de tous les participants inscrits, regroupés par équipe.
-- **Messagerie privée en direct** : Interface de chat P2P rapide intégrée directement à l'annuaire.
+- **Messagerie privée (P2P) & Salons d'équipes enrichis** : Interface moderne alignée sur le chat public (réactions émojis, réponses/citations, partage d'images/captures jusqu'à 8 Mo avec lightbox, aperçus OpenGraph, indicateur de frappe en direct et synthèse sonore discrète sur mention directe). L'assistant `@Alanbix` en est rigoureusement exclu pour préserver l'intimité des joueurs.
+- **Filtre anti-propos insultants (côté client, opt-in)** : Masquage intelligent multilingue des mots grossiers (`putain` -> `p****n`) activable d'un clic via le bouclier (`🛡️`/`👁️`) dans l'en-tête de chat ou dans les réglages du profil.
 - **Badges de notifications intelligents** : Compteurs de messages non-lus globaux et par joueur, mis à jour instantanément via WebSocket.
 - **Messagerie de groupe** : Chat d'équipe privé (🛡️) et chat inter-équipes (⚔️) avec badges non-lus distincts, boutons avec pulse violet, et channels déterministes.
 - **Actions rapides** : Raccourcis en un clic pour voir l'historique des points d'un joueur ou localiser son siège sur le plan interactif.

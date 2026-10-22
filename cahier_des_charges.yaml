@@ -1445,6 +1445,61 @@ future_axes:
       - "Validation complète i18n et passage de la suite de tests unitaires."
     priority: high
 
+  - id: AXE-67
+    title: "Filtre anti-propos insultants (côté client, opt-in multilingue)"
+    status: DONE
+    description: >
+      Permettre aux utilisateurs de masquer les propos grossiers dans les messages de chat (public, direct et équipe),
+      avec masquage intelligent préservant le début et la fin du mot (ex: putain -> p****n) et listes simples par langue.
+    done:
+      - "Module profanity.ts réactif avec store Svelte profanityFilterEnabled et persistance localStorage."
+      - "Listes de mots séparés par des points-virgules dans les traductions (fr.json, en.json, es.json) sous profanity_words_list."
+      - "Bouton bouclier interactif (🛡️/👁️) dans l'en-tête des chats et sélecteur de préférence dans le profil utilisateur."
+      - "Traductions complètes et vérification verify_i18n.py."
+    priority: medium
+
+  - id: AXE-68
+    title: "Édition des tournois, Changement de jeu en cours (Game Swap) et Suppression sécurisée de jeux"
+    status: DONE
+    description: >
+      Permettre d'éditer le nom, les règles spécifiques et le jeu lié d'un tournoi déjà créé ou en cours sans perte d'historique,
+      et fiabiliser la suppression d'un jeu sans conflit de contrainte de clé étrangère SQLite.
+    done:
+      - "Modale EditTournamentModal.svelte permettant l'édition complète des informations d'un tournoi."
+      - "Endpoint PUT /tournaments/{id} acceptant le changement de game_id en conservant l'arbre, les matchs et les scores."
+      - "Endpoint DELETE /games/{id} sécurisé avec option de dissociation propre (cascade=false) ou suppression intégrale."
+      - "Purge automatique au démarrage des orphelins sans casser les tables existantes."
+    priority: high
+
+  - id: AXE-69
+    title: "Gestion des équipes avancée : Accordéons repliables, Verrouillage d'équipe et Référent/Capitaine"
+    status: DONE
+    description: >
+      Améliorer l'ergonomie des tournois à forte participation d'équipes et sécuriser la composition des équipes.
+    done:
+      - "Boutons 'Tout replier' et 'Tout déplier' dans la liste des équipes pour faciliter la navigation."
+      - "3 modes de verrouillage par tournoi : Ouvert (open), Contrôle Capitaine (captain_only), Contrôle Admin (admin_only)."
+      - "Système de référent/capitaine d'équipe (👑) avec possibilité de verrouiller/déverrouiller son équipe."
+      - "Possibilité de quitter une équipe verrouillée sans bloquer les départs, avec bypass admin complet."
+      - "Affichage permanent du nom de l'équipe du joueur connecté dans la barre latérale, le cockpit et le tournoi."
+    priority: high
+
+  - id: AXE-70
+    title: "Modernisation du chat direct (MP) et de groupes (Salons d'équipes) — Exclusion stricte de l'IA"
+    status: DONE
+    description: >
+      Aligner l'expérience du chat direct joueur/joueur et des salons d'équipes sur le Chat Public tout en excluant rigoureusement l'IA.
+    done:
+      - "Composant réutilisable PlayerChat.svelte avec support du mode P2P et groupe (team / inter)."
+      - "Réactions émojis en direct avec barre rapide au survol, sélecteur catégorisé et pastilles de compteurs."
+      - "Réponses et citations contextuelles (↩) avec défilement et surbrillance instantanée."
+      - "Pièces jointes et images (PNG, JPG, WebP, GIF jusqu'à 8 Mo) par glisser-déposer, collage presse-papiers ou bouton trombone, avec lightbox plein écran."
+      - "Cartes de prévisualisation de liens OpenGraph automatiques."
+      - "Indicateurs de frappe en direct (Typing Indicator) avec points animés via WebSockets."
+      - "Notifications sonores douces par synthèse Web Audio locale sur les mentions directes @pseudo."
+      - "Exclusion totale de l'assistant @Alanbix des MP et des salons d'équipes (aucun bot, aucun déclenchement)."
+    priority: high
+
 
 
 

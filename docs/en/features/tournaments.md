@@ -81,10 +81,17 @@ The connected player's username (or their global/tournament team name) is highli
 
 When the **Use Teams** (`config.use_teams = true`) option is enabled for a tournament:
 
-1. **Team Creation**: Any player registered for the tournament can create their own game team using the `Create a team` button. The creator becomes the owner (`created_by`).
-2. **Joining a Team**: A registered player who does not have a team sees a `⭐ Join` button on teams that are not full.
+1. **Team Creation**: Any player registered for the tournament can create their own game team using the `Create a team` button. The creator becomes the owner (`created_by`) and the team captain (`👑`).
+2. **Joining a Team**: A registered player who does not have a team sees a `⭐ Join` button on teams that are neither full nor locked.
 3. **Size Constraint (`team_size`)**: The backend verifies via the `add_team_member` endpoint that the team size does not exceed the configured limit, returning an HTTP 400 code if it does.
 4. **Negative Team IDs**: To distinguish players from teams in the SQLite tables, team IDs in the bracket are negative (`-team_id`). A `config._team_map` dictionary maintains the Name ↔ ID binding for real-time display.
+5. **Team Locking & Captain Role (`👑`)**:
+   * **3 configurable modes**: Open to all (`open`), Captain-controlled (`captain_only`), or Strict Admin-only (`admin_only`).
+   * The team captain can toggle their team lock state in a single click (`🔒`/`🔓`).
+   * Players can still leave a locked team voluntarily (preventing unwanted joins without trapping members).
+   * Administrators retain full bypass privileges (force assign, assign captain, toggle lock).
+6. **Collapsible Team Accordions**: `Collapse all` and `Expand all` buttons in the team view header to easily browse tournaments with dozens of teams.
+7. **Live Tournament Editing & Game Swap**: Organizers can update tournament name, custom rules, and swap the associated game (`game_id`) on the fly without losing bracket matches or recorded scores.
 
 ---
 

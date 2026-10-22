@@ -24,6 +24,16 @@ For team tactics and LAN community needs, Alanbix integrates a group chat system
   * *Channel Key*: `inter:[TeamNameA]|[TeamNameB]`. The names are systematically sorted alphabetically to guarantee that the channel key is identical regardless of who initiates the chat.
   * *Security Control*: Only members of the two concerned teams (or an administrator) can read or post in this channel. The backend rejects any other attempt.
 
+### 3. Shared Rich Chat Features (P2P & Groups)
+Both direct and group chats enjoy the full modern feature set of the public chat:
+* **Live Emoji Reactions**: Quick hover bar (`👍`, `🔥`, `🏆`, `➕` with full categorized picker) and interactive reaction counter pills.
+* **Replies & Contextual Quotes**: Reply button (`↩`) with instant jump and highlight animation to original message.
+* **Image & Meme Attachments**: Send images (PNG, JPG, WebP, GIF up to 8MB) via drag-and-drop, clipboard paste (`Ctrl+V`), or attachment paperclip button, with preview thumbnail and full-screen lightbox.
+* **Automatic Link Previews (OpenGraph)**: Rich cards featuring site title, description, and thumbnail for posted URLs.
+* **Real-time Typing Indicators**: Live visibility of peers currently typing via WebSockets.
+* **Sound Alerts & Profanity Filter**: Gentle Web Audio chime on direct `@username` mention (with header mute toggle `🔊`/`🔇`) and client-side courtesy shield (`🛡️`/`👁️`) masking offensive words (`f**k`).
+* **Privacy & AI Exclusion**: The `@Alanbix` bot is strictly confined to the public chat and never participates in private or team chats.
+
 ---
 
 ## 🔔 Notification Center (Real-Time)
