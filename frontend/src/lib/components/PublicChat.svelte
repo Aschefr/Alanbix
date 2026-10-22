@@ -4,6 +4,7 @@
 	import { wsMessageStore } from '$lib/ws';
 	import { t } from '$lib/i18nStore';
 	import { EMOJI_CATALOG, EMOJI_CATEGORIES, DEFAULT_RECENT_EMOJIS } from '$lib/emojiCatalog';
+	import { profanityFilterEnabled, toggleProfanityFilter, filterProfanityText } from '$lib/profanity';
 
 	export let user = null;
 	export let allUsers = [];
@@ -386,6 +387,17 @@
 			await tick();
 			scrollToBottom(true);
 			markAllRead();
+
+	let lastProfanityFilterState = $profanityFilterEnabled;
+	$: if ($profanityFilterEnabled !== lastProfanityFilterState) {
+		lastProfanityFilterState = $profanityFilterEnabled;
+		if (messages && messages.length > 0) {
+			messages.forEach(m => {
+				m._formattedContent = renderFormattedText(m.content);
+			});
+			messages = [...messages];
+		}
+	}
 
 			// Multi-pass alignments to account for async layout, font loading and CSS flexbox rendering
 			requestAnimationFrame(() => {
@@ -980,8 +992,9 @@
 
 	function renderFormattedText(text) {
 		if (!text) return '';
+		const clean = filterProfanityText(text);
 		// Replace URLs with clickable safe links
-		const escaped = text
+		const escaped = clean
 			.replace(/&/g, '&amp;')
 			.replace(/</g, '&lt;')
 			.replace(/>/g, '&gt;');
@@ -1039,6 +1052,15 @@
 				title={soundEnabled ? $t('dash_chat_sound_enabled') : $t('dash_chat_sound_disabled')}
 			>
 				{soundEnabled ? '🔔' : '🔕'}
+			</button>
+
+			<!-- Profanity Filter Toggle Button -->
+			<button
+				class="chat-btn-icon-sound {$profanityFilterEnabled ? 'sound-active' : 'sound-muted'}"
+				on:click={() => toggleProfanityFilter()}
+				title={$profanityFilterEnabled ? $t('profanity_filter_enabled') : $t('profanity_filter_disabled')}
+			>
+				{$profanityFilterEnabled ? '🛡️' : '👁️'}
 			</button>
 
 			{#if user?.is_admin}

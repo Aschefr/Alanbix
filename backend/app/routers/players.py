@@ -1,11 +1,21 @@
-from fastapi import APIRouter, Depends, HTTPException
+import os
+import uuid
+import datetime
+from typing import Optional, List, Dict
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy import or_, and_, func, case
 from pydantic import BaseModel
 from .. import models, auth, database
 from ..websockets import manager as ws_manager
+from .public_chat import extract_link_preview, URL_REGEX
 
 router = APIRouter(prefix="/players", tags=["Players"])
+
+DATA_DIR = os.path.dirname(os.getenv("DATABASE_PATH", "/app/data/alanbix.db"))
+PLAYER_CHAT_IMAGES_DIR = os.path.join(DATA_DIR, "chat_images", "players")
+os.makedirs(PLAYER_CHAT_IMAGES_DIR, exist_ok=True)
 
 
 @router.get("")
@@ -170,7 +180,93 @@ def get_player_points_history(user_id: int, db: Session = Depends(database.get_d
 # --- Private Messaging ---
 
 class SendMessage(BaseModel):
-    content: str
+    content: Optional[str] = ""
+    image_path: Optional[str] = None
+    reply_to_id: Optional[int] = None
+
+class ReactionToggle(BaseModel):
+    emoji: str
+
+class TypingPayload(BaseModel):
+    target_type: str  # "p2p" | "group"
+    target_id: Optional[int] = None      # peer user_id for p2p
+    channel_key: Optional[str] = None    # channel_key for group
+    is_typing: bool = True
+
+
+@router.post("/upload-image")
+async def upload_player_image(
+    file: UploadFile = File(...),
+    user: models.User = Depends(auth.get_current_user)
+):
+    """Upload image or GIF for player P2P and team chats (max 8MB)."""
+    allowed_exts = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
+    _, ext = os.path.splitext(file.filename or "")
+    ext = ext.lower()
+    if ext not in allowed_exts:
+        raise HTTPException(status_code=400, detail="Format non supporté (PNG, JPG, WEBP, GIF acceptés).")
+
+    contents = await file.read()
+    if len(contents) > 8 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Image trop volumineuse (max 8 Mo).")
+
+    filename = f"{uuid.uuid4().hex}{ext}"
+    file_path = os.path.join(PLAYER_CHAT_IMAGES_DIR, filename)
+
+    with open(file_path, "wb") as f:
+        f.write(contents)
+
+    rel_path = f"/data/chat_images/players/{filename}"
+    return {"image_path": rel_path}
+
+
+@router.post("/typing")
+async def player_typing(
+    payload: TypingPayload,
+    user: models.User = Depends(auth.get_current_user)
+):
+    """Relay typing indicator to websocket for P2P or group chat."""
+    await ws_manager.broadcast({
+        "type": "player_typing",
+        "sender_id": user.id,
+        "sender_name": user.username,
+        "target_type": payload.target_type,
+        "target_id": payload.target_id,
+        "channel_key": payload.channel_key,
+        "is_typing": payload.is_typing
+    })
+    return {"status": "ok"}
+
+
+def _serialize_pm(m: models.PrivateMessage, users_map: dict = None) -> dict:
+    reply_to_data = None
+    if m.reply_to_id and m.reply_to:
+        reply_sender = "?"
+        if users_map and m.reply_to.sender_id in users_map:
+            reply_sender = users_map[m.reply_to.sender_id]
+        elif m.reply_to.sender:
+            reply_sender = m.reply_to.sender.username
+        reply_to_data = {
+            "id": m.reply_to.id,
+            "sender_id": m.reply_to.sender_id,
+            "sender_name": reply_sender,
+            "content": m.reply_to.content[:100] if m.reply_to.content else "",
+            "image_path": m.reply_to.image_path
+        }
+
+    return {
+        "id": m.id,
+        "sender_id": m.sender_id,
+        "receiver_id": m.receiver_id,
+        "content": m.content or "",
+        "image_path": m.image_path,
+        "link_preview": m.link_preview,
+        "reactions": m.reactions or {},
+        "reply_to_id": m.reply_to_id,
+        "reply_to_data": reply_to_data,
+        "is_read": m.is_read,
+        "created_at": m.created_at.isoformat() if m.created_at else None
+    }
 
 
 @router.get("/messages/unread-count")
@@ -209,7 +305,7 @@ def pm_conversations(db: Session = Depends(database.get_db), user: models.User =
                 "peer_id": peer_id,
                 "peer_username": peer.username if peer else "?",
                 "peer_team_name": peer.team_name if peer else None,
-                "last_message": m.content[:100],
+                "last_message": (m.content or ("📷 Image" if m.image_path else ""))[:100],
                 "last_at": m.created_at.isoformat() if m.created_at else None,
                 "unread": unread,
                 "is_me_sender": m.sender_id == user.id
@@ -245,6 +341,7 @@ def pm_read(peer_id: int, db: Session = Depends(database.get_db), user: models.U
     ).order_by(models.PrivateMessage.created_at.asc()).all()
 
     peer = db.query(models.User).filter(models.User.id == peer_id).first()
+    users_map = {user.id: user.username, peer_id: peer.username if peer else "?"}
 
     return {
         "peer": {
@@ -254,11 +351,7 @@ def pm_read(peer_id: int, db: Session = Depends(database.get_db), user: models.U
             "is_online": peer.is_online
         } if peer else None,
         "last_read_message_id": old_last_read,
-        "messages": [{
-            "id": m.id, "sender_id": m.sender_id, "receiver_id": m.receiver_id,
-            "content": m.content, "is_read": m.is_read,
-            "created_at": m.created_at.isoformat() if m.created_at else None
-        } for m in messages]
+        "messages": [_serialize_pm(m, users_map) for m in messages]
     }
 
 
@@ -271,17 +364,34 @@ async def pm_send(peer_id: int, body: SendMessage, db: Session = Depends(databas
     if not peer:
         raise HTTPException(404, "User not found")
     content = (body.content or "").strip()
-    if not content:
+    image_path = (body.image_path or "").strip() or None
+
+    if not content and not image_path:
         raise HTTPException(400, "Message cannot be empty")
     if len(content) > 2000:
         raise HTTPException(400, "Message too long (max 2000 chars)")
 
+    # Extract link preview if URL present
+    link_preview = None
+    if content:
+        urls = URL_REGEX.findall(content)
+        if urls:
+            link_preview = await extract_link_preview(urls[0])
+
     msg = models.PrivateMessage(
-        sender_id=user.id, receiver_id=peer_id, content=content
+        sender_id=user.id,
+        receiver_id=peer_id,
+        content=content,
+        image_path=image_path,
+        link_preview=link_preview,
+        reply_to_id=body.reply_to_id
     )
     db.add(msg)
     db.commit()
     db.refresh(msg)
+
+    users_map = {user.id: user.username, peer_id: peer.username}
+    serialized = _serialize_pm(msg, users_map)
 
     # Real-time broadcast so both sender and receiver update instantly
     await ws_manager.broadcast({
@@ -290,13 +400,61 @@ async def pm_send(peer_id: int, body: SendMessage, db: Session = Depends(databas
         "sender_name": user.username,
         "receiver_id": peer_id,
         "message_id": msg.id,
-        "preview": content[:100]
+        "preview": (content or ("📷 Image" if image_path else ""))[:100],
+        "message": serialized
     })
 
     return {
-        "status": "sent", "id": msg.id,
+        "status": "sent",
+        "id": msg.id,
+        "message": serialized,
         "created_at": msg.created_at.isoformat() if msg.created_at else None
     }
+
+
+@router.post("/messages/{peer_id}/{message_id}/reactions")
+async def toggle_pm_reaction(
+    peer_id: int,
+    message_id: int,
+    payload: ReactionToggle,
+    db: Session = Depends(database.get_db),
+    user: models.User = Depends(auth.get_current_user)
+):
+    """Toggle emoji reaction on a private message."""
+    msg = db.query(models.PrivateMessage).filter(models.PrivateMessage.id == message_id).first()
+    if not msg:
+        raise HTTPException(404, "Message non trouvé")
+    if user.id not in (msg.sender_id, msg.receiver_id):
+        raise HTTPException(403, "Accès refusé")
+
+    emoji = payload.emoji.strip()
+    if not emoji:
+        raise HTTPException(400, "Émoji requis")
+
+    reactions = dict(msg.reactions or {})
+    users_list = list(reactions.get(emoji, []))
+    if user.id in users_list:
+        users_list.remove(user.id)
+        if not users_list:
+            reactions.pop(emoji, None)
+        else:
+            reactions[emoji] = users_list
+    else:
+        users_list.append(user.id)
+        reactions[emoji] = users_list
+
+    msg.reactions = reactions
+    flag_modified(msg, "reactions")
+    db.commit()
+
+    await ws_manager.broadcast({
+        "type": "private_message_reaction",
+        "message_id": msg.id,
+        "sender_id": user.id,
+        "peer_id": peer_id,
+        "reactions": msg.reactions
+    })
+    return {"reactions": msg.reactions}
 
 
 # --- Group Messaging (AXE-12) ---
@@ -417,9 +575,38 @@ def group_channels(db: Session = Depends(database.get_db), user: models.User = D
 
 
 class GroupSendMessage(BaseModel):
-    content: str
+    content: Optional[str] = ""
     channel_type: str  # "team" or "inter"
     team_names: list   # ["Alpha Wolves"] or ["Alpha Wolves", "Neon Vipers"]
+    image_path: Optional[str] = None
+    reply_to_id: Optional[int] = None
+
+
+def _serialize_group_msg(m: models.GroupMessage, users_map: dict = None) -> dict:
+    sender_name = users_map.get(m.sender_id, "?") if users_map else (m.sender.username if m.sender else "?")
+    reply_to_data = None
+    if m.reply_to_id and m.reply_to:
+        reply_sender = users_map.get(m.reply_to.sender_id, "?") if users_map else (m.reply_to.sender.username if m.reply_to.sender else "?")
+        reply_to_data = {
+            "id": m.reply_to.id,
+            "sender_id": m.reply_to.sender_id,
+            "sender_name": reply_sender,
+            "content": m.reply_to.content[:100] if m.reply_to.content else "",
+            "image_path": m.reply_to.image_path
+        }
+    return {
+        "id": m.id,
+        "channel_id": m.channel_id,
+        "sender_id": m.sender_id,
+        "sender_name": sender_name,
+        "content": m.content or "",
+        "image_path": m.image_path,
+        "link_preview": m.link_preview,
+        "reactions": m.reactions or {},
+        "reply_to_id": m.reply_to_id,
+        "reply_to_data": reply_to_data,
+        "created_at": m.created_at.isoformat() if m.created_at else None
+    }
 
 
 @router.get("/group/channel/{channel_key:path}")
@@ -461,11 +648,14 @@ def group_read(channel_key: str, db: Session = Depends(database.get_db), user: m
         models.GroupMessage.channel_id == channel.id
     ).order_by(models.GroupMessage.created_at.asc()).all()
 
-    # Resolve sender names
-    sender_ids = list(set(m.sender_id for m in messages))
+    # Resolve sender names (including reply_to senders)
+    sender_ids = set(m.sender_id for m in messages)
+    for m in messages:
+        if m.reply_to:
+            sender_ids.add(m.reply_to.sender_id)
     users_map = {}
     if sender_ids:
-        senders = db.query(models.User).filter(models.User.id.in_(sender_ids)).all()
+        senders = db.query(models.User).filter(models.User.id.in_(list(sender_ids))).all()
         users_map = {u.id: u.username for u in senders}
 
     # Get channel members
@@ -473,7 +663,11 @@ def group_read(channel_key: str, db: Session = Depends(database.get_db), user: m
     for tn in (channel.team_names or []):
         team_users = db.query(models.User).filter(models.User.team_name == tn).all()
         for u in team_users:
-            members.append({"id": u.id, "username": u.username, "team_name": u.team_name})
+            members.append({
+                "id": u.id, "username": u.username, "team_name": u.team_name,
+                "avatar_url": u.avatar_url, "avatar_shape": u.avatar_shape,
+                "seat_id": u.seat_id, "is_online": u.is_online
+            })
 
     return {
         "channel": {
@@ -482,12 +676,7 @@ def group_read(channel_key: str, db: Session = Depends(database.get_db), user: m
             "team_names": channel.team_names or []
         },
         "last_read_message_id": old_last_read,
-        "messages": [{
-            "id": m.id, "sender_id": m.sender_id,
-            "sender_name": users_map.get(m.sender_id, "?"),
-            "content": m.content,
-            "created_at": m.created_at.isoformat() if m.created_at else None
-        } for m in messages],
+        "messages": [_serialize_group_msg(m, users_map) for m in messages],
         "members": members
     }
 
@@ -513,15 +702,29 @@ async def group_send(body: GroupSendMessage, db: Session = Depends(database.get_
             raise HTTPException(403, "You must be a member of one of the teams")
 
     content = (body.content or "").strip()
-    if not content:
+    image_path = (body.image_path or "").strip() or None
+
+    if not content and not image_path:
         raise HTTPException(400, "Message cannot be empty")
     if len(content) > 2000:
         raise HTTPException(400, "Message too long (max 2000 chars)")
 
     channel = _get_or_create_channel(db, body.channel_type, body.team_names)
 
+    # Extract link preview if URL present
+    link_preview = None
+    if content:
+        urls = URL_REGEX.findall(content)
+        if urls:
+            link_preview = await extract_link_preview(urls[0])
+
     msg = models.GroupMessage(
-        channel_id=channel.id, sender_id=user.id, content=content
+        channel_id=channel.id,
+        sender_id=user.id,
+        content=content,
+        image_path=image_path,
+        link_preview=link_preview,
+        reply_to_id=body.reply_to_id
     )
     db.add(msg)
     db.commit()
@@ -541,6 +744,14 @@ async def group_send(body: GroupSendMessage, db: Session = Depends(database.get_
         ))
     db.commit()
 
+    users_map = {user.id: user.username}
+    if msg.reply_to_id and msg.reply_to:
+        reply_u = db.query(models.User).filter(models.User.id == msg.reply_to.sender_id).first()
+        if reply_u:
+            users_map[reply_u.id] = reply_u.username
+
+    serialized = _serialize_group_msg(msg, users_map)
+
     # WebSocket broadcast
     await ws_manager.broadcast({
         "type": "group_message_new",
@@ -550,12 +761,65 @@ async def group_send(body: GroupSendMessage, db: Session = Depends(database.get_
         "sender_id": user.id,
         "sender_name": user.username,
         "message_id": msg.id,
-        "preview": content[:100]
+        "preview": (content or ("📷 Image" if image_path else ""))[:100],
+        "message": serialized
     })
 
     return {
-        "status": "sent", "id": msg.id,
+        "status": "sent",
+        "id": msg.id,
         "channel_key": channel.channel_key,
+        "message": serialized,
         "created_at": msg.created_at.isoformat() if msg.created_at else None
     }
+
+
+@router.post("/group/channel/{channel_key:path}/messages/{message_id}/reactions")
+async def toggle_group_reaction(
+    channel_key: str,
+    message_id: int,
+    payload: ReactionToggle,
+    db: Session = Depends(database.get_db),
+    user: models.User = Depends(auth.get_current_user)
+):
+    """Toggle emoji reaction on a group channel message."""
+    channel = db.query(models.GroupChannel).filter(models.GroupChannel.channel_key == channel_key).first()
+    if not channel or not _user_can_access_channel(user, channel):
+        raise HTTPException(403, "Accès refusé à ce canal")
+
+    msg = db.query(models.GroupMessage).filter(
+        models.GroupMessage.id == message_id,
+        models.GroupMessage.channel_id == channel.id
+    ).first()
+    if not msg:
+        raise HTTPException(404, "Message non trouvé")
+
+    emoji = payload.emoji.strip()
+    if not emoji:
+        raise HTTPException(400, "Émoji requis")
+
+    reactions = dict(msg.reactions or {})
+    users_list = list(reactions.get(emoji, []))
+    if user.id in users_list:
+        users_list.remove(user.id)
+        if not users_list:
+            reactions.pop(emoji, None)
+        else:
+            reactions[emoji] = users_list
+    else:
+        users_list.append(user.id)
+        reactions[emoji] = users_list
+
+    msg.reactions = reactions
+    flag_modified(msg, "reactions")
+    db.commit()
+
+    await ws_manager.broadcast({
+        "type": "group_message_reaction",
+        "channel_key": channel.channel_key,
+        "message_id": msg.id,
+        "sender_id": user.id,
+        "reactions": msg.reactions
+    })
+    return {"reactions": msg.reactions}
 

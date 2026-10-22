@@ -56,13 +56,22 @@ def init_db():
         _safe_add_column(conn, "tournaments", "points_per_win", "INTEGER DEFAULT 3")
         _safe_add_column(conn, "tournaments", "bracket", "JSON")
         _safe_add_column(conn, "tournament_teams", "created_by", "INTEGER")
+        _safe_add_column(conn, "tournament_teams", "captain_id", "INTEGER")
+        _safe_add_column(conn, "tournament_teams", "is_locked", "BOOLEAN DEFAULT 0")
         _safe_add_column(conn, "awards", "award_key", "VARCHAR")
         _safe_add_column(conn, "conversations", "admin_last_read_message_id", "INTEGER DEFAULT 0")
         _safe_add_column(conn, "conversations", "player_last_read_message_id", "INTEGER DEFAULT 0")
-        _safe_add_column(conn, "conversations", "title_generation_attempted", "BOOLEAN DEFAULT 0")
         _safe_add_column(conn, "users", "public_chat_muted_until", "TIMESTAMP")
         _safe_add_column(conn, "public_chat_messages", "reactions", "JSON")
         _safe_add_column(conn, "public_chat_messages", "reply_to_id", "INTEGER")
+        _safe_add_column(conn, "private_messages", "image_path", "VARCHAR")
+        _safe_add_column(conn, "private_messages", "link_preview", "JSON")
+        _safe_add_column(conn, "private_messages", "reactions", "JSON")
+        _safe_add_column(conn, "private_messages", "reply_to_id", "INTEGER")
+        _safe_add_column(conn, "group_messages", "image_path", "VARCHAR")
+        _safe_add_column(conn, "group_messages", "link_preview", "JSON")
+        _safe_add_column(conn, "group_messages", "reactions", "JSON")
+        _safe_add_column(conn, "group_messages", "reply_to_id", "INTEGER")
 
         # Create critical performance indexes if they don't exist
         indexes = [
@@ -102,6 +111,8 @@ def init_db():
             ("ix_public_chat_messages_reply_to_id", "public_chat_messages", "reply_to_id"),
             ("ix_public_chat_messages_created_at", "public_chat_messages", "created_at"),
             ("ix_public_chat_messages_is_deleted", "public_chat_messages", "is_deleted"),
+            ("ix_private_messages_reply_to_id", "private_messages", "reply_to_id"),
+            ("ix_group_messages_reply_to_id", "group_messages", "reply_to_id"),
         ]
         for idx_name, table_name, col_name in indexes:
             try:
@@ -111,8 +122,8 @@ def init_db():
             except Exception:
                 pass
 
-        # Purge any orphan/legacy tournaments with NULL game_id or missing games (due to previous SQLAlchemy missing cascade behavior)
-        conn.execute(__import__('sqlalchemy').text("DELETE FROM tournaments WHERE game_id IS NULL OR game_id NOT IN (SELECT id FROM games)"))
+        # Purge any orphan/legacy tournaments with broken foreign keys (ignoring unlinked tournaments where game_id is NULL)
+        conn.execute(__import__('sqlalchemy').text("DELETE FROM tournaments WHERE game_id IS NOT NULL AND game_id NOT IN (SELECT id FROM games)"))
         conn.commit()
 
 def _safe_add_column(conn, table, column, col_type):

@@ -7,6 +7,7 @@
 	import Modal from '$lib/components/Modal.svelte';
 	import { wsMessageStore } from '$lib/ws';
 	import { formatPoints } from '$lib/utils';
+	import { profanityFilterEnabled, toggleProfanityFilter } from '$lib/profanity';
 
 	let user = null;
 	let teamName = '';
@@ -511,6 +512,22 @@
 					<span class="info-value">{user.team_name || $t('profile_no_team')}</span>
 				</div>
 			</div>
+			<!-- User Preferences -->
+			<div class="user-prefs-card" style="margin-top: 1.25rem; padding: 0.85rem 1rem; border-radius: 10px; background: var(--surface-sunken); border: 1px solid var(--glass-border);">
+				<div style="display:flex; justify-content:space-between; align-items:center;">
+					<div>
+						<span style="font-weight: 700; font-size: 0.85rem; display: block;">🛡️ {$t("profanity_filter_label")}</span>
+						<span class="text-dim" style="font-size: 0.75rem;">{$t("profanity_filter_desc")}</span>
+					</div>
+					<label style="position:relative; display:inline-block; width:44px; height:24px; margin:0; cursor:pointer;">
+						<input type="checkbox" checked={$profanityFilterEnabled} on:change={() => toggleProfanityFilter()} style="opacity:0; width:0; height:0;" />
+						<span style="position:absolute; inset:0; background: {$profanityFilterEnabled ? 'var(--accent)' : 'rgba(255,255,255,0.15)'}; border-radius:24px; transition:0.2s;">
+							<span style="position:absolute; height:18px; width:18px; left:{$profanityFilterEnabled ? '23px' : '3px'}; bottom:3px; background:white; border-radius:50%; transition:0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.3);"></span>
+						</span>
+					</label>
+				</div>
+			</div>
+
 			<div style="margin-top: 1.5rem; text-align: right;">
 				<button class="btn-secondary" on:click={() => goto('/dashboard/welcome')} style="font-size: 0.8rem; padding: 0.5rem 1rem;">
 					{$t("profile_btn_tutorial")}

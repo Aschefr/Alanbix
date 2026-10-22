@@ -437,6 +437,7 @@ async def test_process_entry_routes_correctly():
 
     task_types_and_handlers = {
         "chat": "_process_chat",
+        "public_chat": "_process_public_chat",
         "compress": "_process_compress",
         "notification": "_process_notification",
         "translate": "_process_translate",
@@ -474,3 +475,56 @@ async def test_process_entry_routes_correctly():
             if other_name != handler_name:
                 assert not other_mock.called, \
                     f"Handler {other_name} should NOT be called for task_type='{task_type}'"
+
+
+@pytest.mark.asyncio
+async def test_process_public_chat_tokens_and_thinking_cleanup():
+    """Verify _process_public_chat uses dynamic context_window for num_predict and cleans thinking tags properly."""
+    from unittest.mock import MagicMock, AsyncMock, patch
+    from app.ia_queue import IAQueueManager, QueueEntry
+
+    qm = IAQueueManager()
+
+    configured_context_window = 4096
+    entry = QueueEntry(
+        priority=10,
+        created_at=time.time(),
+        user_id=0,
+        username="Alanbix",
+        task_type="public_chat",
+        payload={
+            "ollama_host": "http://gpu1:11434",
+            "model": "deepseek-r1:8b",
+            "messages": [{"role": "user", "content": "Raconte une blague"}],
+            "temperature": 0.7,
+            "context_window": configured_context_window,
+        }
+    )
+
+    mock_res = MagicMock()
+    mock_res.status_code = 200
+    mock_res.json.return_value = {
+        "message": {
+            "content": "<think>Je dois faire rire la LAN. Une blague sur les devs.</think>Pourquoi les devs aiment la nuit ? Parce que le soleil génère des reflets sur l'écran !"
+        }
+    }
+
+    mock_client = AsyncMock()
+    mock_client.post = AsyncMock(return_value=mock_res)
+    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+    mock_client.__aexit__ = AsyncMock(return_value=False)
+
+    with patch("httpx.AsyncClient", return_value=mock_client):
+        await qm._process_public_chat(entry, entry.payload)
+
+    # Check request payload sent to Ollama
+    call_args = mock_client.post.call_args
+    req_json = call_args.kwargs.get("json", {})
+    assert req_json["options"]["num_predict"] == configured_context_window, "num_predict should match configured context_window"
+    assert req_json["options"]["num_ctx"] == configured_context_window, "num_ctx should match configured context_window"
+
+    # Check result received by queue consumer
+    result = await entry.result_stream.get()
+    assert result.get("done") is True
+    assert result.get("result") == "Pourquoi les devs aiment la nuit ? Parce que le soleil génère des reflets sur l'écran !"
+

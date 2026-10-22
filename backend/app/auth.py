@@ -62,3 +62,21 @@ async def get_current_admin(current_user: models.User = Depends(get_current_user
             detail="Not enough permissions"
         )
     return current_user
+
+
+def get_user_id_from_token(token: str, db: Optional[Session] = None) -> Optional[int]:
+    """Validate a JWT token and extract the corresponding user_id (for WebSocket auth)."""
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if not username:
+            return None
+        if db is not None:
+            user = db.query(models.User).filter(models.User.username == username).first()
+            return user.id if user else None
+        from .database import SessionLocal
+        with SessionLocal() as session:
+            user = session.query(models.User).filter(models.User.username == username).first()
+            return user.id if user else None
+    except Exception:
+        return None

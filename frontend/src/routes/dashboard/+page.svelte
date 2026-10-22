@@ -260,6 +260,12 @@
 				<span class="chip-label">{$t('dash_stat_event')}</span>
 				<span class="chip-value">{stats.event_name || 'Alanbix LAN'}</span>
 			</div>
+			{#if user?.team_name}
+				<div class="info-chip glass" style="border-color: rgba(59,130,246,0.35); background: rgba(59,130,246,0.08);">
+					<span class="chip-label" style="color: var(--accent);">👥 {$t('dash_team_lbl') || 'Équipe'}</span>
+					<span class="chip-value" style="color: var(--accent); font-weight: 800;">{user.team_name}</span>
+				</div>
+			{/if}
 			<div class="info-chip glass">
 				<span class="chip-label">{$t('dash_stat_players')}</span>
 				<span class="chip-value">{stats.players}</span>

@@ -1,5 +1,37 @@
 # Changelog
 
+## [1.33.0] - 2026-10-22
+
+### 💬 Chat Joueurs & Équipes Enrichi (MP & Salons d'équipes)
+- **Alignement complet avec le Chat Public** :
+  - **Réactions Émojis en direct** : Barre rapide au survol (`👍`, `🔥`, `🏆`, `➕` avec sélecteur complet catégorisé et recherche rapide) et badges de réactions interactifs avec compteur.
+  - **Réponses & Citations contextuelles** : Bouton Répondre (`↩`) avec prévisualisation au-dessus de la saisie, mise en évidence lumineuse et défilement immédiat au clic vers le message cité.
+  - **Pièces jointes & Images** : Envoi de captures et mèmes (PNG, JPG, WebP, GIF jusqu'à 8 Mo) par glisser-déposer, collage depuis le presse-papiers ou bouton trombone, avec aperçu miniature avant envoi et agrandissement plein écran (lightbox).
+  - **Aperçus de liens (OpenGraph)** : Génération automatique des cartes de prévisualisation des URLs partagées dans la discussion.
+  - **Indicateurs de frappe en direct** : Signalement instantané des correspondants en train d'écrire ("*X est en train d'écrire...*") avec animation de points en temps réel via WebSockets.
+  - **Alertes sonores & Protection** : Notification sonore discrète lors des mentions `@pseudo`, interrupteur de sourdine (`🔊`/`🔇`) et filtre de courtoisie (`🛡️`/`👁️`) intégrés à l'en-tête du chat.
+  - **Exclusion stricte de l'IA** : L'assistant `@Alanbix` reste exclusivement dédié au salon public et n'intervient jamais dans les conversations privées ou les canaux d'équipes.
+
+### 🛡️ Filtre anti-propos insultants (côté client, opt-in)
+- **Filtrage personnalisé multilingue** : Les utilisateurs peuvent activer/désactiver le filtre anti-grossièretés directement dans l'en-tête du Chat (`🛡️`/`👁️`) ou dans leurs préférences de profil.
+- **Masquage intelligent avec conservation début/fin** : Les mots grossiers sont masqués en préservant la première et dernière lettre (ex. `putain` -> `p****n`), gérés simplement par listes de mots séparés par des points-virgules dans les fichiers de traduction (`fr.json`, `en.json`, `es.json`) sans surcharger les clés de localisation.
+
+### 🎮 Tournois & Gestion des Jeux
+- **Changement de jeu en cours de tournoi (Game Swap)** : Possibilité de modifier le jeu associé à un tournoi déjà créé ou en cours sans perdre les scores, l'historique ou la progression de l'arbre.
+- **Édition complète des tournois** : Résolution du problème d'édition (nom, règles personnalisées `custom_rules`, jeu lié et mode de verrouillage d'équipe).
+- **Suppression sécurisée de jeux** : Résolution du conflit de clés étrangères SQLite lors de la suppression d'un jeu lié à des tournois. Choix entre dissociation propre (`tournament.game_id = None`) pour conserver le tournoi ou suppression intégrale en cascade.
+
+### 👥 Équipes & Tournois
+- **Accordéons / Repliage des équipes** : Boutons "Tout replier" et "Tout déplier" dans la vue "Joueurs & Équipes" pour naviguer aisément dans les tournois réunissant de nombreuses équipes.
+- **Verrouillage d'équipe & Rôle de Référent/Capitaine** :
+  - Support de 3 modes configurables par tournoi : Ouvert à tous, Contrôle par Capitaine/Référent, ou Contrôle strict Admin.
+  - Verrouillage/déverrouillage d'équipe par le capitaine (`👑`) ou par l'administrateur.
+  - Possibilité de quitter une équipe même si elle est verrouillée (empêche d'entrer sans bloquer les sorties), avec bypass administrateur complet.
+- **Visibilité permanente de l'équipe** : Affichage clair du nom de l'équipe du joueur connecté dans la barre latérale permanente sous le pseudo, dans la barre de cockpit du Dashboard et dans l'en-tête du tournoi avec lien direct vers la section équipes.
+
+### 🧭 Onboarding & Tutoriel
+- **Mise à jour du parcours de bienvenue** : Intégration des explications relatives au rôle de capitaine, au verrouillage d'équipe et au filtre de chat dans l'assistant de démarrage et le guide interactif.
+
 ## [1.32.2] - 2026-10-05
 
 ### 🐛 Correction — Synchronisation Temps Réel (WebSockets & Chat)

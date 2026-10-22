@@ -7,6 +7,7 @@
 	export let tournament = null;
 	export let show = false;
 	export let showStatus = false;
+	export let games = [];
 
 	let editConfig = {};
 	let lastTournamentId = null;
@@ -17,6 +18,8 @@
 		editConfig = {
 			name: tournament.name,
 			game_id: tournament.game_id,
+			custom_rules: tournament.config?.custom_rules ?? '',
+			team_lock_mode: tournament.config?.team_lock_mode || 'captain',
 			status: tournament.status,
 			points_per_win: tournament.points_per_win || 3,
 			use_teams: tournament.config?.use_teams || false,
@@ -101,6 +104,16 @@
 							<input id="edit-name" type="text" bind:value={editConfig.name} placeholder={$t("admin_tourneys_wizard_name_placeholder") || "Nom du tournoi..."} />
 						</div>
 
+						<div class="edit-field">
+							<label for="edit-game">🎮 {$t("tourneys_edit_game_lbl") || "Jeu associé"}</label>
+							<select id="edit-game" bind:value={editConfig.game_id}>
+								<option value={null}>-- Aucun jeu --</option>
+								{#each games as g}
+									<option value={g.id}>{g.name}</option>
+								{/each}
+							</select>
+						</div>
+
 						{#if showStatus}
 							<div class="edit-field">
 								<label for="edit-status">{$t('admin_tourneys_edit_status') || "Statut"}</label>
@@ -120,13 +133,32 @@
 								<button type="button" class="edit-toggle {editConfig.use_teams ? 'active' : ''}" on:click={() => editConfig.use_teams = true}>👥 {$t("admin_tourneys_wizard_mode_teams") || "Équipes"}</button>
 							</div>
 						</div>
+
+						<div class="edit-field full-width">
+							<label for="edit-rules">📜 {$t("tourneys_edit_rules_lbl") || "Règles spécifiques du tournoi"}</label>
+							<textarea 
+								id="edit-rules" 
+								bind:value={editConfig.custom_rules} 
+								placeholder={$t("tourneys_edit_rules_placeholder") || "Règles ou consignes spécifiques pour ce tournoi..."}
+								rows="3"
+								style="width: 100%; border-radius: 8px; border: 1px solid var(--glass-border); background: var(--surface-sunken); color: var(--text-main); padding: 0.6rem; font-size: 0.8rem; resize: vertical;"
+							></textarea>
+						</div>
 					</div>
 
 					{#if editConfig.use_teams}
-						<div class="edit-sub-row anim-fade-in">
+						<div class="edit-sub-row anim-fade-in" style="display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap; margin-top: 0.8rem;">
 							<div class="edit-field narrow">
 								<label for="edit-team-size">{$t("admin_tourneys_wizard_team_size") || "Taille d'équipe"}</label>
 								<input id="edit-team-size" type="number" bind:value={editConfig.team_size} min="2" max="16" />
+							</div>
+							<div class="edit-field">
+								<label for="edit-lock-mode">🔒 {$t("tourneys_edit_lock_mode_lbl") || "Mode de verrouillage"}</label>
+								<select id="edit-lock-mode" bind:value={editConfig.team_lock_mode}>
+									<option value="captain">{$t("tourneys_lock_mode_captain") || "Référent & Admin"}</option>
+									<option value="admin">{$t("tourneys_lock_mode_admin") || "Admin uniquement"}</option>
+									<option value="open">{$t("tourneys_lock_mode_open") || "Ouvert (aucun verrou)"}</option>
+								</select>
 							</div>
 						</div>
 					{/if}

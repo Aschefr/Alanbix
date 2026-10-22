@@ -1,3 +1,4 @@
+from typing import Optional
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from .database import engine, init_db
@@ -353,6 +354,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 # Serve chat images from data volume
 DATA_DIR = os.path.dirname(os.getenv("DATABASE_PATH", "/app/data/alanbix.db"))
 os.makedirs(os.path.join(DATA_DIR, "chat_images", "public"), exist_ok=True)
+os.makedirs(os.path.join(DATA_DIR, "chat_images", "players"), exist_ok=True)
 os.makedirs(os.path.join(DATA_DIR, "info_files"), exist_ok=True)
 os.makedirs(os.path.join(DATA_DIR, "avatars"), exist_ok=True)
 os.makedirs(os.path.join(DATA_DIR, "i18n"), exist_ok=True)
@@ -364,14 +366,32 @@ app.mount("/data", StaticFiles(directory=DATA_DIR), name="data")
 
 
 @app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
+async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
     await manager.connect(websocket)
+    from .auth import get_user_id_from_token
+    import json
+
+    # If token was provided in connection query param
+    if token:
+        user_id = get_user_id_from_token(token)
+        if user_id:
+            await manager.register_user(websocket, user_id)
+
     try:
         while True:
-            # Keep connection alive
-            await websocket.receive_text()
+            raw = await websocket.receive_text()
+            try:
+                data = json.loads(raw)
+                if isinstance(data, dict):
+                    msg_type = data.get("type")
+                    if msg_type == "auth" and data.get("token"):
+                        user_id = get_user_id_from_token(data["token"])
+                        if user_id:
+                            await manager.register_user(websocket, user_id)
+            except Exception:
+                pass
     except WebSocketDisconnect:
-        manager.disconnect(websocket)
+        await manager.disconnect(websocket)
 
 # SPA Fallback for Frontend
 from fastapi.responses import FileResponse

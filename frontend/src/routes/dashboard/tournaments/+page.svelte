@@ -364,6 +364,22 @@
 		} catch (e) { toast(e.message, 'error'); }
 	}
 
+	async function toggleTeamLock(teamId, isLocked) {
+		try {
+			await api.put(`/tournaments/${selectedId}/teams/${teamId}/lock`, { is_locked: isLocked });
+			teams = await api.get(`/tournaments/${selectedId}/teams`);
+			toast(isLocked ? $t('tourneys_team_locked') : 'Équipe déverrouillée', 'success');
+		} catch (e) { toast(e.message || 'Erreur', 'error'); }
+	}
+
+	async function setTeamCaptain(teamId, captainId) {
+		try {
+			await api.put(`/tournaments/${selectedId}/teams/${teamId}/captain`, { captain_id: captainId });
+			teams = await api.get(`/tournaments/${selectedId}/teams`);
+			toast('Nouveau référent désigné', 'success');
+		} catch (e) { toast(e.message || 'Erreur', 'error'); }
+	}
+
 	async function randomizeTeams() {
 		try {
 			await api.post(`/tournaments/${selectedId}/teams/randomize`, {});
@@ -461,6 +477,9 @@
 	function openEdit() {
 		editConfig = {
 			name: selected.name,
+			game_id: selected.game_id,
+			custom_rules: selected.config?.custom_rules ?? '',
+			team_lock_mode: selected.config?.team_lock_mode || 'captain',
 			points_per_win: selected.points_per_win || 3,
 			use_teams: selected.config?.use_teams || false,
 			team_size: selected.config?.team_size || 1,
@@ -487,11 +506,14 @@
 		try {
 			await api.put(`/tournaments/${selectedId}`, {
 				name: editConfig.name,
+				game_id: editConfig.game_id,
 				points_per_win: editConfig.points_per_win,
 				config: {
 					...selected.config,
 					use_teams: editConfig.use_teams,
 					team_size: editConfig.team_size,
+					custom_rules: editConfig.custom_rules,
+					team_lock_mode: editConfig.team_lock_mode,
 					bracket_type: editConfig.bracket_type,
 					pts_winner: editConfig.pts_winner,
 					pts_second: editConfig.pts_second,
@@ -707,10 +729,21 @@
 						{/if}
 					{/if}
 				</div>
-				{#if selectedGame?.rules}
+				{#if selected.config?.custom_rules || selectedGame?.rules}
 					<div class="hero-rules">
 						<span class="hero-rules-label">{$t("tourneys_tab_rules")}</span>
-						<p class="hero-rules-text">{selectedGame.rules}</p>
+						<p class="hero-rules-text">{selected.config?.custom_rules || selectedGame?.rules}</p>
+					</div>
+				{/if}
+				{#if useTeams}
+					<div class="hero-team-badge" style="margin-top: 0.5rem; display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.25rem 0.6rem; border-radius: 6px; background: rgba(59,130,246,0.15); border: 1px solid rgba(59,130,246,0.3); font-size: 0.75rem;">
+						{#if myTeam}
+							<span>👥 {$t('dash_team_lbl') || 'Équipe'} : <strong>{myTeam.name}</strong></span>
+							{#if myTeam.is_locked}<span title={$t('tourneys_team_locked')}>🔒</span>{/if}
+						{:else}
+							<span style="color: #f59e0b;">⚠️ Pas d'équipe</span>
+							<button class="admin-btn edit btn-xs" on:click={() => { showDetails = true; setTimeout(() => document.getElementById('teams-section')?.scrollIntoView({ behavior: 'smooth' }), 50); }} style="padding: 0.15rem 0.4rem; font-size: 0.65rem;">Rejoindre</button>
+						{/if}
 					</div>
 				{/if}
 			</div>
@@ -815,23 +848,27 @@
 
 					<!-- Team Composition (in team mode) -->
 					{#if useTeams}
-						<TournamentTeams
-							{selected}
-							{teams}
-							{unassignedPlayers}
-							{groupedUnassigned}
-							{currentUser}
-							{isAdmin}
-							{isParticipant}
-							{myTeam}
-							{liveStandings}
-							{getPlayerPts}
-							on:createTeam={(e) => createTeam(e.detail.name)}
-							on:deleteTeam={(e) => deleteTeam(e.detail.teamId)}
-							on:addMember={(e) => addMemberToTeam(e.detail.teamId, e.detail.userId)}
-							on:removeMember={(e) => removeMemberFromTeam(e.detail.teamId, e.detail.userId)}
-							on:randomizeTeams={randomizeTeams}
-						/>
+						<div id="teams-section">
+							<TournamentTeams
+								{selected}
+								{teams}
+								{unassignedPlayers}
+								{groupedUnassigned}
+								{currentUser}
+								{isAdmin}
+								{isParticipant}
+								{myTeam}
+								{liveStandings}
+								{getPlayerPts}
+								on:createTeam={(e) => createTeam(e.detail.name)}
+								on:deleteTeam={(e) => deleteTeam(e.detail.teamId)}
+								on:addMember={(e) => addMemberToTeam(e.detail.teamId, e.detail.userId)}
+								on:removeMember={(e) => removeMemberFromTeam(e.detail.teamId, e.detail.userId)}
+								on:toggleTeamLock={(e) => toggleTeamLock(e.detail.teamId, e.detail.isLocked)}
+								on:setTeamCaptain={(e) => setTeamCaptain(e.detail.teamId, e.detail.captainId)}
+								on:randomizeTeams={randomizeTeams}
+							/>
+						</div>
 					{/if}
 				{/if}
 
@@ -886,6 +923,7 @@
 <!-- Edit Modal -->
 <EditTournamentModal
 	tournament={selected}
+	{games}
 	show={editingTournament}
 	on:close={() => editingTournament = false}
 	on:save={async (e) => {

@@ -6,6 +6,15 @@ export const wsMessageStore = writable<any>(null);
 let socket: WebSocket | null = null;
 let heartbeatTimer: any = null;
 
+export function authenticateWS(token?: string) {
+	const authToken = token || (typeof window !== 'undefined' ? localStorage.getItem('alanbix_token') : null);
+	if (socket && socket.readyState === WebSocket.OPEN && authToken) {
+		try {
+			socket.send(JSON.stringify({ type: 'auth', token: authToken }));
+		} catch {}
+	}
+}
+
 function startHeartbeat() {
 	stopHeartbeat();
 	heartbeatTimer = setInterval(() => {
@@ -37,6 +46,7 @@ export function connectWS() {
 
 	socket.onopen = () => {
 		startHeartbeat();
+		authenticateWS();
 	};
 
 	socket.onmessage = (event) => {

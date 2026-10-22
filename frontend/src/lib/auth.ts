@@ -1,4 +1,5 @@
 import { writable } from 'svelte/store';
+import { authenticateWS } from './ws';
 
 const TOKEN_KEY = 'alanbix_token';
 
@@ -11,6 +12,7 @@ function createAuthStore() {
 		login: (token: string) => {
 			localStorage.setItem(TOKEN_KEY, token);
 			set(token);
+			authenticateWS(token);
 		},
 		logout: () => {
 			localStorage.removeItem(TOKEN_KEY);

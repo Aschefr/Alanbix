@@ -1,9 +1,10 @@
 <script>
 	import { get } from 'svelte/store';
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { api } from '$lib/api';
 	import { t } from '$lib/i18nStore';
 	import { formatPoints } from '$lib/utils';
+	import { wsMessageStore } from '$lib/ws';
 
 	export let toast = (msg, type) => {};
 
@@ -32,8 +33,23 @@
 		}
 	}
 
+	let wsUnsub = null;
 	onMount(() => {
 		loadPlayers();
+		wsUnsub = wsMessageStore.subscribe(msg => {
+			if (!msg) return;
+			if (msg.type === 'user_presence' && msg.user_id !== undefined) {
+				const p = allPlayers.find(x => x.id === msg.user_id);
+				if (p && p.is_online !== msg.is_online) {
+					p.is_online = msg.is_online;
+					allPlayers = allPlayers;
+				}
+			}
+		});
+	});
+
+	onDestroy(() => {
+		if (wsUnsub) wsUnsub();
 	});
 
 	function portal(node) {

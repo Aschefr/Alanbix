@@ -85,6 +85,11 @@
 
 		wsUnsub = wsMessageStore.subscribe(msg => {
 			if (!msg) return;
+			if (msg.type === 'user_presence' && msg.user_id !== undefined) {
+				adminConversations = adminConversations.map(c =>
+					c.user_id === msg.user_id ? { ...c, is_online: msg.is_online } : c
+				);
+			}
 			if (msg.type === 'admin_calls_updated') {
 				loadAdminCalls();
 			}

@@ -900,7 +900,7 @@ class IAQueueManager:
                     "messages": messages,
                     "stream": False,
                     "temperature": temperature,
-                    "max_tokens": 500
+                    "max_tokens": context_window
                 }
             else:
                 url = f"{ollama_host.rstrip('/')}/api/chat"
@@ -908,11 +908,11 @@ class IAQueueManager:
                     "model": model,
                     "messages": messages,
                     "stream": False,
-                    "options": {"temperature": temperature, "num_predict": 500, "num_ctx": context_window}
+                    "options": {"temperature": temperature, "num_predict": context_window, "num_ctx": context_window}
                 }
 
             async with httpx.AsyncClient() as client:
-                res = await client.post(url, json=req_json, timeout=45.0)
+                res = await client.post(url, json=req_json, timeout=90.0)
 
             if res.status_code != 200:
                 raise Exception(f"AI service returned HTTP {res.status_code}: {res.text[:200]}")
@@ -923,7 +923,14 @@ class IAQueueManager:
                 raw = res.json().get("message", {}).get("content", "")
 
             import re
-            clean = re.sub(r'<think>.*?</think>', '', raw, flags=re.DOTALL).strip()
+            # Strip reasoning tokens (e.g. DeepSeek-R1 / Qwen thinking tags)
+            clean = re.sub(r'<think>.*?</think>', '', raw, flags=re.DOTALL)
+            if "<think>" in clean:
+                clean = re.sub(r'<think>.*$', '', clean, flags=re.DOTALL)
+            clean = clean.strip()
+            if not clean and raw.strip():
+                clean = re.sub(r'</?think>', '', raw).strip()
+
             await entry.result_stream.put({"done": True, "result": clean})
         except Exception as e:
             await entry.result_stream.put({"done": True, "error": True, "result": str(e)})

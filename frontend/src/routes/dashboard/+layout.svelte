@@ -525,7 +525,11 @@
 				</div>
 				<div class="info">
 					<div class="username">{user.username}</div>
-					<div class="role">{user.is_admin ? $t('role_admin') : $t('role_player')}</div>
+					{#if user.team_name}
+						<div class="user-team-badge" title="Équipe : {user.team_name}">👥 {user.team_name}</div>
+					{:else}
+						<div class="role">{user.is_admin ? $t('role_admin') : $t('role_player')}</div>
+					{/if}
 				</div>
 			</a>
 			{#if $lanMultilingual}
@@ -772,6 +776,16 @@
 	.role {
 		font-size: 0.75rem;
 		color: var(--text-muted);
+	}
+
+	.user-team-badge {
+		font-size: 0.72rem;
+		font-weight: 700;
+		color: var(--accent);
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		max-width: 130px;
 	}
 
 	.logout-btn {

@@ -58,6 +58,7 @@ class TournamentCreate(TournamentBase):
 
 class TournamentUpdate(BaseModel):
     name: Optional[str] = None
+    game_id: Optional[int] = None
     status: Optional[str] = None
     config: Optional[Any] = None
     bracket: Optional[Any] = None

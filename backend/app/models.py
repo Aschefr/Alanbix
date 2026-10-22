@@ -20,6 +20,9 @@ class User(Base):
     
     @property
     def is_online(self) -> bool:
+        from .websockets import manager as ws_manager
+        if ws_manager.is_user_online(self.id):
+            return True
         from .database import ACTIVE_USERS
         last_active = ACTIVE_USERS.get(self.id)
         if not last_active:
@@ -45,7 +48,7 @@ class Tournament(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String)
     status = Column(String, default="OPEN", index=True) # OPEN, RUNNING, DONE, CLOSED
-    game_id = Column(Integer, ForeignKey("games.id", ondelete="CASCADE"), index=True)
+    game_id = Column(Integer, ForeignKey("games.id", ondelete="CASCADE"), nullable=True, index=True)
     config = Column(JSON, nullable=True) # Settings: bracket_type, use_teams, pts_*, etc.
     bracket = Column(JSON, nullable=True) # Match data after start
     results = Column(JSON, nullable=True) # Final standings + points distributed at close
@@ -54,6 +57,8 @@ class Tournament(Base):
     game = relationship("Game", back_populates="tournaments")
     participants = relationship("TournamentParticipant", back_populates="tournament", cascade="all, delete-orphan")
     teams = relationship("TournamentTeam", back_populates="tournament", cascade="all, delete-orphan")
+    match_reports = relationship("MatchReport", cascade="all, delete-orphan")
+    conflicts = relationship("Conflict", cascade="all, delete-orphan")
 
 
 class TournamentParticipant(Base):
@@ -72,6 +77,8 @@ class TournamentTeam(Base):
     tournament_id = Column(Integer, ForeignKey("tournaments.id", ondelete="CASCADE"), index=True)
     name = Column(String)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    captain_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    is_locked = Column(Boolean, default=False)
     
     tournament = relationship("Tournament", back_populates="teams")
     members = relationship("TournamentTeamMember", back_populates="team", cascade="all, delete-orphan")
@@ -173,8 +180,16 @@ class PrivateMessage(Base):
     sender_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
     receiver_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
     content = Column(Text)
+    image_path = Column(String, nullable=True)
+    link_preview = Column(JSON, nullable=True)
+    reactions = Column(JSON, nullable=True, default=dict)
+    reply_to_id = Column(Integer, ForeignKey("private_messages.id", ondelete="SET NULL"), nullable=True, index=True)
     is_read = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.datetime.utcnow, index=True)
+
+    sender = relationship("User", foreign_keys=[sender_id], backref="sent_private_messages")
+    receiver = relationship("User", foreign_keys=[receiver_id], backref="received_private_messages")
+    reply_to = relationship("PrivateMessage", remote_side=[id], foreign_keys=[reply_to_id])
 
 class GroupChannel(Base):
     """Canal de groupe (team-only ou inter-team). AXE-12."""
@@ -194,9 +209,15 @@ class GroupMessage(Base):
     channel_id = Column(Integer, ForeignKey("group_channels.id", ondelete="CASCADE"), index=True)
     sender_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
     content = Column(Text)
+    image_path = Column(String, nullable=True)
+    link_preview = Column(JSON, nullable=True)
+    reactions = Column(JSON, nullable=True, default=dict)
+    reply_to_id = Column(Integer, ForeignKey("group_messages.id", ondelete="SET NULL"), nullable=True, index=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow, index=True)
 
     channel = relationship("GroupChannel", back_populates="messages")
+    sender = relationship("User", foreign_keys=[sender_id])
+    reply_to = relationship("GroupMessage", remote_side=[id], foreign_keys=[reply_to_id])
 
 class GroupMessageRead(Base):
     """Dernier message lu par user dans un channel. AXE-12."""

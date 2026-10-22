@@ -6,6 +6,7 @@
 	import { pmUnreadCount, groupUnreadCount } from '$lib/pmStore';
 	import { t } from '$lib/i18nStore';
 	import { formatPoints } from '$lib/utils';
+	import PlayerChat from '$lib/components/PlayerChat.svelte';
 
 	let players = [];
 	let currentUser = null;
@@ -101,13 +102,20 @@
 	// Group unread counts (AXE-12)
 	let groupUnreadMap = {}; // channel_key -> unread count
 	let wsUnsub = null;
-	let presenceInterval;
+
+	function onWindowFocus() {
+		loadPlayers(true);
+	}
 
 	onMount(async () => {
 		try { currentUser = await api.get('/me'); } catch {}
 		await loadPlayers();
 		await loadUnreadMap();
 		await loadGroupUnreadMap();
+
+		if (typeof window !== 'undefined') {
+			window.addEventListener('focus', onWindowFocus);
+		}
 
 		// Restore chat width
 		const savedWidth = localStorage.getItem('alanbix_chat_width');
@@ -133,10 +141,21 @@
 
 		wsUnsub = wsMessageStore.subscribe(async msg => {
 			if (!msg) return;
+			if (msg.type === 'user_presence' && msg.user_id !== undefined) {
+				const active = players.find(p => p.id === msg.user_id);
+				if (active && active.is_online !== msg.is_online) {
+					active.is_online = msg.is_online;
+					players = players;
+				}
+				if (chatMode === 'p2p' && chatPeerId === msg.user_id && chatPeer && chatPeer.is_online !== msg.is_online) {
+					chatPeer.is_online = msg.is_online;
+					chatPeer = chatPeer;
+				}
+			}
 			if (msg.type === 'users_updated' || msg.type === 'tournament_closed' || msg.type === 'tournament_reopened' ||
 				msg.type === 'tournament_created' || msg.type === 'tournament_updated' || msg.type === 'tournament_deleted' ||
 				msg.type === 'tournament_started') {
-				await loadPlayers();
+				await loadPlayers(true);
 				if (expandedPlayerId) {
 					try {
 						pointsHistory = await api.get(`/players/${expandedPlayerId}/points-history`);
@@ -157,34 +176,34 @@
 				loadGroupUnreadMap();
 			}
 		});
-
-		presenceInterval = setInterval(async () => {
-			await loadPlayers();
-		}, 20000);
 	});
 
 	onDestroy(() => { 
 		if (wsUnsub) wsUnsub(); 
-		if (presenceInterval) clearInterval(presenceInterval);
 		if (typeof window !== 'undefined') {
+			window.removeEventListener('focus', onWindowFocus);
 			window.removeEventListener('mousemove', doResize);
 			window.removeEventListener('mouseup', stopResize);
 		}
 	});
 
-	async function loadPlayers() {
-		loading = true;
+	async function loadPlayers(silent = false) {
+		if (!silent && players.length === 0) loading = true;
 		try { 
-			players = await api.get('/players'); 
+			const fresh = await api.get('/players'); 
+			players = fresh;
 			if (chatMode === 'p2p' && chatPeerId && chatPeer) {
 				const active = players.find(p => p.id === chatPeerId);
-				if (active) {
+				if (active && chatPeer.is_online !== active.is_online) {
 					chatPeer.is_online = active.is_online;
 					chatPeer = chatPeer;
 				}
 			}
-		} catch { players = []; }
-		loading = false;
+		} catch { 
+			if (players.length === 0) players = []; 
+		} finally {
+			if (!silent) loading = false;
+		}
 	}
 
 	async function loadUnreadMap() {
@@ -281,43 +300,14 @@
 		if (peerId === currentUser?.id) return;
 		chatMode = 'p2p';
 		chatPeerId = peerId;
+		const found = players.find(p => p.id === peerId);
+		chatPeer = found ? { ...found } : { id: peerId };
 		chatChannelKey = null;
 		chatChannelInfo = null;
 		chatChannelMembers = [];
 		localStorage.setItem('alanbix_players_chat', String(peerId));
 		localStorage.removeItem('alanbix_players_group_chat');
-		await loadChat(peerId, false);
 		await loadUnreadMap();
-	}
-
-	async function loadChat(peerId, silent) {
-		if (!silent) chatLoading = true;
-		try {
-			const data = await api.get(`/players/messages/${peerId}`);
-			chatPeer = data.peer;
-			lastReadMessageId = data.last_read_message_id || 0;
-			chatMessages = data.messages || [];
-			if (!silent) {
-				playersFirstUnreadIdx = (lastReadMessageId && chatMessages.length) ? chatMessages.findIndex((m, i) => i > 0 && m.id > lastReadMessageId && m.sender_id !== currentUser?.id) : -1;
-			}
-			await tick();
-			scrollChat();
-		} catch { chatMessages = []; }
-		if (!silent) chatLoading = false;
-		if (!silent) await loadUnreadMap();
-	}
-
-	async function sendMessage() {
-		if (chatMode === 'group') { sendGroupMessage(); return; }
-		const content = chatInput.trim();
-		if (!content || !chatPeerId) return;
-		chatInput = '';
-		try {
-			await api.post(`/players/messages/${chatPeerId}`, { content });
-			await loadChat(chatPeerId, true);
-		} catch (e) {
-			chatInput = content;
-		}
 	}
 
 	// --- Group Chat (AXE-12) ---
@@ -343,51 +333,13 @@
 		chatChannelKey = channelKey;
 		chatPeerId = null;
 		chatPeer = null;
+		const channel_type = channelKey.startsWith('team:') ? 'team' : 'inter';
+		const team_names = channel_type === 'team' ? [channelKey.slice(5)] : channelKey.slice(6).split('|');
+		chatChannelInfo = { channel_key: channelKey, channel_type, team_names };
+		chatChannelMembers = players.filter(p => team_names.includes(p.team_name));
 		localStorage.setItem('alanbix_players_group_chat', channelKey);
 		localStorage.removeItem('alanbix_players_chat');
-		await loadGroupChat(channelKey, false);
 		await loadGroupUnreadMap();
-	}
-
-	async function loadGroupChat(channelKey, silent) {
-		if (!silent) chatLoading = true;
-		try {
-			const data = await api.get(`/players/group/channel/${channelKey}`);
-			chatChannelInfo = data.channel;
-			lastReadMessageId = data.last_read_message_id || 0;
-			chatMessages = (data.messages || []).map(m => ({
-				...m, sender_id: m.sender_id, sender_name: m.sender_name
-			}));
-			chatChannelMembers = data.members || [];
-			if (!silent) {
-				playersFirstUnreadIdx = (lastReadMessageId && chatMessages.length) ? chatMessages.findIndex((m, i) => i > 0 && m.id > lastReadMessageId && m.sender_id !== currentUser?.id) : -1;
-			}
-			await tick();
-			scrollChat();
-		} catch { chatMessages = []; chatChannelInfo = null; }
-		if (!silent) chatLoading = false;
-		if (!silent) await loadGroupUnreadMap();
-	}
-
-	async function sendGroupMessage() {
-		const content = chatInput.trim();
-		if (!content || !chatChannelKey) return;
-		chatInput = '';
-		// Parse channel_key to determine type and team_names
-		let channel_type, team_names;
-		if (chatChannelKey.startsWith('team:')) {
-			channel_type = 'team';
-			team_names = [chatChannelKey.slice(5)];
-		} else {
-			channel_type = 'inter';
-			team_names = chatChannelKey.slice(6).split('|');
-		}
-		try {
-			await api.post('/players/group/send', { content, channel_type, team_names });
-			await loadGroupChat(chatChannelKey, true);
-		} catch (e) {
-			chatInput = content;
-		}
 	}
 
 	function closeChat() {
@@ -397,24 +349,8 @@
 		chatChannelKey = null;
 		chatChannelInfo = null;
 		chatChannelMembers = [];
-		chatMessages = [];
 		localStorage.removeItem('alanbix_players_chat');
 		localStorage.removeItem('alanbix_players_group_chat');
-	}
-
-	async function scrollChat() {
-		await tick();
-		if (chatEl) {
-			chatEl.scrollTop = chatEl.scrollHeight;
-			showScrollToBottom = false;
-		}
-	}
-
-	function handleKeydown(e) {
-		if (e.key === 'Enter' && !e.shiftKey) {
-			e.preventDefault();
-			sendMessage();
-		}
 	}
 
 
@@ -450,10 +386,10 @@
 	<div class="players-layout" style="grid-template-columns: minmax(0, 1fr) 8px {chatWidth}px;">
 		<!-- LEFT: Player directory -->
 		<div class="directory-col">
-			{#if loading}
+			{#if loading && players.length === 0}
 				<div class="loading-state glass"><span>⏳</span> {$t("login_checking")}</div>
 			{:else}
-				{#each grouped.teams as [teamName, members]}
+				{#each grouped.teams as [teamName, members] (teamName)}
 					<div class="team-section glass" class:active-chat={isTeamChatActive(teamName, chatMode, chatChannelKey)}>
 						<!-- svelte-ignore a11y-click-events-have-key-events -->
 						<!-- svelte-ignore a11y-no-static-element-interactions -->
@@ -483,7 +419,7 @@
 							{/if}
 						</div>
 						<div class="team-members">
-							{#each members as player}
+							{#each members as player (player.id)}
 								<!-- svelte-ignore a11y-click-events-have-key-events -->
 								<!-- svelte-ignore a11y-no-static-element-interactions -->
 								<div class="player-card" class:active-chat={chatPeerId === player.id} class:has-unread={(unreadMap[player.id] || 0) > 0} on:click={() => openChat(player.id)}>
@@ -567,7 +503,7 @@
 							<span class="team-count">{grouped.noTeam.length}</span>
 						</div>
 						<div class="team-members">
-							{#each grouped.noTeam as player}
+							{#each grouped.noTeam as player (player.id)}
 								<!-- svelte-ignore a11y-click-events-have-key-events -->
 								<!-- svelte-ignore a11y-no-static-element-interactions -->
 								<div class="player-card" class:active-chat={chatPeerId === player.id} class:has-unread={(unreadMap[player.id] || 0) > 0} on:click={() => openChat(player.id)}>
@@ -655,125 +591,23 @@
 		<div class="resizer" class:active={isResizing} on:mousedown={startResize}></div>
 
 		<!-- RIGHT: Chat panel -->
-		<div class="chat-col glass">
+		<div class="chat-col glass" style="overflow: hidden; display: flex; flex-direction: column;">
 			{#if !chatMode}
 				<div class="chat-empty">
 					<span class="chat-empty-icon">💬</span>
 					<p>{$t('players_chat_empty_prompt')}</p>
 				</div>
-			{:else if chatLoading}
-				<div class="chat-empty"><span>⏳</span> {$t("login_checking")}</div>
-			{:else if chatMode === 'p2p'}
-				<div class="chat-header">
-					<div class="avatar-wrapper" style="position: relative; display: inline-block; flex-shrink: 0;">
-						<div class="chat-peer-avatar avatar-shape-{chatPeer?.avatar_shape || 'circle'}">
-							{#if chatPeer?.avatar_url}
-								<img src={chatPeer.avatar_url} alt="" class="chat-peer-avatar-img" />
-							{:else}
-								{chatPeer?.username?.[0]?.toUpperCase() || '?'}
-							{/if}
-						</div>
-						{#if chatPeer?.is_online}
-							<span class="online-indicator" title={$t('players_status_online')}></span>
-						{/if}
-					</div>
-					<div class="chat-peer-info">
-						<span class="chat-peer-name">{chatPeer?.username || '?'}</span>
-						{#if chatPeer?.team_name}<span class="chat-peer-team">{chatPeer.team_name}</span>{/if}
-					</div>
-					{#if chatPeer?.seat_id}
-						<a href="/dashboard/map?highlight={chatPeer.seat_id}" class="chat-seat-link" title="{$t('players_tooltip_seat')}">📍 {chatPeer.seat_id}</a>
-					{/if}
-					<button class="chat-close" on:click={closeChat} title="{$t('players_chat_tooltip_close')}">✕</button>
-				</div>
-
-				<div class="chat-messages" bind:this={chatEl} on:scroll={handleChatScroll}>
-					{#if chatMessages.length === 0}
-						<div class="chat-no-msg"><p>{$t('players_chat_no_msg')}</p></div>
-					{:else}
-						{#each chatMessages as msg, idx}
-							{#if idx === playersFirstUnreadIdx}
-								<div class="unread-separator">
-									<span class="unread-separator-line"></span>
-									<span class="unread-separator-text">{$t('chat_new_messages')}</span>
-									<span class="unread-separator-line"></span>
-								</div>
-							{/if}
-							<div class="chat-bubble {msg.sender_id === currentUser?.id ? 'mine' : 'theirs'}">
-								<div class="bubble-content">{msg.content}</div>
-								<span class="bubble-time">{timeAgo(msg.created_at, $t)}</span>
-							</div>
-						{/each}
-					{/if}
-				</div>
-				{#if showScrollToBottom}
-					<button class="scroll-to-bottom-btn glass" type="button" on:click={scrollChat}>
-						👇 {$t('chat_scroll_to_bottom')}
-					</button>
-				{/if}
-
-				<div class="chat-input-bar">
-					<textarea class="chat-input" bind:value={chatInput} on:keydown={handleKeydown} placeholder={$t('players_chat_placeholder_single')} rows="1"></textarea>
-					<button class="chat-send" on:click={sendMessage} disabled={!chatInput.trim()}>
-						<span>➤</span>
-					</button>
-				</div>
-			{:else if chatMode === 'group'}
-				<div class="chat-header group-header">
-					<div class="chat-group-icon">{chatChannelInfo?.channel_type === 'team' ? '🛡️' : '⚔️'}</div>
-					<div class="chat-peer-info">
-						<span class="chat-peer-name">
-							{#if chatChannelInfo?.channel_type === 'team'}
-								{chatChannelInfo.team_names[0]}
-							{:else}
-								{(chatChannelInfo?.team_names || []).join(' vs ')}
-							{/if}
-						</span>
-						<span class="chat-peer-team">
-							{chatChannelInfo?.channel_type === 'team' ? $t('players_chat_type_team') : $t('players_chat_type_inter')}
-							 · {$t("players_chat_title", { count: chatChannelMembers.length, plural: chatChannelMembers.length > 1 ? "s" : "" }).split(" • ")[1] || "members"}
-						</span>
-					</div>
-					<span class="group-type-badge {chatChannelInfo?.channel_type}">
-						{chatChannelInfo?.channel_type === 'team' ? $t('players_chat_badge_team') : $t('players_chat_badge_inter')}
-					</span>
-					<button class="chat-close" on:click={closeChat} title="{$t('players_chat_tooltip_close')}">✕</button>
-				</div>
-
-				<div class="chat-messages" bind:this={chatEl} on:scroll={handleChatScroll}>
-					{#if chatMessages.length === 0}
-						<div class="chat-no-msg"><p>{$t("players_chat_empty")}</p></div>
-					{:else}
-						{#each chatMessages as msg, idx}
-							{#if idx === playersFirstUnreadIdx}
-								<div class="unread-separator">
-									<span class="unread-separator-line"></span>
-									<span class="unread-separator-text">{$t('chat_new_messages')}</span>
-									<span class="unread-separator-line"></span>
-								</div>
-							{/if}
-							<div class="chat-bubble {msg.sender_id === currentUser?.id ? 'mine' : 'theirs'}">
-								{#if msg.sender_id !== currentUser?.id}
-									<span class="bubble-sender">{msg.sender_name}</span>
-								{/if}
-								<div class="bubble-content">{msg.content}</div>
-								<span class="bubble-time">{timeAgo(msg.created_at, $t)}</span>
-							</div>
-						{/each}
-					{/if}
-				</div>
-				{#if showScrollToBottom}
-					<button class="scroll-to-bottom-btn glass" type="button" on:click={scrollChat}>
-						👇 {$t('chat_scroll_to_bottom')}
-					</button>
-				{/if}
-
-				<div class="chat-input-bar">
-					<textarea class="chat-input" bind:value={chatInput} on:keydown={handleKeydown} placeholder="{$t('players_chat_placeholder')}" rows="1"></textarea>
-					<button class="chat-send" on:click={sendMessage} disabled={!chatInput.trim()}>
-						<span>➤</span>
-					</button>
-				</div>
+			{:else}
+				<PlayerChat
+					mode={chatMode}
+					peer={chatPeer}
+					channelInfo={chatChannelInfo}
+					channelMembers={chatChannelMembers}
+					{currentUser}
+					allUsers={players}
+					on:close={closeChat}
+					on:messageSent={() => { loadUnreadMap(); loadGroupUnreadMap(); }}
+				/>
 			{/if}
 		</div>
 	</div>

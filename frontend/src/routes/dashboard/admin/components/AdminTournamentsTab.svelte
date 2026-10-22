@@ -100,12 +100,15 @@
 		try {
 			await api.put(`/tournaments/${editingTournament.id}`, {
 				name: editConfig.name,
+				game_id: editConfig.game_id,
 				status: editConfig.status,
 				points_per_win: editConfig.points_per_win,
 				config: {
 					...editingTournament.config,
 					use_teams: editConfig.use_teams,
 					team_size: editConfig.team_size,
+					custom_rules: editConfig.custom_rules,
+					team_lock_mode: editConfig.team_lock_mode,
 					phases: editConfig.phases,
 					group_size: editConfig.group_size,
 					advancers_count: editConfig.advancers_count,
@@ -156,16 +159,17 @@
 		} catch (e) { toast(e.message || 'Erreur retry', 'error'); }
 	}
 
-	async function deleteGame(id, force = false) {
+	async function deleteGame(id, force = false, unlink = false) {
 		try {
-			await api.delete(`/tournaments/games/${id}${force ? '?force=true' : ''}`);
+			const q = unlink ? '?unlink=true' : (force ? '?force=true' : '');
+			await api.delete(`/tournaments/games/${id}${q}`);
 			deleteConfirmGameId = null;
 			gameToDeleteWithTournaments = null;
 			deleteGameCheckboxConfirmed = false;
 			onReload();
-			toast(get(t)('admin_toast_game_deleted'), 'success');
+			toast(unlink ? get(t)('admin_games_unlink_success') : get(t)('admin_toast_game_deleted'), 'success');
 		} catch (e) {
-			if (e.message && e.message.includes('confirmer la suppression')) {
+			if (e.message && (e.message.includes('confirmer la suppression') || e.message.includes('délier'))) {
 				const g = games.find(game => game.id === id);
 				const freshTournaments = await api.get('/tournaments');
 				const affected = freshTournaments.filter(tItem => tItem.game_id && Number(tItem.game_id) === Number(id));
@@ -395,7 +399,7 @@
 					<div class="game-card glass">
 						<div class="game-thumb" style="background-image: url({g.image_url})">
 							{#if !g.image_url}<span class="thumb-placeholder">🎮</span>{/if}
-							<div class="game-card-actions">
+							<div class="game-card-actions" class:is-confirming={deleteConfirmGameId === g.id}>
 								<button class="game-action-btn edit" on:click={() => openEditGame(g)} title="{$t('admin_tourneys_tooltip_edit')}">✏️</button>
 								{#if deleteConfirmGameId === g.id}
 									<button class="game-action-btn confirm" on:click={() => attemptDeleteGame(g)}>✓</button>
@@ -467,9 +471,10 @@
 					</label>
 				</div>
 			</div>
-			<footer class="edit-modal-footer">
+			<footer class="edit-modal-footer" style="gap: 0.5rem; flex-wrap: wrap;">
 				<button class="btn-secondary" on:click={() => gameToDeleteWithTournaments = null}>{$t('admin_settings_cancel')}</button>
-				<button class="btn-danger-full" on:click={() => deleteGame(gameToDeleteWithTournaments.game.id, true)} disabled={!deleteGameCheckboxConfirmed}>{$t('admin_games_nuke_btn_nuke')}</button>
+				<button class="btn-primary btn-sm" on:click={() => deleteGame(gameToDeleteWithTournaments.game.id, false, true)} title="Conserver les tournois et l'historique sans ce jeu">{$t('admin_games_nuke_unlink_btn')}</button>
+				<button class="btn-danger-full" on:click={() => deleteGame(gameToDeleteWithTournaments.game.id, true, false)} disabled={!deleteGameCheckboxConfirmed}>{$t('admin_games_nuke_btn_nuke')}</button>
 			</footer>
 		</div>
 	</div>
@@ -554,6 +559,7 @@
 <!-- Edit Tournament Modal -->
 <EditTournamentModal
 	tournament={editingTournament}
+	{games}
 	show={!!editingTournament}
 	showStatus={true}
 	on:close={() => editingTournament = null}
@@ -609,7 +615,7 @@
 	.game-info { padding: 0.5rem; text-align: center; font-size: 0.78rem; font-weight: 600; }
 	.game-empty { grid-column: 1 / -1; padding: 2rem; text-align: center; }
 	.game-card-actions { position: absolute; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; gap: 0.3rem; opacity: 0; transition: opacity 0.2s; }
-	.game-card:hover .game-card-actions { opacity: 1; }
+	.game-card:hover .game-card-actions, .game-card-actions.is-confirming { opacity: 1 !important; pointer-events: auto !important; }
 	.game-action-btn { width: 28px; height: 28px; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; background: rgba(0,0,0,0.5); color: white; cursor: pointer; font-size: 0.7rem; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
 	.game-action-btn.edit:hover { background: rgba(59,130,246,0.4); border-color: var(--accent); }
 	.game-action-btn.delete:hover { background: rgba(239,68,68,0.4); border-color: var(--danger); }

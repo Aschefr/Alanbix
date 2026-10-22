@@ -5,6 +5,9 @@ export default defineConfig({
 	plugins: [sveltekit()],
 	server: {
 		allowedHosts: true,
+		watch: {
+			usePolling: true
+		},
 		fs: {
 			allow: ['..']
 		},

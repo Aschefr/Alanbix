@@ -407,12 +407,14 @@ async def _process_alanbix_public_reply(trigger_msg_id: int, user_prompt: str, a
     """Background task to generate Alanbix's reply in public chat via Ollama/IA queue."""
     from ..ia_queue import queue_manager, QueueEntry
     from ..database import SessionLocal
-    from .ia import get_instances
+    from .ia import get_instances, get_effective_config
 
     try:
         await asyncio.sleep(0.3)
 
         with SessionLocal() as db:
+            ia_cfg = get_effective_config(db)
+
             # Check active Ollama instances
             instances = [i for i in get_instances(db) if i.get("enabled", True)]
             if not instances:
@@ -422,6 +424,8 @@ async def _process_alanbix_public_reply(trigger_msg_id: int, user_prompt: str, a
             instance = instances[0]
             ollama_host = instance.get("url") or instance.get("host") or "http://localhost:11434"
             model_to_use = instance.get("model") or "llama3"
+            context_window = ia_cfg.get("context_window", 4096)
+            temperature = ia_cfg.get("temperature", 0.7)
 
             # Fetch sliding window (last 6 messages)
             recent_msgs = (
@@ -444,6 +448,7 @@ async def _process_alanbix_public_reply(trigger_msg_id: int, user_prompt: str, a
                 "Tu es Alanbix, l'IA mascotte et arbitre joviale de la LAN Party. "
                 "Tu interviens directement dans le chat public de la salle. "
                 "Réponds de manière concise (1 à 3 phrases maximum), avec humour, dynamisme, esprit gamer et bienveillance. "
+                "Termine toujours ta réponse de façon complète sans t'interrompre. "
                 "N'utilise pas de formalisme inutile. Ne préfixe jamais ta réponse par 'Alanbix:'."
             )
 
@@ -469,8 +474,8 @@ async def _process_alanbix_public_reply(trigger_msg_id: int, user_prompt: str, a
                     "ollama_host": ollama_host,
                     "model": model_to_use,
                     "messages": messages,
-                    "temperature": 0.7,
-                    "context_window": 4096
+                    "temperature": temperature,
+                    "context_window": context_window
                 }
             )
 

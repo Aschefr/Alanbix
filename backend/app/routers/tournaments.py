@@ -84,17 +84,34 @@ async def update_game(game_id: int, game_update: schemas.GameUpdate, db: Session
     return db_game
 
 @router.delete("/games/{game_id}")
-async def delete_game(game_id: int, force: bool = False, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
+async def delete_game(game_id: int, force: bool = False, unlink: bool = False, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
     game = db.query(models.Game).filter(models.Game.id == game_id).first()
     if not game:
         raise HTTPException(status_code=404, detail="Game not found")
         
-    if not force and len(game.tournaments) > 0:
-        raise HTTPException(status_code=409, detail=f"Ce jeu est lié à {len(game.tournaments)} tournoi(s). Veuillez confirmer la suppression.", headers={"X-Affected-Tournaments": str(len(game.tournaments))})
+    linked_tournaments = db.query(models.Tournament).filter(models.Tournament.game_id == game_id).all()
+    if linked_tournaments and not force and not unlink:
+        raise HTTPException(
+            status_code=409, 
+            detail=f"Ce jeu est lié à {len(linked_tournaments)} tournoi(s). Veuillez confirmer la suppression ou délier les tournois.", 
+            headers={"X-Affected-Tournaments": str(len(linked_tournaments))}
+        )
+        
+    if unlink:
+        for t in linked_tournaments:
+            t.game_id = None
+        db.commit()
+    elif force and linked_tournaments:
+        for t in linked_tournaments:
+            db.query(models.MatchReport).filter(models.MatchReport.tournament_id == t.id).delete(synchronize_session=False)
+            db.query(models.Conflict).filter(models.Conflict.tournament_id == t.id).delete(synchronize_session=False)
+            db.delete(t)
+        db.commit()
         
     db.delete(game)
     db.commit()
     await manager.broadcast({"type": "games_updated"})
+    await manager.broadcast({"type": "tournaments_updated"})
     return {"status": "deleted"}
 
 @router.post("/games/localize-images")
@@ -230,8 +247,17 @@ async def update_tournament(
         raise HTTPException(status_code=404, detail="Tournament not found")
         
     update_data = tournament_update.model_dump(exclude_unset=True)
+    if "game_id" in update_data:
+        new_gid = update_data["game_id"]
+        if new_gid is not None:
+            game_exists = db.query(models.Game).filter(models.Game.id == new_gid).first()
+            if not game_exists:
+                raise HTTPException(status_code=404, detail="Jeu introuvable")
+        db_tournament.game_id = new_gid
+
     for key, value in update_data.items():
-        setattr(db_tournament, key, value)
+        if key != "game_id":
+            setattr(db_tournament, key, value)
     
     # Ensure JSON column mutations are detected by SQLAlchemy
     from sqlalchemy.orm.attributes import flag_modified
@@ -249,7 +275,9 @@ async def update_tournament(
     db.commit()
     db.refresh(db_tournament)
     
-    await manager.broadcast({"type": "tournament_updated", "data": schemas.Tournament.from_orm(db_tournament).dict()})
+    tournament_dict = schemas.Tournament.model_validate(db_tournament).model_dump()
+    await manager.broadcast({"type": "tournament_updated", "data": tournament_dict, "tournament_id": tournament_id})
+    await manager.broadcast({"type": "tournaments_updated"})
     return db_tournament
 
 @router.delete("/{tournament_id}")
@@ -561,28 +589,38 @@ def get_teams(tournament_id: int, db: Session = Depends(database.get_db)):
         users = db.query(models.User).filter(models.User.id.in_([m.user_id for m in members])).all()
         user_map = {u.id: u.username for u in users}
         result.append({
-            "id": t.id, "name": t.name, "created_by": t.created_by,
+            "id": t.id, 
+            "name": t.name, 
+            "created_by": t.created_by,
+            "captain_id": t.captain_id or t.created_by,
+            "is_locked": bool(t.is_locked),
             "members": [{"user_id": m.user_id, "username": user_map.get(m.user_id, "?")} for m in members]
         })
     return result
 
 @router.post("/{tournament_id}/teams")
 async def create_team(tournament_id: int, body: TeamCreate, db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
-    team = models.TournamentTeam(tournament_id=tournament_id, name=body.name, created_by=user.id)
+    team = models.TournamentTeam(
+        tournament_id=tournament_id, 
+        name=body.name, 
+        created_by=user.id,
+        captain_id=user.id,
+        is_locked=False
+    )
     db.add(team)
     db.commit()
     db.refresh(team)
     await manager.broadcast({"type": "teams_updated", "tournament_id": tournament_id})
-    return {"id": team.id, "name": team.name, "created_by": user.id, "members": []}
+    return {"id": team.id, "name": team.name, "created_by": user.id, "captain_id": user.id, "is_locked": False, "members": []}
 
 @router.delete("/{tournament_id}/teams/{team_id}")
 async def delete_team(tournament_id: int, team_id: int, db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
     team = db.query(models.TournamentTeam).filter(models.TournamentTeam.id == team_id, models.TournamentTeam.tournament_id == tournament_id).first()
     if not team:
         raise HTTPException(status_code=404, detail="Team not found")
-    # Only creator or admin can delete
-    if not user.is_admin and team.created_by != user.id:
-        raise HTTPException(status_code=403, detail="Only the team creator or an admin can delete this team")
+    # Only creator, captain or admin can delete
+    if not user.is_admin and team.created_by != user.id and team.captain_id != user.id:
+        raise HTTPException(status_code=403, detail="Only the team creator, captain or an admin can delete this team")
     db.delete(team)
     db.commit()
     await manager.broadcast({"type": "teams_updated", "tournament_id": tournament_id})
@@ -590,6 +628,14 @@ async def delete_team(tournament_id: int, team_id: int, db: Session = Depends(da
 
 @router.post("/{tournament_id}/teams/{team_id}/members")
 async def add_team_member(tournament_id: int, team_id: int, body: TeamMemberAdd, db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
+    target_team = db.query(models.TournamentTeam).filter(models.TournamentTeam.id == team_id, models.TournamentTeam.tournament_id == tournament_id).first()
+    if not target_team:
+        raise HTTPException(status_code=404, detail="Team not found")
+
+    # If team is locked, non-admins cannot join
+    if target_team.is_locked and not user.is_admin:
+        raise HTTPException(status_code=403, detail="Cette équipe est verrouillée. Impossible de la rejoindre.")
+
     # Non-admin can only add themselves
     if not user.is_admin and body.user_id != user.id:
         raise HTTPException(status_code=403, detail="You can only add yourself to a team")
@@ -620,16 +666,87 @@ async def add_team_member(tournament_id: int, team_id: int, body: TeamMemberAdd,
 
 @router.delete("/{tournament_id}/teams/{team_id}/members/{user_id}")
 async def remove_team_member(tournament_id: int, team_id: int, user_id: int, db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
-    # Non-admin can only remove themselves
-    if not user.is_admin and user_id != user.id:
-        raise HTTPException(status_code=403, detail="You can only remove yourself from a team")
+    target_team = db.query(models.TournamentTeam).filter(models.TournamentTeam.id == team_id, models.TournamentTeam.tournament_id == tournament_id).first()
+    if not target_team:
+        raise HTTPException(status_code=404, detail="Team not found")
+
+    # A user can ALWAYS remove themselves even if team is locked (leaving is allowed, joining blocked)
+    # Removing someone else requires admin OR being team captain/creator
+    if user_id != user.id:
+        if not user.is_admin and user.id != target_team.captain_id and user.id != target_team.created_by:
+            raise HTTPException(status_code=403, detail="Seul un admin ou le référent de l'équipe peut retirer un joueur")
+
     member = db.query(models.TournamentTeamMember).filter(models.TournamentTeamMember.team_id == team_id, models.TournamentTeamMember.user_id == user_id).first()
     if not member:
         raise HTTPException(status_code=404, detail="Member not found")
     db.delete(member)
+
+    # If captain left, reassign captain to next member or creator
+    if target_team.captain_id == user_id:
+        next_member = db.query(models.TournamentTeamMember).filter(models.TournamentTeamMember.team_id == team_id, models.TournamentTeamMember.user_id != user_id).first()
+        target_team.captain_id = next_member.user_id if next_member else target_team.created_by
+
     db.commit()
     await manager.broadcast({"type": "teams_updated", "tournament_id": tournament_id})
     return {"status": "removed"}
+
+class TeamLockUpdate(BaseModel):
+    is_locked: bool
+
+@router.put("/{tournament_id}/teams/{team_id}/lock")
+async def toggle_team_lock(
+    tournament_id: int, 
+    team_id: int, 
+    body: TeamLockUpdate, 
+    db: Session = Depends(database.get_db), 
+    user: models.User = Depends(auth.get_current_user)
+):
+    team = db.query(models.TournamentTeam).filter(models.TournamentTeam.id == team_id, models.TournamentTeam.tournament_id == tournament_id).first()
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+    
+    tournament = db.query(models.Tournament).filter(models.Tournament.id == tournament_id).first()
+    lock_mode = (tournament.config or {}).get("team_lock_mode", "captain") if tournament else "captain"
+    
+    if lock_mode == "open" and not user.is_admin:
+        raise HTTPException(status_code=403, detail="Le verrouillage d'équipe est désactivé sur ce tournoi")
+    elif lock_mode == "admin" and not user.is_admin:
+        raise HTTPException(status_code=403, detail="Seul un administrateur peut verrouiller les équipes")
+    elif lock_mode == "captain":
+        if not user.is_admin and user.id != team.captain_id and user.id != team.created_by:
+            raise HTTPException(status_code=403, detail="Seul le référent de l'équipe ou un administrateur peut verrouiller cette équipe")
+            
+    team.is_locked = body.is_locked
+    db.commit()
+    await manager.broadcast({"type": "teams_updated", "tournament_id": tournament_id})
+    return {"status": "ok", "is_locked": team.is_locked}
+
+class TeamCaptainUpdate(BaseModel):
+    captain_id: int
+
+@router.put("/{tournament_id}/teams/{team_id}/captain")
+async def set_team_captain(
+    tournament_id: int,
+    team_id: int,
+    body: TeamCaptainUpdate,
+    db: Session = Depends(database.get_db),
+    user: models.User = Depends(auth.get_current_user)
+):
+    team = db.query(models.TournamentTeam).filter(models.TournamentTeam.id == team_id, models.TournamentTeam.tournament_id == tournament_id).first()
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+    
+    if not user.is_admin and user.id != team.captain_id and user.id != team.created_by:
+        raise HTTPException(status_code=403, detail="Seul le référent actuel ou un admin peut désigner un nouveau référent")
+        
+    is_member = db.query(models.TournamentTeamMember).filter(models.TournamentTeamMember.team_id == team_id, models.TournamentTeamMember.user_id == body.captain_id).first()
+    if not is_member:
+        raise HTTPException(status_code=400, detail="Le référent doit être membre de l'équipe")
+        
+    team.captain_id = body.captain_id
+    db.commit()
+    await manager.broadcast({"type": "teams_updated", "tournament_id": tournament_id})
+    return {"status": "ok", "captain_id": team.captain_id}
 
 @router.post("/{tournament_id}/teams/randomize")
 async def randomize_teams(tournament_id: int, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
