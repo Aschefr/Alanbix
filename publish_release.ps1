@@ -41,14 +41,8 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
-Write-Host "Construction de l'image Docker (Architecture courante, generalement x86_64)..." -ForegroundColor Cyan
-docker build -f Dockerfile.standalone -t aschefr/alanbix:$CleanVersion -t aschefr/alanbix:latest .
+Write-Host "Construction et publication de l'image Docker multi-architecture (linux/amd64, linux/arm64)..." -ForegroundColor Cyan
+docker buildx build --platform linux/amd64,linux/arm64 -f Dockerfile.standalone -t aschefr/alanbix:$CleanVersion -t aschefr/alanbix:latest --push .
 
-# Note pour plus tard : Pour compiler pour ARM et x86 en meme temps, de-commente cette ligne :
-# docker buildx build --platform linux/amd64,linux/arm64 -f Dockerfile.standalone -t aschefr/alanbix:$CleanVersion -t aschefr/alanbix:latest --push .
-
-Write-Host "Poussee de l'image vers Docker Hub..." -ForegroundColor Cyan
-docker push aschefr/alanbix:$CleanVersion
-docker push aschefr/alanbix:latest
 
 Write-Host "Termine ! Alanbix v$CleanVersion a ete publie avec succes." -ForegroundColor Green
