@@ -1,6 +1,14 @@
 # Changelog
 
+## [1.33.1] - 2026-10-22
+
+### 🐛 Correctif Critique — Fuite Mémoire & Saturation SWAP (WebSockets)
+- **Purge immédiate des connexions mortes (`broadcast`)** : Résolution d'une fuite mémoire critique où les connexions WebSocket fermées de manière inattendue (coupure réseau, veille mobile, fermeture brutale) restaient enregistrées indéfiniment dans les tables de présence du serveur, entraînant l'accumulation de milliers d'objets zombies et saturant la SWAP/RAM jusqu'au crash OOM après plusieurs jours.
+- **Nettoyage garanti via bloc `finally`** : L'endpoint `/ws` de FastAPI garantit désormais l'appel systématique de `disconnect()` sur toute interruption ou exception inattendue.
+- **Déploiement Production Clé-en-main** : Ajout d'un fichier `docker-compose.prod.yml` officiel utilisant l'image unifiée standalone (`aschefr/alanbix:latest`), éliminant l'exécution non désirée de Vite en mode dev (`npm run dev`) et de `--reload` en production.
+
 ## [1.33.0] - 2026-10-22
+
 
 ### 💬 Chat Joueurs & Équipes Enrichi (MP & Salons d'équipes)
 - **Alignement complet avec le Chat Public** :

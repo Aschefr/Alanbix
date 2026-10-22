@@ -169,39 +169,48 @@ Configurez les instances Ollama, ajustez les limites de contexte et gérez les p
 - [Docker](https://docs.docker.com/get-docker/) & [Docker Compose](https://docs.docker.com/compose/install/)
 - *(Optionnel)* [Ollama](https://ollama.ai/) pour les fonctionnalités de chat IA.
 
-### Installation (Serveur ou Local)
+### 1. Installation en Production (Recommandé pour Serveurs, RPi, VPS)
 
-1. Clonez le dépôt et accédez au dossier :
+Pour déployer Alanbix sur un serveur (Raspberry Pi, VPS, serveur local dédié), nous utilisons l'**image standalone unifiée** : elle intègre l'API FastAPI et les fichiers statiques du frontend sur un port unique (`41481`), ne requiert aucun processus Node.js, et consomme très peu de ressources (~80 Mo de RAM) :
+
+1. Récupérez le fichier de composition de production :
    ```bash
    git clone https://github.com/Aschefr/Alanbix.git
    cd Alanbix
+   docker compose -f docker-compose.prod.yml up -d
    ```
 
-2. *(Optionnel - Pour l'accès réseau LAN)* : Si vous souhaitez y accéder depuis d'autres appareils de votre réseau local :
-   * Copiez le fichier de configuration d'exemple :
-     ```bash
-     cp .env.example .env
-     ```
-   * Ouvrez `.env` et remplacez `localhost` par l'IP locale de votre machine hôte (ex: `LAN_IP=192.168.1.50`).
+2. L'application est immédiatement accessible sur :
+   - **Interface Alanbix (Web & API)** : `http://<IP_DU_SERVEUR>:41481`
 
-3. Lancez les conteneurs :
+> 💡 **Données persistantes** : La base de données et les médias sont automatiquement enregistrés dans le dossier `./data/`.
+
+---
+
+### 2. Installation en Développement (Local / Contribution)
+
+Si vous souhaitez modifier le code source et bénéficier du rechargement à chaud (Vite HMR & FastAPI reload) :
+
+1. Lancez les conteneurs de développement :
    ```bash
    docker compose up -d --build
    ```
 
-### Installation (Unraid OS)
+2. Les services seront disponibles sur :
+   - **Interface Joueurs (Frontend Vite)** : `http://localhost:41481` (port 5173 en interne)
+   - **API Backend (FastAPI)** : `http://localhost:8000`
+   - **Documentation API** : `http://localhost:8000/docs`
 
-Alanbix dispose d'un template officiel pour Unraid.
+---
+
+### 3. Installation sur Unraid OS
+
+Alanbix dispose d'un template officiel pour Unraid :
 1. Depuis l'onglet **Docker** d'Unraid, cliquez sur **Add Container**.
 2. Dans le menu déroulant **Template**, sélectionnez **User Templates > Alanbix**.
 3. (Si le template n'apparaît pas, copiez le fichier `unraid-template.xml` de ce dépôt dans `/boot/config/plugins/dockerMan/templates-user/alanbix.xml` sur votre clé USB Unraid).
-4. Cliquez sur **Apply** ! L'image unifiée (backend + frontend) sera téléchargée et lancée.
+4. Cliquez sur **Apply** ! L'image unifiée sera téléchargée et lancée.
 
-
-L'application sera disponible sur :
-- **Interface Joueurs (Frontend)** : http://localhost:41481
-- **API Backend** : http://localhost:8000
-- **Documentation API** : http://localhost:8000/docs
 
 ### Premiers Pas
 

@@ -15,8 +15,13 @@ Ce guide vous aide à installer et configurer Alanbix pour la première fois pou
 Alanbix peut être installé de trois manières différentes selon vos besoins de production et de développement.
 
 ### Option A : Depuis Docker Hub (Recommandé pour la Production)
-Pour un déploiement rapide sans compiler le code, utilisez l'image unifiée standalone disponible sur Docker Hub (`aschefr/alanbix:latest`) :
+Pour un déploiement rapide et stable en production sans compiler le code, utilisez le fichier officiel `docker-compose.prod.yml` (inclut Alanbix standalone et SearXNG préconfigurés) :
 
+```bash
+docker compose -f docker-compose.prod.yml up -d
+```
+
+Ou directement via `docker run` :
 ```bash
 docker run -d \
   -p 41481:41481 \

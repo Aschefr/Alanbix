@@ -390,7 +390,9 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
                             await manager.register_user(websocket, user_id)
             except Exception:
                 pass
-    except WebSocketDisconnect:
+    except (WebSocketDisconnect, Exception):
+        pass
+    finally:
         await manager.disconnect(websocket)
 
 # SPA Fallback for Frontend

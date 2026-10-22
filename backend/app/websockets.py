@@ -51,8 +51,11 @@ class ConnectionManager:
                 })
 
     async def disconnect(self, websocket: WebSocket):
-        if websocket in self.active_connections:
-            self.active_connections.remove(websocket)
+        try:
+            if websocket in self.active_connections:
+                self.active_connections.remove(websocket)
+        except (ValueError, Exception):
+            pass
 
         user_id = self.connection_users.pop(websocket, None)
         if user_id:
@@ -63,10 +66,18 @@ class ConnectionManager:
         return len(self.user_connections.get(user_id, set())) > 0
 
     async def broadcast(self, message: dict):
+        dead_connections = []
         for connection in list(self.active_connections):
             try:
                 await connection.send_json(message)
             except Exception:
+                dead_connections.append(connection)
+
+        for dead in dead_connections:
+            try:
+                await self.disconnect(dead)
+            except Exception:
                 pass
 
 manager = ConnectionManager()
+

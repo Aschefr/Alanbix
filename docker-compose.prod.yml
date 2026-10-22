@@ -1,0 +1,25 @@
+# Alanbix — Production Docker Compose (Image Unifiée & Légère)
+# Ne nécessite AUCUN processus Node.js en production, consomme très peu de mémoire RAM (~80 Mo).
+services:
+  alanbix:
+    image: aschefr/alanbix:latest
+    container_name: alanbix
+    restart: unless-stopped
+    ports:
+      - "41481:41481"
+    environment:
+      - OLLAMA_HOST=${OLLAMA_HOST:-http://host.docker.internal:11434}
+      - CORS_ORIGINS=${CORS_ORIGINS:-*}
+    volumes:
+      - ./data:/app/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  searxng:
+    image: searxng/searxng:latest
+    container_name: alanbix_searxng
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8888:8080"
+    volumes:
+      - ./searxng:/etc/searxng

@@ -111,3 +111,32 @@ async def test_user_is_online_property(db_session):
         await global_mgr.disconnect(mock_ws)
 
     assert user.is_online is False
+
+
+@pytest.mark.asyncio
+async def test_websocket_broadcast_cleans_dead_connections():
+    """Verify that failed/dead connections during broadcast are immediately disconnected and cleaned up."""
+    mgr = ConnectionManager()
+
+    alive_ws = AsyncMock()
+    dead_ws = AsyncMock()
+
+    await mgr.connect(alive_ws)
+    await mgr.connect(dead_ws)
+    await mgr.register_user(dead_ws, 200)
+
+    assert len(mgr.active_connections) == 2
+    assert mgr.is_user_online(200) is True
+
+    # Now simulate dead socket (connection dropped/broken pipe)
+    dead_ws.send_json.side_effect = RuntimeError("Broken pipe / Connection reset")
+
+    # Broadcast message: dead_ws fails on send_json and is purged
+    await mgr.broadcast({"type": "test_message"})
+
+    # Dead socket should have been purged from active_connections and user_connections
+    assert len(mgr.active_connections) == 1
+    assert alive_ws in mgr.active_connections
+    assert dead_ws not in mgr.active_connections
+    assert mgr.is_user_online(200) is False
+
