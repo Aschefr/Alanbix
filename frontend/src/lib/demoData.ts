@@ -218,10 +218,57 @@ export function handleDemoRequest(rawPath: string, method: string = 'GET', body?
 	}
 
 	if (cleanPath === '/me/points-history' || cleanPath.endsWith('/points-history')) {
-		return [
-			{ tournament_name: 'Rocket League 2v2', game: 'Rocket League', rank: 1, points: 50, awarded_at: new Date(Date.now() - 7200000).toISOString() },
-			{ tournament_name: 'Quiz Gaming LAN', game: 'Culture Geek', rank: 1, points: 45, awarded_at: new Date(Date.now() - 3600000).toISOString() }
-		];
+		return {
+			total_points: 95,
+			history: [
+				{
+					tournament_name: 'Rocket League 2v2',
+					game_name: 'Rocket League',
+					rank: 1,
+					total: 50,
+					placement_pts: 30,
+					participation_pts: 10,
+					score_pts: 10,
+					live: false,
+					team_name: 'Alpha Team',
+					tournament_id: 1
+				},
+				{
+					tournament_name: 'Quiz Gaming LAN',
+					game_name: 'Culture Geek',
+					rank: 1,
+					total: 45,
+					placement_pts: 25,
+					participation_pts: 10,
+					score_pts: 10,
+					live: false,
+					tournament_id: 2
+				}
+			],
+			awards: [
+				{
+					id: 1,
+					award_key: 'premier',
+					title: 'Grand Champion',
+					description: 'A remporté la 1ère place du tournoi Rocket League',
+					created_at: new Date(Date.now() - 7200000).toISOString()
+				},
+				{
+					id: 2,
+					award_key: 'bourreau',
+					title: 'Bourreau de la LAN',
+					description: 'A éliminé plus de 10 adversaires en compétition',
+					created_at: new Date(Date.now() - 3600000).toISOString()
+				},
+				{
+					id: 3,
+					award_key: 'team',
+					title: 'Esprit d\'Équipe',
+					description: 'A mené son équipe à la victoire avec brio',
+					created_at: new Date(Date.now() - 1800000).toISOString()
+				}
+			]
+		};
 	}
 
 	if (cleanPath === '/dashboard/stats') {

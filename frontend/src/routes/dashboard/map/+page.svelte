@@ -597,6 +597,115 @@
 		vbX = panVbStart.x - dx;
 		vbY = panVbStart.y - dy;
 	}
+	// Touch pan & pinch-zoom state
+	let touchInitialDist = 0;
+	let touchInitialVbW = 0;
+	let touchInitialVbH = 0;
+	let touchInitialVbX = 0;
+	let touchInitialVbY = 0;
+	let touchInitialCenter = { x: 0, y: 0 };
+	let activeSeatCard = null; // { seat, occupant, isMine, isOccupied }
+
+	function getTouchDist(t1, t2) {
+		const dx = t1.clientX - t2.clientX;
+		const dy = t1.clientY - t2.clientY;
+		return Math.sqrt(dx * dx + dy * dy);
+	}
+
+	function onTouchStart(e) {
+		if (editMode) return;
+		if (e.touches.length === 1) {
+			isPanning = true;
+			panMoved = false;
+			panStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+			panVbStart = { x: vbX, y: vbY };
+		} else if (e.touches.length === 2) {
+			isPanning = false;
+			panMoved = true;
+			touchInitialDist = getTouchDist(e.touches[0], e.touches[1]);
+			touchInitialVbW = vbW;
+			touchInitialVbH = vbH;
+			touchInitialVbX = vbX;
+			touchInitialVbY = vbY;
+			const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+			const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+			const svg = document.querySelector('.room-canvas');
+			if (svg) {
+				const pt = svg.createSVGPoint();
+				pt.x = midX; pt.y = midY;
+				const svgPt = pt.matrixTransform(svg.getScreenCTM().inverse());
+				touchInitialCenter = { x: svgPt.x, y: svgPt.y };
+			}
+		}
+	}
+
+	function onTouchMove(e) {
+		if (editMode) return;
+		if (e.touches.length === 1 && isPanning) {
+			const rawDx = e.touches[0].clientX - panStart.x;
+			const rawDy = e.touches[0].clientY - panStart.y;
+			if (Math.abs(rawDx) > 4 || Math.abs(rawDy) > 4) panMoved = true;
+			const svg = document.querySelector('.room-canvas');
+			if (svg) {
+				const ctm = svg.getScreenCTM();
+				const dx = rawDx / ctm.a;
+				const dy = rawDy / ctm.d;
+				vbX = panVbStart.x - dx;
+				vbY = panVbStart.y - dy;
+			}
+			e.preventDefault();
+		} else if (e.touches.length === 2 && touchInitialDist > 0) {
+			panMoved = true;
+			const currentDist = getTouchDist(e.touches[0], e.touches[1]);
+			const factor = touchInitialDist / Math.max(currentDist, 10);
+			const newW = Math.max(200, Math.min(3000, touchInitialVbW * factor));
+			const newH = Math.max(133, Math.min(2000, touchInitialVbH * factor));
+			const ratio = newW / touchInitialVbW;
+			vbX = touchInitialCenter.x - (touchInitialCenter.x - touchInitialVbX) * ratio;
+			vbY = touchInitialCenter.y - (touchInitialCenter.y - touchInitialVbY) * ratio;
+			vbW = newW;
+			vbH = newH;
+			e.preventDefault();
+		}
+	}
+
+	function onTouchEnd(e) {
+		if (e.touches.length === 0) {
+			isPanning = false;
+			touchInitialDist = 0;
+		} else if (e.touches.length === 1) {
+			touchInitialDist = 0;
+			isPanning = true;
+			panStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+			panVbStart = { x: vbX, y: vbY };
+		}
+	}
+
+	function centerOnMySeat() {
+		const targetSeatId = selectedSeat || user?.seat_id;
+		if (!targetSeatId) {
+			toast("Vous n'avez pas encore de place attribuée", "info");
+			return;
+		}
+		const mySeat = layout.seats.find(s => s.id === targetSeatId);
+		if (!mySeat) return;
+		const cx = mySeat.x + SEAT_SIZE / 2;
+		const cy = mySeat.y + SEAT_SIZE / 2;
+		vbW = 450;
+		vbH = 300;
+		vbX = cx - vbW / 2;
+		vbY = cy - vbH / 2;
+		highlightedSeat = targetSeatId;
+		setTimeout(() => { if (highlightedSeat === targetSeatId) highlightedSeat = null; }, 4000);
+	}
+
+	function selectSeatInfo(seat) {
+		const occupant = getOccupant(seat.id);
+		const isMine = seat.id === (selectedSeat || user?.seat_id);
+		const isOccupied = !!occupant;
+		activeSeatCard = { seat, occupant, isMine, isOccupied };
+	}
+
 	function resetView() {
 		let minX = Infinity, minY = Infinity;
 		let maxX = -Infinity, maxY = -Infinity;
@@ -757,6 +866,23 @@
 		{/if}
 	</header>
 
+	<!-- Mobile Quick Action Bar (<= 900px) -->
+	<div class="map-mobile-bar glass">
+		<!-- svelte-ignore a11y-click-events-have-key-events -->
+		<!-- svelte-ignore a11y-no-static-element-interactions -->
+		<span class="mobile-my-seat" on:click={centerOnMySeat} title="Toucher pour centrer">
+			🪑 {user?.seat_id ? `Poste ${user.seat_id}` : 'Aucune place'}
+		</span>
+		<div class="map-mobile-btns">
+			<button class="map-top-btn" on:click={centerOnMySeat} title="Centrer sur mon siège">
+				🎯 Centrer
+			</button>
+			<button class="map-top-btn" on:click={resetView} title="Vue globale">
+				🔍 Vue globale
+			</button>
+		</div>
+	</div>
+
 	<div class="canvas-wrapper glass" on:contextmenu|preventDefault>
 		<!-- svelte-ignore a11y-no-static-element-interactions -->
 		<svg 
@@ -767,6 +893,10 @@
 			on:mouseleave={onMouseUp}
 			on:mousedown={onPanStart}
 			on:wheel|preventDefault={onWheel}
+			on:touchstart={onTouchStart}
+			on:touchmove={onTouchMove}
+			on:touchend={onTouchEnd}
+			on:touchcancel={onTouchEnd}
 		>
 			<defs>
 				<pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
@@ -943,10 +1073,11 @@
 					on:click={() => {
 						if (editMode) return;
 						if (panMoved) return;
+						selectSeatInfo(seat);
 						if (draggingUserId && !isOccupied) { dropUserOnSeat(seat.id); return; }
 						if (isMine) return;
 						if (isOccupied && user?.is_admin) { assigningSeatId = seat.id; return; }
-						if (!isOccupied) claimSeat(seat.id);
+						if (!isOccupied && !activeSeatCard) claimSeat(seat.id);
 					}}
 					style="cursor: {editMode ? 'grab' : draggingUserId ? 'copy' : 'pointer'}"
 				>
@@ -1002,6 +1133,57 @@
 			{/each}
 		</svg>
 	</div>
+
+	{#if activeSeatCard}
+		<div class="seat-info-bottom-sheet glass animate-in">
+			<div class="sheet-header">
+				<div class="sheet-title-row">
+					<span class="sheet-seat-badge">🪑 Poste {activeSeatCard.seat.id}</span>
+					{#if activeSeatCard.isMine}
+						<span class="sheet-status-tag mine">Votre place</span>
+					{:else if activeSeatCard.isOccupied}
+						<span class="sheet-status-tag occupied">Occupé</span>
+					{:else}
+						<span class="sheet-status-tag free">Libre</span>
+					{/if}
+				</div>
+				<button class="sheet-close-btn" on:click={() => activeSeatCard = null}>✕</button>
+			</div>
+
+			<div class="sheet-body">
+				{#if activeSeatCard.isOccupied && activeSeatCard.occupant}
+					<div class="sheet-player-info">
+						<span class="sheet-avatar">👤</span>
+						<div class="sheet-player-names">
+							<strong class="sheet-username">{activeSeatCard.occupant.username}</strong>
+							{#if activeSeatCard.occupant.team_name}
+								<span class="sheet-team">👥 {activeSeatCard.occupant.team_name}</span>
+							{/if}
+						</div>
+					</div>
+					<div class="sheet-actions">
+						{#if !activeSeatCard.isMine}
+							<a href="/dashboard/players?chat={activeSeatCard.occupant.id}" class="btn btn-sm btn-primary">
+								💬 Envoyer un message
+							</a>
+						{/if}
+						{#if activeSeatCard.isMine}
+							<button class="btn btn-sm btn-secondary text-danger" on:click={() => { releaseSeat(); activeSeatCard = null; }}>
+								Libérer ma place
+							</button>
+						{/if}
+					</div>
+			{:else}
+					<p class="sheet-free-text">Ce poste est actuellement disponible.</p>
+					<div class="sheet-actions">
+						<button class="btn btn-sm btn-primary" on:click={() => { claimSeat(activeSeatCard.seat.id); activeSeatCard = null; }} disabled={seatingLocked && !user?.is_admin}>
+							🪑 S'installer ici
+						</button>
+					</div>
+				{/if}
+			</div>
+		</div>
+	{/if}
 
 	<!-- Admin assignment popup -->
 	{#if assigningSeatId && user?.is_admin}
@@ -1247,4 +1429,62 @@
 	.toast-leave { animation: toastOut 0.4s ease-in forwards; }
 	@keyframes toastIn { from { opacity: 0; transform: translateX(80px); } to { opacity: 1; transform: translateX(0); } }
 	@keyframes toastOut { from { opacity: 1; } to { opacity: 0; transform: translateX(80px); } }
+
+	/* Mobile Map Action Bar & Bottom Sheet */
+	.map-mobile-bar { display: none; }
+	.seat-info-bottom-sheet { display: none; }
+
+	@media (max-width: 900px) {
+		.map-page { display: flex; flex-direction: column; height: calc(100vh - 120px); gap: 0.5rem; }
+		.map-page > header { display: none !important; }
+		.canvas-wrapper {
+			flex: 1; min-height: 0; width: 100%; border-radius: 12px;
+			touch-action: none !important; -webkit-user-select: none; user-select: none;
+		}
+		.room-canvas { touch-action: none !important; }
+
+		.map-mobile-bar {
+			display: flex; justify-content: space-between; align-items: center;
+			padding: 0.5rem 0.8rem; border-radius: 10px; background: var(--surface-raised);
+			border: 1px solid var(--glass-border); flex-shrink: 0; gap: 0.5rem;
+		}
+		.mobile-my-seat {
+			font-size: 0.78rem; font-weight: 800; color: var(--accent);
+			background: var(--accent-soft); padding: 0.25rem 0.6rem; border-radius: 8px;
+			border: 1px solid rgba(59,130,246,0.3); white-space: nowrap; cursor: pointer;
+		}
+		.map-mobile-btns { display: flex; gap: 0.4rem; }
+		.map-top-btn {
+			background: var(--surface-sunken); border: 1px solid var(--glass-border);
+			color: var(--text-main); font-size: 0.72rem; font-weight: 700;
+			padding: 0.3rem 0.6rem; border-radius: 8px; cursor: pointer; white-space: nowrap;
+		}
+
+		/* Seat Bottom Sheet Card on mobile */
+		.seat-info-bottom-sheet {
+			display: flex; flex-direction: column; gap: 0.6rem;
+			position: fixed; bottom: 70px; left: 12px; right: 12px;
+			background: var(--surface-raised); border: 1px solid var(--glass-border);
+			border-radius: 14px; padding: 0.9rem 1rem; z-index: 50;
+			box-shadow: 0 12px 30px rgba(0,0,0,0.5); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+		}
+		.sheet-header { display: flex; justify-content: space-between; align-items: center; }
+		.sheet-title-row { display: flex; align-items: center; gap: 0.5rem; }
+		.sheet-seat-badge { font-weight: 800; font-size: 0.9rem; color: var(--text-main); }
+		.sheet-status-tag { font-size: 0.65rem; font-weight: 800; padding: 0.15rem 0.5rem; border-radius: 6px; text-transform: uppercase; }
+		.sheet-status-tag.free { background: rgba(34,197,94,0.15); color: #22c55e; border: 1px solid rgba(34,197,94,0.3); }
+		.sheet-status-tag.occupied { background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.3); }
+		.sheet-status-tag.mine { background: rgba(59,130,246,0.15); color: #60a5fa; border: 1px solid rgba(59,130,246,0.3); }
+		.sheet-close-btn { background: none; border: none; color: var(--text-dim); font-size: 1rem; cursor: pointer; padding: 0.2rem; }
+		.sheet-body { display: flex; flex-direction: column; gap: 0.6rem; }
+		.sheet-player-info { display: flex; align-items: center; gap: 0.6rem; }
+		.sheet-avatar { font-size: 1.4rem; }
+		.sheet-player-names { display: flex; flex-direction: column; gap: 0.1rem; }
+		.sheet-username { font-size: 0.92rem; color: var(--text-main); }
+		.sheet-team { font-size: 0.72rem; color: var(--accent); }
+		.sheet-free-text { font-size: 0.8rem; color: var(--text-dim); margin: 0; }
+		.sheet-actions { display: flex; gap: 0.5rem; justify-content: flex-end; }
+		.sheet-actions .btn { text-decoration: none; display: inline-flex; align-items: center; }
+	}
+
 </style>

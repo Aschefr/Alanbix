@@ -414,15 +414,39 @@
 		goto(`/dashboard/tournaments?select=${id}`);
 	}
 
-	async function deleteOwnAccount() {
-		if (!confirm('Voulez-vous vraiment supprimer définitivement votre compte joueur ?')) return;
-		try {
-			await api.delete('/me');
-			localStorage.removeItem('alanbix_token');
-			window.location.href = '/';
-		} catch (err) {
-			alert(err.message || 'Impossible de supprimer le compte.');
-		}
+	function getAwardEmoji(key) {
+		const map = {
+			premier: '🏆',
+			team: '🛡️',
+			bourreau: '⚔️',
+			coop: '🤝',
+			loup: '🐺',
+			participate: '🕊️',
+			marathon: '🏃',
+			gachette: '🎯',
+			passoire: '🥅',
+			bye: '🍀',
+			suisse: '🇨🇭',
+			lb: '🩹'
+		};
+		return map[key] || '🎁';
+	}
+
+	function deleteOwnAccount() {
+		askConfirm(
+			'Supprimer définitivement mon compte',
+			'Attention : cette action est irréversible. Toutes vos données (scores, messages, statistiques) seront supprimées.',
+			'error',
+			async () => {
+				try {
+					await api.delete('/me');
+					localStorage.removeItem('alanbix_token');
+					window.location.href = '/';
+				} catch (err) {
+					alert(err.message || 'Impossible de supprimer le compte.');
+				}
+			}
+		);
 	}
 
 	function _unused_placeholder() {
@@ -467,6 +491,39 @@
 			</div>
 		{/if}
 	</header>
+
+	<!-- Achievements & Awards Section -->
+	{#if pointsData}
+		<section class="profile-card glass achievements-card">
+			<div class="achievements-header">
+				<h2 class="card-title">🏆 Mes Achievements & Trophées</h2>
+				{#if pointsData.awards && pointsData.awards.length > 0}
+					<span class="badge-pill">{pointsData.awards.length} débloqué{pointsData.awards.length > 1 ? 's' : ''}</span>
+				{/if}
+			</div>
+
+			{#if pointsData.awards && pointsData.awards.length > 0}
+				<div class="awards-grid">
+					{#each pointsData.awards as award}
+						<div class="award-card glass" title={award.description || ''}>
+							<span class="award-card-icon">{getAwardEmoji(award.award_key)}</span>
+							<div class="award-card-content">
+								<span class="award-card-title">{award.title}</span>
+								{#if award.description}
+									<p class="award-card-desc">{award.description}</p>
+								{/if}
+							</div>
+						</div>
+					{/each}
+				</div>
+			{:else}
+				<div class="awards-empty">
+					<span class="awards-empty-icon">🎖️</span>
+					<p>Aucun trophée ou achievement décerné pour le moment. Participez aux tournois pour en débloquer !</p>
+				</div>
+			{/if}
+		</section>
+	{/if}
 
 	<div class="profile-grid">
 		<section class="profile-card glass">
@@ -562,6 +619,37 @@
 			{#if pointsData.history.length === 0}
 				<p class="text-dim text-sm">{$t("profile_pts_empty")}</p>
 			{:else}
+				<!-- Mobile stacked cards (<= 900px) -->
+				<div class="history-cards-mobile">
+					{#each pointsData.history as h}
+						<div class="hcard glass">
+							<div class="hcard-top">
+								<span class="hcard-rank rank-{h.rank}">{getRankEmoji(h.rank)}</span>
+								<div class="hcard-title-col">
+									<span class="hcard-title">{h.tournament_name}</span>
+									<div class="hcard-meta">
+										{#if h.game_name}<span class="hcard-game">🎮 {h.game_name}</span>{/if}
+										{#if h.team_name}<span class="hcard-team">👥 {h.team_name}</span>{/if}
+										{#if h.live}<span class="live-badge">{$t("profile_pts_running")}</span>{/if}
+									</div>
+								</div>
+								<span class="hcard-pts"><strong>{h.live ? '~' : '+'}{formatPoints(h.total)}</strong> pts</span>
+							</div>
+							<div class="hcard-bottom">
+								<div class="hcard-breakdown">
+									{#if h.placement_pts > 0}<span class="ph-bp ph-bp-place">🏅+{formatPoints(h.placement_pts)}</span>{/if}
+									<span class="ph-bp ph-bp-parti">👤+{formatPoints(h.participation_pts)}</span>
+									{#if h.score_pts > 0}<span class="ph-bp ph-bp-score">⚡+{formatPoints(h.score_pts)}</span>{/if}
+								</div>
+								<button class="btn-goto-mobile" on:click={() => goToTournament(h.tournament_id)}>
+									Voir l'arbre →
+								</button>
+							</div>
+						</div>
+					{/each}
+				</div>
+
+				<!-- Desktop table (> 900px) -->
 				<div class="history-table-wrap">
 					<table class="history-table">
 						<thead>
@@ -882,6 +970,46 @@
 		padding: 0;
 		border: none;
 	}
+
+	/* Achievements & Awards */
+	.achievements-card { padding: 1.5rem; }
+	.achievements-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+	.badge-pill { font-size: 0.72rem; font-weight: 700; padding: 0.2rem 0.6rem; border-radius: 9999px; background: rgba(251,191,36,0.15); color: #fbbf24; border: 1px solid rgba(251,191,36,0.3); }
+	.awards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0.8rem; }
+	.award-card { display: flex; align-items: center; gap: 0.8rem; padding: 0.8rem 1rem; border-radius: 12px; border: 1px solid rgba(251,191,36,0.2); background: rgba(251,191,36,0.04); transition: transform 0.2s, border-color 0.2s; }
+	.award-card:hover { transform: translateY(-2px); border-color: rgba(251,191,36,0.4); }
+	.award-card-icon { font-size: 1.8rem; flex-shrink: 0; }
+	.award-card-content { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+	.award-card-title { font-weight: 800; font-size: 0.88rem; color: var(--text-main); }
+	.award-card-desc { font-size: 0.72rem; color: var(--text-dim); margin: 0; line-height: 1.3; }
+	.awards-empty { text-align: center; padding: 2rem 1rem; color: var(--text-dim); }
+	.awards-empty-icon { font-size: 2.2rem; display: block; margin-bottom: 0.5rem; opacity: 0.6; }
+	.awards-empty p { font-size: 0.82rem; margin: 0; max-width: 360px; margin: 0 auto; }
+
+	/* Mobile history cards */
+	.history-cards-mobile { display: none; }
+	.hcard { padding: 0.9rem 1rem; border-radius: 12px; display: flex; flex-direction: column; gap: 0.6rem; }
+	.hcard-top { display: flex; align-items: center; gap: 0.7rem; }
+	.hcard-rank { font-size: 1.3rem; flex-shrink: 0; }
+	.hcard-title-col { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.15rem; }
+	.hcard-title { font-weight: 700; font-size: 0.88rem; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	.hcard-meta { display: flex; align-items: center; gap: 0.5rem; font-size: 0.72rem; color: var(--text-dim); flex-wrap: wrap; }
+	.hcard-pts { font-size: 0.85rem; color: #fbbf24; flex-shrink: 0; }
+	.hcard-bottom { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; padding-top: 0.5rem; border-top: 1px dashed var(--glass-border); }
+	.hcard-breakdown { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+	.btn-goto-mobile { background: var(--accent-soft); color: var(--accent); border: 1px solid rgba(59,130,246,0.3); border-radius: 8px; padding: 0.25rem 0.6rem; font-size: 0.72rem; font-weight: 700; cursor: pointer; white-space: nowrap; }
+
+	@media (max-width: 900px) {
+		.profile-page { gap: 1rem; }
+		.profile-header { flex-direction: column; text-align: center; padding: 1.2rem 1rem; gap: 1rem; }
+		.avatar-container { justify-content: center; }
+		.profile-grid { grid-template-columns: 1fr !important; gap: 1rem; }
+		.history-table-wrap { display: none !important; }
+		.history-cards-mobile { display: flex !important; flex-direction: column; gap: 0.6rem; }
+		.total-pts-badge { width: 100%; max-width: 240px; }
+		.awards-grid { grid-template-columns: 1fr !important; }
+	}
+
 </style>
 
 {#if showCropModal}

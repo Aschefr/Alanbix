@@ -43,6 +43,7 @@
 	}
 
 	let conversations = [];
+	let showMobileHistory = false;
 	let currentUserMsgId = null;
 	let pollInterval = null;
 	let activeChatPingInterval = null;
@@ -1150,6 +1151,21 @@
 
 	<!-- Main: Chat Window -->
 	<main class="chat-main glass">
+		<!-- Mobile AI top bar (<= 900px) -->
+		<div class="ai-mobile-top-bar glass">
+			<button class="ai-top-btn" on:click={() => showMobileHistory = true} title="Historique">
+				🕘 Historique ({conversations.length})
+			</button>
+			<button class="ai-top-btn" on:click={newConversation} disabled={iaBlocked} title="Nouvelle discussion">
+				➕ Nouveau
+			</button>
+			{#if !userObj?.is_admin && !iaBlocked && iaConfig.call_admin_button_enabled !== false}
+				<button class="ai-top-btn call-admin" on:click={checkAndOpenCallAdmin} title="Appeler un admin">
+					🆘 Admin
+				</button>
+			{/if}
+		</div>
+
 		{#if activeId}
 			<header class="flex-row justify-between items-center">
 				<div class="flex-col">
@@ -1532,6 +1548,45 @@
 			</div>
 		{/if}
 	</main>
+
+	{#if showMobileHistory}
+		<!-- svelte-ignore a11y-click-events-have-key-events -->
+		<!-- svelte-ignore a11y-no-static-element-interactions -->
+		<div class="mobile-drawer-overlay" on:click|self={() => showMobileHistory = false}>
+			<div class="mobile-history-drawer glass animate-in">
+				<div class="drawer-header">
+					<h3>🕘 Discussions ({conversations.length})</h3>
+					<button class="btn-icon" on:click={() => showMobileHistory = false}>✕</button>
+				</div>
+				<button class="btn-primary w-full mb-3" on:click={() => { showMobileHistory = false; newConversation(); }} disabled={iaBlocked}>
+					➕ {$t("ai_btn_new_chat")}
+				</button>
+				<div class="drawer-conv-list">
+					{#each conversations as conv}
+						<div class="conv-item {activeId === conv.id ? 'active' : ''}" class:unread={conv.has_new_messages}>
+							<button class="conv-btn" on:click={() => {
+								conv.has_new_messages = false;
+								conv.unread_count = 0;
+								conversations = conversations;
+								selectConversation(conv.id, true);
+								showMobileHistory = false;
+							}}>
+								<span class="icon">💬</span>
+								<span class="title" title={conv.title}>{conv.title}</span>
+								{#if conv.has_new_messages}
+									<span class="unread-badge">{$t("changelog_fallback_name")}</span>
+								{/if}
+							</button>
+							<button class="btn-icon rename-btn" on:click|stopPropagation={() => openRename(conv)} title={$t('ai_tooltip_rename')}>✏️</button>
+							<button class="btn-icon delete-btn" on:click={() => deleteConversation(conv.id)}>❌</button>
+						</div>
+					{:else}
+						<div class="empty-drawer-text text-dim text-sm text-center py-4">Aucune discussion enregistrée</div>
+					{/each}
+				</div>
+			</div>
+		</div>
+	{/if}
 </div>
 
 <Modal 
@@ -2093,4 +2148,41 @@
 		background: var(--hover-tint);
 		transform: translateY(-2px);
 	}
+
+	/* Mobile AI top bar & Drawer */
+	.ai-mobile-top-bar { display: none; }
+	.mobile-drawer-overlay {
+		position: fixed; inset: 0; background: rgba(0,0,0,0.65);
+		backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+		z-index: 1000; display: flex; justify-content: flex-start;
+	}
+	.mobile-history-drawer {
+		width: 82%; max-width: 320px; height: 100%;
+		background: var(--surface-raised); border-right: 1px solid var(--glass-border);
+		padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem;
+		box-shadow: 4px 0 24px rgba(0,0,0,0.5);
+	}
+	.drawer-header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 0.5rem; border-bottom: 1px solid var(--glass-border); }
+	.drawer-header h3 { font-size: 0.95rem; margin: 0; color: var(--text-main); }
+	.drawer-conv-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 0.4rem; }
+
+	@media (max-width: 900px) {
+		.ai-page { flex-direction: column; height: calc(100vh - 120px); }
+		.chat-sidebar { display: none !important; }
+		.chat-main { width: 100% !important; flex: 1; min-height: 0; padding: 0.6rem !important; }
+		.ai-mobile-top-bar {
+			display: flex; gap: 0.4rem; padding: 0.5rem 0.6rem;
+			border-radius: 10px; margin-bottom: 0.5rem; align-items: center;
+			background: var(--surface-raised); border: 1px solid var(--glass-border); flex-shrink: 0;
+		}
+		.ai-top-btn {
+			background: var(--surface-sunken); border: 1px solid var(--glass-border);
+			color: var(--text-main); font-size: 0.72rem; font-weight: 700;
+			padding: 0.35rem 0.65rem; border-radius: 8px; cursor: pointer;
+			display: flex; align-items: center; gap: 0.3rem; white-space: nowrap;
+		}
+		.ai-top-btn.call-admin { color: #f87171; border-color: rgba(239, 68, 68, 0.35); background: rgba(239, 68, 68, 0.08); margin-left: auto; }
+		.msg-wrapper { max-width: 95% !important; }
+	}
+
 </style>
