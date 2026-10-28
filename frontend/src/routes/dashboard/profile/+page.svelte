@@ -413,6 +413,20 @@
 	function goToTournament(id) {
 		goto(`/dashboard/tournaments?select=${id}`);
 	}
+
+	async function deleteOwnAccount() {
+		if (!confirm('Voulez-vous vraiment supprimer définitivement votre compte joueur ?')) return;
+		try {
+			await api.delete('/me');
+			localStorage.removeItem('alanbix_token');
+			window.location.href = '/';
+		} catch (err) {
+			alert(err.message || 'Impossible de supprimer le compte.');
+		}
+	}
+
+	function _unused_placeholder() {
+	}
 </script>
 
 {#if user}
@@ -529,7 +543,11 @@
 			</div>
 
 			<div style="margin-top: 1.5rem; text-align: right;">
-				<button class="btn-secondary" on:click={() => goto('/dashboard/welcome')} style="font-size: 0.8rem; padding: 0.5rem 1rem;">
+				<button class="btn-secondary" on:click={() => goto('/dashboard/welcome')} style="font-size: 0.8rem; padding: 0.5rem 1rem;">{$t("profile_btn_tutorial")}</button>
+				{#if !user.is_admin}
+					<button type="button" class="btn-secondary" on:click={deleteOwnAccount} style="font-size: 0.8rem; padding: 0.5rem 1rem; margin-left: 0.5rem; color: var(--danger); border-color: rgba(239, 68, 68, 0.35);">🗑️ Supprimer mon compte</button>
+				{/if}
+				<button type="button" style="display:none">
 					{$t("profile_btn_tutorial")}
 				</button>
 			</div>

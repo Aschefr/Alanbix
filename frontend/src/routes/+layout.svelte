@@ -11,6 +11,26 @@
 		const saved = localStorage.getItem('alanbix_theme') || 'dark';
 		document.documentElement.setAttribute('data-theme', saved);
 		demoActive = isDemoMode();
+		if (typeof window !== 'undefined' && window.Capacitor) {
+			try {
+				const plugins = window.Capacitor.Plugins || {};
+				if (plugins.SplashScreen && typeof plugins.SplashScreen.hide === 'function') {
+					setTimeout(() => plugins.SplashScreen.hide().catch(() => {}), 300);
+				}
+				if (plugins.StatusBar && typeof plugins.StatusBar.setBackgroundColor === 'function') {
+					plugins.StatusBar.setBackgroundColor({ color: '#0f172a' }).catch(() => {});
+				}
+				if (plugins.App && typeof plugins.App.addListener === 'function') {
+					plugins.App.addListener('backButton', ({ canGoBack }) => {
+						if (canGoBack && window.location.pathname !== '/' && window.location.pathname !== '/dashboard') {
+							window.history.back();
+						} else if (typeof plugins.App.minimizeApp === 'function') {
+							plugins.App.minimizeApp().catch(() => {});
+						}
+					});
+				}
+			} catch {}
+		}
 		await initI18n();
 	});
 

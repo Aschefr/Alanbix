@@ -62,6 +62,25 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
 async def read_users_me(current_user: models.User = Depends(auth.get_current_user)):
     return current_user
 
+@router.delete("/me")
+async def delete_my_account(db: Session = Depends(database.get_db), current_user: models.User = Depends(auth.get_current_user)):
+    """Self-service account deletion (Apple App Store 5.1.1(v) & Google Play compliance)."""
+    if current_user.is_admin:
+        raise HTTPException(status_code=400, detail="Cannot delete an admin account")
+    if current_user.avatar_url:
+        DATA_DIR = os.path.dirname(os.getenv("DATABASE_PATH", "/app/data/alanbix.db"))
+        avatar_path = os.path.join(DATA_DIR, "avatars", os.path.basename(current_user.avatar_url.split("?")[0]))
+        if os.path.exists(avatar_path):
+            try:
+                os.remove(avatar_path)
+            except Exception:
+                pass
+    db.query(models.TournamentParticipant).filter(models.TournamentParticipant.user_id == current_user.id).delete()
+    db.delete(current_user)
+    db.commit()
+    await ws_manager.broadcast({"type": "users_updated"})
+    return {"status": "deleted", "id": current_user.id}
+
 @router.put("/me/profile")
 async def update_profile(data: dict, db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
     if "team_name" in data:

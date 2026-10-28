@@ -193,6 +193,17 @@
 			window.location.href = '/dashboard';
 		}, 350);
 	}
+
+	function resetLocalData() {
+		try {
+			setCustomServerUrl('');
+			disableDemoMode();
+			authStore.logout();
+			localStorage.clear();
+			sessionStorage.clear();
+		} catch {}
+		window.location.href = '/';
+	}
 </script>
 
 {#if isOpen}
@@ -264,6 +275,10 @@
 
 				<button type="button" class="btn-demo" on:click={startDemoMode}>
 					✨ Explorer le Mode Démo (Sans serveur)
+				</button>
+
+				<button type="button" class="btn-reset-local" on:click={resetLocalData}>
+					🗑️ Oublier ce serveur / Effacer les données locales
 				</button>
 			</div>
 		</div>
@@ -462,6 +477,18 @@
 		border: 1px solid rgba(16, 185, 129, 0.4);
 		color: #34d399;
 		border-radius: 8px;
+		font-weight: 600;
+		cursor: pointer;
+	}
+
+	.btn-reset-local {
+		width: 100%;
+		padding: 0.6rem;
+		background: rgba(239, 68, 68, 0.1);
+		border: 1px solid rgba(239, 68, 68, 0.35);
+		color: #fca5a5;
+		border-radius: 8px;
+		font-size: 0.8rem;
 		font-weight: 600;
 		cursor: pointer;
 	}
