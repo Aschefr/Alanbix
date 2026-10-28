@@ -131,6 +131,12 @@
 		
 		if (urlGroup) {
 			openGroupChat(decodeURIComponent(urlGroup));
+		} else if (urlPeer === 'group') {
+			if (currentUser?.team_name) {
+				openGroupChat(`team:${currentUser.team_name}`);
+			} else if (savedGroup) {
+				openGroupChat(savedGroup);
+			}
 		} else {
 			const targetPeer = urlPeer ? parseInt(urlPeer) : (savedPeer ? parseInt(savedPeer) : null);
 			if (targetPeer && targetPeer !== currentUser?.id) {
@@ -352,6 +358,33 @@
 		chatChannelMembers = [];
 		localStorage.removeItem('alanbix_players_chat');
 		localStorage.removeItem('alanbix_players_group_chat');
+		if (typeof window !== 'undefined' && window.history && ($page.url.searchParams.has('chat') || $page.url.searchParams.has('group'))) {
+			const cleanUrl = window.location.pathname;
+			window.history.replaceState({}, '', cleanUrl);
+		}
+	}
+
+	// Reactive route param listener for in-app navigation & notification taps while on page
+	let lastAppliedQuery = null;
+	$: if ($page.url && players.length > 0) {
+		const currentQuery = $page.url.search;
+		if (lastAppliedQuery !== null && currentQuery !== lastAppliedQuery) {
+			lastAppliedQuery = currentQuery;
+			const pGroup = $page.url.searchParams.get('group');
+			const pChat = $page.url.searchParams.get('chat');
+			if (pGroup) {
+				openGroupChat(decodeURIComponent(pGroup));
+			} else if (pChat === 'group') {
+				if (currentUser?.team_name) openGroupChat(`team:${currentUser.team_name}`);
+			} else if (pChat) {
+				const peer = parseInt(pChat);
+				if (peer && peer !== currentUser?.id && peer !== chatPeerId) {
+					openChat(peer);
+				}
+			}
+		} else if (lastAppliedQuery === null) {
+			lastAppliedQuery = currentQuery;
+		}
 	}
 
 

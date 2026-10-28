@@ -270,52 +270,62 @@
 				const isCompleted = (score.length >= 2 && ((score[0] !== null && score[0] > 0) || (score[1] !== null && score[1] > 0)));
 				if (isCompleted) continue;
 
-				const p0 = p[0];
-				const p1 = p[1];
-
-				let isP0 = false;
-				let isP1 = false;
-
-				if (p0 === myUid) isP0 = true;
-				if (p1 === myUid) isP1 = true;
-
-				if (useTeams && myTeamName) {
-					if (p0 < 0) {
-						const tName = (teamMap[String(p0)] || '').toLowerCase();
-						if (tName === myTeamName) isP0 = true;
-					}
-					if (p1 < 0) {
-						const tName = (teamMap[String(p1)] || '').toLowerCase();
-						if (tName === myTeamName) isP1 = true;
+				let mySlot = -1;
+				for (let i = 0; i < p.length; i++) {
+					const pid = p[i];
+					if (pid === myUid) { mySlot = i; break; }
+					if (useTeams && myTeamName && pid < 0) {
+						const tName = (teamMap[String(pid)] || '').toLowerCase();
+						if (tName === myTeamName) { mySlot = i; break; }
 					}
 				}
+				if (mySlot === -1) continue;
 
-				if (!isP0 && !isP1) continue;
-
-				const oppPid = isP0 ? p1 : p0;
+				let oppPid = null;
 				let oppName = 'Adversaire à déterminer';
 				let oppUser = null;
 				let oppSeat = null;
 				let isReady = false;
 
-				if (oppPid === 0) {
-					oppName = 'Adversaire à déterminer';
-					isReady = false;
-				} else if (oppPid < 0) {
-					oppName = teamMap[String(oppPid)] || `Équipe #${Math.abs(oppPid)}`;
-					isReady = true;
+				if (p.length === 2) {
+					oppPid = mySlot === 0 ? p[1] : p[0];
+					if (oppPid === 0) {
+						oppName = 'Adversaire à déterminer';
+						isReady = false;
+					} else if (oppPid < 0) {
+						oppName = teamMap[String(oppPid)] || `Équipe #${Math.abs(oppPid)}`;
+						isReady = true;
+					} else {
+						oppUser = (allUsers || []).find(u => u.id === oppPid);
+						oppName = oppUser ? oppUser.username : `Joueur #${oppPid}`;
+						oppSeat = oppUser?.seat_id || null;
+						isReady = true;
+					}
 				} else {
-					oppUser = (allUsers || []).find(u => u.id === oppPid);
-					oppName = oppUser ? oppUser.username : `Joueur #${oppPid}`;
+					// FFA mode (3+ players)
+					const otherPids = p.filter((_, idx) => idx !== mySlot);
+					isReady = !otherPids.includes(0);
+					const oppNames = otherPids.map(pid => {
+						if (pid === 0) return 'TBD';
+						if (pid < 0) return teamMap[String(pid)] || `Équipe #${Math.abs(pid)}`;
+						const u = (allUsers || []).find(x => x.id === pid);
+						return u ? u.username : `Joueur #${pid}`;
+					});
+					oppName = `Groupe (${oppNames.join(', ')})`;
+					oppPid = otherPids.find(pid => pid > 0) || null;
+					oppUser = oppPid ? (allUsers || []).find(u => u.id === oppPid) : null;
 					oppSeat = oppUser?.seat_id || null;
-					isReady = true;
 				}
 
 				const gameObj = (games || []).find(g => g.id === t.game_id);
 				const gameName = gameObj?.name || t.game || 'Tournoi';
 
 				let roundLabel = 'Match';
-				if (m.id?.r) {
+				if (m.id?.s === 2) {
+					roundLabel = `Loser Bracket · Tour ${m.id.r || '?'}`;
+				} else if (m.id?.s === 3) {
+					roundLabel = `Grande Finale`;
+				} else if (m.id?.r) {
 					roundLabel = `Tour ${m.id.r}`;
 				}
 
@@ -407,7 +417,7 @@
 							</div>
 
 							<div class="match-card-actions">
-								<a href="/dashboard/tournaments/{m.tournament_id}" class="btn btn-primary btn-match-action">
+								<a href="/dashboard/tournaments?select={m.tournament_id}" class="btn btn-primary btn-match-action">
 									⚔️ Saisir le score / Arbre →
 								</a>
 								{#if m.opponent_id}

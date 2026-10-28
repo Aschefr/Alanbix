@@ -1,5 +1,6 @@
 <script>
 	import { page } from '$app/stores';
+	import { goto } from '$app/navigation';
 	import { api } from '$lib/api';
 	import { onMount } from 'svelte';
 	import Modal from '$lib/components/Modal.svelte';
@@ -34,7 +35,7 @@
 	let viewportEl, canvasEl;
 
 	onMount(async () => {
-		loadData();
+		goto(`/dashboard/tournaments?select=${id}`, { replaceState: true });
 	});
 
 	async function loadData() {

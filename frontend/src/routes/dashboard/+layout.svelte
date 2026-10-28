@@ -17,6 +17,7 @@
 	let connectionError = '';
 	let unsub = null;
 	let isDark = true;
+	let avatarFailed = false;
 	let notifBounce = false;
 	let aiBounce = false;
 	let pmBounce = false;
@@ -623,8 +624,8 @@
 		</a>
 		<a href="/dashboard/profile" class="bottom-tab" class:active={$page.url.pathname.startsWith('/dashboard/profile')}>
 			<span class="tab-icon">
-				{#if user.avatar_url}
-					<img src={resolveMediaUrl(user.avatar_url)} alt="" class="tab-avatar" on:error={(e) => { e.currentTarget.style.display = "none"; }} />
+				{#if user.avatar_url && !avatarFailed}
+					<img src={resolveMediaUrl(user.avatar_url)} alt="" class="tab-avatar" on:error={() => avatarFailed = true} />
 				{:else}
 					👤
 				{/if}

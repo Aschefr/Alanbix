@@ -787,8 +787,9 @@ async def group_send(body: GroupSendMessage, db: Session = Depends(database.get_
     await ws_manager.send_to_users(channel_user_ids, group_event)
 
     # Push notifications to all members of the channel except sender
+    import urllib.parse
     team_label = channel.team_names[0] if channel.team_names else "Équipe"
-    channel_link = f"/dashboard/players?chat=group"
+    channel_link = f"/dashboard/players?group={urllib.parse.quote(channel.channel_key)}"
     for recipient_id in channel_user_ids:
         if recipient_id != user.id:
             await ws_manager.send_to_user(recipient_id, {

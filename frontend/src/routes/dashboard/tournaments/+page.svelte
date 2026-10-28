@@ -89,7 +89,7 @@
 
 	onMount(async () => {
 		await loadAll();
-		const urlSelect = $page.url.searchParams.get('select');
+		const urlSelect = $page.url.searchParams.get('select') || $page.url.searchParams.get('id');
 		if (urlSelect && tournaments.find(t => t.id === parseInt(urlSelect))) {
 			await selectTournament(parseInt(urlSelect));
 		} else {
@@ -103,6 +103,20 @@
 
 		wsUnsub = wsMessageStore.subscribe(handleWsMessage);
 	});
+
+	// Reactive param watcher for in-app navigation & deep-links
+	let lastAppliedTourneyParam = null;
+	$: if ($page.url && tournaments.length > 0) {
+		const targetParam = $page.url.searchParams.get('select') || $page.url.searchParams.get('id');
+		if (targetParam && targetParam !== lastAppliedTourneyParam) {
+			lastAppliedTourneyParam = targetParam;
+			const targetId = parseInt(targetParam);
+			if (targetId && targetId !== selectedId && tournaments.find(t => t.id === targetId)) {
+				selectTournament(targetId);
+			}
+		}
+	}
+
 
 	// WS: Debounced & jittered refresh to prevent thundering herd across LAN clients
 	let wsUnsub = null;
