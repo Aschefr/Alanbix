@@ -9,8 +9,8 @@
 	import TutorialOverlay from '$lib/components/TutorialOverlay.svelte';
 	import { page } from '$app/stores';
 	import { currentLang, availableLanguages, lanMultilingual, loadLocale, flagMap, t, initI18n, refreshEventName, eventName } from '$lib/i18nStore';
-	import { handleIncomingPush, getOrRegisterDeviceToken } from '$lib/push';
-	import { resolveMediaUrl } from '$lib/config';
+	import { handleIncomingPush, getOrRegisterDeviceToken, startNativePushService, checkAndHandlePendingDeepLink } from '$lib/push';
+	import { resolveMediaUrl, isCapacitorNative, getCustomServerUrl } from '$lib/config';
 
 	let user = { username: '...', is_admin: false };
 	let loading = true;
@@ -136,7 +136,12 @@
 		try {
 			user = await api.get('/me');
 			connectWS();
-			getOrRegisterDeviceToken().catch(() => {});
+			getOrRegisterDeviceToken().then(devToken => {
+				if (devToken && isCapacitorNative()) {
+					const srvUrl = getCustomServerUrl() || (typeof window !== 'undefined' ? window.location.origin : '');
+					startNativePushService(srvUrl, devToken, get(eventName) || 'Alanbix LAN');
+				}
+			}).catch(() => {});
 			// Fetch initial unread count
 			try {
 				const nc = await api.get('/notifications/unread-count');
@@ -313,6 +318,14 @@
 				goto(urlObj.pathname + urlObj.search);
 			}
 		};
+
+		const handleDeepLink = (e) => {
+			if (e && e.detail && e.detail.link) {
+				goto(e.detail.link);
+			}
+		};
+		window.addEventListener('alanbixDeepLink', handleDeepLink);
+		checkAndHandlePendingDeepLink((link) => goto(link));
 
 		await initApp();
 	});

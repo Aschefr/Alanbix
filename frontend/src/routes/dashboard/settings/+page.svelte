@@ -15,7 +15,14 @@
 		type NotificationPreferences,
 		triggerVibration,
 		triggerNotificationSound,
-		revokeCurrentDeviceToken
+		revokeCurrentDeviceToken,
+		syncNativePreferences,
+		getNativePushStatus,
+		openBatterySettings,
+		openSystemNotificationSettings,
+		startNativePushService,
+		stopNativePushService,
+		getOrRegisterDeviceToken
 	} from '$lib/push';
 	import ServerConfigModal from '$lib/components/ServerConfigModal.svelte';
 
@@ -25,6 +32,8 @@
 	let showServerModal = false;
 	let testLoading = false;
 	let testSuccess = false;
+	let nativeStatus: any = null;
+	let nativeLoading = false;
 
 	// Permission système
 	let systemNotifSupport = false;
@@ -71,11 +80,31 @@
 			if (health?.version) serverVersion = health.version;
 		} catch {}
 
+		if (isCapacitorNative()) {
+			nativeStatus = await getNativePushStatus();
+		}
 		loading = false;
 	});
 
 	function updatePrefs() {
 		saveNotificationPreferences(prefs);
+		syncNativePreferences(prefs);
+	}
+
+	async function toggleNativeService(enable: boolean) {
+		nativeLoading = true;
+		try {
+			if (enable) {
+				const devToken = await getOrRegisterDeviceToken();
+				const srvUrl = getCustomServerUrl() || (typeof window !== 'undefined' ? window.location.origin : '');
+				await startNativePushService(srvUrl, devToken || '', 'Alanbix LAN');
+			} else {
+				await stopNativePushService();
+			}
+			nativeStatus = await getNativePushStatus();
+		} finally {
+			nativeLoading = false;
+		}
 	}
 
 	async function requestSystemPermission() {
@@ -183,6 +212,38 @@
 					{/if}
 				</button>
 			</div>
+
+			{#if isCapacitorNative()}
+				<div class="native-service-card">
+					<div class="service-header-row">
+						<div class="service-info">
+							<span class="service-title">⚡ Veille LAN Arrière-Plan</span>
+							<span class="service-desc">Maintient la réception des matchs et messages même si l'application est fermée</span>
+						</div>
+						<label class="switch">
+							<input type="checkbox" checked={nativeStatus?.isRunning ?? true} on:change={(e) => toggleNativeService(e.currentTarget.checked)} disabled={nativeLoading} />
+							<span class="slider"></span>
+						</label>
+					</div>
+					<div class="service-status-pill">
+						{#if nativeStatus?.isConnected}
+							<span class="badge badge-green">🟢 Connecté au serveur LAN</span>
+						{:else if nativeStatus?.isRunning}
+							<span class="badge badge-yellow">🟡 Service actif (en attente réseau)</span>
+						{:else}
+							<span class="badge badge-red">⚪ Service arrêté</span>
+						{/if}
+					</div>
+					<div class="native-actions-row">
+						<button class="btn btn-sm btn-ghost" on:click={openBatterySettings} title="Empêcher Android de couper le service pour économiser la batterie">
+							🔋 Optimisation batterie
+						</button>
+						<button class="btn btn-sm btn-ghost" on:click={openSystemNotificationSettings} title="Gérer les canaux de notification dans les paramètres Android">
+							⚙️ Canaux système
+						</button>
+					</div>
+				</div>
+			{/if}
 
 			{#if prefs.enabled}
 				<div class="settings-subgroup">
@@ -531,6 +592,42 @@
 		color: #94a3b8;
 	}
 
+	.native-service-card {
+		background: var(--surface-sunken);
+		border: 1px solid var(--border-color);
+		border-radius: 12px;
+		padding: 1rem;
+		margin: 1rem 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+	}
+	.service-header-row {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+	}
+	.service-title {
+		font-weight: 700;
+		font-size: 0.95rem;
+		color: var(--text-main);
+		display: block;
+	}
+	.service-desc {
+		font-size: 0.8rem;
+		color: var(--text-dim);
+		display: block;
+	}
+	.service-status-pill {
+		display: flex;
+		align-items: center;
+	}
+	.native-actions-row {
+		display: flex;
+		gap: 0.5rem;
+		flex-wrap: wrap;
+	}
 	.permission-box {
 		background: rgba(0, 0, 0, 0.25);
 		border: 1px solid rgba(255, 255, 255, 0.06);

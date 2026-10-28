@@ -66,6 +66,17 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.amifystudio.alanbix</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>alanbix</string>
+			</array>
+		</dict>
+	</array>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Alanbix recherche et se connecte à votre serveur Alanbix LAN sur votre réseau Wi-Fi local pour afficher les tournois, le plan de salle et le chat en direct.</string>
 	<key>NSBonjourServices</key>

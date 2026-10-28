@@ -5,6 +5,31 @@
 
 import { api } from './api';
 import { isCapacitorNative } from './config';
+import { registerPlugin } from '@capacitor/core';
+
+export interface AlanbixPushPluginInterface {
+	start(options: {
+		serverUrl: string;
+		deviceToken: string;
+		lanName?: string;
+		preferences?: any;
+	}): Promise<{ status: string }>;
+	stop(): Promise<{ status: string }>;
+	getStatus(): Promise<{
+		isRunning: boolean;
+		isConnected: boolean;
+		serverUrl?: string;
+		deviceToken?: string;
+		lanName?: string;
+		backgroundEnabled?: boolean;
+	}>;
+	setPreferences(options: { preferences: any }): Promise<void>;
+	getPendingDeepLink(): Promise<{ link: string | null }>;
+	openBatteryOptimizationSettings(): Promise<void>;
+	openNotificationSettings(): Promise<void>;
+}
+
+export const AlanbixPushNative = registerPlugin<AlanbixPushPluginInterface>('AlanbixPush');
 
 export interface NotificationCategories {
 	match_ready: boolean;
@@ -278,4 +303,108 @@ export async function revokeCurrentDeviceToken(): Promise<void> {
 	} catch {}
 	localStorage.removeItem(DEVICE_TOKEN_STORAGE_KEY);
 }
+
+/**
+ * Démarre le service d'arrière-plan natif (Android Foreground Service / iOS)
+ */
+export async function startNativePushService(serverUrl: string, deviceToken: string, lanName: string = 'Alanbix LAN'): Promise<boolean> {
+	if (!isCapacitorNative()) return false;
+	try {
+		const preferences = getNotificationPreferences();
+		await AlanbixPushNative.start({
+			serverUrl,
+			deviceToken,
+			lanName,
+			preferences
+		});
+		return true;
+	} catch (e) {
+		console.warn('[Alanbix Push] startNativePushService error:', e);
+		return false;
+	}
+}
+
+/**
+ * Arrête le service d'arrière-plan natif
+ */
+export async function stopNativePushService(): Promise<void> {
+	if (!isCapacitorNative()) return;
+	try {
+		await AlanbixPushNative.stop();
+	} catch (e) {
+		console.warn('[Alanbix Push] stopNativePushService error:', e);
+	}
+}
+
+/**
+ * Synchronise les préférences de notification avec le service natif
+ */
+export async function syncNativePreferences(prefs: NotificationPreferences): Promise<void> {
+	if (!isCapacitorNative()) return;
+	try {
+		await AlanbixPushNative.setPreferences({ preferences: prefs });
+	} catch (e) {
+		console.warn('[Alanbix Push] syncNativePreferences error:', e);
+	}
+}
+
+/**
+ * Récupère le statut du service natif d'arrière-plan
+ */
+export async function getNativePushStatus(): Promise<{
+	isRunning: boolean;
+	isConnected: boolean;
+	serverUrl?: string;
+	deviceToken?: string;
+	lanName?: string;
+	backgroundEnabled?: boolean;
+} | null> {
+	if (!isCapacitorNative()) return null;
+	try {
+		return await AlanbixPushNative.getStatus();
+	} catch (e) {
+		console.warn('[Alanbix Push] getNativePushStatus error:', e);
+		return null;
+	}
+}
+
+/**
+ * Ouvre l'écran des paramètres de batterie système pour exclure l'appli de l'optimisation
+ */
+export async function openBatterySettings(): Promise<void> {
+	if (!isCapacitorNative()) return;
+	try {
+		await AlanbixPushNative.openBatteryOptimizationSettings();
+	} catch (e) {
+		console.warn('[Alanbix Push] openBatteryOptimizationSettings error:', e);
+	}
+}
+
+/**
+ * Ouvre les réglages système de notification de l'application
+ */
+export async function openSystemNotificationSettings(): Promise<void> {
+	if (!isCapacitorNative()) return;
+	try {
+		await AlanbixPushNative.openNotificationSettings();
+	} catch (e) {
+		console.warn('[Alanbix Push] openSystemNotificationSettings error:', e);
+	}
+}
+
+/**
+ * Vérifie et consomme un deep link stocké au lancement de l'application
+ */
+export async function checkAndHandlePendingDeepLink(onNavigate: (url: string) => void): Promise<void> {
+	if (!isCapacitorNative()) return;
+	try {
+		const res = await AlanbixPushNative.getPendingDeepLink();
+		if (res && res.link) {
+			onNavigate(res.link);
+		}
+	} catch (e) {
+		console.warn('[Alanbix Push] checkAndHandlePendingDeepLink error:', e);
+	}
+}
+
 
