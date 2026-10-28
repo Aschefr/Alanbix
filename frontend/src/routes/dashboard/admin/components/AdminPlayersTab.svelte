@@ -20,6 +20,7 @@
 	let deleteConfirmPlayerId = null;
 	let promoteConfirmPlayerId = null;
 	let demoteConfirmPlayerId = null;
+	let deleteAvatarConfirm = false;
 
 	let showCreatePlayer = false;
 	let newPlayerData = { username: '', password: 'lan2025', team_name: '' };
@@ -83,7 +84,7 @@
 	}
 
 	function adminDeleteAvatar(playerId) {
-		if (!confirm(get(t)('admin_confirm_delete_avatar') || 'Voulez-vous vraiment supprimer cet avatar ?')) return;
+		deleteAvatarConfirm = false;
 		api.delete(`/admin/users/${playerId}/avatar`).then(() => {
 			toast(get(t)('admin_toast_avatar_deleted'), 'success');
 			if (editingPlayer && editingPlayer.id === playerId) {
@@ -304,7 +305,12 @@
 						<div class="admin-avatar-lg avatar-shape-{editingPlayer.avatar_shape || 'circle'}">
 							<img src={editingPlayer.avatar_url} alt="" />
 						</div>
-						<button class="btn-danger-sm" type="button" on:click={() => adminDeleteAvatar(editingPlayer.id)}>{$t('admin_players_modal_delete_avatar')}</button>
+						{#if deleteAvatarConfirm}
+							<button class="btn-danger-sm" type="button" on:click={() => adminDeleteAvatar(editingPlayer.id)}>Confirmer la suppression</button>
+							<button class="btn-icon" type="button" on:click={() => deleteAvatarConfirm = false}>✕</button>
+						{:else}
+							<button class="btn-danger-sm" type="button" on:click={() => deleteAvatarConfirm = true}>{$t('admin_players_modal_delete_avatar')}</button>
+						{/if}
 					</div>
 				{/if}
 				<div class="edit-field mb-3">

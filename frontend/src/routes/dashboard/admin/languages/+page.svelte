@@ -3,7 +3,7 @@
 	import { api } from '$lib/api';
 	import { API_URL } from '$lib/config';
 	import { onMount } from 'svelte';
-	import { beforeNavigate } from '$app/navigation';
+	import { beforeNavigate, goto } from '$app/navigation';
 
 	let languages = ['fr', 'en'];
 	let refLang = 'fr';
@@ -136,14 +136,31 @@
 		loadSettings();
 	});
 
+	let showUnsavedModal = false;
+	let pendingNavUrl = '';
+
 	beforeNavigate((navigation) => {
-		if (hasUnsavedChanges) {
-			const confirmLeave = confirm($t('admin_languages_unsaved_warning') || "Vous avez des modifications non enregistrées. Voulez-vous vraiment quitter cette page ?");
-			if (!confirmLeave) {
-				navigation.cancel();
-			}
+		if (hasUnsavedChanges && !pendingNavUrl) {
+			navigation.cancel();
+			pendingNavUrl = navigation.to?.url?.pathname || '/dashboard';
+			showUnsavedModal = true;
 		}
 	});
+
+	function confirmLeavePage() {
+		hasUnsavedChanges = false;
+		showUnsavedModal = false;
+		if (pendingNavUrl) {
+			const target = pendingNavUrl;
+			pendingNavUrl = '';
+			goto(target);
+		}
+	}
+
+	function cancelLeavePage() {
+		showUnsavedModal = false;
+		pendingNavUrl = '';
+	}
 
 	async function loadSettings() {
 		try {
@@ -799,6 +816,28 @@
 			</div>
 		</div>
 	</div>
+<!-- Modal de confirmation de sortie -->
+{#if showUnsavedModal}
+	<div class="modal-overlay" use:portal on:click|self={cancelLeavePage}>
+		<div class="modal-content glass" style="max-width: 440px;">
+			<h2 class="title-premium" style="margin-top: 0; margin-bottom: 1rem; font-size: 1.3rem;">
+				<span class="title-icon">⚠️</span> {$t('admin_languages_unsaved_title') || 'Modifications non enregistrées'}
+			</h2>
+			<p class="text-sm text-dim mb-4" style="line-height: 1.5;">
+				{$t('admin_languages_unsaved_warning') || "Vous avez des modifications non enregistrées. Voulez-vous vraiment quitter cette page ?"}
+			</p>
+			<div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+				<button class="btn-secondary btn-sm" on:click={cancelLeavePage}>
+					{$t('common_cancel') || 'Rester'}
+				</button>
+				<button class="btn-danger btn-sm" on:click={confirmLeavePage}>
+					{$t('common_leave') || 'Quitter'}
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
 {/if}
 
 {/if}

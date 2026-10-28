@@ -149,6 +149,8 @@
 		isTypingPlural ? PLURAL_PHRASE_KEYS[currentPhraseIdx] : SINGULAR_PHRASE_KEYS[currentPhraseIdx]
 	);
 
+	let confirmActionModal = null;
+
 	$: quickReactionList = (() => {
 		const base = (recentEmojis && recentEmojis.length > 0) ? recentEmojis : DEFAULT_RECENT_EMOJIS;
 		const merged = [...base];
@@ -746,22 +748,36 @@
 		}
 	}
 
-	async function deleteMessage(msgId) {
-		if (!confirm($t('dash_chat_delete_confirm') || 'Supprimer ce message ?')) return;
-		try {
-			await api.delete(`/public-chat/messages/${msgId}`);
-		} catch (e) {
-			alert(e.message || "Erreur de suppression.");
-		}
+	function deleteMessage(msgId) {
+		confirmActionModal = {
+			title: $t('dash_chat_delete_title') || 'Supprimer le message',
+			message: $t('dash_chat_delete_confirm') || 'Supprimer ce message définitivement ?',
+			confirmLabel: $t('common_delete') || 'Supprimer',
+			onConfirm: async () => {
+				confirmActionModal = null;
+				try {
+					await api.delete(`/public-chat/messages/${msgId}`);
+				} catch (e) {
+					console.error("Erreur de suppression:", e);
+				}
+			}
+		};
 	}
 
-	async function clearAllChat() {
-		if (!confirm($t('dash_chat_clear_confirm') || 'Effacer tout l\'historique du chat ?')) return;
-		try {
-			await api.post('/public-chat/clear', {});
-		} catch (e) {
-			alert(e.message || "Erreur lors de la purge.");
-		}
+	function clearAllChat() {
+		confirmActionModal = {
+			title: $t('dash_chat_clear_title') || 'Purger le chat',
+			message: $t('dash_chat_clear_confirm') || "Effacer tout l'historique du chat ?",
+			confirmLabel: $t('common_purge') || 'Purger tout',
+			onConfirm: async () => {
+				confirmActionModal = null;
+				try {
+					await api.post('/public-chat/clear', {});
+				} catch (e) {
+					console.error("Erreur lors de la purge:", e);
+				}
+			}
+		};
 	}
 
 	// =========================================================================
@@ -1519,6 +1535,25 @@
 	</div>
 {/if}
 
+<!-- Confirmation Action Modal -->
+{#if confirmActionModal}
+	<!-- svelte-ignore a11y-click-events-have-key-events -->
+	<div class="confirm-chat-overlay" on:click={() => confirmActionModal = null}>
+		<div class="confirm-chat-modal glass" on:click|stopPropagation>
+			<h3 class="confirm-chat-title">{confirmActionModal.title}</h3>
+			<p class="confirm-chat-msg">{confirmActionModal.message}</p>
+			<div class="confirm-chat-actions">
+				<button class="chat-btn-cancel" on:click={() => confirmActionModal = null}>
+					{$t('common_cancel') || 'Annuler'}
+				</button>
+				<button class="chat-btn-confirm-danger" on:click={confirmActionModal.onConfirm}>
+					{confirmActionModal.confirmLabel || ($t('common_confirm') || 'Confirmer')}
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
 <style>
 	.public-chat-card {
 		display: flex;
@@ -2198,6 +2233,65 @@
 		align-items: center;
 		justify-content: center;
 		box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+	}
+
+	/* Confirm Chat Action Modal */
+	.confirm-chat-overlay {
+		position: fixed;
+		inset: 0;
+		background: rgba(0, 0, 0, 0.7);
+		backdrop-filter: blur(4px);
+		z-index: 10000;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: 1.25rem;
+	}
+	.confirm-chat-modal {
+		background: var(--surface);
+		border: 1px solid var(--glass-border);
+		border-radius: 14px;
+		padding: 1.5rem;
+		max-width: 400px;
+		width: 100%;
+		box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+	}
+	.confirm-chat-title {
+		font-size: 1.15rem;
+		font-weight: 700;
+		margin-top: 0;
+		margin-bottom: 0.5rem;
+		color: var(--text-main);
+	}
+	.confirm-chat-msg {
+		font-size: 0.9rem;
+		color: var(--text-dim);
+		margin-bottom: 1.25rem;
+		line-height: 1.4;
+	}
+	.confirm-chat-actions {
+		display: flex;
+		justify-content: flex-end;
+		gap: 0.75rem;
+	}
+	.chat-btn-cancel {
+		padding: 0.5rem 1rem;
+		border-radius: 8px;
+		background: var(--surface-sunken);
+		color: var(--text-main);
+		border: 1px solid var(--glass-border);
+		cursor: pointer;
+		font-size: 0.85rem;
+	}
+	.chat-btn-confirm-danger {
+		padding: 0.5rem 1rem;
+		border-radius: 8px;
+		background: #ef4444;
+		color: #fff;
+		border: none;
+		cursor: pointer;
+		font-size: 0.85rem;
+		font-weight: 600;
 	}
 
 	/* Active Typers Indicator */
