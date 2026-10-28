@@ -224,7 +224,7 @@ async def create_tournament(
     db.commit()
     db.refresh(db_tournament)
     
-    await manager.broadcast({"type": "tournament_created", "data": schemas.Tournament.from_orm(db_tournament).dict()})
+    await manager.broadcast({"type": "tournament_created", "data": schemas.Tournament.model_validate(db_tournament).model_dump()})
     return db_tournament
 
 @router.get("/{tournament_id}", response_model=schemas.Tournament)

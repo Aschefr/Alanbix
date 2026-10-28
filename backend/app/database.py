@@ -1,8 +1,7 @@
 import os
 import sqlite3
 from sqlalchemy import create_engine, event
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import declarative_base, sessionmaker
 
 # SQLite database — stored in persistent volume
 DB_PATH = os.getenv("DATABASE_PATH", "/app/data/alanbix.db")

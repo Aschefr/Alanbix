@@ -25,7 +25,7 @@ def check_json_files():
     for file in json_files:
         filepath = os.path.join(I18N_DIR, file)
         try:
-            with codecs.open(filepath, 'r', encoding='utf-8-sig') as f:
+            with open(filepath, 'r', encoding='utf-8-sig') as f:
                 data = json.load(f)
                 keys_per_lang[file] = set(data.keys())
                 

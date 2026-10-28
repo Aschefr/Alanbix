@@ -7,7 +7,15 @@ from .routers import users, tournaments, room, ia, dashboard, notifications, pla
 
 from .websockets import manager
 
-app = FastAPI(title="Alanbix API")
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await startup()
+    yield
+    await shutdown()
+
+app = FastAPI(title="Alanbix API", lifespan=lifespan)
 
 
 # CORS & Redirects Fix
@@ -28,7 +36,6 @@ app.add_middleware(
 
 
 
-@app.on_event("startup")
 async def startup():
     init_db()
 
@@ -261,7 +268,6 @@ async def startup():
 
     db.close()
 
-@app.on_event("shutdown")
 async def shutdown():
     from .ia_queue import queue_manager
     await queue_manager.stop()
