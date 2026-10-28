@@ -127,3 +127,20 @@ def test_compiled_bundle_has_no_dev_port_leak():
     assert not violations, (
         f"Production build bundle contains illegal dev port references: {violations}"
     )
+
+
+def test_discovery_endpoints(client):
+    """
+    Ensure LAN auto-discovery endpoints for the mobile companion app
+    respond with valid Alanbix identification metadata.
+    """
+    for endpoint in ("/api/system/discovery", "/system/discovery"):
+        res = client.get(endpoint)
+        assert res.status_code == 200
+        data = res.json()
+        assert data["app"] == "Alanbix"
+        assert data["id"] == "com.amifystudio.alanbix"
+        assert data["status"] == "ok"
+        assert "hostname" in data
+        assert "port" in data
+        assert "version" in data

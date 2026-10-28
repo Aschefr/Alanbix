@@ -1,5 +1,5 @@
 import { writable, derived, get } from 'svelte/store';
-import { API_URL } from './config';
+import { API_URL, resolveApiUrl, isDemoMode } from './config';
 
 export const currentLang = writable<string>('fr');
 export const i18nDict = writable<Record<string, string>>({});
@@ -36,9 +36,15 @@ export const t = derived(i18nDict, ($dict) => {
 
 // Load the dictionary for a specific language
 export async function loadLocale(lang: string) {
+	if (isDemoMode()) {
+		currentLang.set(lang);
+		localStorage.setItem('alanbix_lang', lang);
+		return;
+	}
 	try {
+		const baseUrl = resolveApiUrl() || API_URL;
 		// Prevent cache issues in dev/prod by fetching with a query param
-		const res = await fetch(`${API_URL}/api/i18n/${lang}?v=${Date.now()}`);
+		const res = await fetch(`${baseUrl}/api/i18n/${lang}?v=${Date.now()}`);
 		if (!res.ok) throw new Error(`Could not load locale ${lang}`);
 		const dict = await res.json();
 		i18nDict.set(dict);
@@ -51,8 +57,13 @@ export async function loadLocale(lang: string) {
 
 // Refresh the LAN event name
 export async function refreshEventName() {
+	if (isDemoMode()) {
+		eventName.set('Alanbix LAN (Démo)');
+		return;
+	}
 	try {
-		const res = await fetch(`${API_URL}/dashboard/stats`);
+		const baseUrl = resolveApiUrl() || API_URL;
+		const res = await fetch(`${baseUrl}/dashboard/stats`);
 		if (res.ok) {
 			const stats = await res.json();
 			eventName.set(stats.event_name || 'Alanbix LAN');
@@ -64,12 +75,20 @@ export async function refreshEventName() {
 
 // Initialize i18n using config settings & local preferences
 export async function initI18n() {
+	if (isDemoMode()) {
+		eventName.set('Alanbix LAN (Démo)');
+		const savedLang = localStorage.getItem('alanbix_lang') || 'fr';
+		currentLang.set(savedLang);
+		return;
+	}
+
 	let lang: string = 'fr';
-	
+	const baseUrl = resolveApiUrl() || API_URL;
+
 	try {
 		const [langRes, statsRes] = await Promise.all([
-			fetch(`${API_URL}/i18n/languages`).catch(() => null),
-			fetch(`${API_URL}/dashboard/stats`).catch(() => null)
+			fetch(`${baseUrl}/i18n/languages`).catch(() => null),
+			fetch(`${baseUrl}/dashboard/stats`).catch(() => null)
 		]);
 
 		if (langRes && langRes.ok) {

@@ -2,17 +2,28 @@
 	import '../app.css';
 	import { onMount } from 'svelte';
 	import { initI18n, eventName, customPageTitle, t } from '$lib/i18nStore';
+	import { isDemoMode, disableDemoMode } from '$lib/config';
 	import { page } from '$app/stores';
+
+	let demoActive = false;
 
 	onMount(async () => {
 		const saved = localStorage.getItem('alanbix_theme') || 'dark';
 		document.documentElement.setAttribute('data-theme', saved);
+		demoActive = isDemoMode();
 		await initI18n();
 	});
+
+	function exitDemoMode() {
+		disableDemoMode();
+		demoActive = false;
+		window.location.href = '/';
+	}
 
 	// Reset custom page title on navigation
 	$: if ($page && $page.url && $page.url.pathname) {
 		customPageTitle.set('');
+		demoActive = isDemoMode();
 	}
 
 	function getPageTitle(path, $t) {
@@ -55,6 +66,14 @@
 </svelte:head>
 
 <div class="app-container">
+	{#if demoActive}
+		<div class="demo-mode-banner">
+			<span>✨ <strong>Mode Démo Hors-Ligne</strong> — Données de démonstration simulées</span>
+			<button type="button" class="demo-exit-btn" on:click={exitDemoMode}>
+				Connecter un serveur LAN
+			</button>
+		</div>
+	{/if}
 	<slot />
 </div>
 
@@ -72,5 +91,30 @@
 		min-height: 100vh;
 		display: flex;
 		flex-direction: column;
+	}
+
+	.demo-mode-banner {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 1rem;
+		padding: 0.45rem 1rem;
+		background: linear-gradient(90deg, rgba(16, 185, 129, 0.2), rgba(59, 130, 246, 0.2));
+		border-bottom: 1px solid rgba(16, 185, 129, 0.35);
+		font-size: 0.8rem;
+		color: var(--text-main);
+		z-index: 1000;
+		flex-wrap: wrap;
+	}
+
+	.demo-exit-btn {
+		padding: 0.25rem 0.65rem;
+		border-radius: 6px;
+		border: 1px solid rgba(255, 255, 255, 0.25);
+		background: rgba(0, 0, 0, 0.25);
+		color: inherit;
+		font-size: 0.75rem;
+		font-weight: 600;
+		cursor: pointer;
 	}
 </style>

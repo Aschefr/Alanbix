@@ -1,6 +1,8 @@
 <script>
 	import { api } from '$lib/api';
 	import { authStore } from '$lib/auth';
+	import { getCustomServerUrl, isCapacitorNative } from '$lib/config';
+	import ServerConfigModal from '$lib/components/ServerConfigModal.svelte';
 	import { onMount } from 'svelte';
 
 	let username = '';
@@ -67,14 +69,21 @@
 	}
 
 	let isCheckingAuth = true;
+	let showServerModal = false;
+	let currentServerUrl = '';
 	let eventName = 'Alanbix LAN';
 
 	onMount(async () => {
 		isDark = (localStorage.getItem('alanbix_theme') || 'dark') === 'dark';
+		currentServerUrl = getCustomServerUrl();
 		try {
 			const stats = await api.get('/dashboard/stats');
 			eventName = stats.event_name || 'Alanbix LAN';
-		} catch {}
+		} catch {
+			if (isCapacitorNative() || !currentServerUrl) {
+				showServerModal = true;
+			}
+		}
 		if ($authStore) {
 			window.location.href = '/dashboard';
 		} else {
@@ -166,11 +175,18 @@
 			</div>
 		{/if}
 	</div>
+	<div class="server-config-footer">
+		<button type="button" class="btn-server-config" on:click={() => (showServerModal = true)}>
+			📡 {currentServerUrl ? `Serveur : ${currentServerUrl}` : 'Serveur LAN / Mode Démo'}
+		</button>
+	</div>
+	<ServerConfigModal bind:isOpen={showServerModal} />
 </main>
 {/if}
 
 <style>
 	.login-page {
+		flex-direction: column;
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -417,6 +433,26 @@
 	.login-theme-toggle:hover {
 		transform: scale(1.1) rotate(15deg);
 		box-shadow: 0 0 15px var(--accent-glow);
+		border-color: var(--accent);
+	}
+	.server-config-footer {
+		margin-top: 1rem;
+		text-align: center;
+	}
+
+	.btn-server-config {
+		background: var(--glass-bg);
+		border: 1px solid var(--glass-border);
+		border-radius: 8px;
+		padding: 0.5rem 1rem;
+		color: var(--text-dim);
+		font-size: 0.8rem;
+		cursor: pointer;
+		transition: all 0.2s ease;
+	}
+
+	.btn-server-config:hover {
+		color: var(--text-main);
 		border-color: var(--accent);
 	}
 </style>

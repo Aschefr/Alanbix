@@ -1,16 +1,22 @@
 import { get } from 'svelte/store';
 import { authStore } from './auth';
-import { API_URL } from './config';
+import { API_URL, resolveApiUrl, isDemoMode } from './config';
+import { handleDemoRequest } from './demoData';
 
 async function request(path: string, options: RequestInit = {}) {
+	if (isDemoMode()) {
+		return handleDemoRequest(path, options.method || 'GET', options.body);
+	}
+
 	const token = get(authStore);
-	
+	const baseUrl = resolveApiUrl() || API_URL;
+
 	const headers = new Headers(options.headers || {});
 	if (token) {
 		headers.set('Authorization', `Bearer ${token}`);
 	}
 
-	const response = await fetch(`${API_URL}${path}`, {
+	const response = await fetch(`${baseUrl}${path}`, {
 		...options,
 		headers,
 		credentials: 'omit' // Use omit for '*' origins with credentials:True
@@ -60,11 +66,18 @@ export const api = {
 		// No Content-Type header — browser sets multipart boundary automatically
 	}),
 	login: async (username: string, password: string) => {
+		if (isDemoMode() || username.trim().toLowerCase() === 'demo') {
+			const demoRes = handleDemoRequest('/token', 'POST', { username });
+			authStore.login(demoRes.access_token);
+			return demoRes;
+		}
+
 		const formData = new URLSearchParams();
 		formData.append('username', username);
 		formData.append('password', password);
 
-		const data = await fetch(`${API_URL}/token`, {
+		const baseUrl = resolveApiUrl() || API_URL;
+		const data = await fetch(`${baseUrl}/token`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
 			body: formData

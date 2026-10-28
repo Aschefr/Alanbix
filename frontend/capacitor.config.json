@@ -1,0 +1,16 @@
+{
+  "appId": "com.amifystudio.alanbix",
+  "appName": "Alanbix",
+  "webDir": "build",
+  "server": {
+    "androidScheme": "http",
+    "cleartext": true,
+    "allowNavigation": [
+      "*"
+    ]
+  },
+  "android": {
+    "allowMixedContent": true
+  }
+}
+

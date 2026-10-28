@@ -1,5 +1,5 @@
 import { writable } from 'svelte/store';
-import { WS_URL } from './config';
+import { WS_URL, resolveWsUrl, isDemoMode } from './config';
 
 export const wsMessageStore = writable<any>(null);
 
@@ -7,6 +7,7 @@ let socket: WebSocket | null = null;
 let heartbeatTimer: any = null;
 
 export function authenticateWS(token?: string) {
+	if (isDemoMode()) return;
 	const authToken = token || (typeof window !== 'undefined' ? localStorage.getItem('alanbix_token') : null);
 	if (socket && socket.readyState === WebSocket.OPEN && authToken) {
 		try {
@@ -34,10 +35,12 @@ function stopHeartbeat() {
 }
 
 export function connectWS() {
+	if (isDemoMode()) return;
 	if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) return;
 
 	try {
-		socket = new WebSocket(WS_URL);
+		const targetWsUrl = resolveWsUrl() || WS_URL;
+		socket = new WebSocket(targetWsUrl);
 	} catch (err) {
 		console.error('[WebSocket] Initialization error:', err);
 		setTimeout(connectWS, 3000);
@@ -60,7 +63,9 @@ export function connectWS() {
 
 	socket.onclose = () => {
 		stopHeartbeat();
-		setTimeout(connectWS, 3000); // Reconnect after 3s
+		if (!isDemoMode()) {
+			setTimeout(connectWS, 3000); // Reconnect after 3s
+		}
 	};
 
 	socket.onerror = (err) => {

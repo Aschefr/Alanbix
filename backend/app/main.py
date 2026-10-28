@@ -268,9 +268,14 @@ async def startup():
 
     db.close()
 
+    from .discovery import discovery_manager
+    await discovery_manager.start()
+
 async def shutdown():
     from .ia_queue import queue_manager
     await queue_manager.stop()
+    from .discovery import discovery_manager
+    await discovery_manager.stop()
 
 @app.get("/health")
 def health_check():
@@ -285,6 +290,23 @@ def health_check():
             except Exception:
                 pass
     return {"status": "ok", "version": version}
+
+@app.get("/api/system/discovery")
+@app.get("/system/discovery")
+def system_discovery():
+    from .discovery import get_discovery_payload
+    from .database import SessionLocal
+    from . import models
+    event_name = "Alanbix LAN"
+    try:
+        db = SessionLocal()
+        cfg = db.query(models.SystemConfig).filter(models.SystemConfig.key == "event_name").first()
+        if cfg and cfg.value:
+            event_name = cfg.value
+        db.close()
+    except Exception:
+        pass
+    return get_discovery_payload(event_name=event_name)
 
 @app.get("/changelog")
 def get_changelog():

@@ -78,3 +78,23 @@ scratch/
 
 # === Local Publish Notice ===
 publish_notice.md
+
+# === Mobile / Capacitor (Android & iOS) ===
+frontend/android/.gradle/
+frontend/android/.idea/
+frontend/android/build/
+frontend/android/app/build/
+frontend/android/app/release/
+frontend/android/app/src/main/assets/public/
+frontend/android/capacitor-cordova-android-plugins/
+frontend/android/local.properties
+frontend/ios/App/App/public/
+frontend/ios/App/Pods/
+frontend/ios/App/build/
+frontend/ios/DerivedData/
+frontend/ios/capacitor-cordova-ios-plugins/
+*.keystore
+*.jks
+*.p12
+*.p8
+*.mobileprovision
