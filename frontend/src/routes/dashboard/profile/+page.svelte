@@ -543,6 +543,7 @@
 			</div>
 
 			<div style="margin-top: 1.5rem; text-align: right;">
+				<a href="/dashboard/settings" class="btn-secondary" style="font-size: 0.8rem; padding: 0.5rem 1rem; text-decoration: none; display: inline-flex; align-items: center; gap: 0.3rem;">⚙️ Paramètres de l'application</a>
 				<button class="btn-secondary" on:click={() => goto('/dashboard/welcome')} style="font-size: 0.8rem; padding: 0.5rem 1rem;">{$t("profile_btn_tutorial")}</button>
 				{#if !user.is_admin}
 					<button type="button" class="btn-secondary" on:click={deleteOwnAccount} style="font-size: 0.8rem; padding: 0.5rem 1rem; margin-left: 0.5rem; color: var(--danger); border-color: rgba(239, 68, 68, 0.35);">🗑️ Supprimer mon compte</button>

@@ -71,6 +71,8 @@ def init_db():
         _safe_add_column(conn, "group_messages", "link_preview", "JSON")
         _safe_add_column(conn, "group_messages", "reactions", "JSON")
         _safe_add_column(conn, "group_messages", "reply_to_id", "INTEGER")
+        _safe_add_column(conn, "notifications", "category", "VARCHAR")
+        _safe_add_column(conn, "notifications", "link", "VARCHAR")
 
         # Create critical performance indexes if they don't exist
         indexes = [

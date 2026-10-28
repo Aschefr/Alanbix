@@ -99,6 +99,12 @@ def get_stats(db: Session = Depends(database.get_db)):
     default_lang_config = db.query(models.SystemConfig).filter(models.SystemConfig.key == "lan_default_language").first()
     lan_default_language = default_lang_config.value if default_lang_config else "fr"
 
+    ssids_cfg = db.query(models.SystemConfig).filter(models.SystemConfig.key == "lan_wifi_ssids").first()
+    lan_wifi_ssids = []
+    if ssids_cfg and ssids_cfg.value:
+        val = ssids_cfg.value
+        lan_wifi_ssids = val if isinstance(val, list) else [s.strip() for s in str(val).split(",") if s.strip()]
+
     return {
         "tournaments": tournaments_count,
         "players": users_count,
@@ -108,7 +114,8 @@ def get_stats(db: Session = Depends(database.get_db)):
         "event_name": event_name,
         "team_scoring_mode": team_scoring_mode,
         "lan_multilingual": lan_multilingual,
-        "lan_default_language": lan_default_language
+        "lan_default_language": lan_default_language,
+        "lan_wifi_ssids": lan_wifi_ssids
     }
 
 

@@ -140,3 +140,90 @@ async def test_websocket_broadcast_cleans_dead_connections():
     assert dead_ws not in mgr.active_connections
     assert mgr.is_user_online(200) is False
 
+
+@pytest.mark.asyncio
+async def test_websocket_targeted_send_to_user():
+    """Verify that send_to_user sends only to the specified user's sockets."""
+    mgr = ConnectionManager()
+    ws_user1 = AsyncMock()
+    ws_user2 = AsyncMock()
+
+    await mgr.connect(ws_user1)
+    await mgr.connect(ws_user2)
+    await mgr.register_user(ws_user1, 101)
+    await mgr.register_user(ws_user2, 102)
+
+    ws_user1.send_json.reset_mock()
+    ws_user2.send_json.reset_mock()
+
+    msg = {"type": "private_message_new", "content": "secret"}
+    count = await mgr.send_to_user(101, msg)
+    assert count == 1
+    ws_user1.send_json.assert_called_once_with(msg)
+    ws_user2.send_json.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_websocket_targeted_send_to_users():
+    """Verify that send_to_users sends to all specified users and avoids others."""
+    mgr = ConnectionManager()
+    ws_u1 = AsyncMock()
+    ws_u2 = AsyncMock()
+    ws_u3 = AsyncMock()
+
+    await mgr.connect(ws_u1)
+    await mgr.connect(ws_u2)
+    await mgr.connect(ws_u3)
+    await mgr.register_user(ws_u1, 1)
+    await mgr.register_user(ws_u2, 2)
+    await mgr.register_user(ws_u3, 3)
+
+    ws_u1.send_json.reset_mock()
+    ws_u2.send_json.reset_mock()
+    ws_u3.send_json.reset_mock()
+
+    msg = {"type": "team_update", "team": "Alpha"}
+    count = await mgr.send_to_users([1, 2], msg)
+    assert count == 2
+    ws_u1.send_json.assert_called_once_with(msg)
+    ws_u2.send_json.assert_called_once_with(msg)
+    ws_u3.send_json.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_websocket_push_client_presence_isolation():
+    """Verify that background push sockets do not broadcast online presence or mark user online."""
+    mgr = ConnectionManager()
+    ws_observer = AsyncMock()
+    ws_push = AsyncMock()
+
+    await mgr.connect(ws_observer)
+    await mgr.register_user(ws_observer, 100, client_type="web")
+    ws_observer.send_json.reset_mock()
+
+    await mgr.connect(ws_push)
+    # Register as background push client
+    await mgr.register_user(ws_push, 300, client_type="push")
+
+    # Should NOT have broadcast user_presence is_online: True to anyone
+    ws_push.send_json.assert_not_called()
+    ws_observer.send_json.assert_not_called()
+    # User is NOT considered online for active browsing
+    assert mgr.is_user_online(300) is False
+    assert mgr.is_user_connected(300) is True
+
+    # But targeted send_to_user DOES reach push clients!
+    push_msg = {"type": "push", "title": "Match ready"}
+    sent = await mgr.send_to_user(300, push_msg)
+    assert sent == 1
+    ws_push.send_json.assert_called_once_with(push_msg)
+
+    # Disconnecting push socket should NOT broadcast user_presence is_online: False to observer
+    ws_push.send_json.reset_mock()
+    ws_observer.send_json.reset_mock()
+    await mgr.disconnect(ws_push)
+    ws_push.send_json.assert_not_called()
+    ws_observer.send_json.assert_not_called()
+    assert mgr.is_user_connected(300) is False
+
+

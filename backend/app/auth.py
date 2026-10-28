@@ -38,6 +38,17 @@ async def get_current_user(db: Session = Depends(database.get_db), token: str = 
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+    if token and token.startswith("dev_"):
+        device = db.query(models.Device).filter(models.Device.token == token).first()
+        if not device:
+            raise credentials_exception
+        user = db.query(models.User).filter(models.User.id == device.user_id).first()
+        if user is None:
+            raise credentials_exception
+        device.last_seen = datetime.utcnow()
+        db.commit()
+        return user
+
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
@@ -65,7 +76,31 @@ async def get_current_admin(current_user: models.User = Depends(get_current_user
 
 
 def get_user_id_from_token(token: str, db: Optional[Session] = None) -> Optional[int]:
-    """Validate a JWT token and extract the corresponding user_id (for WebSocket auth)."""
+    """Validate a JWT token or persistent device token and extract the corresponding user_id (for WebSocket/push auth)."""
+    if not token or not isinstance(token, str):
+        return None
+
+    # Check for long-lived device token
+    if token.startswith("dev_"):
+        try:
+            if db is not None:
+                device = db.query(models.Device).filter(models.Device.token == token).first()
+                if device:
+                    device.last_seen = datetime.utcnow()
+                    db.commit()
+                    return device.user_id
+                return None
+            from .database import SessionLocal
+            with SessionLocal() as session:
+                device = session.query(models.Device).filter(models.Device.token == token).first()
+                if device:
+                    device.last_seen = datetime.utcnow()
+                    session.commit()
+                    return device.user_id
+                return None
+        except Exception:
+            return None
+
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")

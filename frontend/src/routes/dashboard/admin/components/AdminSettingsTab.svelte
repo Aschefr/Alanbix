@@ -34,6 +34,7 @@
 	// General Settings
 	let teamScoringMode = 'weighted';
 	let eventName = 'Alanbix LAN';
+	let lanWifiSsids = '';
 	let searxngUrl = 'http://searxng:8080';
 	let searxngTesting = false;
 	let searxngTestResult = null;
@@ -145,6 +146,7 @@
 				api.get('/dashboard/stats').then(stats => {
 					teamScoringMode = stats.team_scoring_mode || 'weighted';
 					eventName = stats.event_name || 'Alanbix LAN';
+					lanWifiSsids = Array.isArray(stats.lan_wifi_ssids) ? stats.lan_wifi_ssids.join(', ') : (stats.lan_wifi_ssids || '');
 				}).catch(() => {});
 				api.get('/admin/config/searxng_url').then(sxCfg => {
 					searxngUrl = sxCfg?.value || 'http://searxng:8080';
@@ -179,6 +181,7 @@
 			const stats = await api.get('/dashboard/stats');
 			teamScoringMode = stats.team_scoring_mode || 'weighted';
 			eventName = stats.event_name || 'Alanbix LAN';
+			lanWifiSsids = Array.isArray(stats.lan_wifi_ssids) ? stats.lan_wifi_ssids.join(', ') : (stats.lan_wifi_ssids || '');
 			try {
 				const dpCfg = await api.get('/admin/config/default_tournament_pts');
 				if (dpCfg?.value) {
@@ -231,6 +234,14 @@
 			await api.put('/admin/config/event_name', { value: eventName });
 			toast(get(t)('admin_toast_lan_name_saved'), 'success');
 		} catch { toast('Erreur sauvegarde.', 'error'); }
+	}
+
+	async function saveLanWifiSsids() {
+		try {
+			const list = lanWifiSsids.split(',').map(s => s.trim()).filter(Boolean);
+			await api.put('/admin/config/lan_wifi_ssids', { value: list });
+			toast('Réseaux Wi-Fi de la LAN enregistrés.', 'success');
+		} catch { toast('Erreur sauvegarde Wi-Fi.', 'error'); }
 	}
 
 	async function saveSearxngUrl() {
@@ -591,6 +602,21 @@
 			<div class="sc-body">
 				<div class="flex-row gap-2">
 					<input type="text" bind:value={eventName} on:input={() => debounceSave('eventName', saveEventName)} placeholder="{$t('admin_settings_lan_name_placeholder')}" style="flex:1" />
+				</div>
+			</div>
+		</div>
+
+		<div class="sc glass">
+			<div class="sc-head">
+				<div class="sc-icon">📶</div>
+				<div>
+					<h3>Réseaux Wi-Fi de la LAN (SSID)</h3>
+					<p class="sc-sub">Noms des réseaux Wi-Fi (séparés par des virgules, ex: Alanbix_LAN, LAN_5G). Utilisé par les smartphones pour le maintien de connexion locale et alertes de matchs.</p>
+				</div>
+			</div>
+			<div class="sc-body">
+				<div class="flex-row gap-2">
+					<input type="text" bind:value={lanWifiSsids} on:input={() => debounceSave('lanWifiSsids', saveLanWifiSsids)} placeholder="Ex: Alanbix_LAN, Tournoi_5G" style="flex:1" />
 				</div>
 			</div>
 		</div>

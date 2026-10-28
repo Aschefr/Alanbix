@@ -247,11 +247,238 @@
 
 	$: runningTournaments = tournaments.filter(t => t.status === 'RUNNING');
 	$: activeTournament = runningTournaments[selectedRunningIdx] || null;
+
+	let mobileActiveTab = 'matches'; // 'matches' | 'chat'
+
+	$: myActiveMatches = (() => {
+		if (!user || !tournaments || !tournaments.length) return [];
+		const myUid = user.id;
+		const myTeamName = (user.team_name || '').toLowerCase();
+		const list = [];
+
+		for (const t of tournaments) {
+			if (t.status !== 'RUNNING' && t.status !== 'OPEN') continue;
+			if (!t.bracket || !Array.isArray(t.bracket)) continue;
+			const config = t.config || {};
+			const useTeams = config.use_teams;
+			const teamMap = config._team_map || {};
+
+			for (const m of t.bracket) {
+				const p = m.p || [];
+				if (p.length < 2) continue;
+				const score = m.score || [];
+				const isCompleted = (score.length >= 2 && ((score[0] !== null && score[0] > 0) || (score[1] !== null && score[1] > 0)));
+				if (isCompleted) continue;
+
+				const p0 = p[0];
+				const p1 = p[1];
+
+				let isP0 = false;
+				let isP1 = false;
+
+				if (p0 === myUid) isP0 = true;
+				if (p1 === myUid) isP1 = true;
+
+				if (useTeams && myTeamName) {
+					if (p0 < 0) {
+						const tName = (teamMap[String(p0)] || '').toLowerCase();
+						if (tName === myTeamName) isP0 = true;
+					}
+					if (p1 < 0) {
+						const tName = (teamMap[String(p1)] || '').toLowerCase();
+						if (tName === myTeamName) isP1 = true;
+					}
+				}
+
+				if (!isP0 && !isP1) continue;
+
+				const oppPid = isP0 ? p1 : p0;
+				let oppName = 'Adversaire à déterminer';
+				let oppUser = null;
+				let oppSeat = null;
+				let isReady = false;
+
+				if (oppPid === 0) {
+					oppName = 'Adversaire à déterminer';
+					isReady = false;
+				} else if (oppPid < 0) {
+					oppName = teamMap[String(oppPid)] || `Équipe #${Math.abs(oppPid)}`;
+					isReady = true;
+				} else {
+					oppUser = (allUsers || []).find(u => u.id === oppPid);
+					oppName = oppUser ? oppUser.username : `Joueur #${oppPid}`;
+					oppSeat = oppUser?.seat_id || null;
+					isReady = true;
+				}
+
+				const gameObj = (games || []).find(g => g.id === t.game_id);
+				const gameName = gameObj?.name || t.game || 'Tournoi';
+
+				let roundLabel = 'Match';
+				if (m.id?.r) {
+					roundLabel = `Tour ${m.id.r}`;
+				}
+
+				list.push({
+					tournament_id: t.id,
+					tournament_name: t.name,
+					game_name: gameName,
+					round_label: roundLabel,
+					match_id: m.id,
+					is_ready: isReady,
+					opponent_name: oppName,
+					opponent_id: oppPid > 0 ? oppPid : null,
+					opponent_seat: oppSeat,
+					status_label: isReady ? '⚔️ PRÊT À JOUER' : '⏳ EN ATTENTE'
+				});
+			}
+		}
+		return list;
+	})();
 </script>
 
 <div class="hq-dashboard">
-	<!-- Top Command Bar -->
-	<header class="command-bar">
+	<!-- MOBILE-ONLY HEADER TABS (<= 900px) -->
+	<div class="mobile-dash-header mobile-only">
+		<div class="mobile-dash-tabs">
+			<button
+				class="mobile-dash-tab"
+				class:active={mobileActiveTab === 'matches'}
+				on:click={() => mobileActiveTab = 'matches'}
+			>
+				<span class="tab-txt">⚔️ Mes Matchs</span>
+				{#if myActiveMatches.length > 0}
+					<span class="mobile-badge-count">{myActiveMatches.length}</span>
+				{/if}
+			</button>
+			<button
+				class="mobile-dash-tab"
+				class:active={mobileActiveTab === 'chat'}
+				on:click={() => mobileActiveTab = 'chat'}
+			>
+				<span class="tab-txt">🌐 Chat Général</span>
+			</button>
+		</div>
+	</div>
+
+	<!-- MOBILE VIEW: MATCHES TAB -->
+	<div class="mobile-tab-content mobile-matches-panel mobile-only" class:hidden-on-mobile={mobileActiveTab !== 'matches'}>
+		<!-- Active Matches Section -->
+		<section class="mobile-section">
+			<div class="mobile-section-header">
+				<h2>⚔️ Mes Matchs</h2>
+				<span class="badge-pill">{myActiveMatches.length} actif{myActiveMatches.length > 1 ? 's' : ''}</span>
+			</div>
+
+			{#if myActiveMatches.length === 0}
+				<div class="empty-matches-card glass">
+					<div class="empty-icon">🎯</div>
+					<h3>Aucun match à jouer pour l'instant</h3>
+					<p>Vous n'avez aucun match en attente. Consultez les tournois ou échangez avec les autres participants !</p>
+					<a href="/dashboard/tournaments" class="btn btn-sm btn-primary">
+						🏆 Voir les tournois
+					</a>
+				</div>
+			{:else}
+				<div class="matches-cards-list">
+					{#each myActiveMatches as m}
+						<div class="match-card glass" class:match-ready={m.is_ready}>
+							<div class="match-card-top">
+								<span class="match-game-tag">🎮 {m.game_name}</span>
+								<span class="match-status-tag" class:tag-ready={m.is_ready}>
+									{m.status_label}
+								</span>
+							</div>
+
+							<div class="match-tourney-title">
+								<strong>{m.tournament_name}</strong> · <span class="round-name">{m.round_label}</span>
+							</div>
+
+							<div class="match-versus-box">
+								<div class="vs-label">Contre :</div>
+								<div class="opponent-name">
+									{m.opponent_name}
+									{#if m.opponent_seat}
+										<a href="/dashboard/map?highlight={m.opponent_seat}" class="seat-link" title="Voir sur le plan">
+											📍 Poste {m.opponent_seat}
+										</a>
+									{/if}
+								</div>
+							</div>
+
+							<div class="match-card-actions">
+								<a href="/dashboard/tournaments/{m.tournament_id}" class="btn btn-primary btn-match-action">
+									⚔️ Saisir le score / Arbre →
+								</a>
+								{#if m.opponent_id}
+									<a href="/dashboard/players?chat={m.opponent_id}" class="btn btn-secondary btn-chat-action" title="Envoyer un message">
+										💬 Message
+									</a>
+								{/if}
+							</div>
+						</div>
+					{/each}
+				</div>
+			{/if}
+		</section>
+
+		<!-- Tournaments Summary -->
+		<section class="mobile-section">
+			<div class="mobile-section-header">
+				<h2>🏆 Tournois ({tournaments.length})</h2>
+				<a href="/dashboard/tournaments" class="see-all-link">Tout voir →</a>
+			</div>
+			<div class="mobile-tourneys-list">
+				{#each (tournaments || []).slice(0, 4) as t}
+					<a href="/dashboard/tournaments/{t.id}" class="mobile-tourney-card glass">
+						<div class="tourney-card-info">
+							<span class="tourney-name">{t.name}</span>
+							<span class="tourney-sub">
+								🎮 {t.game || 'Jeu'} · {t.participants_count || 0} participants
+							</span>
+						</div>
+						<span class="tourney-badge badge-{t.status.toLowerCase()}">
+							{t.status === 'RUNNING' ? '🟢 En cours' : t.status === 'OPEN' ? '🔵 Inscriptions' : '⚪ Terminé'}
+						</span>
+					</a>
+				{/each}
+			</div>
+		</section>
+
+		<!-- Leaderboard Top 3 -->
+		{#if stats.leaderboard && stats.leaderboard.length > 0}
+			<section class="mobile-section">
+				<div class="mobile-section-header">
+					<h2>🏅 Top 3 Classement</h2>
+				</div>
+				<div class="mobile-podium glass">
+					{#each stats.leaderboard.slice(0, 3) as p, idx}
+						<div class="podium-row">
+							<span class="podium-rank">{idx === 0 ? '🥇' : idx === 1 ? '🥈' : '🥉'}</span>
+							<span class="podium-name">{p.username}</span>
+							{#if p.team_name}
+								<span class="podium-team">👥 {p.team_name}</span>
+							{/if}
+							<span class="podium-pts">{p.points || 0} pts</span>
+						</div>
+					{/each}
+				</div>
+			</section>
+		{/if}
+	</div>
+
+	<!-- MOBILE VIEW: PUBLIC CHAT TAB -->
+	<div class="mobile-tab-content mobile-chat-panel mobile-only" class:hidden-on-mobile={mobileActiveTab !== 'chat'}>
+		<PublicChat
+			{user}
+			{allUsers}
+			on:seatHover={(e) => hoveredSeatId = e.detail}
+			on:seatLeave={() => hoveredSeatId = null}
+		/>
+	</div>
+
+	<!-- Top Command Bar (Desktop only > 900px) -->
+	<header class="command-bar desktop-only">
 		<div class="cmd-left">
 			<h1 class="title-premium">LAN Party Dashboard</h1>
 		</div>
@@ -284,7 +511,7 @@
 	</header>
 
 	<!-- 3-Column Main Grid -->
-	<div class="main-triptych">
+	<div class="main-triptych desktop-only">
 		<!-- LEFT: Leaderboard -->
 		<DashboardLeaderboard
 			{stats}
@@ -346,7 +573,7 @@
 	</div>
 
 	<!-- Bottom Stats Row -->
-	<div class="stats-bar">
+	<div class="stats-bar desktop-only">
 		<div class="stat-pill glass">
 			<span class="sp-icon">🎮</span>
 			<div class="sp-data">
@@ -580,5 +807,336 @@
 		color: var(--text-muted);
 		text-transform: uppercase;
 		font-weight: 700;
+	}
+
+	/* Mobile Dashboard Styles (<= 900px) */
+	.mobile-only {
+		display: none;
+	}
+
+	@media (max-width: 900px) {
+		.desktop-only {
+			display: none !important;
+		}
+
+		.mobile-only {
+			display: flex;
+		}
+
+		.hq-dashboard {
+			height: auto;
+			min-height: calc(100vh - 120px);
+			gap: 1rem;
+		}
+
+		.mobile-dash-header {
+			position: sticky;
+			top: 50px;
+			z-index: 50;
+			background: var(--bg-primary);
+			padding: 0.2rem 0 0.5rem;
+		}
+
+		.mobile-dash-tabs {
+			display: flex;
+			gap: 0.5rem;
+			background: rgba(15, 23, 42, 0.7);
+			padding: 0.3rem;
+			border-radius: 12px;
+			border: 1px solid var(--glass-border);
+			width: 100%;
+		}
+
+		.mobile-dash-tab {
+			flex: 1;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			gap: 0.5rem;
+			padding: 0.55rem 0.8rem;
+			border-radius: 8px;
+			border: none;
+			background: transparent;
+			color: var(--text-dim);
+			font-weight: 600;
+			font-size: 0.88rem;
+			cursor: pointer;
+			transition: all 0.2s;
+		}
+
+		.mobile-dash-tab.active {
+			background: var(--accent);
+			color: #fff;
+			box-shadow: 0 2px 10px var(--accent-glow);
+		}
+
+		.mobile-badge-count {
+			background: #ef4444;
+			color: #fff;
+			font-size: 0.65rem;
+			font-weight: 800;
+			padding: 0.1rem 0.45rem;
+			border-radius: 10px;
+		}
+
+		.mobile-tab-content {
+			display: flex;
+			flex-direction: column;
+			gap: 1.25rem;
+		}
+
+		.hidden-on-mobile {
+			display: none !important;
+		}
+
+		.mobile-chat-panel {
+			height: calc(100vh - 170px);
+			border-radius: 14px;
+			overflow: hidden;
+		}
+
+		/* Mobile Matches Section */
+		.mobile-section {
+			display: flex;
+			flex-direction: column;
+			gap: 0.75rem;
+		}
+
+		.mobile-section-header {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+		}
+
+		.mobile-section-header h2 {
+			font-size: 1.05rem;
+			margin: 0;
+			color: #f1f5f9;
+			font-weight: 700;
+		}
+
+		.badge-pill {
+			font-size: 0.72rem;
+			font-weight: 700;
+			padding: 0.15rem 0.55rem;
+			border-radius: 8px;
+			background: rgba(59, 130, 246, 0.15);
+			color: #60a5fa;
+			border: 1px solid rgba(59, 130, 246, 0.3);
+		}
+
+		.empty-matches-card {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			text-align: center;
+			padding: 2rem 1.2rem;
+			border-radius: 14px;
+			border: 1px dashed rgba(255, 255, 255, 0.12);
+			gap: 0.6rem;
+		}
+		.empty-icon { font-size: 2.2rem; }
+		.empty-matches-card h3 { margin: 0; font-size: 1rem; color: #f1f5f9; }
+		.empty-matches-card p { margin: 0; font-size: 0.82rem; color: #94a3b8; max-width: 320px; }
+
+		/* Match Cards */
+		.matches-cards-list {
+			display: flex;
+			flex-direction: column;
+			gap: 0.85rem;
+		}
+
+		.match-card {
+			background: rgba(15, 23, 42, 0.8);
+			border: 1px solid rgba(255, 255, 255, 0.08);
+			border-radius: 14px;
+			padding: 1rem;
+			display: flex;
+			flex-direction: column;
+			gap: 0.7rem;
+			box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+			border-left: 4px solid #f59e0b;
+		}
+
+		.match-card.match-ready {
+			border-left: 4px solid #10b981;
+			background: rgba(16, 185, 129, 0.04);
+		}
+
+		.match-card-top {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			font-size: 0.75rem;
+		}
+
+		.match-game-tag {
+			font-weight: 700;
+			color: var(--accent);
+		}
+
+		.match-status-tag {
+			font-weight: 800;
+			font-size: 0.7rem;
+			padding: 0.15rem 0.5rem;
+			border-radius: 6px;
+			background: rgba(245, 158, 11, 0.15);
+			color: #fbbf24;
+			border: 1px solid rgba(245, 158, 11, 0.3);
+		}
+
+		.match-status-tag.tag-ready {
+			background: rgba(16, 185, 129, 0.15);
+			color: #34d399;
+			border-color: rgba(16, 185, 129, 0.3);
+		}
+
+		.match-tourney-title {
+			font-size: 0.95rem;
+			color: #f8fafc;
+		}
+		.match-tourney-title .round-name {
+			color: #94a3b8;
+			font-size: 0.85rem;
+		}
+
+		.match-versus-box {
+			background: rgba(0, 0, 0, 0.25);
+			border: 1px solid rgba(255, 255, 255, 0.05);
+			border-radius: 8px;
+			padding: 0.6rem 0.75rem;
+			display: flex;
+			align-items: center;
+			gap: 0.6rem;
+		}
+
+		.vs-label {
+			font-size: 0.75rem;
+			color: #94a3b8;
+			font-weight: 600;
+		}
+
+		.opponent-name {
+			font-size: 0.92rem;
+			font-weight: 700;
+			color: #f1f5f9;
+			display: flex;
+			align-items: center;
+			gap: 0.5rem;
+			flex-wrap: wrap;
+		}
+
+		.seat-link {
+			font-size: 0.72rem;
+			color: #10b981;
+			background: rgba(16, 185, 129, 0.12);
+			border: 1px solid rgba(16, 185, 129, 0.25);
+			padding: 0.1rem 0.45rem;
+			border-radius: 6px;
+			text-decoration: none;
+			font-weight: 600;
+		}
+
+		.match-card-actions {
+			display: flex;
+			gap: 0.5rem;
+			margin-top: 0.2rem;
+		}
+
+		.btn-match-action {
+			flex: 1;
+			text-align: center;
+			text-decoration: none;
+			font-size: 0.85rem;
+			padding: 0.55rem 0.75rem;
+		}
+
+		.btn-chat-action {
+			text-decoration: none;
+			font-size: 0.85rem;
+			padding: 0.55rem 0.75rem;
+		}
+
+		/* Mobile Tourneys List */
+		.mobile-tourneys-list {
+			display: flex;
+			flex-direction: column;
+			gap: 0.5rem;
+		}
+
+		.mobile-tourney-card {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			padding: 0.75rem 0.9rem;
+			border-radius: 10px;
+			border: 1px solid rgba(255, 255, 255, 0.06);
+			text-decoration: none;
+			gap: 0.75rem;
+			transition: background 0.15s;
+		}
+
+		.tourney-card-info {
+			display: flex;
+			flex-direction: column;
+			gap: 0.2rem;
+			min-width: 0;
+		}
+
+		.tourney-name {
+			font-size: 0.88rem;
+			font-weight: 700;
+			color: #f1f5f9;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+
+		.tourney-sub {
+			font-size: 0.75rem;
+			color: #94a3b8;
+		}
+
+		.tourney-badge {
+			font-size: 0.72rem;
+			font-weight: 700;
+			padding: 0.2rem 0.55rem;
+			border-radius: 6px;
+			white-space: nowrap;
+		}
+		.badge-running { background: rgba(16, 185, 129, 0.15); color: #34d399; }
+		.badge-open { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
+		.badge-done, .badge-closed { background: rgba(148, 163, 184, 0.15); color: #94a3b8; }
+
+		.see-all-link {
+			font-size: 0.8rem;
+			color: var(--accent);
+			text-decoration: none;
+			font-weight: 600;
+		}
+
+		/* Mobile Podium */
+		.mobile-podium {
+			border-radius: 12px;
+			padding: 0.5rem 0.85rem;
+			display: flex;
+			flex-direction: column;
+			gap: 0.5rem;
+			border: 1px solid rgba(255, 255, 255, 0.06);
+		}
+
+		.podium-row {
+			display: flex;
+			align-items: center;
+			gap: 0.6rem;
+			padding: 0.35rem 0;
+			font-size: 0.85rem;
+		}
+
+		.podium-rank { font-size: 1rem; }
+		.podium-name { font-weight: 700; color: #f1f5f9; flex: 1; }
+		.podium-team { font-size: 0.75rem; color: #94a3b8; }
+		.podium-pts { font-weight: 800; color: #fbbf24; }
 	}
 </style>

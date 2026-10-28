@@ -167,12 +167,30 @@ class Notification(Base):
     __tablename__ = "notifications"
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
-    type = Column(String)  # "tournament_closed", "admin_message", "system"
+    type = Column(String)  # "tournament_closed", "admin_message", "system", etc.
+    category = Column(String, nullable=True, index=True)  # "match_ready", "admin_message", "announcement", etc.
     title = Column(String)
     content = Column(Text)
+    link = Column(String, nullable=True)  # "/dashboard/tournaments/1", "/dashboard/players?chat=5", etc.
     is_read = Column(Boolean, default=False, index=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow, index=True)
     metadata_json = Column(JSON, nullable=True)  # tournament_id, conversation_id, etc.
+
+
+class Device(Base):
+    """Jeton d'appareil persistant pour l'écoute des notifications d'arrière-plan."""
+    __tablename__ = "devices"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    token = Column(String, unique=True, index=True)  # Jeton "dev_..." persistant
+    platform = Column(String)  # "android", "ios", "web"
+    name = Column(String, nullable=True)  # "Pixel 8", "iPhone 13"
+    push_token = Column(String, nullable=True)  # Pour relais FCM / APNs futur
+    device_key = Column(String, nullable=True)  # Clé de chiffrement client
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    last_seen = Column(DateTime, default=datetime.datetime.utcnow)
+
+    user = relationship("User", backref="devices")
 
 class PrivateMessage(Base):
     __tablename__ = "private_messages"

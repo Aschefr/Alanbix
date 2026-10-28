@@ -3,7 +3,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from .database import engine, init_db
 from . import models
-from .routers import users, tournaments, room, ia, dashboard, notifications, players
+from .routers import users, tournaments, room, ia, dashboard, notifications, players, devices
 
 from .websockets import manager
 
@@ -298,15 +298,20 @@ def system_discovery():
     from .database import SessionLocal
     from . import models
     event_name = "Alanbix LAN"
+    lan_wifi_ssids = []
     try:
         db = SessionLocal()
         cfg = db.query(models.SystemConfig).filter(models.SystemConfig.key == "event_name").first()
         if cfg and cfg.value:
             event_name = cfg.value
+        ssids_cfg = db.query(models.SystemConfig).filter(models.SystemConfig.key == "lan_wifi_ssids").first()
+        if ssids_cfg and ssids_cfg.value:
+            val = ssids_cfg.value
+            lan_wifi_ssids = val if isinstance(val, list) else [s.strip() for s in str(val).split(",") if s.strip()]
         db.close()
     except Exception:
         pass
-    return get_discovery_payload(event_name=event_name)
+    return get_discovery_payload(event_name=event_name, lan_wifi_ssids=lan_wifi_ssids)
 
 @app.get("/changelog")
 def get_changelog():
@@ -370,6 +375,9 @@ app.include_router(ia.router)
 app.include_router(dashboard.router)
 app.include_router(i18n.router)
 app.include_router(notifications.router)
+app.include_router(notifications.router, prefix="/api")
+app.include_router(devices.router)
+app.include_router(devices.router, prefix="/api")
 app.include_router(players.router)
 app.include_router(public_chat.router)
 
@@ -394,16 +402,18 @@ app.mount("/data", StaticFiles(directory=DATA_DIR), name="data")
 
 
 @app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
+async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None, client: Optional[str] = "web"):
     await manager.connect(websocket)
     from .auth import get_user_id_from_token
     import json
+
+    client_type = (client or "web").lower()
 
     # If token was provided in connection query param
     if token:
         user_id = get_user_id_from_token(token)
         if user_id:
-            await manager.register_user(websocket, user_id)
+            await manager.register_user(websocket, user_id, client_type=client_type)
 
     try:
         while True:
@@ -415,7 +425,10 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
                     if msg_type == "auth" and data.get("token"):
                         user_id = get_user_id_from_token(data["token"])
                         if user_id:
-                            await manager.register_user(websocket, user_id)
+                            msg_client = str(data.get("client", client_type)).lower()
+                            await manager.register_user(websocket, user_id, client_type=msg_client)
+                    elif msg_type == "ping":
+                        await websocket.send_json({"type": "pong", "timestamp": data.get("timestamp")})
             except Exception:
                 pass
     except (WebSocketDisconnect, Exception):

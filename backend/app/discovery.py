@@ -43,7 +43,7 @@ def get_app_version() -> str:
     return "1.20.0"
 
 
-def get_discovery_payload(event_name: str = "Alanbix LAN") -> dict:
+def get_discovery_payload(event_name: str = "Alanbix LAN", lan_wifi_ssids: list = None) -> dict:
     """Construit la charge utile JSON d'identification du serveur Alanbix."""
     hostname = socket.gethostname()
     return {
@@ -55,6 +55,7 @@ def get_discovery_payload(event_name: str = "Alanbix LAN") -> dict:
         "port": APP_HTTP_PORT,
         "version": get_app_version(),
         "status": "ok",
+        "lan_wifi_ssids": lan_wifi_ssids or [],
     }
 
 

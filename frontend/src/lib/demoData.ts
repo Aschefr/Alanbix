@@ -200,6 +200,7 @@ export function handleDemoRequest(rawPath: string, method: string = 'GET', body?
 			ip: '127.0.0.1',
 			port: 41481,
 			version: '1.20.0',
+			lan_wifi_ssids: ['Alanbix-LAN-5GHz', 'Alanbix-LAN-2.4GHz'],
 			status: 'ok'
 		};
 	}
@@ -233,6 +234,7 @@ export function handleDemoRequest(rawPath: string, method: string = 'GET', body?
 			team_scoring_mode: 'weighted',
 			lan_multilingual: true,
 			lan_default_language: 'fr',
+			lan_wifi_ssids: ['Alanbix-LAN-5GHz', 'Alanbix-LAN-2.4GHz'],
 			leaderboard: DEMO_USERS.map((u, idx) => ({
 				username: u.username,
 				points: u.points,
@@ -378,12 +380,65 @@ export function handleDemoRequest(rawPath: string, method: string = 'GET', body?
 		return [
 			{
 				id: 1,
-				title: 'Tournoi CS2 Wingman lancé !',
+				type: 'match_ready',
+				category: 'match_ready',
+				title: '⚔️ Match prêt — Tournoi CS2 Wingman !',
+				content: 'Votre match contre Apex Squad est prêt à démarrer.',
 				message: 'Votre match contre Apex Squad est prêt à démarrer.',
+				link: '/dashboard/tournaments/1',
 				is_read: false,
 				created_at: new Date(Date.now() - 1200000).toISOString()
 			}
 		];
+	}
+
+	if (cleanPath === '/notifications/missed') {
+		return {
+			since: new Date(Date.now() - 86400000).toISOString(),
+			count: 1,
+			events: [
+				{
+					id: 'notif_1',
+					notification_id: 1,
+					category: 'match_ready',
+					title: '⚔️ Match prêt — Tournoi CS2 Wingman !',
+					body: 'Votre match contre Apex Squad est prêt à démarrer.',
+					link: '/dashboard/tournaments/1',
+					data: { tournament_id: 1 },
+					created_at: new Date(Date.now() - 1200000).toISOString()
+				}
+			]
+		};
+	}
+
+	if (cleanPath === '/notifications/test') {
+		return { status: 'sent', notification_id: 999 };
+	}
+
+	if (cleanPath === '/devices') {
+		return {
+			id: 1,
+			token: 'dev_demo_token_alanbix',
+			platform: 'demo',
+			name: 'Demo Mobile Companion'
+		};
+	}
+
+	if (cleanPath === '/devices/me') {
+		return [
+			{
+				id: 1,
+				platform: 'demo',
+				name: 'Demo Mobile Companion',
+				has_push_token: false,
+				created_at: new Date().toISOString(),
+				last_seen: new Date().toISOString()
+			}
+		];
+	}
+
+	if (cleanPath === '/devices/revoke-token') {
+		return { status: 'revoked' };
 	}
 
 	if (cleanPath === '/ia/config') {

@@ -376,6 +376,20 @@ async def send_message(
         "user_id": user.id
     })
 
+    # 10b. Push notifications to mentioned players (excluding author)
+    for m_uid in mentions_data.get("user_ids", []):
+        if m_uid != user.id:
+            await ws_manager.send_to_user(m_uid, {
+                "type": "push",
+                "id": f"pubmsg_{db_msg.id}",
+                "category": "public_mention",
+                "title": f"🌐 @{user.username} dans le Chat Général",
+                "body": (content or ("📷 Image" if image_path else ""))[:100],
+                "link": "/dashboard",
+                "data": {"message_id": db_msg.id, "sender_id": user.id},
+                "created_at": db_msg.created_at.isoformat() if db_msg.created_at else datetime.datetime.utcnow().isoformat()
+            })
+
     # Clear sender's typing state
     await ws_manager.broadcast({
         "type": "public_chat_typing",

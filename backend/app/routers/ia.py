@@ -1310,16 +1310,16 @@ async def admin_intervene(conv_id: int, body: AdminInterveneRequest, db: Session
             is_active = True
 
     if not is_active:
-        notif = models.Notification(
+        from .notifications import notify_user
+        await notify_user(
+            db=db,
             user_id=conv.user_id,
-            type="admin_message",
+            category="ai_reply",
             title=f"🛡️ Message de {admin.username}",
-            content=body.content[:200],
-            metadata_json={"conversation_id": conv_id}
+            body=body.content[:200],
+            link="/dashboard/ai",
+            data={"conversation_id": conv_id}
         )
-        db.add(notif)
-        db.commit()
-        await ws_manager.broadcast({"type": "notification_new"})
     return {"status": "ok", "message_id": msg.id}
 
 class OverrideRequest(BaseModel):

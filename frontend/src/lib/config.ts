@@ -107,6 +107,21 @@ export function resolveApiUrl(): string {
 
 export const API_URL = resolveApiUrl();
 
+/**
+ * Resolves a media/image path (such as /data/avatars/... or /favicon.svg)
+ * to an absolute URL on Capacitor Mobile when pointing to a custom LAN server.
+ */
+export function resolveMediaUrl(path: string | null | undefined): string {
+	if (!path) return '';
+	if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('data:') || path.startsWith('blob:')) {
+		return path;
+	}
+	const base = resolveApiUrl();
+	if (!base) return path;
+	const cleanPath = path.startsWith('/') ? path : `/${path}`;
+	return `${base}${cleanPath}`;
+}
+
 // Helper to derive ws(s):// URL from an absolute http(s):// endpoint
 function toWsFromHttp(url: string): string {
 	const clean = url.replace(/\/+$/, '');

@@ -393,8 +393,8 @@ async def pm_send(peer_id: int, body: SendMessage, db: Session = Depends(databas
     users_map = {user.id: user.username, peer_id: peer.username}
     serialized = _serialize_pm(msg, users_map)
 
-    # Real-time broadcast so both sender and receiver update instantly
-    await ws_manager.broadcast({
+    # Real-time targeted send to sender and receiver only (leak fix)
+    pm_event = {
         "type": "private_message_new",
         "sender_id": user.id,
         "sender_name": user.username,
@@ -402,6 +402,19 @@ async def pm_send(peer_id: int, body: SendMessage, db: Session = Depends(databas
         "message_id": msg.id,
         "preview": (content or ("📷 Image" if image_path else ""))[:100],
         "message": serialized
+    }
+    await ws_manager.send_to_users([user.id, peer_id], pm_event)
+
+    # Send push event to recipient for background notifications
+    await ws_manager.send_to_user(peer_id, {
+        "type": "push",
+        "id": f"pm_{msg.id}",
+        "category": "private_message",
+        "title": f"💬 {user.username}",
+        "body": (content or ("📷 Image" if image_path else ""))[:100],
+        "link": f"/dashboard/players?chat={user.id}",
+        "data": {"sender_id": user.id, "message_id": msg.id},
+        "created_at": msg.created_at.isoformat() if msg.created_at else datetime.datetime.utcnow().isoformat()
     })
 
     return {
@@ -447,7 +460,8 @@ async def toggle_pm_reaction(
     flag_modified(msg, "reactions")
     db.commit()
 
-    await ws_manager.broadcast({
+    # Targeted send to conversation participants only
+    await ws_manager.send_to_users([user.id, peer_id], {
         "type": "private_message_reaction",
         "message_id": msg.id,
         "sender_id": user.id,
@@ -752,8 +766,14 @@ async def group_send(body: GroupSendMessage, db: Session = Depends(database.get_
 
     serialized = _serialize_group_msg(msg, users_map)
 
-    # WebSocket broadcast
-    await ws_manager.broadcast({
+    # Targeted WebSocket send to channel team members only (leak fix)
+    target_users = db.query(models.User.id).filter(
+        models.User.team_name.in_(channel.team_names or [])
+    ).all()
+    channel_user_ids = {u.id for u in target_users}
+    channel_user_ids.add(user.id)
+
+    group_event = {
         "type": "group_message_new",
         "channel_key": channel.channel_key,
         "channel_type": channel.channel_type,
@@ -763,7 +783,24 @@ async def group_send(body: GroupSendMessage, db: Session = Depends(database.get_
         "message_id": msg.id,
         "preview": (content or ("📷 Image" if image_path else ""))[:100],
         "message": serialized
-    })
+    }
+    await ws_manager.send_to_users(channel_user_ids, group_event)
+
+    # Push notifications to all members of the channel except sender
+    team_label = channel.team_names[0] if channel.team_names else "Équipe"
+    channel_link = f"/dashboard/players?chat=group"
+    for recipient_id in channel_user_ids:
+        if recipient_id != user.id:
+            await ws_manager.send_to_user(recipient_id, {
+                "type": "push",
+                "id": f"grp_{msg.id}",
+                "category": "team_message",
+                "title": f"👥 {user.username} ({team_label})",
+                "body": (content or ("📷 Image" if image_path else ""))[:100],
+                "link": channel_link,
+                "data": {"channel_key": channel.channel_key, "message_id": msg.id},
+                "created_at": msg.created_at.isoformat() if msg.created_at else datetime.datetime.utcnow().isoformat()
+            })
 
     return {
         "status": "sent",
@@ -814,7 +851,13 @@ async def toggle_group_reaction(
     flag_modified(msg, "reactions")
     db.commit()
 
-    await ws_manager.broadcast({
+    target_users = db.query(models.User.id).filter(
+        models.User.team_name.in_(channel.team_names or [])
+    ).all()
+    channel_user_ids = {u.id for u in target_users}
+    channel_user_ids.add(user.id)
+
+    await ws_manager.send_to_users(channel_user_ids, {
         "type": "group_message_reaction",
         "channel_key": channel.channel_key,
         "message_id": msg.id,

@@ -6,6 +6,7 @@
 	import { pmUnreadCount, groupUnreadCount } from '$lib/pmStore';
 	import { t } from '$lib/i18nStore';
 	import { formatPoints } from '$lib/utils';
+	import { resolveMediaUrl } from '$lib/config';
 	import PlayerChat from '$lib/components/PlayerChat.svelte';
 
 	let players = [];
@@ -385,7 +386,7 @@
 
 	<div class="players-layout" style="grid-template-columns: minmax(0, 1fr) 8px {chatWidth}px;">
 		<!-- LEFT: Player directory -->
-		<div class="directory-col">
+		<div class="directory-col" class:mobile-hidden={chatMode !== null}>
 			{#if loading && players.length === 0}
 				<div class="loading-state glass"><span>⏳</span> {$t("login_checking")}</div>
 			{:else}
@@ -427,7 +428,7 @@
 										<div class="avatar-wrapper" style="position: relative; display: inline-block; flex-shrink: 0;">
 											<div class="player-avatar avatar-shape-{player.avatar_shape || 'circle'}">
 												{#if player.avatar_url}
-													<img src={player.avatar_url} alt="" class="player-avatar-img" />
+													<img src={resolveMediaUrl(player.avatar_url)} alt="" class="player-avatar-img" on:error={(e) => { e.currentTarget.style.display = "none"; }} />
 												{:else}
 													{player.username[0].toUpperCase()}
 												{/if}
@@ -511,7 +512,7 @@
 										<div class="avatar-wrapper" style="position: relative; display: inline-block; flex-shrink: 0;">
 											<div class="player-avatar solo avatar-shape-{player.avatar_shape || 'circle'}">
 												{#if player.avatar_url}
-													<img src={player.avatar_url} alt="" class="player-avatar-img" />
+													<img src={resolveMediaUrl(player.avatar_url)} alt="" class="player-avatar-img" on:error={(e) => { e.currentTarget.style.display = "none"; }} />
 												{:else}
 													{player.username[0].toUpperCase()}
 												{/if}
@@ -591,7 +592,7 @@
 		<div class="resizer" class:active={isResizing} on:mousedown={startResize}></div>
 
 		<!-- RIGHT: Chat panel -->
-		<div class="chat-col glass" style="overflow: hidden; display: flex; flex-direction: column;">
+		<div class="chat-col glass" class:mobile-hidden={chatMode === null} style="overflow: hidden; display: flex; flex-direction: column;">
 			{#if !chatMode}
 				<div class="chat-empty">
 					<span class="chat-empty-icon">💬</span>
@@ -857,5 +858,32 @@
 	.scroll-to-bottom-btn:hover {
 		background: var(--hover-tint);
 		transform: translateY(-2px);
+	}
+
+	@media (max-width: 900px) {
+		.players-page {
+			height: auto;
+			min-height: calc(100vh - 120px);
+		}
+		.players-header {
+			padding: 0.8rem 1rem;
+		}
+		.players-layout {
+			display: block !important;
+			grid-template-columns: none !important;
+		}
+		.resizer {
+			display: none !important;
+		}
+		.directory-col {
+			padding-right: 0;
+		}
+		.chat-col {
+			height: calc(100vh - 130px);
+			border-radius: 14px;
+		}
+		.mobile-hidden {
+			display: none !important;
+		}
 	}
 </style>

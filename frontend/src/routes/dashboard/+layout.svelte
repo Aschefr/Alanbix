@@ -7,7 +7,10 @@
 	import { pmUnreadCount, groupUnreadCount, totalMsgUnread, notifUnreadCount, aiUnreadCount } from '$lib/pmStore';
 	import { get } from 'svelte/store';
 	import TutorialOverlay from '$lib/components/TutorialOverlay.svelte';
-	import { currentLang, availableLanguages, lanMultilingual, loadLocale, flagMap, t, initI18n, refreshEventName } from '$lib/i18nStore';
+	import { page } from '$app/stores';
+	import { currentLang, availableLanguages, lanMultilingual, loadLocale, flagMap, t, initI18n, refreshEventName, eventName } from '$lib/i18nStore';
+	import { handleIncomingPush, getOrRegisterDeviceToken } from '$lib/push';
+	import { resolveMediaUrl } from '$lib/config';
 
 	let user = { username: '...', is_admin: false };
 	let loading = true;
@@ -92,36 +95,8 @@
 		});
 	}
 
-	function notifyBrowser(title, body, link = null) {
-		try {
-			if (!('Notification' in window)) return;
-			if (Notification.permission !== 'granted') return;
-			
-			const absoluteLink = link ? new URL(link, window.location.origin).href : null;
-			const tag = 'alanbix-notification';
-
-			const options = {
-				body: body,
-				icon: '/favicon.svg',
-				tag: tag,
-				renotify: true,
-				data: { url: absoluteLink }
-			};
-
-			if ('serviceWorker' in navigator) {
-				navigator.serviceWorker.getRegistration().then(reg => {
-					if (reg && reg.showNotification) {
-						reg.showNotification(title, options);
-					} else {
-						fallbackNotification(title, options, link);
-					}
-				});
-			} else {
-				fallbackNotification(title, options, link);
-			}
-		} catch (err) {
-			console.warn('[Alanbix] Browser notification failed:', err);
-		}
+	function notifyBrowser(title, body, link = null, category = 'system', id = undefined) {
+		handleIncomingPush({ id, category, title, body, link }, (url) => goto(url));
 	}
 
 	function fallbackNotification(title, options, link) {
@@ -160,6 +135,7 @@
 		try {
 			user = await api.get('/me');
 			connectWS();
+			getOrRegisterDeviceToken().catch(() => {});
 			// Fetch initial unread count
 			try {
 				const nc = await api.get('/notifications/unread-count');
@@ -195,8 +171,10 @@
 							const newCount = r.count || 0;
 							notifUnreadCount.set(newCount);
 							if (newCount > oldCount) {
-								showGlobalToast('🔔 Nouvelle notification reçue', 'info', '/dashboard/notifications');
-								notifyBrowser('Alanbix', '🔔 Nouvelle notification reçue', '/dashboard/notifications');
+								if (!msg.notification_id) {
+									showGlobalToast('🔔 Nouvelle notification reçue', 'info', '/dashboard/notifications');
+									notifyBrowser('Alanbix', '🔔 Nouvelle notification reçue', '/dashboard/notifications', 'system');
+								}
 							}
 							notifBounce = true;
 							setTimeout(() => notifBounce = false, 600);
@@ -217,7 +195,7 @@
 								const senderName = msg.sender_name || 'Quelqu\'un';
 								const preview = msg.preview || '';
 								showGlobalToast(`💬 ${senderName} : ${preview}`, 'pm', link);
-								notifyBrowser(`💬 ${senderName}`, preview, link);
+								notifyBrowser(`💬 ${senderName}`, preview, link, 'private_message', msg.message_id ? `pm_${msg.message_id}` : undefined);
 							}
 							pmBounce = true;
 							setTimeout(() => pmBounce = false, 600);
@@ -234,7 +212,7 @@
 								const senderName = msg.sender_name || 'Quelqu\'un';
 								const preview = msg.preview || '';
 								showGlobalToast(`👥 ${senderName} : ${preview}`, 'pm', link);
-								notifyBrowser(`👥 ${senderName} (groupe)`, preview, link);
+								notifyBrowser(`👥 ${senderName} (groupe)`, preview, link, 'team_message', msg.message_id ? `grp_${msg.message_id}` : undefined);
 							}
 							pmBounce = true;
 							setTimeout(() => pmBounce = false, 600);
@@ -261,6 +239,21 @@
 							aiUnreadCount.update(n => n + 1);
 							aiBounce = true;
 							setTimeout(() => aiBounce = false, 600);
+						}
+					}
+					if (msg.type === 'public_chat_message' && msg.message && msg.message.user_id !== user.id) {
+						handleIncomingPush({
+							id: msg.message.id ? `pubmsg_${msg.message.id}` : undefined,
+							category: 'public_chat_all',
+							title: `🌐 ${msg.message.username || 'Chat Général'}`,
+							body: (msg.message.content || '📷 Image').slice(0, 100),
+							link: '/dashboard'
+						}, (url) => goto(url));
+					}
+					if (msg.type === 'push') {
+						const shown = handleIncomingPush(msg, (url) => goto(url));
+						if (shown && msg.category !== 'private_message' && msg.category !== 'team_message') {
+							showGlobalToast(`${msg.title} : ${msg.body}`, 'info', msg.link || '/dashboard/notifications');
 						}
 					}
 				}
@@ -424,6 +417,36 @@
 	</div>
 {:else}
 <div class="dashboard-layout">
+	<!-- Mobile Top Bar (<= 900px) -->
+	<header class="mobile-top-bar glass">
+		<a href="/dashboard" class="mobile-brand">
+			<div class="logo-alambic mobile-logo">
+				<div class="liquid"></div>
+			</div>
+			<div class="mobile-brand-info">
+				<span class="mobile-app-title">ALANBIX</span>
+				<span class="mobile-event-name">{$eventName || 'LAN Event'}</span>
+			</div>
+		</a>
+		<div class="mobile-top-actions">
+			<a href="/dashboard/info" class="top-action-btn" class:active={$page.url.pathname.startsWith('/dashboard/info')} title="Infos et Reglement">
+				<span class="icon">📋</span>
+			</a>
+			<a href="/dashboard/map" class="top-action-btn" class:active={$page.url.pathname.startsWith('/dashboard/map')} title="Plan de salle">
+				<span class="icon">📍</span>
+			</a>
+			<a href="/dashboard/notifications" class="top-action-btn notif-top-btn" class:active={$page.url.pathname.startsWith('/dashboard/notifications')} title="Notifications" on:click={() => { api.get('/notifications/unread-count').then(r => notifUnreadCount.set(r.count || 0)).catch(() => {}); }}>
+				<span class="icon">🔔</span>
+				{#if $notifUnreadCount > 0}
+					<span class="badge-dot" class:bounce={notifBounce}>{$notifUnreadCount > 9 ? '9+' : $notifUnreadCount}</span>
+				{/if}
+			</a>
+			<a href="/dashboard/settings" class="top-action-btn" class:active={$page.url.pathname.startsWith('/dashboard/settings')} title="Paramètres">
+				<span class="icon">⚙️</span>
+			</a>
+		</div>
+	</header>
+
 	<nav class="side-nav glass">
 		<div class="nav-brand">
 			<div class="logo-alambic">
@@ -480,6 +503,10 @@
 				<span class="icon">📺</span>
 				<span class="label">{$t('nav_spectator')}</span>
 			</a>
+			<a href="/dashboard/settings" class="nav-item">
+				<span class="icon">⚙️</span>
+				<span class="label">Paramètres</span>
+			</a>
 			
 			{#if user.is_admin}
 				<div class="nav-separator"></div>
@@ -518,7 +545,7 @@
 			<a href="/dashboard/profile" class="user-profile">
 				<div class="avatar avatar-shape-{user.avatar_shape || 'circle'}">
 					{#if user.avatar_url}
-						<img src={user.avatar_url} alt={user.username} />
+						<img src={resolveMediaUrl(user.avatar_url)} alt={user.username} />
 					{:else}
 						{user.username[0].toUpperCase()}
 					{/if}
@@ -547,6 +574,9 @@
 						<span class="theme-icon">🔔</span>
 					</button>
 				{/if}
+				<a href="/dashboard/settings" class="theme-toggle" title="Paramètres">
+					<span class="theme-icon">⚙️</span>
+				</a>
 				<button class="theme-toggle" on:click={toggleTheme} title={isDark ? $t('tooltip_light_mode') : $t('tooltip_dark_mode')}>
 					<span class="theme-icon" class:spin={true}>{isDark ? '☀️' : '🌙'}</span>
 				</button>
@@ -562,6 +592,46 @@
 			<slot />
 		</div>
 	</main>
+
+	<!-- Mobile Bottom Nav (<= 900px) -->
+	<nav class="mobile-bottom-nav glass">
+		<a href="/dashboard" class="bottom-tab" class:active={$page.url.pathname === '/dashboard'}>
+			<span class="tab-icon">🏠</span>
+			<span class="tab-label">Accueil</span>
+		</a>
+		<a href="/dashboard/tournaments" class="bottom-tab" class:active={$page.url.pathname.startsWith('/dashboard/tournaments')}>
+			<span class="tab-icon">🏆</span>
+			<span class="tab-label">Tournois</span>
+		</a>
+		<a href="/dashboard/players{$totalMsgUnread > 0 && lastPmSender ? '?chat=' + lastPmSender : ''}" class="bottom-tab" class:active={$page.url.pathname.startsWith('/dashboard/players')}>
+			<span class="tab-icon tab-badge-wrap">
+				💬
+				{#if $totalMsgUnread > 0}
+					<span class="tab-badge" class:bounce={pmBounce}>{$totalMsgUnread > 9 ? '9+' : $totalMsgUnread}</span>
+				{/if}
+			</span>
+			<span class="tab-label">Messages</span>
+		</a>
+		<a href="/dashboard/ai" class="bottom-tab" class:active={$page.url.pathname.startsWith('/dashboard/ai')} on:click={() => aiUnreadCount.set(0)}>
+			<span class="tab-icon tab-badge-wrap">
+				🤖
+				{#if $aiUnreadCount > 0}
+					<span class="tab-badge ai-badge" class:bounce={aiBounce}>{$aiUnreadCount > 9 ? '9+' : $aiUnreadCount}</span>
+				{/if}
+			</span>
+			<span class="tab-label">Assistant</span>
+		</a>
+		<a href="/dashboard/profile" class="bottom-tab" class:active={$page.url.pathname.startsWith('/dashboard/profile')}>
+			<span class="tab-icon">
+				{#if user.avatar_url}
+					<img src={resolveMediaUrl(user.avatar_url)} alt="" class="tab-avatar" on:error={(e) => { e.currentTarget.style.display = "none"; }} />
+				{:else}
+					👤
+				{/if}
+			</span>
+			<span class="tab-label">Profil</span>
+		</a>
+	</nav>
 </div>
 
 <!-- Tutorial Overlay -->
@@ -1203,5 +1273,223 @@
 	@keyframes scaleUp {
 		from { transform: scale(0.95); opacity: 0; }
 		to { transform: scale(1); opacity: 1; }
+	}
+
+	/* Mobile Navigation Styles (<= 900px) */
+	.mobile-top-bar, .mobile-bottom-nav {
+		display: none;
+	}
+
+	@media (max-width: 900px) {
+		.dashboard-layout {
+			display: flex;
+			flex-direction: column;
+			min-height: 100vh;
+			grid-template-columns: none;
+			background: var(--bg-primary);
+		}
+
+		.side-nav {
+			display: none !important;
+		}
+
+		.mobile-top-bar {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			position: sticky;
+			top: 0;
+			z-index: 100;
+			padding: calc(0.5rem + var(--safe-top, 0px)) 1rem 0.5rem;
+			background: rgba(15, 23, 42, 0.88);
+			backdrop-filter: blur(16px);
+			-webkit-backdrop-filter: blur(16px);
+			border-bottom: 1px solid var(--glass-border);
+		}
+
+		.mobile-brand {
+			display: flex;
+			align-items: center;
+			gap: 0.6rem;
+			text-decoration: none;
+			color: var(--text-main);
+		}
+
+		.mobile-logo {
+			width: 32px;
+			height: 32px;
+		}
+
+		.mobile-brand-info {
+			display: flex;
+			flex-direction: column;
+			line-height: 1.15;
+		}
+
+		.mobile-app-title {
+			font-size: 0.95rem;
+			font-weight: 800;
+			font-family: var(--font-title);
+			letter-spacing: 0.05em;
+			color: var(--accent);
+		}
+
+		.mobile-event-name {
+			font-size: 0.72rem;
+			color: var(--text-dim);
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			max-width: 160px;
+		}
+
+		.mobile-top-actions {
+			display: flex;
+			align-items: center;
+			gap: 0.4rem;
+		}
+
+		.top-action-btn {
+			width: 38px;
+			height: 38px;
+			border-radius: 10px;
+			background: rgba(255, 255, 255, 0.04);
+			border: 1px solid rgba(255, 255, 255, 0.08);
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			color: var(--text-dim);
+			text-decoration: none;
+			font-size: 1.1rem;
+			position: relative;
+			transition: all 0.2s;
+		}
+
+		.top-action-btn.active, .top-action-btn:active {
+			background: var(--accent-soft);
+			border-color: var(--accent);
+			color: var(--accent);
+		}
+
+		.badge-dot {
+			position: absolute;
+			top: 2px;
+			right: 2px;
+			min-width: 16px;
+			height: 16px;
+			line-height: 16px;
+			padding: 0 4px;
+			border-radius: 8px;
+			background: #ef4444;
+			color: white;
+			font-size: 0.6rem;
+			font-weight: 800;
+			text-align: center;
+			box-shadow: 0 0 6px rgba(239, 68, 68, 0.6);
+		}
+
+		.content-area {
+			padding: 0.85rem 0.75rem calc(5.2rem + var(--safe-bottom, 0px));
+			height: auto;
+			min-height: calc(100vh - 60px);
+			overflow-y: visible;
+		}
+
+		.mobile-bottom-nav {
+			display: flex;
+			justify-content: space-around;
+			align-items: center;
+			position: fixed;
+			bottom: 0;
+			left: 0;
+			right: 0;
+			z-index: 1000;
+			padding: 0.35rem 0.2rem calc(0.35rem + var(--safe-bottom, 0px));
+			background: rgba(15, 23, 42, 0.94);
+			backdrop-filter: blur(20px);
+			-webkit-backdrop-filter: blur(20px);
+			border-top: 1px solid var(--glass-border);
+			box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.45);
+		}
+
+		.bottom-tab {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			gap: 0.15rem;
+			text-decoration: none;
+			color: var(--text-dim);
+			padding: 0.35rem 0.6rem;
+			border-radius: 8px;
+			flex: 1;
+			max-width: 72px;
+			transition: all 0.15s ease-out;
+			-webkit-tap-highlight-color: transparent;
+		}
+
+		.bottom-tab.active {
+			color: var(--accent);
+			font-weight: 700;
+		}
+
+		.bottom-tab.active .tab-icon {
+			transform: scale(1.12);
+		}
+
+		.tab-icon {
+			font-size: 1.25rem;
+			line-height: 1;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			transition: transform 0.2s;
+		}
+
+		.tab-badge-wrap {
+			position: relative;
+		}
+
+		.tab-badge {
+			position: absolute;
+			top: -4px;
+			right: -10px;
+			min-width: 16px;
+			height: 16px;
+			line-height: 16px;
+			padding: 0 4px;
+			border-radius: 8px;
+			background: #8b5cf6;
+			color: white;
+			font-size: 0.58rem;
+			font-weight: 800;
+			text-align: center;
+			box-shadow: 0 0 6px rgba(139, 92, 246, 0.6);
+		}
+
+		.tab-badge.ai-badge {
+			background: var(--accent);
+			box-shadow: 0 0 6px var(--accent-glow);
+		}
+
+		.tab-avatar {
+			width: 22px;
+			height: 22px;
+			border-radius: 50%;
+			object-fit: cover;
+			border: 1.5px solid currentColor;
+		}
+
+		.tab-label {
+			font-size: 0.68rem;
+			letter-spacing: 0.01em;
+			white-space: nowrap;
+		}
+
+		.global-toast-container {
+			bottom: calc(5rem + var(--safe-bottom, 0px));
+			right: 1rem;
+			left: 1rem;
+		}
 	}
 </style>

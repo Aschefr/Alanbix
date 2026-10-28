@@ -5,6 +5,7 @@
 	import { t } from '$lib/i18nStore';
 	import { EMOJI_CATALOG, EMOJI_CATEGORIES, DEFAULT_RECENT_EMOJIS } from '$lib/emojiCatalog';
 	import { profanityFilterEnabled, toggleProfanityFilter, filterProfanityText } from '$lib/profanity';
+	import { resolveMediaUrl } from '$lib/config';
 
 	export let mode = 'p2p'; // 'p2p' | 'group'
 	export let peer = null; // for p2p
@@ -630,12 +631,13 @@
 <div class="player-chat-container" on:dragover={handleDragOver} on:drop={handleDrop}>
 	<!-- Header -->
 	<div class="chat-header glass">
+		<button class="mobile-back-btn" on:click={() => dispatch('close')} title="Retour à la liste">←</button>
 		{#if mode === 'p2p'}
 			<div class="header-main">
 				<div class="avatar-wrapper" style="position: relative; display: inline-block; flex-shrink: 0;">
 					<div class="peer-avatar avatar-shape-{peer?.avatar_shape || 'circle'}">
 						{#if peer?.avatar_url}
-							<img src={peer.avatar_url} alt="" class="peer-avatar-img" />
+							<img src={resolveMediaUrl(peer.avatar_url)} alt="" class="peer-avatar-img" />
 						{:else}
 							{peer?.username?.[0]?.toUpperCase() || '?'}
 						{/if}
@@ -1000,6 +1002,26 @@
 		background: var(--surface-raised);
 		flex-shrink: 0;
 		gap: 0.5rem;
+	}
+	.mobile-back-btn {
+		display: none;
+		align-items: center;
+		justify-content: center;
+		width: 32px;
+		height: 32px;
+		border-radius: 8px;
+		background: rgba(255, 255, 255, 0.08);
+		border: 1px solid rgba(255, 255, 255, 0.12);
+		color: var(--text-main);
+		font-size: 1.1rem;
+		font-weight: 700;
+		cursor: pointer;
+		flex-shrink: 0;
+	}
+	@media (max-width: 900px) {
+		.mobile-back-btn {
+			display: flex;
+		}
 	}
 	.header-main {
 		display: flex;
