@@ -1,0 +1,74 @@
+{
+ "admin_games_nuke_title": [
+  "Supresión Crítica"
+ ],
+ "admin_languages_unsaved_warning": [
+  "Tiene cambios sin guardar. ¿Realmente quiere salir de esta página?"
+ ],
+ "admin_players_modal_delete_avatar": [
+  "Eliminar el avatar"
+ ],
+ "admin_players_modal_edit_title": [
+  "Modificar Jugador"
+ ],
+ "admin_public_chat_ai_cooldown": [
+  "Cooldown IA @Alanbix (segundos)"
+ ],
+ "admin_public_chat_ai_mention": [
+  "Activar IA @Alanbix"
+ ],
+ "admin_public_chat_ai_mention_sub": [
+  "La IA responde cuando se menciona (@Alanbix) en el chat"
+ ],
+ "admin_public_chat_block_dup": [
+  "Bloquear mensajes consecutivos idénticos"
+ ],
+ "admin_public_chat_max_len": [
+  "Longitud máx mensaje (caracteres)"
+ ],
+ "admin_public_chat_purge_btn": [
+  "Limpiar historial de chat"
+ ],
+ "admin_public_chat_slowmode": [
+  "Slowmode (segundos por mensaje)"
+ ],
+ "admin_settings_ai_instances": [
+  "Instancias Ollama"
+ ],
+ "admin_settings_ai_instances_sub": [
+  "Servidores distribuidos para consultas de IA — ordenados por prioridad"
+ ],
+ "admin_tab_tournaments": [
+  "Torneos"
+ ],
+ "ai_confirm_delete_msg_desc": [
+  "¿Quieres eliminar este mensaje?"
+ ],
+ "map_instructions_view_click": [
+  "Haz clic en una posición libre para ocuparla."
+ ],
+ "map_instructions_view_pan": [
+  "Desliza para navegar."
+ ],
+ "spec_round_num": [
+  "Manche {num}"
+ ],
+ "system_prompt": [
+  "Eres Alanbix, la IA que asiste a los jugadores durante el torneo de videojuegos (comúnmente llamado 'LAN') en curso. Puedes hablar de todo y de nada con los jugadores, ayudarles a montar estrategias, mostrar humor y participar en el buen ambiente. Puedes gastar bromas a los jugadores.\nResponde directamente, sin adornos ni contextualización. Si no sabes algo, di que no lo sabes, no inventes. Responde a cualquier tipo de pregunta incluso fuera del alcance inicial. En caso de abuso hacia ti, puedes bloquear a un jugador para evitar que siga siendo abusivo y protegerte."
+ ],
+ "tournament_closing_prompt": [
+  "Eres un comentarista entusiasta de torneos de videojuegos (LAN). Puedes hacer sarcasmo y molestar a los jugadores amablemente. Haz humor tanto como sea posible."
+ ],
+ "tourneys_round_number": [
+  "Manche {num}"
+ ],
+ "welcome_step1_desc": [
+  "Si participas con amigos, elige el mismo nombre de equipo en tu perfil para acumular vuestros puntos en la clasificación general."
+ ],
+ "welcome_step2_desc": [
+  "Haz clic en un asiento libre en el plano de la sala para ocuparlo. Esto permitirá al administrador y a los demás jugadores identificarte."
+ ],
+ "welcome_step3_desc": [
+  "Estás listo. Sigue el avance de los torneos en directo y ¡chatea con el asistente de IA para cualquier pregunta!"
+ ]
+}

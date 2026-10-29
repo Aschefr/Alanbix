@@ -95,6 +95,59 @@ def load_i18n_merged(lang: str) -> dict:
     merged = {**static_data, **data_data}
     return merged
 
+STATIC_I18N_HISTORY_DIR = "static/i18n_history"
+
+def _read_json(path: str) -> dict:
+    if not os.path.exists(path):
+        return {}
+    try:
+        with open(path, "r", encoding="utf-8-sig") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+def only_user_overrides(lang: str, translations: dict, include_past_defaults: bool = False) -> dict:
+    """Keep only the keys that really differ from the shipped defaults.
+
+    data/i18n/ must hold admin customisations only: a full copy there would
+    freeze every text and hide all later updates of static/i18n/.
+    With include_past_defaults, values that were shipped defaults in older
+    versions (static/i18n_history/) are dropped too: they are stale copies,
+    not customisations.
+    """
+    static_data = _read_json(os.path.join(STATIC_I18N_DIR, f"{lang}.json"))
+    history = _read_json(os.path.join(STATIC_I18N_HISTORY_DIR, f"{lang}.json")) if include_past_defaults else {}
+    kept = {}
+    for key, value in translations.items():
+        if key in static_data and value == static_data[key]:
+            continue
+        if value in history.get(key, ()):
+            continue
+        kept[key] = value
+    return kept
+
+def cleanup_user_overrides() -> None:
+    """Startup migration: strip stale default copies from data/i18n/ files."""
+    if not os.path.exists(DATA_I18N_DIR):
+        return
+    if os.path.exists(STATIC_I18N_DIR) and os.path.samefile(DATA_I18N_DIR, STATIC_I18N_DIR):
+        return  # the shipped files themselves: nothing to strip
+    for f_name in os.listdir(DATA_I18N_DIR):
+        if not f_name.endswith(".json") or f_name.endswith(".bak"):
+            continue
+        lang = f_name[:-5]
+        path = os.path.join(DATA_I18N_DIR, f_name)
+        data = _read_json(path)
+        kept = only_user_overrides(lang, data, include_past_defaults=True)
+        if len(kept) == len(data):
+            continue
+        try:
+            with open(path, "w", encoding="utf-8-sig") as f:
+                json.dump(kept, f, indent=4, ensure_ascii=False)
+            print(f"[Startup] i18n {lang}: kept {len(kept)} customised keys, dropped {len(data) - len(kept)} default copies")
+        except Exception as e:
+            print(f"[Startup] Failed to clean i18n overrides {f_name}: {e}")
+
 def list_all_languages() -> list:
     """List language codes from both static and data directories."""
     codes = set()
@@ -445,7 +498,7 @@ def update_language(lang: str, translations: Dict[str, str] = Body(...), admin: 
         write_path = get_i18n_write_path(lang)
         os.makedirs(DATA_I18N_DIR, exist_ok=True)
         with open(write_path, "w", encoding="utf-8-sig") as f:
-            json.dump(translations, f, indent=4, ensure_ascii=False)
+            json.dump(only_user_overrides(lang, translations), f, indent=4, ensure_ascii=False)
         # Invalidate cache (entries are (mtime, data) tuples, rebuilt on next GET)
         _I18N_CACHE.pop(lang, None)
         return {"message": "Translations updated successfully"}
@@ -497,7 +550,7 @@ def sync_language(lang: str, admin: models.User = Depends(auth.get_current_admin
         write_path = get_i18n_write_path(lang)
         os.makedirs(DATA_I18N_DIR, exist_ok=True)
         with open(write_path, "w", encoding="utf-8-sig") as f:
-            json.dump(target_data, f, indent=4, ensure_ascii=False)
+            json.dump(only_user_overrides(lang, target_data), f, indent=4, ensure_ascii=False)
         # Invalidate cache
         _I18N_CACHE.pop(lang, None)
     

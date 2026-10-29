@@ -49,23 +49,15 @@ app.add_middleware(
 async def startup():
     init_db()
 
-    # Seed default i18n files to user data volume on startup (DX helper)
-    import shutil
+    # data/i18n/ holds admin customisations only (merged over static/i18n/ at read time).
+    # Older versions seeded a full copy there, which froze every text: strip those copies.
     data_dir = os.path.dirname(os.getenv("DATABASE_PATH", "/app/data/alanbix.db"))
+    import shutil
     data_i18n_dir = os.path.join(data_dir, "i18n")
     static_i18n_dir = "static/i18n"
     os.makedirs(data_i18n_dir, exist_ok=True)
-    if os.path.exists(static_i18n_dir):
-        for f_name in os.listdir(static_i18n_dir):
-            if f_name.endswith(".json") and not f_name.endswith(".bak"):
-                src_file = os.path.join(static_i18n_dir, f_name)
-                dest_file = os.path.join(data_i18n_dir, f_name)
-                if not os.path.exists(dest_file):
-                    try:
-                        shutil.copy2(src_file, dest_file)
-                        print(f"[Startup] Seeded i18n file to data volume: {f_name}")
-                    except Exception as e:
-                        print(f"[Startup] Failed to seed i18n file {f_name}: {e}")
+    from .routers.i18n import cleanup_user_overrides
+    cleanup_user_overrides()
 
     # ── Update i18n keys for Ollama/OpenAI instances ─────────────────────
     import json

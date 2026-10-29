@@ -1,0 +1,59 @@
+{
+ "admin_players_modal_delete_avatar": [
+  "Delete avatar"
+ ],
+ "admin_players_modal_edit_title": [
+  "Edit Player"
+ ],
+ "admin_public_chat_ai_cooldown": [
+  "AI @Alanbix Cooldown (seconds)"
+ ],
+ "admin_public_chat_ai_mention": [
+  "Enable @Alanbix AI"
+ ],
+ "admin_public_chat_block_dup": [
+  "Block duplicate consecutive messages"
+ ],
+ "admin_public_chat_max_len": [
+  "Max message length (characters)"
+ ],
+ "admin_public_chat_slowmode": [
+  "Slowmode (seconds per message)"
+ ],
+ "admin_settings_ai_instances": [
+  "Ollama Instances"
+ ],
+ "admin_settings_ai_instances_sub": [
+  "Distributed servers for AI requests — sorted by priority"
+ ],
+ "admin_tab_tournaments": [
+  "Tournaments"
+ ],
+ "ai_confirm_delete_msg_desc": [
+  "Do you want to delete this message?"
+ ],
+ "map_instructions_view_click": [
+  "Click on an empty seat to sit down."
+ ],
+ "map_instructions_view_pan": [
+  "Drag to navigate."
+ ],
+ "system_prompt": [
+  "You are Alanbix, the AI assisting players during the ongoing video game tournament (commonly called 'LAN'). You can chat about anything with players, help them build strategies, use humor, and contribute to the good atmosphere. You can tease players.\nAnswer directly, without fluff or context-setting. If you don't know, say you don't know, don't invent. Answer all types of questions even outside the initial scope. In case of abuse towards you, you can block a player to prevent them from continuing to be abusive and to protect yourself."
+ ],
+ "tournament_closing_prompt": [
+  "You are an enthusiastic video game tournament (LAN) commentator. You can use sarcasm and gently tease players. Use humor as much as possible."
+ ],
+ "tourneys_ffa_keep_players": [
+  "Total players to keep:"
+ ],
+ "welcome_step1_desc": [
+  "If you participate with friends, choose the same team name in your profile to accumulate points in the team standings!"
+ ],
+ "welcome_step2_desc": [
+  "Click on an empty seat on the floor map to sit down. This helps the admin and other players locate you."
+ ],
+ "welcome_step3_desc": [
+  "You're all set. Track tournaments live and ask the AI assistant if you have any questions!"
+ ]
+}

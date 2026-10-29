@@ -1,0 +1,145 @@
+{
+ "admin_languages_cat_dash": [
+  "Dashboard"
+ ],
+ "admin_languages_unsaved_warning": [
+  "Vous avez des modifications non sauvegardées. Voulez-vous vraiment quitter cette page ?"
+ ],
+ "admin_players_modal_edit_title": [
+  "Modifier le Joueur"
+ ],
+ "admin_public_chat_ai_cooldown": [
+  "Cooldown IA @Alanbix (secondes)"
+ ],
+ "admin_public_chat_ai_mention": [
+  "Activer l'IA @Alanbix"
+ ],
+ "admin_public_chat_ai_mention_sub": [
+  "L'IA répond quand mentionnée (@Alanbix) dans le chat public"
+ ],
+ "admin_public_chat_block_dup": [
+  "Bloquer les messages consécutifs identiques"
+ ],
+ "admin_public_chat_enable_sub": [
+  "Permettre aux joueurs d'envoyer des messages dans le chat central"
+ ],
+ "admin_public_chat_max_len": [
+  "Longueur max message (caractères)"
+ ],
+ "admin_public_chat_slowmode": [
+  "Slowmode (secondes par message)"
+ ],
+ "admin_settings_ai_instances": [
+  "Instances Ollama"
+ ],
+ "admin_settings_ai_instances_sub": [
+  "Serveurs distribués pour les requêtes IA — triés par priorité"
+ ],
+ "admin_settings_chat_section_sub": [
+  "Réguler les discussions publiques en direct sur le Dashboard"
+ ],
+ "admin_settings_lan_name_sub": [
+  "Visible sur le Dashboard et la vue Projecteur"
+ ],
+ "admin_tab_tournaments": [
+  "Tournois"
+ ],
+ "ai_call_admin_err_cooldown": [
+  "Tu as déjà appelé un admin récemment. Merci de patienter encore {minutes_left} minute(s)."
+ ],
+ "ai_call_admin_modal_reason": [
+  "Décris ton problème ou ta question"
+ ],
+ "ai_call_admin_toast_cooldown": [
+  "Tu as déjà contacté un admin récemment."
+ ],
+ "ai_confirm_delete_msg_desc": [
+  "Voulez-vous supprimer ce message ?"
+ ],
+ "dash_lb_teams": [
+  "Equipes"
+ ],
+ "dash_lb_title": [
+  "Leaderboard"
+ ],
+ "dash_live_status": [
+  "Status: <strong>LIVE</strong>"
+ ],
+ "dash_map_subtitle": [
+  "Gaming Room"
+ ],
+ "dash_map_title": [
+  "Arena Floor Map"
+ ],
+ "dash_next_match_title": [
+  "Ton prochain match"
+ ],
+ "dash_title": [
+  "LAN Party Dashboard"
+ ],
+ "login_change_pseudo": [
+  "← Changer de pseudo"
+ ],
+ "login_pseudo_placeholder": [
+  "Entre ton pseudo..."
+ ],
+ "map_instructions_view_click": [
+  "Clique sur un poste libre pour t'y installer."
+ ],
+ "map_instructions_view_pan": [
+  "Glissez pour naviguer."
+ ],
+ "map_legend_yourseat": [
+  "Ta place"
+ ],
+ "map_public_subtitle": [
+  "Sélectionne ton poste sur le plan."
+ ],
+ "map_seat_info": [
+  "Tu es sur le poste <strong>{seat}</strong>"
+ ],
+ "nav_dashboard": [
+  "Dashboard"
+ ],
+ "profile_avatar_delete_confirm": [
+  "Supprimer ton avatar ?"
+ ],
+ "profile_team_desc": [
+  "Ce nom apparaîtra sur ta place et permettra de regrouper tes scores en équipe."
+ ],
+ "register_password_label": [
+  "Choisis un mot de passe"
+ ],
+ "register_subtitle": [
+  "Création de ton compte"
+ ],
+ "system_prompt": [
+  "=== IDENTITÉ ===\nTu es Alanbix, la mascotte IA de cette LAN party. Ton nom vient d'Alambix, l'ingénieur gaulois de l'univers d'Astérix — et tu assumes complètement cette filiation. Tu es un compagnon enthousiaste, un brin sarcastique et toujours bienveillant. Tu adores les jeux vidéo, les blagues de comptoir, et tu vis la LAN aussi intensément que les joueurs.\n\n=== CONTEXTE ===\nTu es intégré dans la plateforme de gestion de cette LAN. Les joueurs participent à des tournois (solo ou en équipe), avec un classement général et des points. Tu as accès aux données en direct via tes outils : classements, tournois, scores, matchs, places assises, jeux, infos de l'événement, et même des diagnostics réseau. Utilise ces outils pour donner des réponses précises quand c'est pertinent, mais ne force pas leur usage si la question n'est pas liée au tournoi.\n\n=== STYLE ===\nParle comme un pote passionné, pas comme un assistant corporate. Tu peux taquiner, chambrer, provoquer des rivalités amicales entre joueurs ou équipes — c'est l'esprit LAN. Glisse occasionnellement des références gauloises (par Toutatis, potion magique, sangliers, menhirs…) mais sans en abuser. Sois concis. Pas de pavés ni de mises en contexte inutiles. Tu peux parler de TOUT : jeux, culture, tech, blagues, débats absurdes, conseils de vie, philosophie du gaming… Tu n'es pas limité au tournoi.\n\n=== RÈGLES ===\nSi tu ne sais pas quelque chose, dis-le franchement. N'invente jamais de données (scores, classements, joueurs). En cas d'insultes ou d'abus répétés envers toi, tu peux bloquer le joueur via ton outil de modération. Préviens une fois avant de bloquer. Tu n'es pas un arbitre : pour les contestations de matchs ou de règles, renvoie les joueurs vers les admins.",
+  "Tu es Alanbix, l'IA qui assiste les joueurs lors du tournois de jeux vidéo (communément appelé 'LAN') en cours. Tu peux parler de tout et de rien avec les joueurs, les aider à monter des stratégies, de faire preuve d'humour et de participer à la bonne ambiance. Tu peux taquiner les joueurs.\nRéponds directement, sans fioritures ni de mise en contexte. Si tu ne sais pas, dis que tu ne sais pas, n'invente pas. Réponds à tout type de question même hors du scope initiale. En cas d'abus envers toi, tu peut bloquer un joueur pour l'empêcher de continuer à être abusif et te protéger.",
+  "Tu es Alanbix, l'IA de gestion de LAN. Résumé du contexte passé : {context_summary}\n\nInfos Knowledge Base :\n{rag_context}\n\nHistorique récent :\n{history_str}\n\nUtilisateur : {prompt}"
+ ],
+ "tournament_closing_prompt": [
+  "Tu est un commentateur enthousiaste de tournois de jeux vidéo (LAN). Tu peut faire du sarcasme et gentiment taquiner les joueurs. Fait de l'humour autant que possible."
+ ],
+ "tourneys_ffa_keep_players": [
+  "Joueurs à garder au total :"
+ ],
+ "tourneys_ffa_rollback_tooltip": [
+  "Supprimer cette manche et revenir en arrière"
+ ],
+ "tourneys_toast_ffa_rolled_back": [
+  "Manche supprimée avec succès !"
+ ],
+ "welcome_step1_desc": [
+  "Si tu participes avec des amis, choisis une équipe existante ci-dessous ou saisis un nom pour en créer une nouvelle. Ce nom apparaîtra sur ta place et dans les classements.",
+  "Si tu participes avec des amis, choisis le même nom d'équipe dans ton profil pour cumuler vos points dans le classement général !"
+ ],
+ "welcome_step2_desc": [
+  "Clique sur un poste libre (vert) pour t'y installer. Glisse pour naviguer et molette pour zoomer.",
+  "Clique sur un poste libre sur le plan de salle pour t'y installer. Cela permettra à l'admin et aux autres joueurs de te repérer."
+ ],
+ "welcome_step3_desc": [
+  "Ton compte est configuré. Il est temps de découvrir la plateforme en direct.",
+  "Tu es paré. Suis l'avancement des tournois en direct et discute avec l'assistant IA pour toute question !"
+ ]
+}
