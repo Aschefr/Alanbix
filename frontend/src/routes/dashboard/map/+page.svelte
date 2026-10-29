@@ -1259,7 +1259,7 @@
 </div>
 
 <style>
-	.map-page { display: flex; flex-direction: column; gap: 1rem; height: calc(100vh - 6rem); }
+	.map-page { display: flex; flex-direction: column; gap: 1rem; height: 100%; }
 	.canvas-wrapper { flex-grow: 1; padding: 0.5rem; overflow: hidden; border-radius: 16px; min-height: 400px; }
 	.room-canvas { width: 100%; height: 100%; background: var(--map-canvas-bg); border-radius: 12px; user-select: none; }
 	.room-canvas.edit-mode { outline: 2px dashed rgba(59, 130, 246, 0.3); outline-offset: -2px; }

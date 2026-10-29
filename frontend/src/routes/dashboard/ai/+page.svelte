@@ -1628,7 +1628,7 @@
 {/if}
 
 <style>
-	.ai-page { height: calc(100vh - 4rem); gap: 2rem; align-items: stretch; }
+	.ai-page { height: 100%; gap: 2rem; align-items: stretch; }
 	.chat-sidebar { width: 280px; min-width: 280px; max-width: 280px; flex-shrink: 0; padding: 1.5rem; display: flex; flex-direction: column; gap: 1.5rem; }
 	.conv-list { display: flex; flex-direction: column; gap: 0.5rem; overflow-y: auto; }
 	

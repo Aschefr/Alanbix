@@ -1063,6 +1063,20 @@
 		padding: 1.5rem;
 		overflow-y: auto;
 		height: 100vh;
+		/* Pages fill the space left under the optional notification banner
+		   (height: 100%) instead of assuming the full viewport, which caused a
+		   second scrollbar whenever the banner was shown. */
+		display: flex;
+		flex-direction: column;
+	}
+	.content-area > .container {
+		flex: 1 1 0;
+		min-height: 0;
+		display: flex;
+		flex-direction: column;
+	}
+	.content-area > .container > :global(*) {
+		flex-shrink: 0;
 	}
 
 	.container {
