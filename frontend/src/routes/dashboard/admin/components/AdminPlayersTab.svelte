@@ -26,6 +26,16 @@
 	let newPlayerData = { username: '', password: 'lan2025', team_name: '' };
 	let creatingPlayer = false;
 	let generatingPool = false;
+	let playerQuery = '';
+	let openActionsId = null;
+	$: filteredPlayers = playerQuery.trim()
+		? allPlayers.filter(p => `${p.username} ${p.team_name || ''}`.toLowerCase().includes(playerQuery.trim().toLowerCase()))
+		: allPlayers;
+
+	function openEditPlayer(p) {
+		editingPlayer = p;
+		editPlayerData = { username: p.username, team_name: p.team_name || '', seat_id: p.seat_id || '', points: formatPoints(p.points || 0), is_admin: p.is_admin || false, ia_blocked: p.ia_blocked || false };
+	}
 
 	function handleKeydown(e) {
 		if (e.key === 'Escape') {
@@ -188,11 +198,9 @@
 	<div class="flex-row justify-between items-center mb-4">
 		<h3>{$t('admin_players_title')} <span class="t-count">{allPlayers.length}</span></h3>
 		<div class="flex-row gap-2">
+			<input class="pt-search" type="search" bind:value={playerQuery} placeholder={$t('admin_players_search_placeholder')} aria-label={$t('admin_players_search_placeholder')} />
 			<button class="btn-secondary btn-sm" on:click={() => showCreatePlayer = !showCreatePlayer}>
 				{showCreatePlayer ? $t('admin_players_btn_cancel_close') : $t('admin_players_btn_add')}
-			</button>
-			<button class="btn-dev btn-sm" on:click={generateTestPool} disabled={generatingPool}>
-				{generatingPool ? $t('admin_players_generating') : $t('admin_players_btn_gen20')}
 			</button>
 		</div>
 	</div>
@@ -232,7 +240,7 @@
 				<span class="pt-col pt-pts">{$t("dash_modal_points_total")}</span>
 				<span class="pt-col pt-actions">Actions</span>
 			</div>
-			{#each allPlayers as p, i}
+			{#each filteredPlayers as p, i (p.id)}
 				<div class="pt-row {p.is_admin ? 'is-admin' : ''}">
 					<span class="pt-col pt-id">{i + 1}</span>
 					<span class="pt-col pt-name" style="display: flex; align-items: center; gap: 0.4rem;">
@@ -253,39 +261,50 @@
 					<span class="pt-col pt-pts">{formatPoints(p.points || 0)}</span>
 					<span class="pt-col pt-actions">
 						{#if !p.is_admin}
-							<button class="btn-icon" title="{$t('admin_players_tooltip_edit')}" on:click={() => { editingPlayer = p; editPlayerData = { username: p.username, team_name: p.team_name || '', seat_id: p.seat_id || '', points: formatPoints(p.points || 0), is_admin: p.is_admin || false, ia_blocked: p.ia_blocked || false }; }}>✏️</button>
-							<button class="btn-icon" title="{$t('admin_players_tooltip_resetpw')}" on:click={() => { resetPwdPlayer = p; resetPwdValue = 'lan2025'; }}>🔑</button>
-							<button class="btn-icon {p.ia_blocked ? 'btn-icon-danger' : ''}" title="{p.ia_blocked ? $t('admin_players_tooltip_unblockai') : $t('admin_players_tooltip_blockai')}" on:click={() => toggleIaBlocked(p)}>
-								{p.ia_blocked ? '🔓' : '🚫'}
-							</button>
-							<button class="btn-icon {p.public_chat_muted_until && new Date(p.public_chat_muted_until) > new Date() ? 'btn-icon-danger' : ''}" title="{p.public_chat_muted_until && new Date(p.public_chat_muted_until) > new Date() ? ($t('admin_players_tooltip_unmute') || 'Démuter') : ($t('admin_players_tooltip_mute') || 'Muter 30m')}" on:click={() => toggleMutePlayer(p)}>
-								{p.public_chat_muted_until && new Date(p.public_chat_muted_until) > new Date() ? '🔇' : '🎙️'}
-							</button>
 							{#if promoteConfirmPlayerId === p.id}
 								<button class="btn-primary-sm" on:click={() => { toggleAdmin(p); promoteConfirmPlayerId = null; }}>{$t("admin_players_promote_confirm")}</button>
-								<button class="btn-icon" on:click={() => promoteConfirmPlayerId = null}>❌</button>
+								<button class="btn-icon" on:click={() => promoteConfirmPlayerId = null} aria-label={$t('common_close')}>✕</button>
+							{:else if deleteConfirmPlayerId === p.id}
+								<button class="btn-danger-sm" on:click={() => deletePlayer(p.id)}>{$t('admin_players_action_delete')} ?</button>
+								<button class="btn-icon" on:click={() => deleteConfirmPlayerId = null} aria-label={$t('common_close')}>✕</button>
 							{:else}
-								<button class="btn-icon btn-icon-promote" title="{$t('admin_players_tooltip_promote')}" on:click={() => { promoteConfirmPlayerId = p.id; deleteConfirmPlayerId = null; demoteConfirmPlayerId = null; }}>👑</button>
-							{/if}
-							{#if deleteConfirmPlayerId === p.id}
-								<button class="btn-danger-sm" on:click={() => deletePlayer(p.id)}>{$t("admin_players_delete_confirm")}</button>
-								<button class="btn-icon" on:click={() => deleteConfirmPlayerId = null}>❌</button>
-							{:else}
-								<button class="btn-icon btn-icon-danger" title="{$t('admin_tourneys_tooltip_delete')}" on:click={() => { deleteConfirmPlayerId = p.id; promoteConfirmPlayerId = null; demoteConfirmPlayerId = null; }}>🗑️</button>
+								<button class="btn-row" on:click={() => openEditPlayer(p)}>{$t('admin_players_tooltip_edit')}</button>
+								<button class="btn-row btn-more" class:open={openActionsId === p.id} aria-expanded={openActionsId === p.id} title={$t('admin_players_actions_more')} aria-label={$t('admin_players_actions_more')} on:click={() => openActionsId = openActionsId === p.id ? null : p.id}>⋯</button>
 							{/if}
 						{:else}
 							{#if demoteConfirmPlayerId === p.id}
 								<button class="btn-warning-sm" on:click={() => { toggleAdmin(p); demoteConfirmPlayerId = null; }}>{$t("admin_players_demote_confirm")}</button>
 								<button class="btn-icon" on:click={() => demoteConfirmPlayerId = null}>❌</button>
 							{:else}
-								<button class="btn-icon btn-icon-demote" title="{$t('admin_players_tooltip_demote')}" on:click={() => { demoteConfirmPlayerId = p.id; promoteConfirmPlayerId = null; deleteConfirmPlayerId = null; }}>🛡️</button>
+								<button class="btn-row" on:click={() => { demoteConfirmPlayerId = p.id; promoteConfirmPlayerId = null; deleteConfirmPlayerId = null; }}>{$t('admin_players_tooltip_demote')}</button>
 							{/if}
 						{/if}
 					</span>
 				</div>
+				{#if openActionsId === p.id && !p.is_admin}
+					{@const muted = p.public_chat_muted_until && new Date(p.public_chat_muted_until) > new Date()}
+					<div class="pt-actions-drawer">
+						<button class="btn-row" on:click={() => { resetPwdPlayer = p; resetPwdValue = 'lan2025'; openActionsId = null; }}>{$t('admin_players_tooltip_resetpw')}</button>
+						<button class="btn-row" class:warn={p.ia_blocked} on:click={() => toggleIaBlocked(p)}>{p.ia_blocked ? $t('admin_players_tooltip_unblockai') : $t('admin_players_tooltip_blockai')}</button>
+						<button class="btn-row" class:warn={muted} on:click={() => toggleMutePlayer(p)}>{muted ? $t('admin_players_tooltip_unmute') : $t('admin_players_tooltip_mute')}</button>
+						<button class="btn-row" on:click={() => { promoteConfirmPlayerId = p.id; deleteConfirmPlayerId = null; openActionsId = null; }}>{$t('admin_players_tooltip_promote')}</button>
+						<span class="drawer-sep"></span>
+						<button class="btn-row danger" on:click={() => { deleteConfirmPlayerId = p.id; promoteConfirmPlayerId = null; openActionsId = null; }}>{$t('admin_players_action_delete')}</button>
+					</div>
+				{/if}
+			{:else}
+				<p class="text-dim pt-empty">{$t('admin_players_no_match')}</p>
 			{/each}
 		</div>
 	{/if}
+
+	<details class="test-tools">
+		<summary>{$t('admin_players_test_tools')}</summary>
+		<p class="text-dim">{$t('admin_players_test_tools_hint')}</p>
+		<button class="btn-dev btn-sm" on:click={generateTestPool} disabled={generatingPool}>
+			{generatingPool ? $t('admin_players_generating') : $t('admin_players_btn_gen20')}
+		</button>
+	</details>
 </div>
 
 {#if editingPlayer}
@@ -381,18 +400,31 @@
 	.players-view { border-radius: var(--radius-lg); }
 	.players-view h3 { font-size: 1rem; font-weight: 800; display: flex; align-items: center; gap: 0.5rem; margin: 0; }
 	.players-table { display: flex; flex-direction: column; gap: 0; border-radius: 10px; overflow: hidden; border: 1px solid var(--glass-border); }
-	.pt-header { display: flex; padding: 0.6rem 0.8rem; background: var(--surface-sunken); font-weight: 800; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); border-bottom: 1px solid var(--glass-border); }
+	.pt-header { display: flex; padding: 0.6rem 0.8rem; background: var(--surface-sunken); font-weight: 700; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-dim); border-bottom: 1px solid var(--glass-border); }
 	.pt-row { display: flex; padding: 0.55rem 0.8rem; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.03); transition: background 0.15s; }
 	.pt-row:hover { background: var(--hover-tint); }
 	.pt-row:last-child { border-bottom: none; }
 	.pt-row.is-admin { background: rgba(59,130,246,0.06); }
-	.pt-col { font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-	.pt-id { width: 36px; flex-shrink: 0; color: var(--text-muted); font-size: 0.7rem; }
+	.pt-col { font-size: 0.875rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.pt-id { width: 36px; flex-shrink: 0; color: var(--text-muted); font-size: 0.8rem; }
 	.pt-name { flex: 3; min-width: 0; font-weight: 700; display: flex; align-items: center; gap: 0.4rem; }
 	.pt-team { flex: 2; min-width: 0; color: var(--text-dim); }
-	.pt-pts { width: 70px; flex-shrink: 0; text-align: center; font-weight: 800; color: var(--accent); }
-	.pt-actions { width: 220px; flex-shrink: 0; display: flex; gap: 0.3rem; align-items: center; justify-content: flex-end; flex-wrap: nowrap; }
+	.pt-pts { width: 120px; flex-shrink: 0; text-align: center; font-weight: 800; color: var(--accent); }
+	.pt-actions { width: 240px; flex-shrink: 0; display: flex; gap: 0.3rem; align-items: center; justify-content: flex-end; flex-wrap: nowrap; }
 	.admin-badge { font-size: 0.6rem; padding: 0.1rem 0.3rem; background: rgba(234,179,8,0.15); color: #eab308; border-radius: 6px; font-weight: 800; }
+	.pt-search { width: 240px; padding: 0.45rem 0.7rem; font-size: 0.85rem; border-radius: var(--radius-md); }
+	.btn-row { background: var(--hover-tint); border: 1px solid var(--glass-border); color: var(--text-main); border-radius: var(--radius-md); padding: 0.3rem 0.7rem; font-size: 0.8rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
+	.btn-row:hover, .btn-row.open { border-color: var(--accent); color: var(--accent); }
+	.btn-row.warn { color: var(--warning); border-color: var(--warning); }
+	.btn-row.danger { color: var(--danger); border-color: rgba(239,68,68,0.4); }
+	.btn-row.danger:hover { background: rgba(239,68,68,0.12); border-color: var(--danger); }
+	.btn-more { font-size: 1rem; line-height: 1; padding: 0.2rem 0.6rem; }
+	.pt-actions-drawer { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; justify-content: flex-end; padding: 0.5rem 0.8rem 0.7rem; background: var(--surface-sunken); border-bottom: 1px solid var(--glass-border); }
+	.drawer-sep { width: 1px; align-self: stretch; background: var(--glass-border); margin: 0 0.2rem; }
+	.pt-empty { padding: 1rem; margin: 0; font-size: 0.9rem; }
+	.test-tools { margin-top: 1.5rem; font-size: 0.85rem; color: var(--text-dim); }
+	.test-tools summary { cursor: pointer; font-weight: 600; }
+	.test-tools p { margin: 0.5rem 0; }
 	.btn-icon { background: var(--hover-tint); border: 1px solid var(--glass-border); border-radius: 6px; padding: 0.25rem 0.4rem; cursor: pointer; font-size: 0.75rem; transition: all 0.15s; flex-shrink: 0; }
 	.btn-icon:hover { background: var(--accent-soft); border-color: var(--accent); }
 	.btn-icon-danger:hover { border-color: var(--danger, #ef4444); background: rgba(239,68,68,0.15); }

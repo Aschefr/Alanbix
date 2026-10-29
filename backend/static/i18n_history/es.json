@@ -11,6 +11,18 @@
  "admin_players_modal_edit_title": [
   "Modificar Jugador"
  ],
+ "admin_players_tooltip_demote": [
+  "Degradar jugador"
+ ],
+ "admin_players_tooltip_mute": [
+  "Silenciar del chat público (30 min)"
+ ],
+ "admin_players_tooltip_promote": [
+  "Promover administrador"
+ ],
+ "admin_players_tooltip_unmute": [
+  "Quitar silencio del chat público"
+ ],
  "admin_public_chat_ai_cooldown": [
   "Cooldown IA @Alanbix (segundos)"
  ],

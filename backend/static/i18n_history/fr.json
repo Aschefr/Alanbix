@@ -8,6 +8,24 @@
  "admin_players_modal_edit_title": [
   "Modifier le Joueur"
  ],
+ "admin_players_tooltip_blockai": [
+  "Bloquer IA"
+ ],
+ "admin_players_tooltip_demote": [
+  "Rétrograder joueur"
+ ],
+ "admin_players_tooltip_mute": [
+  "Muter du chat public (30 min)"
+ ],
+ "admin_players_tooltip_resetpw": [
+  "Réinitialiser MDP"
+ ],
+ "admin_players_tooltip_unblockai": [
+  "Débloquer IA"
+ ],
+ "admin_players_tooltip_unmute": [
+  "Démuter du chat public"
+ ],
  "admin_public_chat_ai_cooldown": [
   "Cooldown IA @Alanbix (secondes)"
  ],

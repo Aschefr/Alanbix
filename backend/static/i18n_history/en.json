@@ -5,6 +5,18 @@
  "admin_players_modal_edit_title": [
   "Edit Player"
  ],
+ "admin_players_tooltip_demote": [
+  "Demote user"
+ ],
+ "admin_players_tooltip_mute": [
+  "Mute from public chat (30 min)"
+ ],
+ "admin_players_tooltip_promote": [
+  "Promote to admin"
+ ],
+ "admin_players_tooltip_unmute": [
+  "Unmute from public chat"
+ ],
  "admin_public_chat_ai_cooldown": [
   "AI @Alanbix Cooldown (seconds)"
  ],
