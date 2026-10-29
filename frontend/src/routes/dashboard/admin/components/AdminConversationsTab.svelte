@@ -387,7 +387,7 @@
 								<span style="font-size:0.7rem;color:var(--text-muted);margin-bottom:2px;font-weight:600;">{adminConvInfo.username}</span>
 							{/if}
 							<div style="padding:0.6rem 0.8rem;border-radius:12px;font-size:0.85rem;line-height:1.4;{m.role === 'user' ? 'background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.3)' : m.role === 'admin' ? 'background:rgba(168,85,247,0.12);border:1px solid rgba(168,85,247,0.3)' : 'background:var(--hover-tint);border:1px solid var(--glass-border)'}">
-								{#if m.role === 'admin'}<span style="font-size:0.65rem;font-weight:700;color:#a855f7;text-transform:uppercase;margin-bottom:0.2rem;display:block">Admin</span>{/if}
+								{#if m.role === 'admin'}<span style="font-size: 0.75rem;font-weight:700;color:#a855f7;text-transform:uppercase;margin-bottom:0.2rem;display:block">Admin</span>{/if}
 								<div class="admin-conv-md">{@html parseMd(m.content)}</div>
 								{#if m.image_path}
 									<div style="margin-top:0.4rem">
@@ -397,7 +397,7 @@
 							</div>
 							
 							{#if m.role === 'bot' && m.meta}
-								<div class="msg-meta-row" style="display:flex;flex-wrap:wrap;gap:0.4rem;font-size:0.65rem;color:var(--text-dim);margin-top:0.2rem;padding:0 0.2rem;opacity:0.8">
+								<div class="msg-meta-row" style="display:flex;flex-wrap:wrap;gap:0.4rem;font-size: 0.75rem;color:var(--text-dim);margin-top:0.2rem;padding:0 0.2rem;opacity:0.8">
 									{#if m.meta.model_info}
 										<span title="Modèle / Instance" style="background:rgba(255,255,255,0.05);padding:1px 4px;border-radius:4px;border:1px solid var(--glass-border)">🤖 {m.meta.model_info.model || 'Modèle'} ({m.meta.model_info.instance || 'Default'})</span>
 									{/if}
@@ -410,7 +410,7 @@
 								</div>
 							{/if}
 							
-							<span style="font-size:0.62rem;color:var(--text-muted);margin-top:0.15rem;align-self:{m.role === 'user' ? 'flex-end' : 'flex-start'};padding:0 0.25rem">
+							<span style="font-size: 0.75rem;color:var(--text-muted);margin-top:0.15rem;align-self:{m.role === 'user' ? 'flex-end' : 'flex-start'};padding:0 0.25rem">
 								{m.timestamp ? new Date(m.timestamp).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }) : ''}
 							</span>
 						</div>
@@ -427,7 +427,7 @@
 					{#if adminImagePreview}
 						<div style="position:relative;display:inline-block">
 							<img src={adminImagePreview} alt="Preview" style="max-width:150px;max-height:80px;border-radius:6px;border:2px solid #a855f7;object-fit:cover" />
-							<button style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:rgba(239,68,68,0.9);color:white;border:none;cursor:pointer;font-size:0.65rem;display:flex;align-items:center;justify-content:center" on:click={() => { adminPendingImage = null; adminImagePreview = ''; }}>✕</button>
+							<button style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:rgba(239,68,68,0.9);color:white;border:none;cursor:pointer;font-size: 0.75rem;display:flex;align-items:center;justify-content:center" on:click={() => { adminPendingImage = null; adminImagePreview = ''; }}>✕</button>
 						</div>
 					{/if}
 					<div style="display:flex;gap:0.5rem;align-items:center">
@@ -532,6 +532,7 @@
 
 <style>
 	.admin-grid { display: grid; grid-template-columns: minmax(380px, 1fr) 2fr; gap: 2rem; }
+	@media (max-width: 1100px) { .admin-grid { grid-template-columns: minmax(0, 1fr); gap: 1rem; } }
 	.list { padding: 2rem; display: flex; flex-direction: column; }
 	.list-header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 1rem; margin-bottom: 1rem; border-bottom: 1px solid var(--glass-border); }
 	.list-icon { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; background: var(--accent-soft); border-radius: 10px; border: 1px solid rgba(59,130,246,0.15); }
@@ -543,7 +544,7 @@
 	.item-info { flex-grow: 1; }
 	.item-name { font-weight: 700; font-size: 1rem; }
 	.item-meta { font-size: 0.75rem; color: var(--text-dim); margin-top: 0.2rem; }
-	.status-pill-sm { font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.15rem 0.5rem; border-radius: 20px; }
+	.status-pill-sm { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.15rem 0.5rem; border-radius: 20px; }
 	.status-pill-sm.open { background: rgba(34,197,94,0.1); color: var(--success); border: 1px solid rgba(34,197,94,0.2); }
 	.status-pill-sm.running { background: var(--accent-soft); color: var(--accent); border: 1px solid rgba(59,130,246,0.2); }
 	.empty-list { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 3rem 1rem; gap: 0.5rem; }

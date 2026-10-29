@@ -579,6 +579,7 @@
 
 <style>
 	.admin-grid { display: grid; grid-template-columns: minmax(380px, 1fr) 2fr; gap: 2rem; }
+	@media (max-width: 1100px) { .admin-grid { grid-template-columns: minmax(0, 1fr); gap: 1rem; } }
 	.wizard { padding: 2rem; min-height: 500px; display: flex; flex-direction: column; }
 	.list { padding: 2rem; display: flex; flex-direction: column; }
 	.list-header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 1rem; margin-bottom: 1rem; border-bottom: 1px solid var(--glass-border); }
@@ -593,7 +594,7 @@
 	.item-name { font-weight: 700; font-size: 1rem; }
 	.item-meta { font-size: 0.75rem; color: var(--text-dim); margin-top: 0.2rem; }
 	.item-actions { display: flex; flex-direction: row; gap: 0.4rem; align-items: center; flex-shrink: 0; }
-	.status-pill-sm { font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.15rem 0.5rem; border-radius: 20px; }
+	.status-pill-sm { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.15rem 0.5rem; border-radius: 20px; }
 	.status-pill-sm.open { background: rgba(34,197,94,0.1); color: var(--success); border: 1px solid rgba(34,197,94,0.2); }
 	.status-pill-sm.running { background: var(--accent-soft); color: var(--accent); border: 1px solid rgba(59,130,246,0.2); }
 	.status-pill-sm.done { background: rgba(100,116,139,0.1); color: var(--text-muted); border: 1px solid rgba(100,116,139,0.2); }
@@ -603,7 +604,7 @@
 	.btn-icon-danger { background: rgba(255, 255, 255, 0.05); border: 1px solid var(--glass-border); color: var(--text-muted); cursor: pointer; padding: 0.6rem; border-radius: 8px; transition: all 0.2s; display: flex; align-items: center; justify-content: center; }
 	.btn-icon-danger:hover { background: rgba(239, 68, 68, 0.2); color: var(--danger); border-color: var(--danger); }
 	.confirm-delete-row { display: flex; align-items: center; gap: 0.4rem; background: rgba(239,68,68,0.05); padding: 0.3rem 0.5rem; border-radius: 8px; border: 1px dashed rgba(239,68,68,0.2); }
-	.btn-danger-sm { background: rgba(239,68,68,0.2); color: #ef4444; border: 1px solid rgba(239,68,68,0.3); border-radius: 6px; padding: 0.2rem 0.5rem; font-size: 0.65rem; font-weight: 700; cursor: pointer; white-space: nowrap; }
+	.btn-danger-sm { background: rgba(239,68,68,0.2); color: #ef4444; border: 1px solid rgba(239,68,68,0.3); border-radius: 6px; padding: 0.2rem 0.5rem; font-size: 0.75rem; font-weight: 700; cursor: pointer; white-space: nowrap; }
 	.btn-danger-sm:hover { background: rgba(239,68,68,0.35); }
 	.empty-list { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 3rem 1rem; gap: 0.5rem; }
 	.empty-icon { font-size: 2.5rem; opacity: 0.5; }
@@ -632,27 +633,27 @@
 	.cover-pick { overflow: hidden; border: 2px solid var(--glass-border); border-radius: 8px; cursor: pointer; transition: all 0.15s; background: none; padding: 0; position: relative; }
 	.cover-pick:hover { border-color: var(--accent); transform: scale(1.03); }
 	.cover-pick img { width: 100%; height: 70px; object-fit: cover; display: block; }
-	.cover-name { display: block; padding: 0.2rem 0.3rem; font-size: 0.6rem; font-weight: 600; color: var(--text-dim); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background: var(--surface-sunken); }
+	.cover-name { display: block; padding: 0.2rem 0.3rem; font-size: 0.75rem; font-weight: 600; color: var(--text-dim); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background: var(--surface-sunken); }
 	.img-preview { position: relative; width: 100%; max-height: 120px; border-radius: 8px; overflow: hidden; border: 1px solid var(--glass-border); }
 	.img-preview img { width: 100%; height: 100px; object-fit: cover; display: block; }
 	.preview-clear { position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; border-radius: 50%; background: rgba(239,68,68,0.8); color: white; border: none; cursor: pointer; font-size: 0.7rem; display: flex; align-items: center; justify-content: center; }
 	.prompt-preview-panel { margin-top: 0.75rem; border: 1px solid rgba(139,92,246,0.25); border-radius: 12px; background: rgba(139,92,246,0.04); overflow: hidden; }
 	.prompt-preview-header { display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 0.8rem; background: rgba(139,92,246,0.08); border-bottom: 1px solid rgba(139,92,246,0.15); font-size: 0.75rem; font-weight: 700; color: #a78bfa; }
-	.prompt-token-badge { font-size: 0.6rem; font-weight: 800; background: rgba(139,92,246,0.15); color: #a78bfa; padding: 0.15rem 0.5rem; border-radius: 6px; border: 1px solid rgba(139,92,246,0.25); }
+	.prompt-token-badge { font-size: 0.75rem; font-weight: 800; background: rgba(139,92,246,0.15); color: #a78bfa; padding: 0.15rem 0.5rem; border-radius: 6px; border: 1px solid rgba(139,92,246,0.25); }
 	.prompt-preview-textarea { width: 100%; min-height: 200px; max-height: 400px; background: var(--surface-sunken); border: none; padding: 0.8rem; color: var(--text-main); font-size: 0.75rem; font-family: 'Courier New', monospace; line-height: 1.5; resize: vertical; }
 	.prompt-preview-textarea:focus { outline: none; }
 	.danger-warning-box { background: rgba(239, 68, 68, 0.06); border: 1px solid rgba(239, 68, 68, 0.25); border-radius: 12px; padding: 1.2rem; margin: 1rem 0; }
 	.danger-warning-box strong.warn-title { color: #ef4444; font-size: 0.95rem; display: block; margin-bottom: 0.5rem; }
 	.danger-warning-box ul { margin: 0.8rem 0; padding-left: 1.5rem; }
 	.danger-warning-box li { color: var(--text-main); font-size: 0.8rem; margin-bottom: 0.3rem; }
-	.status-badge { font-size: 0.65rem; font-weight: 700; padding: 0.1rem 0.35rem; border-radius: 4px; text-transform: uppercase; margin-left: 0.3rem; }
+	.status-badge { font-size: 0.75rem; font-weight: 700; padding: 0.1rem 0.35rem; border-radius: 4px; text-transform: uppercase; margin-left: 0.3rem; }
 	.status-badge.open { background: rgba(59,130,246,0.15); color: #3b82f6; }
 	.status-badge.running { background: rgba(16,185,129,0.15); color: #10b981; }
 	.status-badge.done { background: rgba(139,92,246,0.15); color: #8b5cf6; }
 	.status-badge.closed { background: rgba(107,114,128,0.15); color: #9ca3af; }
 	.warning-text { font-size: 0.8rem; color: var(--text-dim); margin-top: 0.8rem; }
 	.consequence-badges { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.5rem; }
-	.c-badge { font-size: 0.65rem; font-weight: 700; padding: 0.25rem 0.6rem; border-radius: 6px; background: rgba(239, 68, 68, 0.12); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.2); }
+	.c-badge { font-size: 0.75rem; font-weight: 700; padding: 0.25rem 0.6rem; border-radius: 6px; background: rgba(239, 68, 68, 0.12); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.2); }
 	.confirm-checkbox-label { display: flex; align-items: flex-start; gap: 0.6rem; margin: 1.2rem 0; cursor: pointer; font-size: 0.8rem; color: var(--text-main); user-select: none; line-height: 1.4; }
 	.confirm-checkbox-label input[type="checkbox"] { margin-top: 0.2rem; cursor: pointer; }
 	.edit-modal-header { display: flex; justify-content: space-between; align-items: center; padding: 1.2rem 1.5rem; border-bottom: 1px solid var(--glass-border); background: rgba(59,130,246,0.08); }
@@ -662,7 +663,7 @@
 	.edit-modal-footer { display: flex; justify-content: flex-end; gap: 0.75rem; padding: 1rem 1.5rem; border-top: 1px solid var(--glass-border); }
 	.edit-field { display: flex; flex-direction: column; gap: 0.4rem; }
 	.edit-field.full-width { grid-column: 1 / -1; }
-	.edit-field label { font-size: 0.75rem; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; }
+	.edit-field label { font-size: 0.75rem; font-weight: 700; color: var(--text-dim);  }
 	.editor-container :global(.EasyMDEContainer) { background: transparent; border: 1px solid var(--glass-border); border-radius: 8px; overflow: hidden; }
 	.editor-container :global(.EasyMDEContainer .CodeMirror) { background: var(--bg-secondary, #0f172a); color: var(--text-main, white); border: none; border-radius: 0; font-size: 0.8rem; }
 	.editor-container :global(.editor-toolbar) { background: var(--hover-tint, rgba(255,255,255,0.03)); border: none; border-bottom: 1px solid var(--glass-border); opacity: 1; padding: 4px; }

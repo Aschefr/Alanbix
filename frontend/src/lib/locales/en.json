@@ -1380,5 +1380,6 @@
   "regie_reply": "Reply",
   "regie_validate": "Save",
   "regie_round_finished": "Finished",
-  "regie_error_generic": "The action failed. Please try again."
+  "regie_error_generic": "The action failed. Please try again.",
+  "admin_languages_other": "Other language…"
 }

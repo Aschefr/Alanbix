@@ -1368,5 +1368,6 @@
   "regie_reply": "Répondre",
   "regie_validate": "Valider",
   "regie_round_finished": "Terminé",
-  "regie_error_generic": "L'action n'a pas pu être effectuée. Réessayez."
+  "regie_error_generic": "L'action n'a pas pu être effectuée. Réessayez.",
+  "admin_languages_other": "Autre langue…"
 }

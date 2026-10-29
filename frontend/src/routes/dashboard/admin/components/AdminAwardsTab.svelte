@@ -7,8 +7,6 @@
 
 	let awardsList = [];
 	let awardsLoading = false;
-	let nukeConfirm = { awards: false };
-	let nuking = { awards: false };
 
 	function getAwardEmoji(key) {
 		const map = {
@@ -90,17 +88,6 @@
 			awardsLoading = false;
 		}
 	}
-
-	async function nukeAwards() {
-		nuking.awards = true;
-		try {
-			const res = await api.delete('/admin/nuke/awards');
-			toast(`${res.deleted_awards} prix supprimé(s)`, 'success');
-			await loadAwardsTab();
-		} catch (e) { toast(e.message, 'error'); }
-		nuking.awards = false;
-		nukeConfirm.awards = false;
-	}
 </script>
 
 <div class="admin-grid">
@@ -135,25 +122,6 @@
 			{$t('admin_awards_btn_broadcast')}
 		</button>
 
-		<div style="margin-top: 2rem; border-top: 1px solid rgba(239, 68, 68, 0.2); padding-top: 1rem;">
-			{#if nukeConfirm.awards}
-				<div class="flex-column gap-2" style="background: rgba(239, 68, 68, 0.08); padding: 0.8rem; border-radius: 8px; border: 1px solid var(--danger);">
-					<span class="text-xs text-dim" style="display:block; margin-bottom: 0.5rem; text-align: center; color: var(--danger) !important; font-weight: bold;">{$t("admin_awards_confirm_purge_q")}</span>
-					<div style="display: flex; gap: 0.5rem;">
-						<button class="btn-danger btn-xs" style="flex:1" on:click={nukeAwards} disabled={nuking.awards}>
-							{nuking.awards ? $t('admin_awards_purging') : $t('admin_awards_confirm_purge_yes')}
-						</button>
-						<button class="btn-secondary btn-xs" style="flex:1" on:click={() => nukeConfirm.awards = false}>
-							Annuler
-						</button>
-					</div>
-				</div>
-			{:else}
-				<button class="btn-danger-full" on:click={() => nukeConfirm.awards = true} disabled={awardsLoading}>
-					{$t('admin_awards_btn_purge')}
-				</button>
-			{/if}
-		</div>
 	</section>
 
 	<!-- List of automated awards -->
@@ -170,7 +138,7 @@
 		</div>
 
 		<div class="item-list" style="display: flex; flex-direction: column; gap: 1.2rem;">
-			{#each awardsList as award}
+			{#each awardsList as award, ai}
 				<div class="award-card-editor glass" style="padding: 1.2rem; border-radius: 12px; border: 1px solid var(--glass-border); background: var(--hover-tint); display: flex; flex-direction: column; gap: 1rem;">
 					
 					<!-- Title Row -->
@@ -202,13 +170,13 @@
 					<!-- Input Forms -->
 					<div style="display: flex; flex-direction: column; gap: 0.8rem;">
 						<div class="edit-field full-width" style="margin: 0;">
-							<label class="compact-label" style="font-weight: 700; font-size: 0.75rem; color: var(--text-dim);">{$t("admin_awards_edit_title")}</label>
-							<input type="text" bind:value={award.title} placeholder={award.default_title} class="award-input" />
+							<label class="compact-label" for="award-title-{ai}">{$t("admin_awards_edit_title")}</label>
+							<input id="award-title-{ai}" type="text" bind:value={award.title} placeholder={award.default_title} class="award-input" />
 						</div>
 						
 						<div class="edit-field full-width" style="margin: 0;">
-							<label class="compact-label" style="font-weight: 700; font-size: 0.75rem; color: var(--text-dim);">{$t("admin_awards_edit_desc")}</label>
-							<textarea bind:value={award.description} placeholder={award.default_description} rows="2" class="award-textarea"></textarea>
+							<label class="compact-label" for="award-desc-{ai}">{$t("admin_awards_edit_desc")}</label>
+							<textarea id="award-desc-{ai}" bind:value={award.description} placeholder={award.default_description} rows="2" class="award-textarea"></textarea>
 						</div>
 					</div>
 
@@ -237,13 +205,14 @@
 
 <style>
 	.admin-grid { display: grid; grid-template-columns: minmax(380px, 1fr) 2fr; gap: 2rem; }
+	@media (max-width: 1100px) { .admin-grid { grid-template-columns: minmax(0, 1fr); gap: 1rem; } }
 	.wizard { padding: 2rem; min-height: 500px; display: flex; flex-direction: column; }
 	.list { padding: 2rem; display: flex; flex-direction: column; }
 	.list-header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 1rem; margin-bottom: 1rem; border-bottom: 1px solid var(--glass-border); }
 	.list-icon { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; background: var(--accent-soft); border-radius: 10px; border: 1px solid rgba(59,130,246,0.15); }
 	.badge-count { font-size: 0.7rem; background: var(--accent-soft); color: var(--accent); padding: 0.2rem 0.6rem; border-radius: 4px; font-weight: 800; border: 1px solid var(--accent); }
-	.compact-label { font-size: 0.72rem; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; margin: 0; }
-	.status-pill-sm { font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.15rem 0.5rem; border-radius: 20px; }
+	.compact-label { font-size: 0.85rem; font-weight: 600; color: var(--text-dim);  margin: 0; }
+	.status-pill-sm { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.15rem 0.5rem; border-radius: 20px; }
 	.status-pill-sm.running { background: var(--accent-soft); color: var(--accent); border: 1px solid rgba(59,130,246,0.2); }
 	.status-pill-sm.closed { background: rgba(139,92,246,0.1); color: #a78bfa; border: 1px solid rgba(139,92,246,0.2); }
 	.empty-list { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 3rem 1rem; gap: 0.5rem; }

@@ -152,7 +152,7 @@
 			<button class={activeTab === 'conversations' ? 'active' : ''} on:click={() => { activeTab = 'conversations'; if (conversationsTabRef) conversationsTabRef.loadAdminConversations(); }}>
 				{$t('admin_tab_chats')}
 				{#if adminUnreadConvsCount > 0}
-					<span class="tab-unread-badge" style="background:#22c55e;color:white;padding:0.1rem 0.4rem;border-radius:10px;font-size:0.65rem;font-weight:bold;margin-left:0.4rem">{adminUnreadConvsCount}</span>
+					<span class="tab-unread-badge" style="background:#22c55e;color:white;padding:0.1rem 0.4rem;border-radius:10px;font-size: 0.75rem;font-weight:bold;margin-left:0.4rem">{adminUnreadConvsCount}</span>
 				{/if}
 			</button>
 			<button class={activeTab === 'awards' ? 'active' : ''} on:click={() => { activeTab = 'awards'; if (awardsTabRef) awardsTabRef.loadAwardsTab(); }}>🏆 {$t('admin_tab_awards') || 'Prix & Distinctions'}</button>

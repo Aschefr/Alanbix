@@ -548,12 +548,12 @@
 		<h1 class="page-title"><span class="title-icon">🌍</span> {$t('admin_languages_title')}</h1>
 		<div class="header-spacer"></div>
 		<div class="add-lang-group">
-			<select bind:value={selectedAddCode} class="input-select compact">
+			<select bind:value={selectedAddCode} class="input-select compact" aria-label={$t('admin_languages_select_to_add')}>
 				<option value="" disabled selected>{$t('admin_languages_select_to_add') || 'Ajouter une langue...'}</option>
 				{#each addableLanguages as lang}
 					<option value={lang.code}>{lang.label}</option>
 				{/each}
-				<option value="custom">Autre / Custom...</option>
+				<option value="custom">{$t('admin_languages_other')}</option>
 			</select>
 			{#if selectedAddCode === 'custom'}
 				<input type="text" bind:value={newLangCode} placeholder={$t('admin_languages_code_placeholder')} class="new-lang-input" maxlength="5" />
@@ -578,7 +578,7 @@
 			<div class="toolbar-divider"></div>
 			<div class="setting-item">
 				<span class="setting-label">{$t('admin_settings_default_lang')}</span>
-				<select bind:value={lanDefaultLanguage} on:change={saveLanDefaultLanguage} class="input-select compact">
+				<select bind:value={lanDefaultLanguage} on:change={saveLanDefaultLanguage} class="input-select compact" aria-label={$t('admin_settings_default_lang')}>
 					{#each languages as lang}
 						<option value={lang}>{langFullName(lang)} ({lang.toUpperCase()})</option>
 					{/each}
@@ -591,7 +591,7 @@
 			<div class="lang-pair-card">
 				<div class="lang-slot">
 					<span class="lang-slot-label">{$t('admin_languages_ref_label')}</span>
-					<select value={refLang} on:change={handleRefChange} class="lang-select">
+					<select value={refLang} on:change={handleRefChange} class="lang-select" aria-label={$t('admin_languages_ref_label')}>
 						{#each languages as l}
 							<option value={l}>{langFullName(l)} ({l.toUpperCase()})</option>
 						{/each}
@@ -604,7 +604,7 @@
 				</div>
 				<div class="lang-slot target">
 					<span class="lang-slot-label">{$t('admin_languages_target_label')}</span>
-					<select value={targetLang} on:change={handleTargetChange} class="lang-select">
+					<select value={targetLang} on:change={handleTargetChange} class="lang-select" aria-label={$t('admin_languages_target_label')}>
 						{#each languages as l}
 							<option value={l}>{langFullName(l)} ({l.toUpperCase()})</option>
 						{/each}
@@ -953,7 +953,7 @@
 		gap: 0;
 	}
 	.lang-slot-label {
-		font-size: 0.6rem;
+		font-size: 0.75rem;
 		font-weight: 600;
 		color: var(--text-dim);
 		text-transform: uppercase;
@@ -1211,7 +1211,7 @@
 	.sidebar-icon { font-size: 0.9rem; flex-shrink: 0; }
 	.sidebar-label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 	.sidebar-count {
-		font-size: 0.65rem;
+		font-size: 0.75rem;
 		color: var(--text-dim);
 		background: var(--surface-sunken);
 		padding: 0.05rem 0.3rem;
@@ -1219,7 +1219,7 @@
 		flex-shrink: 0;
 	}
 	.sidebar-missing {
-		font-size: 0.6rem;
+		font-size: 0.75rem;
 		color: #fb923c;
 		flex-shrink: 0;
 	}
@@ -1254,7 +1254,7 @@
 		color: var(--text-main);
 	}
 	.editor-header-count {
-		font-size: 0.68rem;
+		font-size: 0.75rem;
 		color: var(--text-dim);
 		background: var(--surface-sunken);
 		padding: 0.1rem 0.4rem;
@@ -1301,7 +1301,7 @@
 	.trans-key {
 		padding: 0.12rem 0.5rem;
 		font-family: 'Fira Code', 'Cascadia Code', monospace;
-		font-size: 0.68rem;
+		font-size: 0.75rem;
 		color: var(--text-muted);
 		word-break: break-all;
 	}
@@ -1309,7 +1309,7 @@
 		display: flex;
 		align-items: center;
 		gap: 0.3rem;
-		font-size: 0.65rem;
+		font-size: 0.75rem;
 		color: #3b82f6;
 		background: rgba(59, 130, 246, 0.1);
 		padding: 0.1rem 0.4rem;

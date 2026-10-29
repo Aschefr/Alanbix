@@ -284,7 +284,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .btn-success {
-  background: var(--success);
+  background: #15803d; /* white text needs >=4.5:1 */
   color: white;
   border: none;
   padding: 0.6rem 1.2rem;
@@ -380,7 +380,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .btn-danger {
-  background: var(--danger);
+  background: #dc2626; /* white text needs >=4.5:1 */
   color: white;
   border: none;
   padding: 0.6rem 1.2rem;
@@ -751,11 +751,9 @@ select option {
 }
 
 .edit-field label {
-  font-size: 0.7rem;
-  font-weight: 700;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-dim);
   font-family: var(--font-main);
 }
 
