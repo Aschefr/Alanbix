@@ -377,7 +377,7 @@
   "admin_tourneys_mgmt_subtitle": "Éditer, gérer ou supprimer vos compétitions",
   "admin_tourneys_no_created": "Aucun tournoi créé",
   "admin_tourneys_phase_direct": "Phase directe",
-  "admin_tourneys_players_count": "{count} Joueur{plural}",
+  "admin_tourneys_players_count": "{count} joueur{plural}",
   "admin_tourneys_players_count_plural": "{count} Joueurs",
   "admin_tourneys_players_count_singular": "{count} Joueur",
   "admin_tourneys_regen_ai_msgs": "Régénérer les messages IA",
@@ -1370,5 +1370,7 @@
   "regie_round_finished": "Terminé",
   "regie_error_generic": "L'action n'a pas pu être effectuée. Réessayez.",
   "admin_languages_other": "Autre langue…",
-  "admin_error_save": "Échec de l'enregistrement. Vérifiez la connexion au serveur puis réessayez."
+  "admin_error_save": "Échec de l'enregistrement. Vérifiez la connexion au serveur puis réessayez.",
+  "admin_tourneys_live_progress": "{done}/{total} matchs joués",
+  "admin_tourneys_live_waiting": "{n} en attente de score"
 }

@@ -275,6 +275,26 @@
 			}
 		};
 	}
+
+	// Live state of a running tournament for the admin list (replaces the coefficient string)
+	function liveState(tr) {
+		const cfg = tr.config || {};
+		const played = (m) => {
+			const a = m.score?.[0] ?? null, b = m.score?.[1] ?? null;
+			return a !== null && b !== null && (a !== 0 || b !== 0) && (a !== b || !!cfg.allow_draws);
+		};
+		const playable = (tr.bracket || []).filter(m => (m.p || []).length >= 2 && !m.p.includes(0));
+		const pending = playable.filter(m => !played(m));
+		const first = pending[0];
+		const sameRound = (m) => first && m.id?.s === first.id?.s && m.id?.r === first.id?.r;
+		let round = $t('regie_round_finished');
+		if (first) {
+			round = cfg.bracket_type === 'round_robin' ? $t('spec_matchday_num', { num: first.id?.r || 1 })
+				: first.id?.s === 2 ? $t('tourneys_bracket_lb_round', { n: first.id?.r || 1 })
+				: $t('tourneys_round_n', { n: first.id?.r || 1 });
+		}
+		return { round, done: playable.length - pending.length, total: playable.length, waiting: pending.filter(sameRound).length };
+	}
 </script>
 
 <svelte:window on:keydown={handleKeydown} />
@@ -331,7 +351,12 @@
 									<span class="status-pill-sm {tourney.status.toLowerCase()}">{tourney.status === 'OPEN' ? $t('admin_tourneys_status_pill_open') : tourney.status === 'RUNNING' ? $t('admin_tourneys_status_pill_running') : tourney.status === 'CLOSED' ? $t('admin_tourneys_status_pill_closed') : $t('admin_tourneys_status_pill_done')}</span>
 								</div>
 								<div class="item-meta">
-									{games.find(g => g.id === tourney.game_id)?.name || '—'} • {tourney.participants?.length || 0} Joueur{(tourney.participants?.length || 0) > 1 ? 's' : ''} • 🥇{tourney.config?.pts_winner ?? 1.5}/🥈{tourney.config?.pts_second ?? 1.3}/🥉{tourney.config?.pts_third ?? 1.0} 👤{tourney.config?.pts_participation ?? 1.0}/m ⚡{tourney.config?.pts_per_match ?? 0.5}
+									{games.find(g => g.id === tourney.game_id)?.name || '—'} · {$t('admin_tourneys_players_count', { count: tourney.participants?.length || 0, plural: (tourney.participants?.length || 0) > 1 ? 's' : '' })}
+									{#if tourney.status === 'RUNNING'}
+										{@const st = liveState(tourney)}
+										· {st.round} · {$t('admin_tourneys_live_progress', { done: st.done, total: st.total })}
+										{#if st.waiting > 0}<span class="live-waiting">{$t('admin_tourneys_live_waiting', { n: st.waiting })}</span>{/if}
+									{/if}
 								</div>
 							</div>
 							<div class="item-actions">
@@ -669,4 +694,5 @@
 	.editor-container :global(.editor-toolbar) { background: var(--hover-tint, rgba(255,255,255,0.03)); border: none; border-bottom: 1px solid var(--glass-border); opacity: 1; padding: 4px; }
 	.editor-container :global(.editor-toolbar button) { color: var(--text-dim, #94a3b8) !important; border: none !important; width: 26px !important; height: 26px !important; }
 	.editor-container :global(.editor-toolbar button:hover), .editor-container :global(.editor-toolbar button.active) { background: var(--accent-soft, rgba(59,130,246,0.15)) !important; color: var(--accent, #3b82f6) !important; border-radius: 4px; }
+	.live-waiting { margin-left: 0.4rem; color: var(--warning); font-weight: 600; }
 </style>

@@ -149,6 +149,9 @@
  "admin_toast_system_prompt_saved": [
   "Prompt système sauvegardé."
  ],
+ "admin_tourneys_players_count": [
+  "{count} Joueur{plural}"
+ ],
  "admin_tourneys_view_ai_prompt": [
   "Voir le prompt IA"
  ],
