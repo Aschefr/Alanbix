@@ -124,7 +124,7 @@
 		} catch(err) {
 			console.error('checkCallAdmin error', err);
 			modalTitle = $t('error');
-			modalMessage = err.message || 'Erreur lors de la vérification de disponibilité.';
+			modalMessage = err.message || $t('ai_availability_error');
 			modalType = 'error';
 			modalConfirmCallback = null;
 			showModal = true;
@@ -871,7 +871,7 @@
 					{ hop: 1, ip: "192.168.22.1", rtt_ms: 2 },
 					{ hop: 2, ip: host, rtt_ms: 12 }
 				],
-				note: "Simulé par le navigateur client (raw sockets ICMP non supportées)."
+				note: "Simulé par le navigateur client (raw sockets ICMP non supportées)." // i18n-ignore (tool result sent to the model)
 			};
 		} else if (name === "scan_local_network") {
 			result = {
@@ -879,7 +879,7 @@
 					{ ip: "192.168.22.1", mac: "00:11:22:33:44:55" }
 				],
 				count: 1,
-				note: "Simulé par le client (la table ARP complète de l'hôte n'est pas accessible au navigateur)."
+				note: "Simulé par le client (la table ARP complète de l'hôte n'est pas accessible au navigateur)." // i18n-ignore (tool result sent to the model)
 			};
 		}
 		
@@ -970,7 +970,7 @@
 
 			if (adminOverride) {
 				// Under admin override, just add a system notification and reload
-				messages = [...messages, { role: 'system', content: $t('ai_override_message_sent', { default: '🛡️ Un administrateur gère cette conversation. Votre message a été transmis.' }), timestamp: new Date().toISOString() }];
+				messages = [...messages, { role: 'system', content: $t('ai_override_message_sent'), timestamp: new Date().toISOString() }];
 			} else {
 				const reader = response.body.getReader();
 				const decoder = new TextDecoder("utf-8");
@@ -1177,7 +1177,7 @@
 					<div class="flex-row items-center gap-4">
 						<h2>{conversations.find(c => c.id === activeId)?.title}</h2>
 						{#if compression.mode}
-							<div class="compression-badge" title="Mode de compression actif">
+							<div class="compression-badge" title={$t('ai_compression_tooltip')}>
 								🗜️ {compression.mode}
 							</div>
 						{/if}
@@ -1187,7 +1187,7 @@
 					</div>
 					<div class="usage-bar mt-1">
 						<div class="flex-row justify-between">
-							<span class="text-xs text-dim" style="white-space: nowrap;">{$t("ai_label_context")} {tokenPct}% ({usedTokens} / {availableTokens} tokens)</span>
+							<span class="text-xs text-dim" style="white-space: nowrap;">{$t("ai_label_context")} {tokenPct}% ({usedTokens} / {$t('ai_tokens_count', { n: availableTokens })})</span>
 							{#if tokenPct > 80}
 								<span class="text-xs text-danger warning-text" style="white-space: nowrap;">{$t("ai_context_limit")}</span>
 							{/if}
@@ -1301,7 +1301,7 @@
 								<details class="context-details">
 									<summary class="context-summary">
 										<span class="context-label">{$t("ai_context_compressed", { mode: compression.mode })}</span>
-										<span class="context-size">{compression.context ? Math.ceil(compression.context.length / 3.5) + ' tokens' : '⚠️ vide'}</span>
+										<span class="context-size">{compression.context ? $t('ai_tokens_count', { n: Math.ceil(compression.context.length / 3.5) }) : '⚠️ ' + $t('ai_context_empty_short')}</span>
 										{#if !iaBlocked}
 											<button class="action-btn" on:click|stopPropagation={startEditContext} title={$t('ai_tooltip_edit')}>✏️</button>
 										{/if}
@@ -1342,7 +1342,7 @@
 								class:pulse-progress={msg.role === 'bot' && idx === messages.length - 1 && loading && !queued && !compressing && ((msg.status === 'thinking' && elapsedTime >= avgDuration) || msg.status === 'tool_call')}
 								style="--progress-percent: {Math.min(100, (elapsedTime / (avgDuration || 15)) * 100)}%;">
 								{#if msg.role === 'admin'}
-									<div class="admin-badge">Admin</div>
+									<div class="admin-badge">{$t('ai_admin_badge')}</div>
 								{/if}
 								{#if msg.role === 'bot'}
 									{@const modelInfo = msg.model_info || (msg.meta && msg.meta.model_info)}
@@ -1355,7 +1355,7 @@
 										{#if idx === messages.length - 1 && loading && !queued && !compressing && (msg.status === 'thinking' || msg.status === 'tool_call')}
 											<span class="status-badge timer-badge">⏱️ {elapsedTime.toFixed(1)}s / {avgDuration.toFixed(1)}s</span>
 										{:else if msgDuration !== undefined && msgDuration !== null}
-											<span class="status-badge timer-badge" title="Temps de réponse du LLM (jusqu'au premier token)">⏱️ {msgDuration.toFixed(1)}s</span>
+											<span class="status-badge timer-badge" title={$t('ai_response_time_tooltip')}>⏱️ {msgDuration.toFixed(1)}s</span>
 										{/if}
 										{#if modelInfo}
 											<span class="model-badge">🤖 {modelInfo.model} ({modelInfo.instance})</span>
@@ -1436,7 +1436,7 @@
 								<details class="context-details">
 									<summary class="context-summary">
 										<span class="context-label">{$t("ai_context_compressed", { mode: compression.mode })}</span>
-										<span class="context-size">{compression.context ? Math.ceil(compression.context.length / 3.5) + ' tokens' : '⚠️ vide'}</span>
+										<span class="context-size">{compression.context ? $t('ai_tokens_count', { n: Math.ceil(compression.context.length / 3.5) }) : '⚠️ ' + $t('ai_context_empty_short')}</span>
 										{#if !iaBlocked}
 											<button class="action-btn" on:click|stopPropagation={startEditContext} title={$t('ai_tooltip_edit')}>✏️</button>
 										{/if}
@@ -1502,7 +1502,7 @@
 								<span class="queue-wait">{$t("ai_queue_estimated", { time: queueEstWait })}</span>
 							{/if}
 						</div>
-						<button class="queue-cancel-btn" on:click={cancelQueue} title="Annuler">❌ {$t("info_btn_cancel")}</button>
+						<button class="queue-cancel-btn" on:click={cancelQueue} title={$t('common_cancel')}>❌ {$t("info_btn_cancel")}</button>
 					</div>
 					<div class="queue-progress-bg">
 						<div class="queue-progress-fill"></div>
@@ -1513,7 +1513,7 @@
 			<form class="input-area" class:input-disabled={loading || busyOtherConv} on:submit|preventDefault={send}>
 				{#if pendingImagePreview}
 					<div class="pending-image-preview">
-						<img src={pendingImagePreview} alt="Preview" />
+						<img src={pendingImagePreview} alt={$t('chat_preview_alt')} />
 						<button type="button" class="preview-clear" on:click={clearPendingImage}>✕</button>
 					</div>
 				{/if}

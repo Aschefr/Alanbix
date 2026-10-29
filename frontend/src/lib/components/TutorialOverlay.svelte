@@ -1,5 +1,6 @@
 <script>
 	import { onMount, onDestroy } from 'svelte';
+	import { t } from '$lib/i18nStore';
 	import { tutorialActive, tutorialStepIndex, TUTORIAL_STEPS, stopTutorial, nextTutorialStep, prevTutorialStep } from '$lib/tutorialStore';
 
 	let active = false;
@@ -127,13 +128,13 @@
 		<p>{currentStep.content}</p>
 		
 		<div class="panel-actions">
-			<button class="btn-link text-dim" on:click={stopTutorial}>Quitter</button>
+			<button class="btn-link text-dim" on:click={stopTutorial}>{$t('tutorial_quit')}</button>
 			<div class="nav-buttons">
 				{#if stepIndex > 0}
-					<button class="btn-secondary btn-sm" on:click={prevTutorialStep}>Précédent</button>
+					<button class="btn-secondary btn-sm" on:click={prevTutorialStep}>{$t('tutorial_prev')}</button>
 				{/if}
 				<button class="btn-primary btn-sm" on:click={nextTutorialStep}>
-					{stepIndex === TUTORIAL_STEPS.length - 1 ? 'Terminer 🎉' : 'Suivant →'}
+					{stepIndex === TUTORIAL_STEPS.length - 1 ? $t('tutorial_finish') + ' 🎉' : $t('tutorial_next') + ' →'}
 				</button>
 			</div>
 		</div>

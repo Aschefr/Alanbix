@@ -417,7 +417,7 @@
 					<div class="radar-pulse"></div>
 					<div class="radar-text">
 						<strong>{$t('server_modal_searching')}</strong>
-						<span>Scan rapide du réseau Wi-Fi local sans configuration...</span>
+						<span>{$t('server_scan_hint')}</span>
 					</div>
 				</div>
 			{:else if discoveredServers.length === 0 && statusType === 'error'}
@@ -447,7 +447,7 @@
 							id="manual-server-url"
 							type="text"
 							bind:value={serverInput}
-							placeholder="Ex: http://192.168.1.50:41481"
+							placeholder={$t('server_url_placeholder')}
 						/>
 					</div>
 

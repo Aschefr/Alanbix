@@ -56,7 +56,7 @@
 					{/if}
 					<div class="lb-score">
 						<span class="score-val">{formatPoints(entry.points)}</span>
-						<span class="score-label">Pts</span>
+						<span class="score-label">{$t('lb_points_short')}</span>
 					</div>
 				</div>
 			{:else}
@@ -74,7 +74,7 @@
 					</div>
 					<div class="lb-score">
 						<span class="score-val">{formatPoints(team.score)}</span>
-						<span class="score-label">Pts</span>
+						<span class="score-label">{$t('lb_points_short')}</span>
 					</div>
 				</div>
 				{#if expandedTeamIdx === i && team.members}
@@ -83,7 +83,7 @@
 							<!-- svelte-ignore a11y-click-events-have-key-events -->
 							<div class="team-member-row clickable" on:click={() => handlePlayerClick(member.username)} style="cursor: pointer;">
 								<span class="tm-name">👤 {member.username}</span>
-								<span class="tm-pts">{formatPoints(member.points)} pts</span>
+								<span class="tm-pts">{formatPoints(member.points)} {$t('common_pts')}</span>
 							</div>
 						{/each}
 					</div>

@@ -209,7 +209,7 @@
 				</div>
 				<div class="bi-card">
 					<span class="bi-val status-badge {activeTournament?.status?.toLowerCase() || ''}">{activeTournament?.status === 'RUNNING' ? $t('tourneys_status_running').toUpperCase() : activeTournament?.status === 'CLOSED' ? $t('tourneys_status_closed').toUpperCase() : activeTournament?.status || ''}</span>
-					<span class="bi-label">Status</span>
+					<span class="bi-label">{$t('common_status')}</span>
 				</div>
 			</div>
 
@@ -226,7 +226,7 @@
 								<div class="dash-ffa-matches" style="display: flex; flex-direction: column; gap: 0.8rem; padding: 0 0.5rem 0.5rem;">
 								{#each roundMatches as match, mi}
 									<div class="dash-ffa-match-box">
-										<div class="dash-ffa-count" style="font-size: 0.7rem; color: var(--text-muted); font-weight: 600; margin-bottom: 0.3rem;">Match {mi + 1} - {$t(match.p.length > 1 ? 'admin_tourneys_players_count_plural' : 'admin_tourneys_players_count_singular', { count: match.p.length })}</div>
+										<div class="dash-ffa-count" style="font-size: 0.7rem; color: var(--text-muted); font-weight: 600; margin-bottom: 0.3rem;">{$t('tourneys_ffa_match_label', { n: mi + 1 })} - {$t(match.p.length > 1 ? 'admin_tourneys_players_count_plural' : 'admin_tourneys_players_count_singular', { count: match.p.length })}</div>
 										{#each match.p as pid, pi}
 											{@const mRank = getFFAMatchRank(match, pi, activeTournament?.config?.lower_score_is_better)}
 											<div class="dash-ffa-row {mRank === 1 ? 'gold' : mRank === 2 ? 'silver' : mRank === 3 ? 'bronze' : ''}">
@@ -249,7 +249,7 @@
 						{#each dashRRGroups as group}
 							<div class="dash-rr-group" style="margin-bottom: 1.5rem; width: 100%;">
 								{#if dashRRGroups.length > 1}
-									<h4 style="color: var(--accent); font-weight: 800; margin-bottom: 0.5rem;">Poule {String.fromCharCode(64 + parseInt(group.id))}</h4>
+									<h4 style="color: var(--accent); font-weight: 800; margin-bottom: 0.5rem;">{$t('spec_group_num', { group: String.fromCharCode(64 + parseInt(group.id)) })}</h4>
 								{/if}
 								<div class="dash-rr-rounds" style="display: flex; flex-wrap: wrap; gap: 1rem;">
 									{#each group.rounds as roundMatches, ri}
@@ -327,11 +327,11 @@
 									{/each}
 								</div>
 								{#if activeBracketType === 'double_elim' && lbRounds.length > 0}
-									<div style="margin: 0 1rem; align-self: center; font-weight: 800; color: var(--text-muted); text-transform: uppercase; font-size: 0.8rem; letter-spacing: 0.1em; padding: 1rem 0; text-align: center;">Losers Bracket</div>
+									<div style="margin: 0 1rem; align-self: center; font-weight: 800; color: var(--text-muted); text-transform: uppercase; font-size: 0.8rem; letter-spacing: 0.1em; padding: 1rem 0; text-align: center;">{$t('tourneys_bracket_losers')}</div>
 									<div class="dash-rounds">
 										{#each lbRounds as lbRound, ri}
 											<div class="dash-round-col">
-												<div class="dash-round-hdr">{lbRound.originalIndex === lbRoundsRaw.length - 1 ? 'LB Finale' : 'LB R' + (lbRound.originalIndex + 1)}</div>
+												<div class="dash-round-hdr">{lbRound.originalIndex === lbRoundsRaw.length - 1 ? $t('tourneys_bracket_lb_final') : $t('tourneys_bracket_lb_round', { n: lbRound.originalIndex + 1 })}</div>
 												<div class="dash-matches-col">
 													{#each lbRound.matches as match}
 														{@const s0 = match.score?.[0] ?? null}

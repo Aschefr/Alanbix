@@ -94,7 +94,7 @@
 											<span class="t-game-emoji">🎮</span>
 											<div class="t-names">
 												<span class="t-name">{hist.tournament_name}</span>
-												<span class="t-game">{hist.game_name || 'Jeu inconnu'}</span>
+												<span class="t-game">{hist.game_name || $t('dash_unknown_game')}</span>
 											</div>
 										</div>
 										<div class="t-details">
@@ -108,7 +108,7 @@
 
 											<div class="t-rank-pts">
 												<span class="t-rank">{hist.rank ? `#${hist.rank}` : '—'}</span>
-												<span class="t-pts-total">{formatPoints(hist.total)} pts</span>
+												<span class="t-pts-total">{formatPoints(hist.total)} {$t('common_pts')}</span>
 											</div>
 										</div>
 									</div>

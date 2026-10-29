@@ -107,7 +107,7 @@
 						<div class="edit-field">
 							<label for="edit-game">🎮 {$t("tourneys_edit_game_lbl")}</label>
 							<select id="edit-game" bind:value={editConfig.game_id}>
-								<option value={null}>-- Aucun jeu --</option>
+								<option value={null}>{$t('edit_tourney_no_game')}</option>
 								{#each games as g}
 									<option value={g.id}>{g.name}</option>
 								{/each}

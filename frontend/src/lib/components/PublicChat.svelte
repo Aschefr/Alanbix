@@ -754,7 +754,7 @@
 		} catch (e) {
 			// Restore text if error
 			textInput = sentText;
-			alert(e.message || "Erreur lors de l'envoi du message.");
+			alert(e.message || $t('chat_send_error'));
 		} finally {
 			isSending = false;
 			isUploading = false;
@@ -863,7 +863,7 @@
 			const res = await api.post('/public-chat/pin', { message_id: targetId });
 			pinnedMessage = res?.pinned || null;
 		} catch (e) {
-			alert(e.message || "Erreur lors de l'épinglage.");
+			alert(e.message || $t('chat_pin_error'));
 		}
 	}
 
@@ -872,7 +872,7 @@
 			await api.post('/public-chat/pin', { message_id: null });
 			pinnedMessage = null;
 		} catch (e) {
-			alert(e.message || "Erreur lors du désépinglage.");
+			alert(e.message || $t('chat_unpin_error'));
 		}
 	}
 
@@ -960,7 +960,7 @@
 			.map(id => {
 				if (user && id === user.id) return 'Vous';
 				const found = (allUsers || []).find(u => u.id === id);
-				return found?.username || `Joueur #${id}`;
+				return found?.username || $t('chat_player_fallback', { id });
 			})
 			.join(', ');
 	}
@@ -1070,7 +1070,7 @@
 				<span class="chat-disabled-badge">{$t('dash_chat_disabled_badge')}</span>
 			{/if}
 			{#if chatConfig.slowmode_seconds > 0}
-				<span class="chat-slowmode-indicator" title="Slowmode">⏱️ {chatConfig.slowmode_seconds}s</span>
+				<span class="chat-slowmode-indicator" title={$t('chat_slowmode_tooltip')}>⏱️ {chatConfig.slowmode_seconds}s</span>
 			{/if}
 		</div>
 		<div class="header-right">
@@ -1093,7 +1093,7 @@
 			</button>
 
 			{#if user?.is_admin}
-				<button class="chat-btn-icon-danger" on:click={clearAllChat} title="Purger le chat (Admin)">
+				<button class="chat-btn-icon-danger" on:click={clearAllChat} title={$t('chat_purge_admin')} aria-label={$t('chat_purge_admin')}>
 					<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2M10 11v6M14 11v6"/></svg>
 				</button>
 			{/if}
@@ -1111,14 +1111,14 @@
 						<span class="pinned-badge-tag">{$t('dash_chat_pinned_title')}</span>
 						<span class="pinned-author-name">{pinnedMessage.message.username || pinnedMessage.message.sender_name || 'Anonyme'}</span>
 					</div>
-					<div class="pinned-message-preview">{pinnedMessage.message.content || (pinnedMessage.message.image_path ? 'Pièce jointe' : '')}</div>
+					<div class="pinned-message-preview">{pinnedMessage.message.content || (pinnedMessage.message.image_path ? $t('chat_attachment') : '')}</div>
 				</div>
 			</div>
 			<div class="pinned-banner-actions">
 				<button
 					class="pinned-action-btn"
 					on:click={() => scrollToAndHighlightMessage(pinnedMessage.message.id)}
-					title="Voir dans le chat"
+					title={$t('chat_jump_to_message')}
 				>
 					↗
 				</button>
@@ -1150,7 +1150,7 @@
 							class="btn-load-earlier"
 							on:click={loadEarlierMessages}
 							disabled={isLoadingEarlier}
-							title="Charger les messages plus anciens"
+							title={$t('chat_load_older')}
 						>
 							{#if isLoadingEarlier}
 								<span class="mini-spinner"></span>
@@ -1316,7 +1316,7 @@
 									<span class="team-tag">{msg.team_name}</span>
 								{/if}
 								{#if msg.seat_id}
-									<span class="seat-tag" title="Emplacement salle">💺 {msg.seat_id}</span>
+									<span class="seat-tag" title={$t('chat_seat_tooltip')}>💺 {msg.seat_id}</span>
 								{/if}
 								<span class="msg-time">{formatTime(msg.created_at)}</span>
 							</div>
@@ -1327,7 +1327,7 @@
 								<div
 									class="msg-reply-quote"
 									on:click|stopPropagation={() => scrollToAndHighlightMessage(msg.reply_to.id)}
-									title="Voir le message original"
+									title={$t('chat_view_original')}
 								>
 									<span class="quote-symbol">↩️</span>
 									<strong class="quote-author">@{msg.reply_to.username}</strong>
@@ -1346,7 +1346,7 @@
 							{#if msg.image_path}
 								<!-- svelte-ignore a11y-click-events-have-key-events -->
 								<div class="msg-image-attachment" on:click={() => lightboxImageUrl = msg.image_path}>
-									<img src={msg.image_path} alt="Pièce jointe" loading="lazy" on:load={() => { if (!isScrolledUp && chatScrollEl) chatScrollEl.scrollTop = chatScrollEl.scrollHeight; }} />
+									<img src={msg.image_path} alt={$t('chat_attachment')} loading="lazy" on:load={() => { if (!isScrolledUp && chatScrollEl) chatScrollEl.scrollTop = chatScrollEl.scrollHeight; }} />
 									<span class="zoom-indicator">🔍</span>
 								</div>
 							{/if}
@@ -1420,7 +1420,7 @@
 					{/if}
 					<span class="m-name">{m.username}</span>
 					{#if m.is_bot}
-						<span class="m-sub bot-sub">Mascotte IA</span>
+						<span class="m-sub bot-sub">{$t('chat_bot_subtitle')}</span>
 					{:else if m.team_name}
 						<span class="m-sub">{m.team_name}</span>
 					{/if}
@@ -1448,10 +1448,10 @@
 	{#if pendingImagePreview}
 		<div class="pending-preview-bar">
 			<div class="preview-thumb-box">
-				<img src={pendingImagePreview} alt="Aperçu" />
-				<button class="remove-preview-btn" on:click={removePendingImage} title="Supprimer">✕</button>
+				<img src={pendingImagePreview} alt={$t('chat_preview_alt')} />
+				<button class="remove-preview-btn" on:click={removePendingImage} title={$t('chat_remove_image')} aria-label={$t('chat_remove_image')}>✕</button>
 			</div>
-			<span class="preview-label">{pendingImage?.name || 'Image prête à l\'envoi'}</span>
+			<span class="preview-label">{pendingImage?.name || $t('chat_image_ready')}</span>
 		</div>
 	{/if}
 
@@ -1481,7 +1481,7 @@
 						{$t('dash_chat_replying_to')}
 						<strong>@{replyingTo.username || replyingTo.sender_name || 'Anonyme'}</strong>
 					</span>
-					<span class="replying-snippet">{replyingTo.content || (replyingTo.image_path ? 'Pièce jointe' : '')}</span>
+					<span class="replying-snippet">{replyingTo.content || (replyingTo.image_path ? $t('chat_attachment') : '')}</span>
 				</div>
 			</div>
 			<button class="replying-cancel-btn" on:click={cancelReply} title={$t('dash_chat_cancel_reply')}>✕</button>
@@ -1542,7 +1542,7 @@
 	<!-- svelte-ignore a11y-click-events-have-key-events -->
 	<div class="lightbox-overlay" on:click={() => lightboxImageUrl = null}>
 		<div class="lightbox-container" on:click|stopPropagation>
-			<img src={lightboxImageUrl} alt="Agrandissement" class="lightbox-img" />
+			<img src={lightboxImageUrl} alt={$t('chat_enlarged_alt')} class="lightbox-img" />
 			<button class="lightbox-close" on:click={() => lightboxImageUrl = null}>✕</button>
 		</div>
 	</div>

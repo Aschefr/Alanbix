@@ -603,7 +603,7 @@
 				<div class="icon">ℹ️</div>
 				<div class="title-text">
 					<h2>{$t('settings_section_about')}</h2>
-					<p>Alanbix Companion LAN Management System</p>
+					<p>Alanbix Companion LAN Management System</p><!-- i18n-ignore: product name -->
 				</div>
 			</div>
 
@@ -618,7 +618,7 @@
 				</div>
 				<div class="about-row">
 					<span>{$t('settings_app_type')}</span>
-					<span>{isCapacitorNative() ? '📱 Alanbix Mobile' : '💻 Alanbix Web'}</span>
+					<span>{isCapacitorNative() ? '📱 Alanbix Mobile' : '💻 Alanbix Web'}</span><!-- i18n-ignore: product name -->
 				</div>
 				<div class="about-row">
 					<span>{$t('settings_demo_mode_label')}</span>
@@ -628,11 +628,11 @@
 				</div>
 				<div class="about-row">
 					<span>{$t('settings_license_label')}</span>
-					<span>MIT · Open Source</span>
+					<span>MIT · Open Source</span><!-- i18n-ignore: licence name -->
 				</div>
 				<div class="about-row">
-					<span>App ID :</span>
-					<span>com.amifystudio.alanbix</span>
+					<span>App ID :</span><!-- i18n-ignore: technical identifier -->
+					<span>com.amifystudio.alanbix</span><!-- i18n-ignore -->
 				</div>
 			</div>
 		</section>

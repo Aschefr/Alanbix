@@ -838,7 +838,7 @@
 					<button class="btn-secondary" on:click={() => { editMode = true; assigningSeatId = null; }}>✏️ {$t("map_btn_edit")}</button>
 				{/if}
 				{#if editMode}
-					<button class="btn-secondary" on:click={addTable}>+ Table</button>
+					<button class="btn-secondary" on:click={addTable}>{$t('map_add_table')}</button>
 					<select class="table-select" bind:value={targetTableId}>
 						{#each layout.tables as t}
 							<option value={t.id}>{t.id} — {t.label}</option>
@@ -1219,7 +1219,7 @@
 		{#if user?.team_name}
 			<div class="legend-item"><span class="dot teammate-dot"></span> {$t('map_legend_teammates')}</div>
 		{/if}
-		<div class="legend-item"><span class="dot table-dot"></span> Table</div>
+		<div class="legend-item"><span class="dot table-dot"></span> {$t('map_legend_table')}</div>
 		<div class="legend-item"><span class="dot furniture-dot"></span> {$t("map_legend_element")}</div>
 	</div>
 

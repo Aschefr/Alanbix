@@ -380,7 +380,7 @@
 			{#each VIEWS as v, i}
 				<span class="nav-dot {currentIdx === i ? 'active' : ''}" on:click={() => { currentIdx = i; transClass = 'slide-in'; }}></span>
 			{/each}
-			{#if paused}<span class="pause-badge">⏸ PAUSE</span>{/if}
+			{#if paused}<span class="pause-badge">⏸ {$t('spec_pause_badge')}</span>{/if}
 		</div>
 	</div>
 
@@ -399,7 +399,7 @@
 							{/if}
 							<span class="spec-name">{entry.username}</span>
 							{#if entry.team_name}<span class="spec-team">{entry.team_name}</span>{/if}
-							<span class="spec-pts">{formatPoints(entry.points)} pts</span>
+							<span class="spec-pts">{formatPoints(entry.points)} {$t('common_pts')}</span>
 						</div>
 					{:else}
 						<p class="spec-empty">{$t("spec_empty_leaderboard")}</p>
@@ -416,7 +416,7 @@
 							<span class="spec-rank {team.rank === 1 ? 'gold' : team.rank === 2 ? 'silver' : team.rank === 3 ? 'bronze' : ''}">{team.rank || '—'}</span>
 							<span class="spec-name">{team.team_name}</span>
 							<span class="spec-members">{$t("spec_players_count", { count: team.member_count })}</span>
-							<span class="spec-pts">{formatPoints(team.score)} pts</span>
+							<span class="spec-pts">{formatPoints(team.score)} {$t('common_pts')}</span>
 						</div>
 					{:else}
 						<p class="spec-empty">{$t("spec_empty_teams")}</p>
@@ -547,13 +547,13 @@
 										<div class="spec-ffa-round-block {isLatest ? 'current' : 'past'}">
 											<div class="spec-ffa-hdr">
 												<span>{$t("spec_round_num", { num: ri + 1 })}</span>
-												<span class="spec-ffa-match-count">{roundMatches.length} Match{roundMatches.length > 1 ? 's' : ''}</span>
+												<span class="spec-ffa-match-count">{$t('spec_matches_count', { count: roundMatches.length })}</span>
 											</div>
 											<div class="spec-ffa-matches-wrap">
 											{#each roundMatches as match, mi}
 												<div class="spec-ffa-match-card">
 													<div class="spec-ffa-match-hdr">
-														<span>Match {mi + 1}</span>
+														<span>{$t('tourneys_ffa_match_label', { n: mi + 1 })}</span>
 														<span>{$t("spec_players_count", { count: match.p.length })}</span>
 													</div>
 													<div class="spec-ffa-players">
@@ -645,7 +645,7 @@
 											<div class="spec-rounds">
 												{#each lbRounds as lbRound, ri}
 													<div class="spec-round-col">
-														<div class="spec-round-hdr">{lbRound.originalIndex === lbRoundsRaw.length - 1 ? $t('spec_lb_finale') : 'LB R' + (lbRound.originalIndex + 1)}</div>
+														<div class="spec-round-hdr">{lbRound.originalIndex === lbRoundsRaw.length - 1 ? $t('spec_lb_finale') : $t('tourneys_bracket_lb_round', { n: lbRound.originalIndex + 1 })}</div>
 														<div class="spec-matches">
 															{#each lbRound.matches as match}
 																{@const s0 = match.score?.[0] ?? null}

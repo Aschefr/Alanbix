@@ -51,7 +51,7 @@
 		<div class="modal-card-global glass" style="width: 420px;" on:click|stopPropagation>
 			<header class="modal-header {type}">
 				<h3 class="modal-title">{title}</h3>
-				<button class="close-btn" on:click={close} aria-label="Fermer">✕</button>
+				<button class="close-btn" on:click={close} aria-label={$t('common_close')}>✕</button>
 			</header>
 			<div class="modal-body">
 				<p>{message}</p>

@@ -94,7 +94,7 @@
 				config = { name: '', game_id: games.length > 0 ? games[0].id : null, use_teams: false, team_size: 2, points_per_win: 3, group_size: 4, meet_twice: false, ffa_group_size: 4, ffa_advancers: 2, bracket_type: 'single_elim', pts_winner: defaultPts.pts_winner, pts_second: defaultPts.pts_second, pts_third: defaultPts.pts_third, pts_participation: defaultPts.pts_participation, pts_per_match: defaultPts.pts_per_match, lower_score_is_better: false, boolean_mode: false, allow_draws: false };
 			}, 1000);
 		} catch (e) {
-			errorMsg = e.message || 'Erreur lors de la création';
+			errorMsg = e.message || $t('wizard_create_error');
 		} finally {
 			creatingTournament = false;
 		}
@@ -216,7 +216,7 @@
 						<rect x="71" y="40" width="14" height="15" rx="2"/>
 						<circle cx="22" cy="26" r="4"/><circle cx="50" cy="11" r="4"/><circle cx="78" cy="34" r="4"/>
 					</svg>
-					<span>Free For All</span>
+					<span>{$t('tourneys_format_ffa')}</span>
 				</button>
 			</div>
 

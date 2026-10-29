@@ -63,7 +63,7 @@
 			dispatch('success', res);
 			closeModal();
 		} catch (e) {
-			dispatch('toast', { message: e.message || 'Erreur lors de la création du jeu', type: 'error' });
+			dispatch('toast', { message: e.message || $t('addgame_create_error'), type: 'error' });
 		}
 	}
 
@@ -159,13 +159,13 @@
 		<div class="modal-card-global glass" on:click|stopPropagation>
 			<header class="edit-modal-header">
 				<h3>➕ {$t("admin_games_add")}</h3>
-				<button class="close-btn" on:click={closeModal} aria-label="Fermer">✕</button>
+				<button class="close-btn" on:click={closeModal} aria-label={$t('common_close')}>✕</button>
 			</header>
 			<div class="edit-modal-body">
 				<div class="flex-col gap-4">
 					<div class="edit-field full-width">
 						<label>{$t('admin_games_name_lbl')}</label>
-						<input type="text" bind:value={newGame.name} placeholder="Counter-Strike 2, Valorant..." on:input={() => searchQuery = newGame.name} />
+						<input type="text" bind:value={newGame.name} placeholder={$t('addgame_name_placeholder')} on:input={() => searchQuery = newGame.name} />
 					</div>
 
 					<div class="edit-field full-width">
@@ -199,14 +199,14 @@
 								</div>
 							{/if}
 						{:else if gameImageMode === 'url'}
-							<input type="text" class="mt-2" bind:value={newGame.image_url} placeholder="https://..." />
+							<input type="text" class="mt-2" bind:value={newGame.image_url} placeholder="https://..." /><!-- i18n-ignore -->
 						{:else}
 							<input type="file" class="mt-2" accept="image/*" on:change={handleFileUpload} />
 						{/if}
 
 						{#if newGame.image_url}
 							<div class="img-preview mt-2">
-								<img src={newGame.image_url} alt="Preview" />
+								<img src={newGame.image_url} alt={$t('chat_preview_alt')} />
 								<button type="button" class="preview-clear" on:click={() => newGame.image_url = ''}>✕</button>
 							</div>
 						{/if}
@@ -217,7 +217,7 @@
 						{#if EasyMDE}
 							<textarea use:setupEditor={newGame.rules}></textarea>
 						{:else}
-							<textarea bind:value={newGame.rules} rows="4" placeholder="# Règles\n- ..."></textarea>
+							<textarea bind:value={newGame.rules} rows="4" placeholder={$t('addgame_rules_placeholder')}></textarea>
 						{/if}
 					</div>
 				</div>

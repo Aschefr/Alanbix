@@ -110,18 +110,10 @@
 		if (!dStr.endsWith('Z')) dStr += 'Z';
 		let diff = (Date.now() - new Date(dStr).getTime()) / 1000;
 		if (diff < 0) diff = 0;
-		const isEn = lang === 'en';
-		if (diff < 60) return isEn ? "just now" : "à l'instant";
-		if (diff < 3600) {
-			const m = Math.floor(diff / 60);
-			return isEn ? `${m}m ago` : `il y a ${m} min`;
-		}
-		if (diff < 86400) {
-			const h = Math.floor(diff / 3600);
-			return isEn ? `${h}h ago` : `il y a ${h}h`;
-		}
-		const j = Math.floor(diff / 86400);
-		return isEn ? `${j}d ago` : `il y a ${j}j`;
+		if (diff < 60) return $t('time_just_now');
+		if (diff < 3600) return $t('time_minutes_ago', { n: Math.floor(diff / 60) });
+		if (diff < 86400) return $t('time_hours_ago', { n: Math.floor(diff / 3600) });
+		return $t('time_days_ago', { n: Math.floor(diff / 86400) });
 	}
 
 	import { pmUnreadCount, groupUnreadCount, totalMsgUnread, notifUnreadCount } from '$lib/pmStore';
@@ -198,7 +190,7 @@
 						<p class="notif-content">{n.content}</p>
 						<div class="notif-footer-row">
 							<span class="notif-time">{timeAgo(n.created_at, $currentLang)}</span>
-							{#if n.metadata?.tournament_id || n.metadata?.conversation_id || n.metadata?.rag_suggestion_id || (n.title && n.title.includes('Suggestion RAG'))}
+							{#if n.metadata?.tournament_id || n.metadata?.conversation_id || n.metadata?.rag_suggestion_id || (n.title && n.title.includes('Suggestion RAG'))}<!-- i18n-ignore: matches a server-generated title -->
 								<button class="action-link-btn" on:click|stopPropagation={() => handleActionClick(n)}>
 									➡️ {$t('tourneys_btn_show_details')}
 								</button>

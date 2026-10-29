@@ -100,9 +100,9 @@
 	$: typingText = (() => {
 		const names = Object.keys(typingUsers);
 		if (names.length === 0) return '';
-		if (names.length === 1) return `${names[0]} est en train d'écrire...`;
-		if (names.length === 2) return `${names[0]} et ${names[1]} écrivent...`;
-		return `${names[0]} et ${names.length - 1} autres écrivent...`;
+		if (names.length === 1) return $t('chat_typing_one', { name: names[0] });
+		if (names.length === 2) return $t('chat_typing_two', { a: names[0], b: names[1] });
+		return $t('chat_typing_many', { name: names[0], count: names.length - 1 });
 	})();
 
 	// Re-load when target changes
@@ -501,7 +501,7 @@
 			console.error("Image upload failed:", e);
 			pendingImage = null;
 			pendingImagePreview = '';
-			alert("Échec de l'envoi de l'image.");
+			alert($t('chat_image_send_failed'));
 		} finally {
 			isUploading = false;
 		}
@@ -636,7 +636,7 @@
 <div class="player-chat-container" on:dragover={handleDragOver} on:drop={handleDrop}>
 	<!-- Header -->
 	<div class="chat-header glass">
-		<button class="mobile-back-btn" on:click={() => dispatch('close')} title="Retour à la liste des joueurs">
+		<button class="mobile-back-btn" on:click={() => dispatch('close')} title={$t('chat_back_to_players')} aria-label={$t('chat_back_to_players')}>
 			<Icon name="arrow-left" size={16} />
 			<span class="mobile-back-label">{$t('common_back')}</span>
 		</button>
@@ -665,7 +665,7 @@
 						{#if peer?.is_online}
 							<span class="status-indicator online">🟢 {$t('players_status_online')}</span>
 						{:else}
-							<span class="status-indicator offline">⚪ {$t('players_status_offline') || 'Hors ligne'}</span>
+							<span class="status-indicator offline">⚪ {$t('players_status_offline')}</span>
 						{/if}
 						{#if peer?.team_name}
 							<span class="subtitle-sep">·</span>
@@ -698,7 +698,7 @@
 							{channelInfo?.channel_type === 'team' ? $t('players_chat_type_team') : $t('players_chat_type_inter')}
 						</span>
 						<span class="subtitle-sep">·</span>
-						<span class="member-count-sub">{channelMembers.length} participant{channelMembers.length > 1 ? 's' : ''}</span>
+						<span class="member-count-sub">{$t('chat_participants_count', { count: channelMembers.length })}</span>
 					</div>
 				</div>
 			</div>
@@ -718,7 +718,7 @@
 				class="tool-btn sound-btn"
 				class:active={soundEnabled}
 				on:click={toggleSound}
-				title={soundEnabled ? 'Sons activés' : 'Sons désactivés'}
+				title={soundEnabled ? $t('dash_chat_sound_enabled') : $t('dash_chat_sound_disabled')}
 			>
 				<Icon name={soundEnabled ? 'volume-2' : 'volume-x'} size={15} />
 			</button>
@@ -764,7 +764,7 @@
 							<!-- svelte-ignore a11y-no-static-element-interactions -->
 							<div class="reply-quote-preview" on:click={() => jumpToMessage(msg.reply_to_data.id)}>
 								<span class="quote-sender">↩ {msg.reply_to_data.sender_name}</span>
-								<p class="quote-text">{msg.reply_to_data.content || '📷 Image'}</p>
+								<p class="quote-text">{msg.reply_to_data.content || '📷 ' + $t('chat_image_placeholder')}</p>
 							</div>
 						{/if}
 
@@ -773,7 +773,7 @@
 							<!-- svelte-ignore a11y-click-events-have-key-events -->
 							<!-- svelte-ignore a11y-no-static-element-interactions -->
 							<div class="image-attachment-wrap" on:click={() => lightboxImageUrl = msg.image_path}>
-								<img src={msg.image_path} alt="Chat attachment" class="message-img" loading="lazy" />
+								<img src={msg.image_path} alt={$t('chat_image_alt')} class="message-img" loading="lazy" />
 							</div>
 						{/if}
 
@@ -809,7 +809,7 @@
 										class="reaction-pill"
 										class:user-reacted={userIds.includes(currentUser?.id)}
 										on:click={() => toggleReaction(msg.id, emoji)}
-										title="{userIds.length} joueur(s)"
+										title={$t('chat_reaction_count', { count: userIds.length })}
 									>
 										<span class="pill-emoji">{emoji}</span>
 										<span class="pill-count">{userIds.length}</span>
@@ -828,11 +828,11 @@
 							<button
 								class="quick-react-btn"
 								on:click|stopPropagation={() => { fullPickerMsgId = fullPickerMsgId === msg.id ? null : msg.id; }}
-								title="Plus d'émojis"
+								title={$t('dash_chat_all_emojis')}
 							>
 								➕
 							</button>
-							<button class="quick-react-btn" on:click={() => startReply(msg)} title="Répondre">
+							<button class="quick-react-btn" on:click={() => startReply(msg)} title={$t('dash_chat_reply_action')}>
 								↩
 							</button>
 						</div>
@@ -913,8 +913,8 @@
 	{#if replyingTo}
 		<div class="active-reply-bar">
 			<div class="reply-meta">
-				<span class="reply-target">↩ Réponse à <strong>{replyingTo.sender_name || (replyingTo.sender_id === currentUser?.id ? 'Vous' : (peer?.username || 'Membre'))}</strong></span>
-				<p class="reply-snippet">{replyingTo.content || '📷 Image'}</p>
+				<span class="reply-target">↩ {$t('dash_chat_replying_to')} <strong>{replyingTo.sender_name || (replyingTo.sender_id === currentUser?.id ? $t('chat_you') : (peer?.username || $t('chat_member_fallback')))}</strong></span>
+				<p class="reply-snippet">{replyingTo.content || '📷 ' + $t('chat_image_placeholder')}</p>
 			</div>
 			<button class="cancel-reply-btn" on:click={cancelReply}>✕</button>
 		</div>
@@ -924,10 +924,10 @@
 	{#if pendingImagePreview}
 		<div class="pending-preview-bar">
 			<div class="thumb-box">
-				<img src={pendingImagePreview} alt="Preview" />
+				<img src={pendingImagePreview} alt={$t('chat_preview_alt')} />
 				<button class="remove-thumb-btn" on:click={() => { pendingImage = null; pendingImagePreview = ''; }}>✕</button>
 			</div>
-			<span class="preview-lbl">Image prête à envoyer {#if isUploading}(envoi...){/if}</span>
+			<span class="preview-lbl">{$t('chat_image_ready')} {#if isUploading}{$t('chat_uploading')}{/if}</span>
 		</div>
 	{/if}
 
@@ -963,7 +963,7 @@
 			/>
 			<button
 				class="input-icon-btn"
-				title="Joindre une image (ou glisser-déposer / coller)"
+				title={$t('chat_attach_image_dm')}
 				on:click={() => fileInputEl?.click()}
 				disabled={isUploading}
 			>
@@ -1005,7 +1005,7 @@
 		<!-- svelte-ignore a11y-no-static-element-interactions -->
 		<div class="lightbox-backdrop" on:click={() => lightboxImageUrl = null}>
 			<div class="lightbox-content" on:click|stopPropagation>
-				<img src={lightboxImageUrl} alt="Agrandissement" class="lightbox-img" />
+				<img src={lightboxImageUrl} alt={$t('chat_enlarged_alt')} class="lightbox-img" />
 				<button class="lightbox-close-btn" on:click={() => lightboxImageUrl = null}>✕</button>
 			</div>
 		</div>
