@@ -29,7 +29,6 @@
     "@capacitor/core": "^8.5.3",
     "@capacitor/ios": "^8.5.3",
     "easymde": "^2.21.0",
-    "lucide-svelte": "^0.300.0",
     "marked": "^18.0.3"
   }
 }
