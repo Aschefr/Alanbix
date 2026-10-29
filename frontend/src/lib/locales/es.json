@@ -1239,6 +1239,8 @@
   "server_modal_no_lan_nearby": "¿No hay servidor LAN cercano?",
   "server_modal_btn_demo": "Explorar Modo Demo (Sin servidor)",
   "server_modal_btn_reset": "Olvidar este servidor / Borrar datos locales",
+  "dash_next_match_title": "Tu próxima partida",
+  "dash_next_match_more": "+{count} partida(s) más en espera",
   "mobile_tab_my_matches": "Mis Partidas",
   "mobile_tab_public_chat": "Chat General",
   "mobile_tab_home": "Inicio",

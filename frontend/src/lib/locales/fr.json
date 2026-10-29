@@ -1239,6 +1239,8 @@
   "server_modal_no_lan_nearby": "Pas de serveur LAN à proximité ?",
   "server_modal_btn_demo": "Explorer le Mode Démo (Sans serveur)",
   "server_modal_btn_reset": "Oublier ce serveur / Effacer les données locales",
+  "dash_next_match_title": "Ton prochain match",
+  "dash_next_match_more": "+{count} autre(s) match(s) en attente",
   "mobile_tab_my_matches": "Mes Matchs",
   "mobile_tab_public_chat": "Chat Général",
   "mobile_tab_home": "Accueil",

@@ -1166,6 +1166,48 @@
 
 
 
+	<!-- Next match strip (Desktop): answers "where and against whom do I play next?" -->
+	<section class="next-match glass desktop-only" class:is-empty={myActiveMatches.length === 0} class:is-ready={myActiveMatches[0]?.is_ready}>
+		{#if myActiveMatches.length === 0}
+			<span class="nm-empty-icon"><Icon name="target" size={20} /></span>
+			<p class="nm-empty-text">{$t('mobile_empty_matches_title')}</p>
+			<button class="btn-secondary nm-btn" on:click={() => navigateToTournament(activeTournament?.id || (tournaments && tournaments[0]?.id))}>
+				<Icon name="trophy" size={14} /> {$t('mobile_btn_view_tournaments')}
+			</button>
+		{:else}
+			{@const m = myActiveMatches[0]}
+			<div class="nm-main">
+				<h2 class="nm-title">{$t('dash_next_match_title')}</h2>
+				<div class="nm-versus">
+					<span class="nm-vs-label">{$t('mobile_match_versus')}</span>
+					<span class="nm-opponent">{m.opponent_name}</span>
+					{#if m.opponent_seat}
+						<button class="nm-seat" on:click={() => navigateToMap(m.opponent_seat)} title={$t('tourneys_view_on_map')}>
+							<Icon name="pin" size={14} /> {$t('mobile_match_seat_link', { seat: m.opponent_seat })}
+						</button>
+					{/if}
+				</div>
+				<div class="nm-meta">
+					{m.game_name} · {m.tournament_name} · {m.round_label}
+					{#if myActiveMatches.length > 1}
+						<span class="nm-more">{$t('dash_next_match_more', { count: myActiveMatches.length - 1 })}</span>
+					{/if}
+				</div>
+			</div>
+			<span class="nm-status" class:ready={m.is_ready}>{m.status_label}</span>
+			<div class="nm-actions">
+				{#if m.is_ready}
+					<button class="btn-primary nm-btn" on:click={() => navigateToTournament(m.tournament_id)}>
+						<Icon name="check" size={14} /> {$t('mobile_match_enter_score_btn')}
+					</button>
+				{/if}
+				<button class="btn-secondary nm-btn" on:click={() => navigateToTournament(m.tournament_id)}>
+					<Icon name="swords" size={14} /> {$t('mobile_match_view_bracket')}
+				</button>
+			</div>
+		{/if}
+	</section>
+
 	<!-- 3-Column Main Grid -->
 
 	<div class="main-triptych desktop-only">
@@ -1532,6 +1574,45 @@
 
 
 	/* 3-Column Triptych */
+
+	.next-match {
+		display: flex;
+		align-items: center;
+		gap: 1.25rem;
+		padding: 1rem 1.5rem;
+		flex-shrink: 0;
+	}
+	.next-match.is-ready {
+		border-color: var(--accent);
+		box-shadow: 0 6px 24px -8px var(--accent-glow);
+	}
+	.next-match.is-empty {
+		padding: 0.75rem 1.5rem;
+	}
+	.nm-empty-icon { color: var(--text-dim); display: flex; }
+	.nm-empty-text { margin: 0; flex: 1; color: var(--text-dim); font-size: 0.95rem; }
+	.nm-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.3rem; }
+	.nm-title { font-size: 0.95rem; color: var(--text-dim); font-weight: 600; }
+	.nm-versus { display: flex; align-items: baseline; gap: 0.6rem; flex-wrap: wrap; }
+	.nm-vs-label { color: var(--text-dim); font-size: 1rem; }
+	.nm-opponent { font-family: var(--font-title); font-size: 1.75rem; font-weight: 700; color: var(--text-main); line-height: 1.1; }
+	.nm-seat {
+		display: inline-flex; align-items: center; gap: 0.3rem;
+		background: var(--accent-soft); color: var(--accent);
+		border: 1px solid transparent; border-radius: var(--radius-md);
+		padding: 0.25rem 0.6rem; font-weight: 600; font-size: 0.9rem; cursor: pointer;
+	}
+	.nm-seat:hover { border-color: var(--accent); }
+	.nm-meta { color: var(--text-muted); font-size: 0.9rem; }
+	.nm-more { margin-left: 0.75rem; color: var(--accent); font-weight: 600; }
+	.nm-status {
+		font-size: 0.85rem; font-weight: 600; color: var(--text-dim);
+		padding: 0.3rem 0.7rem; border-radius: 999px; border: 1px solid var(--glass-border);
+		white-space: nowrap;
+	}
+	.nm-status.ready { color: var(--success); border-color: var(--success); }
+	.nm-actions { display: flex; gap: 0.6rem; }
+	.nm-btn { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.6rem 1.1rem; white-space: nowrap; }
 
 	.main-triptych {
 
