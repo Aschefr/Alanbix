@@ -19,6 +19,7 @@
 	let tournaments = [];
 	let games = [];
 	let selectedId = null;
+	let selected = null;
 	let participants = [];
 	let allUsers = [];
 	let currentUser = null;
@@ -102,6 +103,21 @@
 
 	onMount(async () => {
 		await loadAll();
+		const urlSelect = $page?.url?.searchParams?.get('select') || $page?.url?.searchParams?.get('id');
+		const savedSelect = typeof window !== 'undefined' ? localStorage.getItem('alanbix_selected_tournament') : null;
+		let target = null;
+		if (urlSelect && tournaments.some(t => String(t.id) === String(urlSelect))) {
+			target = parseInt(urlSelect, 10);
+		} else if (selectedId && tournaments.some(t => String(t.id) === String(selectedId))) {
+			target = selectedId;
+		} else if (savedSelect && tournaments.some(t => String(t.id) === String(savedSelect))) {
+			target = parseInt(savedSelect, 10);
+		} else if (tournaments.length > 0) {
+			target = tournaments[0].id;
+		}
+		if (target) {
+			await selectTournament(target);
+		}
 		wsUnsub = wsMessageStore.subscribe(handleWsMessage);
 	});
 
@@ -121,7 +137,7 @@
 			targetId = tournaments[0].id;
 		}
 
-		if (targetId && (String(targetId) !== String(selectedId) || lastLoadedForTourneyId !== targetId)) {
+		if (targetId && (String(targetId) !== String(selectedId) || lastLoadedForTourneyId !== targetId || !selected)) {
 			selectTournament(targetId);
 		}
 	}
@@ -274,6 +290,9 @@
 			games = gamesRes || [];
 			currentUser = userRes;
 			allUsers = roomUsersRes || [];
+			if (selectedId) {
+				selected = tournaments.find(t => String(t.id) === String(selectedId)) || null;
+			}
 		} catch (err) {
 			console.error("Error loading all tournaments page data:", err);
 		} finally {
@@ -286,6 +305,7 @@
 	async function selectTournament(id) {
 		const numericId = typeof id === 'string' ? (parseInt(id, 10) || id) : id;
 		selectedId = numericId;
+		selected = tournaments.find(t => String(t.id) === String(numericId)) || null;
 		lastLoadedForTourneyId = numericId;
 		try { localStorage.setItem('alanbix_selected_tournament', String(numericId)); } catch (e) {}
 		confirmingLeave = false;
@@ -598,7 +618,7 @@
 
 	$: seatMap = Object.fromEntries(allUsers.filter(u => u.seat_id).map(u => [u.id, u.seat_id]));
 
-	$: selected = tournaments.find(t => String(t.id) === String(selectedId));
+	$: selected = tournaments.find(t => String(t.id) === String(selectedId)) || selected;
 	$: selectedGame = selected ? getGame(selected.game_id) : null;
 	$: gameMap = Object.fromEntries(games.map(g => [g.id, g]));
 	$: unregisteredUsers = allUsers.filter(u => !participants.find(p => p.user_id === u.id));

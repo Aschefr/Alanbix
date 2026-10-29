@@ -10,12 +10,14 @@
 	import { page } from '$app/stores';
 	import { currentLang, availableLanguages, lanMultilingual, loadLocale, flagMap, t, initI18n, refreshEventName, eventName } from '$lib/i18nStore';
 	import { handleIncomingPush, getOrRegisterDeviceToken, startNativePushService, stopNativePushService, revokeCurrentDeviceToken, getNativePushStatus, requestNativeNotificationPermission, checkAndHandlePendingDeepLink, getNotificationPreferences } from '$lib/push';
-	import { resolveMediaUrl, isCapacitorNative, getCustomServerUrl } from '$lib/config';
+	import { resolveMediaUrl, isCapacitorNative, getCustomServerUrl, setCustomServerUrl } from '$lib/config';
+	import ServerConfigModal from '$lib/components/ServerConfigModal.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 
 	let user = { username: '...', is_admin: false };
 	let loading = true;
 	let connectionError = '';
+	let showServerModal = false;
 	let unsub = null;
 	let isDark = true;
 	let avatarFailed = false;
@@ -166,6 +168,14 @@
 
 	async function initApp() {
 		try {
+			if (isCapacitorNative() && !getCustomServerUrl()) {
+				try {
+					const status = await getNativePushStatus();
+					if (status && status.serverUrl) {
+						setCustomServerUrl(status.serverUrl);
+					}
+				} catch {}
+			}
 			user = await api.get('/me');
 			connectWS();
 			getOrRegisterDeviceToken().then(async devToken => {
@@ -329,6 +339,16 @@
 			loading = false;
 		} catch (e) {
 			console.error("[Alanbix] App init error:", e);
+			if (isCapacitorNative() && !getCustomServerUrl()) {
+				try {
+					const status = await getNativePushStatus();
+					if (status && status.serverUrl) {
+						setCustomServerUrl(status.serverUrl);
+						initApp();
+						return;
+					}
+				} catch {}
+			}
 			// Check if we got logged out (401 response cleared authStore)
 			if (!get(authStore)) {
 				window.location.href = '/';
@@ -470,9 +490,14 @@
 				{/if}
 			</span>
 			{#if connectionError}
-				<button on:click={() => { connectionError = ''; initApp(); }} class="btn-retry">
-					🔄 RÉESSAYER
-				</button>
+				<div style="display:flex;gap:0.65rem;flex-wrap:wrap;justify-content:center;margin-top:1rem;">
+					<button on:click={() => { connectionError = ''; initApp(); }} class="btn-retry">
+						🔄 RÉESSAYER
+					</button>
+					<button on:click={() => showServerModal = true} class="btn-retry" style="background:rgba(59,130,246,0.2);border-color:rgba(59,130,246,0.5);color:#60a5fa;">
+						⚙️ CONFIGURER LE SERVEUR
+					</button>
+				</div>
 			{/if}
 		</div>
 	</div>
@@ -706,6 +731,7 @@
 
 <!-- Tutorial Overlay -->
 <TutorialOverlay />
+<ServerConfigModal bind:isOpen={showServerModal} on:close={() => { connectionError = ''; initApp(); }} />
 
 {#if showChangelog}
 	<!-- svelte-ignore a11y-click-events-have-key-events -->
