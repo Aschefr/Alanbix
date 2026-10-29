@@ -527,6 +527,11 @@
 				<span class="badge-dot" class:bounce={notifBounce}>{$notifUnreadCount > 9 ? '9+' : $notifUnreadCount}</span>
 			{/if}
 			</a>
+			{#if user?.is_admin}
+				<a href="/dashboard/admin" class="top-action-btn admin-top-btn" class:active={$page.url.pathname.startsWith('/dashboard/admin')} title={$t('nav_administration')} aria-label={$t('nav_administration')}>
+					<Icon name="shield" size={16} />
+				</a>
+			{/if}
 			<a href="/dashboard/settings" class="top-action-btn" class:active={$page.url.pathname.startsWith('/dashboard/settings')} title={$t('mobile_top_settings_title')}>
 				<Icon name="gear" size={16} />
 			</a>
@@ -1618,4 +1623,6 @@
 			left: 1rem;
 		}
 	}
+	.admin-top-btn { color: #fbbf24 !important; }
+	:global([data-theme="light"]) .admin-top-btn { color: #92400e !important; }
 </style>
