@@ -340,15 +340,6 @@
 
 		if (wsUnsub) wsUnsub();
 
-		if (typeof window !== 'undefined') {
-
-			window.removeEventListener('pointermove', onSplitterDrag);
-
-			window.removeEventListener('pointerup', stopSplitterDrag);
-
-			window.removeEventListener('pointercancel', stopSplitterDrag);
-
-		}
 
 	});
 
