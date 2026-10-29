@@ -31,6 +31,7 @@ Tournois (élimination simple/double, round robin, FFA), points calculés côté
 ## Brand Commitments
 
 - Nom **Alanbix** (A-LAN-bix) : clin d'œil à Alambix (Astérix) et à l'alambic qui « distille » la connaissance. La silhouette de fiole Alanbix est un élément d'identité.
+- **Vouvoiement** dans toute l'interface (choix confirmé 2026-10-29).
 - **Thème sombre « gamer »** à conserver, **et un thème clair** sur les mêmes tons de couleurs (même palette, deux luminosités).
 
 ## Evidence on Hand
