@@ -389,7 +389,7 @@
 			<span class="no-tourney-icon">🏆</span>
 			<p>{$t('dash_no_tournament')}</p>
 			{#if user?.is_admin}
-				<a href="/dashboard/admin" class="btn-chip">{$t('dash_no_tournament_create')}</a>
+				<a href="/dashboard/admin" class="btn-primary create-tourney-btn">{$t('dash_no_tournament_create')}</a>
 			{/if}
 		</div>
 	{/if}
@@ -573,5 +573,6 @@
 		cursor: pointer;
 	}
 	.btn-chip:hover { background: var(--map-badge-hover); }
+	.create-tourney-btn { text-decoration: none; display: inline-block; font-size: 0.9rem; padding: 0.6rem 1.2rem; }
 	.btn-chip.full-width { justify-content: center; width: 100%; margin-top: auto; }
 </style>

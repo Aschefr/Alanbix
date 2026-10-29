@@ -660,9 +660,6 @@
 						<span class="theme-icon">🔔</span>
 					</button>
 				{/if}
-				<a href="/dashboard/settings" class="theme-toggle" title={$t('settings_page_title')}>
-					<span class="theme-icon"><Icon name="gear" size={18} /></span>
-				</a>
 				<button class="theme-toggle" on:click={toggleTheme} title={isDark ? $t('tooltip_light_mode') : $t('tooltip_dark_mode')}>
 					<span class="theme-icon" class:spin={true}>{isDark ? '☀️' : '🌙'}</span>
 				</button>
@@ -674,7 +671,7 @@
 	</nav>
 
 	<main class="content-area">
-		{#if !dismissNotifBanner && notifPrefs?.enabled !== false && !$page.url.pathname.startsWith('/dashboard/settings') && ((isCapacitorNative() && !nativeNotifOperational) || (!isCapacitorNative() && browserNotifSupport && browserNotifStatus !== 'granted'))}
+		{#if !dismissNotifBanner && notifPrefs?.enabled !== false && !$page.url.pathname.startsWith('/dashboard/settings') && !$page.url.pathname.startsWith('/dashboard/welcome') && ((isCapacitorNative() && !nativeNotifOperational) || (!isCapacitorNative() && browserNotifSupport && browserNotifStatus !== 'granted'))}
 			<div class="notif-warning-banner glass" style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;padding:0.6rem 1rem;margin-bottom:0.85rem;border-radius:10px;border:1px solid rgba(245,158,11,0.35);background:rgba(245,158,11,0.1);font-size:0.8rem;">
 				<span style="display:inline-flex;align-items:center;gap:0.4rem;"><Icon name="bell" size={14} /> {$t('settings_notifs_banner_warn')}</span>
 				<div style="display:flex;align-items:center;gap:0.5rem;flex-shrink:0;">

@@ -1106,7 +1106,7 @@
 
 		<div class="cmd-left">
 
-			<h1 class="title-premium">LAN Party Dashboard</h1>
+			<h1 class="title-premium">{$t('dash_title')}</h1>
 
 		</div>
 
@@ -1152,6 +1152,7 @@
 
 		<div class="cmd-right">
 
+			{#if stats.active > 0}
 			<div class="status-live">
 
 				<span class="pulse"></span> 
@@ -1159,6 +1160,7 @@
 				{@html $t('dash_live_status')}
 
 			</div>
+			{/if}
 
 		</div>
 
@@ -1332,67 +1334,7 @@
 
 
 
-	<!-- Bottom Stats Row -->
 
-	<div class="stats-bar desktop-only">
-
-		<div class="stat-pill glass">
-
-			<span class="sp-icon">🎮</span>
-
-			<div class="sp-data">
-
-				<span class="sp-val">{stats.games}</span>
-
-				<span class="sp-label">{$t('dash_pill_games')}</span>
-
-			</div>
-
-		</div>
-
-		<div class="stat-pill glass">
-
-			<span class="sp-icon">👥</span>
-
-			<div class="sp-data">
-
-				<span class="sp-val">{stats.players}</span>
-
-				<span class="sp-label">{$t('dash_pill_players')}</span>
-
-			</div>
-
-		</div>
-
-		<div class="stat-pill glass">
-
-			<span class="sp-icon">🏆</span>
-
-			<div class="sp-data">
-
-				<span class="sp-val">{stats.tournaments}</span>
-
-				<span class="sp-label">{$t('dash_pill_tournaments')}</span>
-
-			</div>
-
-		</div>
-
-		<div class="stat-pill glass accent">
-
-			<span class="sp-icon">⚡</span>
-
-			<div class="sp-data">
-
-				<span class="sp-val">{stats.active}</span>
-
-				<span class="sp-label">{$t('dash_pill_active')}</span>
-
-			</div>
-
-		</div>
-
-	</div>
 
 </div>
 
@@ -1802,62 +1744,6 @@
 
 
 
-	/* Bottom Stats Bar */
-
-	.stats-bar {
-
-		display: flex;
-
-		gap: 1rem;
-
-		flex-shrink: 0;
-
-	}
-
-	.stat-pill {
-
-		flex: 1;
-
-		display: flex;
-
-		align-items: center;
-
-		gap: 0.75rem;
-
-		padding: 0.8rem 1.2rem;
-
-		border-radius: 12px;
-
-	}
-
-	.stat-pill.accent {
-
-		border-color: var(--accent);
-
-		box-shadow: 0 0 15px var(--accent-glow);
-
-	}
-
-	.sp-icon { font-size: 1.3rem; }
-
-	.sp-data { display: flex; flex-direction: column; }
-
-	.sp-val { font-size: 1.2rem; font-weight: 800; line-height: 1; }
-
-	.sp-label {
-
-		font-size: 0.72rem;
-
-		color: var(--text-muted);
-
-		text-transform: uppercase;
-
-		font-weight: 700;
-
-	}
-
-
-
 	/* Mobile Dashboard Styles (<= 900px) */
 
 	.mobile-only {
@@ -1867,6 +1753,26 @@
 	}
 
 
+
+	/* Narrow desktop (small laptops): the 3 fixed columns crush the center.
+	   Stack chat+map on top at full width, leaderboard and bracket side by side below. */
+	@media (min-width: 901px) and (max-width: 1279px) {
+		.hq-dashboard {
+			height: auto;
+		}
+		.main-triptych {
+			grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+			grid-template-rows: 560px 480px;
+		}
+		.center-column {
+			grid-column: 1 / -1;
+			grid-row: 1;
+		}
+		.main-triptych > :global(.leaderboard-panel),
+		.main-triptych > :global(.bracket-panel) {
+			grid-row: 2;
+		}
+	}
 
 	@media (max-width: 900px) {
 
