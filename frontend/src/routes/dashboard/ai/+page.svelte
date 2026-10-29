@@ -1153,15 +1153,15 @@
 	<main class="chat-main glass">
 		<!-- Mobile AI top bar (<= 900px) -->
 		<div class="ai-mobile-top-bar glass">
-			<button class="ai-top-btn" on:click={() => showMobileHistory = true} title="Historique">
-				🕘 Historique ({conversations.length})
+			<button class="ai-top-btn" on:click={() => showMobileHistory = true} title={$t('ai_history_btn')}>
+				🕘 {$t('ai_history_btn')} ({conversations.length})
 			</button>
-			<button class="ai-top-btn" on:click={newConversation} disabled={iaBlocked} title="Nouvelle discussion">
-				➕ Nouveau
+			<button class="ai-top-btn" on:click={newConversation} disabled={iaBlocked} title={$t('ai_new_chat_btn')}>
+				➕ {$t('ai_new_chat_btn')}
 			</button>
 			{#if !userObj?.is_admin && !iaBlocked && iaConfig.call_admin_button_enabled !== false}
-				<button class="ai-top-btn call-admin" on:click={checkAndOpenCallAdmin} title="Appeler un admin">
-					🆘 Admin
+				<button class="ai-top-btn call-admin" on:click={checkAndOpenCallAdmin} title={$t('ai_call_admin_btn')}>
+					🆘 {$t('ai_call_admin_btn')}
 				</button>
 			{/if}
 		</div>
@@ -1581,7 +1581,7 @@
 							<button class="btn-icon delete-btn" on:click={() => deleteConversation(conv.id)}>❌</button>
 						</div>
 					{:else}
-						<div class="empty-drawer-text text-dim text-sm text-center py-4">Aucune discussion enregistrée</div>
+						<div class="empty-drawer-text text-dim text-sm text-center py-4">{$t('ai_no_conversations')}</div>
 					{/each}
 				</div>
 			</div>

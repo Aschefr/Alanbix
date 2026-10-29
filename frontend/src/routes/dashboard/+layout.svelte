@@ -443,19 +443,19 @@
 			</div>
 		</a>
 		<div class="mobile-top-actions">
-			<a href="/dashboard/info" class="top-action-btn" class:active={$page.url.pathname.startsWith('/dashboard/info')} title="Infos et Reglement">
+			<a href="/dashboard/info" class="top-action-btn" class:active={$page.url.pathname.startsWith('/dashboard/info')} title={$t('mobile_top_info_title')}>
 				<span class="icon">📋</span>
 			</a>
-			<a href="/dashboard/map" class="top-action-btn" class:active={$page.url.pathname.startsWith('/dashboard/map')} title="Plan de salle">
+			<a href="/dashboard/map" class="top-action-btn" class:active={$page.url.pathname.startsWith('/dashboard/map')} title={$t('mobile_top_map_title')}>
 				<span class="icon">📍</span>
 			</a>
-			<a href="/dashboard/notifications" class="top-action-btn notif-top-btn" class:active={$page.url.pathname.startsWith('/dashboard/notifications')} title="Notifications" on:click={() => { api.get('/notifications/unread-count').then(r => notifUnreadCount.set(r.count || 0)).catch(() => {}); }}>
+			<a href="/dashboard/notifications" class="top-action-btn notif-top-btn" class:active={$page.url.pathname.startsWith('/dashboard/notifications')} title={$t('mobile_top_notifs_title')} on:click={() => { api.get('/notifications/unread-count').then(r => notifUnreadCount.set(r.count || 0)).catch(() => {}); }}>
 				<span class="icon">🔔</span>
 				{#if $notifUnreadCount > 0}
 					<span class="badge-dot" class:bounce={notifBounce}>{$notifUnreadCount > 9 ? '9+' : $notifUnreadCount}</span>
 				{/if}
 			</a>
-			<a href="/dashboard/settings" class="top-action-btn" class:active={$page.url.pathname.startsWith('/dashboard/settings')} title="Paramètres">
+			<a href="/dashboard/settings" class="top-action-btn" class:active={$page.url.pathname.startsWith('/dashboard/settings')} title={$t('mobile_top_settings_title')}>
 				<span class="icon">⚙️</span>
 			</a>
 		</div>
@@ -611,11 +611,11 @@
 	<nav class="mobile-bottom-nav glass">
 		<a href="/dashboard" class="bottom-tab" class:active={$page.url.pathname === '/dashboard'}>
 			<span class="tab-icon">🏠</span>
-			<span class="tab-label">Accueil</span>
+			<span class="tab-label">{$t('mobile_tab_home')}</span>
 		</a>
 		<a href="/dashboard/tournaments" class="bottom-tab" class:active={$page.url.pathname.startsWith('/dashboard/tournaments')}>
 			<span class="tab-icon">🏆</span>
-			<span class="tab-label">Tournois</span>
+			<span class="tab-label">{$t('mobile_tab_tournaments')}</span>
 		</a>
 		<a href="/dashboard/players{$totalMsgUnread > 0 && lastPmSender ? '?chat=' + lastPmSender : ''}" class="bottom-tab" class:active={$page.url.pathname.startsWith('/dashboard/players')}>
 			<span class="tab-icon tab-badge-wrap">
@@ -624,7 +624,7 @@
 					<span class="tab-badge" class:bounce={pmBounce}>{$totalMsgUnread > 9 ? '9+' : $totalMsgUnread}</span>
 				{/if}
 			</span>
-			<span class="tab-label">Messages</span>
+			<span class="tab-label">{$t('mobile_tab_messages')}</span>
 		</a>
 		<a href="/dashboard/ai" class="bottom-tab" class:active={$page.url.pathname.startsWith('/dashboard/ai')} on:click={() => aiUnreadCount.set(0)}>
 			<span class="tab-icon tab-badge-wrap">
@@ -633,7 +633,7 @@
 					<span class="tab-badge ai-badge" class:bounce={aiBounce}>{$aiUnreadCount > 9 ? '9+' : $aiUnreadCount}</span>
 				{/if}
 			</span>
-			<span class="tab-label">Assistant</span>
+			<span class="tab-label">{$t('mobile_tab_assistant')}</span>
 		</a>
 		<a href="/dashboard/profile" class="bottom-tab" class:active={$page.url.pathname.startsWith('/dashboard/profile')}>
 			<span class="tab-icon">
@@ -643,7 +643,7 @@
 					👤
 				{/if}
 			</span>
-			<span class="tab-label">Profil</span>
+			<span class="tab-label">{$t('mobile_tab_profile')}</span>
 		</a>
 	</nav>
 </div>

@@ -156,17 +156,17 @@
 </script>
 
 <svelte:head>
-	<title>Paramètres — Alanbix</title>
+	<title>{$t('settings_page_title')} — Alanbix</title>
 </svelte:head>
 
 <div class="settings-page">
 	<div class="settings-header">
-		<button class="back-btn" on:click={() => goto('/dashboard')} title="Retour à l'accueil">
-			← Accueil
+		<button class="back-btn" on:click={() => goto('/dashboard')} title={$t('settings_back_to_home')}>
+			← {$t('common_home')}
 		</button>
 		<div class="header-title-box">
-			<h1>⚙️ Paramètres</h1>
-			<p class="subtitle">Préférences locales de l'application et notifications</p>
+			<h1>⚙️ {$t('settings_page_title')}</h1>
+			<p class="subtitle">{$t('settings_subtitle')}</p>
 		</div>
 	</div>
 
@@ -176,8 +176,8 @@
 			<div class="section-title-row">
 				<div class="icon">🔔</div>
 				<div class="title-text">
-					<h2>Notifications</h2>
-					<p>Alertes sonores, vibrations et réveil pour les matchs et messages</p>
+					<h2>{$t('settings_section_notifs')}</h2>
+					<p>{$t('settings_section_notifs_desc')}</p>
 				</div>
 				<label class="switch">
 					<input type="checkbox" bind:checked={prefs.enabled} on:change={updatePrefs} />
@@ -188,27 +188,27 @@
 			<!-- Statut de la permission système -->
 			<div class="permission-box">
 				<div class="perm-status">
-					<span class="label">Permission système :</span>
+					<span class="label">{$t('settings_perm_label')}</span>
 					{#if systemNotifPermission === 'granted'}
-						<span class="badge badge-green">✅ Autorisée</span>
+						<span class="badge badge-green">✅ {$t('settings_perm_granted')}</span>
 					{:else if systemNotifPermission === 'denied'}
-						<span class="badge badge-red">❌ Bloquée dans le navigateur / système</span>
+						<span class="badge badge-red">❌ {$t('settings_perm_denied')}</span>
 					{:else}
-						<span class="badge badge-yellow">⚠️ Non demandée</span>
+						<span class="badge badge-yellow">⚠️ {$t('settings_perm_default')}</span>
 					{/if}
 				</div>
 				{#if systemNotifSupport && systemNotifPermission !== 'granted'}
 					<button class="btn btn-sm btn-primary" on:click={requestSystemPermission}>
-						Activer les notifications
+						{$t('settings_btn_enable_notifs')}
 					</button>
 				{/if}
 				<button class="btn btn-sm btn-ghost" on:click={sendTestNotification} disabled={testLoading}>
 					{#if testLoading}
-						Envoi...
+						{$t('settings_btn_testing')}
 					{:else if testSuccess}
-						✅ Envoyée !
+						✅ {$t('settings_btn_test_success')}
 					{:else}
-						🔔 Tester une alerte
+						🔔 {$t('settings_btn_test_alert')}
 					{/if}
 				</button>
 			</div>
@@ -217,8 +217,8 @@
 				<div class="native-service-card">
 					<div class="service-header-row">
 						<div class="service-info">
-							<span class="service-title">⚡ Veille LAN Arrière-Plan</span>
-							<span class="service-desc">Maintient la réception des matchs et messages même si l'application est fermée</span>
+							<span class="service-title">⚡ {$t('settings_bg_service_title')}</span>
+							<span class="service-desc">{$t('settings_bg_service_desc')}</span>
 						</div>
 						<label class="switch">
 							<input type="checkbox" checked={nativeStatus?.isRunning ?? true} on:change={(e) => toggleNativeService(e.currentTarget.checked)} disabled={nativeLoading} />
@@ -227,19 +227,19 @@
 					</div>
 					<div class="service-status-pill">
 						{#if nativeStatus?.isConnected}
-							<span class="badge badge-green">🟢 Connecté au serveur LAN</span>
+							<span class="badge badge-green">🟢 {$t('settings_service_connected')}</span>
 						{:else if nativeStatus?.isRunning}
-							<span class="badge badge-yellow">🟡 Service actif (en attente réseau)</span>
+							<span class="badge badge-yellow">🟡 {$t('settings_service_waiting')}</span>
 						{:else}
-							<span class="badge badge-red">⚪ Service arrêté</span>
+							<span class="badge badge-red">⚪ {$t('settings_service_stopped')}</span>
 						{/if}
 					</div>
 					<div class="native-actions-row">
-						<button class="btn btn-sm btn-ghost" on:click={openBatterySettings} title="Empêcher Android de couper le service pour économiser la batterie">
-							🔋 Optimisation batterie
+						<button class="btn btn-sm btn-ghost" on:click={openBatterySettings} title={$t('settings_btn_battery_title')}>
+							🔋 {$t('settings_btn_battery')}
 						</button>
-						<button class="btn btn-sm btn-ghost" on:click={openSystemNotificationSettings} title="Gérer les canaux de notification dans les paramètres Android">
-							⚙️ Canaux système
+						<button class="btn btn-sm btn-ghost" on:click={openSystemNotificationSettings} title={$t('settings_btn_channels_title')}>
+							⚙️ {$t('settings_btn_channels')}
 						</button>
 					</div>
 				</div>
@@ -247,65 +247,65 @@
 
 			{#if prefs.enabled}
 				<div class="settings-subgroup">
-					<h3>Types d'alertes à recevoir</h3>
+					<h3>{$t('settings_alert_types_title')}</h3>
 					
 					<div class="toggle-list">
 						<label class="toggle-item">
 							<div class="item-info">
-								<span class="item-title">⚔️ Matchs à jouer</span>
-								<span class="item-desc">Dès que vos adversaires sont connus ou que votre match est prêt</span>
+								<span class="item-title">⚔️ {$t('settings_cat_matches_title')}</span>
+								<span class="item-desc">{$t('settings_cat_matches_desc')}</span>
 							</div>
 							<input type="checkbox" bind:checked={prefs.categories.match_ready} on:change={updatePrefs} />
 						</label>
 
 						<label class="toggle-item">
 							<div class="item-info">
-								<span class="item-title">💬 Messages privés</span>
-								<span class="item-desc">Messages directs reçus d'un autre joueur</span>
+								<span class="item-title">💬 {$t('settings_cat_pm_title')}</span>
+								<span class="item-desc">{$t('settings_cat_pm_desc')}</span>
 							</div>
 							<input type="checkbox" bind:checked={prefs.categories.private_message} on:change={updatePrefs} />
 						</label>
 
 						<label class="toggle-item">
 							<div class="item-info">
-								<span class="item-title">🛡️ Messages de mon équipe</span>
-								<span class="item-desc">Canal de discussion de votre équipe en tournoi</span>
+								<span class="item-title">🛡️ {$t('settings_cat_team_title')}</span>
+								<span class="item-desc">{$t('settings_cat_team_desc')}</span>
 							</div>
 							<input type="checkbox" bind:checked={prefs.categories.team_message} on:change={updatePrefs} />
 						</label>
 
 						<div class="select-item">
 							<div class="item-info">
-								<span class="item-title">🌐 Chat Général</span>
-								<span class="item-desc">Notifications pour le salon public de la LAN</span>
+								<span class="item-title">🌐 {$t('settings_cat_public_title')}</span>
+								<span class="item-desc">{$t('settings_cat_public_desc')}</span>
 							</div>
 							<select bind:value={prefs.categories.public_mention} on:change={updatePrefs}>
-								<option value="mentions">Mentions uniquement (@pseudo)</option>
-								<option value="all">Tous les messages</option>
-								<option value="none">Désactivé</option>
+								<option value="mentions">{$t('settings_cat_public_mentions')}</option>
+								<option value="all">{$t('settings_cat_public_all')}</option>
+								<option value="none">{$t('settings_cat_public_none')}</option>
 							</select>
 						</div>
 
 						<label class="toggle-item">
 							<div class="item-info">
-								<span class="item-title">🤖 Assistant Alanbix</span>
-								<span class="item-desc">Réponses différées de l'IA et intervention d'un administrateur</span>
+								<span class="item-title">🤖 {$t('settings_cat_ai_title')}</span>
+								<span class="item-desc">{$t('settings_cat_ai_desc')}</span>
 							</div>
 							<input type="checkbox" bind:checked={prefs.categories.ai_reply} on:change={updatePrefs} />
 						</label>
 
 						<label class="toggle-item">
 							<div class="item-info">
-								<span class="item-title">📢 Annonces & Alertes Admin</span>
-								<span class="item-desc">Annonces importantes des organisateurs de la LAN</span>
+								<span class="item-title">📢 {$t('settings_cat_admin_title')}</span>
+								<span class="item-desc">{$t('settings_cat_admin_desc')}</span>
 							</div>
 							<input type="checkbox" bind:checked={prefs.categories.admin_message} on:change={updatePrefs} />
 						</label>
 
 						<label class="toggle-item">
 							<div class="item-info">
-								<span class="item-title">🏆 Tournois & Résultats</span>
-								<span class="item-desc">Ouverture, démarrage et résultats officiels des tournois</span>
+								<span class="item-title">🏆 {$t('settings_cat_tournaments_title')}</span>
+								<span class="item-desc">{$t('settings_cat_tournaments_desc')}</span>
 							</div>
 							<input type="checkbox" bind:checked={prefs.categories.tournaments} on:change={updatePrefs} />
 						</label>
@@ -313,28 +313,28 @@
 				</div>
 
 				<div class="settings-subgroup">
-					<h3>Comportement & Discrétion</h3>
+					<h3>{$t('settings_behavior_title')}</h3>
 					<div class="toggle-list">
 						<label class="toggle-item">
 							<div class="item-info">
-								<span class="item-title">📳 Vibration</span>
-								<span class="item-desc">Vibrer lors des notifications</span>
+								<span class="item-title">📳 {$t('settings_vibration_title')}</span>
+								<span class="item-desc">{$t('settings_vibration_desc')}</span>
 							</div>
 							<input type="checkbox" bind:checked={prefs.vibration} on:change={updatePrefs} />
 						</label>
 
 						<label class="toggle-item">
 							<div class="item-info">
-								<span class="item-title">🔊 Sonnerie</span>
-								<span class="item-desc">Jouer un signal sonore discret</span>
+								<span class="item-title">🔊 {$t('settings_sound_title')}</span>
+								<span class="item-desc">{$t('settings_sound_desc')}</span>
 							</div>
 							<input type="checkbox" bind:checked={prefs.sound} on:change={updatePrefs} />
 						</label>
 
 						<label class="toggle-item">
 							<div class="item-info">
-								<span class="item-title">🌙 Mode « Ne pas déranger »</span>
-								<span class="item-desc">Couper les alertes pendant vos heures de sommeil</span>
+								<span class="item-title">🌙 {$t('settings_dnd_title')}</span>
+								<span class="item-desc">{$t('settings_dnd_desc')}</span>
 							</div>
 							<input type="checkbox" bind:checked={prefs.dnd_enabled} on:change={updatePrefs} />
 						</label>
@@ -343,21 +343,21 @@
 							<div class="dnd-config">
 								<div class="time-row">
 									<label>
-										De :
+										{$t('settings_dnd_from')}
 										<input type="time" bind:value={prefs.dnd_start} on:change={updatePrefs} />
 									</label>
 									<label>
-										À :
+										{$t('settings_dnd_to')}
 										<input type="time" bind:value={prefs.dnd_end} on:change={updatePrefs} />
 									</label>
 								</div>
 								<label class="sub-toggle">
 									<input type="checkbox" bind:checked={prefs.dnd_bypass_matches} on:change={updatePrefs} />
-									<span>Toujours me réveiller si mon match est prêt</span>
+									<span>{$t('settings_dnd_bypass_matches')}</span>
 								</label>
 								<label class="sub-toggle">
 									<input type="checkbox" bind:checked={prefs.dnd_bypass_admin} on:change={updatePrefs} />
-									<span>Toujours sonner pour les alertes admin urgentes</span>
+									<span>{$t('settings_dnd_bypass_admin')}</span>
 								</label>
 							</div>
 						{/if}
@@ -371,26 +371,26 @@
 			<div class="section-title-row">
 				<div class="icon">🌐</div>
 				<div class="title-text">
-					<h2>Serveur LAN</h2>
-					<p>Connexion au serveur Alanbix de votre événement</p>
+					<h2>{$t('settings_section_server')}</h2>
+					<p>{$t('settings_section_server_desc')}</p>
 				</div>
 			</div>
 
 			<div class="server-card">
 				<div class="server-meta">
 					<div class="meta-row">
-						<span class="meta-label">Adresse du serveur :</span>
+						<span class="meta-label">{$t('settings_server_addr')}</span>
 						<span class="meta-val font-mono">{currentServer}</span>
 					</div>
 					<div class="meta-row">
-						<span class="meta-label">État de la connexion :</span>
+						<span class="meta-label">{$t('settings_server_status')}</span>
 						<span class="badge badge-green">
-							🟢 Connecté {pingMs !== null ? `(${pingMs} ms)` : ''}
+							🟢 {$t('settings_server_connected')} {pingMs !== null ? `(${pingMs} ms)` : ''}
 						</span>
 					</div>
 					{#if lanWifiSsids.length > 0}
 						<div class="meta-row">
-							<span class="meta-label">Wi-Fi LAN déclaré :</span>
+							<span class="meta-label">{$t('settings_wifi_declared')}</span>
 							<span class="ssids-list">
 								{#each lanWifiSsids as ssid}
 									<span class="ssid-pill">📶 {ssid}</span>
@@ -402,7 +402,7 @@
 
 				<div class="server-actions">
 					<button class="btn btn-secondary" on:click={() => { showServerModal = true; }}>
-						📡 Changer de serveur / Mode Démo
+						📡 {$t('settings_btn_change_server')}
 					</button>
 				</div>
 			</div>
@@ -413,21 +413,21 @@
 			<div class="section-title-row">
 				<div class="icon">🎨</div>
 				<div class="title-text">
-					<h2>Apparence & Langue</h2>
-					<p>Thème visuel et langue de l'interface</p>
+					<h2>{$t('settings_section_appearance')}</h2>
+					<p>{$t('settings_section_appearance_desc')}</p>
 				</div>
 			</div>
 
 			<div class="appearance-grid">
 				<div class="app-item">
-					<span class="app-label">Thème d'affichage :</span>
+					<span class="app-label">{$t('settings_theme_label')}</span>
 					<button class="btn btn-secondary" on:click={toggleTheme}>
-						{isDark ? '🌙 Mode Sombre (Actif)' : '☀️ Mode Clair (Actif)'}
+						{#if isDark}🌙 {$t('settings_theme_dark')}{:else}☀️ {$t('settings_theme_light')}{/if}
 					</button>
 				</div>
 
 				<div class="app-item">
-					<span class="app-label">Langue :</span>
+					<span class="app-label">{$t('settings_lang_label')}</span>
 					<div class="lang-selector">
 						{#each $availableLanguages as lang}
 							<button
@@ -448,8 +448,8 @@
 				<div class="section-title-row">
 					<div class="icon">👤</div>
 					<div class="title-text">
-						<h2>Compte</h2>
-						<p>Session active et profil joueur</p>
+						<h2>{$t('settings_section_account')}</h2>
+						<p>{$t('settings_section_account_desc')}</p>
 					</div>
 				</div>
 
@@ -465,19 +465,19 @@
 						<div class="user-details">
 							<span class="user-name">{user.username}</span>
 							<span class="user-sub">
-								{#if user.is_admin}👑 Organisateur LAN · {/if}
-								{user.team_name ? `🛡️ ${user.team_name}` : 'Joueur solo'}
-								{user.seat_id ? ` · 🪑 Poste ${user.seat_id}` : ''}
+								{#if user.is_admin}👑 {$t('settings_user_admin_badge')} · {/if}
+								{user.team_name ? `🛡️ ${user.team_name}` : $t('settings_user_solo')}
+								{user.seat_id ? ` · 🪑 {$t('settings_user_seat_prefix')} ${user.seat_id}` : ''}
 							</span>
 						</div>
 					</div>
 
 					<div class="account-actions">
 						<button class="btn btn-secondary" on:click={() => goto('/dashboard/profile')}>
-							🏆 Voir mon Profil & Trophées
+							🏆 {$t('settings_btn_view_profile')}
 						</button>
 						<button class="btn btn-danger" on:click={handleLogout}>
-							🚪 Déconnexion
+							🚪 {$t('settings_btn_logout')}
 						</button>
 					</div>
 				</div>
@@ -489,18 +489,18 @@
 			<div class="section-title-row">
 				<div class="icon">ℹ️</div>
 				<div class="title-text">
-					<h2>À propos</h2>
+					<h2>{$t('settings_section_about')}</h2>
 					<p>Alanbix Companion LAN Management System</p>
 				</div>
 			</div>
 
 			<div class="about-grid font-mono">
 				<div class="about-row">
-					<span>Version du serveur :</span>
+					<span>{$t('settings_server_version')}</span>
 					<span>v{serverVersion}</span>
 				</div>
 				<div class="about-row">
-					<span>Application :</span>
+					<span>{$t('settings_app_type')}</span>
 					<span>{isCapacitorNative() ? '📱 Alanbix Mobile' : '💻 Alanbix Web'}</span>
 				</div>
 				<div class="about-row">

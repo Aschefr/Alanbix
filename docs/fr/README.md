@@ -38,6 +38,11 @@ Cette documentation est organisée de manière modulaire pour vous guider pas à
   * Éditeur bicolonne comparative et filtrage par catégorie.
   * Traduction automatique assistée par l'IA (Ollama) individuelle et en masse.
   * Détection et synchronisation en un clic des clés structurelles manquantes.
+* 📱 **[Application Mobile Compagnon & Paramètres](features/mobile-companion.md)** :
+  * Navigation tactile « Player-First » à 5 onglets et cartes de matchs en cours.
+  * Triple mode de connexion (Recherche auto-discovery LAN, IP directe et Mode Démo hors-ligne).
+  * Notifications d'arrière-plan sans internet (Service WebSocket OkHttp Android / Local Push iOS).
+  * Écran des paramètres complet (gestion des catégories d'alertes, DND, thème, Wi-Fi LAN).
 * 🛡️ **[Administration Système & Modération](features/administration.md)** :
   * Gestion complète des profils et mots de passe.
   * Bibliothèque de jeux et téléchargement automatique de jaquettes (SearXNG).

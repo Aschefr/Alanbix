@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { createEventDispatcher, onMount } from 'svelte';
+	import { get } from 'svelte/store';
+	import { t } from '$lib/i18nStore';
 	import {
 		getCustomServerUrl,
 		setCustomServerUrl,
@@ -129,13 +131,13 @@
 		scanning = false;
 		if (discoveredServers.length > 0) {
 			statusType = 'success';
-			statusMessage = `${discoveredServers.length} serveur(s) Alanbix détecté(s) sur le réseau local.`;
+			statusMessage = get(t)('server_modal_status_found', { count: discoveredServers.length });
 			if (!serverInput) {
 				serverInput = discoveredServers[0].url;
 			}
 		} else {
 			statusType = 'error';
-			statusMessage = 'Aucun serveur détecté automatiquement. Saisissez l’IP manuellement ou lancez le Mode Démo.';
+			statusMessage = get(t)('server_modal_status_none');
 		}
 	}
 
@@ -146,7 +148,7 @@
 			setCustomServerUrl('');
 			disableDemoMode();
 			statusType = 'success';
-			statusMessage = 'Configuration réinitialisée (origine par défaut).';
+			statusMessage = get(t)('server_modal_status_reset');
 			setTimeout(() => window.location.reload(), 400);
 			return;
 		}
@@ -160,7 +162,7 @@
 		const normalized = normalizeUrl(raw);
 		testing = true;
 		statusType = 'info';
-		statusMessage = `Vérification de la connexion à ${normalized}...`;
+		statusMessage = get(t)('server_modal_status_checking', { url: normalized });
 
 		const found = await probeServer(normalized, 3000);
 		testing = false;
@@ -168,14 +170,14 @@
 		if (found) {
 			setCustomServerUrl(normalized);
 			statusType = 'success';
-			statusMessage = `Connecté à ${found.name} (${found.version || 'OK'}) ! Rechargement...`;
+			statusMessage = get(t)('server_modal_status_connected', { name: found.name, version: found.version || 'OK' });
 			dispatch('connected', { url: normalized });
 			setTimeout(() => {
 				window.location.reload();
 			}, 500);
 		} else {
 			statusType = 'error';
-			statusMessage = `Impossible de joindre un serveur Alanbix sur ${normalized}. Vérifiez l’IP et le Wi-Fi.`;
+			statusMessage = get(t)('server_modal_status_unreachable', { url: normalized });
 		}
 	}
 
@@ -188,7 +190,7 @@
 		enableDemoMode();
 		authStore.login('demo-alanbix-token');
 		statusType = 'success';
-		statusMessage = 'Mode Démo Hors-Ligne activé ! Ouverture du tableau de bord...';
+		statusMessage = get(t)('server_modal_status_demo');
 		setTimeout(() => {
 			window.location.href = '/dashboard';
 		}, 350);
@@ -210,12 +212,12 @@
 	<div class="server-modal-backdrop" on:click|self={close} role="presentation">
 		<div class="server-modal-card glass" role="dialog" aria-modal="true" aria-labelledby="server-modal-title">
 			<div class="modal-header">
-				<h2 id="server-modal-title">📡 Connexion au serveur Alanbix</h2>
-				<button type="button" class="close-btn" on:click={close} aria-label="Fermer">✕</button>
+				<h2 id="server-modal-title">📡 {$t('server_modal_title')}</h2>
+				<button type="button" class="close-btn" on:click={close} aria-label={$t('common_cancel')}>✕</button>
 			</div>
 
 			<p class="modal-desc">
-				Connectez l’application mobile à votre serveur <strong>Alanbix LAN</strong> sur votre réseau Wi-Fi local (port <code>41481</code>), ou explorez l’application hors-ligne.
+				{$t('server_modal_desc')}
 			</p>
 
 			{#if statusMessage}
@@ -225,7 +227,7 @@
 			{/if}
 
 			<div class="section-block">
-				<label for="lan-subnet">Recherche automatique Wi-Fi (Sous-réseau LAN)</label>
+				<label for="lan-subnet">{$t('server_modal_auto_scan')}</label>
 				<div class="row-inline">
 					<input
 						id="lan-subnet"
@@ -235,7 +237,7 @@
 						class="subnet-input"
 					/>
 					<button type="button" class="btn-scan" on:click={scanLan} disabled={scanning}>
-						{scanning ? '🔄 Scan en cours...' : '🔍 Scanner le LAN'}
+						{scanning ? '🔄 ' + $t('server_modal_btn_scanning') : '🔍 ' + $t('server_modal_btn_scan')}
 					</button>
 				</div>
 			</div>
@@ -248,14 +250,14 @@
 								<strong>🎮 {srv.name}</strong>
 								<span>{srv.url} {srv.version ? `• v${srv.version}` : ''}</span>
 							</div>
-							<span class="srv-connect">Rejoindre →</span>
+							<span class="srv-connect">{$t('server_modal_join')} →</span>
 						</button>
 					{/each}
 				</div>
 			{/if}
 
 			<div class="section-block">
-				<label for="manual-server-url">Adresse IP ou URL du serveur Alanbix</label>
+				<label for="manual-server-url">{$t('server_modal_manual_label')}</label>
 				<input
 					id="manual-server-url"
 					type="text"
@@ -266,19 +268,19 @@
 
 			<div class="modal-actions">
 				<button type="button" class="btn-save" on:click={testAndSave} disabled={testing}>
-					{testing ? 'Vérification...' : '✅ Tester & Enregistrer'}
+					{testing ? $t('server_modal_testing') : '✅ ' + $t('server_modal_btn_test')}
 				</button>
 
 				<div class="demo-divider">
-					<span>Pas de serveur LAN à proximité ?</span>
+					<span>{$t('server_modal_no_lan_nearby')}</span>
 				</div>
 
 				<button type="button" class="btn-demo" on:click={startDemoMode}>
-					✨ Explorer le Mode Démo (Sans serveur)
+					✨ {$t('server_modal_btn_demo')}
 				</button>
 
 				<button type="button" class="btn-reset-local" on:click={resetLocalData}>
-					🗑️ Oublier ce serveur / Effacer les données locales
+					🗑️ {$t('server_modal_btn_reset')}
 				</button>
 			</div>
 		</div>

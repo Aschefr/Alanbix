@@ -684,7 +684,7 @@
 	function centerOnMySeat() {
 		const targetSeatId = selectedSeat || user?.seat_id;
 		if (!targetSeatId) {
-			toast("Vous n'avez pas encore de place attribuée", "info");
+			toast(get(t)('map_toast_no_seat'), "info");
 			return;
 		}
 		const mySeat = layout.seats.find(s => s.id === targetSeatId);
@@ -874,11 +874,11 @@
 			🪑 {user?.seat_id ? `Poste ${user.seat_id}` : 'Aucune place'}
 		</span>
 		<div class="map-mobile-btns">
-			<button class="map-top-btn" on:click={centerOnMySeat} title="Centrer sur mon siège">
-				🎯 Centrer
+			<button class="map-top-btn" on:click={centerOnMySeat} title={$t('map_btn_center_title')}>
+				🎯 {$t('map_btn_center')}
 			</button>
-			<button class="map-top-btn" on:click={resetView} title="Vue globale">
-				🔍 Vue globale
+			<button class="map-top-btn" on:click={resetView} title={$t('map_btn_global_title')}>
+				🔍 {$t('map_btn_global_title')}
 			</button>
 		</div>
 	</div>
@@ -1138,13 +1138,13 @@
 		<div class="seat-info-bottom-sheet glass animate-in">
 			<div class="sheet-header">
 				<div class="sheet-title-row">
-					<span class="sheet-seat-badge">🪑 Poste {activeSeatCard.seat.id}</span>
+					<span class="sheet-seat-badge">🪑 {$t('map_sheet_seat_prefix', { id: activeSeatCard.seat.id })}</span>
 					{#if activeSeatCard.isMine}
-						<span class="sheet-status-tag mine">Votre place</span>
+						<span class="sheet-status-tag mine">{$t('map_sheet_mine')}</span>
 					{:else if activeSeatCard.isOccupied}
-						<span class="sheet-status-tag occupied">Occupé</span>
+						<span class="sheet-status-tag occupied">{$t('map_sheet_occupied')}</span>
 					{:else}
-						<span class="sheet-status-tag free">Libre</span>
+						<span class="sheet-status-tag free">{$t('map_sheet_free')}</span>
 					{/if}
 				</div>
 				<button class="sheet-close-btn" on:click={() => activeSeatCard = null}>✕</button>
@@ -1164,12 +1164,12 @@
 					<div class="sheet-actions">
 						{#if !activeSeatCard.isMine}
 							<a href="/dashboard/players?chat={activeSeatCard.occupant.id}" class="btn btn-sm btn-primary">
-								💬 Envoyer un message
+								💬 {$t('map_sheet_send_msg')}
 							</a>
 						{/if}
 						{#if activeSeatCard.isMine}
 							<button class="btn btn-sm btn-secondary text-danger" on:click={() => { releaseSeat(); activeSeatCard = null; }}>
-								Libérer ma place
+								{$t('map_sheet_release_seat')}
 							</button>
 						{/if}
 					</div>

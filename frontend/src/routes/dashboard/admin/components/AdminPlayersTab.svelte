@@ -306,7 +306,7 @@
 							<img src={editingPlayer.avatar_url} alt="" />
 						</div>
 						{#if deleteAvatarConfirm}
-							<button class="btn-danger-sm" type="button" on:click={() => adminDeleteAvatar(editingPlayer.id)}>Confirmer la suppression</button>
+							<button class="btn-danger-sm" type="button" on:click={() => adminDeleteAvatar(editingPlayer.id)}>{$t('admin_confirm_delete_avatar_btn')}</button>
 							<button class="btn-icon" type="button" on:click={() => deleteAvatarConfirm = false}>✕</button>
 						{:else}
 							<button class="btn-danger-sm" type="button" on:click={() => deleteAvatarConfirm = true}>{$t('admin_players_modal_delete_avatar')}</button>

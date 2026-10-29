@@ -40,30 +40,30 @@
 
 	// ─── Category definitions ──────────────────────────────────
 	const CATEGORY_MAP = {
-		system:       { label: 'Prompts Système IA',     icon: '🤖', order: 0 },
-		login:        { label: 'Connexion',              icon: '🔑', order: 1 },
-		register:     { label: 'Inscription',            icon: '📝', order: 2 },
-		nav:          { label: 'Navigation',             icon: '🧭', order: 3 },
-		dash:         { label: 'Dashboard',              icon: '📊', order: 4 },
-		tourneys:     { label: 'Tournois (Joueur)',      icon: '🏆', order: 5 },
-		tournament:   { label: 'Tournois (Détails)',     icon: '🏅', order: 6 },
-		map:          { label: 'Plan de Salle',          icon: '🗺️', order: 7 },
-		players:      { label: 'Joueurs',                icon: '👥', order: 8 },
-		ai:           { label: 'Assistant IA',           icon: '💬', order: 9 },
-		ia:           { label: 'Configuration IA',       icon: '⚙️', order: 10 },
-		profile:      { label: 'Profil',                 icon: '👤', order: 11 },
-		info:         { label: 'Page Infos',             icon: 'ℹ️', order: 12 },
-		spec:         { label: 'Vue Projecteur',         icon: '📺', order: 13 },
-		welcome:      { label: 'Tutoriel Accueil',       icon: '👋', order: 14 },
-		admin:        { label: 'Administration',         icon: '🛠️', order: 15 },
-		notif:        { label: 'Notifications',          icon: '🔔', order: 16 },
-		notifs:       { label: 'Notifications (Liste)',  icon: '📋', order: 17 },
-		award:        { label: 'Prix & Distinctions',    icon: '🎖️', order: 18 },
-		stats:        { label: 'Statistiques',           icon: '📈', order: 19 },
-		changelog:    { label: 'Historique Versions',    icon: '📦', order: 20 },
-		distillation: { label: 'Distillation (Loading)', icon: '⏳', order: 21 },
+		system:       { icon: '🤖', order: 0 },
+		login:        { icon: '🔑', order: 1 },
+		register:     { icon: '📝', order: 2 },
+		nav:          { icon: '🧭', order: 3 },
+		dash:         { icon: '📊', order: 4 },
+		tourneys:     { icon: '🏆', order: 5 },
+		tournament:   { icon: '🏅', order: 6 },
+		map:          { icon: '🗺️', order: 7 },
+		players:      { icon: '👥', order: 8 },
+		ai:           { icon: '💬', order: 9 },
+		ia:           { icon: '⚙️', order: 10 },
+		profile:      { icon: '👤', order: 11 },
+		info:         { icon: 'ℹ️', order: 12 },
+		spec:         { icon: '📺', order: 13 },
+		welcome:      { icon: '👋', order: 14 },
+		admin:        { icon: '🛠️', order: 15 },
+		notif:        { icon: '🔔', order: 16 },
+		notifs:       { icon: '📋', order: 17 },
+		award:        { icon: '🎖️', order: 18 },
+		stats:        { icon: '📈', order: 19 },
+		changelog:    { icon: '📦', order: 20 },
+		distillation: { icon: '⏳', order: 21 },
 	};
-	const OTHER_CATEGORY = { label: 'Divers', icon: '📎', order: 999 };
+	const OTHER_CATEGORY = { icon: '📎', order: 999 };
 
 	const KEY_CATEGORY_OVERRIDES = {
 		'tournament_closing_prompt': 'system',
@@ -80,7 +80,7 @@
 		const key = cat === '_other' || cat === 'other' ? 'admin_languages_cat_other' : `admin_languages_cat_${cat}`;
 		return {
 			...meta,
-			label: t_func(key) || meta.label
+			label: t_func(key) || cat
 		};
 	}
 
@@ -821,17 +821,17 @@
 	<div class="modal-overlay" use:portal on:click|self={cancelLeavePage}>
 		<div class="modal-content glass" style="max-width: 440px;">
 			<h2 class="title-premium" style="margin-top: 0; margin-bottom: 1rem; font-size: 1.3rem;">
-				<span class="title-icon">⚠️</span> {$t('admin_languages_unsaved_title') || 'Modifications non enregistrées'}
+				<span class="title-icon">⚠️</span> {$t('admin_languages_unsaved_title')}
 			</h2>
 			<p class="text-sm text-dim mb-4" style="line-height: 1.5;">
-				{$t('admin_languages_unsaved_warning') || "Vous avez des modifications non enregistrées. Voulez-vous vraiment quitter cette page ?"}
+				{$t('admin_languages_unsaved_warning')}
 			</p>
 			<div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
 				<button class="btn-secondary btn-sm" on:click={cancelLeavePage}>
-					{$t('common_cancel') || 'Rester'}
+					{$t('common_cancel')}
 				</button>
 				<button class="btn-danger btn-sm" on:click={confirmLeavePage}>
-					{$t('common_leave') || 'Quitter'}
+					{$t('common_leave')}
 				</button>
 			</div>
 		</div>

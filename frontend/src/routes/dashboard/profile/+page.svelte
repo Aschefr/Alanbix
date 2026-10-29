@@ -434,8 +434,8 @@
 
 	function deleteOwnAccount() {
 		askConfirm(
-			'Supprimer définitivement mon compte',
-			'Attention : cette action est irréversible. Toutes vos données (scores, messages, statistiques) seront supprimées.',
+			get(t)('profile_delete_account_title'),
+			get(t)('profile_delete_account_desc'),
 			'error',
 			async () => {
 				try {
@@ -443,7 +443,7 @@
 					localStorage.removeItem('alanbix_token');
 					window.location.href = '/';
 				} catch (err) {
-					alert(err.message || 'Impossible de supprimer le compte.');
+					alert(err.message || get(t)('profile_delete_account_err'));
 				}
 			}
 		);
@@ -496,9 +496,9 @@
 	{#if pointsData}
 		<section class="profile-card glass achievements-card">
 			<div class="achievements-header">
-				<h2 class="card-title">🏆 Mes Achievements & Trophées</h2>
+				<h2 class="card-title">🏆 {$t('profile_achievements_title')}</h2>
 				{#if pointsData.awards && pointsData.awards.length > 0}
-					<span class="badge-pill">{pointsData.awards.length} débloqué{pointsData.awards.length > 1 ? 's' : ''}</span>
+					<span class="badge-pill">{$t('profile_achievements_unlocked', { count: pointsData.awards.length, suffix: pointsData.awards.length > 1 ? 's' : '' })}</span>
 				{/if}
 			</div>
 
@@ -519,7 +519,7 @@
 			{:else}
 				<div class="awards-empty">
 					<span class="awards-empty-icon">🎖️</span>
-					<p>Aucun trophée ou achievement décerné pour le moment. Participez aux tournois pour en débloquer !</p>
+					<p>{$t('profile_achievements_empty')}</p>
 				</div>
 			{/if}
 		</section>

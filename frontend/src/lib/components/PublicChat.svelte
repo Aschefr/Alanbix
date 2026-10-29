@@ -750,9 +750,9 @@
 
 	function deleteMessage(msgId) {
 		confirmActionModal = {
-			title: $t('dash_chat_delete_title') || 'Supprimer le message',
-			message: $t('dash_chat_delete_confirm') || 'Supprimer ce message définitivement ?',
-			confirmLabel: $t('common_delete') || 'Supprimer',
+			title: $t('dash_chat_delete_title'),
+			message: $t('dash_chat_delete_confirm'),
+			confirmLabel: $t('common_delete'),
 			onConfirm: async () => {
 				confirmActionModal = null;
 				try {
@@ -766,9 +766,9 @@
 
 	function clearAllChat() {
 		confirmActionModal = {
-			title: $t('dash_chat_clear_title') || 'Purger le chat',
-			message: $t('dash_chat_clear_confirm') || "Effacer tout l'historique du chat ?",
-			confirmLabel: $t('common_purge') || 'Purger tout',
+			title: $t('dash_chat_clear_title'),
+			message: $t('dash_chat_clear_confirm'),
+			confirmLabel: $t('common_purge'),
 			onConfirm: async () => {
 				confirmActionModal = null;
 				try {
@@ -1544,10 +1544,10 @@
 			<p class="confirm-chat-msg">{confirmActionModal.message}</p>
 			<div class="confirm-chat-actions">
 				<button class="chat-btn-cancel" on:click={() => confirmActionModal = null}>
-					{$t('common_cancel') || 'Annuler'}
+					{$t('common_cancel')}
 				</button>
 				<button class="chat-btn-confirm-danger" on:click={confirmActionModal.onConfirm}>
-					{confirmActionModal.confirmLabel || ($t('common_confirm') || 'Confirmer')}
+					{confirmActionModal.confirmLabel || $t('common_confirm')}
 				</button>
 			</div>
 		</div>

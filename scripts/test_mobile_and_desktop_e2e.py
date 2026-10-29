@@ -137,7 +137,7 @@ def test_profile_achievements_and_mobile_cards():
     demo_data = (FRONTEND / "src" / "lib" / "demoData.ts").read_text(encoding="utf-8")
     
     # Achievements section
-    assert "Mes Achievements & Trophées" in profile_svelte, "Achievements section missing in profile"
+    assert "profile_achievements_title" in profile_svelte or "achievements-card" in profile_svelte, "Achievements section missing in profile"
     assert "getAwardEmoji" in profile_svelte, "getAwardEmoji helper missing"
     assert "history-cards-mobile" in profile_svelte, "Mobile stacked history cards missing"
     
