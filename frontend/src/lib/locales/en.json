@@ -1367,5 +1367,18 @@
   "admin_settings_section_tournaments": "Tournaments",
   "admin_settings_section_chat": "Chat & moderation",
   "admin_settings_section_services": "Services",
-  "admin_public_chat_purge_desc": "Deletes every public chat message for everyone."
+  "admin_public_chat_purge_desc": "Deletes every public chat message for everyone.",
+  "admin_tab_regie": "Live control",
+  "regie_calls_title": "Help calls",
+  "regie_scores_title": "Scores to enter",
+  "regie_scores_empty": "No score waiting for the current round.",
+  "regie_moderation_title": "Quick moderation",
+  "regie_no_muted": "No player is muted. Search a player to act.",
+  "regie_muted_count": "{n} muted",
+  "regie_muted": "{name} muted for 30 min.",
+  "regie_unmuted": "{name} unmuted.",
+  "regie_reply": "Reply",
+  "regie_validate": "Save",
+  "regie_round_finished": "Finished",
+  "regie_error_generic": "The action failed. Please try again."
 }

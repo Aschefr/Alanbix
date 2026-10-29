@@ -1367,5 +1367,18 @@
   "admin_settings_section_tournaments": "Torneos",
   "admin_settings_section_chat": "Chat y moderación",
   "admin_settings_section_services": "Servicios",
-  "admin_public_chat_purge_desc": "Elimina todos los mensajes del chat público para todos."
+  "admin_public_chat_purge_desc": "Elimina todos los mensajes del chat público para todos.",
+  "admin_tab_regie": "Control en vivo",
+  "regie_calls_title": "Llamadas de ayuda",
+  "regie_scores_title": "Resultados por registrar",
+  "regie_scores_empty": "Ningún resultado pendiente en la ronda actual.",
+  "regie_moderation_title": "Moderación rápida",
+  "regie_no_muted": "Ningún jugador está silenciado. Busque un jugador para actuar.",
+  "regie_muted_count": "{n} silenciado(s)",
+  "regie_muted": "{name} silenciado 30 min.",
+  "regie_unmuted": "{name} reactivado.",
+  "regie_reply": "Responder",
+  "regie_validate": "Validar",
+  "regie_round_finished": "Terminado",
+  "regie_error_generic": "No se pudo realizar la acción. Inténtelo de nuevo."
 }

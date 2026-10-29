@@ -1367,5 +1367,18 @@
   "admin_settings_section_tournaments": "Tournois",
   "admin_settings_section_chat": "Chat & modération",
   "admin_settings_section_services": "Services",
-  "admin_public_chat_purge_desc": "Supprime tous les messages du chat public, pour tout le monde."
+  "admin_public_chat_purge_desc": "Supprime tous les messages du chat public, pour tout le monde.",
+  "admin_tab_regie": "Régie",
+  "regie_calls_title": "Appels à l'aide",
+  "regie_scores_title": "Matchs à saisir",
+  "regie_scores_empty": "Aucun score en attente pour le tour en cours.",
+  "regie_moderation_title": "Modération rapide",
+  "regie_no_muted": "Aucun joueur n'a le chat coupé. Recherchez un joueur pour agir.",
+  "regie_muted_count": "{n} coupé(s)",
+  "regie_muted": "Chat coupé 30 min pour {name}.",
+  "regie_unmuted": "Chat rétabli pour {name}.",
+  "regie_reply": "Répondre",
+  "regie_validate": "Valider",
+  "regie_round_finished": "Terminé",
+  "regie_error_generic": "L'action n'a pas pu être effectuée. Réessayez."
 }

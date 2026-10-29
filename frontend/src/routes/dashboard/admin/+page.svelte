@@ -8,11 +8,13 @@
 	import AdminSettingsTab from './components/AdminSettingsTab.svelte';
 	import AdminConversationsTab from './components/AdminConversationsTab.svelte';
 	import AdminAwardsTab from './components/AdminAwardsTab.svelte';
+	import AdminRegieTab from './components/AdminRegieTab.svelte';
+	let regiePending = 0;
 
 	let authorized = false;
 	let wsUnsub = null;
 
-	let activeTab = (typeof localStorage !== 'undefined' && localStorage.getItem('admin_tab')) || 'tournaments';
+	let activeTab = (typeof localStorage !== 'undefined' && localStorage.getItem('admin_tab')) || 'regie';
 	if (activeTab === 'games') activeTab = 'tournaments';
 	let settingsSubTab = (typeof localStorage !== 'undefined' && localStorage.getItem('admin_subtab')) || 'general';
 	let selectedConvId = null;
@@ -27,7 +29,8 @@
 	$: {
 		let baseAdmin = $t('nav_administration') || 'Administration';
 		let tabName = baseAdmin;
-		if (activeTab === 'tournaments') tabName = `${baseAdmin} - ${$t('admin_tab_tournaments') || 'Tournois & Jeux'}`;
+		if (activeTab === 'regie') tabName = `${baseAdmin} - ${$t('admin_tab_regie')}`;
+		else if (activeTab === 'tournaments') tabName = `${baseAdmin} - ${$t('admin_tab_tournaments') || 'Tournois & Jeux'}`;
 		else if (activeTab === 'players') tabName = `${baseAdmin} - ${$t('admin_tab_players') || 'Gestion Joueurs'}`;
 		else if (activeTab === 'settings') tabName = `${baseAdmin} - ${$t('admin_tab_settings') || 'IA & Paramètres'}`;
 		else if (activeTab === 'conversations') tabName = `${baseAdmin} - ${$t('admin_tab_conversations') || 'Conversations IA'}`;
@@ -139,6 +142,10 @@
 	<header class="flex-row justify-between items-center">
 		<h1 class="title-premium">{$t('admin_title') || 'Administration Centrale'}</h1>
 		<div class="tabs glass">
+			<button class={activeTab === 'regie' ? 'active' : ''} on:click={() => activeTab = 'regie'}>
+				{$t('admin_tab_regie')}
+				{#if regiePending > 0}<span class="regie-badge">{regiePending}</span>{/if}
+			</button>
 			<button class={activeTab === 'tournaments' ? 'active' : ''} on:click={() => activeTab = 'tournaments'}>{$t('admin_tab_tournaments') || 'Tournois'}</button>
 			<button class={activeTab === 'players' ? 'active' : ''} on:click={() => { activeTab = 'players'; if (playersTabRef) playersTabRef.loadPlayers(); }}>{$t('admin_tab_players') || 'Gestion Joueurs'}</button>
 			<button class={activeTab === 'settings' ? 'active' : ''} on:click={() => activeTab = 'settings'}>{$t('admin_tab_settings') || 'IA & Paramètres'}</button>
@@ -154,7 +161,9 @@
 	</header>
 
 	<div class="tab-content animate-in">
-		{#if activeTab === 'tournaments'}
+		{#if activeTab === 'regie'}
+			<AdminRegieTab {tournaments} onReload={loadGamesAndTournaments} onOpenConversation={(id) => { selectedConvId = id; activeTab = 'conversations'; }} bind:pendingCount={regiePending} {toast} />
+		{:else if activeTab === 'tournaments'}
 			<AdminTournamentsTab {games} {tournaments} onReload={loadGamesAndTournaments} {toast} />
 		{:else if activeTab === 'players'}
 			<AdminPlayersTab bind:this={playersTabRef} {toast} />
@@ -207,5 +216,14 @@
 	@keyframes toastOut {
 		from { opacity: 1; transform: translateX(0) scale(1); }
 		to { opacity: 0; transform: translateX(80px) scale(0.9); }
+	}
+	.regie-badge { background: var(--danger); color: #fff; padding: 0.05rem 0.45rem; border-radius: 999px; font-size: 0.72rem; font-weight: 700; margin-left: 0.4rem; }
+	/* Phone: title above, tabs as one horizontally scrollable strip */
+	@media (max-width: 900px) {
+		.admin-view > header { flex-direction: column; align-items: stretch; gap: 0.6rem; }
+		.admin-view > header h1 { font-size: 1.2rem; }
+		.tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+		.tabs::-webkit-scrollbar { display: none; }
+		.tabs button { flex-shrink: 0; white-space: nowrap; }
 	}
 </style>
