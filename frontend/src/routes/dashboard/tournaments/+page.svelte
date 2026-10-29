@@ -8,6 +8,7 @@
 	import { authStore } from '$lib/auth';
 	import CreateTournamentWizard from '$lib/components/CreateTournamentWizard.svelte';
 	import EditTournamentModal from '$lib/components/EditTournamentModal.svelte';
+	import Icon from '$lib/components/Icon.svelte';
 	import { formatPoints } from '$lib/utils';
 
 	import TournamentParticipants from './components/TournamentParticipants.svelte';
@@ -30,10 +31,11 @@
 
 	$: if (selectedId) {
 		const savedShowDetails = localStorage.getItem('alanbix_show_details');
+		const isMobile = typeof window !== 'undefined' && window.innerWidth <= 900;
 		if (savedShowDetails !== null) {
 			showDetails = savedShowDetails === 'true';
 		} else {
-			showDetails = true;
+			showDetails = isMobile && selected?.status === 'RUNNING' ? false : true;
 		}
 
 		const isFinished = selected?.status === 'DONE' || selected?.status === 'CLOSED';
@@ -680,7 +682,7 @@
 	<!-- Sidebar -->
 	<aside class="t-sidebar glass">
 		<div class="sidebar-header">
-			<h2>🏆 {$t('tourneys_title')}</h2>
+			<h2><Icon name="trophy" size={16} /> {$t('tourneys_title')}</h2>
 			<span class="t-count">{tournaments.length}</span>
 		</div>
 		{#if currentUser?.is_admin}
@@ -780,7 +782,7 @@
 
 					{#if currentUser?.is_admin}
 						<div class="admin-bar glass">
-							<span class="admin-bar-label">⚙️ {$t("nav_administration")}</span>
+							<span class="admin-bar-label"><Icon name="gear" size={14} /> {$t("nav_administration")}</span>
 							<div class="admin-bar-actions">
 								{#if selected.status === 'OPEN'}
 									<button class="admin-btn start" on:click={startTournament} disabled={participants.length < 2}>
@@ -1238,31 +1240,85 @@
 		.tournaments-layout {
 			flex-direction: column;
 			height: auto;
-			min-height: calc(100vh - 120px);
-			gap: 0.75rem;
+			min-height: calc(100vh - 96px);
+			gap: 0.4rem;
 		}
 		.t-sidebar {
 			width: 100%;
 			min-width: 0;
 			margin-right: 0;
 			max-height: none;
+			padding: 0.25rem 0.4rem;
+			border-radius: 6px;
+			box-shadow: none !important;
+			background: rgba(15, 23, 42, 0.6) !important;
 		}
 		.sidebar-header {
-			padding: 0.7rem 1rem;
+			display: none;
+		}
+		.sidebar-actions {
+			padding: 0 0 0.25rem 0;
+		}
+		.add-tournament-btn-full {
+			padding: 0.25rem 0.5rem;
+			height: 28px;
+			font-size: 0.72rem;
+			border-radius: 4px;
 		}
 		.t-list {
+			display: flex;
 			flex-direction: row;
 			overflow-x: auto;
 			overflow-y: hidden;
-			padding: 0.5rem;
-			gap: 0.5rem;
+			padding: 0.15rem 0;
+			gap: 0.35rem;
+			align-items: center;
 			-webkit-overflow-scrolling: touch;
 		}
 		.t-item {
-			min-width: 210px;
-			max-width: 240px;
+			min-width: unset;
+			max-width: unset;
+			height: 30px;
+			padding: 0 0.6rem;
+			border-radius: 15px;
+			background-image: none !important;
+			background: rgba(255, 255, 255, 0.05) !important;
+			border: 1px solid rgba(255, 255, 255, 0.1);
+			display: inline-flex;
+			align-items: center;
+			gap: 0.35rem;
 			flex-shrink: 0;
 		}
+		.t-item.active {
+			background: var(--accent) !important;
+			border-color: var(--accent) !important;
+			color: white !important;
+		}
+		.t-item-checkered {
+			display: none;
+		}
+		.t-item-overlay {
+			position: static;
+			padding: 0;
+			background: none !important;
+			display: flex;
+			align-items: center;
+			gap: 0.35rem;
+		}
+		.t-item-name {
+			font-size: 0.75rem;
+			font-weight: 600;
+			white-space: nowrap;
+		}
+		.t-item-meta {
+			display: none;
+		}
+		.t-status-badge {
+			font-size: 0.6rem;
+			padding: 0.1rem 0.3rem;
+			border-radius: 8px;
+		}
+		
 		.t-detail {
 			margin-left: 0;
 			padding-left: 0;
@@ -1273,40 +1329,95 @@
 		}
 		.detail-hero {
 			height: auto;
-			min-height: 150px;
-			display: flex;
-			flex-direction: column;
-			justify-content: flex-end;
+			min-height: auto;
+			border-radius: 6px;
 		}
 		.hero-overlay {
-			position: relative;
-			flex-wrap: wrap;
-			gap: 0.6rem;
-			padding: 1rem;
+			position: static;
+			padding: 0.45rem 0.65rem;
+			flex-direction: column;
+			align-items: flex-start;
+			gap: 0.2rem;
+		}
+		.hero-content h1 {
+			font-size: 1.05rem;
+			margin: 0.1rem 0;
+		}
+		.hero-game {
+			font-size: 0.72rem;
+		}
+		.status-pill {
+			font-size: 0.65rem;
+			padding: 0.12rem 0.38rem;
 		}
 		.hero-rules {
 			position: relative;
 			right: auto;
 			top: auto;
 			max-width: none;
-			margin: 0 1rem 0.75rem 1rem;
+			margin: 0.25rem 0;
+			padding: 0.35rem 0.5rem;
+			font-size: 0.72rem;
 		}
+		
 		.detail-body {
-			padding: 0.9rem 0.75rem;
-			gap: 0.9rem;
+			padding: 0.35rem;
+			gap: 0.4rem;
 		}
 		.controls-row {
 			flex-wrap: wrap;
+			gap: 0.35rem;
+			margin-bottom: 0.25rem;
+		}
+		.toggle-details-btn, .toggle-live-btn {
+			padding: 0.2rem 0.5rem;
+			font-size: 0.72rem;
+			height: 28px;
+			border-radius: 4px;
 		}
 		.admin-bar {
 			flex-direction: column;
 			align-items: flex-start;
-			gap: 0.5rem;
+			gap: 0.35rem;
 			width: 100%;
+			padding: 0.35rem 0.5rem;
+			border-radius: 4px;
+		}
+		.admin-bar-label {
+			font-size: 0.72rem;
 		}
 		.admin-bar-actions {
 			flex-wrap: wrap;
+			gap: 0.25rem;
 		}
+		.admin-btn {
+			padding: 0.2rem 0.45rem;
+			font-size: 0.7rem;
+			height: 26px;
+			border-radius: 4px;
+		}
+
+		/* Flat, compact 2x2 metadata on mobile */
+		.info-row {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 0.35rem;
+		}
+		.info-card {
+			padding: 0.35rem 0.5rem;
+			flex: 1 1 calc(50% - 0.35rem);
+			min-width: 130px;
+			border-radius: 4px;
+			border: 1px solid rgba(255, 255, 255, 0.06);
+		}
+		.info-label {
+			font-size: 0.6rem;
+		}
+		.info-value {
+			font-size: 0.78rem;
+			font-weight: 700;
+		}
+		
 		.tournament-split-layout.split-active {
 			flex-direction: column;
 		}

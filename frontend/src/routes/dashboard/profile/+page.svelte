@@ -1001,10 +1001,10 @@
 	.btn-goto-mobile { background: var(--accent-soft); color: var(--accent); border: 1px solid rgba(59,130,246,0.3); border-radius: 8px; padding: 0.25rem 0.6rem; font-size: 0.72rem; font-weight: 700; cursor: pointer; white-space: nowrap; }
 
 	@media (max-width: 900px) {
-		.profile-page { gap: 1rem; }
-		.profile-header { flex-direction: column; text-align: center; padding: 1.2rem 1rem; gap: 1rem; }
+		.profile-page { gap: 0.5rem; }
+		.profile-header { flex-direction: column; text-align: center; padding: 0.75rem 0.5rem; gap: 0.5rem; }
 		.avatar-container { justify-content: center; }
-		.profile-grid { grid-template-columns: 1fr !important; gap: 1rem; }
+		.profile-grid { grid-template-columns: 1fr !important; gap: 0.5rem; }
 		.history-table-wrap { display: none !important; }
 		.history-cards-mobile { display: flex !important; flex-direction: column; gap: 0.6rem; }
 		.total-pts-badge { width: 100%; max-width: 240px; }

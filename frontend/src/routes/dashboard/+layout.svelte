@@ -11,6 +11,7 @@
 	import { currentLang, availableLanguages, lanMultilingual, loadLocale, flagMap, t, initI18n, refreshEventName, eventName } from '$lib/i18nStore';
 	import { handleIncomingPush, getOrRegisterDeviceToken, startNativePushService, stopNativePushService, revokeCurrentDeviceToken, getNativePushStatus, requestNativeNotificationPermission, checkAndHandlePendingDeepLink } from '$lib/push';
 	import { resolveMediaUrl, isCapacitorNative, getCustomServerUrl } from '$lib/config';
+	import Icon from '$lib/components/Icon.svelte';
 
 	let user = { username: '...', is_admin: false };
 	let loading = true;
@@ -459,19 +460,19 @@
 		</a>
 		<div class="mobile-top-actions">
 			<a href="/dashboard/info" class="top-action-btn" class:active={$page.url.pathname.startsWith('/dashboard/info')} title={$t('mobile_top_info_title')}>
-				<span class="icon">📋</span>
+				<Icon name="clipboard" size={16} />
 			</a>
 			<a href="/dashboard/map" class="top-action-btn" class:active={$page.url.pathname.startsWith('/dashboard/map')} title={$t('mobile_top_map_title')}>
-				<span class="icon">📍</span>
+				<Icon name="map" size={16} />
 			</a>
 			<a href="/dashboard/notifications" class="top-action-btn notif-top-btn" class:active={$page.url.pathname.startsWith('/dashboard/notifications')} title={$t('mobile_top_notifs_title')} on:click={() => { api.get('/notifications/unread-count').then(r => notifUnreadCount.set(r.count || 0)).catch(() => {}); }}>
-				<span class="icon">🔔</span>
-				{#if $notifUnreadCount > 0}
-					<span class="badge-dot" class:bounce={notifBounce}>{$notifUnreadCount > 9 ? '9+' : $notifUnreadCount}</span>
-				{/if}
+				<Icon name="bell" size={16} />
+			{#if $notifUnreadCount > 0}
+				<span class="badge-dot" class:bounce={notifBounce}>{$notifUnreadCount > 9 ? '9+' : $notifUnreadCount}</span>
+			{/if}
 			</a>
 			<a href="/dashboard/settings" class="top-action-btn" class:active={$page.url.pathname.startsWith('/dashboard/settings')} title={$t('mobile_top_settings_title')}>
-				<span class="icon">⚙️</span>
+				<Icon name="gear" size={16} />
 			</a>
 		</div>
 	</header>
@@ -632,18 +633,18 @@
 	</main>
 
 	<!-- Mobile Bottom Nav (<= 900px) -->
-	<nav class="mobile-bottom-nav glass">
+	<nav class="mobile-bottom-nav">
 		<a href="/dashboard" class="bottom-tab" class:active={$page.url.pathname === '/dashboard'}>
-			<span class="tab-icon">🏠</span>
+			<span class="tab-icon"><Icon name="home" size={17} /></span>
 			<span class="tab-label">{$t('mobile_tab_home')}</span>
 		</a>
 		<a href="/dashboard/tournaments" class="bottom-tab" class:active={$page.url.pathname.startsWith('/dashboard/tournaments')}>
-			<span class="tab-icon">🏆</span>
+			<span class="tab-icon"><Icon name="trophy" size={17} /></span>
 			<span class="tab-label">{$t('mobile_tab_tournaments')}</span>
 		</a>
 		<a href="/dashboard/players{$totalMsgUnread > 0 && lastPmSender ? '?chat=' + lastPmSender : ''}" class="bottom-tab" class:active={$page.url.pathname.startsWith('/dashboard/players')}>
 			<span class="tab-icon tab-badge-wrap">
-				💬
+				<Icon name="chat" size={17} />
 				{#if $totalMsgUnread > 0}
 					<span class="tab-badge" class:bounce={pmBounce}>{$totalMsgUnread > 9 ? '9+' : $totalMsgUnread}</span>
 				{/if}
@@ -652,7 +653,7 @@
 		</a>
 		<a href="/dashboard/ai" class="bottom-tab" class:active={$page.url.pathname.startsWith('/dashboard/ai')} on:click={() => aiUnreadCount.set(0)}>
 			<span class="tab-icon tab-badge-wrap">
-				🤖
+				<Icon name="bot" size={17} />
 				{#if $aiUnreadCount > 0}
 					<span class="tab-badge ai-badge" class:bounce={aiBounce}>{$aiUnreadCount > 9 ? '9+' : $aiUnreadCount}</span>
 				{/if}
@@ -664,7 +665,7 @@
 				{#if user.avatar_url && !avatarFailed}
 					<img src={resolveMediaUrl(user.avatar_url)} alt="" class="tab-avatar" on:error={() => avatarFailed = true} />
 				{:else}
-					👤
+					<Icon name="user" size={17} />
 				{/if}
 			</span>
 			<span class="tab-label">{$t('mobile_tab_profile')}</span>
@@ -1338,11 +1339,13 @@
 			position: sticky;
 			top: 0;
 			z-index: 100;
-			padding: calc(0.5rem + var(--safe-top, 0px)) 1rem 0.5rem;
-			background: rgba(15, 23, 42, 0.88);
-			backdrop-filter: blur(16px);
-			-webkit-backdrop-filter: blur(16px);
-			border-bottom: 1px solid var(--glass-border);
+			height: var(--mobile-top-h, 42px);
+			box-sizing: border-box;
+			padding: calc(0.25rem + var(--safe-top, 0px)) 0.75rem 0.25rem;
+			background: rgba(15, 23, 42, 0.95);
+			backdrop-filter: blur(12px);
+			-webkit-backdrop-filter: blur(12px);
+			border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 		}
 
 		.mobile-brand {
@@ -1354,8 +1357,8 @@
 		}
 
 		.mobile-logo {
-			width: 32px;
-			height: 32px;
+			width: 24px;
+			height: 24px;
 		}
 
 		.mobile-brand-info {
@@ -1365,7 +1368,7 @@
 		}
 
 		.mobile-app-title {
-			font-size: 0.95rem;
+			font-size: 0.82rem;
 			font-weight: 800;
 			font-family: var(--font-title);
 			letter-spacing: 0.05em;
@@ -1388,9 +1391,9 @@
 		}
 
 		.top-action-btn {
-			width: 38px;
-			height: 38px;
-			border-radius: 10px;
+			width: 32px;
+			height: 32px;
+			border-radius: 6px;
 			background: rgba(255, 255, 255, 0.04);
 			border: 1px solid rgba(255, 255, 255, 0.08);
 			display: flex;
@@ -1427,9 +1430,9 @@
 		}
 
 		.content-area {
-			padding: 0.85rem 0.75rem calc(5.2rem + var(--safe-bottom, 0px));
+			padding: 0.5rem 0.5rem calc(3.4rem + var(--safe-bottom, 0px));
 			height: auto;
-			min-height: calc(100vh - 60px);
+			min-height: calc(100vh - 42px);
 			overflow-y: visible;
 		}
 
@@ -1442,12 +1445,14 @@
 			left: 0;
 			right: 0;
 			z-index: 1000;
-			padding: 0.35rem 0.2rem calc(0.35rem + var(--safe-bottom, 0px));
-			background: rgba(15, 23, 42, 0.94);
-			backdrop-filter: blur(20px);
-			-webkit-backdrop-filter: blur(20px);
-			border-top: 1px solid var(--glass-border);
-			box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.45);
+			height: var(--mobile-nav-h, 48px);
+			box-sizing: border-box;
+			padding: 0.15rem 0.2rem calc(0.15rem + var(--safe-bottom, 0px));
+			background: rgba(15, 23, 42, 0.96);
+			backdrop-filter: blur(16px);
+			-webkit-backdrop-filter: blur(16px);
+			border-top: 1px solid rgba(255, 255, 255, 0.08);
+			box-shadow: none;
 		}
 
 		.bottom-tab {

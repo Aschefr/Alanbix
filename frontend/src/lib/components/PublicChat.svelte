@@ -3,6 +3,7 @@
 	import { api } from '$lib/api';
 	import { wsMessageStore } from '$lib/ws';
 	import { t } from '$lib/i18nStore';
+	import Icon from '$lib/components/Icon.svelte';
 	import { EMOJI_CATALOG, EMOJI_CATEGORIES, DEFAULT_RECENT_EMOJIS } from '$lib/emojiCatalog';
 	import { profanityFilterEnabled, toggleProfanityFilter, filterProfanityText } from '$lib/profanity';
 
@@ -1481,7 +1482,7 @@
 
 		<!-- Attach Media Button -->
 		<button class="btn-action-icon" on:click={() => fileInputEl?.click()} title="{$t('dash_chat_attach_tooltip')}">
-			📎
+			<Icon name="paperclip" size={15} />
 		</button>
 
 		<!-- GIF Button -->

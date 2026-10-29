@@ -4,6 +4,7 @@
 	import { api } from '$lib/api';
 	import { onMount, onDestroy, tick } from 'svelte';
 	import Modal from '$lib/components/Modal.svelte';
+	import Icon from '$lib/components/Icon.svelte';
 	import { marked } from 'marked';
 	import { wsMessageStore } from '$lib/ws';
 	import { API_URL } from '$lib/config';
@@ -1154,14 +1155,14 @@
 		<!-- Mobile AI top bar (<= 900px) -->
 		<div class="ai-mobile-top-bar glass">
 			<button class="ai-top-btn" on:click={() => showMobileHistory = true} title={$t('ai_history_btn')}>
-				🕘 {$t('ai_history_btn')} ({conversations.length})
+				<Icon name="clock" size={13} /> <span>{$t('ai_history_btn')} ({conversations.length})</span>
 			</button>
 			<button class="ai-top-btn" on:click={newConversation} disabled={iaBlocked} title={$t('ai_new_chat_btn')}>
-				➕ {$t('ai_new_chat_btn')}
+				<Icon name="plus" size={13} /> <span>{$t('ai_new_chat_btn')}</span>
 			</button>
 			{#if !userObj?.is_admin && !iaBlocked && iaConfig.call_admin_button_enabled !== false}
 				<button class="ai-top-btn call-admin" on:click={checkAndOpenCallAdmin} title={$t('ai_call_admin_btn')}>
-					🆘 {$t('ai_call_admin_btn')}
+					<Icon name="bell" size={13} /> <span>{$t('ai_call_admin_btn')}</span>
 				</button>
 			{/if}
 		</div>
@@ -1514,7 +1515,7 @@
 				{/if}
 				<div class="input-row">
 					<input type="file" accept="image/*" bind:this={fileInput} on:change={handleFileSelect} style="display:none" />
-					<button type="button" class="btn-attach" on:click={() => fileInput?.click()} title={$t('ai_input_tooltip_attach')} disabled={iaBlocked || loading || busyOtherConv}>📎</button>
+					<button type="button" class="btn-attach" on:click={() => fileInput?.click()} title={$t('ai_input_tooltip_attach')} disabled={iaBlocked || loading || busyOtherConv}><Icon name="paperclip" size={16} /></button>
 					<textarea
 						bind:this={textareaRef}
 						bind:value={query}
@@ -1541,7 +1542,7 @@
 			</form>
 		{:else}
 			<div class="empty-chat flex-col center">
-				<div class="large-icon">🤖</div>
+				<div class="large-icon"><Icon name="bot" size={40} /></div>
 				<h2>{$t("ai_welcome_title")}</h2>
 				<p class="text-dim">{$t("ai_welcome_desc")}</p>
 				<button class="btn-primary" on:click={newConversation}>{$t("ai_welcome_start")}</button>
@@ -2167,24 +2168,131 @@
 	.drawer-conv-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 0.4rem; }
 
 	@media (max-width: 900px) {
-		.ai-page { flex-direction: column; height: calc(100vh - 120px); }
+		.ai-page { flex-direction: column; height: calc(100vh - 96px); gap: 0.35rem; }
 		.chat-sidebar { display: none !important; }
-		.chat-main { width: 100% !important; flex: 1; min-height: 0; padding: 0.6rem !important; }
+		.chat-main {
+			width: 100% !important;
+			flex: 1;
+			min-height: 0;
+			padding: 0.35rem !important;
+			border-radius: var(--radius-md) !important;
+		}
 		.ai-mobile-top-bar {
-			display: flex; gap: 0.4rem; padding: 0.5rem 0.6rem;
-			border-radius: 10px; margin-bottom: 0.5rem; align-items: center;
-			background: var(--surface-raised); border: 1px solid var(--glass-border); flex-shrink: 0;
+			display: flex;
+			gap: 0.35rem;
+			padding: 0.25rem 0.4rem;
+			height: 34px;
+			box-sizing: border-box;
+			border-radius: 6px;
+			margin-bottom: 0.35rem;
+			align-items: center;
+			background: rgba(255, 255, 255, 0.03);
+			border: 1px solid rgba(255, 255, 255, 0.08);
+			flex-shrink: 0;
 		}
 		.ai-top-btn {
-			background: var(--surface-sunken); border: 1px solid var(--glass-border);
-			color: var(--text-main); font-size: 0.72rem; font-weight: 700;
-			padding: 0.35rem 0.65rem; border-radius: 8px; cursor: pointer;
-			display: flex; align-items: center; gap: 0.3rem; white-space: nowrap;
+			background: rgba(255, 255, 255, 0.04);
+			border: 1px solid rgba(255, 255, 255, 0.08);
+			color: var(--text-dim);
+			font-size: 0.7rem;
+			font-weight: 600;
+			height: 26px;
+			padding: 0 0.5rem;
+			border-radius: 4px;
+			cursor: pointer;
+			display: flex;
+			align-items: center;
+			gap: 0.25rem;
+			white-space: nowrap;
 		}
 		.ai-top-btn.call-admin { color: #f87171; border-color: rgba(239, 68, 68, 0.35); background: rgba(239, 68, 68, 0.08); margin-left: auto; }
-		.msg-wrapper { max-width: 95% !important; }
-		header { padding: 0.6rem 0.8rem; min-height: auto; flex-wrap: wrap; gap: 0.5rem; }
-		.usage-bar { width: 100%; }
+		
+		/* Header compaction on mobile */
+		.chat-main header {
+			padding: 0.25rem 0.4rem !important;
+			min-height: auto;
+			flex-wrap: nowrap;
+			align-items: center;
+			gap: 0.4rem;
+			border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+		}
+		.chat-main header h2 {
+			font-size: 0.85rem !important;
+			font-weight: 700;
+			max-width: 170px;
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			margin: 0;
+		}
+		.chat-main header .usage-bar { display: none !important; }
+		.chat-main header .rag-status { font-size: 0.65rem; padding: 0.15rem 0.35rem; }
+		.chat-main header .compression-badge { font-size: 0.65rem; padding: 0.15rem 0.35rem; }
+		.chat-main header .btn-sentinel { font-size: 0.68rem !important; padding: 0.2rem 0.45rem !important; }
+
+		/* Ultra-compact messages layout on mobile */
+		.messages-container {
+			padding: 0.35rem 0.2rem !important;
+			gap: 0.4rem !important;
+		}
+		.msg-wrapper {
+			max-width: 98% !important;
+			width: 100%;
+		}
+		.msg-row {
+			gap: 0 !important;
+		}
+		.msg-row .avatar {
+			display: none !important;
+		}
+		.msg-content {
+			padding: 0.45rem 0.6rem !important;
+			font-size: 0.8rem !important;
+			line-height: 1.35 !important;
+			border-radius: 6px !important;
+			width: 100%;
+			box-sizing: border-box;
+		}
+		.bot-meta {
+			font-size: 0.65rem !important;
+			gap: 0.3rem !important;
+			margin-bottom: 0.25rem !important;
+		}
+		.bot-meta .model-badge, .bot-meta .timer-badge {
+			font-size: 0.62rem !important;
+			padding: 0.1rem 0.3rem !important;
+		}
+
+		/* Compact input area on mobile */
+		.input-area {
+			padding: 0.3rem !important;
+			border-radius: 6px !important;
+			margin-top: 0.25rem !important;
+		}
+		.input-row {
+			gap: 0.3rem !important;
+		}
+		.chat-textarea {
+			min-height: 34px !important;
+			max-height: 72px !important;
+			padding: 0.35rem 0.5rem !important;
+			font-size: 0.82rem !important;
+			border-radius: 4px !important;
+		}
+		.btn-attach {
+			width: 34px !important;
+			height: 34px !important;
+			border-radius: 4px !important;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+		}
+		.btn-primary, .btn-stop {
+			padding: 0.35rem 0.7rem !important;
+			font-size: 0.78rem !important;
+			height: 34px !important;
+			border-radius: 4px !important;
+		}
 	}
 
 </style>

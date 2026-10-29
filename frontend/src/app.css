@@ -811,3 +811,48 @@ button, a, [role="button"] {
   padding-left: var(--safe-left);
   padding-right: var(--safe-right);
 }
+
+/* ==========================================================================
+   MOBILE COMPACT & FLAT SYSTEM (<= 900px)
+   ========================================================================== */
+@media (max-width: 900px) {
+  :root {
+    --mobile-nav-h: 48px;
+    --mobile-top-h: 42px;
+    --radius-sm: 4px;
+    --radius-md: 6px;
+    --radius-lg: 8px;
+  }
+
+  /* Flatten nested glass containers on mobile */
+  .glass {
+    box-shadow: none !important;
+    backdrop-filter: blur(8px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border-radius: var(--radius-md) !important;
+  }
+
+  /* Global typography scaling on mobile */
+  body {
+    font-size: 13px !important;
+    line-height: 1.35 !important;
+  }
+
+  h1 { font-size: 1.25rem !important; }
+  h2 { font-size: 1.05rem !important; }
+  h3 { font-size: 0.92rem !important; }
+  h4 { font-size: 0.82rem !important; }
+
+  /* Compact button styling on mobile */
+  .btn, .action-btn {
+    padding: 0.35rem 0.65rem !important;
+    font-size: 0.78rem !important;
+    border-radius: 6px !important;
+  }
+
+  /* Compact inputs on mobile */
+  input, select, textarea {
+    font-size: 0.82rem !important;
+  }
+}
+

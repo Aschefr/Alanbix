@@ -3,6 +3,7 @@
 	import { api } from '$lib/api';
 	import { wsMessageStore } from '$lib/ws';
 	import { t } from '$lib/i18nStore';
+	import Icon from '$lib/components/Icon.svelte';
 	import { EMOJI_CATALOG, EMOJI_CATEGORIES, DEFAULT_RECENT_EMOJIS } from '$lib/emojiCatalog';
 	import { profanityFilterEnabled, toggleProfanityFilter, filterProfanityText } from '$lib/profanity';
 	import { resolveMediaUrl } from '$lib/config';
@@ -703,7 +704,7 @@
 			<div class="empty-state"><span>⏳</span> {$t('loading')}</div>
 		{:else if messages.length === 0}
 			<div class="empty-state">
-				<span class="empty-icon">💬</span>
+				<span class="empty-icon"><Icon name="chat" size={32} /></span>
 				<p>{$t('players_chat_no_msg')}</p>
 			</div>
 		{:else}
@@ -936,7 +937,7 @@
 				on:click={() => fileInputEl?.click()}
 				disabled={isUploading}
 			>
-				📎
+				<Icon name="paperclip" size={15} />
 			</button>
 
 			<!-- Textarea wrapper -->

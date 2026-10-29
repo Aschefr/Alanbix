@@ -3,7 +3,9 @@
 	import { api } from '$lib/api';
 	import { wsMessageStore } from '$lib/ws';
 	import { t } from '$lib/i18nStore';
-	import PublicChat from '$lib/components/PublicChat.svelte';
+	import PublicChat from '$lib/components/PublicChat.svelte';
+
+	import Icon from '$lib/components/Icon.svelte';
 
 	import DashboardLeaderboard from './components/DashboardLeaderboard.svelte';
 	import DashboardFloorMap from './components/DashboardFloorMap.svelte';
@@ -363,7 +365,7 @@
 				class:active={mobileActiveTab === 'matches'}
 				on:click={() => mobileActiveTab = 'matches'}
 			>
-				<span class="tab-txt">⚔️ {$t('mobile_tab_my_matches')}</span>
+				<span class="tab-txt"><Icon name="swords" size={14} /> {$t('mobile_tab_my_matches')}</span>
 				{#if myActiveMatches.length > 0}
 					<span class="mobile-badge-count">{myActiveMatches.length}</span>
 				{/if}
@@ -373,7 +375,7 @@
 				class:active={mobileActiveTab === 'chat'}
 				on:click={() => mobileActiveTab = 'chat'}
 			>
-				<span class="tab-txt">🌐 {$t('mobile_tab_public_chat')}</span>
+				<span class="tab-txt"><Icon name="globe" size={14} /> {$t('mobile_tab_public_chat')}</span>
 			</button>
 		</div>
 	</div>
@@ -383,17 +385,17 @@
 		<!-- Active Matches Section -->
 		<section class="mobile-section">
 			<div class="mobile-section-header">
-				<h2>⚔️ {$t('mobile_tab_my_matches')}</h2>
+				<h2><Icon name="swords" size={15} /> {$t('mobile_tab_my_matches')}</h2>
 				<span class="badge-pill">{$t('mobile_active_matches_count', { count: myActiveMatches.length, suffix: myActiveMatches.length > 1 ? 's' : '' })}</span>
 			</div>
 
 			{#if myActiveMatches.length === 0}
 				<div class="empty-matches-card glass">
-					<div class="empty-icon">🎯</div>
+					<div class="empty-icon"><Icon name="target" size={32} /></div>
 					<h3>{$t('mobile_empty_matches_title')}</h3>
 					<p>{$t('mobile_empty_matches_desc')}</p>
 					<a href="/dashboard/tournaments" class="btn btn-sm btn-primary">
-						🏆 {$t('mobile_btn_view_tournaments')}
+						<Icon name="trophy" size={14} /> {$t('mobile_btn_view_tournaments')}
 					</a>
 				</div>
 			{:else}
@@ -417,7 +419,7 @@
 									{m.opponent_name}
 									{#if m.opponent_seat}
 										<a href="/dashboard/map?highlight={m.opponent_seat}" class="seat-link" title={$t('tourneys_view_on_map')}>
-											📍 {$t('mobile_match_seat_link', { seat: m.opponent_seat })}
+											<Icon name="pin" size={13} /> {$t('mobile_match_seat_link', { seat: m.opponent_seat })}
 										</a>
 									{/if}
 								</div>
@@ -425,11 +427,11 @@
 
 							<div class="match-card-actions">
 								<a href="/dashboard/tournaments?select={m.tournament_id}" class="btn btn-primary btn-match-action">
-									⚔️ {$t('mobile_match_enter_score')} →
+									<Icon name="swords" size={13} /> {$t('mobile_match_enter_score')} →
 								</a>
 								{#if m.opponent_id}
 									<a href="/dashboard/players?chat={m.opponent_id}" class="btn btn-secondary btn-chat-action" title={$t('mobile_match_send_msg')}>
-										💬 {$t('mobile_match_send_msg')}
+										<Icon name="chat" size={13} /> {$t('mobile_match_send_msg')}
 									</a>
 								{/if}
 							</div>
@@ -442,7 +444,7 @@
 		<!-- Tournaments Summary -->
 		<section class="mobile-section">
 			<div class="mobile-section-header">
-				<h2>🏆 {$t('nav_tournaments')} ({tournaments.length})</h2>
+				<h2><Icon name="trophy" size={15} /> {$t('nav_tournaments')} ({tournaments.length})</h2>
 				<a href="/dashboard/tournaments" class="see-all-link">{$t('mobile_see_all')} →</a>
 			</div>
 			<div class="mobile-tourneys-list">
@@ -466,7 +468,7 @@
 		{#if stats.leaderboard && stats.leaderboard.length > 0}
 			<section class="mobile-section">
 				<div class="mobile-section-header">
-					<h2>🏅 {$t('mobile_top_podium_title')}</h2>
+					<h2><Icon name="trophy" size={15} /> {$t('mobile_top_podium_title')}</h2>
 				</div>
 				<div class="mobile-podium glass">
 					{#each stats.leaderboard.slice(0, 3) as p, idx}
@@ -876,7 +878,7 @@
 			background: transparent;
 			color: var(--text-dim);
 			font-weight: 600;
-			font-size: 0.88rem;
+			font-size: 0.78rem;
 			cursor: pointer;
 			transition: all 0.2s;
 		}
@@ -884,7 +886,7 @@
 		.mobile-dash-tab.active {
 			background: var(--accent);
 			color: #fff;
-			box-shadow: 0 2px 10px var(--accent-glow);
+			box-shadow: none;
 		}
 
 		.mobile-badge-count {
@@ -1102,7 +1104,7 @@
 		}
 
 		.tourney-name {
-			font-size: 0.88rem;
+			font-size: 0.78rem;
 			font-weight: 700;
 			color: #f1f5f9;
 			overflow: hidden;

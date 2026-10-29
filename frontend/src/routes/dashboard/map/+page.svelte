@@ -1435,7 +1435,7 @@
 	.seat-info-bottom-sheet { display: none; }
 
 	@media (max-width: 900px) {
-		.map-page { display: flex; flex-direction: column; height: calc(100vh - 120px); gap: 0.5rem; }
+		.map-page { display: flex; flex-direction: column; height: calc(100vh - 96px); gap: 0.5rem; }
 		.map-page > header { display: none !important; }
 		.player-badge-bar, .assign-panel { display: none !important; }
 		.canvas-wrapper {
@@ -1464,7 +1464,7 @@
 		/* Seat Bottom Sheet Card on mobile */
 		.seat-info-bottom-sheet {
 			display: flex; flex-direction: column; gap: 0.6rem;
-			position: fixed; bottom: 70px; left: 12px; right: 12px;
+			position: fixed; bottom: 56px; left: 12px; right: 12px;
 			background: var(--surface-raised); border: 1px solid var(--glass-border);
 			border-radius: 14px; padding: 0.9rem 1rem; z-index: 50;
 			box-shadow: 0 12px 30px rgba(0,0,0,0.5); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
