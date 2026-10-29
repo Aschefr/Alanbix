@@ -1401,7 +1401,7 @@
 	.info-value.accent { color: var(--accent); }
 
 	/* Controls row */
-	.controls-row { display: flex; align-items: stretch; gap: 0.75rem; margin-bottom: 0.5rem; width: 100%; }
+	.controls-row { display: flex; flex-wrap: wrap; align-items: stretch; gap: 0.75rem; margin-bottom: 0.5rem; width: 100%; }
 	.controls-row .admin-bar { flex-grow: 1; margin-bottom: 0; padding: 0.4rem 1rem; }
 	.controls-row .toggle-details-btn, .controls-row .toggle-live-btn { margin-bottom: 0; flex-shrink: 0; align-self: stretch; border-radius: 10px; }
 	.detail-body.collapsed-layout { padding-bottom: 0; }
@@ -1413,7 +1413,7 @@
 	/* Admin bar */
 	.admin-bar { display: flex; justify-content: space-between; align-items: center; padding: 0.7rem 1rem; border-radius: 10px; border: 1px dashed rgba(59,130,246,0.2); background: rgba(59,130,246,0.04); }
 	.admin-bar-label { font-size: 0.75rem; font-weight: 700; color: var(--text-dim); }
-	.admin-bar-actions { display: flex; gap: 0.4rem; }
+	.admin-bar-actions { display: flex; flex-wrap: wrap; gap: 0.4rem; }
 	.admin-btn { padding: 0.4rem 0.8rem; font-size: 0.72rem; font-weight: 700; border-radius: 8px; border: 1px solid var(--glass-border); cursor: pointer; transition: all 0.2s; background: var(--surface-raised); color: var(--text-dim); }
 	.admin-btn:hover { transform: translateY(-1px); }
 	.admin-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
