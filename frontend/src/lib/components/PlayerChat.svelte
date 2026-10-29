@@ -636,7 +636,10 @@
 <div class="player-chat-container" on:dragover={handleDragOver} on:drop={handleDrop}>
 	<!-- Header -->
 	<div class="chat-header glass">
-		<button class="mobile-back-btn" on:click={() => dispatch('close')} title="Retour à la liste">←</button>
+		<button class="mobile-back-btn" on:click={() => dispatch('close')} title="Retour à la liste des joueurs">
+			<Icon name="arrow-left" size={16} />
+			<span class="mobile-back-label">{$t('common_back') || 'Retour'}</span>
+		</button>
 		{#if mode === 'p2p'}
 			<div class="header-main">
 				<div class="avatar-wrapper" style="position: relative; display: inline-block; flex-shrink: 0;">
@@ -652,28 +655,51 @@
 					{/if}
 				</div>
 				<div class="peer-meta">
-					<span class="peer-name">{peer?.username || '?'}</span>
-					{#if peer?.team_name}<span class="peer-team">👥 {peer.team_name}</span>{/if}
+					<div class="peer-name-line">
+						<span class="peer-name">{peer?.username || '?'}</span>
+						{#if peer?.seat_id}
+							<a href="/dashboard/map?highlight={peer.seat_id}" class="seat-badge" title={$t('players_tooltip_seat')}>📍 {peer.seat_id}</a>
+						{/if}
+					</div>
+					<div class="peer-subtitle">
+						{#if peer?.is_online}
+							<span class="status-indicator online">🟢 {$t('players_status_online') || 'En ligne'}</span>
+						{:else}
+							<span class="status-indicator offline">⚪ {$t('players_status_offline') || 'Hors ligne'}</span>
+						{/if}
+						{#if peer?.team_name}
+							<span class="subtitle-sep">·</span>
+							<span class="peer-team">👥 {peer.team_name}</span>
+						{/if}
+					</div>
 				</div>
-				{#if peer?.seat_id}
-					<a href="/dashboard/map?highlight={peer.seat_id}" class="seat-badge" title={$t('players_tooltip_seat')}>📍 {peer.seat_id}</a>
-				{/if}
 			</div>
 		{:else if mode === 'group'}
 			<div class="header-main">
-				<div class="group-icon-badge">{channelInfo?.channel_type === 'team' ? '🛡️' : '⚔️'}</div>
+				<div class="group-icon-badge">
+					{#if channelInfo?.channel_type === 'team'}
+						<Icon name="shield" size={20} />
+					{:else}
+						<Icon name="swords" size={20} />
+					{/if}
+				</div>
 				<div class="peer-meta">
-					<span class="peer-name">
-						{#if channelInfo?.channel_type === 'team'}
-							{channelInfo.team_names[0]}
-						{:else}
-							{(channelInfo?.team_names || []).join(' vs ')}
-						{/if}
-					</span>
-					<span class="peer-team">
-						{channelInfo?.channel_type === 'team' ? $t('players_chat_type_team') : $t('players_chat_type_inter')}
-						· {channelMembers.length} membre{channelMembers.length > 1 ? 's' : ''}
-					</span>
+					<div class="peer-name-line">
+						<span class="peer-name">
+							{#if channelInfo?.channel_type === 'team'}
+								{channelInfo.team_names[0]}
+							{:else}
+								{(channelInfo?.team_names || []).join(' vs ')}
+							{/if}
+						</span>
+					</div>
+					<div class="peer-subtitle">
+						<span class="group-badge-sub">
+							{channelInfo?.channel_type === 'team' ? $t('players_chat_type_team') : $t('players_chat_type_inter')}
+						</span>
+						<span class="subtitle-sep">·</span>
+						<span class="member-count-sub">{channelMembers.length} participant{channelMembers.length > 1 ? 's' : ''}</span>
+					</div>
 				</div>
 			</div>
 		{/if}
@@ -686,7 +712,7 @@
 				on:click={toggleProfanityFilter}
 				title={$profanityFilterEnabled ? $t('profanity_filter_enabled') : $t('profanity_filter_disabled')}
 			>
-				{$profanityFilterEnabled ? '🛡️' : '👁️'}
+				<Icon name="shield" size={15} />
 			</button>
 			<button
 				class="tool-btn sound-btn"
@@ -694,9 +720,9 @@
 				on:click={toggleSound}
 				title={soundEnabled ? 'Sons activés' : 'Sons désactivés'}
 			>
-				{soundEnabled ? '🔊' : '🔇'}
+				<Icon name={soundEnabled ? 'volume-2' : 'volume-x'} size={15} />
 			</button>
-			<button class="tool-btn close-btn" on:click={() => dispatch('close')} title={$t('players_chat_tooltip_close')}>
+			<button class="tool-btn close-btn desktop-only" on:click={() => dispatch('close')} title={$t('players_chat_tooltip_close')}>
 				✕
 			</button>
 		</div>
@@ -1002,30 +1028,64 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding: 0.6rem 0.9rem;
-		border-bottom: 1px solid var(--glass-border);
+		padding: 0.65rem 0.9rem;
+		border-bottom: 2px solid var(--accent-soft);
 		background: var(--surface-raised);
+		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
 		flex-shrink: 0;
-		gap: 0.5rem;
+		gap: 0.6rem;
+		z-index: 20;
 	}
 	.mobile-back-btn {
 		display: none;
 		align-items: center;
-		justify-content: center;
-		width: 32px;
-		height: 32px;
-		border-radius: 8px;
-		background: rgba(255, 255, 255, 0.08);
-		border: 1px solid rgba(255, 255, 255, 0.12);
-		color: var(--text-main);
-		font-size: 1.1rem;
+		gap: 0.35rem;
+		padding: 0.35rem 0.65rem;
+		border-radius: 6px;
+		background: var(--accent-soft);
+		border: 1px solid rgba(59, 130, 246, 0.25);
+		color: var(--accent);
+		font-size: 0.78rem;
 		font-weight: 700;
 		cursor: pointer;
 		flex-shrink: 0;
+		transition: all 0.15s ease;
+	}
+	.mobile-back-btn:active {
+		transform: scale(0.96);
+		background: rgba(59, 130, 246, 0.2);
+	}
+	.peer-name-line {
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+	}
+	.peer-subtitle {
+		display: flex;
+		align-items: center;
+		gap: 0.3rem;
+		font-size: 0.68rem;
+		color: var(--text-dim);
+	}
+	.status-indicator.online {
+		color: #10b981;
+		font-weight: 600;
+	}
+	.status-indicator.offline {
+		color: var(--text-muted);
+	}
+	.subtitle-sep {
+		opacity: 0.5;
 	}
 	@media (max-width: 900px) {
 		.mobile-back-btn {
 			display: flex;
+		}
+		.desktop-only {
+			display: none !important;
+		}
+		.player-chat-container {
+			border-radius: 0 !important;
 		}
 	}
 	.header-main {

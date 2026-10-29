@@ -80,7 +80,7 @@
 			const stats = await api.get('/dashboard/stats');
 			eventName = stats.event_name || 'Alanbix LAN';
 		} catch {
-			if (isCapacitorNative() || !currentServerUrl) {
+			if (isCapacitorNative() && !currentServerUrl) {
 				showServerModal = true;
 			}
 		}

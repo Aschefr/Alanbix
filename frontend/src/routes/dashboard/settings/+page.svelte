@@ -109,6 +109,9 @@
 	function updatePrefs() {
 		saveNotificationPreferences(prefs);
 		syncNativePreferences(prefs);
+		if (!prefs.enabled && isCapacitorNative()) {
+			stopNativePushService().then(() => getNativePushStatus().then(st => { nativeStatus = st; }));
+		}
 	}
 
 	async function toggleNativeService(enable: boolean) {
@@ -322,7 +325,10 @@
 								<span class="item-title">⚔️ {$t('settings_cat_matches_title')}</span>
 								<span class="item-desc">{$t('settings_cat_matches_desc')}</span>
 							</div>
-							<input type="checkbox" bind:checked={prefs.categories.match_ready} on:change={updatePrefs} />
+							<span class="switch">
+								<input type="checkbox" bind:checked={prefs.categories.match_ready} on:change={updatePrefs} />
+								<span class="slider"></span>
+							</span>
 						</label>
 
 						<label class="toggle-item">
@@ -330,7 +336,10 @@
 								<span class="item-title">💬 {$t('settings_cat_pm_title')}</span>
 								<span class="item-desc">{$t('settings_cat_pm_desc')}</span>
 							</div>
-							<input type="checkbox" bind:checked={prefs.categories.private_message} on:change={updatePrefs} />
+							<span class="switch">
+								<input type="checkbox" bind:checked={prefs.categories.private_message} on:change={updatePrefs} />
+								<span class="slider"></span>
+							</span>
 						</label>
 
 						<label class="toggle-item">
@@ -338,7 +347,10 @@
 								<span class="item-title">🛡️ {$t('settings_cat_team_title')}</span>
 								<span class="item-desc">{$t('settings_cat_team_desc')}</span>
 							</div>
-							<input type="checkbox" bind:checked={prefs.categories.team_message} on:change={updatePrefs} />
+							<span class="switch">
+								<input type="checkbox" bind:checked={prefs.categories.team_message} on:change={updatePrefs} />
+								<span class="slider"></span>
+							</span>
 						</label>
 
 						<div class="select-item">
@@ -358,7 +370,10 @@
 								<span class="item-title">🤖 {$t('settings_cat_ai_title')}</span>
 								<span class="item-desc">{$t('settings_cat_ai_desc')}</span>
 							</div>
-							<input type="checkbox" bind:checked={prefs.categories.ai_reply} on:change={updatePrefs} />
+							<span class="switch">
+								<input type="checkbox" bind:checked={prefs.categories.ai_reply} on:change={updatePrefs} />
+								<span class="slider"></span>
+							</span>
 						</label>
 
 						<label class="toggle-item">
@@ -366,7 +381,10 @@
 								<span class="item-title">📢 {$t('settings_cat_admin_title')}</span>
 								<span class="item-desc">{$t('settings_cat_admin_desc')}</span>
 							</div>
-							<input type="checkbox" bind:checked={prefs.categories.admin_message} on:change={updatePrefs} />
+							<span class="switch">
+								<input type="checkbox" bind:checked={prefs.categories.admin_message} on:change={updatePrefs} />
+								<span class="slider"></span>
+							</span>
 						</label>
 
 						<label class="toggle-item">
@@ -374,7 +392,10 @@
 								<span class="item-title">🏆 {$t('settings_cat_tournaments_title')}</span>
 								<span class="item-desc">{$t('settings_cat_tournaments_desc')}</span>
 							</div>
-							<input type="checkbox" bind:checked={prefs.categories.tournaments} on:change={updatePrefs} />
+							<span class="switch">
+								<input type="checkbox" bind:checked={prefs.categories.tournaments} on:change={updatePrefs} />
+								<span class="slider"></span>
+							</span>
 						</label>
 					</div>
 				</div>
@@ -387,7 +408,10 @@
 								<span class="item-title">📳 {$t('settings_vibration_title')}</span>
 								<span class="item-desc">{$t('settings_vibration_desc')}</span>
 							</div>
-							<input type="checkbox" bind:checked={prefs.vibration} on:change={updatePrefs} />
+							<span class="switch">
+								<input type="checkbox" bind:checked={prefs.vibration} on:change={updatePrefs} />
+								<span class="slider"></span>
+							</span>
 						</label>
 
 						<label class="toggle-item">
@@ -395,7 +419,10 @@
 								<span class="item-title">🔊 {$t('settings_sound_title')}</span>
 								<span class="item-desc">{$t('settings_sound_desc')}</span>
 							</div>
-							<input type="checkbox" bind:checked={prefs.sound} on:change={updatePrefs} />
+							<span class="switch">
+								<input type="checkbox" bind:checked={prefs.sound} on:change={updatePrefs} />
+								<span class="slider"></span>
+							</span>
 						</label>
 
 						<label class="toggle-item">
@@ -403,7 +430,10 @@
 								<span class="item-title">🔒 {$t('settings_lockscreen_title')}</span>
 								<span class="item-desc">{$t('settings_lockscreen_desc')}</span>
 							</div>
-							<input type="checkbox" bind:checked={prefs.lockscreen_preview} on:change={updatePrefs} />
+							<span class="switch">
+								<input type="checkbox" bind:checked={prefs.lockscreen_preview} on:change={updatePrefs} />
+								<span class="slider"></span>
+							</span>
 						</label>
 
 						<label class="toggle-item">
@@ -411,7 +441,10 @@
 								<span class="item-title">🌙 {$t('settings_dnd_title')}</span>
 								<span class="item-desc">{$t('settings_dnd_desc')}</span>
 							</div>
-							<input type="checkbox" bind:checked={prefs.dnd_enabled} on:change={updatePrefs} />
+							<span class="switch">
+								<input type="checkbox" bind:checked={prefs.dnd_enabled} on:change={updatePrefs} />
+								<span class="slider"></span>
+							</span>
 						</label>
 
 						{#if prefs.dnd_enabled}
@@ -783,8 +816,10 @@
 		background: var(--surface-sunken);
 		border: 1px solid var(--glass-border);
 		border-radius: 8px;
-		cursor: pointer;
 		gap: 1rem;
+	}
+	.toggle-item {
+		cursor: pointer;
 	}
 	.toggle-item:hover, .select-item:hover {
 		background: var(--hover-tint);
@@ -793,6 +828,8 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.2rem;
+		flex: 1;
+		min-width: 0;
 	}
 	.item-title {
 		font-size: 0.92rem;
@@ -804,12 +841,26 @@
 		color: var(--text-dim);
 	}
 	.select-item select {
-		background: #1e293b;
+		background: var(--surface-raised, #1e293b);
 		border: 1px solid var(--glass-border);
 		color: var(--text-main);
-		padding: 0.4rem 0.6rem;
+		padding: 0.4rem 0.65rem;
 		border-radius: 6px;
-		font-size: 0.85rem;
+		font-size: 0.82rem;
+		max-width: 220px;
+		flex-shrink: 0;
+		text-overflow: ellipsis;
+	}
+	@media (max-width: 600px) {
+		.select-item {
+			flex-direction: column;
+			align-items: stretch;
+			gap: 0.55rem;
+		}
+		.select-item select {
+			max-width: 100%;
+			width: 100%;
+		}
 	}
 
 	.dnd-config {
@@ -855,11 +906,16 @@
 		display: inline-block;
 		width: 44px;
 		height: 24px;
+		min-width: 44px;
+		flex-shrink: 0;
 	}
 	.switch input {
+		position: absolute;
 		opacity: 0;
 		width: 0;
 		height: 0;
+		pointer-events: none;
+		margin: 0;
 	}
 	.slider {
 		position: absolute;
@@ -867,7 +923,7 @@
 		top: 0; left: 0; right: 0; bottom: 0;
 		background-color: var(--glass-border);
 		transition: 0.2s;
-		border-radius: 24px;
+		border-radius: 12px;
 	}
 	.slider:before {
 		position: absolute;
@@ -875,16 +931,21 @@
 		height: 18px;
 		width: 18px;
 		left: 3px;
-		bottom: 3px;
+		top: 3px;
 		background-color: white;
 		transition: 0.2s;
 		border-radius: 50%;
+		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
 	}
 	input:checked + .slider {
-		background-color: #3b82f6;
+		background-color: var(--accent);
 	}
 	input:checked + .slider:before {
 		transform: translateX(20px);
+	}
+	input:disabled + .slider {
+		opacity: 0.5;
+		cursor: not-allowed;
 	}
 
 	/* Server Card */

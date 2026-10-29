@@ -105,6 +105,9 @@ public class AlanbixPushService extends Service {
 
         if (ACTION_STOP.equals(action)) {
             Log.i(TAG, "Arrêt du service d'arrière-plan demandé.");
+            SharedPreferences.Editor editor = getSharedPreferences(AlanbixPushPlugin.PREFS_NAME, MODE_PRIVATE).edit();
+            editor.putBoolean(AlanbixPushPlugin.KEY_BACKGROUND_ENABLED, false);
+            editor.apply();
             disconnectWebSocket();
             stopForeground(true);
             stopSelf();
@@ -159,6 +162,7 @@ public class AlanbixPushService extends Service {
 
         if (serverUrl.isEmpty() || deviceToken.isEmpty()) {
             Log.w(TAG, "URL de serveur ou jeton d'appareil manquant.");
+            updateForegroundNotification("En attente de configuration...");
             return;
         }
 
@@ -500,6 +504,15 @@ public class AlanbixPushService extends Service {
                 PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_IMMUTABLE : 0)
         );
 
+        Intent stopIntent = new Intent(this, AlanbixPushService.class);
+        stopIntent.setAction(ACTION_STOP);
+        PendingIntent stopPi = PendingIntent.getService(
+                this,
+                1,
+                stopIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_IMMUTABLE : 0)
+        );
+
         return new NotificationCompat.Builder(this, CHANNEL_FOREGROUND)
                 .setSmallIcon(R.mipmap.ic_launcher)
                 .setContentTitle("🎮 Alanbix Companion")
@@ -507,6 +520,7 @@ public class AlanbixPushService extends Service {
                 .setPriority(NotificationCompat.PRIORITY_MIN)
                 .setOngoing(true)
                 .setContentIntent(pi)
+                .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Arrêter la veille", stopPi)
                 .build();
     }
 

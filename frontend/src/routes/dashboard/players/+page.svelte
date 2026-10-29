@@ -423,7 +423,7 @@
 
 </script>
 
-<div class="players-page animate-in">
+<div class="players-page animate-in" class:chat-active-mobile={chatMode !== null}>
 	<header class="players-header glass">
 		<h1 class="title-premium"><span class="title-icon">👥</span> {$t('players_title') || 'Joueurs'}</h1>
 		<span class="player-count">{$t('players_subtitle', { count: players.length, plural: players.length > 1 ? 's' : '' })}</span>
@@ -976,6 +976,26 @@
 		.players-page {
 			height: auto;
 			min-height: calc(100vh - 120px);
+		}
+		.players-page.chat-active-mobile {
+			height: calc(100vh - 110px);
+			min-height: 0;
+			overflow: hidden;
+			gap: 0;
+		}
+		.players-page.chat-active-mobile .players-header {
+			display: none !important;
+		}
+		.players-page.chat-active-mobile .players-layout {
+			height: 100%;
+			margin: 0;
+			gap: 0;
+		}
+		.players-page.chat-active-mobile .chat-col {
+			height: 100% !important;
+			border-radius: 0 !important;
+			border: none !important;
+			box-shadow: none !important;
 		}
 		.players-header {
 			padding: 0.8rem 1rem;

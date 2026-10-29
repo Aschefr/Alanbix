@@ -1321,5 +1321,11 @@
   "dash_chat_loading_earlier": "Chargement...",
   "admin_tab_conversations": "Conversations",
   "ai_override_message_sent": "Message envoyé avec succès",
-  "error": "Erreur"
+  "error": "Erreur",
+  "server_modal_servers_detected": "Serveurs Alanbix détectés",
+  "server_modal_searching": "Recherche automatique sur le Wi-Fi local...",
+  "server_modal_manual_toggle_show": "Saisie manuelle ou paramètres avancés",
+  "server_modal_manual_toggle_hide": "Masquer les réglages manuels",
+  "server_modal_online": "En ligne",
+  "server_modal_recommended": "Recommandé"
 }

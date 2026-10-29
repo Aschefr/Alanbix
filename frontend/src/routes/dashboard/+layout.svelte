@@ -170,10 +170,13 @@
 			connectWS();
 			getOrRegisterDeviceToken().then(async devToken => {
 				if (devToken && isCapacitorNative()) {
-					const srvUrl = getCustomServerUrl() || (typeof window !== 'undefined' ? window.location.origin : '');
-					await startNativePushService(srvUrl, devToken, get(eventName) || 'Alanbix LAN');
-					await requestNativeNotificationPermission();
-					await checkNativeNotifOperational();
+					const notifPrefs = getNotificationPreferences();
+					if (notifPrefs.enabled) {
+						const srvUrl = getCustomServerUrl() || (typeof window !== 'undefined' ? window.location.origin : '');
+						await startNativePushService(srvUrl, devToken, get(eventName) || 'Alanbix LAN');
+						await requestNativeNotificationPermission();
+						await checkNativeNotifOperational();
+					}
 				}
 			}).catch(() => {});
 			// Fetch initial unread count
