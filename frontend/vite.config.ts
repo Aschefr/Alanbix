@@ -15,7 +15,7 @@ export default defineConfig({
 			allow: ['..']
 		},
 		proxy: {
-			'^/(check-username|token|register|me|users|tournaments|notifications|players|games|ia|i18n|dashboard|system|health|api|static|data|devices|room|public-chat)': {
+			'^/(check-username|token|register|me|users|tournaments|notifications|players|games|ia|i18n|dashboard/(stats|team-leaderboard|info)|system|health|api|static|data|devices|room|public-chat)': {
 				target: 'http://backend:8000',
 				changeOrigin: true
 			}
