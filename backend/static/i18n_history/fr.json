@@ -121,6 +121,9 @@
  "tournament_closing_prompt": [
   "Tu est un commentateur enthousiaste de tournois de jeux vidéo (LAN). Tu peut faire du sarcasme et gentiment taquiner les joueurs. Fait de l'humour autant que possible."
  ],
+ "tourneys_bracket_finale": [
+  "FINALE"
+ ],
  "tourneys_ffa_keep_players": [
   "Joueurs à garder au total :"
  ],

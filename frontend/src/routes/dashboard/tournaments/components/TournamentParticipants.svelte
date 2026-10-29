@@ -38,7 +38,7 @@
 {#if !useTeams || selected?.status === 'OPEN' || isAdmin}
 	<div class="participants-section glass">
 		<div class="section-title">
-			<h3><Icon name="users" size={14} /> {useTeams ? $t('tourneys_tab_registered') : $t('dash_modal_tournaments_title')} <span class="part-count">({participants.length})</span></h3>
+			<h3><Icon name="users" size={14} /> {useTeams ? $t('tourneys_tab_registered') : $t('tourneys_participants_title')} <span class="part-count">({participants.length})</span></h3>
 			{#if isAdmin && selected?.status === 'OPEN'}
 				<div class="part-bulk-actions">
 					{#if confirmJoinAll}

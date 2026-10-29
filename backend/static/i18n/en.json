@@ -839,7 +839,7 @@
   "tourneys_add_member_placeholder": "+ Add...",
   "tourneys_all_placed": "All players are assigned to a team.",
   "tourneys_available_players": "Available players",
-  "tourneys_bracket_finale": "FINAL",
+  "tourneys_bracket_finale": "Final",
   "tourneys_bracket_lb_finale": "LB Final",
   "tourneys_btn_close": "Close & Distribute",
   "tourneys_btn_create_team": "Create",
@@ -1329,5 +1329,18 @@
   "server_modal_manual_toggle_show": "Manual IP or advanced settings",
   "server_modal_manual_toggle_hide": "Hide manual settings",
   "server_modal_online": "Online",
-  "server_modal_recommended": "Recommended"
+  "server_modal_recommended": "Recommended",
+  "tourneys_participants_title": "Participants",
+  "tourneys_bracket_winners": "Winners bracket",
+  "tourneys_bracket_losers": "Losers bracket",
+  "tourneys_bracket_lb_final": "Losers final",
+  "tourneys_bracket_lb_round": "Losers · Round {n}",
+  "tourneys_round_n": "Round {n}",
+  "tourneys_tbd": "TBD",
+  "tourneys_format_ffa": "Free for all",
+  "tourneys_pts_first": "1st",
+  "tourneys_pts_second": "2nd",
+  "tourneys_pts_third": "3rd",
+  "tourneys_pts_participation_short": "Participation",
+  "tourneys_pts_score_bonus_short": "Score bonus"
 }

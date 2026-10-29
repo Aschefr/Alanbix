@@ -596,7 +596,7 @@
 		if (format === 'single_elim') return get(t)('admin_tourneys_wizard_format_single');
 		if (format === 'double_elim') return get(t)('admin_tourneys_wizard_format_double');
 		if (format === 'round_robin') return get(t)('admin_tourneys_wizard_format_championship');
-		if (format === 'ffa') return 'Free For All';
+		if (format === 'ffa') return get(t)('tourneys_format_ffa');
 		return format || get(t)('tourneys_status_unknown');
 	}
 
@@ -958,7 +958,7 @@
 					<div class="info-row">
 						<div class="info-card glass"><span class="info-label">{$t("admin_tourneys_wizard_format_lbl")}</span><span class="info-value">{bracketLabel(selected.config?.bracket_type)}</span></div>
 						<div class="info-card glass"><span class="info-label">{$t("admin_tourneys_wizard_mode_lbl")}</span><span class="info-value">{selected.config?.use_teams ? `${$t('admin_tourneys_wizard_mode_teams')} (x${selected.config?.team_size || 2})` : 'Solo'}</span></div>
-						<div class="info-card glass"><span class="info-label">{$t("admin_tourneys_wizard_points_lbl")}</span><span class="info-value accent" style="font-size:0.85rem">🥇{selected.config?.pts_winner ?? 1.5} 🥈{selected.config?.pts_second ?? 1.3} 🥉{selected.config?.pts_third ?? 1.0} 👤{selected.config?.pts_participation ?? 1.0}/m ⚡{selected.config?.pts_per_match ?? 0.5}</span></div>
+						<div class="info-card glass"><span class="info-label">{$t("admin_tourneys_wizard_points_lbl")}</span><span class="info-value accent" style="font-size:0.85rem">{$t('tourneys_pts_first')} {selected.config?.pts_winner ?? 1.5} · {$t('tourneys_pts_second')} {selected.config?.pts_second ?? 1.3} · {$t('tourneys_pts_third')} {selected.config?.pts_third ?? 1.0}<br>{$t('tourneys_pts_participation_short')} {selected.config?.pts_participation ?? 1.0}{$t('tourneys_per_match')} · {$t('tourneys_pts_score_bonus_short')} {selected.config?.pts_per_match ?? 0.5}</span></div>
 						<div class="info-card glass"><span class="info-label">{$t("dash_stat_players")}</span><span class="info-value">{participants.length}</span></div>
 						{#if selected.config?.lower_score_is_better}
 							<div class="info-card glass"><span class="info-label">{$t("admin_tourneys_wizard_format_lbl")}</span><span class="info-value" style="color:#f59e0b">{$t("tourneys_opt_reverse")}</span></div>
@@ -1101,7 +1101,7 @@
 					</div>
 					<div class="info-card glass" style="padding:0.6rem; border-radius:8px; grid-column:span 2;">
 						<span class="info-label" style="font-size:0.7rem; color:var(--text-dim); display:block;">{$t("admin_tourneys_wizard_points_lbl")}</span>
-						<span class="info-value accent" style="font-size:0.8rem; font-weight:700;">🥇{selected.config?.pts_winner ?? 1.5} 🥈{selected.config?.pts_second ?? 1.3} 🥉{selected.config?.pts_third ?? 1.0} 👤{selected.config?.pts_participation ?? 1.0}/m ⚡{selected.config?.pts_per_match ?? 0.5}</span>
+						<span class="info-value accent" style="font-size:0.8rem; font-weight:700;">{$t('tourneys_pts_first')} {selected.config?.pts_winner ?? 1.5} · {$t('tourneys_pts_second')} {selected.config?.pts_second ?? 1.3} · {$t('tourneys_pts_third')} {selected.config?.pts_third ?? 1.0}<br>{$t('tourneys_pts_participation_short')} {selected.config?.pts_participation ?? 1.0}{$t('tourneys_per_match')} · {$t('tourneys_pts_score_bonus_short')} {selected.config?.pts_per_match ?? 0.5}</span>
 					</div>
 				</div>
 			</div>
@@ -1863,4 +1863,23 @@
 		}
 	}
 
+
+	/* Touch targets on phones: action buttons, score boxes and remove buttons at least ~36-40px */
+	@media (max-width: 900px) {
+		.tournaments-layout :global(.admin-btn),
+		.tournaments-layout :global(.btn-xs) {
+			min-height: 40px;
+			font-size: 0.8rem !important;
+		}
+		.tournaments-layout :global(.score-input) {
+			min-height: 40px;
+			width: 52px;
+		}
+		.tournaments-layout :global(.part-member-remove) {
+			min-width: 36px;
+			min-height: 36px;
+			font-size: 0.85rem;
+			opacity: 0.7;
+		}
+	}
 </style>

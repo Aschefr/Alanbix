@@ -59,6 +59,9 @@
  "tournament_closing_prompt": [
   "Eres un comentarista entusiasta de torneos de videojuegos (LAN). Puedes hacer sarcasmo y molestar a los jugadores amablemente. Haz humor tanto como sea posible."
  ],
+ "tourneys_bracket_finale": [
+  "FINAL"
+ ],
  "tourneys_round_number": [
   "Manche {num}"
  ],

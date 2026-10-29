@@ -166,7 +166,7 @@
 	}
 
 	function getPlayerName(userId, map) {
-		if (userId === 0) return 'TBD';
+		if (userId === 0) return get(t)('tourneys_tbd');
 		if (userId < 0) return map[String(userId)] || `${get(t)('admin_tourneys_wizard_mode_teams')} #${Math.abs(userId)}`;
 		return map[userId] || `${get(t)('role_player')} #${userId}`;
 	}
@@ -356,7 +356,7 @@
 
 <div class="bracket-section glass" class:bracket-expanded={hasBracket}>
 	<div class="section-title">
-		<h3>{bracketType === 'round_robin' ? '📊 ' + $t('admin_tourneys_wizard_format_championship') : bracketType === 'ffa' ? '🏁 Free For All' : '📊 ' + $t('tourneys_tab_bracket')}</h3>
+		<h3>{bracketType === 'round_robin' ? '📊 ' + $t('admin_tourneys_wizard_format_championship') : bracketType === 'ffa' ? '🏁 ' + $t('tourneys_format_ffa') : '📊 ' + $t('tourneys_tab_bracket')}</h3>
 		{#if hasBracket && bracketType !== 'round_robin' && bracketType !== 'ffa'}
 			<button class="btn-secondary btn-xs" on:click={resetZoom}>{$t('tourneys_btn_recenter')}</button>
 		{/if}
@@ -503,12 +503,12 @@
 				<div class="bracket-viewport" bind:this={viewportEl} on:wheel={onWheel} on:mousedown={onMouseDown} on:mousemove={onMouseMove} on:mouseup={onMouseUp} on:mouseleave={onMouseUp} on:touchstart={onTouchStart} on:touchmove={onTouchMove} on:touchend={onTouchEnd} on:touchcancel={onTouchEnd}>
 					<div class="bracket-canvas" bind:this={canvasEl} style="transform: translate({panX}px, {panY}px) scale({scale});">
 						{#if bracketType === 'double_elim' && lbRounds.length > 0}
-							<div class="de-label">Winners Bracket</div>
+							<div class="de-label">{$t('tourneys_bracket_winners')}</div>
 						{/if}
 						<div class="rounds-container">
 							{#each wbRounds as roundMatches, ri}
 								<div class="round-col {ri === wbRounds.length - 1 && wbRounds.length > 1 ? 'finale-col' : ''}">
-									<div class="round-header {ri === wbRounds.length - 1 && wbRounds.length > 1 ? 'finale-header' : ''}">{ri === wbRounds.length - 1 && wbRounds.length > 1 ? $t('tourneys_bracket_finale') : 'R' + (ri + 1)}</div>
+									<div class="round-header {ri === wbRounds.length - 1 && wbRounds.length > 1 ? 'finale-header' : ''}">{ri === wbRounds.length - 1 && wbRounds.length > 1 ? $t('tourneys_bracket_finale') : $t('tourneys_round_n', { n: ri + 1 })}</div>
 									<div class="matches-col">
 										{#each roundMatches as match}
 											{@const s0 = match.score?.[0] ?? null}
@@ -591,11 +591,11 @@
 							{/each}
 						</div>
 						{#if bracketType === 'double_elim' && lbRounds.length > 0}
-							<div class="de-label lb">Losers Bracket</div>
+							<div class="de-label lb">{$t('tourneys_bracket_losers')}</div>
 							<div class="rounds-container lb-section">
 								{#each lbRounds as lbRound}
 									<div class="round-col">
-										<div class="round-header lb-hdr">{lbRound.originalIndex === lbRoundsRaw.length - 1 ? 'LB Finale' : 'LB R' + (lbRound.originalIndex + 1)}</div>
+										<div class="round-header lb-hdr">{lbRound.originalIndex === lbRoundsRaw.length - 1 ? $t('tourneys_bracket_lb_final') : $t('tourneys_bracket_lb_round', { n: lbRound.originalIndex + 1 })}</div>
 										<div class="matches-col">
 											{#each lbRound.matches as match}
 												{@const s0 = match.score?.[0] ?? null}
@@ -730,6 +730,7 @@
 	.rounds-container { display: flex; gap: 3rem; }
 	.round-col.finale-col { margin-left: 2rem; }
 	.finale-header { font-size: 0.85rem !important; color: #fbbf24 !important; }
+	:global([data-theme="light"]) .finale-header { color: #92400e !important; }
 	.round-col { display: flex; flex-direction: column; gap: 0.75rem; }
 	.round-header { text-align: center; font-weight: 700; color: var(--accent); text-transform: uppercase; font-size: 0.8rem; letter-spacing: 1px; margin-bottom: 0.5rem; }
 	.matches-col { display: flex; flex-direction: column; justify-content: space-around; flex-grow: 1; gap: 1.5rem; position: relative; }

@@ -839,7 +839,7 @@
   "tourneys_add_member_placeholder": "+ Ajouter...",
   "tourneys_all_placed": "Tous les joueurs sont placés dans une équipe.",
   "tourneys_available_players": "Joueurs disponibles",
-  "tourneys_bracket_finale": "FINALE",
+  "tourneys_bracket_finale": "Finale",
   "tourneys_bracket_lb_finale": "LB Finale",
   "tourneys_btn_close": "Clôturer & Distribuer",
   "tourneys_btn_create_team": "Créer",
@@ -1341,5 +1341,18 @@
   "server_modal_manual_toggle_show": "Saisie manuelle ou paramètres avancés",
   "server_modal_manual_toggle_hide": "Masquer les réglages manuels",
   "server_modal_online": "En ligne",
-  "server_modal_recommended": "Recommandé"
+  "server_modal_recommended": "Recommandé",
+  "tourneys_participants_title": "Participants",
+  "tourneys_bracket_winners": "Tableau principal",
+  "tourneys_bracket_losers": "Repêchage",
+  "tourneys_bracket_lb_final": "Finale du repêchage",
+  "tourneys_bracket_lb_round": "Repêchage · Tour {n}",
+  "tourneys_round_n": "Tour {n}",
+  "tourneys_tbd": "À déterminer",
+  "tourneys_format_ffa": "Mêlée générale",
+  "tourneys_pts_first": "1er",
+  "tourneys_pts_second": "2e",
+  "tourneys_pts_third": "3e",
+  "tourneys_pts_participation_short": "Participation",
+  "tourneys_pts_score_bonus_short": "Bonus score"
 }

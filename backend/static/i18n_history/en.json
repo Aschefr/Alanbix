@@ -44,6 +44,9 @@
  "tournament_closing_prompt": [
   "You are an enthusiastic video game tournament (LAN) commentator. You can use sarcasm and gently tease players. Use humor as much as possible."
  ],
+ "tourneys_bracket_finale": [
+  "FINAL"
+ ],
  "tourneys_ffa_keep_players": [
   "Total players to keep:"
  ],

@@ -4,7 +4,8 @@
 	import { api } from '$lib/api';
 	import { onMount } from 'svelte';
 	import Modal from '$lib/components/Modal.svelte';
-	import { customPageTitle } from '$lib/i18nStore';
+	import { customPageTitle, t } from '$lib/i18nStore';
+	import { get } from 'svelte/store';
 
 	let id = $page.params.id;
 	let tournament = null;
@@ -211,7 +212,7 @@
 	}
 
 	function getPlayerName(userId) {
-		if (userId === 0) return 'TBD';
+		if (userId === 0) return get(t)('tourneys_tbd');
 		const p = participants.find(part => part.user_id === userId);
 		return p ? p.username : `Joueur ${userId}`;
 	}
@@ -252,7 +253,7 @@
 								<div class="rounds-container">
 									{#each getRounds() as roundMatches, roundIndex}
 										<div class="round-col">
-											<div class="round-header">Round {roundIndex + 1}</div>
+											<div class="round-header">{$t('tourneys_round_n', { n: roundIndex + 1 })}</div>
 											<div class="matches-col">
 												{#each roundMatches as match}
 													<div class="bracket-match">
