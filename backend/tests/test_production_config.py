@@ -110,6 +110,15 @@ def test_compiled_bundle_has_no_dev_port_leak():
         re.compile(r":8000\b"),
         re.compile(r"localhost:8000\b"),
     ]
+    # The mobile LAN server discovery (ServerConfigModal.svelte) deliberately probes the
+    # dev backend port too (e.g. from the Android emulator). Only these probe candidates
+    # are allowed; any other ':8000' (API/WS base URL) is still a leak.
+    allowed_contexts = [
+        re.compile(r'includes\(["\']:8000["\']\)'),
+        re.compile(r"http://10\.0\.2\.2:8000\b"),
+        re.compile(r"http://alanbix\.local:8000\b"),
+        re.compile(r"http://\$\{\w+\}\.(168|1):8000\b"),
+    ]
 
     violations = []
     scanned_files = 0
@@ -118,6 +127,8 @@ def test_compiled_bundle_has_no_dev_port_leak():
         if file_path.is_file() and file_path.suffix in [".js", ".html", ".css"]:
             scanned_files += 1
             text = file_path.read_text(encoding="utf-8", errors="ignore")
+            for allowed in allowed_contexts:
+                text = allowed.sub("", text)
             for pat in forbidden_patterns:
                 match = pat.search(text)
                 if match:

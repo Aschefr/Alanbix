@@ -446,8 +446,8 @@ def update_language(lang: str, translations: Dict[str, str] = Body(...), admin: 
         os.makedirs(DATA_I18N_DIR, exist_ok=True)
         with open(write_path, "w", encoding="utf-8-sig") as f:
             json.dump(translations, f, indent=4, ensure_ascii=False)
-        # Update cache
-        _I18N_CACHE[lang] = translations
+        # Invalidate cache (entries are (mtime, data) tuples, rebuilt on next GET)
+        _I18N_CACHE.pop(lang, None)
         return {"message": "Translations updated successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
