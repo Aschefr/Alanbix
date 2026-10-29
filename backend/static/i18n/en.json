@@ -1315,5 +1315,11 @@
   "admin_languages_cat_settings": "Settings",
   "admin_languages_cat_mobile": "Mobile App",
   "players_unread_shortlist_title": "Unread messages",
-  "ai_input_placeholder_mobile": "Ask a question..."
+  "ai_input_placeholder_mobile": "Ask a question...",
+  "dash_team_lbl": "Team",
+  "dash_chat_load_earlier": "Load previous messages",
+  "dash_chat_loading_earlier": "Loading...",
+  "admin_tab_conversations": "Conversations",
+  "ai_override_message_sent": "Message sent successfully",
+  "error": "Error"
 }

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/Icon.svelte';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { api } from '$lib/api';
@@ -231,7 +232,7 @@
 			← {$t('common_home')}
 		</button>
 		<div class="header-title-box">
-			<h1>⚙️ {$t('settings_page_title')}</h1>
+			<h1 style="display: inline-flex; align-items: center; gap: 0.5rem;"><Icon name="gear" size={24} /> {$t('settings_page_title')}</h1>
 			<p class="subtitle">{$t('settings_subtitle')}</p>
 		</div>
 	</div>

@@ -9,7 +9,7 @@
 	import TutorialOverlay from '$lib/components/TutorialOverlay.svelte';
 	import { page } from '$app/stores';
 	import { currentLang, availableLanguages, lanMultilingual, loadLocale, flagMap, t, initI18n, refreshEventName, eventName } from '$lib/i18nStore';
-	import { handleIncomingPush, getOrRegisterDeviceToken, startNativePushService, stopNativePushService, revokeCurrentDeviceToken, getNativePushStatus, requestNativeNotificationPermission, checkAndHandlePendingDeepLink } from '$lib/push';
+	import { handleIncomingPush, getOrRegisterDeviceToken, startNativePushService, stopNativePushService, revokeCurrentDeviceToken, getNativePushStatus, requestNativeNotificationPermission, checkAndHandlePendingDeepLink, getNotificationPreferences } from '$lib/push';
 	import { resolveMediaUrl, isCapacitorNative, getCustomServerUrl } from '$lib/config';
 	import Icon from '$lib/components/Icon.svelte';
 
@@ -76,7 +76,27 @@
 	let browserNotifSupport = false;
 	let browserNotifStatus = 'default';
 	let nativeNotifOperational = true;
-	let dismissNotifBanner = false;
+	let dismissNotifBanner = typeof window !== 'undefined' ? sessionStorage.getItem('alanbix_notif_banner_dismissed') === 'true' : false;
+	let notifPrefs = { enabled: true };
+
+	function refreshNotifPrefs() {
+		try {
+			notifPrefs = getNotificationPreferences();
+		} catch {
+			notifPrefs = { enabled: true };
+		}
+	}
+
+	function dismissBanner() {
+		dismissNotifBanner = true;
+		if (typeof window !== 'undefined') {
+			sessionStorage.setItem('alanbix_notif_banner_dismissed', 'true');
+		}
+	}
+
+	$: if ($page.url) {
+		refreshNotifPrefs();
+	}
 
 	async function checkNativeNotifOperational() {
 		if (!isCapacitorNative()) return;
@@ -183,6 +203,14 @@
 					}
 					if (msg.type === 'config_updated') {
 						refreshEventName();
+		refreshNotifPrefs();
+		if (typeof window !== 'undefined') {
+			window.addEventListener('storage', (e) => {
+				if (e.key === 'alanbix_notif_prefs') {
+					refreshNotifPrefs();
+				}
+			});
+		}
 					}
 					// Update notification badge in real-time
 					if (msg.type === 'notification_new') {
@@ -534,7 +562,7 @@
 				<span class="label">{$t('nav_spectator')}</span>
 			</a>
 			<a href="/dashboard/settings" class="nav-item">
-				<span class="icon">⚙️</span>
+				<span class="icon" style="display:inline-flex;align-items:center;"><Icon name="gear" size={18} /></span>
 				<span class="label">{$t('settings_page_title')}</span>
 			</a>
 			
@@ -605,7 +633,7 @@
 					</button>
 				{/if}
 				<a href="/dashboard/settings" class="theme-toggle" title={$t('settings_page_title')}>
-					<span class="theme-icon">⚙️</span>
+					<span class="theme-icon"><Icon name="gear" size={18} /></span>
 				</a>
 				<button class="theme-toggle" on:click={toggleTheme} title={isDark ? $t('tooltip_light_mode') : $t('tooltip_dark_mode')}>
 					<span class="theme-icon" class:spin={true}>{isDark ? '☀️' : '🌙'}</span>
@@ -618,12 +646,12 @@
 	</nav>
 
 	<main class="content-area">
-		{#if !dismissNotifBanner && !$page.url.pathname.startsWith('/dashboard/settings') && ((isCapacitorNative() && !nativeNotifOperational) || (!isCapacitorNative() && browserNotifSupport && browserNotifStatus !== 'granted'))}
+		{#if !dismissNotifBanner && notifPrefs?.enabled !== false && !$page.url.pathname.startsWith('/dashboard/settings') && ((isCapacitorNative() && !nativeNotifOperational) || (!isCapacitorNative() && browserNotifSupport && browserNotifStatus !== 'granted'))}
 			<div class="notif-warning-banner glass" style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;padding:0.6rem 1rem;margin-bottom:0.85rem;border-radius:10px;border:1px solid rgba(245,158,11,0.35);background:rgba(245,158,11,0.1);font-size:0.8rem;">
-				<span>🔔 {$t('settings_notifs_banner_warn')}</span>
+				<span style="display:inline-flex;align-items:center;gap:0.4rem;"><Icon name="bell" size={14} /> {$t('settings_notifs_banner_warn')}</span>
 				<div style="display:flex;align-items:center;gap:0.5rem;flex-shrink:0;">
 					<a href="/dashboard/settings" style="color:var(--accent);font-weight:700;text-decoration:underline;">{$t('settings_notifs_banner_btn')}</a>
-					<button type="button" on:click={() => dismissNotifBanner = true} style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:0.9rem;padding:0 0.2rem;">✕</button>
+					<button type="button" on:click={dismissBanner} style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:0.9rem;padding:0 0.2rem;">✕</button>
 				</div>
 			</div>
 		{/if}
@@ -971,6 +999,8 @@
 		font-size: 1.1rem;
 		transition: all 0.25s ease;
 		padding: 0;
+		text-decoration: none !important;
+		color: var(--text-dim);
 	}
 	.theme-toggle:hover {
 		background: var(--accent-soft);
@@ -979,8 +1009,11 @@
 		box-shadow: 0 0 12px var(--accent-glow);
 	}
 	.theme-icon {
-		display: inline-block;
+		display: flex;
+		align-items: center;
+		justify-content: center;
 		transition: transform 0.4s ease;
+		text-decoration: none !important;
 	}
 	.theme-toggle:hover .theme-icon {
 		transform: rotate(25deg);

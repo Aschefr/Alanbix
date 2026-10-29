@@ -986,3 +986,14 @@ button, a, [role="button"] {
   color: var(--text-main) !important;
   border-color: var(--glass-border) !important;
 }
+
+
+/* Ensure no text-decoration underlines on action buttons or toggles */
+.top-action-btn,
+a.theme-toggle,
+.theme-toggle,
+.theme-icon,
+.bottom-tab,
+.nav-item {
+  text-decoration: none !important;
+}

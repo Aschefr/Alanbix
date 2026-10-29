@@ -1315,5 +1315,11 @@
   "admin_languages_cat_settings": "Paramètres",
   "admin_languages_cat_mobile": "Application Mobile",
   "players_unread_shortlist_title": "Messages non lus",
-  "ai_input_placeholder_mobile": "Posez votre question..."
+  "ai_input_placeholder_mobile": "Posez votre question...",
+  "dash_team_lbl": "Équipe",
+  "dash_chat_load_earlier": "Charger les messages précédents",
+  "dash_chat_loading_earlier": "Chargement...",
+  "admin_tab_conversations": "Conversations",
+  "ai_override_message_sent": "Message envoyé avec succès",
+  "error": "Erreur"
 }

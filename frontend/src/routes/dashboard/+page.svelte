@@ -1132,7 +1132,7 @@
 
 				<div class="info-chip glass" style="border-color: rgba(59,130,246,0.35); background: rgba(59,130,246,0.08);">
 
-					<span class="chip-label" style="color: var(--accent);">👥 {$t('dash_team_lbl') || 'Équipe'}</span>
+					<span class="chip-label" style="color: var(--accent); display: inline-flex; align-items: center; gap: 0.35rem;"><Icon name="users" size={13} /> {$t('dash_team_lbl')}</span>
 
 					<span class="chip-value" style="color: var(--accent); font-weight: 800;">{user.team_name}</span>
 

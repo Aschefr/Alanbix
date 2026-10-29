@@ -1327,5 +1327,11 @@
   "mobile_score_submitting": "Validando...",
   "common_close": "Cerrar",
   "players_unread_shortlist_title": "Mensajes no leidos",
-  "ai_input_placeholder_mobile": "Haz una pregunta..."
+  "ai_input_placeholder_mobile": "Haz una pregunta...",
+  "dash_team_lbl": "Equipo",
+  "dash_chat_load_earlier": "Cargar mensajes anteriores",
+  "dash_chat_loading_earlier": "Cargando...",
+  "admin_tab_conversations": "Conversaciones",
+  "ai_override_message_sent": "Mensaje enviado con éxito",
+  "error": "Error"
 }
