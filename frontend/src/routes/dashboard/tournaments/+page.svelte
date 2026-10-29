@@ -94,12 +94,12 @@
 	onMount(async () => {
 		await loadAll();
 		const urlSelect = $page.url.searchParams.get('select') || $page.url.searchParams.get('id');
-		if (urlSelect && tournaments.find(t => t.id === parseInt(urlSelect))) {
-			await selectTournament(parseInt(urlSelect));
+		if (urlSelect && tournaments.find(t => String(t.id) === String(urlSelect))) {
+			await selectTournament(parseInt(urlSelect, 10));
 		} else {
 			const saved = localStorage.getItem('alanbix_selected_tournament');
-			if (saved && tournaments.find(t => t.id === parseInt(saved))) {
-				await selectTournament(parseInt(saved));
+			if (saved && tournaments.find(t => String(t.id) === String(saved))) {
+				await selectTournament(parseInt(saved, 10));
 			} else if (tournaments.length > 0) {
 				await selectTournament(tournaments[0].id);
 			}
@@ -112,10 +112,10 @@
 	let lastAppliedTourneyParam = null;
 	$: if ($page.url && tournaments.length > 0) {
 		const targetParam = $page.url.searchParams.get('select') || $page.url.searchParams.get('id');
-		if (targetParam && targetParam !== lastAppliedTourneyParam) {
+		if (targetParam && String(targetParam) !== String(lastAppliedTourneyParam)) {
 			lastAppliedTourneyParam = targetParam;
-			const targetId = parseInt(targetParam);
-			if (targetId && targetId !== selectedId && tournaments.find(t => t.id === targetId)) {
+			const targetId = parseInt(targetParam, 10);
+			if (targetId && String(targetId) !== String(selectedId) && tournaments.find(t => String(t.id) === String(targetId))) {
 				selectTournament(targetId);
 			}
 		}
@@ -276,8 +276,8 @@
 	let confirmingLeave = false;
 
 	async function selectTournament(id) {
-		selectedId = id;
-		localStorage.setItem('alanbix_selected_tournament', id);
+		selectedId = typeof id === 'string' ? (parseInt(id, 10) || id) : id;
+		try { localStorage.setItem('alanbix_selected_tournament', String(id)); } catch (e) {}
 		confirmingLeave = false;
 		try {
 			const [partsRes, teamsRes, standingsRes] = await Promise.all([
@@ -588,7 +588,7 @@
 
 	$: seatMap = Object.fromEntries(allUsers.filter(u => u.seat_id).map(u => [u.id, u.seat_id]));
 
-	$: selected = tournaments.find(t => t.id === selectedId);
+	$: selected = tournaments.find(t => String(t.id) === String(selectedId));
 	$: selectedGame = selected ? getGame(selected.game_id) : null;
 	$: gameMap = Object.fromEntries(games.map(g => [g.id, g]));
 	$: unregisteredUsers = allUsers.filter(u => !participants.find(p => p.user_id === u.id));
@@ -721,7 +721,7 @@
 			<div class="drawer-tourneys-list">
 				{#each tournaments as tourney}
 					<button
-						class="drawer-tourney-item {selectedId === tourney.id ? 'active' : ''}"
+						class="drawer-tourney-item {String(selectedId) === String(tourney.id) ? 'active' : ''}"
 						on:click={() => { selectTournament(tourney.id); showMobileTourneyDrawer = false; }}
 					>
 						<div class="drawer-item-info">
@@ -754,7 +754,7 @@
 		{/if}
 		<div class="t-list">
 			{#each tournaments as tourney}
-				<button class="t-item {selectedId === tourney.id ? 'active' : ''} {tourney.status.toLowerCase()}" on:click={() => selectTournament(tourney.id)} style="background-image: url({gameMap[tourney.game_id]?.image_url || ''})">
+				<button class="t-item {String(selectedId) === String(tourney.id) ? 'active' : ''} {tourney.status.toLowerCase()}" on:click={() => selectTournament(tourney.id)} style="background-image: url({gameMap[tourney.game_id]?.image_url || ''})">
 					{#if tourney.status === 'CLOSED'}<div class="t-item-checkered"></div>{/if}
 					<div class="t-item-overlay">
 						<div class="t-item-info">
