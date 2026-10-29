@@ -26,6 +26,14 @@
 
 
 	// Quick Score & Navigation State (Home Page UX)
+	// Ready-to-play matches first, waiting ones (opponent unknown) after
+	$: myMatchesSorted = [...myActiveMatches].sort((x, y) => Number(y.is_ready) - Number(x.is_ready));
+	let dashTab = 'tournaments';
+	try { dashTab = localStorage.getItem('alanbix_dash_tab') || 'tournaments'; } catch (e) {}
+	function setDashTab(tab) {
+		dashTab = tab;
+		try { localStorage.setItem('alanbix_dash_tab', tab); } catch (e) {}
+	}
 	let activeScoreMatchKey = null;
 	let quickScores = {};
 	let isSubmittingScore = false;
@@ -177,124 +185,6 @@
 	let activeBeams = [];
 
 	let beamCounter = 0;
-
-
-
-	// Resizable splitter between Public Chat and Floor Map
-
-	let centerColEl = null;
-
-	let chatSplitRatio = 55; // percentage: 55% chat / 45% map
-
-	let isDraggingSplitter = false;
-
-
-
-	if (typeof localStorage !== 'undefined') {
-
-		const savedSplit = localStorage.getItem('alanbix_dash_chat_split');
-
-		if (savedSplit) {
-
-			const parsed = parseFloat(savedSplit);
-
-			if (!isNaN(parsed) && parsed >= 15 && parsed <= 85) {
-
-				chatSplitRatio = parsed;
-
-			}
-
-		}
-
-	}
-
-
-
-	function startSplitterDrag(e) {
-
-		e.preventDefault();
-
-		isDraggingSplitter = true;
-
-		if (typeof document !== 'undefined') {
-
-			document.body.style.cursor = 'row-resize';
-
-			document.body.style.userSelect = 'none';
-
-		}
-
-		window.addEventListener('pointermove', onSplitterDrag);
-
-		window.addEventListener('pointerup', stopSplitterDrag);
-
-		window.addEventListener('pointercancel', stopSplitterDrag);
-
-	}
-
-
-
-	function onSplitterDrag(e) {
-
-		if (!isDraggingSplitter || !centerColEl) return;
-
-		const rect = centerColEl.getBoundingClientRect();
-
-		if (rect.height <= 0) return;
-
-		const offsetY = e.clientY - rect.top;
-
-		const newRatio = Math.min(Math.max((offsetY / rect.height) * 100, 15), 85);
-
-		chatSplitRatio = Math.round(newRatio * 10) / 10;
-
-	}
-
-
-
-	function stopSplitterDrag() {
-
-		if (isDraggingSplitter) {
-
-			isDraggingSplitter = false;
-
-			if (typeof document !== 'undefined') {
-
-				document.body.style.cursor = '';
-
-				document.body.style.userSelect = '';
-
-			}
-
-			if (typeof localStorage !== 'undefined') {
-
-				localStorage.setItem('alanbix_dash_chat_split', String(chatSplitRatio));
-
-			}
-
-		}
-
-		window.removeEventListener('pointermove', onSplitterDrag);
-
-		window.removeEventListener('pointerup', stopSplitterDrag);
-
-		window.removeEventListener('pointercancel', stopSplitterDrag);
-
-	}
-
-
-
-	function resetSplitter() {
-
-		chatSplitRatio = 55;
-
-		if (typeof localStorage !== 'undefined') {
-
-			localStorage.setItem('alanbix_dash_chat_split', '55');
-
-		}
-
-	}
 
 
 
@@ -1168,168 +1058,127 @@
 
 
 
-	<!-- Next match strip (Desktop): answers "where and against whom do I play next?" -->
-	<section class="next-match glass desktop-only" class:is-empty={myActiveMatches.length === 0} class:is-ready={myActiveMatches[0]?.is_ready}>
-		{#if myActiveMatches.length === 0}
-			<span class="nm-empty-icon"><Icon name="target" size={20} /></span>
-			<p class="nm-empty-text">{$t('mobile_empty_matches_title')}</p>
-			<button class="btn-secondary nm-btn" on:click={() => navigateToTournament(activeTournament?.id || (tournaments && tournaments[0]?.id))}>
-				<Icon name="trophy" size={14} /> {$t('mobile_btn_view_tournaments')}
-			</button>
-		{:else}
-			{@const m = myActiveMatches[0]}
-			<div class="nm-main">
-				<h2 class="nm-title">{$t('dash_next_match_title')}</h2>
-				<div class="nm-versus">
-					<span class="nm-vs-label">{$t('mobile_match_versus')}</span>
-					<span class="nm-opponent">{m.opponent_name}</span>
-					{#if m.opponent_seat}
-						<button class="nm-seat" on:click={() => navigateToMap(m.opponent_seat)} title={$t('tourneys_view_on_map')}>
-							<Icon name="pin" size={14} /> {$t('mobile_match_seat_link', { seat: m.opponent_seat })}
-						</button>
-					{/if}
-				</div>
-				<div class="nm-meta">
-					{m.game_name} · {m.tournament_name} · {m.round_label}
-					{#if myActiveMatches.length > 1}
-						<span class="nm-more">{$t('dash_next_match_more', { count: myActiveMatches.length - 1 })}</span>
-					{/if}
-				</div>
-			</div>
-			<span class="nm-status" class:ready={m.is_ready}>{m.status_label}</span>
-			<div class="nm-actions">
-				{#if m.is_ready}
-					<button class="btn-primary nm-btn" on:click={() => navigateToTournament(m.tournament_id)}>
-						<Icon name="check" size={14} /> {$t('mobile_match_enter_score_btn')}
+	<!-- Desktop: "Mes matchs" first, secondary views in tabs, chat on the right -->
+	<div class="dash-grid desktop-only">
+		<div class="dash-left">
+			<section class="my-matches glass">
+				<header class="mym-header">
+					<h2><Icon name="swords" size={16} /> {$t('mobile_tab_my_matches')} <span class="mym-count">{myActiveMatches.length}</span></h2>
+					<button class="mym-link" on:click={() => navigateToTournament(activeTournament?.id || (tournaments && tournaments[0]?.id))}>
+						{$t('mobile_btn_view_tournaments')} <Icon name="chevron-right" size={14} />
 					</button>
+				</header>
+				{#if myActiveMatches.length === 0}
+					<p class="mym-empty"><Icon name="target" size={18} /> {$t('mobile_empty_matches_title')}</p>
+				{:else}
+					<ul class="mym-list">
+						{#each myMatchesSorted as m (m.match_key)}
+							<li class="mym-row" class:ready={m.is_ready}>
+								<div class="mym-main">
+									<div class="mym-versus">
+										<span class="mym-vs">{$t('mobile_match_versus')}</span>
+										<span class="mym-opponent">{m.opponent_name}</span>
+										{#if m.opponent_seat}
+											<button class="mym-seat" on:click={() => navigateToMap(m.opponent_seat)} title={$t('tourneys_view_on_map')}>
+												<Icon name="pin" size={12} /> {$t('mobile_match_seat_link', { seat: m.opponent_seat })}
+											</button>
+										{/if}
+									</div>
+									<div class="mym-meta">{m.game_name} · {m.tournament_name} · {m.round_label}</div>
+								</div>
+								<span class="mym-status" class:ready={m.is_ready}>{m.status_label}</span>
+								<div class="mym-actions">
+									{#if m.is_ready}
+										<button class="btn-primary mym-btn" on:click={() => toggleScoreEntry(m)}>
+											<Icon name="check" size={13} /> {activeScoreMatchKey === m.match_key ? $t('common_close') : $t('mobile_match_enter_score_btn')}
+										</button>
+									{/if}
+									<button class="btn-secondary mym-btn" on:click={() => navigateToTournament(m.tournament_id)} title={$t('mobile_match_view_bracket')}>
+										<Icon name="swords" size={13} /> {$t('mobile_match_view_bracket')}
+									</button>
+								</div>
+								{#if activeScoreMatchKey === m.match_key}
+									<div class="mym-score">
+										{#if m.boolean_mode}
+											<button class="btn-success mym-btn" disabled={isSubmittingScore} on:click={() => submitQuickScore(m, 'win')}><Icon name="trophy" size={13} /> {$t('mobile_score_win')}</button>
+											<button class="btn-secondary mym-btn" disabled={isSubmittingScore} on:click={() => submitQuickScore(m, 'loss')}><Icon name="x" size={13} /> {$t('mobile_score_loss')}</button>
+											{#if m.allow_draws}
+												<button class="btn-secondary mym-btn" disabled={isSubmittingScore} on:click={() => submitQuickScore(m, 'draw')}>{$t('mobile_score_draw')}</button>
+											{/if}
+										{:else}
+											<label class="mym-field"><span>{m.my_name || $t('mobile_score_my_score')}</span>
+												<input type="number" min="0" inputmode="numeric" bind:value={quickScores[m.match_key].myScore} disabled={isSubmittingScore} />
+											</label>
+											<span class="mym-dash">–</span>
+											<label class="mym-field"><span>{m.opponent_name || $t('mobile_score_opp_score')}</span>
+												<input type="number" min="0" inputmode="numeric" bind:value={quickScores[m.match_key].oppScore} disabled={isSubmittingScore} />
+											</label>
+											<button class="btn-primary mym-btn" disabled={isSubmittingScore} on:click={() => submitQuickScore(m)}>
+												<Icon name="check" size={13} /> {isSubmittingScore ? $t('mobile_score_submitting') : $t('mobile_score_submit')}
+											</button>
+										{/if}
+									</div>
+								{/if}
+							</li>
+						{/each}
+					</ul>
 				{/if}
-				<button class="btn-secondary nm-btn" on:click={() => navigateToTournament(m.tournament_id)}>
-					<Icon name="swords" size={14} /> {$t('mobile_match_view_bracket')}
-				</button>
-			</div>
-		{/if}
-	</section>
+			</section>
 
-	<!-- 3-Column Main Grid -->
-
-	<div class="main-triptych desktop-only">
-
-		<!-- LEFT: Leaderboard -->
-
-		<DashboardLeaderboard
-
-			{stats}
-
-			{teamLeaderboard}
-
-			{previousLeaderboard}
-
-			on:openPlayerStats={(e) => openPlayerStats(e.detail)}
-
-		/>
-
-
-
-		<!-- CENTER COLUMN: Public Chat (Top) + Resizer + Arena Floor Map (Bottom) -->
-
-		<div class="center-column" bind:this={centerColEl}>
-
-			<!-- TOP: Public Chat -->
-
-			<div class="center-chat-panel" class:no-transition={isDraggingSplitter} style="height: {chatSplitRatio}%;">
-
-				<PublicChat
-
-					{user}
-
-					{allUsers}
-
-					on:seatHover={(e) => hoveredSeatId = e.detail}
-
-					on:seatLeave={() => hoveredSeatId = null}
-
-				/>
-
-			</div>
-
-
-
-			<!-- SPLITTER DIVIDER / RESIZER -->
-
-			<!-- svelte-ignore a11y-no-static-element-interactions -->
-
-			<div
-
-				class="chat-map-splitter"
-
-				class:dragging={isDraggingSplitter}
-
-				on:pointerdown={startSplitterDrag}
-
-				on:dblclick={resetSplitter}
-
-				title="Glisser pour redimensionner (Double-clic pour réinitialiser)"
-
-			>
-
-				<div class="splitter-handle">
-
-					<span class="splitter-pill"></span>
-
+			<section class="dash-tabs">
+				<div class="dash-tablist" role="tablist">
+					<button role="tab" class="dash-tab" class:active={dashTab === 'tournaments'} aria-selected={dashTab === 'tournaments'} on:click={() => setDashTab('tournaments')}>
+						<Icon name="trophy" size={14} /> {$t('dash_tab_tournaments')}
+					</button>
+					<button role="tab" class="dash-tab" class:active={dashTab === 'leaderboard'} aria-selected={dashTab === 'leaderboard'} on:click={() => setDashTab('leaderboard')}>
+						<Icon name="users" size={14} /> {$t('dash_lb_title')}
+					</button>
+					<button role="tab" class="dash-tab" class:active={dashTab === 'map'} aria-selected={dashTab === 'map'} on:click={() => setDashTab('map')}>
+						<Icon name="map" size={14} /> {$t('dash_map_title')}
+					</button>
 				</div>
-
-			</div>
-
-
-
-			<!-- BOTTOM: Arena Floor Map Preview -->
-
-			<DashboardFloorMap
-
-				{roomLayout}
-
-				{allUsers}
-
-				{user}
-
-				{hoveredSeatId}
-
-				{activePulsingSeats}
-
-				{activeBeams}
-
-				{isDraggingSplitter}
-
-				{chatSplitRatio}
-
-			/>
-
+				<div class="dash-tab-body">
+					{#if dashTab === 'tournaments'}
+						<DashboardBracketPreview
+							{runningTournaments}
+							{activeTournament}
+							{selectedRunningIdx}
+							{participants}
+							{dashTeams}
+							{games}
+							{user}
+							on:selectRunning={(e) => selectRunning(e.detail)}
+						/>
+					{:else if dashTab === 'leaderboard'}
+						<DashboardLeaderboard
+							{stats}
+							{teamLeaderboard}
+							{previousLeaderboard}
+							on:openPlayerStats={(e) => openPlayerStats(e.detail)}
+						/>
+					{:else}
+						<DashboardFloorMap
+							{roomLayout}
+							{allUsers}
+							{user}
+							{hoveredSeatId}
+							{activePulsingSeats}
+							{activeBeams}
+							chatSplitRatio={0}
+						/>
+					{/if}
+				</div>
+			</section>
 		</div>
 
-
-
-		<!-- RIGHT: Tournament Bracket Preview -->
-
-		<DashboardBracketPreview
-
-			{runningTournaments}
-
-			{activeTournament}
-
-			{selectedRunningIdx}
-
-			{participants}
-
-			{dashTeams}
-
-			{games}
-
-			{user}
-
-			on:selectRunning={(e) => selectRunning(e.detail)}
-
-		/>
-
+		<div class="dash-right">
+			<PublicChat
+				{user}
+				{allUsers}
+				on:seatHover={(e) => hoveredSeatId = e.detail}
+				on:seatLeave={() => hoveredSeatId = null}
+			/>
+		</div>
 	</div>
 
 
@@ -1517,233 +1366,6 @@
 
 	/* 3-Column Triptych */
 
-	.next-match {
-		display: flex;
-		align-items: center;
-		gap: 1.25rem;
-		padding: 1rem 1.5rem;
-		flex-shrink: 0;
-	}
-	.next-match.is-ready {
-		border-color: var(--accent);
-		box-shadow: 0 6px 24px -8px var(--accent-glow);
-	}
-	.next-match.is-empty {
-		padding: 0.75rem 1.5rem;
-	}
-	.nm-empty-icon { color: var(--text-dim); display: flex; }
-	.nm-empty-text { margin: 0; flex: 1; color: var(--text-dim); font-size: 0.95rem; }
-	.nm-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.3rem; }
-	.nm-title { font-size: 0.95rem; color: var(--text-dim); font-weight: 600; }
-	.nm-versus { display: flex; align-items: baseline; gap: 0.6rem; flex-wrap: wrap; }
-	.nm-vs-label { color: var(--text-dim); font-size: 1rem; }
-	.nm-opponent { font-family: var(--font-title); font-size: 1.75rem; font-weight: 700; color: var(--text-main); line-height: 1.1; }
-	.nm-seat {
-		display: inline-flex; align-items: center; gap: 0.3rem;
-		background: var(--accent-soft); color: var(--accent);
-		border: 1px solid transparent; border-radius: var(--radius-md);
-		padding: 0.25rem 0.6rem; font-weight: 600; font-size: 0.9rem; cursor: pointer;
-	}
-	.nm-seat:hover { border-color: var(--accent); }
-	.nm-meta { color: var(--text-muted); font-size: 0.9rem; }
-	.nm-more { margin-left: 0.75rem; color: var(--accent); font-weight: 600; }
-	.nm-status {
-		font-size: 0.85rem; font-weight: 600; color: var(--text-dim);
-		padding: 0.3rem 0.7rem; border-radius: 999px; border: 1px solid var(--glass-border);
-		white-space: nowrap;
-	}
-	.nm-status.ready { color: var(--success); border-color: var(--success); }
-	.nm-actions { display: flex; gap: 0.6rem; }
-	.nm-btn { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.6rem 1.1rem; white-space: nowrap; }
-
-	.main-triptych {
-
-		display: grid;
-
-		grid-template-columns: 280px 1fr 340px;
-
-		gap: 1.2rem;
-
-		flex-grow: 1;
-
-		min-height: 0;
-
-	}
-
-
-
-	/* Center Column (Public Chat + Resizer + Arena Map) */
-
-	.center-column {
-
-		display: flex;
-
-		flex-direction: column;
-
-		gap: 0;
-
-		min-height: 0;
-
-		min-width: 0;
-
-		height: 100%;
-
-		position: relative;
-
-	}
-
-	.center-chat-panel {
-
-		min-height: 120px;
-
-		min-width: 0;
-
-		overflow: hidden;
-
-		display: flex;
-
-		flex-direction: column;
-
-		transition: height 0.1s ease-out;
-
-	}
-
-	.no-transition {
-
-		transition: none !important;
-
-	}
-
-
-
-	/* Sleek Neon Draggable Splitter */
-
-	.chat-map-splitter {
-
-		height: 14px;
-
-		display: flex;
-
-		align-items: center;
-
-		justify-content: center;
-
-		cursor: row-resize;
-
-		user-select: none;
-
-		-webkit-user-select: none;
-
-		position: relative;
-
-		z-index: 15;
-
-		margin: 0;
-
-		padding: 2px 0;
-
-		transition: background 0.2s ease;
-
-		flex-shrink: 0;
-
-	}
-
-	.chat-map-splitter::before {
-
-		content: '';
-
-		position: absolute;
-
-		left: 8%;
-
-		right: 8%;
-
-		height: 1px;
-
-		background: linear-gradient(90deg, transparent, var(--glass-border, rgba(255,255,255,0.15)), transparent);
-
-		transition: all 0.25s ease;
-
-	}
-
-	.splitter-handle {
-
-		display: flex;
-
-		align-items: center;
-
-		justify-content: center;
-
-		width: 48px;
-
-		height: 8px;
-
-		border-radius: 9999px;
-
-		background: rgba(15, 23, 42, 0.85);
-
-		border: 1px solid var(--glass-border, rgba(255,255,255,0.18));
-
-		box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
-
-		transition: all 0.2s ease;
-
-		backdrop-filter: blur(8px);
-
-	}
-
-	.splitter-pill {
-
-		width: 18px;
-
-		height: 2px;
-
-		border-radius: 1px;
-
-		background: var(--text-muted, #94a3b8);
-
-		transition: all 0.2s ease;
-
-	}
-
-	.chat-map-splitter:hover::before,
-
-	.chat-map-splitter.dragging::before {
-
-		background: linear-gradient(90deg, transparent, var(--accent, #6366f1), transparent);
-
-		height: 2px;
-
-		box-shadow: 0 0 10px var(--accent, #6366f1);
-
-	}
-
-	.chat-map-splitter:hover .splitter-handle,
-
-	.chat-map-splitter.dragging .splitter-handle {
-
-		width: 62px;
-
-		border-color: var(--accent, #6366f1);
-
-		background: rgba(99, 102, 241, 0.25);
-
-		box-shadow: 0 0 12px rgba(99, 102, 241, 0.5);
-
-	}
-
-	.chat-map-splitter:hover .splitter-pill,
-
-	.chat-map-splitter.dragging .splitter-pill {
-
-		background: #ffffff;
-
-		width: 28px;
-
-	}
-
-
-
 	/* Mobile Dashboard Styles (<= 900px) */
 
 	.mobile-only {
@@ -1753,26 +1375,6 @@
 	}
 
 
-
-	/* Narrow desktop (small laptops): the 3 fixed columns crush the center.
-	   Stack chat+map on top at full width, leaderboard and bracket side by side below. */
-	@media (min-width: 901px) and (max-width: 1279px) {
-		.hq-dashboard {
-			height: auto;
-		}
-		.main-triptych {
-			grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-			grid-template-rows: 560px 480px;
-		}
-		.center-column {
-			grid-column: 1 / -1;
-			grid-row: 1;
-		}
-		.main-triptych > :global(.leaderboard-panel),
-		.main-triptych > :global(.bracket-panel) {
-			grid-row: 2;
-		}
-	}
 
 	@media (max-width: 900px) {
 
@@ -2699,5 +2301,69 @@
 
 	}
 
+
+	/* === Desktop layout: Mes matchs + tabs on the left, chat on the right === */
+	.dash-grid {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
+		gap: 1.2rem;
+		flex: 1;
+		min-height: 0;
+	}
+	.dash-left { display: flex; flex-direction: column; gap: 1rem; min-height: 0; min-width: 0; }
+	.dash-right { min-height: 0; display: flex; flex-direction: column; }
+	.dash-right > :global(*) { flex: 1; min-height: 0; }
+
+	.my-matches { padding: 0.9rem 1.1rem; display: flex; flex-direction: column; gap: 0.6rem; flex-shrink: 0; max-height: 45%; min-height: 0; }
+	.mym-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+	.mym-header h2 { font-size: 1rem; display: inline-flex; align-items: center; gap: 0.5rem; }
+	.mym-count { font-family: var(--font-main); font-size: 0.75rem; font-weight: 700; color: var(--accent); background: var(--accent-soft); border-radius: 999px; padding: 0.1rem 0.5rem; }
+	.mym-link { background: none; border: none; color: var(--accent); font-weight: 600; font-size: 0.85rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.2rem; }
+	.mym-link:hover { text-decoration: underline; }
+	.mym-empty { margin: 0; color: var(--text-dim); display: flex; align-items: center; gap: 0.5rem; font-size: 0.95rem; }
+	.mym-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; overflow-y: auto; min-height: 0; }
+	.mym-row {
+		display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem;
+		padding: 0.6rem 0.8rem; border-radius: var(--radius-md);
+		background: var(--surface-raised); border: 1px solid var(--glass-border);
+	}
+	.mym-row.ready { border-color: var(--accent); }
+	.mym-main { flex: 1 1 240px; min-width: 0; display: flex; flex-direction: column; gap: 0.15rem; }
+	.mym-versus { display: flex; align-items: baseline; gap: 0.4rem; flex-wrap: wrap; }
+	.mym-vs { color: var(--text-dim); font-size: 0.85rem; }
+	.mym-opponent { font-family: var(--font-title); font-weight: 700; font-size: 1.1rem; color: var(--text-main); }
+	.mym-seat { display: inline-flex; align-items: center; gap: 0.2rem; background: var(--accent-soft); color: var(--accent); border: 1px solid transparent; border-radius: var(--radius-sm); padding: 0.1rem 0.45rem; font-size: 0.78rem; font-weight: 600; cursor: pointer; }
+	.mym-seat:hover { border-color: var(--accent); }
+	.mym-meta { color: var(--text-muted); font-size: 0.82rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	.mym-status { font-size: 0.78rem; font-weight: 600; color: var(--text-dim); padding: 0.2rem 0.6rem; border-radius: 999px; border: 1px solid var(--glass-border); white-space: nowrap; }
+	.mym-status.ready { color: var(--success); border-color: var(--success); }
+	.mym-actions { display: flex; gap: 0.5rem; }
+	.mym-btn { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.45rem 0.9rem; font-size: 0.85rem; white-space: nowrap; }
+	.mym-score { flex-basis: 100%; display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; padding-top: 0.5rem; border-top: 1px solid var(--glass-border); }
+	.mym-field { display: flex; align-items: center; gap: 0.4rem; font-size: 0.82rem; color: var(--text-dim); }
+	.mym-field span { max-width: 110px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	.mym-field input { width: 56px; height: 36px; text-align: center; font-size: 1rem; font-weight: 700; padding: 0; border-radius: var(--radius-md); }
+	.mym-dash { color: var(--text-dim); }
+
+	.dash-tabs { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 0.6rem; }
+	.dash-tablist { display: flex; gap: 0.4rem; }
+	.dash-tab {
+		display: inline-flex; align-items: center; gap: 0.4rem;
+		padding: 0.45rem 0.9rem; border-radius: var(--radius-md);
+		background: transparent; border: 1px solid var(--glass-border);
+		color: var(--text-dim); font-weight: 600; font-size: 0.88rem; cursor: pointer;
+	}
+	.dash-tab:hover { color: var(--text-main); border-color: var(--accent); }
+	.dash-tab.active { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+	.dash-tab-body { flex: 1; min-height: 280px; display: flex; flex-direction: column; }
+	.dash-tab-body > :global(*) { flex: 1; min-height: 0; height: 100% !important; }
+
+	@media (min-width: 901px) and (max-width: 1279px) {
+		.hq-dashboard { height: auto; }
+		.dash-grid { grid-template-columns: 1fr; }
+		.my-matches { max-height: 420px; }
+		.dash-tab-body { min-height: 480px; }
+		.dash-right { height: 560px; }
+	}
 </style>
 

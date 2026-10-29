@@ -1354,5 +1354,6 @@
   "tourneys_pts_second": "2nd",
   "tourneys_pts_third": "3rd",
   "tourneys_pts_participation_short": "Participation",
-  "tourneys_pts_score_bonus_short": "Score bonus"
+  "tourneys_pts_score_bonus_short": "Score bonus",
+  "dash_tab_tournaments": "Running tournaments"
 }

@@ -1342,5 +1342,6 @@
   "tourneys_pts_second": "2.º",
   "tourneys_pts_third": "3.º",
   "tourneys_pts_participation_short": "Participación",
-  "tourneys_pts_score_bonus_short": "Bonus de puntuación"
+  "tourneys_pts_score_bonus_short": "Bonus de puntuación",
+  "dash_tab_tournaments": "Torneos en curso"
 }
