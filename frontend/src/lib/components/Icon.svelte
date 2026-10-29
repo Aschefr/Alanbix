@@ -68,6 +68,10 @@
     <polygon points="22 2 15 22 11 13 2 9 22 2" />
   {:else if name === 'paperclip'}
     <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l7.88-7.88" />
+  {:else if name === 'menu' || name === 'burger'}
+    <line x1="4" x2="20" y1="12" y2="12" />
+    <line x1="4" x2="20" y1="6" y2="6" />
+    <line x1="4" x2="20" y1="18" y2="18" />
   {:else if name === 'plus'}
     <path d="M5 12h14" />
     <path d="M12 5v14" />
@@ -150,3 +154,4 @@
     flex-shrink: 0;
   }
 </style>
+

@@ -1,6 +1,7 @@
 <script>
 	import { t } from '$lib/i18nStore';
 	import { createEventDispatcher } from 'svelte';
+	import Icon from '$lib/components/Icon.svelte';
 
 	export let selected;
 	export let participants = [];
@@ -37,7 +38,7 @@
 {#if !useTeams || selected?.status === 'OPEN' || isAdmin}
 	<div class="participants-section glass">
 		<div class="section-title">
-			<h3>👥 {useTeams ? $t('tourneys_tab_registered') : $t('dash_modal_tournaments_title')} <span class="part-count">{participants.length} {$t('changelog_fallback_name').toLowerCase()}{#if useTeams && participants.length > 0}, {poolPlayers.length} {$t('tourneys_unassigned_players', { count: poolPlayers.length, plural: poolPlayers.length > 1 ? 's' : '' })}{/if}</span></h3>
+			<h3><Icon name="users" size={14} /> {useTeams ? $t('tourneys_tab_registered') : $t('dash_modal_tournaments_title')} <span class="part-count">({participants.length})</span></h3>
 			{#if isAdmin && selected?.status === 'OPEN'}
 				<div class="part-bulk-actions">
 					{#if confirmJoinAll}
@@ -47,7 +48,7 @@
 							<button class="admin-btn confirm-no" on:click={() => confirmJoinAll = false}>✕</button>
 						</span>
 					{:else}
-						<button class="admin-btn start btn-xs" on:click={() => confirmJoinAll = true} disabled={unregisteredUsers.length === 0}>📥 {$t("tourneys_btn_join_all")}</button>
+						<button class="admin-btn start btn-xs" on:click={() => confirmJoinAll = true} disabled={unregisteredUsers.length === 0}><Icon name="check" size={12} /> {$t("tourneys_btn_join_all")}</button>
 					{/if}
 					{#if confirmLeaveAll}
 						<span class="inline-confirm">
@@ -56,7 +57,7 @@
 							<button class="admin-btn confirm-no" on:click={() => confirmLeaveAll = false}>✕</button>
 						</span>
 					{:else}
-						<button class="admin-btn stop btn-xs" on:click={() => confirmLeaveAll = true} disabled={participants.length === 0}>📤 {$t("tourneys_btn_leave_all")}</button>
+						<button class="admin-btn stop btn-xs" on:click={() => confirmLeaveAll = true} disabled={participants.length === 0}><Icon name="x" size={12} /> {$t("tourneys_btn_leave_all")}</button>
 					{/if}
 				</div>
 			{/if}
@@ -155,4 +156,51 @@
 	.unreg-badge:hover .unreg-team { color: var(--text-dim); }
 	.unreg-plus { color: var(--accent); font-weight: 800; font-size: 0.8rem; opacity: 0; transition: opacity 0.15s; }
 	.unreg-badge:hover .unreg-plus { opacity: 1; }
+
+	@media (max-width: 900px) {
+		.participants-section { padding: 0.5rem; border-radius: var(--radius-md, 3px); }
+		.section-title {
+			flex-direction: column;
+			align-items: stretch;
+			gap: 0.35rem;
+			margin-bottom: 0.35rem;
+		}
+		.section-title h3 {
+			font-size: 0.75rem;
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			margin: 0;
+		}
+		.part-bulk-actions {
+			display: flex;
+			gap: 0.35rem;
+			width: 100%;
+		}
+		.part-bulk-actions .admin-btn {
+			flex: 1;
+			white-space: nowrap !important;
+			font-size: 0.7rem !important;
+			padding: 0.3rem 0.4rem !important;
+			border-radius: 3px !important;
+			height: 30px;
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			gap: 0.25rem;
+		}
+		.part-card {
+			border-radius: 3px !important;
+			padding: 0.4rem 0.5rem;
+		}
+		.unreg-section {
+			padding: 0.5rem;
+			border-radius: 3px !important;
+		}
+		.unreg-badge {
+			border-radius: 3px !important;
+			padding: 0.2rem 0.45rem;
+			font-size: 0.68rem;
+		}
+	}
 </style>

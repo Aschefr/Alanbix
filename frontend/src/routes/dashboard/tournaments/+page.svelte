@@ -26,16 +26,18 @@
 	let editConfig = {};
 
 	let showDetails = true;
+	let showMobileTourneyDrawer = false;
+	let isMobile = false;
+	$: isMobile = typeof window !== 'undefined' && window.innerWidth <= 900;
 	let showLiveStandings = false;
 	let bracketRef = null;
 
 	$: if (selectedId) {
 		const savedShowDetails = localStorage.getItem('alanbix_show_details');
-		const isMobile = typeof window !== 'undefined' && window.innerWidth <= 900;
 		if (savedShowDetails !== null) {
 			showDetails = savedShowDetails === 'true';
 		} else {
-			showDetails = isMobile && selected?.status === 'RUNNING' ? false : true;
+			showDetails = isMobile ? false : true;
 		}
 
 		const isFinished = selected?.status === 'DONE' || selected?.status === 'CLOSED';
@@ -678,6 +680,64 @@
 	}
 </script>
 
+<!-- Mobile Top Selector Bar (<= 900px) -->
+<div class="mobile-tourney-bar glass">
+	<button class="mobile-tourney-trigger" on:click={() => showMobileTourneyDrawer = true} title={$t('tourneys_title')}>
+		<Icon name="menu" size={16} />
+		<span class="trigger-name">{selected?.name || $t('tourneys_title')}</span>
+		{#if selected}
+			<span class="status-pill {selected.status.toLowerCase()}">
+				{selected.status === 'OPEN' ? $t('tourneys_status_open') : selected.status === 'RUNNING' ? $t('tourneys_status_running') : selected.status === 'CLOSED' ? $t('tourneys_status_closed') : $t('tourneys_status_done')}
+			</span>
+		{/if}
+		<Icon name="chevron-down" size={14} />
+	</button>
+	{#if currentUser?.is_admin}
+		<button class="mobile-add-btn" on:click={openCreateTournamentModal} title={$t('tourneys_add_btn')}>
+			<Icon name="plus" size={14} />
+		</button>
+	{/if}
+</div>
+
+<!-- Lateral Drawer for Vertical Tournament Selection (Mobile) -->
+{#if showMobileTourneyDrawer}
+	<!-- svelte-ignore a11y-click-events-have-key-events -->
+	<div class="mobile-tourney-drawer-overlay" on:click|self={() => showMobileTourneyDrawer = false}>
+		<div class="mobile-tourney-drawer glass animate-in">
+			<div class="drawer-header">
+				<div class="drawer-title-row">
+					<Icon name="trophy" size={16} />
+					<h3>{$t('tourneys_title')} ({tournaments.length})</h3>
+				</div>
+				<button class="drawer-close-btn" on:click={() => showMobileTourneyDrawer = false} title={$t('common_close')}>
+					<Icon name="x" size={16} />
+				</button>
+			</div>
+			{#if currentUser?.is_admin}
+				<button class="drawer-add-btn" on:click={() => { showMobileTourneyDrawer = false; openCreateTournamentModal(); }}>
+					<Icon name="plus" size={14} /> {$t('tourneys_add_btn')}
+				</button>
+			{/if}
+			<div class="drawer-tourneys-list">
+				{#each tournaments as tourney}
+					<button
+						class="drawer-tourney-item {selectedId === tourney.id ? 'active' : ''}"
+						on:click={() => { selectTournament(tourney.id); showMobileTourneyDrawer = false; }}
+					>
+						<div class="drawer-item-info">
+							<span class="drawer-item-name">{tourney.name}</span>
+							<span class="drawer-item-game">{gameMap[tourney.game_id]?.name || '—'}</span>
+						</div>
+						<span class="status-pill {tourney.status.toLowerCase()}">
+							{tourney.status === 'OPEN' ? $t('tourneys_status_open') : tourney.status === 'RUNNING' ? $t('tourneys_status_running') : tourney.status === 'CLOSED' ? $t('tourneys_status_closed') : $t('tourneys_status_done')}
+						</span>
+					</button>
+				{/each}
+			</div>
+		</div>
+	</div>
+{/if}
+
 <div class="tournaments-layout">
 	<!-- Sidebar -->
 	<aside class="t-sidebar glass">
@@ -767,11 +827,10 @@
 			<!-- Info Cards -->
 			<div class="detail-body" class:collapsed-layout={selected?.status !== 'OPEN' && !showDetails}>
 				<div class="controls-row">
-					{#if selected?.status === 'RUNNING' || selected?.status === 'DONE' || selected?.status === 'CLOSED'}
-						<button class="toggle-details-btn glass" on:click={toggleDetails}>
-							{showDetails ? '▲ ' + $t('tourneys_btn_hide_details') : '▼ ' + $t('tourneys_btn_show_details')}
-						</button>
-					{/if}
+					<button class="toggle-details-btn glass" on:click={toggleDetails}>
+						<Icon name={showDetails ? 'chevron-up' : 'chevron-down'} size={12} />
+						<span>{showDetails ? $t('tourneys_btn_hide_details') : $t('tourneys_btn_show_details')}</span>
+					</button>
 					{#if selected?.status === 'RUNNING' || selected?.status === 'DONE' || selected?.status === 'CLOSED'}
 						{#if liveStandings.length > 0}
 							<button class="toggle-live-btn glass" on:click={toggleLiveStandings}>
@@ -825,7 +884,7 @@
 					{/if}
 				</div>
 
-				{#if showDetails || selected.status === 'OPEN'}
+				{#if showDetails || (!isMobile && selected.status === 'OPEN')}
 					<div class="info-row">
 						<div class="info-card glass"><span class="info-label">{$t("admin_tourneys_wizard_format_lbl")}</span><span class="info-value">{bracketLabel(selected.config?.bracket_type)}</span></div>
 						<div class="info-card glass"><span class="info-label">{$t("admin_tourneys_wizard_mode_lbl")}</span><span class="info-value">{selected.config?.use_teams ? `${$t('admin_tourneys_wizard_mode_teams')} (x${selected.config?.team_size || 2})` : 'Solo'}</span></div>
@@ -1236,87 +1295,115 @@
 	@keyframes toastIn { from { opacity: 0; transform: translateX(80px); } to { opacity: 1; transform: translateX(0); } }
 	@keyframes toastOut { from { opacity: 1; } to { opacity: 0; transform: translateX(80px); } }
 
+
+	/* Mobile Tourney Drawer & Bar */
+	.mobile-tourney-bar { display: none; }
+	.mobile-tourney-drawer-overlay {
+		position: fixed; inset: 0; background: rgba(0, 0, 0, 0.65);
+		backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+		z-index: 1000; display: flex; justify-content: flex-start;
+	}
+	.mobile-tourney-drawer {
+		width: 82%; max-width: 320px; height: 100%;
+		background: var(--surface-raised, #1e293b);
+		border-right: 1px solid rgba(255, 255, 255, 0.08);
+		padding: 0.75rem; display: flex; flex-direction: column; gap: 0.5rem;
+		box-shadow: 4px 0 24px rgba(0,0,0,0.5);
+		border-radius: 0 !important;
+	}
+	.drawer-header {
+		display: flex; justify-content: space-between; align-items: center;
+		padding-bottom: 0.5rem; border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+	}
+	.drawer-title-row {
+		display: flex; align-items: center; gap: 0.4rem;
+	}
+	.drawer-header h3 { font-size: 0.88rem; margin: 0; color: var(--text-main); font-weight: 700; }
+	.drawer-close-btn {
+		background: none; border: none; color: var(--text-dim); cursor: pointer; padding: 0.2rem;
+	}
+	.drawer-add-btn {
+		background: var(--accent); color: white; border: none;
+		border-radius: 3px !important; padding: 0.35rem 0.6rem;
+		font-size: 0.75rem; font-weight: 700; cursor: pointer;
+		display: flex; align-items: center; justify-content: center; gap: 0.3rem;
+	}
+	.drawer-tourneys-list {
+		flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 0.35rem;
+	}
+	.drawer-tourney-item {
+		display: flex; align-items: center; justify-content: space-between;
+		padding: 0.5rem 0.65rem; border-radius: 3px !important;
+		background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.06);
+		color: var(--text-dim); cursor: pointer; text-align: left; transition: all 0.15s;
+		gap: 0.4rem;
+	}
+	.drawer-tourney-item:hover, .drawer-tourney-item.active {
+		background: rgba(59, 130, 246, 0.15); border-color: rgba(59, 130, 246, 0.4);
+		color: var(--text-main);
+	}
+	.drawer-tourney-item.active .drawer-item-name { color: var(--accent); }
+	.drawer-item-info { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; flex: 1; }
+	.drawer-item-name { font-size: 0.82rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	.drawer-item-game { font-size: 0.68rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 	@media (max-width: 900px) {
 		.tournaments-layout {
 			flex-direction: column;
 			height: auto;
 			min-height: calc(100vh - 96px);
-			gap: 0.4rem;
+			gap: 0.35rem;
 		}
+		/* Hide the horizontal t-sidebar on mobile in favor of the burger menu and lateral drawer */
 		.t-sidebar {
-			width: 100%;
-			min-width: 0;
-			margin-right: 0;
-			max-height: none;
-			padding: 0.25rem 0.4rem;
-			border-radius: 6px;
-			box-shadow: none !important;
-			background: rgba(15, 23, 42, 0.6) !important;
+			display: none !important;
 		}
-		.sidebar-header {
-			display: none;
-		}
-		.sidebar-actions {
-			padding: 0 0 0.25rem 0;
-		}
-		.add-tournament-btn-full {
-			padding: 0.25rem 0.5rem;
-			height: 28px;
-			font-size: 0.72rem;
-			border-radius: 4px;
-		}
-		.t-list {
+
+		/* Mobile Selector Bar */
+		.mobile-tourney-bar {
 			display: flex;
-			flex-direction: row;
-			overflow-x: auto;
-			overflow-y: hidden;
-			padding: 0.15rem 0;
-			gap: 0.35rem;
 			align-items: center;
-			-webkit-overflow-scrolling: touch;
-		}
-		.t-item {
-			min-width: unset;
-			max-width: unset;
-			height: 30px;
-			padding: 0 0.6rem;
-			border-radius: 15px;
-			background-image: none !important;
-			background: rgba(255, 255, 255, 0.05) !important;
-			border: 1px solid rgba(255, 255, 255, 0.1);
-			display: inline-flex;
-			align-items: center;
-			gap: 0.35rem;
+			justify-content: space-between;
+			gap: 0.4rem;
+			height: 38px;
+			padding: 0 0.5rem;
+			border-radius: 3px !important;
+			background: rgba(15, 23, 42, 0.85);
+			border: 1px solid rgba(255, 255, 255, 0.08);
+			box-sizing: border-box;
 			flex-shrink: 0;
+			margin-bottom: 0.25rem;
 		}
-		.t-item.active {
-			background: var(--accent) !important;
-			border-color: var(--accent) !important;
-			color: white !important;
-		}
-		.t-item-checkered {
-			display: none;
-		}
-		.t-item-overlay {
-			position: static;
-			padding: 0;
-			background: none !important;
+		.mobile-tourney-trigger {
 			display: flex;
 			align-items: center;
-			gap: 0.35rem;
+			gap: 0.4rem;
+			background: none;
+			border: none;
+			color: var(--text-main);
+			cursor: pointer;
+			padding: 0;
+			font-size: 0.82rem;
+			font-weight: 700;
+			min-width: 0;
+			flex: 1;
 		}
-		.t-item-name {
-			font-size: 0.75rem;
-			font-weight: 600;
+		.trigger-name {
 			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			max-width: 170px;
 		}
-		.t-item-meta {
-			display: none;
-		}
-		.t-status-badge {
-			font-size: 0.6rem;
-			padding: 0.1rem 0.3rem;
-			border-radius: 8px;
+		.mobile-add-btn {
+			width: 28px;
+			height: 28px;
+			border-radius: 3px !important;
+			background: var(--accent-soft);
+			border: 1px solid var(--accent);
+			color: var(--accent);
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			cursor: pointer;
 		}
 		
 		.t-detail {
@@ -1330,11 +1417,11 @@
 		.detail-hero {
 			height: auto;
 			min-height: auto;
-			border-radius: 6px;
+			border-radius: 3px !important;
 		}
 		.hero-overlay {
 			position: static;
-			padding: 0.45rem 0.65rem;
+			padding: 0.4rem 0.6rem;
 			flex-direction: column;
 			align-items: flex-start;
 			gap: 0.2rem;
@@ -1348,7 +1435,12 @@
 		}
 		.status-pill {
 			font-size: 0.65rem;
-			padding: 0.12rem 0.38rem;
+			padding: 0.12rem 0.35rem;
+			border-radius: 2px !important;
+		}
+		.btn-primary.hero-join, .hero-joined, .admin-btn {
+			border-radius: 3px !important;
+			white-space: nowrap !important;
 		}
 		.hero-rules {
 			position: relative;
@@ -1358,13 +1450,15 @@
 			margin: 0.25rem 0;
 			padding: 0.35rem 0.5rem;
 			font-size: 0.72rem;
+			border-radius: 3px !important;
 		}
 		
 		.detail-body {
 			padding: 0.35rem;
-			gap: 0.4rem;
+			gap: 0.35rem;
 		}
 		.controls-row {
+			display: flex;
 			flex-wrap: wrap;
 			gap: 0.35rem;
 			margin-bottom: 0.25rem;
@@ -1373,7 +1467,11 @@
 			padding: 0.2rem 0.5rem;
 			font-size: 0.72rem;
 			height: 28px;
-			border-radius: 4px;
+			border-radius: 3px !important;
+			white-space: nowrap !important;
+			display: inline-flex;
+			align-items: center;
+			gap: 0.3rem;
 		}
 		.admin-bar {
 			flex-direction: column;
@@ -1381,7 +1479,7 @@
 			gap: 0.35rem;
 			width: 100%;
 			padding: 0.35rem 0.5rem;
-			border-radius: 4px;
+			border-radius: 3px !important;
 		}
 		.admin-bar-label {
 			font-size: 0.72rem;
@@ -1392,9 +1490,10 @@
 		}
 		.admin-btn {
 			padding: 0.2rem 0.45rem;
-			font-size: 0.7rem;
+			font-size: 0.68rem;
 			height: 26px;
-			border-radius: 4px;
+			border-radius: 3px !important;
+			white-space: nowrap !important;
 		}
 
 		/* Flat, compact 2x2 metadata on mobile */
@@ -1407,7 +1506,7 @@
 			padding: 0.35rem 0.5rem;
 			flex: 1 1 calc(50% - 0.35rem);
 			min-width: 130px;
-			border-radius: 4px;
+			border-radius: 3px !important;
 			border: 1px solid rgba(255, 255, 255, 0.06);
 		}
 		.info-label {

@@ -1005,7 +1005,7 @@
 	.notif-count-badge {
 		position: absolute; top: 4px; right: 8px;
 		min-width: 18px; height: 18px; line-height: 18px;
-		padding: 0 5px; border-radius: 10px;
+		padding: 0 5px; border-radius: 3px;
 		background: #ef4444; color: white;
 		font-size: 0.6rem; font-weight: 800; text-align: center;
 		box-shadow: 0 0 8px rgba(239,68,68,0.5);
@@ -1032,7 +1032,7 @@
 	.pm-count-badge {
 		position: absolute; top: 4px; right: 8px;
 		min-width: 18px; height: 18px; line-height: 18px;
-		padding: 0 5px; border-radius: 10px;
+		padding: 0 5px; border-radius: 3px;
 		background: #8b5cf6; color: white;
 		font-size: 0.6rem; font-weight: 800; text-align: center;
 		box-shadow: 0 0 8px rgba(139,92,246,0.5);
@@ -1048,7 +1048,7 @@
 	.ai-count-badge {
 		position: absolute; top: 4px; right: 8px;
 		min-width: 18px; height: 18px; line-height: 18px;
-		padding: 0 5px; border-radius: 10px;
+		padding: 0 5px; border-radius: 3px;
 		background: var(--accent); color: white;
 		font-size: 0.6rem; font-weight: 800; text-align: center;
 		box-shadow: 0 0 8px var(--accent-glow);
@@ -1393,7 +1393,7 @@
 		.top-action-btn {
 			width: 32px;
 			height: 32px;
-			border-radius: 6px;
+			border-radius: 3px;
 			background: rgba(255, 255, 255, 0.04);
 			border: 1px solid rgba(255, 255, 255, 0.08);
 			display: flex;
@@ -1420,7 +1420,7 @@
 			height: 16px;
 			line-height: 16px;
 			padding: 0 4px;
-			border-radius: 8px;
+			border-radius: 3px;
 			background: #ef4444;
 			color: white;
 			font-size: 0.6rem;
@@ -1464,7 +1464,7 @@
 			text-decoration: none;
 			color: var(--text-dim);
 			padding: 0.35rem 0.6rem;
-			border-radius: 8px;
+			border-radius: 3px;
 			flex: 1;
 			max-width: 72px;
 			transition: all 0.15s ease-out;
@@ -1501,7 +1501,7 @@
 			height: 16px;
 			line-height: 16px;
 			padding: 0 4px;
-			border-radius: 8px;
+			border-radius: 3px;
 			background: #8b5cf6;
 			color: white;
 			font-size: 0.58rem;

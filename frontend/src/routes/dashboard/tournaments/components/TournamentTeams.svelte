@@ -267,4 +267,38 @@
 	.team-add-select option { background: var(--bg-secondary); color: var(--text-main); padding: 0.4rem; }
 	.empty-team-hint { padding: 0.4rem; text-align: center; }
 	.unassigned-hint { margin-top: 0.75rem; padding: 0.5rem 0.75rem; background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.2); border-radius: 8px; color: #f59e0b; font-size: 0.75rem; font-weight: 600; }
+
+	@media (max-width: 900px) {
+		.teams-section { padding: 0.5rem; border-radius: 3px !important; }
+		.section-title {
+			flex-direction: column;
+			align-items: stretch;
+			gap: 0.35rem;
+			margin-bottom: 0.35rem;
+		}
+		.section-actions {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 0.3rem;
+			width: 100%;
+		}
+		.section-actions button {
+			flex: 1;
+			white-space: nowrap !important;
+			border-radius: 3px !important;
+			font-size: 0.7rem !important;
+			height: 28px;
+			padding: 0 0.4rem;
+		}
+		.team-card {
+			border-radius: 3px !important;
+			padding: 0.4rem 0.5rem;
+		}
+		.btn-join, .btn-lock-toggle, .team-member {
+			border-radius: 3px !important;
+		}
+		.captain-badge, .locked-chip, .full-chip {
+			border-radius: 2px !important;
+		}
+	}
 </style>
