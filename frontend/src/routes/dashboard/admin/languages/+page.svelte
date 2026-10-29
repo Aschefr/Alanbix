@@ -430,7 +430,7 @@
 
 			if (!response.ok) {
 				const err = await response.json().catch(() => ({ detail: 'Unknown error' }));
-				throw new Error(err.detail || `HTTP ${response.status}`);
+				throw new Error(err.detail || `HTTP ${response.status}`); // i18n-ignore: technical status
 			}
 
 			const reader = response.body.getReader();
@@ -464,7 +464,7 @@
 							translateProgress = Math.round((data.progress / data.total) * 100);
 						} else if (data.type === 'instance_lost') {
 							translateInstances = Math.max(0, translateInstances - 1);
-							toast(`⚠️ Instance ${data.instance} perdue, poursuite avec ${translateInstances} instance(s)`, 'warning');
+							toast('⚠️ ' + $t('admin_lang_instance_lost', { instance: data.instance, count: translateInstances }), 'warning');
 						} else if (data.type === 'done') {
 							translateCurrent = data.completed;
 							translateProgress = 100;
@@ -621,15 +621,15 @@
 			</div>
 			{#if targetLang !== 'fr' && targetLang !== 'en'}
 				<div style="position: relative; display: inline-block;">
-					<button class="toolbar-btn danger" on:click={() => showDeleteConfirm = !showDeleteConfirm} title="Supprimer {targetLang.toUpperCase()}">🗑️</button>
+					<button class="toolbar-btn danger" on:click={() => showDeleteConfirm = !showDeleteConfirm} title={$t('admin_lang_delete_tooltip', { lang: targetLang.toUpperCase() })} aria-label={$t('admin_lang_delete_tooltip', { lang: targetLang.toUpperCase() })}>🗑️</button>
 					{#if showDeleteConfirm}
 						<div class="confirm-popover" style="position: absolute; right: 0; top: calc(100% + 8px); width: 280px; padding: 1rem; border-radius: 12px; border: 1px solid var(--glass-border); background: var(--bg-secondary) !important; box-shadow: 0 8px 30px rgba(0,0,0,0.35); z-index: 1000; text-align: left; opacity: 1; backdrop-filter: none;">
 							<p style="margin: 0 0 0.75rem 0; font-size: 0.85rem; line-height: 1.4; color: var(--text-dim);">
 								{$t('admin_languages_toast_confirm_delete', { lang: targetLang.toUpperCase() })}
 							</p>
 							<div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
-								<button class="btn-secondary btn-sm" style="font-size: 0.8rem; padding: 0.3rem 0.6rem;" on:click={() => showDeleteConfirm = false}>Annuler</button>
-								<button class="btn-primary danger btn-sm" style="font-size: 0.8rem; padding: 0.3rem 0.6rem;" on:click={confirmDeleteLang}>Confirmer</button>
+								<button class="btn-secondary btn-sm" style="font-size: 0.8rem; padding: 0.3rem 0.6rem;" on:click={() => showDeleteConfirm = false}>{$t('common_cancel')}</button>
+								<button class="btn-primary danger btn-sm" style="font-size: 0.8rem; padding: 0.3rem 0.6rem;" on:click={confirmDeleteLang}>{$t('common_confirm')}</button>
 							</div>
 						</div>
 					{/if}
@@ -647,13 +647,13 @@
 	<!-- ─── Stats strip ──────────────────────────────────────── -->
 	<div class="stats-strip">
 		<div class="stats-strip-left">
-			<span class="stat-pill">{totalKeys} clés</span>
+			<span class="stat-pill">{$t('admin_lang_keys_count', { count: totalKeys })}</span>
 			<span class="stat-pill good">✅ {translatedCount}</span>
 			{#if missingCount > 0}
-				<span class="stat-pill warn">⚠️ {missingCount} non traduites</span>
+				<span class="stat-pill warn">⚠️ {$t('admin_lang_untranslated_count', { count: missingCount })}</span>
 			{/if}
 			{#if structuralMissingCount > 0}
-				<span class="stat-pill danger">🔑 {structuralMissingCount} absentes</span>
+				<span class="stat-pill danger">🔑 {$t('admin_lang_missing_count', { count: structuralMissingCount })}</span>
 			{/if}
 		</div>
 		{#if structuralMissingCount > 0}
@@ -675,10 +675,9 @@
 		<div class="sync-alert">
 			<div class="sync-alert-icon">🔑</div>
 			<div class="sync-alert-content">
-				<strong>{structuralMissingCount} clé{structuralMissingCount > 1 ? 's' : ''} manquante{structuralMissingCount > 1 ? 's' : ''}</strong>
+				<strong>{$t('admin_lang_missing_title', { count: structuralMissingCount })}</strong>
 				<span class="sync-alert-desc">
-					Le fichier {targetLang.toUpperCase()} ne contient pas toutes les clés de la langue de référence.
-					Cliquez sur « {$t('admin_languages_btn_sync')} » pour ajouter les clés manquantes avec des valeurs vides.
+					{$t('admin_lang_missing_desc', { lang: targetLang.toUpperCase(), button: $t('admin_languages_btn_sync') })}
 				</span>
 			</div>
 			<button class="btn-sync compact" on:click={syncMissingKeys} disabled={isSyncing}>
@@ -695,7 +694,7 @@
 					<span class="spinner"></span>
 					<span class="font-semibold text-sm" style="color: var(--text-main);">{$t('admin_languages_progress_banner_title', { current: translateCurrent, total: translateTotal, progress: translateProgress })}</span>
 					{#if translateInstances > 0}
-						<span class="instances-badge">⚡ {translateInstances} instance{translateInstances > 1 ? 's' : ''}</span>
+						<span class="instances-badge">⚡ {$t('admin_lang_instances_count', { count: translateInstances })}</span>
 					{/if}
 				</div>
 				<button class="btn-danger-sm" on:click={cancelBulkTranslation}>
@@ -740,7 +739,7 @@
 					<div class="editor-header-left">
 						<span class="editor-header-icon">{meta.icon}</span>
 						<h2 class="editor-header-title">{meta.label}</h2>
-						<span class="editor-header-count">{activeCategoryKeys.length} clés</span>
+						<span class="editor-header-count">{$t('admin_lang_keys_count', { count: activeCategoryKeys.length })}</span>
 					</div>
 					<button class="btn-primary btn-sm" on:click={saveTargetData} disabled={isSaving}>
 						{#if isSaving}<span class="spinner-sm"></span>{:else}💾{/if}
@@ -772,7 +771,7 @@
 										rows="1"
 										placeholder={$t('admin_languages_missing_translation')}
 									></textarea>
-									<button class="btn-wand" type="button" title="Auto-traduire" on:click={() => translateSingleKey(key)}>🪄</button>
+									<button class="btn-wand" type="button" title={$t('admin_lang_autotranslate_tooltip')} aria-label={$t('admin_lang_autotranslate_tooltip')} on:click={() => translateSingleKey(key)}>🪄</button>
 								</div>
 							</div>
 						</div>

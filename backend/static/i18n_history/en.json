@@ -1,4 +1,10 @@
 {
+ "admin_games_empty": [
+  "No games configured"
+ ],
+ "admin_games_search_placeholder": [
+  "Search for a game..."
+ ],
  "admin_players_modal_delete_avatar": [
   "Delete avatar"
  ],

@@ -240,7 +240,7 @@
 		try {
 			const list = lanWifiSsids.split(',').map(s => s.trim()).filter(Boolean);
 			await api.put('/admin/config/lan_wifi_ssids', { value: list });
-			toast('Réseaux Wi-Fi de la LAN enregistrés.', 'success');
+			toast(get(t)('admin_toast_wifi_saved'), 'success');
 		} catch { toast(get(t)('admin_error_save'), 'error'); }
 	}
 
@@ -257,15 +257,15 @@
 		try {
 			const res = await api.post('/admin/config/test-searxng', { url: searxngUrl });
 			if (res.ok) {
-				searxngTestResult = { ok: true, message: res.message || 'Instance SearXNG valide et fonctionnelle.' };
-				toast(res.message || 'SearXNG testé avec succès.', 'success');
+				searxngTestResult = { ok: true, message: res.message || get(t)('admin_searxng_test_ok') };
+				toast(res.message || get(t)('admin_searxng_test_ok'), 'success');
 			} else {
-				searxngTestResult = { ok: false, message: res.error || 'Erreur inconnue.' };
-				toast(res.error || 'Test SearXNG échoué.', 'error');
+				searxngTestResult = { ok: false, message: res.error || get(t)('admin_error_unknown') };
+				toast(res.error || get(t)('admin_searxng_test_failed'), 'error');
 			}
 		} catch (err) {
-			searxngTestResult = { ok: false, message: 'Erreur réseau lors de la communication avec le serveur backend.' };
-			toast('Erreur test SearXNG.', 'error');
+			searxngTestResult = { ok: false, message: get(t)('admin_searxng_test_network') };
+			toast(get(t)('admin_searxng_test_failed'), 'error');
 		} finally {
 			searxngTesting = false;
 		}
@@ -342,7 +342,7 @@
 			}
 		} catch (e) {
 			console.error("Failed to save public chat config:", e);
-			toast(e.message || 'Erreur de sauvegarde', 'error');
+			toast(e.message || get(t)('admin_error_save'), 'error');
 		}
 	}
 
@@ -351,7 +351,7 @@
 			await api.post('/public-chat/clear', {});
 			toast(get(t)('admin_public_chat_purge_success'), 'success');
 		} catch (e) {
-			toast(e.message || 'Erreur lors de la purge', 'error');
+			toast(e.message || get(t)('admin_chat_purge_error'), 'error');
 		} finally {
 			purgeChatConfirm = false;
 		}
@@ -392,11 +392,11 @@
 		if (!inst) return;
 		const res = await api.post('/ia/test-connection', { url: inst.url });
 		if (res.status === 'ok') {
-			toast(`${inst.label || inst.url} — OK (${res.latency_ms}ms)`, 'success');
+			toast(get(t)('admin_instance_test_ok', { name: inst.label || inst.url, ms: res.latency_ms }), 'success');
 			loadInstanceStatuses();
 			fetchModels();
 		} else {
-			toast(`${inst.label || inst.url} — Échec`, 'error');
+			toast(get(t)('admin_instance_test_failed', { name: inst.label || inst.url }), 'error');
 		}
 	}
 
@@ -473,14 +473,14 @@
 			if (res.warning) {
 				toast(`⚠️ ${res.warning}`, 'error');
 			} else if (res.chunks > 1) {
-				toast(`Document re-vectorisé en ${res.chunks} chunks (${res.content_length} car.)`, 'success');
+				toast(get(t)('admin_rag_reindexed', { chunks: res.chunks, chars: res.content_length }), 'success');
 			} else {
 				toast(get(t)('admin_toast_rag_updated'), 'success');
 			}
 			editingDocId = null;
 			editDocContent = '';
 			loadKnowledge();
-		} catch (e) { toast(e.message || 'Erreur mise à jour', 'error'); }
+		} catch (e) { toast(e.message || get(t)('admin_rag_update_error'), 'error'); }
 		editDocSaving = false;
 	}
 
@@ -493,12 +493,12 @@
 			if (res.warning) {
 				toast(`⚠️ ${res.warning}`, 'error');
 			} else if (res.chunks > 1) {
-				toast(`Document vectorisé en ${res.chunks} chunks (${res.content_length} car.) et ajouté à la base RAG.`, 'success');
+				toast(get(t)('admin_rag_indexed', { chunks: res.chunks, chars: res.content_length }), 'success');
 			} else {
 				toast(get(t)('admin_toast_rag_added'), 'success');
 			}
 			loadKnowledge();
-		} catch (e) { toast(e.message || 'Erreur vectorisation', 'error'); }
+		} catch (e) { toast(e.message || get(t)('admin_rag_index_error'), 'error'); }
 		uploadingDoc = false;
 	}
 
@@ -507,7 +507,7 @@
 		nuking.awards = true;
 		try {
 			const res = await api.delete('/admin/nuke/awards');
-			toast(`${res.deleted_awards} prix supprimé(s)`, 'success');
+			toast(get(t)('admin_nuke_awards_done', { count: res.deleted_awards }), 'success');
 			onDataReset();
 		} catch (e) { toast(e.message, 'error'); }
 		nuking.awards = false;
@@ -518,7 +518,7 @@
 		nuking.tournaments = true;
 		try {
 			const res = await api.delete('/admin/nuke/tournaments');
-			toast(`${res.deleted_tournaments} tournoi(s) supprimé(s), scores réinitialisés`, 'success');
+			toast(get(t)('admin_nuke_tournaments_done', { count: res.deleted_tournaments }), 'success');
 			onDataReset();
 		} catch (e) { toast(e.message, 'error'); }
 		nuking.tournaments = false;
@@ -529,7 +529,7 @@
 		nuking.players = true;
 		try {
 			const res = await api.delete('/admin/nuke/players');
-			toast(`${res.deleted_players} joueur(s) supprimé(s)`, 'success');
+			toast(get(t)('admin_nuke_players_done', { count: res.deleted_players }), 'success');
 			onDataReset();
 		} catch (e) { toast(e.message, 'error'); }
 		nuking.players = false;
@@ -540,7 +540,7 @@
 		nuking.games = true;
 		try {
 			const res = await api.delete('/admin/nuke/games');
-			toast(`${res.deleted_games} jeu(x) et tous les tournois supprimés`, 'success');
+			toast(get(t)('admin_nuke_games_done', { count: res.deleted_games }), 'success');
 			onDataReset();
 		} catch (e) { toast(e.message, 'error'); }
 		nuking.games = false;
@@ -551,7 +551,7 @@
 		nuking.images = true;
 		try {
 			await api.delete('/ia/admin/nuke-images');
-			toast('Toutes les images du chat ont été supprimées', 'success');
+			toast(get(t)('admin_nuke_images_done'), 'success');
 		} catch (e) { toast(e.message, 'error'); }
 		nuking.images = false;
 		nukeConfirm.images = false;
@@ -561,7 +561,7 @@
 		nuking.notifications = true;
 		try {
 			const res = await api.delete('/admin/nuke/notifications');
-			toast(`${res.deleted_notifications} notification(s) supprimée(s)`, 'success');
+			toast(get(t)('admin_nuke_notifs_done', { count: res.deleted_notifications }), 'success');
 		} catch (e) { toast(e.message, 'error'); }
 		nuking.notifications = false;
 		nukeConfirm.notifications = false;
@@ -612,13 +612,13 @@
 			<div class="sc-head">
 				<div class="sc-icon">📶</div>
 				<div>
-					<h3>Réseaux Wi-Fi de la LAN (SSID)</h3>
-					<p class="sc-sub">Noms des réseaux Wi-Fi (séparés par des virgules, ex: Alanbix_LAN, LAN_5G). Utilisé par les smartphones pour le maintien de connexion locale et alertes de matchs.</p>
+					<h3>{$t('admin_settings_wifi_title')}</h3>
+					<p class="sc-sub">{$t('admin_settings_wifi_sub')}</p>
 				</div>
 			</div>
 			<div class="sc-body">
 				<div class="flex-row gap-2">
-					<input type="text" aria-label="Réseaux Wi-Fi de la LAN" bind:value={lanWifiSsids} on:input={() => debounceSave('lanWifiSsids', saveLanWifiSsids)} placeholder="Ex: Alanbix_LAN, Tournoi_5G" style="flex:1" />
+					<input type="text" aria-label={$t('admin_settings_wifi_title')} bind:value={lanWifiSsids} on:input={() => debounceSave('lanWifiSsids', saveLanWifiSsids)} placeholder={$t('admin_settings_wifi_placeholder')} style="flex:1" />
 				</div>
 			</div>
 		</div>
@@ -757,7 +757,7 @@
 								<label class="compact-label" for="pca-slowmode">{$t("admin_public_chat_slowmode")}</label>
 								<div class="pca-input-wrapper">
 									<input id="pca-slowmode" type="number" bind:value={publicChatConfig.slowmode_seconds} min="0" max="120" placeholder="0" on:change={savePublicChatConfig} />
-									<span class="pca-input-suffix">sec</span>
+									<span class="pca-input-suffix">{$t('unit_seconds_short')}</span>
 								</div>
 								<span class="pca-hint">{$t("admin_public_chat_slowmode_hint")}</span>
 							</div>
@@ -766,7 +766,7 @@
 								<label class="compact-label" for="pca-maxlen">{$t("admin_public_chat_max_len")}</label>
 								<div class="pca-input-wrapper">
 									<input id="pca-maxlen" type="number" bind:value={publicChatConfig.max_length} min="10" max="1000" placeholder="250" on:change={savePublicChatConfig} />
-									<span class="pca-input-suffix">car.</span>
+									<span class="pca-input-suffix">{$t('unit_chars_short')}</span>
 								</div>
 								<span class="pca-hint">{$t("admin_public_chat_max_len_hint")}</span>
 							</div>
@@ -775,7 +775,7 @@
 								<label class="compact-label" for="pca-cooldown">{$t("admin_public_chat_ai_cooldown")}</label>
 								<div class="pca-input-wrapper">
 									<input id="pca-cooldown" type="number" bind:value={publicChatConfig.ai_cooldown_seconds} min="5" max="300" placeholder="15" disabled={!publicChatConfig.ai_mention_enabled} on:change={savePublicChatConfig} />
-									<span class="pca-input-suffix">sec</span>
+									<span class="pca-input-suffix">{$t('unit_seconds_short')}</span>
 								</div>
 								<span class="pca-hint">{$t("admin_public_chat_ai_cooldown_hint")}</span>
 							</div>
@@ -1056,7 +1056,7 @@
 					<h3>{$t('admin_settings_ai_instances')}</h3>
 					<p class="sc-sub">{$t("admin_settings_ai_instances_sub")}</p>
 				</div>
-				<button class="btn-add btn-xs" on:click={addInstance}>+ Ajouter</button>
+				<button class="btn-add btn-xs" on:click={addInstance}>{$t('admin_ai_add_instance')}</button>
 			</div>
 			<div class="sc-body">
 				{#each iaConfig.ollama_instances as inst, idx}
@@ -1071,9 +1071,9 @@
 						<div class="inst-main">
 							<input type="text" class="inst-name-input" bind:value={inst.label} on:change={saveIAConfig} placeholder="{$t('admin_settings_instances_gpu_placeholder')}" />
 							<div class="inst-meta">
-								<input type="text" class="inst-url-input" bind:value={inst.url} on:change={saveIAConfig} placeholder="http://..." />
+								<input type="text" class="inst-url-input" bind:value={inst.url} on:change={saveIAConfig} placeholder="http://..." /><!-- i18n-ignore -->
 								<select bind:value={inst.model} on:change={saveIAConfig} class="inst-model-select">
-									<option value="">— Modèle —</option>
+									<option value="">{$t('admin_ai_model_placeholder')}</option>
 									{#each (status?.available_models || availableModels.map(m => m.name)) as mName}
 										<option value={mName}>{mName}</option>
 									{/each}
@@ -1091,7 +1091,7 @@
 								<input type="checkbox" bind:checked={inst.enabled} on:change={saveIAConfig} />
 								<span class="toggle-slider"></span>
 							</label>
-							<button class="inst-btn-mini" on:click={() => testInstance(idx)} title="Tester">🔍</button>
+							<button class="inst-btn-mini" on:click={() => testInstance(idx)} title={$t('admin_ai_test_instance')} aria-label={$t('admin_ai_test_instance')}>🔍</button>
 							<button class="inst-btn-mini danger" on:click={() => removeInstance(idx)} title="{$t('admin_tourneys_tooltip_delete')}">✕</button>
 						</div>
 					</div>
@@ -1125,7 +1125,7 @@
 				<!-- Context Window -->
 				<div>
 					<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem;">
-						<label class="compact-label">{$t('admin_settings_ai_context')} <strong>{iaConfig.context_window} tokens</strong></label>
+						<label class="compact-label">{$t('admin_settings_ai_context')} <strong>{$t('ai_tokens_count', { n: iaConfig.context_window })}</strong></label>
 						<input 
 							type="number" 
 							bind:value={iaConfig.context_window} 
@@ -1156,7 +1156,7 @@
 				<div>
 					<label class="compact-label" style="margin-bottom: 0.2rem; display: block;">{$t('admin_settings_ai_rag_model')}</label>
 					<select bind:value={iaConfig.embedding_model} on:change={saveIAConfig} class="inst-model-select-wide">
-						<option value="">— Auto (nomic-embed-text) —</option>
+						<option value="">{$t('admin_ai_embed_auto')}</option>
 						{#each availableModels.filter(m => m.name.includes('embed')) as m}
 							<option value={m.name}>{m.name}</option>
 						{/each}

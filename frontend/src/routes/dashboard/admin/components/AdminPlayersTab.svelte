@@ -179,7 +179,7 @@
 		const minutes = isMuted ? 0 : 30;
 		try {
 			await api.post(`/public-chat/mute/${p.id}`, { duration_minutes: minutes });
-			toast(isMuted ? `${p.username} est démuté du chat public` : `${p.username} est muté pour 30 minutes`, 'success');
+			toast(isMuted ? $t('admin_players_toast_unmuted', { name: p.username }) : $t('admin_players_toast_muted', { name: p.username }), 'success');
 			await loadPlayers();
 		} catch (e) {
 			toast(e.message, 'error');
@@ -238,7 +238,7 @@
 				<span class="pt-col pt-name">{$t("admin_players_hdr_pseudo")}</span>
 				<span class="pt-col pt-team">{$t("admin_players_hdr_team")}</span>
 				<span class="pt-col pt-pts">{$t("dash_modal_points_total")}</span>
-				<span class="pt-col pt-actions">Actions</span>
+				<span class="pt-col pt-actions">{$t('admin_players_hdr_actions')}</span>
 			</div>
 			{#each filteredPlayers as p, i (p.id)}
 				<div class="pt-row {p.is_admin ? 'is-admin' : ''}">
@@ -254,7 +254,7 @@
 						{#if p.is_admin}<span class="admin-badge">👑</span>{/if}
 						{#if p.ia_blocked}<span class="ia-blocked-badge" title="{$t('admin_players_ia_blocked_tooltip')}">🚫</span>{/if}
 						{#if p.public_chat_muted_until && new Date(p.public_chat_muted_until) > new Date()}
-							<span class="chat-muted-badge" title="Mute chat public">🔇</span>
+							<span class="chat-muted-badge" title={$t('admin_players_muted_badge')}>🔇</span>
 						{/if}
 					</span>
 					<span class="pt-col pt-team">{p.team_name || '—'}</span>
@@ -316,7 +316,7 @@
 		<div class="modal-card-global glass" on:click|stopPropagation style="max-width: 440px">
 			<header class="edit-modal-header">
 				<h3>✏️ {$t('admin_players_modal_edit_title', { name: editingPlayer.username })}</h3>
-				<button class="close-btn" on:click={() => editingPlayer = null} aria-label="Fermer">✕</button>
+				<button class="close-btn" on:click={() => editingPlayer = null} aria-label={$t('common_close')}>✕</button>
 			</header>
 			<div class="edit-modal-body">
 				{#if editingPlayer.avatar_url}
@@ -380,7 +380,7 @@
 		<div class="modal-card-global glass" on:click|stopPropagation style="max-width: 440px">
 			<header class="edit-modal-header">
 				<h3>🔑 {$t('admin_players_modal_reset_pwd_title', { name: resetPwdPlayer.username })}</h3>
-				<button class="close-btn" on:click={() => resetPwdPlayer = null} aria-label="Fermer">✕</button>
+				<button class="close-btn" on:click={() => resetPwdPlayer = null} aria-label={$t('common_close')}>✕</button>
 			</header>
 			<div class="edit-modal-body">
 				<div class="edit-field">

@@ -145,7 +145,7 @@
 	function handleAdminFileSelect(e) {
 		const file = e.target.files?.[0];
 		if (!file) return;
-		if (file.size > 8 * 1024 * 1024) { toast('Image trop volumineuse (max 8 Mo)', 'error'); return; }
+		if (file.size > 8 * 1024 * 1024) { toast(get(t)('admin_conv_image_too_big'), 'error'); return; }
 		adminPendingImage = file;
 		const reader = new FileReader();
 		reader.onload = (ev) => { adminImagePreview = ev.target.result; };
@@ -160,7 +160,7 @@
 			if (item.type.startsWith('image/')) {
 				e.preventDefault();
 				const file = item.getAsFile();
-				if (file.size > 8 * 1024 * 1024) { toast('Image trop volumineuse (max 8 Mo)', 'error'); return; }
+				if (file.size > 8 * 1024 * 1024) { toast(get(t)('admin_conv_image_too_big'), 'error'); return; }
 				adminPendingImage = file;
 				const reader = new FileReader();
 				reader.onload = (ev) => { adminImagePreview = ev.target.result; };
@@ -190,7 +190,7 @@
 			} else {
 				adminConversations = fresh;
 			}
-		} catch (e) { toast('Erreur chargement conversations', 'error'); }
+		} catch (e) { toast(get(t)('admin_conv_load_error'), 'error'); }
 	}
 
 	export async function selectAdminConv(id) {
@@ -227,7 +227,7 @@
 			}
 			await api.post(`/ia/admin/conversations/${adminActiveConvId}/intervene`, { content: adminInterveneText || '(image)', image_path: imagePath });
 			adminInterveneText = '';
-			toast('Message admin envoyé', 'success');
+			toast(get(t)('admin_conv_message_sent'), 'success');
 			await selectAdminConv(adminActiveConvId);
 		} catch (e) { toast(e.message, 'error'); }
 	}
@@ -235,7 +235,7 @@
 	async function toggleAdminOverride(convId, value) {
 		try {
 			await api.put(`/ia/admin/conversations/${convId}/override`, { admin_override: value });
-			toast(value ? 'Admin prend la main' : 'IA reprend la main', 'success');
+			toast(value ? get(t)('admin_conv_takeover_on') : get(t)('admin_conv_takeover_off'), 'success');
 			if (adminConvInfo) adminConvInfo.admin_override = value;
 			await loadAdminConversations();
 		} catch (e) { toast(e.message, 'error'); }
@@ -249,7 +249,7 @@
 		try {
 			await api.put(`/ia/admin-calls/${id}/resolve`, { note });
 			await loadAdminCalls();
-			toast('Demande marquée comme résolue', 'success');
+			toast(get(t)('admin_call_resolved'), 'success');
 		} catch(e) { toast(e.message || $t('regie_error_generic'), 'error'); }
 	}
 
@@ -257,7 +257,7 @@
 		try {
 			await api.put(`/ia/admin-calls/${id}/dismiss`, {});
 			await loadAdminCalls();
-			toast('Demande ignorée', 'success');
+			toast(get(t)('admin_call_dismissed'), 'success');
 		} catch(e) { toast(e.message || $t('regie_error_generic'), 'error'); }
 	}
 
@@ -267,12 +267,12 @@
 
 	async function approveRagSuggestion(id) {
 		const answer = (ragAnswers[id] || '').trim();
-		if (!answer) { toast('Saisissez une réponse avant d\'approuver', 'error'); return; }
+		if (!answer) { toast(get(t)('admin_rag_answer_required'), 'error'); return; }
 		try {
 			await api.put(`/ia/rag-suggestions/${id}/approve`, { answer });
 			await loadRagSuggestions();
 			delete ragAnswers[id];
-			toast('Suggestion approuvée et injectée dans la base RAG', 'success');
+			toast(get(t)('admin_rag_suggestion_approved'), 'success');
 		} catch(e) { toast(e.message || $t('regie_error_generic'), 'error'); }
 	}
 
@@ -280,7 +280,7 @@
 		try {
 			await api.put(`/ia/rag-suggestions/${id}/reject`, {});
 			await loadRagSuggestions();
-			toast('Suggestion rejetée', 'success');
+			toast(get(t)('admin_rag_suggestion_rejected'), 'success');
 		} catch(e) { toast(e.message || $t('regie_error_generic'), 'error'); }
 	}
 </script>
@@ -328,10 +328,10 @@
 												<span class="status-pill-sm open" style="background:rgba(34,197,94,0.15);color:#22c55e;border:1px solid rgba(34,197,94,0.3)">{c.unread_count > 1 ? $t('admin_chats_unread_plural', { count: c.unread_count }) : $t('admin_chats_unread_singular', { count: c.unread_count })}</span>
 											{/if}
 											{#if c.admin_override}
-												<span class="status-pill-sm" style="background:rgba(168,85,247,0.2);color:#a855f7;border:1px solid #a855f7">🛡️ Admin</span>
+												<span class="status-pill-sm" style="background:rgba(168,85,247,0.2);color:#a855f7;border:1px solid #a855f7">🛡️ {$t('admin_conv_admin_badge')}</span>
 											{/if}
 										</div>
-										<div class="item-meta" style="font-size:0.7rem;">{c.message_count} msg • {$t('dash_pill_active')} : {c.last_message_at ? new Date(c.last_message_at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}</div>
+										<div class="item-meta" style="font-size:0.7rem;">{$t('admin_conv_messages_count', { count: c.message_count })} • {$t('dash_pill_active')} : {c.last_message_at ? new Date(c.last_message_at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}</div>
 										{#if c.last_message_preview}
 											<div class="last-msg-preview" style="font-size:0.72rem;color:var(--text-dim);margin-top:0.2rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:320px;opacity:0.8">
 												<strong>{c.last_message_role === 'user' ? '👤' : c.last_message_role === 'admin' ? '🛡️' : '🤖'}:</strong> {c.last_message_preview}
@@ -387,7 +387,7 @@
 								<span style="font-size:0.7rem;color:var(--text-muted);margin-bottom:2px;font-weight:600;">{adminConvInfo.username}</span>
 							{/if}
 							<div style="padding:0.6rem 0.8rem;border-radius:12px;font-size:0.85rem;line-height:1.4;{m.role === 'user' ? 'background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.3)' : m.role === 'admin' ? 'background:rgba(168,85,247,0.12);border:1px solid rgba(168,85,247,0.3)' : 'background:var(--hover-tint);border:1px solid var(--glass-border)'}">
-								{#if m.role === 'admin'}<span style="font-size: 0.75rem;font-weight:700;color:#a855f7;text-transform:uppercase;margin-bottom:0.2rem;display:block">Admin</span>{/if}
+								{#if m.role === 'admin'}<span style="font-size: 0.75rem;font-weight:700;color:#a855f7;text-transform:uppercase;margin-bottom:0.2rem;display:block">{$t('admin_conv_admin_badge')}</span>{/if}
 								<div class="admin-conv-md">{@html parseMd(m.content)}</div>
 								{#if m.image_path}
 									<div style="margin-top:0.4rem">
@@ -399,13 +399,13 @@
 							{#if m.role === 'bot' && m.meta}
 								<div class="msg-meta-row" style="display:flex;flex-wrap:wrap;gap:0.4rem;font-size: 0.75rem;color:var(--text-dim);margin-top:0.2rem;padding:0 0.2rem;opacity:0.8">
 									{#if m.meta.model_info}
-										<span title="Modèle / Instance" style="background:rgba(255,255,255,0.05);padding:1px 4px;border-radius:4px;border:1px solid var(--glass-border)">🤖 {m.meta.model_info.model || 'Modèle'} ({m.meta.model_info.instance || 'Default'})</span>
+										<span title={$t('admin_conv_model_tooltip')} style="background:rgba(255,255,255,0.05);padding:1px 4px;border-radius:4px;border:1px solid var(--glass-border)">🤖 {m.meta.model_info.model || $t('admin_conv_model_fallback')} ({m.meta.model_info.instance || $t('admin_conv_instance_default')})</span>
 									{/if}
 									{#if m.meta.duration}
-										<span title="Temps de réponse" style="background:rgba(255,255,255,0.05);padding:1px 4px;border-radius:4px;border:1px solid var(--glass-border)">⏱️ {m.meta.duration.toFixed(1)}s</span>
+										<span title={$t('admin_conv_response_time')} style="background:rgba(255,255,255,0.05);padding:1px 4px;border-radius:4px;border:1px solid var(--glass-border)">⏱️ {m.meta.duration.toFixed(1)}s</span>
 									{/if}
 									{#if m.meta.used_tools && m.meta.used_tools.length > 0}
-										<span title="Outils utilisés: {m.meta.used_tools.join(', ')}" style="background:rgba(59,130,246,0.1);color:var(--accent);padding:1px 4px;border-radius:4px;border:1px solid rgba(59,130,246,0.2)">🛠️ {m.meta.used_tools.join(', ')}</span>
+										<span title={$t('admin_conv_tools_used', { tools: m.meta.used_tools.join(', ') })} style="background:rgba(59,130,246,0.1);color:var(--accent);padding:1px 4px;border-radius:4px;border:1px solid rgba(59,130,246,0.2)">🛠️ {m.meta.used_tools.join(', ')}</span>
 									{/if}
 								</div>
 							{/if}
@@ -426,13 +426,13 @@
 				<div style="padding:0.75rem 1rem;border-top:1px solid var(--glass-border);display:flex;flex-direction:column;gap:0.5rem">
 					{#if adminImagePreview}
 						<div style="position:relative;display:inline-block">
-							<img src={adminImagePreview} alt="Preview" style="max-width:150px;max-height:80px;border-radius:6px;border:2px solid #a855f7;object-fit:cover" />
+							<img src={adminImagePreview} alt={$t('chat_preview_alt')} style="max-width:150px;max-height:80px;border-radius:6px;border:2px solid #a855f7;object-fit:cover" />
 							<button style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:rgba(239,68,68,0.9);color:white;border:none;cursor:pointer;font-size: 0.75rem;display:flex;align-items:center;justify-content:center" on:click={() => { adminPendingImage = null; adminImagePreview = ''; }}>✕</button>
 						</div>
 					{/if}
 					<div style="display:flex;gap:0.5rem;align-items:center">
 						<input type="file" accept="image/*" bind:this={adminFileInput} on:change={handleAdminFileSelect} style="display:none" />
-						<button class="btn-attach" style="width:36px;height:36px;font-size:1rem;border-radius:6px" on:click={() => adminFileInput?.click()} title="Joindre une image">📎</button>
+						<button class="btn-attach" style="width:36px;height:36px;font-size:1rem;border-radius:6px" on:click={() => adminFileInput?.click()} title={$t('admin_conv_attach_image')} aria-label={$t('admin_conv_attach_image')}>📎</button>
 						<input type="text" bind:value={adminInterveneText} placeholder="{$t('admin_chats_placeholder')}" style="flex:1" on:keydown={(e) => { if (e.key === 'Enter') adminSendIntervention(); }} on:paste={handleAdminPaste} />
 						<button class="btn-primary" on:click={adminSendIntervention}>{$t('ai_btn_send')}</button>
 					</div>
@@ -465,7 +465,7 @@
 			</div>
 			<div style="display:flex;gap:0.5rem;align-items:center">
 				{#if adminCalls.length > 0}<span class="badge-count" style="background:#f97316">{adminCalls.length}</span>{/if}
-				<button class="btn-icon-sm" on:click={loadAdminCalls} title="Rafraîchir">🔄</button>
+				<button class="btn-icon-sm" on:click={loadAdminCalls} title={$t('common_refresh')} aria-label={$t('common_refresh')}>🔄</button>
 			</div>
 		</div>
 		<div class="item-list" style="display:flex;flex-direction:column;gap:0.75rem;padding:0.75rem">
@@ -480,7 +480,7 @@
 						</div>
 						<p style="margin:0;font-size:0.9rem;line-height:1.4">{call.question}</p>
 						{#if call.conversation_id}
-							<button class="btn-secondary" style="font-size:0.8rem;padding:0.2rem 0.6rem" on:click={() => selectAdminConv(call.conversation_id)}>💬 Voir la conversation</button>
+							<button class="btn-secondary" style="font-size:0.8rem;padding:0.2rem 0.6rem" on:click={() => selectAdminConv(call.conversation_id)}>💬 {$t('admin_call_view_conversation')}</button>
 						{/if}
 						<div style="display:flex;gap:0.4rem">
 							<button class="btn-primary" style="font-size:0.8rem;padding:0.25rem 0.75rem" on:click={() => resolveAdminCall(call.id)}>{$t('ai_call_admin_resolve_btn')}</button>
@@ -503,7 +503,7 @@
 			</div>
 			<div style="display:flex;gap:0.5rem;align-items:center">
 				{#if ragSuggestions.length > 0}<span class="badge-count">{ragSuggestions.length}</span>{/if}
-				<button class="btn-icon-sm" on:click={loadRagSuggestions} title="Rafraîchir">🔄</button>
+				<button class="btn-icon-sm" on:click={loadRagSuggestions} title={$t('common_refresh')} aria-label={$t('common_refresh')}>🔄</button>
 			</div>
 		</div>
 		<div class="item-list" style="display:flex;flex-direction:column;gap:0.75rem;padding:0.75rem">

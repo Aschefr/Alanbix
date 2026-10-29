@@ -5,6 +5,9 @@
  "admin_awards_interpolation_tip": [
   "Les descriptions supportent l'interpolation de variables de statistiques liées au vainqueur (ex: {points}, {wins}, {matches_played}, {team_name})."
  ],
+ "admin_games_search_placeholder": [
+  "Rechercher un jeu..."
+ ],
  "admin_games_searxng_not_configured": [
   "SearXNG n'est pas configuré dans les paramètres de l'administration."
  ],

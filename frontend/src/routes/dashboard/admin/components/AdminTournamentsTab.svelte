@@ -136,7 +136,7 @@
 		try {
 			await api.delete(`/tournaments/${id}`);
 			deleteConfirmTournamentId = null;
-			toast(get(t)('admin_toast_tournament_deleted') || 'Tournoi supprimé', 'success');
+			toast(get(t)('admin_toast_tournament_deleted'), 'success');
 			onReload();
 		} catch (e) { toast(e.message, 'error'); }
 	}
@@ -156,7 +156,7 @@
 		try {
 			await api.post(`/tournaments/${tournamentId}/retry-notifications`);
 			toast(get(t)('admin_toast_regen_ai_started'), 'success');
-		} catch (e) { toast(e.message || 'Erreur retry', 'error'); }
+		} catch (e) { toast(e.message || get(t)('admin_retry_error'), 'error'); }
 	}
 
 	async function deleteGame(id, force = false, unlink = false) {
@@ -169,14 +169,14 @@
 			onReload();
 			toast(unlink ? get(t)('admin_games_unlink_success') : get(t)('admin_toast_game_deleted'), 'success');
 		} catch (e) {
-			if (e.message && (e.message.includes('confirmer la suppression') || e.message.includes('délier'))) {
+			if (e.message && (e.message.includes('confirmer la suppression') || e.message.includes('délier'))) { // i18n-ignore: matches the server error text
 				const g = games.find(game => game.id === id);
 				const freshTournaments = await api.get('/tournaments');
 				const affected = freshTournaments.filter(tItem => tItem.game_id && Number(tItem.game_id) === Number(id));
 				gameToDeleteWithTournaments = { game: g, tournaments: affected };
 				deleteGameCheckboxConfirmed = false;
 			} else {
-				toast(e.message || 'Erreur de suppression', 'error');
+				toast(e.message || get(t)('admin_delete_error'), 'error');
 			}
 		}
 	}
@@ -388,9 +388,9 @@
 						{#if promptPreviewId === tourney.id && promptPreviewText}
 							<div class="prompt-preview-panel">
 								<div class="prompt-preview-header">
-									<span>👁️ Prompt IA envoyé à Ollama</span>
+									<span>👁️ {$t('admin_prompt_preview_title')}</span>
 									<div style="display:flex;align-items:center;gap:0.5rem">
-										<span class="prompt-token-badge">~{promptPreviewTokens} tokens</span>
+										<span class="prompt-token-badge">~{$t('ai_tokens_count', { n: promptPreviewTokens })}</span>
 										<button class="close-btn" on:click={() => { promptPreviewId = null; promptPreviewText = ''; }}>✕</button>
 									</div>
 								</div>
@@ -439,7 +439,7 @@
 						</div>
 					</div>
 				{:else}
-					<div class="game-empty"><span class="text-dim text-xs">Aucun jeu configuré</span></div>
+					<div class="game-empty"><span class="text-dim text-xs">{$t('admin_games_empty')}</span></div>
 				{/each}
 			</div>
 		</section>
@@ -456,37 +456,37 @@
 		<div class="modal-card-global glass" on:click|stopPropagation style="max-width: 480px">
 			<header class="edit-modal-header danger-zone">
 				<h3>⚠️ {$t('admin_games_nuke_title')}</h3>
-				<button class="close-btn" on:click={() => gameToDeleteWithTournaments = null} aria-label="Fermer">✕</button>
+				<button class="close-btn" on:click={() => gameToDeleteWithTournaments = null} aria-label={$t('common_close')}>✕</button>
 			</header>
 			<div class="edit-modal-body">
 				<div class="flex-col gap-3">
 					<p class="text-sm">
-						Vous êtes sur le point de supprimer le jeu <strong class="text-accent">{gameToDeleteWithTournaments.game.name}</strong> de la bibliothèque.
+						{$t('admin_games_delete_intro', { name: gameToDeleteWithTournaments.game.name })}
 					</p>
 					
 					<div class="danger-warning-box">
-						<strong class="warn-title">⚠️ EFFET EN CASCADE DÉTECTÉ</strong>
+						<strong class="warn-title">⚠️ {$t('admin_games_cascade_title')}</strong>
 						<p class="text-xs text-dim" style="margin: 0.2rem 0 0.6rem;">
-							Ce jeu est actuellement utilisé par <strong>{gameToDeleteWithTournaments.tournaments.length}</strong> tournoi(s) :
+							{$t('admin_games_cascade_used_by', { count: gameToDeleteWithTournaments.tournaments.length })}
 						</p>
 						<ul>
 							{#each gameToDeleteWithTournaments.tournaments as tItem}
 								<li>
 									<strong>{tItem.name}</strong>
 									<span class="status-badge {tItem.status.toLowerCase()}">
-										{tItem.status === 'OPEN' ? 'Ouvert' : tItem.status === 'RUNNING' ? 'En cours' : tItem.status === 'DONE' ? 'Terminé' : 'Clôturé'}
+										{tItem.status === 'OPEN' ? $t('admin_tourneys_status_pill_open') : tItem.status === 'RUNNING' ? $t('admin_tourneys_status_pill_running') : tItem.status === 'DONE' ? $t('admin_tourneys_status_pill_done') : $t('admin_tourneys_status_pill_closed')}
 									</span>
 								</li>
 							{/each}
 						</ul>
 						<p class="warning-text text-xs">
-							La suppression de ce jeu entraînera la <strong>destruction définitive et irréversible</strong> de ces tournois, incluant :
+							{$t('admin_games_cascade_warning')}
 						</p>
 						<div class="consequence-badges">
-							<span class="c-badge">👥 Équipes</span>
-							<span class="c-badge">👤 Participants</span>
-							<span class="c-badge">📊 Scores & Brackets</span>
-							<span class="c-badge">⚖️ Conflits</span>
+							<span class="c-badge">👥 {$t('admin_games_cascade_teams')}</span>
+							<span class="c-badge">👤 {$t('admin_games_cascade_participants')}</span>
+							<span class="c-badge">📊 {$t('admin_games_cascade_scores')}</span>
+							<span class="c-badge">⚖️ {$t('admin_games_cascade_conflicts')}</span>
 						</div>
 					</div>
 
@@ -498,7 +498,7 @@
 			</div>
 			<footer class="edit-modal-footer" style="gap: 0.5rem; flex-wrap: wrap;">
 				<button class="btn-secondary" on:click={() => gameToDeleteWithTournaments = null}>{$t('admin_settings_cancel')}</button>
-				<button class="btn-primary btn-sm" on:click={() => deleteGame(gameToDeleteWithTournaments.game.id, false, true)} title="Conserver les tournois et l'historique sans ce jeu">{$t('admin_games_nuke_unlink_btn')}</button>
+				<button class="btn-primary btn-sm" on:click={() => deleteGame(gameToDeleteWithTournaments.game.id, false, true)} title={$t('admin_games_unlink_tooltip')}>{$t('admin_games_nuke_unlink_btn')}</button>
 				<button class="btn-danger-full" on:click={() => deleteGame(gameToDeleteWithTournaments.game.id, true, false)} disabled={!deleteGameCheckboxConfirmed}>{$t('admin_games_nuke_btn_nuke')}</button>
 			</footer>
 		</div>
@@ -515,7 +515,7 @@
 		<div class="modal-card-global glass" on:click|stopPropagation>
 			<header class="edit-modal-header">
 				<h3>✏️ {$t('admin_games_edit_title', { name: editingGame.name })}</h3>
-				<button class="close-btn" on:click={() => editingGame = null} aria-label="Fermer">✕</button>
+				<button class="close-btn" on:click={() => editingGame = null} aria-label={$t('common_close')}>✕</button>
 			</header>
 			<div class="edit-modal-body">
 				<div class="flex-col gap-4">
@@ -532,7 +532,7 @@
 						</div>
 						{#if gameImageMode === 'search'}
 							<div class="search-bar mt-2">
-								<input type="text" bind:value={searchQuery} placeholder="Rechercher..." on:keydown={(e) => e.key === 'Enter' && searchCovers()} />
+								<input type="text" bind:value={searchQuery} placeholder={$t('admin_games_search_placeholder')} on:keydown={(e) => e.key === 'Enter' && searchCovers()} />
 								<button class="btn-primary btn-sm" on:click={searchCovers} disabled={searching}>{searching ? '...' : '🔍'}</button>
 							</div>
 							{#if searxngNotConfigured}
@@ -552,13 +552,13 @@
 								</div>
 							{/if}
 						{:else if gameImageMode === 'url'}
-							<input type="text" class="mt-2" bind:value={editGameData.image_url} placeholder="https://..." />
+							<input type="text" class="mt-2" bind:value={editGameData.image_url} placeholder="https://..." /><!-- i18n-ignore -->
 						{:else}
 							<input type="file" class="mt-2" accept="image/*" on:change={handleFileUpload} />
 						{/if}
 						{#if editGameData.image_url}
 							<div class="img-preview mt-2">
-								<img src={editGameData.image_url} alt="Preview" />
+								<img src={editGameData.image_url} alt={$t('chat_preview_alt')} />
 								<button class="preview-clear" on:click={() => editGameData.image_url = ''}>✕</button>
 							</div>
 						{/if}

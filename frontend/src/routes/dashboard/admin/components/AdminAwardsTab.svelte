@@ -35,33 +35,33 @@
 		try {
 			awardsList = await api.get('/admin/awards');
 		} catch (e) {
-			toast(e.message || "Erreur lors du chargement des prix", 'error');
+			toast(e.message || $t('admin_awards_load_error'), 'error');
 		} finally {
 			awardsLoading = false;
 		}
 	}
 
 	async function saveAwardText(key, title, description) {
-		if (!title.trim()) { toast("Le titre ne peut pas être vide", "error"); return; }
+		if (!title.trim()) { toast($t('admin_awards_title_required'), 'error'); return; }
 		try {
 			await api.put(`/admin/awards/${key}`, {
 				title: title.trim(),
 				description: description.trim()
 			});
-			toast("Prix enregistré avec succès !", 'success');
+			toast($t('admin_awards_saved'), 'success');
 			await loadAwardsTab();
 		} catch (e) {
-			toast(e.message || "Erreur lors de l'enregistrement du prix", 'error');
+			toast(e.message || $t('admin_awards_save_error'), 'error');
 		}
 	}
 
 	async function restoreDefaultText(key) {
 		try {
 			await api.delete(`/admin/awards/${key}/text`);
-			toast("Texte par défaut restauré !", 'success');
+			toast($t('admin_awards_restored'), 'success');
 			await loadAwardsTab();
 		} catch (e) {
-			toast(e.message || "Erreur lors de la restauration", 'error');
+			toast(e.message || $t('admin_awards_restore_error'), 'error');
 		}
 	}
 
@@ -69,9 +69,9 @@
 		awardsLoading = true;
 		try {
 			awardsList = await api.get('/admin/awards');
-			toast("Distinctions recalculées et synchronisées !", 'success');
+			toast($t('admin_awards_synced'), 'success');
 		} catch (e) {
-			toast(e.message || "Erreur de synchronisation", 'error');
+			toast(e.message || $t('admin_awards_sync_error'), 'error');
 		} finally {
 			awardsLoading = false;
 		}
@@ -81,9 +81,9 @@
 		awardsLoading = true;
 		try {
 			const res = await api.post('/admin/awards/notify');
-			toast(`Notifications envoyées à ${res.notified_players_count} joueur(s) !`, 'success');
+			toast($t('admin_awards_notified', { count: res.notified_players_count }), 'success');
 		} catch (e) {
-			toast(e.message || "Erreur lors de l'envoi des notifications", 'error');
+			toast(e.message || $t('admin_awards_notify_error'), 'error');
 		} finally {
 			awardsLoading = false;
 		}
@@ -107,7 +107,7 @@
 			<p>{$t('admin_awards_desc1')}</p>
 			<p>{$t('admin_awards_desc2')}</p>
 			<p class="text-dim text-xs" style="border-left: 2px solid var(--accent); padding-left: 0.5rem;">
-				💡 Les descriptions supportent l'interpolation de variables de statistiques liées au vainqueur (ex: <code>{"{"}points{"}"}</code>, <code>{"{"}wins{"}"}</code>, <code>{"{"}matches_played{"}"}</code>, <code>{"{"}team_name{"}"}</code>).
+				💡 {$t('admin_awards_interpolation_tip')}
 			</p>
 			<p class="text-dim text-xs" style="border-left: 2px solid var(--success); padding-left: 0.5rem; margin-top: 0.2rem;">
 				{$t('admin_awards_desc4')}

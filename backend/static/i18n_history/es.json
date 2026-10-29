@@ -2,6 +2,9 @@
  "admin_games_nuke_title": [
   "Supresión Crítica"
  ],
+ "admin_games_search_placeholder": [
+  "Buscar un juego..."
+ ],
  "admin_languages_unsaved_warning": [
   "Tiene cambios sin guardar. ¿Realmente quiere salir de esta página?"
  ],

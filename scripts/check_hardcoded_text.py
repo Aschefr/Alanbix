@@ -22,8 +22,13 @@ ALLOW = {"VS", "vs", "GIF", "IA", "AI", "LAN", "OK", "SSID", "URL", "JSON", "Ala
          "Ollama", "OpenAI", "SearXNG", "Wi-Fi", "Discord", "Steam", "SE", "DE", "RR", "FFA", "px", "ms"}
 
 
+CSS_WORDS = re.compile(r"\b(?:linear|ease(?:-in|-out)?|translate[XYZ]?|rotate|scale|transform|solid|dashed|inherit|none)\b")
+
+
 def is_copy(text):
-    text = text.strip()
+    text = re.sub(r"\$\{[^}]*\}", " ", text).strip()  # template placeholders are not copy
+    if CSS_WORDS.search(text) and not re.search(r"[A-Za-zÀ-ÿ]{3,}\s+[A-Za-zÀ-ÿ]{3,}\s+[A-Za-zÀ-ÿ]{3,}", text):
+        return False
     if not text or text.startswith("//"):
         return False
     words = WORD.findall(text)
