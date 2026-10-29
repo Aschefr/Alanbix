@@ -11,6 +11,15 @@
   },
   "android": {
     "allowMixedContent": true
+  },
+  "plugins": {
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_alanbix",
+      "iconColor": "#3B82F6"
+    },
+    "PushNotifications": {
+      "smallIcon": "ic_stat_alanbix",
+      "iconColor": "#3B82F6"
+    }
   }
 }
-

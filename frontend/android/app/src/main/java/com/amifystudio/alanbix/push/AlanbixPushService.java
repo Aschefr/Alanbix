@@ -8,6 +8,7 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.graphics.BitmapFactory;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
@@ -470,7 +471,9 @@ public class AlanbixPushService extends Service {
         );
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, channelId)
-                .setSmallIcon(R.mipmap.ic_launcher)
+                .setSmallIcon(R.drawable.ic_stat_alanbix)
+                .setColor(0xFF3B82F6)
+                .setLargeIcon(BitmapFactory.decodeResource(getResources(), R.mipmap.ic_launcher))
                 .setContentTitle(title)
                 .setContentText(body)
                 .setStyle(new NotificationCompat.BigTextStyle().bigText(body))
@@ -514,7 +517,8 @@ public class AlanbixPushService extends Service {
         );
 
         return new NotificationCompat.Builder(this, CHANNEL_FOREGROUND)
-                .setSmallIcon(R.mipmap.ic_launcher)
+                .setSmallIcon(R.drawable.ic_stat_alanbix)
+                .setColor(0xFF3B82F6)
                 .setContentTitle("🎮 Alanbix Companion")
                 .setContentText(statusText)
                 .setPriority(NotificationCompat.PRIORITY_MIN)

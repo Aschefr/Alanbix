@@ -32,6 +32,14 @@
 
         </activity>
 
+        <!-- Métadonnées icônes de notifications système -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_stat_alanbix" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/ic_launcher_background" />
+
         <!-- Service d'arrière-plan Alanbix Push pour LAN hors-ligne -->
         <service
             android:name="com.amifystudio.alanbix.push.AlanbixPushService"
