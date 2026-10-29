@@ -47,7 +47,7 @@
 		if (savedShowDetails !== null) {
 			showDetails = savedShowDetails === 'true';
 		} else {
-			showDetails = isMobile ? false : true;
+			showDetails = !isMobile && !!currentUser?.is_admin;
 		}
 
 		const isFinished = selected?.status === 'DONE' || selected?.status === 'CLOSED';
@@ -486,6 +486,44 @@
 		} catch (e) { toast(e.message || 'Erreur', 'error'); }
 	}
 
+	// The signed-in player's next unplayed 1v1 match in the selected tournament
+	$: myNextMatch = (() => {
+		if (!selected || selected.status !== 'RUNNING' || !currentUser || !Array.isArray(selected.bracket)) return null;
+		const teamMap = selected.config?._team_map || {};
+		const myTeam = (participants.find(p => p.user_id === currentUser.id)?.team_name || '').toLowerCase();
+		const isMe = (pid) => pid === currentUser.id || (pid < 0 && myTeam && (teamMap[String(pid)] || '').toLowerCase() === myTeam);
+		for (const m of selected.bracket) {
+			const pl = m.p || [];
+			if (pl.length !== 2 || pl.includes(0)) continue;
+			const sc = m.score || [];
+			const done = sc[0] != null && sc[1] != null && (sc[0] !== 0 || sc[1] !== 0);
+			if (done) continue;
+			const mySlot = isMe(pl[0]) ? 0 : isMe(pl[1]) ? 1 : -1;
+			if (mySlot === -1) continue;
+			const oppId = pl[1 - mySlot];
+			const oppName = oppId < 0
+				? (teamMap[String(oppId)] || `#${Math.abs(oppId)}`)
+				: (participants.find(p => p.user_id === oppId)?.username || allUsers.find(u => u.id === oppId)?.username || `#${oppId}`);
+			const round = m.id?.s === 2 ? $t('tourneys_bracket_lb_round', { n: m.id.r }) : $t('tourneys_round_n', { n: m.id?.r || 1 });
+			return { match: m, mySlot, oppName, round, key: `${selected.id}_${m.id?.s}_${m.id?.r}_${m.id?.m}` };
+		}
+		return null;
+	})();
+	let myScoreInput = '';
+	let oppScoreInput = '';
+	let lastMyMatchKey = null;
+	$: if (myNextMatch?.key !== lastMyMatchKey) { lastMyMatchKey = myNextMatch?.key; myScoreInput = ''; oppScoreInput = ''; }
+	let submittingMyScore = false;
+
+	async function submitMyMatchScore() {
+		const mine = parseInt(myScoreInput, 10), opp = parseInt(oppScoreInput, 10);
+		if (Number.isNaN(mine) || Number.isNaN(opp)) return;
+		submittingMyScore = true;
+		const score = myNextMatch.mySlot === 0 ? [mine, opp] : [opp, mine];
+		await doSubmitScore(myNextMatch.match, score);
+		submittingMyScore = false;
+	}
+
 	async function doSubmitScore(match, score) {
 		try {
 			await api.put(`/tournaments/${selectedId}/score`, {
@@ -898,6 +936,32 @@
 
 			<!-- Info Cards -->
 			<div class="detail-body" class:collapsed-layout={selected?.status !== 'OPEN' && !showDetails}>
+				{#if myNextMatch}
+					<section class="my-match glass">
+						<div class="mm-head">
+							<h2 class="mm-title">{$t('dash_next_match_title')}</h2>
+							<span class="mm-round">{myNextMatch.round}</span>
+						</div>
+						<div class="mm-versus">
+							<span class="mm-vs-label">{$t('mobile_match_versus')}</span>
+							<span class="mm-opponent">{myNextMatch.oppName}</span>
+						</div>
+						<form class="mm-score" on:submit|preventDefault={submitMyMatchScore}>
+							<label class="mm-field">
+								<span>{$t('mobile_score_my_score')}</span>
+								<input type="number" min="0" inputmode="numeric" bind:value={myScoreInput} disabled={submittingMyScore} />
+							</label>
+							<span class="mm-dash">–</span>
+							<label class="mm-field">
+								<span>{myNextMatch.oppName}</span>
+								<input type="number" min="0" inputmode="numeric" bind:value={oppScoreInput} disabled={submittingMyScore} />
+							</label>
+							<button class="btn-primary mm-submit" type="submit" disabled={submittingMyScore || myScoreInput === '' || oppScoreInput === '' || myScoreInput === null || oppScoreInput === null}>
+								<Icon name="check" size={16} /> {$t('mobile_score_submit')}
+							</button>
+						</form>
+					</section>
+				{/if}
 				{#if !isMobile}
 				<div class="controls-row">
 					<button class="toggle-details-btn glass" on:click={toggleDetails}>
@@ -1886,4 +1950,20 @@
 			opacity: 0.7;
 		}
 	}
+
+	/* "Votre prochain match" card: the player's main question answered first */
+	.my-match { padding: 1rem 1.25rem; margin-bottom: 0.75rem; border-color: var(--accent); display: flex; flex-direction: column; gap: 0.6rem; }
+	.mm-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
+	.mm-title { font-size: 0.95rem; color: var(--text-dim); font-weight: 600; }
+	.mm-round { font-size: 0.85rem; color: var(--text-dim); }
+	.mm-versus { display: flex; align-items: baseline; gap: 0.6rem; flex-wrap: wrap; }
+	.mm-vs-label { color: var(--text-dim); }
+	.mm-opponent { font-family: var(--font-title); font-size: 1.6rem; font-weight: 700; color: var(--text-main); line-height: 1.1; }
+	.mm-score { display: flex; align-items: flex-end; gap: 0.75rem; flex-wrap: wrap; }
+	.mm-field { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.8rem; color: var(--text-dim); max-width: 140px; }
+	.mm-field span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	.mm-field input { width: 88px; height: 48px; font-size: 1.4rem; font-weight: 700; text-align: center; border-radius: var(--radius-md); }
+	.mm-dash { font-size: 1.4rem; color: var(--text-dim); padding-bottom: 0.6rem; }
+	.mm-submit { display: inline-flex; align-items: center; gap: 0.4rem; height: 48px; margin-left: auto; }
+	.mm-submit:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 </style>
