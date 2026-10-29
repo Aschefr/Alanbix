@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-29T19:10:00Z",
+  "title": "Design System: Alanbix",
+  "extensions": {
+    "colorMeta": {
+      "alembic-blue": { "role": "primary", "displayName": "Bleu Alambic" },
+      "distillate-violet": { "role": "secondary", "displayName": "Violet Distillat" },
+      "admin-amber": { "role": "tertiary", "displayName": "Ambre Admin" },
+      "night-slate": { "role": "neutral", "displayName": "Ardoise Nuit" }
+    },
+    "shadows": [
+      { "name": "glass", "value": "0 10px 40px -10px rgba(0,0,0,0.5)", "purpose": "Panneaux de verre (sombre)." },
+      { "name": "action-glow", "value": "0 4px 14px 0 rgba(59,130,246,0.5)", "purpose": "Halo des boutons d'action." },
+      { "name": "modal", "value": "0 30px 70px rgba(0,0,0,0.45)", "purpose": "Fenêtres modales." }
+    ],
+    "motion": [
+      { "name": "button-lift", "value": "all 0.2s", "purpose": "Soulèvement -2px au survol." },
+      { "name": "modal-in", "value": "0.3s cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Apparition des modales." }
+    ],
+    "breakpoints": [ { "name": "mobile", "value": "900px" } ]
+  },
+  "components": [
+    { "name": "Bouton principal", "kind": "button", "refersTo": "button-primary", "description": "Action principale, une par zone.",
+      "html": "<button class=\"ds-btn-primary\">Suivant →</button>",
+      "css": ".ds-btn-primary{background:#3b82f6;color:#fff;border:none;padding:.75rem 1.5rem;border-radius:8px;font-weight:600;cursor:pointer;transition:all .2s;box-shadow:0 4px 14px 0 rgba(59,130,246,.5)}.ds-btn-primary:hover{transform:translateY(-2px);box-shadow:0 6px 20px 0 rgba(59,130,246,.5);filter:brightness(1.1)}.ds-btn-primary:focus-visible{outline:2px solid #3b82f6;outline-offset:2px}" },
+    { "name": "Champ", "kind": "input", "refersTo": "input", "description": "Champ de saisie.",
+      "html": "<input class=\"ds-input\" placeholder=\"Entre ton pseudo...\">",
+      "css": ".ds-input{background:rgba(15,23,42,.5);color:#f8fafc;border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:.75rem 1rem;font:inherit}.ds-input:focus-visible{outline:none;border-color:#3b82f6}" },
+    { "name": "Panneau de verre", "kind": "card", "refersTo": "glass-panel", "description": "Conteneur principal.",
+      "html": "<div class=\"ds-glass\">Mon Équipe</div>",
+      "css": ".ds-glass{background:rgba(15,23,42,.65);color:#f8fafc;border:1px solid rgba(255,255,255,.08);border-top-color:rgba(255,255,255,.15);border-radius:12px;padding:1.5rem;box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 10px 40px -10px rgba(0,0,0,.5)}" }
+  ],
+  "narrative": {
+    "northStar": "Le Labo de l'Alambic",
+    "rules": [
+      { "name": "La Règle du Liquide Unique", "body": "Le bleu est la seule couleur d'action. Un bouton principal par zone ; le violet ne déclenche jamais d'action, il attire seulement l'œil.", "section": "colors" },
+      { "name": "La Règle des Deux Luminosités", "body": "Tout token existe en paire sombre/clair avec la même teinte.", "section": "colors" },
+      { "name": "La Règle du Reflet", "body": "Un panneau de verre a toujours son liseré supérieur plus clair.", "section": "elevation" }
+    ]
+  }
+}

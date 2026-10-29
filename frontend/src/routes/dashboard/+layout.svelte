@@ -666,8 +666,8 @@
 				<button class="theme-toggle" on:click={toggleTheme} title={isDark ? $t('tooltip_light_mode') : $t('tooltip_dark_mode')}>
 					<span class="theme-icon" class:spin={true}>{isDark ? '☀️' : '🌙'}</span>
 				</button>
-				<button class="logout-btn" on:click={logout}>
-					<span>{$t('logout')}</span>
+				<button class="logout-btn" on:click={logout} title={$t('logout')} aria-label={$t('logout')}>
+					<Icon name="logout" size={18} />
 				</button>
 			</div>
 		</div>
@@ -886,6 +886,11 @@
 		box-shadow: inset 3px 0 0 #fbbf24;
 	}
 
+	:global([data-theme="light"]) .nav-item.admin,
+	:global([data-theme="light"]) .nav-item.admin:hover {
+		color: #92400e;
+	}
+
 	.nav-separator {
 		height: 1px;
 		background: var(--glass-border);
@@ -1049,7 +1054,12 @@
 	}
 
 	.logout-btn {
-		flex: 1;
+		width: 38px;
+		height: 38px;
+		padding: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
 	}
 
 	.content-area {

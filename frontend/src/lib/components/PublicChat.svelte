@@ -2160,7 +2160,7 @@
 		position: absolute;
 		right: 6px;
 		bottom: 6px;
-		font-size: 0.5rem;
+		font-size: 0.7rem;
 		font-weight: 700;
 		pointer-events: none;
 	}

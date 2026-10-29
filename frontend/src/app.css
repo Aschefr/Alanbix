@@ -42,12 +42,13 @@
   --bg-tertiary: #334155;
   
   --accent: #3b82f6;
+  --accent-solid: #2563eb; /* filled buttons: white text needs >=4.5:1 */
   --accent-glow: rgba(59, 130, 246, 0.5);
   --accent-soft: rgba(59, 130, 246, 0.1);
   
   --text-main: #f8fafc;
   --text-dim: #94a3b8;
-  --text-muted: #64748b;
+  --text-muted: #8b9ab0;
   
   --danger: #ef4444;
   --danger-glow: rgba(239, 68, 68, 0.4);
@@ -120,12 +121,13 @@
   --bg-tertiary: #e2e8f0;
 
   --accent: #2563eb;
+  --accent-solid: #2563eb;
   --accent-glow: rgba(37, 99, 235, 0.25);
   --accent-soft: rgba(37, 99, 235, 0.08);
 
   --text-main: #0f172a;
   --text-dim: #475569;
-  --text-muted: #64748b;
+  --text-muted: #526075;
 
   --danger: #dc2626;
   --danger-glow: rgba(220, 38, 38, 0.25);
@@ -216,6 +218,11 @@ body::before {
     radial-gradient(circle at 50% 90%, rgba(147, 197, 253, 0.15) 0%, transparent 50%);
 }
 
+::placeholder {
+  color: var(--text-dim);
+  opacity: 1;
+}
+
 /* Custom Sleek Scrollbar */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: var(--scrollbar-track); }
@@ -255,7 +262,7 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Buttons */
 .btn-primary {
-  background: var(--accent);
+  background: var(--accent-solid);
   color: white;
   border: none;
   padding: 0.75rem 1.5rem;

@@ -1449,7 +1449,7 @@
 
 	.chip-label {
 
-		font-size: 0.6rem;
+		font-size: 0.72rem;
 
 		color: var(--text-muted);
 
@@ -1765,7 +1765,7 @@
 
 	.sp-label {
 
-		font-size: 0.6rem;
+		font-size: 0.72rem;
 
 		color: var(--text-muted);
 
