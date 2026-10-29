@@ -250,7 +250,7 @@
 			await api.put(`/ia/admin-calls/${id}/resolve`, { note });
 			await loadAdminCalls();
 			toast('Demande marquée comme résolue', 'success');
-		} catch(e) { toast(e.message || 'Erreur', 'error'); }
+		} catch(e) { toast(e.message || $t('regie_error_generic'), 'error'); }
 	}
 
 	async function dismissAdminCall(id) {
@@ -258,7 +258,7 @@
 			await api.put(`/ia/admin-calls/${id}/dismiss`, {});
 			await loadAdminCalls();
 			toast('Demande ignorée', 'success');
-		} catch(e) { toast(e.message || 'Erreur', 'error'); }
+		} catch(e) { toast(e.message || $t('regie_error_generic'), 'error'); }
 	}
 
 	async function loadRagSuggestions() {
@@ -273,7 +273,7 @@
 			await loadRagSuggestions();
 			delete ragAnswers[id];
 			toast('Suggestion approuvée et injectée dans la base RAG', 'success');
-		} catch(e) { toast(e.message || 'Erreur', 'error'); }
+		} catch(e) { toast(e.message || $t('regie_error_generic'), 'error'); }
 	}
 
 	async function rejectRagSuggestion(id) {
@@ -281,7 +281,7 @@
 			await api.put(`/ia/rag-suggestions/${id}/reject`, {});
 			await loadRagSuggestions();
 			toast('Suggestion rejetée', 'success');
-		} catch(e) { toast(e.message || 'Erreur', 'error'); }
+		} catch(e) { toast(e.message || $t('regie_error_generic'), 'error'); }
 	}
 </script>
 

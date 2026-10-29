@@ -226,14 +226,14 @@
 		try {
 			await api.put('/admin/config/team_scoring_mode', { value: teamScoringMode });
 			toast(get(t)('admin_toast_team_scoring_saved'), 'success');
-		} catch { toast('Erreur sauvegarde.', 'error'); }
+		} catch { toast(get(t)('admin_error_save'), 'error'); }
 	}
 
 	async function saveEventName() {
 		try {
 			await api.put('/admin/config/event_name', { value: eventName });
 			toast(get(t)('admin_toast_lan_name_saved'), 'success');
-		} catch { toast('Erreur sauvegarde.', 'error'); }
+		} catch { toast(get(t)('admin_error_save'), 'error'); }
 	}
 
 	async function saveLanWifiSsids() {
@@ -241,14 +241,14 @@
 			const list = lanWifiSsids.split(',').map(s => s.trim()).filter(Boolean);
 			await api.put('/admin/config/lan_wifi_ssids', { value: list });
 			toast('Réseaux Wi-Fi de la LAN enregistrés.', 'success');
-		} catch { toast('Erreur sauvegarde Wi-Fi.', 'error'); }
+		} catch { toast(get(t)('admin_error_save'), 'error'); }
 	}
 
 	async function saveSearxngUrl() {
 		try {
 			await api.put('/admin/config/searxng_url', { value: searxngUrl });
 			toast(get(t)('admin_toast_searxng_url_saved') || 'URL de l\'instance SearXNG enregistrée.', 'success');
-		} catch { toast('Erreur sauvegarde URL SearXNG.', 'error'); }
+		} catch { toast(get(t)('admin_error_save'), 'error'); }
 	}
 
 	async function testSearxng() {
@@ -275,7 +275,7 @@
 		try {
 			await api.put('/admin/config/default_tournament_pts', { value: JSON.stringify(defaultPts) });
 			toast(get(t)('admin_toast_default_points_saved'), 'success');
-		} catch { toast('Erreur sauvegarde.', 'error'); }
+		} catch { toast(get(t)('admin_error_save'), 'error'); }
 	}
 
 	async function saveSystemPrompt() {
@@ -286,7 +286,7 @@
 			toast(get(t)('admin_toast_system_prompt_saved'), 'success');
 		} catch (err) {
 			console.error('Failed to save system prompt:', err);
-			toast('Erreur sauvegarde prompt.', 'error');
+			toast(get(t)('admin_error_save'), 'error');
 		}
 	}
 
@@ -298,7 +298,7 @@
 			toast(get(t)('admin_toast_closing_prompt_saved'), 'success');
 		} catch (err) {
 			console.error('Failed to save closing prompt:', err);
-			toast('Erreur sauvegarde.', 'error');
+			toast(get(t)('admin_error_save'), 'error');
 		}
 	}
 

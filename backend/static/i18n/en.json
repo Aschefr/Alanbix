@@ -1369,5 +1369,6 @@
   "regie_validate": "Save",
   "regie_round_finished": "Finished",
   "regie_error_generic": "The action failed. Please try again.",
-  "admin_languages_other": "Other language…"
+  "admin_languages_other": "Other language…",
+  "admin_error_save": "Saving failed. Check the server connection and try again."
 }

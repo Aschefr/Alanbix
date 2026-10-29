@@ -1,6 +1,21 @@
 {
+ "admin_awards_desc3": [
+  "Les descriptions supportent l'interpolation de variables de statistiques pour afficher des valeurs dynamiques."
+ ],
+ "admin_awards_interpolation_tip": [
+  "Les descriptions supportent l'interpolation de variables de statistiques liées au vainqueur (ex: {points}, {wins}, {matches_played}, {team_name})."
+ ],
+ "admin_games_searxng_not_configured": [
+  "SearXNG n'est pas configuré dans les paramètres de l'administration."
+ ],
  "admin_languages_cat_dash": [
   "Dashboard"
+ ],
+ "admin_languages_cat_distillation": [
+  "Distillation (Loading)"
+ ],
+ "admin_languages_cat_system": [
+  "Prompts Système IA"
  ],
  "admin_languages_unsaved_warning": [
   "Vous avez des modifications non sauvegardées. Voulez-vous vraiment quitter cette page ?"
@@ -26,6 +41,24 @@
  "admin_players_tooltip_unmute": [
   "Démuter du chat public"
  ],
+ "admin_prompt_modal_guide_intro": [
+  "Un bon prompt système est structuré en sections claires. Voici les blocs recommandés :"
+ ],
+ "admin_prompt_modal_open": [
+  "Éditer le prompt"
+ ],
+ "admin_prompt_modal_reset": [
+  "Réinitialiser le prompt par défaut"
+ ],
+ "admin_prompt_modal_tip_1": [
+  "Les petits modèles (< 8B) répondent mieux à un prompt court et structuré."
+ ],
+ "admin_prompt_modal_tip_2": [
+  "Évitez les listes à puces dans le prompt — préférez des phrases directes."
+ ],
+ "admin_prompt_modal_title": [
+  "Éditeur de Prompt Système"
+ ],
  "admin_public_chat_ai_cooldown": [
   "Cooldown IA @Alanbix (s)",
   "Cooldown IA @Alanbix (secondes)"
@@ -49,23 +82,81 @@
   "Slowmode (secondes)",
   "Slowmode (secondes par message)"
  ],
+ "admin_settings_ai_context_hint": [
+  "Un minimum de 8192 tokens est forcé lorsque les outils IA sont activés pour éviter la saturation du contexte par les schémas d'outils."
+ ],
  "admin_settings_ai_instances": [
   "Instances Ollama"
  ],
  "admin_settings_ai_instances_sub": [
+  "Serveurs distribués pour les requêtes IA (Ollama ou OpenAI /v1) — triés par priorité",
   "Serveurs distribués pour les requêtes IA — triés par priorité"
+ ],
+ "admin_settings_ai_prompt_close": [
+  "Prompt Clôture Tournoi"
+ ],
+ "admin_settings_ai_prompt_sys": [
+  "Prompt Système"
+ ],
+ "admin_settings_ai_prompts": [
+  "Prompts de l'IA"
+ ],
+ "admin_settings_ai_rag": [
+  "Base de Connaissances RAG"
+ ],
+ "admin_settings_ai_rag_model": [
+  "Modèle d'Embedding (RAG):"
+ ],
+ "admin_settings_ai_translate_title": [
+  "Traduction des Prompts IA"
  ],
  "admin_settings_chat_section_sub": [
   "Réguler les discussions publiques en direct sur le Dashboard"
  ],
+ "admin_settings_chat_slowmode": [
+  "Délai anti-flood (Slowmode en secondes)"
+ ],
  "admin_settings_lan_name_sub": [
   "Visible sur le Dashboard et la vue Projecteur"
+ ],
+ "admin_settings_points_bonus": [
+  "Bonus/Score"
+ ],
+ "admin_settings_searxng_sub": [
+  "Recherche automatique de jaquettes de jeux (format JSON requis)."
  ],
  "admin_settings_searxng_title": [
   "Configuration de SearXNG"
  ],
  "admin_tab_tournaments": [
   "Tournois"
+ ],
+ "admin_toast_closing_prompt_saved": [
+  "Prompt de clôture sauvegardé."
+ ],
+ "admin_toast_pwd_reset": [
+  "MDP de {name} réinitialisé → {pwd}"
+ ],
+ "admin_toast_rag_added": [
+  "Document vectorisé et ajouté à la base RAG."
+ ],
+ "admin_toast_rag_deleted": [
+  "Document supprimé de la base RAG."
+ ],
+ "admin_toast_searxng_url_saved": [
+  "URL de l'instance SearXNG enregistree."
+ ],
+ "admin_toast_system_prompt_saved": [
+  "Prompt système sauvegardé."
+ ],
+ "admin_tourneys_view_ai_prompt": [
+  "Voir le prompt IA"
+ ],
+ "admin_tourneys_wizard_points_bonus": [
+  "Bonus/Score"
+ ],
+ "admin_tourneys_wizard_points_hint": [
+  "Bonus/Score = bonus du plancher (valeur saisie) au plafond (2×) selon le score cumulé de chaque joueur/équipe"
  ],
  "ai_call_admin_cooldown_hint": [
   "Anti-spam : Cooldown de {cooldown} min | Max {limit} demandes par jour"
@@ -82,8 +173,17 @@
  "ai_confirm_delete_msg_desc": [
   "Voulez-vous supprimer ce message ?"
  ],
+ "ai_context_empty": [
+  "Aucun contenu compressé disponible. Le LLM n'a pas renvoyé de résultat."
+ ],
+ "ai_rag_suggestions_title": [
+  "Suggestions de Base RAG"
+ ],
  "ai_setting_call_admin_cooldown": [
   "Cooldown par joueur (minutes)"
+ ],
+ "ai_setting_rag_suggestion_enabled": [
+  "Activer les suggestions RAG automatiques"
  ],
  "dash_chat_slowmode_badge": [
   "Slowmode : {s}s"
@@ -108,6 +208,9 @@
  ],
  "dash_title": [
   "LAN Party Dashboard"
+ ],
+ "ia_queue_text": [
+  "File: {waiting} en attente{active_text}"
  ],
  "login_change_pseudo": [
   "← Changer de pseudo"

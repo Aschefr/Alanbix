@@ -1369,5 +1369,6 @@
   "regie_validate": "Validar",
   "regie_round_finished": "Terminado",
   "regie_error_generic": "No se pudo realizar la acción. Inténtelo de nuevo.",
-  "admin_languages_other": "Otro idioma…"
+  "admin_languages_other": "Otro idioma…",
+  "admin_error_save": "No se pudo guardar. Compruebe la conexión con el servidor e inténtelo de nuevo."
 }
