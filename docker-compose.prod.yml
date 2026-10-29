@@ -9,7 +9,7 @@ services:
       - "41481:41481"
     environment:
       - OLLAMA_HOST=${OLLAMA_HOST:-http://host.docker.internal:11434}
-      - CORS_ORIGINS=${CORS_ORIGINS:-*}
+      - CORS_ORIGINS=${CORS_ORIGINS:-}
     volumes:
       - ./data:/app/data
     extra_hosts:

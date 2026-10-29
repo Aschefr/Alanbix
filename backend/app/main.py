@@ -20,13 +20,23 @@ app = FastAPI(title="Alanbix API", lifespan=lifespan)
 
 # CORS & Redirects Fix
 import os
-_cors_raw = os.getenv("CORS_ORIGINS", "*")
-_cors_origins = ["*"] if _cors_raw.strip() == "*" else [o.strip() for o in _cors_raw.split(",") if o.strip()]
+# Default: localhost, Capacitor mobile app, private LAN and Tailscale origins.
+# Set CORS_ORIGINS (comma-separated, or "*") to override.
+_cors_raw = os.getenv("CORS_ORIGINS", "").strip()
+_DEFAULT_CORS_ORIGINS = ["capacitor://localhost", "http://localhost", "https://localhost"]
+_DEFAULT_CORS_ORIGIN_REGEX = r"^https?://(localhost|127\.0\.0\.1|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|100\.\d{1,3}\.\d{1,3}\.\d{1,3}|.*\.ts\.net|.*\.local|.*\.lan)(:\d+)?$"
+if not _cors_raw:
+    _cors_origins = _DEFAULT_CORS_ORIGINS
+    _cors_origin_regex = _DEFAULT_CORS_ORIGIN_REGEX
+else:
+    _cors_origins = ["*"] if _cors_raw == "*" else [o.strip() for o in _cors_raw.split(",") if o.strip()]
+    _cors_origin_regex = None
 
 app.router.redirect_slashes = False
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
+    allow_origin_regex=_cors_origin_regex,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

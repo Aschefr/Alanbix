@@ -9,7 +9,33 @@ from sqlalchemy.orm import Session
 from . import models, database
 
 # Config
-SECRET_KEY = os.getenv("SECRET_KEY", "73c68339482937465829374658293746")
+def _load_or_create_secret_key() -> str:
+    """Use SECRET_KEY from env, otherwise a random key persisted next to the database."""
+    env_key = os.getenv("SECRET_KEY", "").strip()
+    if env_key:
+        return env_key
+    import secrets
+    data_dir = os.path.dirname(os.getenv("DATABASE_PATH", "/app/data/alanbix.db"))
+    key_path = os.path.join(data_dir, ".secret_key")
+    try:
+        with open(key_path, "r", encoding="utf-8") as f:
+            stored = f.read().strip()
+        if stored:
+            return stored
+    except FileNotFoundError:
+        pass
+    new_key = secrets.token_hex(32)
+    os.makedirs(data_dir, exist_ok=True)
+    with open(key_path, "w", encoding="utf-8") as f:
+        f.write(new_key)
+    try:
+        os.chmod(key_path, 0o600)
+    except OSError:
+        pass
+    print(f"[Auth] Generated new secret key at {key_path}")
+    return new_key
+
+SECRET_KEY = _load_or_create_secret_key()
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 600 # Long duration for LAN
 
