@@ -939,12 +939,11 @@
 				{#if myNextMatch}
 					<section class="my-match glass">
 						<div class="mm-head">
-							<h2 class="mm-title">{$t('dash_next_match_title')}</h2>
-							<span class="mm-round">{myNextMatch.round}</span>
-						</div>
-						<div class="mm-versus">
-							<span class="mm-vs-label">{$t('mobile_match_versus')}</span>
-							<span class="mm-opponent">{myNextMatch.oppName}</span>
+							<h2 class="mm-title">{$t('dash_next_match_title')} · <span class="mm-round">{myNextMatch.round}</span></h2>
+							<div class="mm-versus">
+								<span class="mm-vs-label">{$t('mobile_match_versus')}</span>
+								<span class="mm-opponent">{myNextMatch.oppName}</span>
+							</div>
 						</div>
 						<form class="mm-score" on:submit|preventDefault={submitMyMatchScore}>
 							<label class="mm-field">
@@ -957,7 +956,7 @@
 								<input type="number" min="0" inputmode="numeric" bind:value={oppScoreInput} disabled={submittingMyScore} />
 							</label>
 							<button class="btn-primary mm-submit" type="submit" disabled={submittingMyScore || myScoreInput === '' || oppScoreInput === '' || myScoreInput === null || oppScoreInput === null}>
-								<Icon name="check" size={16} /> {$t('mobile_score_submit')}
+								<Icon name="check" size={14} /> {$t('mobile_score_submit')}
 							</button>
 						</form>
 					</section>
@@ -1951,19 +1950,19 @@
 		}
 	}
 
-	/* "Votre prochain match" card: the player's main question answered first */
-	.my-match { padding: 1rem 1.25rem; margin-bottom: 0.75rem; border-color: var(--accent); display: flex; flex-direction: column; gap: 0.6rem; }
-	.mm-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
-	.mm-title { font-size: 0.95rem; color: var(--text-dim); font-weight: 600; }
-	.mm-round { font-size: 0.85rem; color: var(--text-dim); }
-	.mm-versus { display: flex; align-items: baseline; gap: 0.6rem; flex-wrap: wrap; }
-	.mm-vs-label { color: var(--text-dim); }
-	.mm-opponent { font-family: var(--font-title); font-size: 1.6rem; font-weight: 700; color: var(--text-main); line-height: 1.1; }
-	.mm-score { display: flex; align-items: flex-end; gap: 0.75rem; flex-wrap: wrap; }
-	.mm-field { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.8rem; color: var(--text-dim); max-width: 140px; }
-	.mm-field span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-	.mm-field input { width: 88px; height: 48px; font-size: 1.4rem; font-weight: 700; text-align: center; border-radius: var(--radius-md); }
-	.mm-dash { font-size: 1.4rem; color: var(--text-dim); padding-bottom: 0.6rem; }
-	.mm-submit { display: inline-flex; align-items: center; gap: 0.4rem; height: 48px; margin-left: auto; }
+	/* "Votre prochain match" card: the player's main question answered first, kept to one compact row */
+	.my-match { padding: 0.6rem 1rem; margin-bottom: 0.75rem; border-color: var(--accent); display: flex; align-items: center; gap: 0.5rem 1.25rem; flex-wrap: wrap; }
+	.mm-head { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; flex: 1 1 200px; }
+	.mm-title { font-size: 0.8rem; color: var(--text-dim); font-weight: 600; }
+	.mm-round { font-size: 0.8rem; color: var(--text-dim); }
+	.mm-versus { display: flex; align-items: baseline; gap: 0.4rem; flex-wrap: wrap; }
+	.mm-vs-label { color: var(--text-dim); font-size: 0.9rem; }
+	.mm-opponent { font-family: var(--font-title); font-size: 1.15rem; font-weight: 700; color: var(--text-main); line-height: 1.2; }
+	.mm-score { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+	.mm-field { display: flex; align-items: center; gap: 0.4rem; font-size: 0.8rem; color: var(--text-dim); }
+	.mm-field span { max-width: 90px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	.mm-field input { width: 56px; height: 38px; font-size: 1.05rem; font-weight: 700; text-align: center; border-radius: var(--radius-md); padding: 0; }
+	.mm-dash { color: var(--text-dim); }
+	.mm-submit { display: inline-flex; align-items: center; gap: 0.4rem; height: 38px; padding: 0 1rem; }
 	.mm-submit:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 </style>
