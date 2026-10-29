@@ -116,7 +116,7 @@
 		</div>
 		<p class="subtitle" class:subtitle-register={mode === 'register'}>
 			{#if mode === 'register'}
-				✨ Création de ton compte
+				✨ Création de votre compte
 			{:else}
 				L'alambic qui distille votre LAN
 			{/if}
@@ -134,7 +134,7 @@
 						type="text"
 						id="username"
 						bind:value={username}
-						placeholder="Entre ton pseudo..."
+						placeholder="Entrez votre pseudo..."
 						required
 						disabled={mode !== 'idle'}
 						on:keydown={(e) => { if (e.key === 'Enter' && mode === 'idle') { e.preventDefault(); checkUsername(); } }}
@@ -150,7 +150,7 @@
 			{#if mode !== 'idle'}
 				<div class="input-group password-slide">
 					<label for="password">
-						{mode === 'register' ? 'Choisis un mot de passe' : 'Mot de passe'}
+						{mode === 'register' ? 'Choisissez un mot de passe' : 'Mot de passe'}
 					</label>
 					<input type="password" id="password" bind:value={password} placeholder="••••••••" required />
 				</div>
