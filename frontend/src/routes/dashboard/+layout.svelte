@@ -432,7 +432,7 @@
 		const labels = sideNav.querySelectorAll('.nav-item .label');
 		if (labels.length === 0) return;
 
-		let sizeRem = 0.95;
+		let sizeRem = 0.875;
 		const minSizeRem = 0.75;
 		
 		// Reset to max size first to measure
@@ -855,8 +855,8 @@
 	.nav-item {
 		display: flex;
 		align-items: center;
-		gap: 1rem;
-		padding: 0.75rem 1rem;
+		gap: 0.75rem;
+		padding: 0.55rem 0.85rem;
 		text-decoration: none;
 		color: var(--text-dim);
 		border-radius: var(--radius-md);
@@ -870,7 +870,7 @@
 	}
 
 	.nav-item .label {
-		font-size: var(--nav-font-size, 0.95rem);
+		font-size: var(--nav-font-size, 0.875rem);
 	}
 
 	.nav-item.admin {

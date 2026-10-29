@@ -1615,7 +1615,7 @@
 	}
 
 	.chat-disabled-badge {
-		font-size: 0.6rem;
+		font-size: 0.72rem;
 		font-weight: 800;
 		color: #ef4444;
 		background: rgba(239, 68, 68, 0.15);
@@ -1624,7 +1624,7 @@
 	}
 
 	.chat-slowmode-indicator {
-		font-size: 0.65rem;
+		font-size: 0.72rem;
 		font-weight: 700;
 		color: var(--text-muted);
 		background: var(--surface-raised);
@@ -1672,7 +1672,7 @@
 		background: var(--surface-raised);
 		border: 1px solid var(--glass-border);
 		color: var(--text-muted);
-		font-size: 0.68rem;
+		font-size: 0.72rem;
 		font-weight: 600;
 		padding: 0.3rem 0.8rem;
 		border-radius: 20px;
@@ -1720,7 +1720,7 @@
 		background: rgba(239, 68, 68, 0.4);
 	}
 	.divider-badge {
-		font-size: 0.6rem;
+		font-size: 0.72rem;
 		font-weight: 800;
 		color: #ef4444;
 		text-transform: uppercase;
@@ -1810,7 +1810,7 @@
 	}
 
 	.bot-badge {
-		font-size: 0.52rem;
+		font-size: 0.72rem;
 		font-weight: 900;
 		color: white;
 		background: linear-gradient(135deg, #a855f7, #3b82f6);
@@ -1820,14 +1820,14 @@
 	}
 
 	.team-tag {
-		font-size: 0.58rem;
+		font-size: 0.72rem;
 		font-weight: 700;
 		color: var(--accent);
 		opacity: 0.85;
 	}
 
 	.seat-tag {
-		font-size: 0.58rem;
+		font-size: 0.72rem;
 		font-weight: 700;
 		color: var(--text-muted);
 		background: var(--surface-sunken);
@@ -1836,7 +1836,7 @@
 	}
 
 	.msg-time {
-		font-size: 0.55rem;
+		font-size: 0.72rem;
 		color: var(--text-muted);
 		margin-left: auto;
 	}
@@ -1845,7 +1845,7 @@
 		background: none;
 		border: none;
 		color: var(--text-muted);
-		font-size: 0.65rem;
+		font-size: 0.72rem;
 		padding: 0 0.2rem;
 		cursor: pointer;
 		opacity: 0;
@@ -1913,7 +1913,7 @@
 		bottom: 4px;
 		right: 4px;
 		background: rgba(0, 0, 0, 0.6);
-		font-size: 0.6rem;
+		font-size: 0.72rem;
 		padding: 2px 4px;
 		border-radius: 4px;
 	}
@@ -1944,9 +1944,9 @@
 		min-width: 0;
 		overflow: hidden;
 	}
-	.lp-domain { font-size: 0.52rem; color: var(--accent); font-weight: 700; text-transform: uppercase; }
-	.lp-title { font-size: 0.68rem; font-weight: 800; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-	.lp-desc { font-size: 0.58rem; color: var(--text-muted); line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+	.lp-domain { font-size: 0.72rem; color: var(--accent); font-weight: 700; text-transform: uppercase; }
+	.lp-title { font-size: 0.72rem; font-weight: 800; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	.lp-desc { font-size: 0.72rem; color: var(--text-muted); line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
 	/* Floating jump button */
 	.jump-latest-pill {
@@ -1961,7 +1961,7 @@
 		border: none;
 		border-radius: 20px;
 		padding: 0.35rem 0.75rem;
-		font-size: 0.68rem;
+		font-size: 0.72rem;
 		font-weight: 800;
 		cursor: pointer;
 		box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
@@ -1974,7 +1974,7 @@
 	}
 	.unread-pill-count {
 		background: #ef4444;
-		font-size: 0.55rem;
+		font-size: 0.72rem;
 		padding: 0.1rem 0.35rem;
 		border-radius: 10px;
 	}
@@ -2015,12 +2015,12 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		font-size: 0.6rem;
+		font-size: 0.72rem;
 		font-weight: 800;
 	}
 	.m-avatar-fallback { background: var(--surface-raised); color: var(--accent); border-radius: 50%; }
 	.m-name { font-weight: 800; color: var(--text-main); }
-	.m-sub { font-size: 0.55rem; color: var(--text-muted); margin-left: auto; }
+	.m-sub { font-size: 0.72rem; color: var(--text-muted); margin-left: auto; }
 	.bot-sub { color: #c084fc; font-weight: 700; }
 
 	/* GIF Picker Popover */
@@ -2055,7 +2055,7 @@
 	}
 	.gif-chip:hover { transform: scale(1.05); }
 	.gif-chip img { width: 100%; height: 50px; object-fit: cover; }
-	.gif-chip span { font-size: 0.55rem; font-weight: 700; color: var(--text-muted); padding: 2px 0; }
+	.gif-chip span { font-size: 0.72rem; font-weight: 700; color: var(--text-muted); padding: 2px 0; }
 
 	/* Pending preview */
 	.pending-preview-bar {
@@ -2084,14 +2084,14 @@
 		border: none;
 		width: 14px;
 		height: 14px;
-		font-size: 0.5rem;
+		font-size: 0.72rem;
 		border-radius: 50%;
 		cursor: pointer;
 		display: flex;
 		align-items: center;
 		justify-content: center;
 	}
-	.preview-label { font-size: 0.65rem; color: var(--text-muted); font-weight: 600; }
+	.preview-label { font-size: 0.72rem; color: var(--text-muted); font-weight: 600; }
 
 	/* Input Bar */
 	.chat-input-bar {
@@ -2124,7 +2124,7 @@
 		background: var(--accent-soft);
 	}
 	.gif-btn {
-		font-size: 0.6rem;
+		font-size: 0.72rem;
 		font-weight: 900;
 		color: var(--accent);
 	}
@@ -2145,7 +2145,7 @@
 		border-radius: 8px;
 		padding: 0.35rem 2.5rem 0.35rem 0.6rem;
 		color: var(--text-main);
-		font-size: 0.75rem;
+		font-size: 0.875rem;
 		resize: none;
 		line-height: 1.3;
 		font-family: inherit;
@@ -2192,7 +2192,7 @@
 		border: 1px solid var(--glass-border);
 	}
 	.slowmode-countdown {
-		font-size: 0.65rem;
+		font-size: 0.72rem;
 		font-weight: 800;
 	}
 
@@ -2450,14 +2450,14 @@
 		gap: 0.4rem;
 	}
 	.pinned-badge-tag {
-		font-size: 0.58rem;
+		font-size: 0.72rem;
 		font-weight: 800;
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
 		color: #f59e0b;
 	}
 	.pinned-author-name {
-		font-size: 0.68rem;
+		font-size: 0.72rem;
 		font-weight: 700;
 		color: var(--text-secondary);
 	}
@@ -2632,7 +2632,7 @@
 		background: rgba(255, 255, 255, 0.1);
 	}
 	.reaction-pick-emoji.is-text-tag {
-		font-size: 0.65rem;
+		font-size: 0.72rem;
 		font-weight: 800;
 		font-family: monospace;
 		padding: 3px 6px;
@@ -2725,7 +2725,7 @@
 		background: none;
 		border: none;
 		color: var(--text-muted);
-		font-size: 0.65rem;
+		font-size: 0.72rem;
 		cursor: pointer;
 		padding: 2px 4px;
 		border-radius: 50%;
@@ -2815,7 +2815,7 @@
 		background: rgba(255, 255, 255, 0.1);
 	}
 	.grid-emoji-btn.is-text-tag {
-		font-size: 0.62rem;
+		font-size: 0.72rem;
 		font-weight: 800;
 		font-family: monospace;
 		padding: 4px 2px;
@@ -2845,7 +2845,7 @@
 		background: var(--surface-raised);
 		border: 1px solid var(--glass-border);
 		border-radius: 12px;
-		font-size: 0.68rem;
+		font-size: 0.72rem;
 		color: var(--text-secondary);
 		cursor: pointer;
 		transition: all 0.15s;
@@ -2869,7 +2869,7 @@
 		line-height: 1;
 	}
 	.reaction-count {
-		font-size: 0.65rem;
+		font-size: 0.72rem;
 		font-weight: 700;
 	}
 
@@ -2907,7 +2907,7 @@
 		min-width: 0;
 	}
 	.replying-lead {
-		font-size: 0.65rem;
+		font-size: 0.72rem;
 		color: var(--text-secondary);
 	}
 	.replying-lead strong {

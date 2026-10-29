@@ -204,7 +204,7 @@
 		white-space: nowrap;
 	}
 	.lb-sub {
-		font-size: 0.55rem;
+		font-size: 0.72rem;
 		color: var(--text-muted);
 	}
 	.lb-score {
@@ -216,13 +216,13 @@
 		color: var(--accent);
 	}
 	.score-label {
-		font-size: 0.5rem;
+		font-size: 0.72rem;
 		color: var(--text-muted);
 		display: block;
 	}
 
 	.lb-delta {
-		font-size: 0.6rem;
+		font-size: 0.72rem;
 		font-weight: 800;
 		padding: 0.1rem 0.3rem;
 		border-radius: 4px;
@@ -231,7 +231,7 @@
 	}
 	.lb-delta.up { color: #10b981; background: rgba(16,185,129,0.12); }
 	.lb-delta.down { color: #ef4444; background: rgba(239,68,68,0.12); }
-	.lb-delta.new { color: #f59e0b; background: rgba(245,158,11,0.12); font-size: 0.5rem; }
+	.lb-delta.new { color: #f59e0b; background: rgba(245,158,11,0.12); font-size: 0.72rem; }
 
 	.lb-row.clickable { cursor: pointer; }
 	.lb-row.clickable:hover { background: var(--hover-tint); }
@@ -239,12 +239,12 @@
 	.team-member-row { display: flex; justify-content: space-between; align-items: center; padding: 0.2rem 0.4rem; font-size: 0.7rem; border-radius: 4px; }
 	.team-member-row:nth-child(odd) { background: rgba(59,130,246,0.04); }
 	.tm-name { color: var(--text-secondary); }
-	.tm-pts { font-weight: 700; color: var(--accent); font-size: 0.65rem; }
+	.tm-pts { font-weight: 700; color: var(--accent); font-size: 0.72rem; }
 
 	.lb-tabs { display: flex; gap: 0.2rem; }
 	.lb-tab {
 		padding: 0.25rem 0.6rem;
-		font-size: 0.6rem;
+		font-size: 0.72rem;
 		font-weight: 700;
 		border: 1px solid var(--glass-border);
 		border-radius: 6px;

@@ -2312,24 +2312,24 @@
 	.mym-link { background: none; border: none; color: var(--accent); font-weight: 600; font-size: 0.85rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.2rem; }
 	.mym-link:hover { text-decoration: underline; }
 	.mym-empty { margin: 0; color: var(--text-dim); display: flex; align-items: center; gap: 0.5rem; font-size: 0.95rem; }
-	.mym-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; overflow-y: auto; min-height: 0; }
+	.mym-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; overflow-y: auto; min-height: 0; }
 	.mym-row {
 		display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem;
-		padding: 0.6rem 0.8rem; border-radius: var(--radius-md);
+		padding: 0.45rem 0.75rem; border-radius: var(--radius-md);
 		background: var(--surface-raised); border: 1px solid var(--glass-border);
 	}
 	.mym-row.ready { border-color: var(--accent); }
 	.mym-main { flex: 1 1 240px; min-width: 0; display: flex; flex-direction: column; gap: 0.15rem; }
 	.mym-versus { display: flex; align-items: baseline; gap: 0.4rem; flex-wrap: wrap; }
 	.mym-vs { color: var(--text-dim); font-size: 0.85rem; }
-	.mym-opponent { font-family: var(--font-title); font-weight: 700; font-size: 1.1rem; color: var(--text-main); }
+	.mym-opponent { font-family: var(--font-title); font-weight: 700; font-size: 1rem; color: var(--text-main); }
 	.mym-seat { display: inline-flex; align-items: center; gap: 0.2rem; background: var(--accent-soft); color: var(--accent); border: 1px solid transparent; border-radius: var(--radius-sm); padding: 0.1rem 0.45rem; font-size: 0.78rem; font-weight: 600; cursor: pointer; }
 	.mym-seat:hover { border-color: var(--accent); }
 	.mym-meta { color: var(--text-muted); font-size: 0.82rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 	.mym-status { font-size: 0.78rem; font-weight: 600; color: var(--text-dim); padding: 0.2rem 0.6rem; border-radius: 999px; border: 1px solid var(--glass-border); white-space: nowrap; }
 	.mym-status.ready { color: var(--success); border-color: var(--success); }
 	.mym-actions { display: flex; gap: 0.5rem; }
-	.mym-btn { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.45rem 0.9rem; font-size: 0.85rem; white-space: nowrap; }
+	.mym-btn { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.35rem 0.75rem; font-size: 0.8rem; white-space: nowrap; }
 	.mym-score { flex-basis: 100%; display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; padding-top: 0.5rem; border-top: 1px solid var(--glass-border); }
 	.mym-field { display: flex; align-items: center; gap: 0.4rem; font-size: 0.82rem; color: var(--text-dim); }
 	.mym-field span { max-width: 110px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

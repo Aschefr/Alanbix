@@ -260,7 +260,7 @@
 		letter-spacing: 0.08em;
 	}
 	.panel-header .subtitle {
-		font-size: 0.65rem;
+		font-size: 0.72rem;
 		color: var(--text-muted);
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
