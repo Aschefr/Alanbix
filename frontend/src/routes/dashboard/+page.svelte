@@ -607,7 +607,7 @@
 
 					});
 
-					oppName = `Groupe (${oppNames.join(', ')})`;
+					oppName = `${tFunc('tourneys_format_ffa')} · ${otherPids.length + 1} ${tFunc('dash_stat_players').toLowerCase()}`;
 
 					oppPid = otherPids.find(pid => pid > 0) || null;
 
@@ -755,26 +755,21 @@
 					{#each myActiveMatches as m}
 						<div class="match-card glass" class:match-ready={m.is_ready}>
 							<div class="match-card-top">
-								<span class="match-game-tag"><Icon name="gamepad" size={13} /> {m.game_name}</span>
+								<div class="mc-versus">
+									<span class="vs-label">{$t('mobile_match_versus')}</span>
+									<span class="opponent-name">{m.opponent_name}</span>
+								</div>
 								<span class="match-status-tag" class:tag-ready={m.is_ready}>
 									{m.status_label}
 								</span>
 							</div>
-
 							<div class="match-tourney-title">
-								<strong>{m.tournament_name}</strong> · <span class="round-name">{m.round_label}</span>
-							</div>
-
-							<div class="match-versus-box">
-								<div class="vs-label">{$t('mobile_match_versus')}</div>
-								<div class="opponent-name">
-									{m.opponent_name}
-									{#if m.opponent_seat}
-										<button class="seat-link" on:click={() => navigateToMap(m.opponent_seat)} title={$t('tourneys_view_on_map')}>
-											<Icon name="pin" size={13} /> {$t('mobile_match_seat_link', { seat: m.opponent_seat })}
-										</button>
-									{/if}
-								</div>
+								{m.game_name} · {m.tournament_name} · <span class="round-name">{m.round_label}</span>
+								{#if m.opponent_seat}
+									<button class="seat-link" on:click={() => navigateToMap(m.opponent_seat)} title={$t('tourneys_view_on_map')}>
+										<Icon name="pin" size={12} /> {$t('mobile_match_seat_link', { seat: m.opponent_seat })}
+									</button>
+								{/if}
 							</div>
 
 							<!-- Quick Score Panel (Inline & Smooth) -->
@@ -1627,12 +1622,8 @@
 
 			flex-direction: column;
 
-			gap: 0.85rem;
-
+			gap: 0.5rem;
 		}
-
-
-
 		.match-card {
 
 			background: var(--glass-bg);
@@ -1640,18 +1631,11 @@
 			border: 1px solid var(--glass-border);
 
 			border-radius: 14px;
-
-			padding: 1rem;
-
+			padding: 0.6rem 0.75rem;
 			display: flex;
-
 			flex-direction: column;
-
-			gap: 0.7rem;
-
-			box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-
-			border-left: 4px solid #f59e0b;
+			gap: 0.35rem;
+			border-left: 3px solid #f59e0b;
 
 		}
 
@@ -1659,9 +1643,7 @@
 
 		.match-card.match-ready {
 
-			border-left: 4px solid #10b981;
-
-			background: rgba(16, 185, 129, 0.04);
+			border-left: 3px solid #10b981;
 
 		}
 
@@ -1674,10 +1656,11 @@
 			align-items: center;
 
 			justify-content: space-between;
-
-			font-size: 0.75rem;
-
+			gap: 0.5rem;
 		}
+		.mc-versus { display: flex; align-items: baseline; gap: 0.35rem; min-width: 0; }
+		.mc-versus .vs-label { white-space: nowrap; }
+		.mc-versus .opponent-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 
 
@@ -1693,11 +1676,11 @@
 
 		.match-status-tag {
 
-			font-weight: 800;
-
-			font-size: 0.7rem;
-
-			padding: 0.15rem 0.5rem;
+			font-weight: 700;
+			font-size: 0.68rem;
+			white-space: nowrap;
+			flex-shrink: 0;
+			padding: 0.1rem 0.4rem;
 
 			border-radius: 6px;
 
@@ -1724,19 +1707,15 @@
 
 
 		.match-tourney-title {
-
-			font-size: 0.95rem;
-
-			color: var(--text-main);
-
+			font-size: 0.78rem;
+			color: var(--text-muted);
+			display: flex;
+			align-items: center;
+			gap: 0.4rem;
+			flex-wrap: wrap;
 		}
-
 		.match-tourney-title .round-name {
-
-			color: var(--text-dim);
-
-			font-size: 0.85rem;
-
+			color: var(--text-muted);
 		}
 
 
@@ -1819,26 +1798,15 @@
 
 			display: flex;
 
-			gap: 0.5rem;
-
-			margin-top: 0.2rem;
-
+			gap: 0.4rem;
+			margin-top: 0.15rem;
 		}
-
-
-
 		.btn-match-action {
-
 			flex: 1;
-
 			text-align: center;
-
 			text-decoration: none;
-
-			font-size: 0.85rem;
-
-			padding: 0.55rem 0.75rem;
-
+			font-size: 0.8rem;
+			padding: 0.4rem 0.6rem;
 		}
 
 
