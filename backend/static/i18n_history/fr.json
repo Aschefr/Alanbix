@@ -188,6 +188,15 @@
  "ai_setting_rag_suggestion_enabled": [
   "Activer les suggestions RAG automatiques"
  ],
+ "changelog_error": [
+  "Erreur lors de la récupération des notes de mise à jour."
+ ],
+ "changelog_loading": [
+  "Chargement des patch notes..."
+ ],
+ "changelog_title": [
+  "Historique des Versions"
+ ],
  "dash_chat_slowmode_badge": [
   "Slowmode : {s}s"
  ],

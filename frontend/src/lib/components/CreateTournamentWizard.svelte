@@ -134,7 +134,7 @@
 						<option value={g.id}>{g.name}</option>
 					{/each}
 				</select>
-				<button type="button" class="btn-add-game-inline" on:click={() => showAddGameModal = true} title="{$t('admin_games_add') || 'Ajouter un Jeu'}">➕</button>
+				<button type="button" class="btn-add-game-inline" on:click={() => showAddGameModal = true} title="{$t('admin_games_add')}">➕</button>
 			</div>
 			
 			{#if errorMsg}

@@ -417,7 +417,7 @@
 						<span class="text-xs text-dim">{games.length > 1 ? $t("admin_games_library_count_many", { count: games.length }) : $t("admin_games_library_count_1", { count: games.length })}</span>
 					</div>
 				</div>
-				<button class="btn-primary btn-sm" on:click={() => showAddGameModal = true}>{$t("admin_games_add") || 'Ajouter un Jeu'}</button>
+				<button class="btn-primary btn-sm" on:click={() => showAddGameModal = true}>{$t("admin_games_add")}</button>
 			</div>
 			<div class="game-gallery">
 				{#each games as g}

@@ -27,14 +27,14 @@
 	$: if (typeof localStorage !== 'undefined') localStorage.setItem('admin_subtab', settingsSubTab);
 
 	$: {
-		let baseAdmin = $t('nav_administration') || 'Administration';
+		let baseAdmin = $t('nav_administration');
 		let tabName = baseAdmin;
 		if (activeTab === 'regie') tabName = `${baseAdmin} - ${$t('admin_tab_regie')}`;
-		else if (activeTab === 'tournaments') tabName = `${baseAdmin} - ${$t('admin_tab_tournaments') || 'Tournois & Jeux'}`;
-		else if (activeTab === 'players') tabName = `${baseAdmin} - ${$t('admin_tab_players') || 'Gestion Joueurs'}`;
-		else if (activeTab === 'settings') tabName = `${baseAdmin} - ${$t('admin_tab_settings') || 'IA & Paramètres'}`;
-		else if (activeTab === 'conversations') tabName = `${baseAdmin} - ${$t('admin_tab_conversations') || 'Conversations IA'}`;
-		else if (activeTab === 'awards') tabName = `${baseAdmin} - ${$t('admin_tab_awards') || 'Prix & Distinctions'}`;
+		else if (activeTab === 'tournaments') tabName = `${baseAdmin} - ${$t('admin_tab_tournaments')}`;
+		else if (activeTab === 'players') tabName = `${baseAdmin} - ${$t('admin_tab_players')}`;
+		else if (activeTab === 'settings') tabName = `${baseAdmin} - ${$t('admin_tab_settings')}`;
+		else if (activeTab === 'conversations') tabName = `${baseAdmin} - ${$t('admin_tab_conversations')}`;
+		else if (activeTab === 'awards') tabName = `${baseAdmin} - ${$t('admin_tab_awards')}`;
 		customPageTitle.set(tabName);
 	}
 
@@ -140,22 +140,22 @@
 {#if authorized}
 <div class="admin-view">
 	<header class="flex-row justify-between items-center">
-		<h1 class="title-premium">{$t('admin_title') || 'Administration Centrale'}</h1>
+		<h1 class="title-premium">{$t('admin_title')}</h1>
 		<div class="tabs glass">
 			<button class={activeTab === 'regie' ? 'active' : ''} on:click={() => activeTab = 'regie'}>
 				{$t('admin_tab_regie')}
 				{#if regiePending > 0}<span class="regie-badge">{regiePending}</span>{/if}
 			</button>
-			<button class={activeTab === 'tournaments' ? 'active' : ''} on:click={() => activeTab = 'tournaments'}>{$t('admin_tab_tournaments') || 'Tournois'}</button>
-			<button class={activeTab === 'players' ? 'active' : ''} on:click={() => { activeTab = 'players'; if (playersTabRef) playersTabRef.loadPlayers(); }}>{$t('admin_tab_players') || 'Gestion Joueurs'}</button>
-			<button class={activeTab === 'settings' ? 'active' : ''} on:click={() => activeTab = 'settings'}>{$t('admin_tab_settings') || 'IA & Paramètres'}</button>
+			<button class={activeTab === 'tournaments' ? 'active' : ''} on:click={() => activeTab = 'tournaments'}>{$t('admin_tab_tournaments')}</button>
+			<button class={activeTab === 'players' ? 'active' : ''} on:click={() => { activeTab = 'players'; if (playersTabRef) playersTabRef.loadPlayers(); }}>{$t('admin_tab_players')}</button>
+			<button class={activeTab === 'settings' ? 'active' : ''} on:click={() => activeTab = 'settings'}>{$t('admin_tab_settings')}</button>
 			<button class={activeTab === 'conversations' ? 'active' : ''} on:click={() => { activeTab = 'conversations'; if (conversationsTabRef) conversationsTabRef.loadAdminConversations(); }}>
 				{$t('admin_tab_chats')}
 				{#if adminUnreadConvsCount > 0}
 					<span class="tab-unread-badge" style="background:#22c55e;color:white;padding:0.1rem 0.4rem;border-radius:10px;font-size: 0.75rem;font-weight:bold;margin-left:0.4rem">{adminUnreadConvsCount}</span>
 				{/if}
 			</button>
-			<button class={activeTab === 'awards' ? 'active' : ''} on:click={() => { activeTab = 'awards'; if (awardsTabRef) awardsTabRef.loadAwardsTab(); }}>🏆 {$t('admin_tab_awards') || 'Prix & Distinctions'}</button>
+			<button class={activeTab === 'awards' ? 'active' : ''} on:click={() => { activeTab = 'awards'; if (awardsTabRef) awardsTabRef.loadAwardsTab(); }}>🏆 {$t('admin_tab_awards')}</button>
 			<button on:click={() => window.location.href = '/dashboard/admin/languages'}>🌐 {$t('admin_tab_languages')}</button>
 		</div>
 	</header>

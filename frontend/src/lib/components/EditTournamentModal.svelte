@@ -88,7 +88,7 @@
 				<div class="header-title-wrapper">
 					<span class="header-emoji">✏️</span>
 					<div>
-						<h3>{$t("tourneys_btn_edit") || "Éditer"}</h3>
+						<h3>{$t("tourneys_btn_edit")}</h3>
 						<span class="header-subtitle">{tournament.name}</span>
 					</div>
 				</div>
@@ -97,15 +97,15 @@
 			<div class="edit-modal-body">
 				<!-- Section: Général -->
 				<div class="edit-section-card">
-					<h4 class="section-title">⚙️ {$t("tourneys_detail_settings_general") || "Configuration Générale"}</h4>
+					<h4 class="section-title">⚙️ {$t("tourneys_detail_settings_general")}</h4>
 					<div class="edit-grid-2col">
 						<div class="edit-field">
-							<label for="edit-name">{$t("admin_tourneys_wizard_name_lbl") || "Nom du Tournoi"}</label>
-							<input id="edit-name" type="text" bind:value={editConfig.name} placeholder={$t("admin_tourneys_wizard_name_placeholder") || "Nom du tournoi..."} />
+							<label for="edit-name">{$t("admin_tourneys_wizard_name_lbl")}</label>
+							<input id="edit-name" type="text" bind:value={editConfig.name} placeholder={$t("admin_tourneys_wizard_name_placeholder")} />
 						</div>
 
 						<div class="edit-field">
-							<label for="edit-game">🎮 {$t("tourneys_edit_game_lbl") || "Jeu associé"}</label>
+							<label for="edit-game">🎮 {$t("tourneys_edit_game_lbl")}</label>
 							<select id="edit-game" bind:value={editConfig.game_id}>
 								<option value={null}>-- Aucun jeu --</option>
 								{#each games as g}
@@ -116,30 +116,30 @@
 
 						{#if showStatus}
 							<div class="edit-field">
-								<label for="edit-status">{$t('admin_tourneys_edit_status') || "Statut"}</label>
+								<label for="edit-status">{$t('admin_tourneys_edit_status')}</label>
 								<select id="edit-status" bind:value={editConfig.status}>
-									<option value="OPEN">{$t("admin_tourneys_status_pill_open") || "Ouvert"}</option>
-									<option value="RUNNING">{$t("admin_tourneys_status_pill_running") || "En cours"}</option>
-									<option value="DONE">{$t("admin_tourneys_status_pill_done") || "Terminé"}</option>
-									<option value="CLOSED">{$t("admin_tourneys_status_pill_closed") || "Clôturé"}</option>
+									<option value="OPEN">{$t("admin_tourneys_status_pill_open")}</option>
+									<option value="RUNNING">{$t("admin_tourneys_status_pill_running")}</option>
+									<option value="DONE">{$t("admin_tourneys_status_pill_done")}</option>
+									<option value="CLOSED">{$t("admin_tourneys_status_pill_closed")}</option>
 								</select>
 							</div>
 						{/if}
 
 						<div class="edit-field">
-							<label>{$t("admin_tourneys_wizard_mode_lbl") || "Mode de Match"}</label>
+							<label>{$t("admin_tourneys_wizard_mode_lbl")}</label>
 							<div class="edit-toggle-row">
-								<button type="button" class="edit-toggle {!editConfig.use_teams ? 'active' : ''}" on:click={() => editConfig.use_teams = false}>👤 {$t("admin_tourneys_wizard_mode_solo") || "Solo"}</button>
-								<button type="button" class="edit-toggle {editConfig.use_teams ? 'active' : ''}" on:click={() => editConfig.use_teams = true}>👥 {$t("admin_tourneys_wizard_mode_teams") || "Équipes"}</button>
+								<button type="button" class="edit-toggle {!editConfig.use_teams ? 'active' : ''}" on:click={() => editConfig.use_teams = false}>👤 {$t("admin_tourneys_wizard_mode_solo")}</button>
+								<button type="button" class="edit-toggle {editConfig.use_teams ? 'active' : ''}" on:click={() => editConfig.use_teams = true}>👥 {$t("admin_tourneys_wizard_mode_teams")}</button>
 							</div>
 						</div>
 
 						<div class="edit-field full-width">
-							<label for="edit-rules">📜 {$t("tourneys_edit_rules_lbl") || "Règles spécifiques du tournoi"}</label>
+							<label for="edit-rules">📜 {$t("tourneys_edit_rules_lbl")}</label>
 							<textarea 
 								id="edit-rules" 
 								bind:value={editConfig.custom_rules} 
-								placeholder={$t("tourneys_edit_rules_placeholder") || "Règles ou consignes spécifiques pour ce tournoi..."}
+								placeholder={$t("tourneys_edit_rules_placeholder")}
 								rows="3"
 								style="width: 100%; border-radius: 8px; border: 1px solid var(--glass-border); background: var(--surface-sunken); color: var(--text-main); padding: 0.6rem; font-size: 0.8rem; resize: vertical;"
 							></textarea>
@@ -149,15 +149,15 @@
 					{#if editConfig.use_teams}
 						<div class="edit-sub-row anim-fade-in" style="display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap; margin-top: 0.8rem;">
 							<div class="edit-field narrow">
-								<label for="edit-team-size">{$t("admin_tourneys_wizard_team_size") || "Taille d'équipe"}</label>
+								<label for="edit-team-size">{$t("admin_tourneys_wizard_team_size")}</label>
 								<input id="edit-team-size" type="number" bind:value={editConfig.team_size} min="2" max="16" />
 							</div>
 							<div class="edit-field">
-								<label for="edit-lock-mode">🔒 {$t("tourneys_edit_lock_mode_lbl") || "Mode de verrouillage"}</label>
+								<label for="edit-lock-mode">🔒 {$t("tourneys_edit_lock_mode_lbl")}</label>
 								<select id="edit-lock-mode" bind:value={editConfig.team_lock_mode}>
-									<option value="captain">{$t("tourneys_lock_mode_captain") || "Référent & Admin"}</option>
-									<option value="admin">{$t("tourneys_lock_mode_admin") || "Admin uniquement"}</option>
-									<option value="open">{$t("tourneys_lock_mode_open") || "Ouvert (aucun verrou)"}</option>
+									<option value="captain">{$t("tourneys_lock_mode_captain")}</option>
+									<option value="admin">{$t("tourneys_lock_mode_admin")}</option>
+									<option value="open">{$t("tourneys_lock_mode_open")}</option>
 								</select>
 							</div>
 						</div>
@@ -166,13 +166,13 @@
 
 				<!-- Section: Format -->
 				<div class="edit-section-card">
-					<h4 class="section-title">🏆 {$t("admin_tourneys_wizard_format") || "Format"}</h4>
+					<h4 class="section-title">🏆 {$t("admin_tourneys_wizard_format")}</h4>
 					<div class="edit-field full-width">
-						<label>{$t("admin_tourneys_wizard_format_lbl") || "Format d'arbre"}</label>
+						<label>{$t("admin_tourneys_wizard_format_lbl")}</label>
 						<div class="edit-toggle-row">
-							<button type="button" class="edit-toggle {editConfig.bracket_type === 'single_elim' ? 'active' : ''}" on:click={() => editConfig.bracket_type = 'single_elim'}>{$t("admin_tourneys_wizard_format_single") || "Élimination Directe"}</button>
-							<button type="button" class="edit-toggle {editConfig.bracket_type === 'double_elim' ? 'active' : ''}" on:click={() => editConfig.bracket_type = 'double_elim'}>{$t("admin_tourneys_wizard_format_double") || "Double Élimination"}</button>
-							<button type="button" class="edit-toggle {editConfig.bracket_type === 'round_robin' ? 'active' : ''}" on:click={() => editConfig.bracket_type = 'round_robin'}>{$t("admin_tourneys_wizard_format_championship") || "Championnat"}</button>
+							<button type="button" class="edit-toggle {editConfig.bracket_type === 'single_elim' ? 'active' : ''}" on:click={() => editConfig.bracket_type = 'single_elim'}>{$t("admin_tourneys_wizard_format_single")}</button>
+							<button type="button" class="edit-toggle {editConfig.bracket_type === 'double_elim' ? 'active' : ''}" on:click={() => editConfig.bracket_type = 'double_elim'}>{$t("admin_tourneys_wizard_format_double")}</button>
+							<button type="button" class="edit-toggle {editConfig.bracket_type === 'round_robin' ? 'active' : ''}" on:click={() => editConfig.bracket_type = 'round_robin'}>{$t("admin_tourneys_wizard_format_championship")}</button>
 							<button type="button" class="edit-toggle {editConfig.bracket_type === 'ffa' ? 'active' : ''}" on:click={() => editConfig.bracket_type = 'ffa'}>FFA</button>
 						</div>
 					</div>
@@ -182,16 +182,16 @@
 						<button type="button" class="option-card {editConfig.lower_score_is_better ? 'active' : ''}" on:click={() => editConfig.lower_score_is_better = !editConfig.lower_score_is_better}>
 							<div class="option-icon">🔄</div>
 							<div class="option-content">
-								<div class="option-label">{$t("tourneys_opt_reverse") || "Score Inversé"}</div>
-								<div class="option-desc">{$t("admin_tourneys_wizard_opt_reverse_desc") || "(plus petit score gagne)"}</div>
+								<div class="option-label">{$t("tourneys_opt_reverse")}</div>
+								<div class="option-desc">{$t("admin_tourneys_wizard_opt_reverse_desc")}</div>
 							</div>
 						</button>
 
 						<button type="button" class="option-card {editConfig.boolean_mode ? 'active' : ''}" on:click={() => editConfig.boolean_mode = !editConfig.boolean_mode}>
 							<div class="option-icon">🎯</div>
 							<div class="option-content">
-								<div class="option-label">{$t("admin_tourneys_wizard_opt_boolean") || "Mode G/N/P"}</div>
-								<div class="option-desc">{$t("admin_tourneys_wizard_opt_boolean_desc") || "(boutons au lieu des scores)"}</div>
+								<div class="option-label">{$t("admin_tourneys_wizard_opt_boolean")}</div>
+								<div class="option-desc">{$t("admin_tourneys_wizard_opt_boolean_desc")}</div>
 							</div>
 						</button>
 					</div>
@@ -199,7 +199,7 @@
 					<!-- Suffix configs for formats -->
 					{#if editConfig.bracket_type === 'round_robin'}
 						<div class="edit-format-specific-panel anim-fade-in">
-							<h5 class="specific-title">⚙️ {$t("admin_tourneys_wizard_format_championship") || "Championnat"}</h5>
+							<h5 class="specific-title">⚙️ {$t("admin_tourneys_wizard_format_championship")}</h5>
 							<div class="edit-grid-2col">
 								<div class="edit-field">
 									<label for="edit-group-size">{$t('tournaments.config.group_size') || "Taille des Groupes"}</label>
@@ -215,7 +215,7 @@
 									<button type="button" class="option-card {editConfig.allow_draws ? 'active' : ''}" on:click={() => editConfig.allow_draws = !editConfig.allow_draws}>
 										<div class="option-icon">🤝</div>
 										<div class="option-content">
-											<div class="option-label">{$t("admin_tourneys_wizard_opt_draws") || "Matchs Nuls"}</div>
+											<div class="option-label">{$t("admin_tourneys_wizard_opt_draws")}</div>
 										</div>
 									</button>
 								</div>
@@ -242,25 +242,25 @@
 
 				<!-- Section: Structure Globale -->
 				<div class="edit-section-card">
-					<h4 class="section-title">⛓️ {$t("admin_tourneys_wizard_struct_lbl") || "Structure"}</h4>
+					<h4 class="section-title">⛓️ {$t("admin_tourneys_wizard_struct_lbl")}</h4>
 					<div class="edit-field full-width">
-						<label>{$t("admin_tourneys_wizard_struct_lbl") || "Structure"}</label>
+						<label>{$t("admin_tourneys_wizard_struct_lbl")}</label>
 						<div class="edit-toggle-row">
-							<button type="button" class="edit-toggle {editConfig.phases === 'single' ? 'active' : ''}" on:click={() => editConfig.phases = 'single'}>{$t("admin_tourneys_wizard_struct_ffa") || "Phase Directe"}</button>
-							<button type="button" class="edit-toggle {editConfig.phases === 'double' ? 'active' : ''}" on:click={() => editConfig.phases = 'double'}>{$t("admin_tourneys_wizard_struct_groups") || "Groupes + Finale"}</button>
+							<button type="button" class="edit-toggle {editConfig.phases === 'single' ? 'active' : ''}" on:click={() => editConfig.phases = 'single'}>{$t("admin_tourneys_wizard_struct_ffa")}</button>
+							<button type="button" class="edit-toggle {editConfig.phases === 'double' ? 'active' : ''}" on:click={() => editConfig.phases = 'double'}>{$t("admin_tourneys_wizard_struct_groups")}</button>
 						</div>
 					</div>
 
 					{#if editConfig.phases === 'double'}
 						<div class="edit-format-specific-panel anim-fade-in">
-							<h5 class="specific-title">⚙️ {$t("admin_tourneys_wizard_struct_groups") || "Groupes + Finale"}</h5>
+							<h5 class="specific-title">⚙️ {$t("admin_tourneys_wizard_struct_groups")}</h5>
 							<div class="edit-grid-2col">
 								<div class="edit-field">
-									<label for="edit-group-size-double">{$t("admin_tourneys_wizard_group_size") || "Taille Groupes"}</label>
+									<label for="edit-group-size-double">{$t("admin_tourneys_wizard_group_size")}</label>
 									<input id="edit-group-size-double" type="number" bind:value={editConfig.group_size} min="2" max="16" />
 								</div>
 								<div class="edit-field">
-									<label for="edit-advancers-count-double">{$t("admin_tourneys_wizard_advancers") || "Qualifiés"}</label>
+									<label for="edit-advancers-count-double">{$t("admin_tourneys_wizard_advancers")}</label>
 									<input id="edit-advancers-count-double" type="number" bind:value={editConfig.advancers_count} min="1" max="8" />
 								</div>
 							</div>
@@ -270,34 +270,34 @@
 
 				<!-- Section: Points -->
 				<div class="edit-section-card">
-					<h4 class="section-title">🏅 {$t("admin_tourneys_wizard_points_lbl") || "Points"}</h4>
+					<h4 class="section-title">🏅 {$t("admin_tourneys_wizard_points_lbl")}</h4>
 					<div class="edit-pts-grid-modern">
 						<div class="edit-pts-card">
-							<label>🥇 {$t("admin_tourneys_wizard_points_1st") || "1er"}</label>
+							<label>🥇 {$t("admin_tourneys_wizard_points_1st")}</label>
 							<input type="number" bind:value={editConfig.pts_winner} min="0" />
 						</div>
 						<div class="edit-pts-card">
-							<label>🥈 {$t("admin_tourneys_wizard_points_2nd") || "2e"}</label>
+							<label>🥈 {$t("admin_tourneys_wizard_points_2nd")}</label>
 							<input type="number" bind:value={editConfig.pts_second} min="0" />
 						</div>
 						<div class="edit-pts-card">
-							<label>🥉 {$t("admin_tourneys_wizard_points_3rd") || "3e"}</label>
+							<label>🥉 {$t("admin_tourneys_wizard_points_3rd")}</label>
 							<input type="number" bind:value={editConfig.pts_third} min="0" />
 						</div>
 						<div class="edit-pts-card">
-							<label>👤 {$t("admin_tourneys_wizard_points_part") || "Parti."}</label>
+							<label>👤 {$t("admin_tourneys_wizard_points_part")}</label>
 							<input type="number" bind:value={editConfig.pts_participation} min="0" />
 						</div>
 						<div class="edit-pts-card">
-							<label>⚡ {$t("admin_tourneys_wizard_points_bonus") || "Bonus/Score"}</label>
+							<label>⚡ {$t("admin_tourneys_wizard_points_bonus")}</label>
 							<input type="number" bind:value={editConfig.pts_per_match} min="0" step="0.1" />
 						</div>
 					</div>
 				</div>
 			</div>
 			<footer class="edit-modal-footer">
-				<button class="btn-secondary" on:click={close}>{$t("info_btn_cancel") || "Annuler"}</button>
-				<button class="btn-primary" on:click={save}>💾 {$t("info_btn_save") || "Enregistrer"}</button>
+				<button class="btn-secondary" on:click={close}>{$t("info_btn_cancel")}</button>
+				<button class="btn-primary" on:click={save}>💾 {$t("info_btn_save")}</button>
 			</footer>
 		</div>
 	</div>

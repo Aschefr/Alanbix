@@ -638,7 +638,7 @@
 	<div class="chat-header glass">
 		<button class="mobile-back-btn" on:click={() => dispatch('close')} title="Retour à la liste des joueurs">
 			<Icon name="arrow-left" size={16} />
-			<span class="mobile-back-label">{$t('common_back') || 'Retour'}</span>
+			<span class="mobile-back-label">{$t('common_back')}</span>
 		</button>
 		{#if mode === 'p2p'}
 			<div class="header-main">
@@ -663,7 +663,7 @@
 					</div>
 					<div class="peer-subtitle">
 						{#if peer?.is_online}
-							<span class="status-indicator online">🟢 {$t('players_status_online') || 'En ligne'}</span>
+							<span class="status-indicator online">🟢 {$t('players_status_online')}</span>
 						{:else}
 							<span class="status-indicator offline">⚪ {$t('players_status_offline') || 'Hors ligne'}</span>
 						{/if}

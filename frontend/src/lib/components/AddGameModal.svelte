@@ -51,9 +51,9 @@
 			});
 			const data = await res.json();
 			newGame.image_url = `${API_URL}${data.url}`;
-			dispatch('toast', { message: get(t)('admin_toast_image_uploaded') || 'Image téléversée !', type: 'success' });
+			dispatch('toast', { message: get(t)('admin_toast_image_uploaded'), type: 'success' });
 		} catch (err) {
-			dispatch('toast', { message: (get(t)('admin_toast_upload_error') || 'Erreur d\'envoi: ') + err.message, type: 'error' });
+			dispatch('toast', { message: get(t)('admin_toast_upload_error') + ' ' + err.message, type: 'error' });
 		}
 	}
 
@@ -158,28 +158,28 @@
 		on:mouseup={(e) => { if (overlayMouseDown && e.target === e.currentTarget) closeModal(); overlayMouseDown = false; }}>
 		<div class="modal-card-global glass" on:click|stopPropagation>
 			<header class="edit-modal-header">
-				<h3>➕ {$t("admin_games_add") || 'Ajouter un Jeu'}</h3>
+				<h3>➕ {$t("admin_games_add")}</h3>
 				<button class="close-btn" on:click={closeModal} aria-label="Fermer">✕</button>
 			</header>
 			<div class="edit-modal-body">
 				<div class="flex-col gap-4">
 					<div class="edit-field full-width">
-						<label>{$t('admin_games_name_lbl') || 'Nom du Jeu'}</label>
+						<label>{$t('admin_games_name_lbl')}</label>
 						<input type="text" bind:value={newGame.name} placeholder="Counter-Strike 2, Valorant..." on:input={() => searchQuery = newGame.name} />
 					</div>
 
 					<div class="edit-field full-width">
 						<!-- Image Source Selector -->
-						<label>{$t('admin_games_illus_lbl') || 'Illustration (Couverture)'}</label>
+						<label>{$t('admin_games_illus_lbl')}</label>
 						<div class="img-mode-tabs">
-							<button type="button" class="img-tab {gameImageMode === 'search' ? 'active' : ''}" on:click={() => gameImageMode = 'search'}>{$t('admin_games_btn_search') || 'Rechercher'}</button>
-							<button type="button" class="img-tab {gameImageMode === 'url' ? 'active' : ''}" on:click={() => gameImageMode = 'url'}>{$t('admin_games_btn_url') || 'Lien'}</button>
-							<button type="button" class="img-tab {gameImageMode === 'upload' ? 'active' : ''}" on:click={() => gameImageMode = 'upload'}>{$t('admin_games_btn_file') || 'Fichier'}</button>
+							<button type="button" class="img-tab {gameImageMode === 'search' ? 'active' : ''}" on:click={() => gameImageMode = 'search'}>{$t('admin_games_btn_search')}</button>
+							<button type="button" class="img-tab {gameImageMode === 'url' ? 'active' : ''}" on:click={() => gameImageMode = 'url'}>{$t('admin_games_btn_url')}</button>
+							<button type="button" class="img-tab {gameImageMode === 'upload' ? 'active' : ''}" on:click={() => gameImageMode = 'upload'}>{$t('admin_games_btn_file')}</button>
 						</div>
 
 						{#if gameImageMode === 'search'}
 							<div class="search-bar mt-2">
-								<input type="text" bind:value={searchQuery} placeholder="{$t('admin_games_search_placeholder') || 'Rechercher...'}" on:keydown={(e) => e.key === 'Enter' && searchCovers()} />
+								<input type="text" bind:value={searchQuery} placeholder="{$t('admin_games_search_placeholder')}" on:keydown={(e) => e.key === 'Enter' && searchCovers()} />
 								<button type="button" class="btn-primary btn-sm" on:click={searchCovers} disabled={searching}>{searching ? '...' : '🔍'}</button>
 							</div>
 							{#if searxngNotConfigured}
@@ -213,7 +213,7 @@
 					</div>
 
 					<div class="edit-field full-width editor-container">
-						<label>{$t('admin_games_rules_lbl') || 'Règles du Jeu'}</label>
+						<label>{$t('admin_games_rules_lbl')}</label>
 						{#if EasyMDE}
 							<textarea use:setupEditor={newGame.rules}></textarea>
 						{:else}
@@ -223,8 +223,8 @@
 				</div>
 			</div>
 			<footer class="edit-modal-footer">
-				<button type="button" class="btn-secondary" on:click={closeModal}>{$t('admin_settings_cancel') || 'Annuler'}</button>
-				<button type="button" class="btn-primary" on:click={createGame} disabled={!newGame.name}>{$t('admin_games_btn_submit') || 'Créer le Jeu'}</button>
+				<button type="button" class="btn-secondary" on:click={closeModal}>{$t('admin_settings_cancel')}</button>
+				<button type="button" class="btn-primary" on:click={createGame} disabled={!newGame.name}>{$t('admin_games_btn_submit')}</button>
 			</footer>
 		</div>
 	</div>

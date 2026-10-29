@@ -126,7 +126,7 @@
 			activeScoreMatchKey = null;
 			scheduleRefreshAll();
 		} catch (err) {
-			toast(err.detail || err.message || 'Erreur lors de la validation du score', 'error');
+			toast(err.detail || err.message || $t('dash_score_submit_error'), 'error');
 		} finally {
 			isSubmittingScore = false;
 		}
@@ -901,7 +901,7 @@
 						<div class="tourney-card-info">
 							<span class="tourney-name">{tourney.name}</span>
 							<span class="tourney-sub">
-								<Icon name="gamepad" size={12} /> {tourney.game || 'Jeu'} · {tourney.participants_count || 0} participants
+								<Icon name="gamepad" size={12} /> {tourney.game || $t('common_game_fallback')} · {$t('dash_participants_count', { count: tourney.participants_count || 0 })}
 							</span>
 						</div>
 						<span class="tourney-badge badge-{tourney.status.toLowerCase()}">
@@ -940,7 +940,7 @@
 
 							{/if}
 
-							<span class="podium-pts">{p.points || 0} pts</span>
+							<span class="podium-pts">{p.points || 0} {$t('common_pts')}</span>
 
 						</div>
 
@@ -1000,7 +1000,7 @@
 
 				<div class="info-chip glass" style="border-color: rgba(59,130,246,0.35); background: rgba(59,130,246,0.08);">
 
-					<span class="chip-label" style="color: var(--accent); display: inline-flex; align-items: center; gap: 0.35rem;"><Icon name="users" size={13} /> {$t('dash_team_lbl') || 'Équipe'}</span>
+					<span class="chip-label" style="color: var(--accent); display: inline-flex; align-items: center; gap: 0.35rem;"><Icon name="users" size={13} /> {$t('dash_team_lbl')}</span>
 
 					<span class="chip-value" style="color: var(--accent); font-weight: 800;">{user.team_name}</span>
 

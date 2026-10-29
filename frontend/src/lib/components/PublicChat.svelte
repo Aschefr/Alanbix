@@ -162,7 +162,7 @@
 		const names = activeTypersList.map(u => u.username);
 		if (names.length === 0) return '';
 		if (names.length === 1) return names[0];
-		const andWord = $t('dash_chat_typing_and') || 'et';
+		const andWord = $t('dash_chat_typing_and');
 		if (names.length === 2) return `${names[0]} ${andWord} ${names[1]}`;
 		return `${names.slice(0, -1).join(', ')} ${andWord} ${names[names.length - 1]}`;
 	})();
@@ -1154,9 +1154,9 @@
 						>
 							{#if isLoadingEarlier}
 								<span class="mini-spinner"></span>
-								<span>{$t('dash_chat_loading_earlier') || 'Chargement...'}</span>
+								<span>{$t('dash_chat_loading_earlier')}</span>
 							{:else}
-								<span>↑ {$t('dash_chat_load_earlier') || 'Charger les messages précédents'}</span>
+								<span>↑ {$t('dash_chat_load_earlier')}</span>
 							{/if}
 						</button>
 					</div>

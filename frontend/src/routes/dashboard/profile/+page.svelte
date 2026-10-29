@@ -348,8 +348,8 @@
 
 	function deleteAvatar() {
 		askConfirm(
-			get(t)('profile_avatar_delete_title') || 'Supprimer l\'avatar',
-			get(t)('profile_avatar_delete_confirm') || 'Voulez-vous vraiment supprimer votre avatar ?',
+			get(t)('profile_avatar_delete_title'),
+			get(t)('profile_avatar_delete_confirm'),
 			'error',
 			async () => {
 				try {
@@ -634,7 +634,7 @@
 										{#if h.live}<span class="live-badge">{$t("profile_pts_running")}</span>{/if}
 									</div>
 								</div>
-								<span class="hcard-pts"><strong>{h.live ? '~' : '+'}{formatPoints(h.total)}</strong> pts</span>
+								<span class="hcard-pts"><strong>{h.live ? '~' : '+'}{formatPoints(h.total)}</strong> {$t('common_pts')}</span>
 							</div>
 							<div class="hcard-bottom">
 								<div class="hcard-breakdown">

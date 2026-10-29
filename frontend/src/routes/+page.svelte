@@ -4,6 +4,7 @@
 	import { getCustomServerUrl, isCapacitorNative } from '$lib/config';
 	import ServerConfigModal from '$lib/components/ServerConfigModal.svelte';
 	import { onMount } from 'svelte';
+	import { t } from '$lib/i18nStore';
 
 	let username = '';
 	let password = '';
@@ -101,12 +102,12 @@
 				<div class="bubble b2"></div>
 				<div class="bubble b3"></div>
 			</div>
-			<span class="loading-text" style="font-size:0.95rem;opacity:0.8;letter-spacing:0.15em;color:var(--accent)">DISTILLATION...</span>
+			<span class="loading-text" style="font-size:0.95rem;opacity:0.8;letter-spacing:0.15em;color:var(--accent)">{$t('loading_distillation')}</span>
 		</div>
 	</div>
 {:else}
 <main class="login-page">
-	<button class="login-theme-toggle" on:click={toggleTheme} title={isDark ? 'Mode clair' : 'Mode sombre'}>
+	<button class="login-theme-toggle" on:click={toggleTheme} title={isDark ? $t('theme_switch_light') : $t('theme_switch_dark')}>
 		{isDark ? '☀️' : '🌙'}
 	</button>
 	<div class="login-card glass" class:register-mode={mode === 'register'}>
@@ -116,9 +117,9 @@
 		</div>
 		<p class="subtitle" class:subtitle-register={mode === 'register'}>
 			{#if mode === 'register'}
-				✨ Création de votre compte
+				✨ {$t('register_subtitle')}
 			{:else}
-				L'alambic qui distille votre LAN
+				{$t('login_subtitle')}
 			{/if}
 		</p>
 
@@ -128,19 +129,19 @@
 
 		<form on:submit|preventDefault={handleSubmit}>
 			<div class="input-group">
-				<label for="username">Pseudo</label>
+				<label for="username">{$t('login_pseudo_label')}</label>
 				<div class="username-row">
 					<input
 						type="text"
 						id="username"
 						bind:value={username}
-						placeholder="Entrez votre pseudo..."
+						placeholder={$t('login_pseudo_placeholder')}
 						required
 						disabled={mode !== 'idle'}
 						on:keydown={(e) => { if (e.key === 'Enter' && mode === 'idle') { e.preventDefault(); checkUsername(); } }}
 					/>
 					{#if mode !== 'idle'}
-						<button type="button" class="btn-change-pseudo" on:click={resetToIdle} title="Changer de pseudo">
+						<button type="button" class="btn-change-pseudo" on:click={resetToIdle} title={$t('login_change_pseudo')} aria-label={$t('login_change_pseudo')}>
 							✏️
 						</button>
 					{/if}
@@ -150,7 +151,7 @@
 			{#if mode !== 'idle'}
 				<div class="input-group password-slide">
 					<label for="password">
-						{mode === 'register' ? 'Choisissez un mot de passe' : 'Mot de passe'}
+						{mode === 'register' ? $t('register_password_label') : $t('login_password_label')}
 					</label>
 					<input type="password" id="password" bind:value={password} placeholder="••••••••" required />
 				</div>
@@ -158,26 +159,26 @@
 
 			<button type="submit" class="btn-primary" class:btn-register={mode === 'register'} disabled={checking}>
 				{#if checking}
-					<span class="spinner"></span> Vérification...
+					<span class="spinner"></span> {$t('login_checking')}
 				{:else if mode === 'register'}
-					Créer mon compte
+					{$t('register_submit')}
 				{:else if mode === 'login'}
-					Se connecter
+					{$t('login_submit')}
 				{:else}
-					Suivant →
+					{$t('login_next')} →
 				{/if}
 			</button>
 		</form>
 
 		{#if mode !== 'idle'}
 			<div class="toggle-mode">
-				<button on:click={resetToIdle}>← Changer de pseudo</button>
+				<button on:click={resetToIdle}>← {$t('login_change_pseudo')}</button>
 			</div>
 		{/if}
 	</div>
 	<div class="server-config-footer">
 		<button type="button" class="btn-server-config" on:click={() => (showServerModal = true)}>
-			📡 {currentServerUrl ? `Serveur : ${currentServerUrl}` : 'Serveur LAN / Mode Démo'}
+			📡 {currentServerUrl ? $t('login_server_current', { url: currentServerUrl }) : $t('login_server_default')}
 		</button>
 	</div>
 	<ServerConfigModal bind:isOpen={showServerModal} />

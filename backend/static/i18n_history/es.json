@@ -67,6 +67,15 @@
  "ai_setting_call_admin_cooldown": [
   "Tiempo de espera por jugador (minutos)"
  ],
+ "changelog_error": [
+  "Error al recuperar las notas de actualización."
+ ],
+ "changelog_loading": [
+  "Cargando las notas del parche..."
+ ],
+ "changelog_title": [
+  "Historial de Versiones"
+ ],
  "dash_chat_slowmode_badge": [
   "Slowmode: {s}s"
  ],

@@ -247,7 +247,7 @@
 	async function saveSearxngUrl() {
 		try {
 			await api.put('/admin/config/searxng_url', { value: searxngUrl });
-			toast(get(t)('admin_toast_searxng_url_saved') || 'URL de l\'instance SearXNG enregistrée.', 'success');
+			toast(get(t)('admin_toast_searxng_url_saved'), 'success');
 		} catch { toast(get(t)('admin_error_save'), 'error'); }
 	}
 
@@ -349,7 +349,7 @@
 	async function clearChatHistoryAdmin() {
 		try {
 			await api.post('/public-chat/clear', {});
-			toast(get(t)('admin_public_chat_purge_success') || 'Historique du chat public purgé avec succès', 'success');
+			toast(get(t)('admin_public_chat_purge_success'), 'success');
 		} catch (e) {
 			toast(e.message || 'Erreur lors de la purge', 'error');
 		} finally {
@@ -673,8 +673,8 @@
 			<div class="sc-head">
 				<div class="sc-icon">💬</div>
 				<div>
-					<h3>{$t("admin_public_chat_title") || 'Chat Public & Anti-Spam'}</h3>
-					<p class="sc-sub">{$t("admin_public_chat_sub") || 'Modération en temps réel, filtres anti-spam et IA participante'}</p>
+					<h3>{$t("admin_public_chat_title")}</h3>
+					<p class="sc-sub">{$t("admin_public_chat_sub")}</p>
 				</div>
 			</div>
 			<div class="sc-body">
@@ -979,7 +979,7 @@
 							<span class="nuke-icon">🏆</span>
 							<div>
 								<strong>{$t("admin_settings_purge_awards") || $t("admin_settings_purge_notifs")}</strong>
-								<p>{$t("admin_settings_purge_awards_sub") || "Supprime l'ensemble des prix et distinctions décernés"}</p>
+								<p>{$t("admin_settings_purge_awards_sub")}</p>
 							</div>
 						</div>
 						{#if nukeConfirm.awards}
@@ -991,7 +991,7 @@
 								<button class="btn-secondary btn-xs" on:click={() => nukeConfirm.awards = false}>{$t('admin_settings_cancel')}</button>
 							</div>
 						{:else}
-							<button class="btn-outline-danger" on:click={() => nukeConfirm.awards = true}>{$t('admin_settings_purge_awards') || 'Purger les prix'}</button>
+							<button class="btn-outline-danger" on:click={() => nukeConfirm.awards = true}>{$t('admin_settings_purge_awards')}</button>
 						{/if}
 					</div>
 				</div>

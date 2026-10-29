@@ -55,6 +55,18 @@
  "ai_setting_call_admin_cooldown": [
   "Cooldown per player (minutes)"
  ],
+ "changelog_empty": [
+  "No versions published on GitHub."
+ ],
+ "changelog_error": [
+  "Error retrieving update notes."
+ ],
+ "changelog_loading": [
+  "Loading patch notes..."
+ ],
+ "changelog_title": [
+  "Version History"
+ ],
  "dash_chat_slowmode_badge": [
   "Slowmode: {s}s"
  ],

@@ -47,23 +47,23 @@
 	}
 
 	function getPageTitle(path, $t) {
-		if (path === '/') return $t('login_submit') || 'Connexion';
-		if (path === '/dashboard') return $t('nav_dashboard') || 'Dashboard';
-		if (path === '/dashboard/info') return $t('nav_infos') || 'Infos';
-		if (path === '/dashboard/tournaments') return $t('nav_tournaments') || 'Tournois';
+		if (path === '/') return $t('login_submit');
+		if (path === '/dashboard') return $t('nav_dashboard');
+		if (path === '/dashboard/info') return $t('nav_infos');
+		if (path === '/dashboard/tournaments') return $t('nav_tournaments');
 		if (path.startsWith('/dashboard/tournaments/')) {
-			return $t('nav_tournaments') || 'Tournois';
+			return $t('nav_tournaments');
 		}
-		if (path === '/dashboard/players') return $t('nav_players') || 'Joueurs';
-		if (path === '/dashboard/notifications') return $t('nav_notifications') || 'Notifications';
-		if (path === '/dashboard/ai') return $t('nav_ai_assistant') || 'Assistant IA';
-		if (path === '/dashboard/map') return $t('nav_map') || 'Plan Salle';
-		if (path === '/dashboard/profile') return $t('profile_title') || 'Mon Profil';
-		if (path === '/dashboard/admin') return $t('nav_administration') || 'Administration';
-		if (path === '/dashboard/admin/languages') return $t('admin_tab_languages') || 'Langues';
-		if (path === '/dashboard/welcome') return 'Choix du poste';
-		if (path === '/spectator') return $t('nav_spectator') || 'Projecteur';
-		if (path === '/map') return $t('map_public_title') || 'Plan de la salle';
+		if (path === '/dashboard/players') return $t('nav_players');
+		if (path === '/dashboard/notifications') return $t('nav_notifications');
+		if (path === '/dashboard/ai') return $t('nav_ai_assistant');
+		if (path === '/dashboard/map') return $t('nav_map');
+		if (path === '/dashboard/profile') return $t('profile_title');
+		if (path === '/dashboard/admin') return $t('nav_administration');
+		if (path === '/dashboard/admin/languages') return $t('admin_tab_languages');
+		if (path === '/dashboard/welcome') return $t('page_title_welcome');
+		if (path === '/spectator') return $t('nav_spectator');
+		if (path === '/map') return $t('map_public_title');
 		
 		// Fallback capitalizing pathname segments
 		const segments = path.split('/').filter(Boolean);
@@ -88,9 +88,9 @@
 <div class="app-container">
 	{#if demoActive}
 		<div class="demo-mode-banner">
-			<span>✨ <strong>Mode Démo Hors-Ligne</strong> — Données de démonstration simulées</span>
+			<span>✨ <strong>{$t('demo_banner_title')}</strong> {$t('demo_banner_desc')}</span>
 			<button type="button" class="demo-exit-btn" on:click={exitDemoMode}>
-				Connecter un serveur LAN
+				{$t('demo_banner_connect')}
 			</button>
 		</div>
 	{/if}

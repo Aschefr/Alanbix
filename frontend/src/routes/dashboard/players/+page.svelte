@@ -425,7 +425,7 @@
 
 <div class="players-page animate-in" class:chat-active-mobile={chatMode !== null}>
 	<header class="players-header glass">
-		<h1 class="title-premium"><span class="title-icon">👥</span> {$t('players_title') || 'Joueurs'}</h1>
+		<h1 class="title-premium"><span class="title-icon">👥</span> {$t('players_title')}</h1>
 		<span class="player-count">{$t('players_subtitle', { count: players.length, plural: players.length > 1 ? 's' : '' })}</span>
 	</header>
 
@@ -437,7 +437,7 @@
 					<div class="unread-shortlist-header">
 						<span class="unread-shortlist-title">
 							<Icon name="chat" size={13} />
-							<span>{$t('players_unread_shortlist_title') || 'Messages non lus'}</span>
+							<span>{$t('players_unread_shortlist_title')}</span>
 						</span>
 						<span class="unread-total-badge">{totalUnreadChats}</span>
 					</div>

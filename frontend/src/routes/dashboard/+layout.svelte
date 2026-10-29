@@ -43,7 +43,7 @@
 		try {
 			changelogData = await api.get('/changelog');
 		} catch (e) {
-			changelogError = e.message || "Erreur lors de la récupération des notes de mise à jour.";
+			changelogError = e.message || get(t)('changelog_error');
 		} finally {
 			loadingChangelog = false;
 		}
@@ -114,17 +114,17 @@
 		Notification.requestPermission().then(perm => {
 			browserNotifStatus = perm;
 			if (perm === 'granted') {
-				showGlobalToast('Notifications du navigateur activées', 'success');
+				showGlobalToast(get(t)('notifs_browser_enabled'), 'success');
 				if ('serviceWorker' in navigator) {
 					navigator.serviceWorker.getRegistration().then(reg => {
 						if (reg && reg.showNotification) {
-							reg.showNotification('Alanbix', { body: 'Notifications activées avec succès !', icon: '/favicon.svg' });
+							reg.showNotification('Alanbix', { body: get(t)('notifs_enabled_success'), icon: '/favicon.svg' });
 						} else {
-							new Notification('Alanbix', { body: 'Notifications activées avec succès !', icon: '/favicon.svg' });
+							new Notification('Alanbix', { body: get(t)('notifs_enabled_success'), icon: '/favicon.svg' });
 						}
 					});
 				} else {
-					new Notification('Alanbix', { body: 'Notifications activées avec succès !', icon: '/favicon.svg' });
+					new Notification('Alanbix', { body: get(t)('notifs_enabled_success'), icon: '/favicon.svg' });
 				}
 			}
 		});
@@ -233,8 +233,8 @@
 							notifUnreadCount.set(newCount);
 							if (newCount > oldCount) {
 								if (!msg.notification_id) {
-									showGlobalToast('🔔 Nouvelle notification reçue', 'info', '/dashboard/notifications');
-									notifyBrowser('Alanbix', '🔔 Nouvelle notification reçue', '/dashboard/notifications', 'system');
+									showGlobalToast('🔔 ' + get(t)('notifs_new_received'), 'info', '/dashboard/notifications');
+									notifyBrowser('Alanbix', '🔔 ' + get(t)('notifs_new_received'), '/dashboard/notifications', 'system');
 								}
 							}
 							notifBounce = true;
@@ -306,8 +306,8 @@
 						handleIncomingPush({
 							id: msg.message.id ? `pubmsg_${msg.message.id}` : undefined,
 							category: 'public_chat_all',
-							title: `🌐 ${msg.message.username || 'Chat Général'}`,
-							body: (msg.message.content || '📷 Image').slice(0, 100),
+							title: `🌐 ${msg.message.username || get(t)('chat_general_title')}`,
+							body: (msg.message.content || '📷 ' + get(t)('chat_image_placeholder')).slice(0, 100),
 							link: '/dashboard'
 						}, (url) => goto(url));
 					}
@@ -486,16 +486,16 @@
 				{#if connectionError}
 					{connectionError}
 				{:else}
-					DISTILLATION...
+					{$t('loading_distillation')}
 				{/if}
 			</span>
 			{#if connectionError}
 				<div style="display:flex;gap:0.65rem;flex-wrap:wrap;justify-content:center;margin-top:1rem;">
 					<button on:click={() => { connectionError = ''; initApp(); }} class="btn-retry">
-						🔄 RÉESSAYER
+						🔄 {$t('connection_retry')}
 					</button>
 					<button on:click={() => showServerModal = true} class="btn-retry" style="background:rgba(59,130,246,0.2);border-color:rgba(59,130,246,0.5);color:#60a5fa;">
-						⚙️ CONFIGURER LE SERVEUR
+						⚙️ {$t('connection_configure_server')}
 					</button>
 				</div>
 			{/if}
@@ -511,7 +511,7 @@
 			</div>
 			<div class="mobile-brand-info">
 				<span class="mobile-app-title">ALANBIX</span>
-				<span class="mobile-event-name">{$eventName || 'LAN Event'}</span>
+				<span class="mobile-event-name">{$eventName || $t('event_name_fallback')}</span>
 			</div>
 		</a>
 		<div class="mobile-top-actions">
@@ -613,7 +613,7 @@
 				<div class="ia-status-widget">
 					<div class="ia-status-title">🖥️ {$t('ia_status_title')}</div>
 					{#each iaInstances.filter(i => i.enabled !== false) as inst}
-						<div class="ia-inst-row" title="{inst.url} — {inst.latency_ms || 0}ms{inst.busy ? ' — Génération en cours' : ''}">
+						<div class="ia-inst-row" title="{inst.url} — {inst.latency_ms || 0}ms{inst.busy ? ' — ' + $t('ia_instance_busy') : ''}">
 							<span class="ia-dot {inst.busy ? 'busy' : inst.online ? 'online' : 'offline'}"></span>
 							<span class="ia-inst-label">{inst.label || inst.model || '?'}</span>
 							{#if inst.busy}
@@ -621,14 +621,14 @@
 							{:else if inst.online}
 								<span class="ia-inst-ping">{inst.latency_ms}ms</span>
 							{:else}
-								<span class="ia-inst-ping offline">off</span>
+								<span class="ia-inst-ping offline">{$t('ia_instance_offline')}</span>
 							{/if}
 						</div>
 					{/each}
 					{#if iaQueueSize > 0 || iaQueueActive > 0}
 						<div class="ia-queue-line">
 							<span class="ia-queue-icon">📋</span>
-							<span class="ia-queue-text">File: {iaQueueSize} en attente{iaQueueActive > 0 ? ` (${iaQueueActive} actif${iaQueueActive > 1 ? 's' : ''})` : ''}</span>
+							<span class="ia-queue-text">{$t('ia_queue_text', { waiting: iaQueueSize, active_text: iaQueueActive > 0 ? ' ' + $t('ia_queue_active_suffix', { count: iaQueueActive, plural: iaQueueActive > 1 ? 's' : '' }) : '' })}</span>
 						</div>
 					{/if}
 				</div>
@@ -644,7 +644,7 @@
 				<div class="info">
 					<div class="username">{user.username}</div>
 					{#if user.team_name}
-						<div class="user-team-badge" title="Équipe : {user.team_name}">👥 {user.team_name}</div>
+						<div class="user-team-badge" title={$t('user_team_tooltip', { team: user.team_name })}>👥 {user.team_name}</div>
 					{:else}
 						<div class="role">{user.is_admin ? $t('role_admin') : $t('role_player')}</div>
 					{/if}
@@ -740,7 +740,7 @@
 	<div class="changelog-overlay" on:click={() => showChangelog = false}>
 		<div class="changelog-modal glass" on:click|stopPropagation>
 			<div class="changelog-header">
-				<h3>📜 Historique des Versions</h3>
+				<h3>📜 {$t('changelog_title')}</h3>
 				<button class="changelog-close" on:click={() => showChangelog = false}>✕</button>
 			</div>
 			
@@ -748,17 +748,17 @@
 				{#if loadingChangelog}
 					<div class="changelog-loading">
 						<div class="spinner"></div>
-						<span>Chargement des patch notes...</span>
+						<span>{$t('changelog_loading')}</span>
 					</div>
 				{:else if changelogError}
 					<div class="changelog-error">
 						<span class="error-icon">⚠️</span>
 						<p>{changelogError}</p>
-						<button class="btn-primary btn-xs" on:click={() => { changelogData = []; openChangelog(); }}>Réessayer</button>
+						<button class="btn-primary btn-xs" on:click={() => { changelogData = []; openChangelog(); }}>{$t('connection_retry')}</button>
 					</div>
 				{:else if changelogData.length === 0}
 					<div class="changelog-empty">
-						<span>Aucune version publiée sur GitHub.</span>
+						<span>{$t('changelog_empty')}</span>
 					</div>
 				{:else}
 					<div class="changelog-list">
@@ -768,7 +768,7 @@
 									<span class="changelog-tag">{rel.tag_name}</span>
 									<span class="changelog-date">{formatDate(rel.published_at)}</span>
 								</div>
-								<h4 class="changelog-title">{rel.name || 'Mise à jour'}</h4>
+								<h4 class="changelog-title">{rel.name || $t('changelog_release_fallback')}</h4>
 								<div class="changelog-content">
 									{@html parseMarkdown(rel.body)}
 								</div>

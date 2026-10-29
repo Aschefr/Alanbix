@@ -554,7 +554,7 @@
 	async function rollbackFFA() {
 		try {
 			await api.post(`/tournaments/${selectedId}/ffa-rollback`, {});
-			toast($t('tourneys_toast_ffa_rolled_back') || 'Manche supprimée avec succès !', 'success');
+			toast($t('tourneys_toast_ffa_rolled_back'), 'success');
 			await loadAll();
 			await selectTournament(selectedId);
 		} catch (e) { toast(e.detail || e.message || 'Erreur', 'error'); }
@@ -772,16 +772,16 @@
 	<div class="mobile-subnav-chips glass">
 		<button class="m-chip" on:click={() => showMobileInfoModal = true} title="Règles et infos">
 			<Icon name="info" size={13} />
-			<span>{$t('tourneys_tab_rules') || 'Infos'}</span>
+			<span>{$t('tourneys_tab_rules')}</span>
 		</button>
 		<button class="m-chip" on:click={() => showMobilePlayersModal = true} title="Joueurs et équipes">
 			<Icon name="users" size={13} />
-			<span>{$t('dash_stat_players') || 'Joueurs'} ({participants.length})</span>
+			<span>{$t('dash_stat_players')} ({participants.length})</span>
 		</button>
 		{#if liveStandings.length > 0 || selected.status === 'CLOSED'}
 			<button class="m-chip" on:click={() => showMobileStandingsModal = true} title="Classement">
 				<Icon name="trophy" size={13} />
-				<span>{$t('tourneys_show_standings') || 'Classement'}</span>
+				<span>{$t('tourneys_show_standings')}</span>
 			</button>
 		{/if}
 		{#if currentUser?.is_admin}
@@ -923,7 +923,7 @@
 				{#if useTeams}
 					<div class="hero-team-badge" style="margin-top: 0.5rem; display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.25rem 0.6rem; border-radius: 6px; background: rgba(59,130,246,0.15); border: 1px solid rgba(59,130,246,0.3); font-size: 0.75rem;">
 						{#if myTeam}
-							<span>👥 {$t('dash_team_lbl') || 'Équipe'} : <strong>{myTeam.name}</strong></span>
+							<span>👥 {$t('dash_team_lbl')} : <strong>{myTeam.name}</strong></span>
 							{#if myTeam.is_locked}<span title={$t('tourneys_team_locked')}>🔒</span>{/if}
 						{:else}
 							<span style="color: #f59e0b;">⚠️ {$t('profile_no_team')}</span>
@@ -970,7 +970,7 @@
 					{#if selected?.status === 'RUNNING' || selected?.status === 'DONE' || selected?.status === 'CLOSED'}
 						{#if liveStandings.length > 0}
 							<button class="toggle-live-btn glass" on:click={toggleLiveStandings}>
-								{showLiveStandings ? '◀ ' + ($t('tourneys_hide_standings') || 'Masquer le classement') : '▶ ' + ($t('tourneys_show_standings') || 'Classement live')}
+								{showLiveStandings ? '◀ ' + ($t('tourneys_hide_standings')) : '▶ ' + ($t('tourneys_show_standings'))}
 							</button>
 						{/if}
 					{/if}
@@ -1230,7 +1230,7 @@
 	<div class="edit-overlay" use:portal on:click={() => showMobileStandingsModal = false}>
 		<div class="edit-modal glass animate-in" on:click|stopPropagation style="max-height: 85vh; display: flex; flex-direction: column;">
 			<header class="edit-modal-header">
-				<h3><Icon name="trophy" size={16} /> {$t('tourneys_show_standings') || 'Classement'}</h3>
+				<h3><Icon name="trophy" size={16} /> {$t('tourneys_show_standings')}</h3>
 				<button class="close-btn" on:click={() => showMobileStandingsModal = false}>✕</button>
 			</header>
 			<div class="edit-modal-body" style="overflow-y: auto; flex: 1; padding: 0.75rem;">

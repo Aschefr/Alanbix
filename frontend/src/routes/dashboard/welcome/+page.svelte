@@ -140,7 +140,7 @@
 
 <div class="welcome-wizard">
 	<div class="wizard-header">
-		<h1 class="title-premium">Bienvenue à l'évènement {$eventName} !</h1>
+		<h1 class="title-premium">{$t('welcome_event_title', { event: $eventName })}</h1>
 		<div class="steps-indicator">
 			<div class="step-dot {step >= 1 ? 'active' : ''}">1</div>
 			<div class="step-line {step >= 2 ? 'active' : ''}"></div>
@@ -182,7 +182,7 @@
 				{/if}
 
 				<div class="team-welcome-tip" style="margin-top: 1rem; padding: 0.7rem 0.9rem; border-radius: 8px; background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.2); font-size: 0.75rem; color: var(--text-dim); text-align: left; line-height: 1.45;">
-					💡 <strong>Où retrouver votre équipe ?</strong> Elle restera affichée dans la barre de navigation, sur le cockpit et sur votre profil. Dans chaque tournoi en équipe, vous pourrez composer ou rejoindre une équipe avec un référent.
+					💡 <strong>{$t('welcome_team_tip_title')}</strong> {$t('welcome_team_tip_body')}
 				</div>
 
 				<div class="wizard-actions">
