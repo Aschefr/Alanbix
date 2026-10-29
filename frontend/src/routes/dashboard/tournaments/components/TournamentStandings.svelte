@@ -26,9 +26,9 @@
 					<span class="res-rank">#</span>
 					<span class="res-name">{$t("tourneys_results_player_team")}</span>
 					<span class="res-pts">{$t("admin_tourneys_wizard_points_bonus")}</span>
-					<span class="res-pts">Score</span>
+					<span class="res-pts">{$t('tourneys_col_score')}</span>
 					<span class="res-pts">{$t("admin_tourneys_wizard_points_part").substring(0,5)}.</span>
-					<span class="res-total">Total</span>
+					<span class="res-total">{$t('tourneys_col_total')}</span>
 				</div>
 				{#each results as r}
 					{@const teamId = useTeams ? -r.entity_id : null}
@@ -55,10 +55,10 @@
 								<div class="tms-member-row">
 									<span class="tms-name">👤 {m.username}</span>
 									<div class="tms-stats">
-										{#if r.placement_pts > 0}<span class="ls-bp ls-bp-place" title="Placement">🏅{formatPoints(r.placement_pts)}</span>{/if}
-										<span class="ls-bp ls-bp-parti" title="Participation">👤{formatPoints(r.participation_pts)}</span>
-										{#if r.score_pts > 0}<span class="ls-bp ls-bp-score" title="Score">⚡{formatPoints(r.score_pts)}</span>{/if}
-										<span class="tms-total-pts">{formatPoints(r.total || 0)} pts</span>
+										{#if r.placement_pts > 0}<span class="ls-bp ls-bp-place" title={$t('tourneys_pts_placement_short')}>🏅{formatPoints(r.placement_pts)}</span>{/if}
+										<span class="ls-bp ls-bp-parti" title={$t('tourneys_pts_participation_short')}>👤{formatPoints(r.participation_pts)}</span>
+										{#if r.score_pts > 0}<span class="ls-bp ls-bp-score" title={$t('tourneys_pts_score_short')}>⚡{formatPoints(r.score_pts)}</span>{/if}
+										<span class="tms-total-pts">{formatPoints(r.total || 0)} {$t('common_pts')}</span>
 									</div>
 								</div>
 							{/each}
@@ -73,9 +73,9 @@
 		<div class="section-title">
 			<h3>📊 {$t(selected?.status === 'RUNNING' ? 'tourneys_standings_live' : 'tourneys_standings_final')}</h3>
 			{#if selected?.status === 'RUNNING'}
-				<span class="live-badge">⚡ LIVE</span>
+				<span class="live-badge">⚡ {$t('tourneys_badge_live')}</span>
 			{:else}
-				<span class="live-badge final-badge">✅ FINAL</span>
+				<span class="live-badge final-badge">✅ {$t('tourneys_badge_final')}</span>
 			{/if}
 		</div>
 		<div class="ls-config-summary">
@@ -102,12 +102,12 @@
 							{entry.name}
 						</span>
 						<div class="ls-breakdown">
-							{#if entry.placement_pts > 0}<span class="ls-bp ls-bp-place" title="Placement : top {entry.rank}">🏅{formatPoints(entry.placement_pts)}</span>{/if}
+							{#if entry.placement_pts > 0}<span class="ls-bp ls-bp-place" title={$t('profile_pts_tooltip_placement', { rank: entry.rank })}>🏅{formatPoints(entry.placement_pts)}</span>{/if}
 							<span class="ls-bp ls-bp-parti" title={$t('tourneys_participation_tooltip_detail', { count: entry.matches_played, plural: entry.matches_played > 1 ? 's' : '', pts: selected?.config?.pts_participation ?? 1 })}>👤{formatPoints(entry.participation_pts)}</span>
 							{#if entry.score_pts > 0}<span class="ls-bp ls-bp-score" title={$t('tourneys_pts_bonus_detail_tooltip', { score: entry.cumulated_score, floor: entry.pts_per_match, ceiling: Math.round(entry.pts_per_match * 2 * 10) / 10 })}>⚡{formatPoints(entry.score_pts)}</span>{/if}
 						</div>
 					</div>
-					<span class="ls-pts">{formatPoints(entry.pts)} pts</span>
+					<span class="ls-pts">{formatPoints(entry.pts)} {$t('common_pts')}</span>
 				</div>
 				{#if useTeams && teamObj && expandedTeams[entry.id]}
 					<div class="team-members-standings-list">
@@ -115,10 +115,10 @@
 							<div class="tms-member-row">
 								<span class="tms-name">👤 {m.username}</span>
 								<div class="tms-stats">
-									{#if entry.placement_pts > 0}<span class="ls-bp ls-bp-place" title="Placement">🏅{formatPoints(entry.placement_pts)}</span>{/if}
-									<span class="ls-bp ls-bp-parti" title="Participation">👤{formatPoints(entry.participation_pts)}</span>
-									{#if entry.score_pts > 0}<span class="ls-bp ls-bp-score" title="Score">⚡{formatPoints(entry.score_pts)}</span>{/if}
-									<span class="tms-total-pts">{formatPoints(entry.pts || 0)} pts</span>
+									{#if entry.placement_pts > 0}<span class="ls-bp ls-bp-place" title={$t('tourneys_pts_placement_short')}>🏅{formatPoints(entry.placement_pts)}</span>{/if}
+									<span class="ls-bp ls-bp-parti" title={$t('tourneys_pts_participation_short')}>👤{formatPoints(entry.participation_pts)}</span>
+									{#if entry.score_pts > 0}<span class="ls-bp ls-bp-score" title={$t('tourneys_pts_score_short')}>⚡{formatPoints(entry.score_pts)}</span>{/if}
+									<span class="tms-total-pts">{formatPoints(entry.pts || 0)} {$t('common_pts')}</span>
 								</div>
 							</div>
 						{/each}

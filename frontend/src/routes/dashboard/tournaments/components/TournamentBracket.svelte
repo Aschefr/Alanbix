@@ -399,7 +399,7 @@
 						<div class="ffa-matches-grid" style="display: flex; flex-direction: column; gap: 1rem;">
 						{#each roundMatches as match, mi}
 							<div class="ffa-match-box">
-								<div class="ffa-player-count" style="margin-bottom: 0.5rem;">Match {mi + 1} - {$t(match.p.length > 1 ? 'admin_tourneys_players_count_plural' : 'admin_tourneys_players_count_singular', { count: match.p.length })}</div>
+								<div class="ffa-player-count" style="margin-bottom: 0.5rem;">{$t('tourneys_ffa_match_label', { n: mi + 1 })} - {$t(match.p.length > 1 ? 'admin_tourneys_players_count_plural' : 'admin_tourneys_players_count_singular', { count: match.p.length })}</div>
 								<div class="ffa-players">
 									{#each match.p as playerId, pi}
 										{@const mRank = getFFAMatchRank(match, pi, lowerIsBetter)}
@@ -410,7 +410,7 @@
 											<span class="ffa-name">{getPlayerName(playerId, nameMap)}</span>
 											{#if playerId > 0 && seatMap[playerId]}<a href="/dashboard/map?highlight={seatMap[playerId]}" class="seat-badge" title={$t('players_tooltip_seat')}>💺{seatMap[playerId]}</a>{/if}
 											{#if canEditPlayerScore(match, pi, myTeamSlotId, isParticipant, currentUser) && isLatest}
-												<input type="number" class="score-input ffa-input" value={match.score?.[pi] || ''} placeholder="Score"
+												<input type="number" class="score-input ffa-input" value={match.score?.[pi] || ''} placeholder={$t('tourneys_score_placeholder')}
 													on:change={(e) => updateFFAPlacement(match, pi, e.target.value)} min="1" />
 											{:else if isPlayerLocked(match, pi, myTeamSlotId, isParticipant, currentUser)}
 												<span class="score-locked ffa-input" title={$t('tourneys_score_validated')}>🔒 {match.score?.[pi]}</span>
@@ -442,7 +442,7 @@
 				{#each rrGroups as group}
 					<div class="rr-group" style="width: 100%; margin-bottom: 1rem;">
 						{#if rrGroups.length > 1}
-							<h4 class="rr-group-title" style="margin-bottom: 0.5rem; font-weight: 800; color: var(--accent);">Poule {String.fromCharCode(64 + parseInt(group.id))}</h4>
+							<h4 class="rr-group-title" style="margin-bottom: 0.5rem; font-weight: 800; color: var(--accent);">{$t('spec_group_num', { group: String.fromCharCode(64 + parseInt(group.id)) })}</h4>
 						{/if}
 						<div class="rr-group-rounds">
 							{#each group.rounds as roundMatches, ri}
@@ -560,7 +560,7 @@
 													{#if booleanMode}
 														{#if canEditPlayerScore(match, 0, myTeamSlotId, isParticipant, currentUser) && !isDone}
 															<div class="bool-btns">
-																<button class="bool-btn bool-check" on:click={() => setBoolScore(match, 0)} title="Vainqueur"><span class="bool-default">☐</span><span class="bool-hover">✅</span></button>
+																<button class="bool-btn bool-check" on:click={() => setBoolScore(match, 0)} title={$t('tourneys_winner_tooltip')}><span class="bool-default">☐</span><span class="bool-hover">✅</span></button>
 															</div>
 														{:else if isDone}
 															<div class="bool-badge-container">
@@ -590,7 +590,7 @@
 													{#if booleanMode}
 														{#if canEditPlayerScore(match, 1, myTeamSlotId, isParticipant, currentUser) && !isDone}
 															<div class="bool-btns">
-																<button class="bool-btn bool-check" on:click={() => setBoolScore(match, 1)} title="Vainqueur"><span class="bool-default">☐</span><span class="bool-hover">✅</span></button>
+																<button class="bool-btn bool-check" on:click={() => setBoolScore(match, 1)} title={$t('tourneys_winner_tooltip')}><span class="bool-default">☐</span><span class="bool-hover">✅</span></button>
 															</div>
 														{:else if isDone}
 															<div class="bool-badge-container">
@@ -647,7 +647,7 @@
 														{#if booleanMode}
 															{#if canEditPlayerScore(match, 0, myTeamSlotId, isParticipant, currentUser) && !isDone}
 																<div class="bool-btns">
-																	<button class="bool-btn bool-check" on:click={() => setBoolScore(match, 0)} title="Vainqueur"><span class="bool-default">☐</span><span class="bool-hover">✅</span></button>
+																	<button class="bool-btn bool-check" on:click={() => setBoolScore(match, 0)} title={$t('tourneys_winner_tooltip')}><span class="bool-default">☐</span><span class="bool-hover">✅</span></button>
 																</div>
 															{:else if isDone}
 																<div class="bool-badge-container">
@@ -675,7 +675,7 @@
 														{#if booleanMode}
 															{#if canEditPlayerScore(match, 1, myTeamSlotId, isParticipant, currentUser) && !isDone}
 																<div class="bool-btns">
-																	<button class="bool-btn bool-check" on:click={() => setBoolScore(match, 1)} title="Vainqueur"><span class="bool-default">☐</span><span class="bool-hover">✅</span></button>
+																	<button class="bool-btn bool-check" on:click={() => setBoolScore(match, 1)} title={$t('tourneys_winner_tooltip')}><span class="bool-default">☐</span><span class="bool-hover">✅</span></button>
 																</div>
 															{:else if isDone}
 																<div class="bool-badge-container">
@@ -713,10 +713,10 @@
 				</div>
 				<!-- Floating Zoom Controls -->
 				<div class="bracket-floating-tools">
-					<button class="tool-btn" on:click={zoomIn} title="Zoom +">
+					<button class="tool-btn" on:click={zoomIn} title={$t('tourneys_zoom_in')} aria-label={$t('tourneys_zoom_in')}>
 						<Icon name="plus" size={14} />
 					</button>
-					<button class="tool-btn" on:click={zoomOut} title="Zoom -">
+					<button class="tool-btn" on:click={zoomOut} title={$t('tourneys_zoom_out')} aria-label={$t('tourneys_zoom_out')}>
 						<Icon name="minus" size={14} />
 					</button>
 					<button class="tool-btn" on:click={resetZoom} title={$t('tourneys_btn_recenter')}>

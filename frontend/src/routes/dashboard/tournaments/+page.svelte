@@ -367,7 +367,7 @@
 	async function joinAllPlayers() {
 		try {
 			const res = await api.post(`/tournaments/${selectedId}/join-all`, {});
-			toast(`${res.added} joueur(s) inscrits !`, 'success');
+			toast($t('tourneys_toast_join_all_done', { count: res.added }), 'success');
 			tournaments = await api.get('/tournaments');
 			await selectTournament(selectedId);
 		} catch (e) { toast(e.message || 'Erreur', 'error'); }
@@ -376,7 +376,7 @@
 	async function leaveAllPlayers() {
 		try {
 			const res = await api.post(`/tournaments/${selectedId}/leave-all`, {});
-			toast(`${res.removed} joueur(s) désinscrits.`, 'success');
+			toast($t('tourneys_toast_leave_all_done', { count: res.removed }), 'success');
 			tournaments = await api.get('/tournaments');
 			await selectTournament(selectedId);
 		} catch (e) { toast(e.message || 'Erreur', 'error'); }
@@ -416,7 +416,7 @@
 		try {
 			await api.put(`/tournaments/${selectedId}/teams/${teamId}/lock`, { is_locked: isLocked });
 			teams = await api.get(`/tournaments/${selectedId}/teams`);
-			toast(isLocked ? $t('tourneys_team_locked') : 'Équipe déverrouillée', 'success');
+			toast(isLocked ? $t('tourneys_team_locked') : $t('tourneys_team_unlocked'), 'success');
 		} catch (e) { toast(e.message || 'Erreur', 'error'); }
 	}
 
@@ -424,7 +424,7 @@
 		try {
 			await api.put(`/tournaments/${selectedId}/teams/${teamId}/captain`, { captain_id: captainId });
 			teams = await api.get(`/tournaments/${selectedId}/teams`);
-			toast('Nouveau référent désigné', 'success');
+			toast($t('tourneys_toast_new_captain'), 'success');
 		} catch (e) { toast(e.message || 'Erreur', 'error'); }
 	}
 
@@ -530,7 +530,7 @@
 				match_s: match.id.s, match_r: match.id.r, match_m: match.id.m, score
 			});
 			tournaments = await api.get('/tournaments');
-		} catch (e) { toast(e.message || 'Erreur score', 'error'); }
+		} catch (e) { toast(e.message || $t('tourneys_score_error'), 'error'); }
 	}
 
 	async function advanceFFA(keepCount) {
@@ -770,24 +770,24 @@
 <!-- Mobile Sub-navigation Chips for secondary info -->
 {#if isMobile && selected}
 	<div class="mobile-subnav-chips glass">
-		<button class="m-chip" on:click={() => showMobileInfoModal = true} title="Règles et infos">
+		<button class="m-chip" on:click={() => showMobileInfoModal = true} title={$t('tourneys_mobile_rules_info')}>
 			<Icon name="info" size={13} />
 			<span>{$t('tourneys_tab_rules')}</span>
 		</button>
-		<button class="m-chip" on:click={() => showMobilePlayersModal = true} title="Joueurs et équipes">
+		<button class="m-chip" on:click={() => showMobilePlayersModal = true} title={$t('tourneys_mobile_players_teams')}>
 			<Icon name="users" size={13} />
 			<span>{$t('dash_stat_players')} ({participants.length})</span>
 		</button>
 		{#if liveStandings.length > 0 || selected.status === 'CLOSED'}
-			<button class="m-chip" on:click={() => showMobileStandingsModal = true} title="Classement">
+			<button class="m-chip" on:click={() => showMobileStandingsModal = true} title={$t('tourneys_show_standings')}>
 				<Icon name="trophy" size={13} />
 				<span>{$t('tourneys_show_standings')}</span>
 			</button>
 		{/if}
 		{#if currentUser?.is_admin}
-			<button class="m-chip admin" on:click={() => showMobileAdminModal = true} title="Administration">
+			<button class="m-chip admin" on:click={() => showMobileAdminModal = true} title={$t('nav_administration')}>
 				<Icon name="gear" size={13} />
-				<span>Admin</span>
+				<span>{$t('tourneys_mobile_admin_chip')}</span>
 			</button>
 		{/if}
 		{#if selected.status === 'OPEN'}
@@ -981,7 +981,7 @@
 							<div class="admin-bar-actions">
 								{#if selected.status === 'OPEN'}
 									<button class="admin-btn start" on:click={startTournament} disabled={participants.length < 2}>
-										▶ {$t('tourneys_btn_start')}{#if participants.length < 2} (min. 2){/if}
+										▶ {$t('tourneys_btn_start')}{#if participants.length < 2} {$t('tourneys_start_min')}{/if}
 									</button>
 								{/if}
 								{#if selected?.status === 'RUNNING'}
@@ -1126,7 +1126,7 @@
 		{:else if loadingTournaments}
 			<div class="detail-empty">
 				<div class="t-spinner"></div>
-				<p class="text-dim">{$t('common_loading') || 'Chargement des tournois...'}</p>
+				<p class="text-dim">{$t('common_loading')}</p>
 			</div>
 		{:else}
 			<div class="detail-empty">
@@ -1150,7 +1150,7 @@
 			<div class="edit-modal-body">
 				<div class="m-modal-section">
 					<h4 style="font-size:0.8rem; font-weight:700; color:var(--accent); margin-bottom:0.4rem; text-transform:uppercase;">{$t("tourneys_tab_rules")}</h4>
-					<p class="hero-rules-text" style="font-size:0.85rem; line-height:1.4; color:var(--text-main); margin-bottom:1rem;">{selected.config?.custom_rules || selectedGame?.rules || 'Aucune règle personnalisée.'}</p>
+					<p class="hero-rules-text" style="font-size:0.85rem; line-height:1.4; color:var(--text-main); margin-bottom:1rem;">{selected.config?.custom_rules || selectedGame?.rules || $t('tourneys_no_custom_rules')}</p>
 				</div>
 				<div class="m-modal-cards-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem;">
 					<div class="info-card glass" style="padding:0.6rem; border-radius:8px;">
@@ -1259,7 +1259,7 @@
 			<div class="edit-modal-body" style="display:flex; flex-direction:column; gap:0.6rem; padding:1rem;">
 				{#if selected.status === 'OPEN'}
 					<button class="admin-btn start full-width" on:click={() => { showMobileAdminModal = false; startTournament(); }} disabled={participants.length < 2} style="padding:0.7rem; font-size:0.85rem;">
-						▶ {$t('tourneys_btn_start')}{#if participants.length < 2} (min. 2){/if}
+						▶ {$t('tourneys_btn_start')}{#if participants.length < 2} {$t('tourneys_start_min')}{/if}
 					</button>
 				{/if}
 				{#if selected?.status === 'RUNNING'}

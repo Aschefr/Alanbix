@@ -151,7 +151,7 @@
 							{#if team.is_locked && !isAdmin}
 								<span class="locked-chip" title={$t('tourneys_team_locked')}>🔒</span>
 							{:else if isFull && !isAdmin}
-								<span class="full-chip">Plein</span>
+								<span class="full-chip">{$t('tourneys_team_full')}</span>
 							{:else}
 								<button class="btn-join" on:click|stopPropagation={() => handleAddMember(team.id, currentUser.id)} title={$t("tourneys_btn_join_text")}>
 									⭐ {$t("tourneys_btn_join_text")}
@@ -174,23 +174,23 @@
 								<div class="member-info">
 									<span>👤 {m.username}</span>
 									{#if isCapt}
-										<span class="captain-badge" title="Référent de l'équipe">👑 {$t('tourneys_team_captain')}</span>
+										<span class="captain-badge" title={$t('tourneys_team_captain_tooltip')}>👑 {$t('tourneys_team_captain')}</span>
 									{/if}
 								</div>
 								<div class="member-actions">
 									{#if selected?.status !== 'OPEN'}
-										<span class="member-pts">{getPlayerPts(m.user_id, liveStandings)} pts</span>
+										<span class="member-pts">{getPlayerPts(m.user_id, liveStandings)} {$t('common_pts')}</span>
 									{/if}
 									{#if userCanCaptain && !isCapt && selected?.status === 'OPEN'}
-										<button class="btn-make-captain" on:click={() => handleSetCaptain(team.id, m.user_id)} title="Nommer référent">👑</button>
+										<button class="btn-make-captain" on:click={() => handleSetCaptain(team.id, m.user_id)} title={$t('tourneys_make_captain')} aria-label={$t('tourneys_make_captain')}>👑</button>
 									{/if}
 									{#if selected?.status === 'OPEN' && (isAdmin || m.user_id === currentUser?.id || (userCanCaptain && !team.is_locked))}
-										<button class="member-remove" on:click={() => handleRemoveMember(team.id, m.user_id)} title="Retirer">✕</button>
+										<button class="member-remove" on:click={() => handleRemoveMember(team.id, m.user_id)} title={$t('tourneys_remove_member')} aria-label={$t('tourneys_remove_member')}>✕</button>
 									{/if}
 								</div>
 							</div>
 						{:else}
-							<div class="empty-team-hint text-dim text-xs">Aucun membre</div>
+							<div class="empty-team-hint text-dim text-xs">{$t('tourneys_team_empty')}</div>
 						{/each}
 					</div>
 
