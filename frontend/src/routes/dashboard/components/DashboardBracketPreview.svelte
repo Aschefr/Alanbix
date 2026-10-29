@@ -382,7 +382,7 @@
 				</div>
 			{/if}
 
-			<a href="/dashboard/tournaments" class="btn-chip full-width">{$t('dash_bracket_view_all')}</a>
+			<a href={activeTournament?.id ? `/dashboard/tournaments?select=${activeTournament.id}` : '/dashboard/tournaments'} class="btn-chip full-width">{$t('dash_bracket_view_all')}</a>
 		</div>
 	{:else}
 		<div class="no-tournament">

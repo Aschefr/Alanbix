@@ -32,6 +32,15 @@
 	let showLiveStandings = false;
 	let bracketRef = null;
 
+	let loadingTournaments = true;
+	let lastLoadedForTourneyId = null;
+
+	// Mobile secondary modals for dedicated isolated views
+	let showMobileInfoModal = false;
+	let showMobilePlayersModal = false;
+	let showMobileStandingsModal = false;
+	let showMobileAdminModal = false;
+
 	$: if (selectedId) {
 		const savedShowDetails = localStorage.getItem('alanbix_show_details');
 		if (savedShowDetails !== null) {
@@ -93,31 +102,27 @@
 
 	onMount(async () => {
 		await loadAll();
-		const urlSelect = $page.url.searchParams.get('select') || $page.url.searchParams.get('id');
-		if (urlSelect && tournaments.find(t => String(t.id) === String(urlSelect))) {
-			await selectTournament(parseInt(urlSelect, 10));
-		} else {
-			const saved = localStorage.getItem('alanbix_selected_tournament');
-			if (saved && tournaments.find(t => String(t.id) === String(saved))) {
-				await selectTournament(parseInt(saved, 10));
-			} else if (tournaments.length > 0) {
-				await selectTournament(tournaments[0].id);
-			}
-		}
-
 		wsUnsub = wsMessageStore.subscribe(handleWsMessage);
 	});
 
-	// Reactive param watcher for in-app navigation & deep-links
-	let lastAppliedTourneyParam = null;
-	$: if ($page.url && tournaments.length > 0) {
-		const targetParam = $page.url.searchParams.get('select') || $page.url.searchParams.get('id');
-		if (targetParam && String(targetParam) !== String(lastAppliedTourneyParam)) {
-			lastAppliedTourneyParam = targetParam;
-			const targetId = parseInt(targetParam, 10);
-			if (targetId && String(targetId) !== String(selectedId) && tournaments.find(t => String(t.id) === String(targetId))) {
-				selectTournament(targetId);
-			}
+	// Unified reactive tournament selection watcher (handles initial load, deep-links, in-app navigation, and fallback)
+	$: if (tournaments.length > 0) {
+		const urlSelect = $page?.url?.searchParams?.get('select') || $page?.url?.searchParams?.get('id');
+		const savedSelect = typeof window !== 'undefined' ? localStorage.getItem('alanbix_selected_tournament') : null;
+
+		let targetId = null;
+		if (urlSelect && tournaments.some(t => String(t.id) === String(urlSelect))) {
+			targetId = parseInt(urlSelect, 10);
+		} else if (selectedId && tournaments.some(t => String(t.id) === String(selectedId))) {
+			targetId = selectedId;
+		} else if (savedSelect && tournaments.some(t => String(t.id) === String(savedSelect))) {
+			targetId = parseInt(savedSelect, 10);
+		} else {
+			targetId = tournaments[0].id;
+		}
+
+		if (targetId && (String(targetId) !== String(selectedId) || lastLoadedForTourneyId !== targetId)) {
+			selectTournament(targetId);
 		}
 	}
 
@@ -257,36 +262,41 @@
 	});
 
 	async function loadAll() {
+		loadingTournaments = true;
 		try {
 			const [tourneysRes, gamesRes, userRes, roomUsersRes] = await Promise.all([
-				api.get('/tournaments'),
+				api.get('/tournaments').catch(() => []),
 				api.get('/tournaments/games').catch(() => []),
 				api.get('/me').catch(() => null),
 				api.get('/room/users').catch(() => [])
 			]);
-			tournaments = tourneysRes;
-			games = gamesRes;
+			tournaments = tourneysRes || [];
+			games = gamesRes || [];
 			currentUser = userRes;
-			allUsers = roomUsersRes;
+			allUsers = roomUsersRes || [];
 		} catch (err) {
 			console.error("Error loading all tournaments page data:", err);
+		} finally {
+			loadingTournaments = false;
 		}
 	}
 
 	let confirmingLeave = false;
 
 	async function selectTournament(id) {
-		selectedId = typeof id === 'string' ? (parseInt(id, 10) || id) : id;
-		try { localStorage.setItem('alanbix_selected_tournament', String(id)); } catch (e) {}
+		const numericId = typeof id === 'string' ? (parseInt(id, 10) || id) : id;
+		selectedId = numericId;
+		lastLoadedForTourneyId = numericId;
+		try { localStorage.setItem('alanbix_selected_tournament', String(numericId)); } catch (e) {}
 		confirmingLeave = false;
 		try {
 			const [partsRes, teamsRes, standingsRes] = await Promise.all([
-				api.get(`/tournaments/${id}/participants`).catch(() => []),
-				api.get(`/tournaments/${id}/teams`).catch(() => []),
-				api.get(`/tournaments/${id}/standings`).catch(() => ({ standings: [] }))
+				api.get(`/tournaments/${numericId}/participants`).catch(() => []),
+				api.get(`/tournaments/${numericId}/teams`).catch(() => []),
+				api.get(`/tournaments/${numericId}/standings`).catch(() => ({ standings: [] }))
 			]);
-			participants = partsRes;
-			teams = teamsRes;
+			participants = partsRes || [];
+			teams = teamsRes || [];
 			standingsData = standingsRes.standings || [];
 			bracketRef?.resetZoom();
 		} catch (err) {
@@ -699,6 +709,43 @@
 	{/if}
 </div>
 
+<!-- Mobile Sub-navigation Chips for secondary info -->
+{#if isMobile && selected}
+	<div class="mobile-subnav-chips glass">
+		<button class="m-chip" on:click={() => showMobileInfoModal = true} title="Règles et infos">
+			<Icon name="info" size={13} />
+			<span>{$t('tourneys_tab_rules') || 'Infos'}</span>
+		</button>
+		<button class="m-chip" on:click={() => showMobilePlayersModal = true} title="Joueurs et équipes">
+			<Icon name="users" size={13} />
+			<span>{$t('dash_stat_players') || 'Joueurs'} ({participants.length})</span>
+		</button>
+		{#if liveStandings.length > 0 || selected.status === 'CLOSED'}
+			<button class="m-chip" on:click={() => showMobileStandingsModal = true} title="Classement">
+				<Icon name="trophy" size={13} />
+				<span>{$t('tourneys_show_standings') || 'Classement'}</span>
+			</button>
+		{/if}
+		{#if currentUser?.is_admin}
+			<button class="m-chip admin" on:click={() => showMobileAdminModal = true} title="Administration">
+				<Icon name="gear" size={13} />
+				<span>Admin</span>
+			</button>
+		{/if}
+		{#if selected.status === 'OPEN'}
+			{#if isParticipant}
+				<button class="m-chip joined" on:click={() => leaveTournament(selected.id)}>
+					<span>✅ {$t("tourneys_hero_joined")}</span>
+				</button>
+			{:else}
+				<button class="m-chip join" on:click={() => joinTournament(selected.id)}>
+					<span>🎮 {$t("tourneys_btn_join_text")}</span>
+				</button>
+			{/if}
+		{/if}
+	</div>
+{/if}
+
 <!-- Lateral Drawer for Vertical Tournament Selection (Mobile) -->
 {#if showMobileTourneyDrawer}
 	<!-- svelte-ignore a11y-click-events-have-key-events -->
@@ -775,7 +822,8 @@
 	<!-- Main Detail -->
 	<main class="t-detail" class:collapsed-layout={selected?.status !== 'OPEN' && !showDetails}>
 		{#if selected}
-			<!-- Hero -->
+			<!-- Hero (Desktop only) -->
+			{#if !isMobile}
 			<div class="detail-hero" style="background-image: url({selectedGame?.image_url || ''})">
 				{#if selected.status === 'CLOSED'}<div class="hero-checkered"></div>{/if}
 				<div class="hero-overlay">
@@ -823,9 +871,11 @@
 					</div>
 				{/if}
 			</div>
+			{/if}
 
 			<!-- Info Cards -->
 			<div class="detail-body" class:collapsed-layout={selected?.status !== 'OPEN' && !showDetails}>
+				{#if !isMobile}
 				<div class="controls-row">
 					<button class="toggle-details-btn glass" on:click={toggleDetails}>
 						<Icon name={showDetails ? 'chevron-up' : 'chevron-down'} size={12} />
@@ -947,6 +997,8 @@
 					{/if}
 				{/if}
 
+				{/if}
+
 				<!-- Split Layout: Bracket & Live Standings -->
 				<div class="tournament-split-layout" class:split-active={showLiveStandings && liveStandings.length > 0} class:split-fill={selected?.status !== 'OPEN' && !showDetails}>
 					<TournamentBracket
@@ -985,6 +1037,11 @@
 					{/if}
 				</div>
 			</div>
+		{:else if loadingTournaments}
+			<div class="detail-empty">
+				<div class="t-spinner"></div>
+				<p class="text-dim">{$t('common_loading') || 'Chargement des tournois...'}</p>
+			</div>
 		{:else}
 			<div class="detail-empty">
 				<span class="empty-lg-icon">🏟️</span>
@@ -994,6 +1051,163 @@
 		{/if}
 	</main>
 </div>
+
+
+<!-- Mobile Info & Rules Modal -->
+{#if showMobileInfoModal && selected}
+	<div class="edit-overlay" use:portal on:click={() => showMobileInfoModal = false}>
+		<div class="edit-modal glass animate-in" on:click|stopPropagation>
+			<header class="edit-modal-header">
+				<h3><Icon name="info" size={16} /> {selected.name}</h3>
+				<button class="close-btn" on:click={() => showMobileInfoModal = false}>✕</button>
+			</header>
+			<div class="edit-modal-body">
+				<div class="m-modal-section">
+					<h4 style="font-size:0.8rem; font-weight:700; color:var(--accent); margin-bottom:0.4rem; text-transform:uppercase;">{$t("tourneys_tab_rules")}</h4>
+					<p class="hero-rules-text" style="font-size:0.85rem; line-height:1.4; color:var(--text-main); margin-bottom:1rem;">{selected.config?.custom_rules || selectedGame?.rules || 'Aucune règle personnalisée.'}</p>
+				</div>
+				<div class="m-modal-cards-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem;">
+					<div class="info-card glass" style="padding:0.6rem; border-radius:8px;">
+						<span class="info-label" style="font-size:0.7rem; color:var(--text-dim); display:block;">{$t("admin_tourneys_wizard_format_lbl")}</span>
+						<span class="info-value" style="font-weight:700; font-size:0.85rem;">{bracketLabel(selected.config?.bracket_type)}</span>
+					</div>
+					<div class="info-card glass" style="padding:0.6rem; border-radius:8px;">
+						<span class="info-label" style="font-size:0.7rem; color:var(--text-dim); display:block;">{$t("admin_tourneys_wizard_mode_lbl")}</span>
+						<span class="info-value" style="font-weight:700; font-size:0.85rem;">{selected.config?.use_teams ? `${$t('admin_tourneys_wizard_mode_teams')} (x${selected.config?.team_size || 2})` : 'Solo'}</span>
+					</div>
+					<div class="info-card glass" style="padding:0.6rem; border-radius:8px;">
+						<span class="info-label" style="font-size:0.7rem; color:var(--text-dim); display:block;">{$t("dash_stat_players")}</span>
+						<span class="info-value" style="font-weight:700; font-size:0.85rem;">{participants.length}</span>
+					</div>
+					<div class="info-card glass" style="padding:0.6rem; border-radius:8px; grid-column:span 2;">
+						<span class="info-label" style="font-size:0.7rem; color:var(--text-dim); display:block;">{$t("admin_tourneys_wizard_points_lbl")}</span>
+						<span class="info-value accent" style="font-size:0.8rem; font-weight:700;">🥇{selected.config?.pts_winner ?? 1.5} 🥈{selected.config?.pts_second ?? 1.3} 🥉{selected.config?.pts_third ?? 1.0} 👤{selected.config?.pts_participation ?? 1.0}/m ⚡{selected.config?.pts_per_match ?? 0.5}</span>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- Mobile Players & Teams Modal -->
+{#if showMobilePlayersModal && selected}
+	<div class="edit-overlay" use:portal on:click={() => showMobilePlayersModal = false}>
+		<div class="edit-modal glass animate-in" on:click|stopPropagation style="max-height: 85vh; display: flex; flex-direction: column;">
+			<header class="edit-modal-header">
+				<h3><Icon name="users" size={16} /> {$t('dash_stat_players')} ({participants.length})</h3>
+				<button class="close-btn" on:click={() => showMobilePlayersModal = false}>✕</button>
+			</header>
+			<div class="edit-modal-body" style="overflow-y: auto; flex: 1; padding: 0.75rem;">
+				<TournamentParticipants
+					{selected}
+					{participants}
+					{poolPlayers}
+					{groupedPoolPlayers}
+					{unregisteredUsers}
+					{useTeams}
+					{isAdmin}
+					on:joinAll={joinAllPlayers}
+					on:leaveAll={leaveAllPlayers}
+					on:removePlayer={(e) => forceRemovePlayer(e.detail.userId)}
+					on:addPlayer={(e) => forceAddPlayer(e.detail.userId)}
+				/>
+				{#if useTeams}
+					<div style="margin-top: 1rem;">
+						<TournamentTeams
+							{selected}
+							{teams}
+							{unassignedPlayers}
+							{groupedUnassigned}
+							{currentUser}
+							{isAdmin}
+							{isParticipant}
+							{myTeam}
+							{liveStandings}
+							{getPlayerPts}
+							on:createTeam={(e) => createTeam(e.detail.name)}
+							on:deleteTeam={(e) => deleteTeam(e.detail.teamId)}
+							on:addMember={(e) => addMemberToTeam(e.detail.teamId, e.detail.userId)}
+							on:removeMember={(e) => removeMemberFromTeam(e.detail.teamId, e.detail.userId)}
+							on:toggleTeamLock={(e) => toggleTeamLock(e.detail.teamId, e.detail.isLocked)}
+							on:setTeamCaptain={(e) => setTeamCaptain(e.detail.teamId, e.detail.captainId)}
+							on:randomizeTeams={randomizeTeams}
+						/>
+					</div>
+				{/if}
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- Mobile Standings Modal -->
+{#if showMobileStandingsModal && selected}
+	<div class="edit-overlay" use:portal on:click={() => showMobileStandingsModal = false}>
+		<div class="edit-modal glass animate-in" on:click|stopPropagation style="max-height: 85vh; display: flex; flex-direction: column;">
+			<header class="edit-modal-header">
+				<h3><Icon name="trophy" size={16} /> {$t('tourneys_show_standings') || 'Classement'}</h3>
+				<button class="close-btn" on:click={() => showMobileStandingsModal = false}>✕</button>
+			</header>
+			<div class="edit-modal-body" style="overflow-y: auto; flex: 1; padding: 0.75rem;">
+				<TournamentStandings
+					mode={selected.status === 'CLOSED' ? 'results' : 'live'}
+					{selected}
+					results={selected.results}
+					{standingsData}
+					{liveStandings}
+					{teams}
+					{useTeams}
+				/>
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- Mobile Admin Modal -->
+{#if showMobileAdminModal && selected && currentUser?.is_admin}
+	<div class="edit-overlay" use:portal on:click={() => showMobileAdminModal = false}>
+		<div class="edit-modal glass animate-in" on:click|stopPropagation>
+			<header class="edit-modal-header">
+				<h3><Icon name="gear" size={16} /> {$t('nav_administration')}</h3>
+				<button class="close-btn" on:click={() => showMobileAdminModal = false}>✕</button>
+			</header>
+			<div class="edit-modal-body" style="display:flex; flex-direction:column; gap:0.6rem; padding:1rem;">
+				{#if selected.status === 'OPEN'}
+					<button class="admin-btn start full-width" on:click={() => { showMobileAdminModal = false; startTournament(); }} disabled={participants.length < 2} style="padding:0.7rem; font-size:0.85rem;">
+						▶ {$t('tourneys_btn_start')}{#if participants.length < 2} (min. 2){/if}
+					</button>
+				{/if}
+				{#if selected?.status === 'RUNNING'}
+					<button class="admin-btn stop full-width" on:click={() => { showMobileAdminModal = false; stopTournament(); }} style="padding:0.7rem; font-size:0.85rem;">
+						⏹ {$t('tourneys_btn_finish')}
+					</button>
+				{/if}
+				{#if selected.status === 'DONE'}
+					<button class="admin-btn close full-width" on:click={() => { showMobileAdminModal = false; closeTournament(); }} style="padding:0.7rem; font-size:0.85rem;">
+						🏁 {$t("tourneys_btn_close")}
+					</button>
+				{/if}
+				{#if selected.status === 'CLOSED'}
+					<button class="admin-btn reset full-width" on:click={() => { showMobileAdminModal = false; reopenTournament(); }} style="padding:0.7rem; font-size:0.85rem;">
+						🔓 {$t("tourneys_btn_reopen")}
+					</button>
+				{/if}
+				{#if selected.status !== 'OPEN' && selected.status !== 'CLOSED'}
+					<button class="admin-btn reset full-width" on:click={() => { showMobileAdminModal = false; resetTournament(); }} style="padding:0.7rem; font-size:0.85rem;">
+						🔄 {$t("tourneys_btn_reset")}
+					</button>
+				{/if}
+				{#if selected.status !== 'CLOSED'}
+					<button class="admin-btn edit full-width" on:click={() => { showMobileAdminModal = false; openEdit(); }} style="padding:0.7rem; font-size:0.85rem;">
+						✏️ {$t("tourneys_btn_edit")}
+					</button>
+				{/if}
+				<button class="admin-btn edit full-width" on:click={() => { showMobileAdminModal = false; openCreateTournamentModal(); }} style="padding:0.7rem; font-size:0.85rem; border-color:var(--accent);">
+					➕ {$t("tourneys_add_btn")}
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
 
 <!-- Edit Modal -->
 <EditTournamentModal
@@ -1525,4 +1739,108 @@
 			width: 100%;
 		}
 	}
+
+	/* Mobile Subnav Chips */
+	.mobile-subnav-chips {
+		display: none;
+	}
+	.t-spinner {
+		width: 32px;
+		height: 32px;
+		border: 3px solid rgba(255, 255, 255, 0.15);
+		border-top-color: var(--accent);
+		border-radius: 50%;
+		animation: spin 0.8s linear infinite;
+		margin: 0 auto 0.75rem auto;
+	}
+	@keyframes spin {
+		to { transform: rotate(360deg); }
+	}
+
+	@media (max-width: 900px) {
+		.mobile-subnav-chips {
+			display: flex;
+			align-items: center;
+			gap: 0.4rem;
+			padding: 0.45rem 0.75rem;
+			overflow-x: auto;
+			scrollbar-width: none;
+			border-bottom: 1px solid var(--glass-border);
+			background: rgba(15, 23, 42, 0.75);
+			backdrop-filter: blur(8px);
+			flex-shrink: 0;
+			z-index: 10;
+		}
+		.mobile-subnav-chips::-webkit-scrollbar {
+			display: none;
+		}
+		.m-chip {
+			display: inline-flex;
+			align-items: center;
+			gap: 0.35rem;
+			padding: 0.35rem 0.65rem;
+			border-radius: 6px;
+			background: var(--surface-raised);
+			border: 1px solid var(--glass-border);
+			color: var(--text-main);
+			font-size: 0.75rem;
+			font-weight: 600;
+			white-space: nowrap;
+			cursor: pointer;
+			transition: all 0.15s ease;
+			flex-shrink: 0;
+		}
+		.m-chip:active {
+			transform: scale(0.96);
+		}
+		.m-chip.admin {
+			border-color: rgba(168, 85, 247, 0.4);
+			color: #c084fc;
+		}
+		.m-chip.join {
+			background: var(--accent);
+			color: #fff;
+			border-color: var(--accent);
+		}
+		.m-chip.joined {
+			background: rgba(34, 197, 94, 0.15);
+			color: var(--success);
+			border-color: rgba(34, 197, 94, 0.4);
+		}
+
+		/* Pure Isolated Bracket Full Height on Mobile (No outer page scroll) */
+		.tournaments-layout {
+			flex: 1;
+			height: calc(100vh - 54px - 44px - 56px);
+			height: calc(100dvh - 54px - 44px - 56px);
+			overflow: hidden !important;
+		}
+		.t-detail {
+			height: 100% !important;
+			max-height: 100% !important;
+			overflow: hidden !important;
+			display: flex;
+			flex-direction: column;
+			padding: 0 !important;
+		}
+		.detail-body {
+			flex: 1;
+			min-height: 0;
+			height: 100% !important;
+			display: flex;
+			flex-direction: column;
+			overflow: hidden !important;
+			padding: 0 !important;
+		}
+		.tournament-split-layout {
+			flex: 1;
+			min-height: 0;
+			height: 100% !important;
+			display: flex;
+			flex-direction: column;
+			overflow: hidden !important;
+			gap: 0 !important;
+		}
+	}
+
 </style>

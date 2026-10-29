@@ -2,6 +2,7 @@
 	import { t } from '$lib/i18nStore';
 	import { get } from 'svelte/store';
 	import { createEventDispatcher, onDestroy } from 'svelte';
+	import Icon from '$lib/components/Icon.svelte';
 
 	export let selected;
 	export let hasBracket = false;
@@ -208,12 +209,120 @@
 		clampPan();
 	}
 
-	function onMouseDown(e) { isDragging = true; startX = e.clientX - panX; startY = e.clientY - panY; }
-	function onMouseMove(e) { if (!isDragging) return; panX = e.clientX - startX; panY = e.clientY - startY; clampPan(); }
-	function onMouseUp() { isDragging = false; }
-	function onTouchStart(e) { if (e.touches.length === 1) { isDragging = true; startX = e.touches[0].clientX - panX; startY = e.touches[0].clientY - panY; } }
-	function onTouchMove(e) { if (!isDragging || e.touches.length !== 1) return; panX = e.touches[0].clientX - startX; panY = e.touches[0].clientY - startY; clampPan(); }
-	function onTouchEnd() { isDragging = false; }
+	// Gesture state
+	let touchMode = 'none'; // 'none' | 'pan' | 'pinch'
+	let initialPinchDist = 0;
+	let initialScale = 1;
+	let pinchCenter = { x: 0, y: 0 };
+
+	function getTouchDist(t1, t2) {
+		const dx = t1.clientX - t2.clientX;
+		const dy = t1.clientY - t2.clientY;
+		return Math.hypot(dx, dy);
+	}
+
+	function getTouchCenter(t1, t2) {
+		return {
+			x: (t1.clientX + t2.clientX) / 2,
+			y: (t1.clientY + t2.clientY) / 2
+		};
+	}
+
+	function onMouseDown(e) {
+		isDragging = true;
+		startX = e.clientX - panX;
+		startY = e.clientY - panY;
+	}
+
+	function onMouseMove(e) {
+		if (!isDragging) return;
+		panX = e.clientX - startX;
+		panY = e.clientY - startY;
+		clampPan();
+	}
+
+	function onMouseUp() {
+		isDragging = false;
+	}
+
+	function onTouchStart(e) {
+		if (e.touches.length === 1) {
+			touchMode = 'pan';
+			isDragging = true;
+			startX = e.touches[0].clientX - panX;
+			startY = e.touches[0].clientY - panY;
+		} else if (e.touches.length >= 2) {
+			touchMode = 'pinch';
+			isDragging = false;
+			initialPinchDist = getTouchDist(e.touches[0], e.touches[1]);
+			initialScale = scale;
+			pinchCenter = getTouchCenter(e.touches[0], e.touches[1]);
+		}
+	}
+
+	function onTouchMove(e) {
+		if (touchMode === 'pan' && e.touches.length === 1 && isDragging) {
+			if (e.cancelable) e.preventDefault();
+			e.stopPropagation();
+			panX = e.touches[0].clientX - startX;
+			panY = e.touches[0].clientY - startY;
+			clampPan();
+		} else if (touchMode === 'pinch' && e.touches.length >= 2) {
+			if (e.cancelable) e.preventDefault();
+			e.stopPropagation();
+			const currentDist = getTouchDist(e.touches[0], e.touches[1]);
+			if (initialPinchDist > 5 && currentDist > 5) {
+				const ratio = currentDist / initialPinchDist;
+				const newScale = Math.min(Math.max(ZOOM_MIN, initialScale * ratio), ZOOM_MAX);
+				if (viewportEl && scale > 0) {
+					const rect = viewportEl.getBoundingClientRect();
+					const mx = pinchCenter.x - rect.left;
+					const my = pinchCenter.y - rect.top;
+					panX = mx - (mx - panX) * (newScale / scale);
+					panY = my - (my - panY) * (newScale / scale);
+				}
+				scale = newScale;
+				clampPan();
+			}
+		}
+	}
+
+	function onTouchEnd(e) {
+		if (e.touches.length === 1) {
+			touchMode = 'pan';
+			isDragging = true;
+			startX = e.touches[0].clientX - panX;
+			startY = e.touches[0].clientY - panY;
+		} else if (e.touches.length === 0) {
+			touchMode = 'none';
+			isDragging = false;
+			initialPinchDist = 0;
+		}
+	}
+
+	export function zoomIn() {
+		const newScale = Math.min(scale * 1.25, ZOOM_MAX);
+		if (viewportEl) {
+			const mx = viewportEl.clientWidth / 2;
+			const my = viewportEl.clientHeight / 2;
+			panX = mx - (mx - panX) * (newScale / scale);
+			panY = my - (my - panY) * (newScale / scale);
+		}
+		scale = newScale;
+		clampPan();
+	}
+
+	export function zoomOut() {
+		const newScale = Math.max(scale * 0.8, ZOOM_MIN);
+		if (viewportEl) {
+			const mx = viewportEl.clientWidth / 2;
+			const my = viewportEl.clientHeight / 2;
+			panX = mx - (mx - panX) * (newScale / scale);
+			panY = my - (my - panY) * (newScale / scale);
+		}
+		scale = newScale;
+		clampPan();
+	}
 
 	export function resetZoom() {
 		if (!viewportEl || !canvasEl) return;
@@ -567,6 +676,18 @@
 						{/if}
 					</div>
 				</div>
+				<!-- Floating Zoom Controls -->
+				<div class="bracket-floating-tools">
+					<button class="tool-btn" on:click={zoomIn} title="Zoom +">
+						<Icon name="plus" size={14} />
+					</button>
+					<button class="tool-btn" on:click={zoomOut} title="Zoom -">
+						<Icon name="minus" size={14} />
+					</button>
+					<button class="tool-btn" on:click={resetZoom} title={$t('tourneys_btn_recenter')}>
+						<Icon name="refresh" size={14} />
+					</button>
+				</div>
 				{#if arrowLeft}<div class="pan-arrow pan-arrow-left" on:click={() => panTo(150, 0)}>‹</div>{/if}
 				{#if arrowRight}<div class="pan-arrow pan-arrow-right" on:click={() => panTo(-150, 0)}>›</div>{/if}
 				{#if arrowUp}<div class="pan-arrow pan-arrow-up" on:click={() => panTo(0, 150)}>‹</div>{/if}
@@ -590,7 +711,20 @@
 	.bracket-section { padding: 1rem; border-radius: 14px; display: flex; flex-direction: column; }
 	.bracket-section.bracket-expanded { flex-grow: 1; min-height: 400px; }
 	.bracket-viewport-wrapper { position: relative; flex-grow: 1; min-height: 450px; }
-	.bracket-viewport { position: absolute; inset: 0; overflow: hidden; cursor: grab; background: var(--surface-sunken); border-radius: 10px; border: 1px solid var(--glass-border); user-select: none; -webkit-user-select: none; }
+	.bracket-viewport {
+		position: relative;
+		overflow: hidden;
+		width: 100%;
+		height: 100%;
+		cursor: grab;
+		touch-action: none;
+		user-select: none;
+		-webkit-user-select: none;
+		overscroll-behavior: contain;
+	}
+	.bracket-viewport:active {
+		cursor: grabbing;
+	}
 	.bracket-viewport:active { cursor: grabbing; }
 	.bracket-canvas { transform-origin: 0 0; transition: transform 0.1s ease-out; padding: 2rem; display: inline-block; min-width: 100%; min-height: 100%; }
 	.rounds-container { display: flex; gap: 3rem; }
@@ -730,19 +864,39 @@
 	.admin-btn.confirm-no:hover { background: rgba(239,68,68,0.15); }
 
 	@media (max-width: 900px) {
+		.bracket-section {
+			height: 100%;
+			flex: 1;
+			display: flex;
+			flex-direction: column;
+			min-height: 0;
+			padding: 0.25rem;
+			background: transparent;
+			border: none;
+		}
+		.section-title {
+			display: none;
+		}
 		.bracket-viewport-wrapper {
-			min-height: 360px;
+			flex: 1;
+			height: 100%;
+			min-height: 0;
 		}
 		.bracket-viewport {
 			position: relative;
-			overflow-x: auto;
-			overflow-y: auto;
-			min-height: 360px;
-			max-height: 70vh;
-			-webkit-overflow-scrolling: touch;
+			overflow: hidden;
+			width: 100%;
+			height: 100%;
+			cursor: grab;
+			touch-action: none;
+			user-select: none;
+			-webkit-user-select: none;
+			overscroll-behavior: contain;
+		}
+		.bracket-viewport:active {
+			cursor: grabbing;
 		}
 		.bracket-canvas {
-			transform: none !important;
 			padding: 1rem;
 		}
 		.rounds-container {

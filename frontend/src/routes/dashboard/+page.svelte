@@ -865,7 +865,7 @@
 					<div class="empty-icon"><Icon name="target" size={32} /></div>
 					<h3>{$t('mobile_empty_matches_title')}</h3>
 					<p>{$t('mobile_empty_matches_desc')}</p>
-					<button class="btn btn-sm btn-primary" on:click={() => navigateToTournament()}>
+					<button class="btn btn-sm btn-primary" on:click={() => navigateToTournament(activeTournament?.id || (tournaments && tournaments[0]?.id))}>
 						<Icon name="trophy" size={14} /> {$t('mobile_btn_view_tournaments')}
 					</button>
 				</div>
@@ -1017,7 +1017,7 @@
 		<section class="mobile-section">
 			<div class="mobile-section-header">
 				<h2><Icon name="trophy" size={15} /> {$t('nav_tournaments')} ({tournaments.length})</h2>
-				<button class="see-all-link" on:click={() => navigateToTournament()}>{$t('mobile_see_all')} →</button>
+				<button class="see-all-link" on:click={() => navigateToTournament(activeTournament?.id || (tournaments && tournaments[0]?.id))}>{$t('mobile_see_all')} →</button>
 			</div>
 			<div class="mobile-tourneys-list">
 				{#each (tournaments || []).slice(0, 4) as tourney}

@@ -88,6 +88,8 @@
   {:else if name === 'plus'}
     <path d="M5 12h14" />
     <path d="M12 5v14" />
+  {:else if name === 'minus'}
+    <line x1="5" x2="19" y1="12" y2="12" />
   {:else if name === 'x' || name === 'cross'}
     <path d="M18 6 6 18" />
     <path d="m6 6 12 12" />
