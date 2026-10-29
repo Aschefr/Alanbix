@@ -27,6 +27,8 @@ docker run -d \
 
 * The application runs on the single port `41481` (which serves both the frontend and the backend).
 * SQLite database files and uploads are stored in the persistent volume `alanbix_data`.
+* **Login secret key**: on first start, Alanbix generates a unique random key and stores it in the volume (`/app/data/.secret_key`). Keep this volume: if it is lost, everyone simply has to log in again. To provide your own key, set the `SECRET_KEY` environment variable.
+* **Access from other sites (CORS)**: by default, only the machine itself, the mobile app, the local network and Tailscale are allowed. For another address (domain name, reverse proxy…), set `CORS_ORIGINS` (comma-separated list, or `*` to allow everything).
 
 #### 🔍 (Optional) Deploying SearXNG for Game Cover Search
 If you want to use the automated game cover search feature with the Docker Hub image, you must run a SearXNG instance alongside it:
