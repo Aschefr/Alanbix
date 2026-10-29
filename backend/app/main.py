@@ -456,7 +456,16 @@ def _cache_headers(file_path: str) -> dict:
 @app.get("/{full_path:path}")
 async def serve_spa(full_path: str):
     import os
-    base_dir = os.environ.get("FRONTEND_DIST_DIR", "/app/frontend_dist")
+    candidate_dirs = [
+        os.environ.get("FRONTEND_DIST_DIR"),
+        "/app/frontend_dist",
+        "/app/frontend/build",
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "build")),
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "static")),
+        os.path.abspath("frontend/build"),
+        os.path.abspath("build")
+    ]
+    base_dir = next((d for d in candidate_dirs if d and os.path.isdir(d)), "/app/frontend_dist")
     
     # Handle empty path (root)
     if not full_path:

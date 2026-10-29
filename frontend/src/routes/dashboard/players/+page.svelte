@@ -8,6 +8,7 @@
 	import { formatPoints } from '$lib/utils';
 	import { resolveMediaUrl } from '$lib/config';
 	import PlayerChat from '$lib/components/PlayerChat.svelte';
+	import Icon from '$lib/components/Icon.svelte';
 
 	let players = [];
 	let currentUser = null;
@@ -171,7 +172,13 @@
 				}
 			}
 			if (msg.type === 'private_message_new') {
-				loadUnreadMap();
+				if (chatMode === 'p2p' && chatPeerId === msg.sender_id) {
+					unreadMap[msg.sender_id] = 0;
+					unreadMap = { ...unreadMap };
+					api.get(`/players/messages/${msg.sender_id}`).catch(() => {});
+				} else {
+					loadUnreadMap();
+				}
 			}
 			if (msg.type === 'group_message_new') {
 				loadGroupUnreadMap();
@@ -262,6 +269,17 @@
 		showScrollToBottom = chatEl.scrollTop + chatEl.clientHeight < chatEl.scrollHeight - 300;
 	}
 
+
+	// Reactive unread short-list computation
+	$: unreadPeers = players.filter(p => (unreadMap[p.id] || 0) > 0);
+	$: unreadGroups = Object.entries(groupUnreadMap)
+		.filter(([_, count]) => count > 0)
+		.map(([key, count]) => {
+			const isTeam = key.startsWith('team:');
+			const label = isTeam ? key.slice(5) : key.slice(6);
+			return { key, label, count, isTeam };
+		});
+	$: totalUnreadChats = unreadPeers.length + unreadGroups.length;
 
 	// Group players by team
 	$: grouped = (() => {
@@ -414,6 +432,61 @@
 	<div class="players-layout" style="grid-template-columns: minmax(0, 1fr) 8px {chatWidth}px;">
 		<!-- LEFT: Player directory -->
 		<div class="directory-col" class:mobile-hidden={chatMode !== null}>
+			{#if totalUnreadChats > 0}
+				<div class="unread-shortlist-bar glass">
+					<div class="unread-shortlist-header">
+						<span class="unread-shortlist-title">
+							<Icon name="chat" size={13} />
+							<span>{$t('players_unread_shortlist_title') || 'Messages non lus'}</span>
+						</span>
+						<span class="unread-total-badge">{totalUnreadChats}</span>
+					</div>
+					<div class="unread-chips-row">
+						{#each unreadPeers as p (p.id)}
+							<button
+								type="button"
+								class="unread-chip glass"
+								class:active={chatMode === 'p2p' && chatPeerId === p.id}
+								on:click={() => openChat(p.id)}
+								title="{p.username} ({unreadMap[p.id]})"
+							>
+								<div class="unread-chip-avatar">
+									{#if p.avatar_url}
+										<img src={resolveMediaUrl(p.avatar_url)} alt="" />
+									{:else}
+										<span>{p.username[0].toUpperCase()}</span>
+									{/if}
+									{#if p.is_online}
+										<span class="chip-online-dot"></span>
+									{/if}
+								</div>
+								<span class="unread-chip-name">{p.username}</span>
+								<span class="unread-chip-count">{unreadMap[p.id]}</span>
+							</button>
+						{/each}
+						{#each unreadGroups as g (g.key)}
+							<button
+								type="button"
+								class="unread-chip unread-chip-group glass"
+								class:active={chatMode === 'group' && chatChannelKey === g.key}
+								on:click={() => openGroupChat(g.key)}
+								title="{g.label} ({g.count})"
+							>
+								<div class="unread-chip-icon">
+									{#if g.isTeam}
+										<Icon name="shield" size={12} />
+									{:else}
+										<Icon name="swords" size={12} />
+									{/if}
+								</div>
+								<span class="unread-chip-name">{g.label}</span>
+								<span class="unread-chip-count">{g.count}</span>
+							</button>
+						{/each}
+					</div>
+				</div>
+			{/if}
+
 			{#if currentUser?.team_name}
 				<button type="button" class="my-team-quick-bar glass" on:click={(e) => openTeamChat(e, currentUser.team_name)}>
 					<span>🛡️ {$t('players_my_team_chat_btn', { team: currentUser.team_name })}</span>
@@ -644,6 +717,7 @@
 					allUsers={players}
 					on:close={closeChat}
 					on:messageSent={() => { loadUnreadMap(); loadGroupUnreadMap(); }}
+					on:messageRead={(e) => { if (e.detail?.peerId) { unreadMap[e.detail.peerId] = 0; unreadMap = { ...unreadMap }; } }}
 				/>
 			{/if}
 		</div>
@@ -923,5 +997,114 @@
 		.mobile-hidden {
 			display: none !important;
 		}
+	}
+
+	.unread-shortlist-bar {
+		padding: 0.5rem 0.65rem;
+		margin-bottom: 0.75rem;
+		border-radius: 3px !important;
+		display: flex;
+		flex-direction: column;
+		gap: 0.4rem;
+		background: var(--glass-bg);
+		border: 1px solid var(--glass-border);
+	}
+	.unread-shortlist-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+	}
+	.unread-shortlist-title {
+		font-size: 0.72rem;
+		font-weight: 700;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		color: var(--accent);
+		display: flex;
+		align-items: center;
+		gap: 0.35rem;
+	}
+	.unread-total-badge {
+		background: #ef4444;
+		color: white;
+		font-size: 0.62rem;
+		font-weight: 800;
+		padding: 0.1rem 0.4rem;
+		border-radius: 3px;
+	}
+	.unread-chips-row {
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+		overflow-x: auto;
+		scrollbar-width: thin;
+		padding-bottom: 0.2rem;
+	}
+	.unread-chip {
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+		padding: 0.3rem 0.6rem;
+		border-radius: 3px !important;
+		background: var(--surface-sunken);
+		border: 1px solid var(--glass-border);
+		cursor: pointer;
+		color: var(--text-main);
+		font-size: 0.75rem;
+		font-weight: 600;
+		flex-shrink: 0;
+		transition: all 0.15s ease;
+	}
+	.unread-chip:hover, .unread-chip.active {
+		border-color: var(--accent);
+		background: var(--accent-soft);
+		color: var(--accent);
+	}
+	.unread-chip-avatar {
+		width: 22px;
+		height: 22px;
+		border-radius: 3px;
+		position: relative;
+		overflow: hidden;
+		background: var(--bg-secondary);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 0.7rem;
+		font-weight: 700;
+	}
+	.unread-chip-avatar img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+	.chip-online-dot {
+		position: absolute;
+		bottom: 1px;
+		right: 1px;
+		width: 5px;
+		height: 5px;
+		border-radius: 50%;
+		background: #22c55e;
+	}
+	.unread-chip-icon {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		color: var(--accent);
+	}
+	.unread-chip-name {
+		white-space: nowrap;
+		max-width: 90px;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+	.unread-chip-count {
+		background: #ef4444;
+		color: white;
+		font-size: 0.6rem;
+		font-weight: 800;
+		padding: 0.1rem 0.35rem;
+		border-radius: 3px;
 	}
 </style>

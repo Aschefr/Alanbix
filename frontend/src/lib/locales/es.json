@@ -1325,5 +1325,7 @@
   "mobile_score_draw": "Empate",
   "mobile_score_saved": "¡Puntuación guardada con éxito!",
   "mobile_score_submitting": "Validando...",
-  "common_close": "Cerrar"
+  "common_close": "Cerrar",
+  "players_unread_shortlist_title": "Mensajes no leidos",
+  "ai_input_placeholder_mobile": "Haz una pregunta..."
 }

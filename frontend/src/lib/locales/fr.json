@@ -1325,5 +1325,7 @@
   "mobile_score_draw": "Égalité",
   "mobile_score_saved": "Score enregistré avec succès !",
   "mobile_score_submitting": "Validation...",
-  "common_close": "Fermer"
+  "common_close": "Fermer",
+  "players_unread_shortlist_title": "Messages non lus",
+  "ai_input_placeholder_mobile": "Posez votre question..."
 }

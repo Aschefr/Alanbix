@@ -1325,5 +1325,7 @@
   "mobile_score_draw": "Draw",
   "mobile_score_saved": "Score saved successfully!",
   "mobile_score_submitting": "Submitting...",
-  "common_close": "Close"
+  "common_close": "Close",
+  "players_unread_shortlist_title": "Unread messages",
+  "ai_input_placeholder_mobile": "Ask a question..."
 }

@@ -26,6 +26,8 @@ dist/
 .pytest_cache/
 htmlcov/
 .coverage
+backend/frontend_dist/
+frontend_dist/
 
 # === Frontend (Node) ===
 node_modules/

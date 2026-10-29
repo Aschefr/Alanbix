@@ -1367,8 +1367,8 @@
 			height: 38px;
 			padding: 0 0.5rem;
 			border-radius: 3px !important;
-			background: rgba(15, 23, 42, 0.85);
-			border: 1px solid rgba(255, 255, 255, 0.08);
+			background: var(--glass-bg);
+			border: 1px solid var(--glass-border);
 			box-sizing: border-box;
 			flex-shrink: 0;
 			margin-bottom: 0.25rem;

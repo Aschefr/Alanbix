@@ -146,6 +146,10 @@
 					} else {
 						await loadMessages(true);
 					}
+					if (msg.sender_id === peer?.id) {
+						api.get(`/players/messages/${peer.id}`).catch(() => {});
+						dispatch('messageRead', { peerId: peer.id });
+					}
 				}
 			}
 

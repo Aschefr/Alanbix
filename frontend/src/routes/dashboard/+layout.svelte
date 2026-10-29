@@ -1342,10 +1342,10 @@
 			height: var(--mobile-top-h, 42px);
 			box-sizing: border-box;
 			padding: calc(0.25rem + var(--safe-top, 0px)) 0.75rem 0.25rem;
-			background: rgba(15, 23, 42, 0.95);
+			background: var(--mobile-bar-bg, rgba(15, 23, 42, 0.95));
 			backdrop-filter: blur(12px);
 			-webkit-backdrop-filter: blur(12px);
-			border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+			border-bottom: 1px solid var(--glass-border, rgba(255, 255, 255, 0.08));
 		}
 
 		.mobile-brand {
@@ -1448,10 +1448,10 @@
 			height: var(--mobile-nav-h, 48px);
 			box-sizing: border-box;
 			padding: 0.15rem 0.2rem calc(0.15rem + var(--safe-bottom, 0px));
-			background: rgba(15, 23, 42, 0.96);
+			background: var(--mobile-bar-bg, rgba(15, 23, 42, 0.96));
 			backdrop-filter: blur(16px);
 			-webkit-backdrop-filter: blur(16px);
-			border-top: 1px solid rgba(255, 255, 255, 0.08);
+			border-top: 1px solid var(--glass-border, rgba(255, 255, 255, 0.08));
 			box-shadow: none;
 		}
 

@@ -1847,11 +1847,11 @@
 
 			gap: 0.5rem;
 
-			background: rgba(15, 23, 42, 0.7);
+			background: var(--surface-sunken);
 
 			padding: 0.3rem;
 
-			border-radius: 12px;
+			border-radius: 4px;
 
 			border: 1px solid var(--glass-border);
 
@@ -1989,7 +1989,7 @@
 
 			margin: 0;
 
-			color: #f1f5f9;
+			color: var(--text-main);
 
 			font-weight: 700;
 
@@ -2033,7 +2033,7 @@
 
 			border-radius: 14px;
 
-			border: 1px dashed rgba(255, 255, 255, 0.12);
+			border: 1px dashed var(--glass-border);
 
 			gap: 0.6rem;
 
@@ -2041,9 +2041,9 @@
 
 		.empty-icon { font-size: 2.2rem; }
 
-		.empty-matches-card h3 { margin: 0; font-size: 1rem; color: #f1f5f9; }
+		.empty-matches-card h3 { margin: 0; font-size: 1rem; color: var(--text-main); }
 
-		.empty-matches-card p { margin: 0; font-size: 0.82rem; color: #94a3b8; max-width: 320px; }
+		.empty-matches-card p { margin: 0; font-size: 0.82rem; color: var(--text-dim); max-width: 320px; }
 
 
 
@@ -2063,9 +2063,9 @@
 
 		.match-card {
 
-			background: rgba(15, 23, 42, 0.8);
+			background: var(--glass-bg);
 
-			border: 1px solid rgba(255, 255, 255, 0.08);
+			border: 1px solid var(--glass-border);
 
 			border-radius: 14px;
 
@@ -2155,13 +2155,13 @@
 
 			font-size: 0.95rem;
 
-			color: #f8fafc;
+			color: var(--text-main);
 
 		}
 
 		.match-tourney-title .round-name {
 
-			color: #94a3b8;
+			color: var(--text-dim);
 
 			font-size: 0.85rem;
 
@@ -2171,9 +2171,9 @@
 
 		.match-versus-box {
 
-			background: rgba(0, 0, 0, 0.25);
+			background: var(--surface-sunken);
 
-			border: 1px solid rgba(255, 255, 255, 0.05);
+			border: 1px solid var(--glass-border);
 
 			border-radius: 8px;
 
@@ -2193,7 +2193,7 @@
 
 			font-size: 0.75rem;
 
-			color: #94a3b8;
+			color: var(--text-dim);
 
 			font-weight: 600;
 
@@ -2207,7 +2207,7 @@
 
 			font-weight: 700;
 
-			color: #f1f5f9;
+			color: var(--text-main);
 
 			display: flex;
 
@@ -2377,7 +2377,7 @@
 			align-items: center;
 			justify-content: space-between;
 			gap: 0.4rem;
-			background: rgba(15, 23, 42, 0.5);
+			background: var(--surface-sunken);
 			border-radius: 3px;
 			padding: 0.4rem;
 		}
@@ -2490,7 +2490,7 @@
 
 		.mobile-tourney-card {
 			width: 100%;
-			background: rgba(15, 23, 42, 0.6);
+			background: var(--glass-bg);
 			cursor: pointer;
 			text-align: left;
 			border-radius: 3px !important;
@@ -2584,7 +2584,7 @@
 
 			border-radius: 10px;
 
-			border: 1px solid rgba(255, 255, 255, 0.06);
+			border: 1px solid var(--glass-border);
 
 			text-decoration: none;
 
@@ -2616,7 +2616,7 @@
 
 			font-weight: 700;
 
-			color: #f1f5f9;
+			color: var(--text-main);
 
 			overflow: hidden;
 
@@ -2632,7 +2632,7 @@
 
 			font-size: 0.75rem;
 
-			color: #94a3b8;
+			color: var(--text-dim);
 
 		}
 
@@ -2688,7 +2688,7 @@
 
 			gap: 0.5rem;
 
-			border: 1px solid rgba(255, 255, 255, 0.06);
+			border: 1px solid var(--glass-border);
 
 		}
 
@@ -2712,9 +2712,9 @@
 
 		.podium-rank { font-size: 1rem; }
 
-		.podium-name { font-weight: 700; color: #f1f5f9; flex: 1; }
+		.podium-name { font-weight: 700; color: var(--text-main); flex: 1; }
 
-		.podium-team { font-size: 0.75rem; color: #94a3b8; }
+		.podium-team { font-size: 0.75rem; color: var(--text-dim); }
 
 		.podium-pts { font-weight: 800; color: #fbbf24; }
 

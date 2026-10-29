@@ -4,6 +4,7 @@
 	import { wsMessageStore } from '$lib/ws';
 	import { goto } from '$app/navigation';
 	import { t, currentLang } from '$lib/i18nStore';
+	import Icon from '$lib/components/Icon.svelte';
 
 	let notifications = [];
 	let loading = true;
@@ -132,13 +133,16 @@
 <div class="notif-page animate-in">
 	<header class="notif-header glass">
 		<div class="header-left">
-			<h1 class="title-premium"><span class="title-icon">🔔</span> {$t('nav_notifications')}</h1>
+			<h1 class="title-premium"><Icon name="bell" size={20} class="header-bell-icon" /> {$t('nav_notifications')}</h1>
 			{#if unreadCount > 0}
 				<span class="unread-badge">{unreadCount} {$t('notif_unread', { plural: unreadCount > 1 ? 's' : '' })}</span>
 			{/if}
 		</div>
 		{#if unreadCount > 0}
-			<button class="btn-primary btn-sm" on:click={markAllRead}>✓ {$t('notifs_mark_all_read')}</button>
+			<button class="btn-primary btn-sm mark-all-btn" on:click={markAllRead}>
+				<Icon name="check" size={14} />
+				<span>{$t('notifs_mark_all_read')}</span>
+			</button>
 		{/if}
 	</header>
 
@@ -148,7 +152,7 @@
 		</div>
 	{:else if notifications.length === 0}
 		<div class="empty-state glass">
-			<span class="empty-icon">🔕</span>
+			<span class="empty-icon"><Icon name="bell" size={40} /></span>
 			<p>{$t('notifs_empty')}</p>
 			<p class="text-dim text-sm">{$t('notifs_empty_desc')}</p>
 		</div>
@@ -175,7 +179,17 @@
 					}}
 					role="button" tabindex="0"
 				>
-					<div class="notif-icon">{getIcon(n.type)}</div>
+					<div class="notif-icon">
+						{#if n.type === 'tournament_closed' || n.type === 'tournament_started'}
+							<Icon name="trophy" size={18} />
+						{:else if n.type === 'admin_message'}
+							<Icon name="shield" size={18} />
+						{:else if n.type === 'award'}
+							<Icon name="sparkles" size={18} />
+						{:else}
+							<Icon name="bell" size={18} />
+						{/if}
+					</div>
 					<div class="notif-body">
 						<div class="notif-title-row">
 							<span class="notif-title">{n.title}</span>
@@ -200,7 +214,7 @@
 						class="notif-delete"
 						on:click|stopPropagation={() => deleteNotif(n.id)}
 						title={$t('notif_delete_tooltip')}
-					>🗑️</button>
+					><Icon name="trash" size={14} /></button>
 				</div>
 			{/each}
 		</div>
@@ -293,4 +307,64 @@
 	}
 	.retry-btn:hover { background: rgba(59,130,246,0.25); transform: scale(1.05); }
 	.retry-btn:disabled { opacity: 0.5; cursor: wait; }
+
+	@media (max-width: 900px) {
+		.notif-page {
+			padding: 0.2rem;
+			gap: 0.6rem;
+		}
+		.notif-header {
+			flex-direction: column;
+			align-items: stretch;
+			gap: 0.65rem;
+			padding: 0.75rem 0.85rem;
+			border-radius: 3px !important;
+		}
+		.header-left {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			width: 100%;
+		}
+		.header-left h1 {
+			font-size: 1.05rem;
+			display: flex;
+			align-items: center;
+			gap: 0.45rem;
+		}
+		.unread-badge {
+			border-radius: 3px !important;
+			font-size: 0.68rem;
+			padding: 0.2rem 0.55rem;
+			white-space: nowrap;
+			flex-shrink: 0;
+		}
+		.mark-all-btn {
+			width: 100%;
+			height: 34px;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			gap: 0.4rem;
+			font-size: 0.75rem;
+			padding: 0.4rem 0.8rem;
+			border-radius: 3px !important;
+			white-space: nowrap;
+		}
+		.notif-card {
+			border-radius: 3px !important;
+			padding: 0.65rem 0.75rem;
+			gap: 0.6rem;
+		}
+		.notif-title {
+			font-size: 0.8rem;
+		}
+		.notif-content {
+			font-size: 0.75rem;
+		}
+		.empty-state, .loading-state {
+			border-radius: 3px !important;
+			padding: 2rem 1rem;
+		}
+	}
 </style>

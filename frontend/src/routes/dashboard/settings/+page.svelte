@@ -640,12 +640,12 @@
 		font-size: 1.75rem;
 		font-weight: 700;
 		margin: 0;
-		color: #f8fafc;
+		color: var(--text-main);
 	}
 	.header-title-box .subtitle {
 		margin: 0.2rem 0 0;
 		font-size: 0.9rem;
-		color: #94a3b8;
+		color: var(--text-dim);
 	}
 
 	.settings-content {
@@ -655,9 +655,9 @@
 	}
 
 	.settings-section {
-		background: rgba(15, 23, 42, 0.65);
+		background: var(--glass-bg);
 		backdrop-filter: blur(12px);
-		border: 1px solid rgba(255, 255, 255, 0.08);
+		border: 1px solid var(--glass-border);
 		border-radius: 14px;
 		padding: 1.5rem;
 		transition: border-color 0.2s;
@@ -678,12 +678,12 @@
 	.section-title-row h2 {
 		font-size: 1.2rem;
 		margin: 0;
-		color: #f1f5f9;
+		color: var(--text-main);
 	}
 	.section-title-row p {
 		margin: 0.2rem 0 0;
 		font-size: 0.85rem;
-		color: #94a3b8;
+		color: var(--text-dim);
 	}
 
 	.native-service-card {
@@ -723,8 +723,8 @@
 		flex-wrap: wrap;
 	}
 	.permission-box {
-		background: rgba(0, 0, 0, 0.25);
-		border: 1px solid rgba(255, 255, 255, 0.06);
+		background: var(--surface-sunken);
+		border: 1px solid var(--glass-border);
 		border-radius: 10px;
 		padding: 0.85rem 1rem;
 		display: flex;
@@ -742,7 +742,7 @@
 	}
 	.perm-status .label {
 		font-size: 0.85rem;
-		color: #94a3b8;
+		color: var(--text-dim);
 	}
 
 	.badge {
@@ -758,12 +758,12 @@
 	.settings-subgroup {
 		margin-top: 1.25rem;
 		padding-top: 1rem;
-		border-top: 1px solid rgba(255, 255, 255, 0.06);
+		border-top: 1px solid var(--glass-border);
 	}
 	.settings-subgroup h3 {
 		font-size: 0.95rem;
 		font-weight: 600;
-		color: #cbd5e1;
+		color: var(--text-main);
 		margin: 0 0 0.75rem;
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
@@ -779,14 +779,14 @@
 		align-items: center;
 		justify-content: space-between;
 		padding: 0.75rem 0.9rem;
-		background: rgba(255, 255, 255, 0.03);
-		border: 1px solid rgba(255, 255, 255, 0.05);
+		background: var(--surface-sunken);
+		border: 1px solid var(--glass-border);
 		border-radius: 8px;
 		cursor: pointer;
 		gap: 1rem;
 	}
 	.toggle-item:hover, .select-item:hover {
-		background: rgba(255, 255, 255, 0.06);
+		background: var(--hover-tint);
 	}
 	.item-info {
 		display: flex;
@@ -796,16 +796,16 @@
 	.item-title {
 		font-size: 0.92rem;
 		font-weight: 600;
-		color: #f1f5f9;
+		color: var(--text-main);
 	}
 	.item-desc {
 		font-size: 0.8rem;
-		color: #94a3b8;
+		color: var(--text-dim);
 	}
 	.select-item select {
 		background: #1e293b;
-		border: 1px solid rgba(255, 255, 255, 0.15);
-		color: #f1f5f9;
+		border: 1px solid var(--glass-border);
+		color: var(--text-main);
 		padding: 0.4rem 0.6rem;
 		border-radius: 6px;
 		font-size: 0.85rem;
@@ -813,7 +813,7 @@
 
 	.dnd-config {
 		background: rgba(0, 0, 0, 0.3);
-		border: 1px dashed rgba(255, 255, 255, 0.1);
+		border: 1px dashed var(--glass-border);
 		border-radius: 8px;
 		padding: 0.85rem;
 		margin-top: 0.4rem;
@@ -827,14 +827,14 @@
 	}
 	.time-row label {
 		font-size: 0.85rem;
-		color: #cbd5e1;
+		color: var(--text-main);
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
 	}
 	.time-row input[type="time"] {
 		background: #1e293b;
-		border: 1px solid rgba(255, 255, 255, 0.15);
+		border: 1px solid var(--glass-border);
 		color: #fff;
 		padding: 0.25rem 0.5rem;
 		border-radius: 6px;
@@ -844,7 +844,7 @@
 		align-items: center;
 		gap: 0.5rem;
 		font-size: 0.82rem;
-		color: #94a3b8;
+		color: var(--text-dim);
 		cursor: pointer;
 	}
 
@@ -864,7 +864,7 @@
 		position: absolute;
 		cursor: pointer;
 		top: 0; left: 0; right: 0; bottom: 0;
-		background-color: rgba(255, 255, 255, 0.2);
+		background-color: var(--glass-border);
 		transition: 0.2s;
 		border-radius: 24px;
 	}
@@ -904,11 +904,11 @@
 		font-size: 0.88rem;
 	}
 	.meta-label {
-		color: #94a3b8;
+		color: var(--text-dim);
 		min-width: 150px;
 	}
 	.meta-val {
-		color: #f1f5f9;
+		color: var(--text-main);
 		word-break: break-all;
 	}
 	.ssids-list {
@@ -941,7 +941,7 @@
 	}
 	.app-label {
 		font-size: 0.9rem;
-		color: #cbd5e1;
+		color: var(--text-main);
 	}
 	.lang-selector {
 		display: flex;
@@ -984,11 +984,11 @@
 	.user-name {
 		font-size: 1.1rem;
 		font-weight: 700;
-		color: #f8fafc;
+		color: var(--text-main);
 	}
 	.user-sub {
 		font-size: 0.82rem;
-		color: #94a3b8;
+		color: var(--text-dim);
 	}
 	.account-actions {
 		display: flex;
@@ -1028,7 +1028,7 @@
 	.btn-ghost {
 		background: transparent;
 		border: 1px solid rgba(255, 255, 255, 0.1);
-		color: #94a3b8;
+		color: var(--text-dim);
 	}
 	.btn-ghost:hover {
 		color: #fff;
@@ -1049,13 +1049,13 @@
 		flex-direction: column;
 		gap: 0.4rem;
 		font-size: 0.82rem;
-		color: #94a3b8;
+		color: var(--text-dim);
 	}
 	.about-row {
 		display: flex;
 		justify-content: space-between;
 		padding: 0.3rem 0;
-		border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+		border-bottom: 1px solid var(--glass-border);
 	}
 	.font-mono {
 		font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;

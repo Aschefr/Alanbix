@@ -62,6 +62,8 @@
 	let lastReadMessageId = null;
 	let firstUnreadIdx = -1;
 	let showScrollToBottom = false;
+	let innerWidth = typeof window !== 'undefined' ? window.innerWidth : 1200;
+	$: isMobile = innerWidth <= 900;
 
 
 
@@ -1113,6 +1115,8 @@
 	}
 </script>
 
+<svelte:window bind:innerWidth />
+
 <div class="ai-page flex-row">
 	<!-- Admin Notification Banner -->
 	{#if adminNotification}
@@ -1519,7 +1523,7 @@
 					<textarea
 						bind:this={textareaRef}
 						bind:value={query}
-						placeholder={iaBlocked ? $t('ai_input_blocked') : busyOtherConv ? $t('ai_input_busy_other') : loading ? $t('ai_input_generating') : $t('ai_input_placeholder')}
+						placeholder={iaBlocked ? $t('ai_input_blocked') : busyOtherConv ? $t('ai_input_busy_other') : loading ? $t('ai_input_generating') : (isMobile ? $t('ai_input_placeholder_mobile') : $t('ai_input_placeholder'))}
 						disabled={loading || iaBlocked || busyOtherConv}
 						title={busyOtherConv ? $t('ai_input_title_busy') : loading ? $t('ai_input_title_wait') : ''}
 						on:paste={handlePaste}
@@ -2226,7 +2230,7 @@
 			margin: 0;
 		}
 		.chat-main header .usage-bar { display: none !important; }
-		.chat-main header .rag-status { font-size: 0.65rem; padding: 0.15rem 0.35rem; }
+		.chat-main header .rag-status { display: none !important; }
 		.chat-main header .compression-badge { font-size: 0.65rem; padding: 0.15rem 0.35rem; }
 		.chat-main header .btn-sentinel { font-size: 0.68rem !important; padding: 0.2rem 0.45rem !important; }
 

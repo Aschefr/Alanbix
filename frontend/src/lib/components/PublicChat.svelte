@@ -105,6 +105,27 @@
 	$: isOverLimit = charCount > maxChars;
 	$: charGaugeColor = charCount >= maxChars ? '#ef4444' : charCount >= maxChars * 0.8 ? '#f59e0b' : 'var(--text-muted)';
 
+	let lastProfanityFilterState = undefined;
+	$: if ($profanityFilterEnabled !== lastProfanityFilterState) {
+		lastProfanityFilterState = $profanityFilterEnabled;
+		if (messages && messages.length > 0) {
+			messages = messages.map(m => ({
+				...m,
+				_formattedContent: renderFormattedText(m.content)
+			}));
+		}
+		if (pinnedMessage?.message) {
+			pinnedMessage = {
+				...pinnedMessage,
+				message: {
+					...pinnedMessage.message,
+					_formattedContent: renderFormattedText(pinnedMessage.message.content)
+				}
+			};
+		}
+	}
+
+
 	let messagesListEl = null;
 	let resizeObserver = null;
 
@@ -391,16 +412,7 @@
 			scrollToBottom(true);
 			markAllRead();
 
-	let lastProfanityFilterState = $profanityFilterEnabled;
-	$: if ($profanityFilterEnabled !== lastProfanityFilterState) {
-		lastProfanityFilterState = $profanityFilterEnabled;
-		if (messages && messages.length > 0) {
-			messages.forEach(m => {
-				m._formattedContent = renderFormattedText(m.content);
-			});
-			messages = [...messages];
-		}
-	}
+
 
 			// Multi-pass alignments to account for async layout, font loading and CSS flexbox rendering
 			requestAnimationFrame(() => {
@@ -1077,7 +1089,7 @@
 				on:click={() => toggleProfanityFilter()}
 				title={$profanityFilterEnabled ? $t('profanity_filter_enabled') : $t('profanity_filter_disabled')}
 			>
-				{$profanityFilterEnabled ? '🛡️' : '👁️'}
+				<Icon name="shield" size={13} />
 			</button>
 
 			{#if user?.is_admin}
