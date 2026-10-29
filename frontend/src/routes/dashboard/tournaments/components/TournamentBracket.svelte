@@ -141,6 +141,19 @@
 		return false;
 	}
 
+	// Round robin: one match open for admin score entry at a time, journées collapsible
+	let rrOpenKey = null;
+	let rrToggled = {};
+	function rrKey(m) { return `${m.id?.g ?? 0}_${m.id?.s}_${m.id?.r}_${m.id?.m}`; }
+	function isRRDone(m) {
+		const a = m.score?.[0] ?? null, b = m.score?.[1] ?? null;
+		return a !== null && b !== null && (a !== 0 || b !== 0) && (a !== b || !!selected?.config?.allow_draws);
+	}
+	function currentRRRound(group) {
+		const i = group.rounds.findIndex(r => r.some(m => !isRRDone(m)));
+		return i === -1 ? group.rounds.length - 1 : i;
+	}
+
 	function canEditPlayerScore(match, playerIdx, _myTeamSlotId, _isParticipant, _currentUser) {
 		if (isAdmin) return true;
 		if (!_isParticipant || !_currentUser) return false;
@@ -431,16 +444,32 @@
 						{#if rrGroups.length > 1}
 							<h4 class="rr-group-title" style="margin-bottom: 0.5rem; font-weight: 800; color: var(--accent);">Poule {String.fromCharCode(64 + parseInt(group.id))}</h4>
 						{/if}
-						<div class="rr-group-rounds" style="display: flex; flex-wrap: wrap; gap: 1rem;">
+						<div class="rr-group-rounds">
 							{#each group.rounds as roundMatches, ri}
-								<div class="rr-round">
-									<div class="rr-round-hdr">{$t('spec_matchday_num', { num: ri + 1 })}</div>
+								{@const playedCount = roundMatches.filter(m => isRRDone(m)).length}
+								{@const roundKey = `${group.id}_${ri}`}
+								{@const isCurrent = ri === currentRRRound(group)}
+								{@const isOpen = rrToggled[roundKey] ? !(isCurrent || playedCount < roundMatches.length) : (isCurrent || playedCount < roundMatches.length)}
+								<div class="rr-round" class:current={isCurrent}>
+									<button class="rr-round-hdr" on:click={() => { rrToggled[roundKey] = !rrToggled[roundKey]; }} aria-expanded={isOpen}>
+										<span class="rr-round-name">{$t('spec_matchday_num', { num: ri + 1 })}</span>
+										{#if isCurrent}<span class="rr-round-live">{$t('tourneys_status_running')}</span>{/if}
+										<span class="rr-round-count">{playedCount}/{roundMatches.length}</span>
+										<Icon name={isOpen ? 'chevron-up' : 'chevron-down'} size={14} />
+									</button>
+									{#if isOpen}
 									{#each roundMatches as match}
 										{@const s0 = match.score?.[0] ?? null}
 										{@const s1 = match.score?.[1] ?? null}
-										{@const isDone = s0 !== null && s1 !== null && (s0 !== 0 || s1 !== 0) && (s0 !== s1 || selected?.config?.allow_draws)}
-										<div class="rr-match {isDone ? 'match-done' : ''}">
-											<span class="rr-p {isDone && (lowerIsBetter ? s0 < s1 : s0 > s1) ? 'winner' : ''}" class:my-player-highlight={useTeams ? (match.p[0] === myTeamSlotId) : (match.p[0] === currentUser?.id)}>{getPlayerName(match.p[0], nameMap)}{#if match.p[0] > 0 && seatMap[match.p[0]]}<a href="/dashboard/map?highlight={seatMap[match.p[0]]}" class="seat-badge" title={$t('tourneys_view_on_map')}>💺{seatMap[match.p[0]]}</a>{/if}</span>
+										{@const isDone = isRRDone(match)}
+										{@const win0 = isDone && (lowerIsBetter ? s0 < s1 : s0 > s1)}
+										{@const win1 = isDone && (lowerIsBetter ? s1 < s0 : s1 > s0)}
+										{@const mine = useTeams ? (match.p[0] === myTeamSlotId || match.p[1] === myTeamSlotId) : (match.p[0] === currentUser?.id || match.p[1] === currentUser?.id)}
+										{@const mKey = rrKey(match)}
+										{@const adminEditing = isAdmin && rrOpenKey === mKey}
+										<!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
+										<div class="rr-match" class:match-done={isDone} class:mine class:admin-tap={isAdmin} class:editing={adminEditing} on:click={() => { if (isAdmin) rrOpenKey = adminEditing ? null : mKey; }}>
+											<span class="rr-p" class:winner={win0} class:loser={isDone && !win0 && win1}>{#if win0}<Icon name="check" size={13} />{/if}{getPlayerName(match.p[0], nameMap)}{#if match.p[0] > 0 && seatMap[match.p[0]]}<a href="/dashboard/map?highlight={seatMap[match.p[0]]}" class="seat-badge" title={$t('tourneys_view_on_map')} on:click|stopPropagation>💺{seatMap[match.p[0]]}</a>{/if}</span>
 											<div class="rr-scores">
 												{#if booleanMode}
 													{#if isDone}
@@ -463,25 +492,30 @@
 													{:else}
 														<span class="rr-score">—</span><span class="rr-vs">-</span><span class="rr-score">—</span>
 													{/if}
+												{:else if isAdmin && !adminEditing}
+													<span class="rr-score-text">{isDone ? `${s0} – ${s1}` : '—'}</span>
 												{:else}
+													<!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
+													<span class="rr-edit" on:click|stopPropagation>
 													{#if canEditPlayerScore(match, 0, myTeamSlotId, isParticipant, currentUser)}
-														<input type="number" class="score-input" value={s0 || ''} placeholder="—" on:change={(e) => updateScore(match, 0, e.target.value)} min="0" disabled={match.p[0] === 0 || match.p[1] === 0} />
+														<input type="number" class="score-input" value={s0 ?? ''} placeholder="—" on:change={(e) => updateScore(match, 0, e.target.value)} min="0" disabled={match.p[0] === 0 || match.p[1] === 0} />
 													{:else if isPlayerLocked(match, 0, myTeamSlotId, isParticipant, currentUser)}
 														<span class="score-locked" title={$t('tourneys_score_validated')}>🔒 {s0 ?? 0}</span>
 													{:else}
-														<span class="rr-score">{s0 ?? 0}</span>
+														<span class="rr-score">{isDone ? s0 : '—'}</span>
 													{/if}
-													<span class="rr-vs">-</span>
+													<span class="rr-vs">–</span>
 													{#if canEditPlayerScore(match, 1, myTeamSlotId, isParticipant, currentUser)}
-														<input type="number" class="score-input" value={s1 || ''} placeholder="—" on:change={(e) => updateScore(match, 1, e.target.value)} min="0" disabled={match.p[0] === 0 || match.p[1] === 0} />
+														<input type="number" class="score-input" value={s1 ?? ''} placeholder="—" on:change={(e) => updateScore(match, 1, e.target.value)} min="0" disabled={match.p[0] === 0 || match.p[1] === 0} />
 													{:else if isPlayerLocked(match, 1, myTeamSlotId, isParticipant, currentUser)}
 														<span class="score-locked" title={$t('tourneys_score_validated')}>🔒 {s1 ?? 0}</span>
 													{:else}
-														<span class="rr-score">{s1 ?? 0}</span>
+														<span class="rr-score">{isDone ? s1 : '—'}</span>
 													{/if}
+													</span>
 												{/if}
 											</div>
-											<span class="rr-p {isDone && (lowerIsBetter ? s1 < s0 : s1 > s0) ? 'winner' : ''}" class:my-player-highlight={useTeams ? (match.p[1] === myTeamSlotId) : (match.p[1] === currentUser?.id)}>{getPlayerName(match.p[1], nameMap)}{#if match.p[1] > 0 && seatMap[match.p[1]]}<a href="/dashboard/map?highlight={seatMap[match.p[1]]}" class="seat-badge" title={$t('tourneys_view_on_map')}>💺{seatMap[match.p[1]]}</a>{/if}</span>
+											<span class="rr-p" class:winner={win1} class:loser={isDone && !win1 && win0}>{#if match.p[1] > 0 && seatMap[match.p[1]]}<a href="/dashboard/map?highlight={seatMap[match.p[1]]}" class="seat-badge" title={$t('tourneys_view_on_map')} on:click|stopPropagation>💺{seatMap[match.p[1]]}</a>{/if}{getPlayerName(match.p[1], nameMap)}{#if win1}<Icon name="check" size={13} />{/if}</span>
 											{#if getPendingProgress(match, 0, pendingTick) !== null || getPendingProgress(match, 1, pendingTick) !== null}
 												<div class="score-pending rr-pending">
 													<div class="score-pending-bar" style="width:{((getPendingProgress(match, 0, pendingTick) ?? getPendingProgress(match, 1, pendingTick)) * 100).toFixed(0)}%"></div>
@@ -490,6 +524,7 @@
 											{/if}
 										</div>
 									{/each}
+									{/if}
 								</div>
 							{/each}
 						</div>
@@ -785,17 +820,46 @@
 	.bracket-empty p { margin: 0; font-size: 0.85rem; }
 
 	/* Round Robin */
-	.rr-container { padding: 0.5rem; display: flex; flex-wrap: wrap; gap: 1rem; overflow-y: auto; max-height: 50vh; }
-	.rr-round { min-width: 280px; flex: 1; }
-	.rr-round-hdr { text-align: center; font-weight: 800; color: var(--accent); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.5rem; padding-bottom: 0.3rem; border-bottom: 1px solid var(--glass-border); }
-	.rr-match { display: flex; align-items: center; justify-content: space-between; padding: 0.4rem 0.6rem; margin-bottom: 0.3rem; background: var(--surface-sunken); border-radius: 8px; border: 1px solid transparent; font-size: 0.78rem; }
-	.rr-match.match-done { border-color: rgba(34,197,94,0.25); }
-	.rr-p { flex: 1; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-muted); }
-	.rr-p.winner { color: #4ade80; }
-	.rr-p:last-child { text-align: right; }
-	.rr-scores { display: flex; align-items: center; gap: 0.3rem; flex-shrink: 0; }
-	.rr-vs { color: var(--text-dim); font-size: 0.7rem; }
-	.rr-score { font-weight: 800; color: var(--accent); min-width: 16px; text-align: center; }
+	.rr-container { padding: 0.5rem; display: flex; flex-direction: column; gap: 1rem; }
+	.rr-group-rounds { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem; align-items: start; }
+	.rr-round { min-width: 0; }
+	.rr-round-hdr {
+		width: 100%; display: flex; align-items: center; gap: 0.5rem;
+		background: none; border: none; border-bottom: 1px solid var(--glass-border);
+		padding: 0.35rem 0.25rem 0.45rem; margin-bottom: 0.5rem; cursor: pointer;
+		color: var(--text-dim); font: inherit;
+	}
+	.rr-round-name { font-family: var(--font-title); font-weight: 700; font-size: 0.95rem; color: var(--text-main); }
+	.rr-round.current .rr-round-hdr { border-bottom-color: var(--accent); }
+	.rr-round-live { font-size: 0.72rem; font-weight: 700; color: #fff; background: var(--accent-solid); border-radius: 999px; padding: 0.1rem 0.5rem; }
+	.rr-round-count { margin-left: auto; font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+	.rr-match {
+		display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 0.6rem;
+		padding: 0.55rem 0.75rem; margin-bottom: 0.35rem; background: var(--surface-sunken);
+		border-radius: 8px; border: 1px solid transparent; border-left: 3px solid transparent; font-size: 0.9rem;
+	}
+	.rr-match.mine { background: var(--highlight-bg); border-left-color: var(--highlight-border); }
+	.rr-match.admin-tap { cursor: pointer; }
+	.rr-match.admin-tap:hover, .rr-match.editing { border-color: var(--accent); }
+	.rr-p { display: inline-flex; align-items: center; gap: 0.3rem; min-width: 0; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main); }
+	.rr-p:last-child { justify-content: flex-end; text-align: right; }
+	.rr-p.winner { font-weight: 800; color: var(--success); }
+	.rr-p.loser { color: var(--text-muted); font-weight: 500; }
+	.rr-scores { display: flex; align-items: center; justify-content: center; gap: 0.3rem; }
+	.rr-edit { display: inline-flex; align-items: center; gap: 0.3rem; }
+	.rr-vs { color: var(--text-dim); }
+	.rr-score, .rr-score-text { font-weight: 800; color: var(--text-main); min-width: 16px; text-align: center; font-variant-numeric: tabular-nums; }
+	.rr-score-text { min-width: 3.2rem; }
+	.rr-edit .score-input { width: 44px; height: 34px; font-size: 0.95rem; }
+
+	/* Zoom controls themed like the rest of the app */
+	.bracket-floating-tools { display: flex; gap: 0.4rem; padding: 0.5rem; }
+	.bracket-floating-tools .tool-btn {
+		width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center;
+		background: var(--bg-secondary); color: var(--text-dim);
+		border: 1px solid var(--glass-border); border-radius: var(--radius-md); cursor: pointer;
+	}
+	.bracket-floating-tools .tool-btn:hover { color: var(--accent); border-color: var(--accent); }
 
 	/* Double Elim */
 	.de-label { padding: 0.4rem 0.8rem; font-weight: 800; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; color: var(--accent); border-bottom: 2px solid var(--accent); margin-bottom: 0.5rem; }

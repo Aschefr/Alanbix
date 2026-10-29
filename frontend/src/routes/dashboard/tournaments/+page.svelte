@@ -939,7 +939,7 @@
 				{#if myNextMatch}
 					<section class="my-match glass">
 						<div class="mm-head">
-							<h2 class="mm-title">{$t('dash_next_match_title')} · <span class="mm-round">{myNextMatch.round}</span></h2>
+							<p class="mm-title">{$t('dash_next_match_title')} · <span class="mm-round">{myNextMatch.round}</span></p>
 							<div class="mm-versus">
 								<span class="mm-vs-label">{$t('mobile_match_versus')}</span>
 								<span class="mm-opponent">{myNextMatch.oppName}</span>
@@ -1939,8 +1939,8 @@
 			font-size: 0.8rem !important;
 		}
 		.tournaments-layout :global(.score-input) {
-			min-height: 40px;
-			width: 52px;
+			min-height: 36px;
+			width: 44px;
 		}
 		.tournaments-layout :global(.part-member-remove) {
 			min-width: 36px;
@@ -1953,7 +1953,7 @@
 	/* "Votre prochain match" card: the player's main question answered first, kept to one compact row */
 	.my-match { padding: 0.6rem 1rem; margin-bottom: 0.75rem; border-color: var(--accent); display: flex; align-items: center; gap: 0.5rem 1.25rem; flex-wrap: wrap; }
 	.mm-head { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; flex: 1 1 200px; }
-	.mm-title { font-size: 0.8rem; color: var(--text-dim); font-weight: 600; }
+	.mm-title { margin: 0; font-size: 0.8rem; color: var(--text-dim); font-weight: 600; }
 	.mm-round { font-size: 0.8rem; color: var(--text-dim); }
 	.mm-versus { display: flex; align-items: baseline; gap: 0.4rem; flex-wrap: wrap; }
 	.mm-vs-label { color: var(--text-dim); font-size: 0.9rem; }
@@ -1961,7 +1961,7 @@
 	.mm-score { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
 	.mm-field { display: flex; align-items: center; gap: 0.4rem; font-size: 0.8rem; color: var(--text-dim); }
 	.mm-field span { max-width: 90px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-	.mm-field input { width: 56px; height: 38px; font-size: 1.05rem; font-weight: 700; text-align: center; border-radius: var(--radius-md); padding: 0; }
+	.mm-field input { width: 52px !important; height: 38px; min-height: 0 !important; font-size: 1.05rem; font-weight: 700; text-align: center; border-radius: var(--radius-md); padding: 0; }
 	.mm-dash { color: var(--text-dim); }
 	.mm-submit { display: inline-flex; align-items: center; gap: 0.4rem; height: 38px; padding: 0 1rem; }
 	.mm-submit:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
