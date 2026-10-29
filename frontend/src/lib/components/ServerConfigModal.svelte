@@ -197,9 +197,17 @@
 
 	function addDiscovered(srv: { url: string; name: string; version: string; hostname: string }) {
 		if (!discoveredServers.some((s) => s.url === srv.url)) {
-			discoveredServers = [...discoveredServers, srv];
+			const saved = getCustomServerUrl();
+			discoveredServers = [...discoveredServers, srv].sort((a, b) => {
+				if (saved && a.url === saved) return -1;
+				if (saved && b.url === saved) return 1;
+				// In development, port 8000 is the direct FastAPI backend (unproxied)
+				if (a.url.includes(':8000') && !b.url.includes(':8000')) return -1;
+				if (!a.url.includes(':8000') && b.url.includes(':8000')) return 1;
+				return 0;
+			});
 			if (!serverInput) {
-				serverInput = srv.url;
+				serverInput = discoveredServers[0]?.url || srv.url;
 			}
 		}
 	}
