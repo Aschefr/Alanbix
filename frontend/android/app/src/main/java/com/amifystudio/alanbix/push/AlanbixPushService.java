@@ -24,12 +24,21 @@ import androidx.core.app.NotificationCompat;
 import com.amifystudio.alanbix.MainActivity;
 import com.amifystudio.alanbix.R;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.io.IOException;
+import java.net.URLEncoder;
 import java.util.Calendar;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import okhttp3.Call;
+import okhttp3.Callback;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
@@ -57,6 +66,16 @@ public class AlanbixPushService extends Service {
 
     public static volatile boolean isRunning = false;
     public static volatile boolean isConnected = false;
+
+    private static final String KEY_LAST_EVENT_ISO = "last_event_iso";
+    private final Set<String> seenEventIds = Collections.synchronizedSet(
+            Collections.newSetFromMap(new LinkedHashMap<String, Boolean>(256, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<String, Boolean> eldest) {
+                    return size() > 200;
+                }
+            })
+    );
 
     private OkHttpClient httpClient;
     private WebSocket webSocket;
@@ -157,6 +176,7 @@ public class AlanbixPushService extends Service {
                 reconnectAttempts = 0;
                 Log.i(TAG, "WebSocket connecté avec succès !");
                 updateForegroundNotification("Connecté à " + lanName);
+                fetchMissedNotifications(serverUrl, deviceToken);
             }
 
             @Override
@@ -238,13 +258,83 @@ public class AlanbixPushService extends Service {
         return base + "/ws?client=push&token=" + token;
     }
 
+    private void fetchMissedNotifications(String serverUrl, String deviceToken) {
+        try {
+            SharedPreferences sp = getSharedPreferences(AlanbixPushPlugin.PREFS_NAME, MODE_PRIVATE);
+            String since = sp.getString(KEY_LAST_EVENT_ISO, "");
+            String base = serverUrl.trim();
+            if (base.endsWith("/")) {
+                base = base.substring(0, base.length() - 1);
+            }
+            String url = base + "/notifications/missed";
+            if (!since.isEmpty()) {
+                url += "?since=" + URLEncoder.encode(since, "UTF-8");
+            }
+            Request req = new Request.Builder()
+                    .url(url)
+                    .addHeader("Authorization", "Bearer " + deviceToken)
+                    .get()
+                    .build();
+
+            httpClient.newCall(req).enqueue(new Callback() {
+                @Override
+                public void onFailure(Call call, IOException e) {
+                    Log.w(TAG, "Échec de récupération des notifications manquées: " + e.getMessage());
+                }
+
+                @Override
+                public void onResponse(Call call, Response response) throws IOException {
+                    try {
+                        if (!response.isSuccessful() || response.body() == null) return;
+                        String bodyStr = response.body().string();
+                        JSONObject json = new JSONObject(bodyStr);
+                        JSONArray events = json.optJSONArray("events");
+                        if (events != null) {
+                            for (int i = 0; i < events.length(); i++) {
+                                JSONObject ev = events.optJSONObject(i);
+                                if (ev != null) {
+                                    handlePushEvent(ev);
+                                }
+                            }
+                        }
+                    } catch (Exception e) {
+                        Log.w(TAG, "Erreur parsing /notifications/missed: " + e.getMessage());
+                    } finally {
+                        response.close();
+                    }
+                }
+            });
+        } catch (Exception e) {
+            Log.w(TAG, "Erreur fetchMissedNotifications: " + e.getMessage());
+        }
+    }
+
     private void handlePushEvent(JSONObject push) {
+        String eventId = push.optString("id", "");
+        if (!eventId.isEmpty() && !seenEventIds.add(eventId)) {
+            Log.d(TAG, "Notification ignorée : doublon (" + eventId + ")");
+            return;
+        }
+
+        SharedPreferences sp = getSharedPreferences(AlanbixPushPlugin.PREFS_NAME, MODE_PRIVATE);
+        String createdAt = push.optString("created_at", "");
+        if (!createdAt.isEmpty()) {
+            sp.edit().putString(KEY_LAST_EVENT_ISO, createdAt).apply();
+        }
+
+        JSONObject dataObj = push.optJSONObject("data");
+        boolean isTest = dataObj != null && dataObj.optBoolean("is_test", false);
+
+        // Si l'application est au premier plan, la WebView affiche déjà un toast en direct (sauf test explicite)
+        if (MainActivity.isForeground && !isTest) {
+            Log.d(TAG, "Application au premier plan : notification système ignorée (toast in-app actif).");
+            return;
+        }
+
         String category = push.optString("category", "general");
         String title = push.optString("title", "Alanbix");
         String body = push.optString("body", "");
         String link = push.optString("link", "/dashboard/notifications");
-
-        SharedPreferences sp = getSharedPreferences(AlanbixPushPlugin.PREFS_NAME, MODE_PRIVATE);
 
         // 1. Vérifier si les notifications sont globalement activées
         if (!sp.getBoolean("enabled", true)) {
@@ -386,6 +476,9 @@ public class AlanbixPushService extends Service {
 
         boolean soundEnabled = sp.getBoolean("sound", true);
         boolean vibEnabled = sp.getBoolean("vibration", true);
+        boolean lockscreenPreview = sp.getBoolean("lockscreen_preview", true);
+
+        builder.setVisibility(lockscreenPreview ? NotificationCompat.VISIBILITY_PUBLIC : NotificationCompat.VISIBILITY_PRIVATE);
 
         if (soundEnabled) {
             builder.setDefaults(NotificationCompat.DEFAULT_SOUND);
@@ -465,7 +558,9 @@ public class AlanbixPushService extends Service {
             connectivityManager = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
             if (connectivityManager != null) {
                 NetworkRequest request = new NetworkRequest.Builder()
-                        .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                        .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
+                        .addTransportType(NetworkCapabilities.TRANSPORT_CELLULAR)
+                        .addTransportType(NetworkCapabilities.TRANSPORT_ETHERNET)
                         .build();
 
                 networkCallback = new ConnectivityManager.NetworkCallback() {

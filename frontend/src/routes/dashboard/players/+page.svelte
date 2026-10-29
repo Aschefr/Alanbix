@@ -122,9 +122,10 @@
 		const savedWidth = localStorage.getItem('alanbix_chat_width');
 		if (savedWidth) chatWidth = parseInt(savedWidth);
 
-		// Restore last selected chat from localStorage
-		const savedPeer = localStorage.getItem('alanbix_players_chat');
-		const savedGroup = localStorage.getItem('alanbix_players_group_chat');
+		// Restore last selected chat from localStorage (desktop only; on mobile, start on conversation list unless deep-linked)
+		const isMobileViewport = typeof window !== 'undefined' && window.innerWidth <= 900;
+		const savedPeer = isMobileViewport ? null : localStorage.getItem('alanbix_players_chat');
+		const savedGroup = isMobileViewport ? null : localStorage.getItem('alanbix_players_group_chat');
 		// Check URL params for auto-open from notification click
 		const urlPeer = $page.url.searchParams.get('chat');
 		const urlGroup = $page.url.searchParams.get('group');
@@ -170,16 +171,9 @@
 				}
 			}
 			if (msg.type === 'private_message_new') {
-				const peerId = msg.sender_id === currentUser?.id ? msg.receiver_id : msg.sender_id;
-				if (chatMode === 'p2p' && chatPeerId && (msg.sender_id === chatPeerId || msg.receiver_id === chatPeerId)) {
-					loadChat(chatPeerId, true);
-				}
 				loadUnreadMap();
 			}
 			if (msg.type === 'group_message_new') {
-				if (chatMode === 'group' && chatChannelKey === msg.channel_key) {
-					loadGroupChat(msg.channel_key, true);
-				}
 				loadGroupUnreadMap();
 			}
 		});
@@ -281,8 +275,8 @@
 				noTeam.push(p);
 			}
 		});
-		Object.values(teams).forEach(arr => arr.sort((a, b) => b.points - a.points));
-		noTeam.sort((a, b) => b.points - a.points);
+		Object.values(teams).forEach(arr => arr.sort((a, b) => ((unreadMap[b.id] || 0) - (unreadMap[a.id] || 0)) || (b.points - a.points)));
+		noTeam.sort((a, b) => ((unreadMap[b.id] || 0) - (unreadMap[a.id] || 0)) || (b.points - a.points));
 		const sorted = Object.entries(teams).sort(([a], [b]) => a.localeCompare(b));
 		return { teams: sorted, noTeam };
 	})();
@@ -420,6 +414,15 @@
 	<div class="players-layout" style="grid-template-columns: minmax(0, 1fr) 8px {chatWidth}px;">
 		<!-- LEFT: Player directory -->
 		<div class="directory-col" class:mobile-hidden={chatMode !== null}>
+			{#if currentUser?.team_name}
+				<button type="button" class="my-team-quick-bar glass" on:click={(e) => openTeamChat(e, currentUser.team_name)}>
+					<span>🛡️ {$t('players_my_team_chat_btn', { team: currentUser.team_name })}</span>
+					{#if (teamUnreads[currentUser.team_name]?.total || 0) > 0}
+						<span class="team-name-badge team-badge">{teamUnreads[currentUser.team_name].total}</span>
+					{/if}
+					<span style="margin-left:auto;font-size:0.75rem;color:var(--accent);">💬 →</span>
+				</button>
+			{/if}
 			{#if loading && players.length === 0}
 				<div class="loading-state glass"><span>⏳</span> {$t("login_checking")}</div>
 			{:else}
@@ -658,6 +661,8 @@
 
 	/* Directory — scrollable */
 	.directory-col { overflow-y: auto; display: flex; flex-direction: column; gap: 0.6rem; padding-right: 0.3rem; padding-bottom: 1rem; }
+	.my-team-quick-bar { display: flex; align-items: center; gap: 0.6rem; padding: 0.75rem 1rem; border-radius: 12px; border: 1px solid rgba(16,185,129,0.35); background: rgba(16,185,129,0.1); color: var(--text-main); font-weight: 800; font-size: 0.82rem; cursor: pointer; text-align: left; width: 100%; flex-shrink: 0; transition: all 0.15s; }
+	.my-team-quick-bar:hover { background: rgba(16,185,129,0.18); }
 	.team-section { border-radius: 12px; overflow: visible; flex-shrink: 0; border-left: 3px solid transparent !important; transition: all 0.15s; }
 	.team-section.active-chat { background-color: var(--accent-soft) !important; border-left: 3px solid var(--accent) !important; }
 	.team-header { display: flex; align-items: center; gap: 0.6rem; padding: 0.7rem 1rem; cursor: pointer; transition: background 0.15s; user-select: none; }

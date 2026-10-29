@@ -211,6 +211,9 @@
 	function onMouseDown(e) { isDragging = true; startX = e.clientX - panX; startY = e.clientY - panY; }
 	function onMouseMove(e) { if (!isDragging) return; panX = e.clientX - startX; panY = e.clientY - startY; clampPan(); }
 	function onMouseUp() { isDragging = false; }
+	function onTouchStart(e) { if (e.touches.length === 1) { isDragging = true; startX = e.touches[0].clientX - panX; startY = e.touches[0].clientY - panY; } }
+	function onTouchMove(e) { if (!isDragging || e.touches.length !== 1) return; panX = e.touches[0].clientX - startX; panY = e.touches[0].clientY - startY; clampPan(); }
+	function onTouchEnd() { isDragging = false; }
 
 	export function resetZoom() {
 		if (!viewportEl || !canvasEl) return;
@@ -388,7 +391,7 @@
 			<!-- Duel Bracket (single/double) -->
 			<!-- svelte-ignore a11y-no-static-element-interactions -->
 			<div class="bracket-viewport-wrapper">
-				<div class="bracket-viewport" bind:this={viewportEl} on:wheel={onWheel} on:mousedown={onMouseDown} on:mousemove={onMouseMove} on:mouseup={onMouseUp} on:mouseleave={onMouseUp}>
+				<div class="bracket-viewport" bind:this={viewportEl} on:wheel={onWheel} on:mousedown={onMouseDown} on:mousemove={onMouseMove} on:mouseup={onMouseUp} on:mouseleave={onMouseUp} on:touchstart={onTouchStart} on:touchmove={onTouchMove} on:touchend={onTouchEnd} on:touchcancel={onTouchEnd}>
 					<div class="bracket-canvas" bind:this={canvasEl} style="transform: translate({panX}px, {panY}px) scale({scale});">
 						{#if bracketType === 'double_elim' && lbRounds.length > 0}
 							<div class="de-label">Winners Bracket</div>
@@ -725,4 +728,33 @@
 	.admin-btn.confirm-yes:hover { background: rgba(34,197,94,0.2); }
 	.admin-btn.confirm-no { border-color: rgba(239,68,68,0.3); color: var(--danger); padding: 0.2rem 0.5rem; min-width: unset; }
 	.admin-btn.confirm-no:hover { background: rgba(239,68,68,0.15); }
+
+	@media (max-width: 900px) {
+		.bracket-viewport-wrapper {
+			min-height: 360px;
+		}
+		.bracket-viewport {
+			position: relative;
+			overflow-x: auto;
+			overflow-y: auto;
+			min-height: 360px;
+			max-height: 70vh;
+			-webkit-overflow-scrolling: touch;
+		}
+		.bracket-canvas {
+			transform: none !important;
+			padding: 1rem;
+		}
+		.rounds-container {
+			gap: 1.5rem;
+		}
+		.pan-arrow {
+			display: none !important;
+		}
+		.score-input {
+			width: 48px;
+			padding: 0.35rem 0.4rem;
+			font-size: 0.85rem;
+		}
+	}
 </style>

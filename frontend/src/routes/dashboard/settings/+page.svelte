@@ -7,7 +7,10 @@
 	import {
 		getCustomServerUrl,
 		isCapacitorNative,
-		isDemoMode
+		isDemoMode,
+		enableDemoMode,
+		disableDemoMode,
+		resolveMediaUrl
 	} from '$lib/config';
 	import {
 		getNotificationPreferences,
@@ -22,9 +25,11 @@
 		openSystemNotificationSettings,
 		startNativePushService,
 		stopNativePushService,
-		getOrRegisterDeviceToken
+		getOrRegisterDeviceToken,
+		requestNativeNotificationPermission
 	} from '$lib/push';
 	import ServerConfigModal from '$lib/components/ServerConfigModal.svelte';
+	import Modal from '$lib/components/Modal.svelte';
 
 	let user: any = null;
 	let loading = true;
@@ -45,12 +50,22 @@
 	// Serveur & Réseau
 	let currentServer = '';
 	let lanWifiSsids: string[] = [];
+	let appVersion = '1.33.1';
 	let serverVersion = '1.33.1';
 	let pingMs: number | null = null;
+	let demoActive = false;
+
+	// Modal confirmation
+	let showModal = false;
+	let modalTitle = '';
+	let modalMessage = '';
+	let modalType = 'info';
+	let modalConfirmCallback: any = null;
 
 	onMount(async () => {
 		isDark = (localStorage.getItem('alanbix_theme') || 'dark') === 'dark';
 		currentServer = getCustomServerUrl() || (typeof window !== 'undefined' ? window.location.origin : '');
+		demoActive = isDemoMode();
 
 		if (typeof window !== 'undefined' && 'Notification' in window) {
 			systemNotifSupport = true;
@@ -81,7 +96,11 @@
 		} catch {}
 
 		if (isCapacitorNative()) {
+			systemNotifSupport = true;
 			nativeStatus = await getNativePushStatus();
+			if (nativeStatus?.notificationPermission) {
+				systemNotifPermission = nativeStatus.notificationPermission;
+			}
 		}
 		loading = false;
 	});
@@ -108,6 +127,18 @@
 	}
 
 	async function requestSystemPermission() {
+		if (isCapacitorNative()) {
+			const perm = await requestNativeNotificationPermission();
+			systemNotifPermission = perm;
+			if (perm === 'granted') {
+				prefs.enabled = true;
+				updatePrefs();
+				triggerVibration();
+			} else if (perm === 'denied') {
+				await openSystemNotificationSettings();
+			}
+			return;
+		}
 		if (typeof window !== 'undefined' && 'Notification' in window) {
 			try {
 				const perm = await Notification.requestPermission();
@@ -149,9 +180,44 @@
 	}
 
 	async function handleLogout() {
+		await stopNativePushService();
 		await revokeCurrentDeviceToken();
 		authStore.logout();
 		goto('/');
+	}
+
+	function confirmDeleteAccount() {
+		modalTitle = $t('profile_delete_account_title');
+		modalMessage = $t('profile_delete_account_desc');
+		modalType = 'error';
+		modalConfirmCallback = async () => {
+			try {
+				await stopNativePushService();
+				await revokeCurrentDeviceToken();
+				await api.delete('/me');
+				authStore.logout();
+				goto('/');
+			} catch (err: any) {
+				modalTitle = $t('error');
+				modalMessage = err.message || $t('profile_delete_account_err');
+				modalType = 'error';
+				modalConfirmCallback = null;
+				showModal = true;
+			}
+		};
+		showModal = true;
+	}
+
+	function toggleDemoMode() {
+		if (demoActive) {
+			disableDemoMode();
+			demoActive = false;
+			goto('/');
+		} else {
+			enableDemoMode();
+			demoActive = true;
+			goto('/dashboard');
+		}
 	}
 </script>
 
@@ -333,6 +399,14 @@
 
 						<label class="toggle-item">
 							<div class="item-info">
+								<span class="item-title">🔒 {$t('settings_lockscreen_title')}</span>
+								<span class="item-desc">{$t('settings_lockscreen_desc')}</span>
+							</div>
+							<input type="checkbox" bind:checked={prefs.lockscreen_preview} on:change={updatePrefs} />
+						</label>
+
+						<label class="toggle-item">
+							<div class="item-info">
 								<span class="item-title">🌙 {$t('settings_dnd_title')}</span>
 								<span class="item-desc">{$t('settings_dnd_desc')}</span>
 							</div>
@@ -457,7 +531,7 @@
 					<div class="user-summary">
 						<div class="user-avatar">
 							{#if user.avatar_url}
-								<img src={user.avatar_url} alt={user.username} />
+								<img src={resolveMediaUrl(user.avatar_url)} alt={user.username} />
 							{:else}
 								<span>{user.username.slice(0, 2).toUpperCase()}</span>
 							{/if}
@@ -467,18 +541,23 @@
 							<span class="user-sub">
 								{#if user.is_admin}👑 {$t('settings_user_admin_badge')} · {/if}
 								{user.team_name ? `🛡️ ${user.team_name}` : $t('settings_user_solo')}
-								{user.seat_id ? ` · 🪑 {$t('settings_user_seat_prefix')} ${user.seat_id}` : ''}
+								{user.seat_id ? ` · 🪑 ${$t('settings_user_seat_prefix')} ${user.seat_id}` : ''}
 							</span>
 						</div>
 					</div>
 
-					<div class="account-actions">
+					<div class="account-actions" style="flex-wrap: wrap;">
 						<button class="btn btn-secondary" on:click={() => goto('/dashboard/profile')}>
 							🏆 {$t('settings_btn_view_profile')}
 						</button>
 						<button class="btn btn-danger" on:click={handleLogout}>
 							🚪 {$t('settings_btn_logout')}
 						</button>
+						{#if !user.is_admin}
+							<button class="btn btn-danger" on:click={confirmDeleteAccount}>
+								🗑️ {$t('profile_btn_delete_account')}
+							</button>
+						{/if}
 					</div>
 				</div>
 			</section>
@@ -496,12 +575,26 @@
 
 			<div class="about-grid font-mono">
 				<div class="about-row">
+					<span>{$t('settings_app_version')}</span>
+					<span>v{appVersion}</span>
+				</div>
+				<div class="about-row">
 					<span>{$t('settings_server_version')}</span>
 					<span>v{serverVersion}</span>
 				</div>
 				<div class="about-row">
 					<span>{$t('settings_app_type')}</span>
 					<span>{isCapacitorNative() ? '📱 Alanbix Mobile' : '💻 Alanbix Web'}</span>
+				</div>
+				<div class="about-row">
+					<span>{$t('settings_demo_mode_label')}</span>
+					<button class="btn btn-sm btn-ghost" on:click={toggleDemoMode} type="button">
+						{demoActive ? '🧪 ' + $t('settings_demo_disable') : '🧪 ' + $t('settings_demo_enable')}
+					</button>
+				</div>
+				<div class="about-row">
+					<span>{$t('settings_license_label')}</span>
+					<span>MIT · Open Source</span>
 				</div>
 				<div class="about-row">
 					<span>App ID :</span>
@@ -513,6 +606,7 @@
 </div>
 
 <ServerConfigModal isOpen={showServerModal} on:close={() => { showServerModal = false; }} />
+<Modal bind:show={showModal} title={modalTitle} message={modalMessage} type={modalType} onConfirm={modalConfirmCallback} />
 
 <style>
 	.settings-page {

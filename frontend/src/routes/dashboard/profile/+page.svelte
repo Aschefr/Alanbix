@@ -8,6 +8,7 @@
 	import { wsMessageStore } from '$lib/ws';
 	import { formatPoints } from '$lib/utils';
 	import { profanityFilterEnabled, toggleProfanityFilter } from '$lib/profanity';
+	import { resolveMediaUrl } from '$lib/config';
 
 	let user = null;
 	let teamName = '';
@@ -50,7 +51,7 @@
 		if (!file) return;
 
 		if (file.size > 10 * 1024 * 1024) {
-			alert(get(t)('profile_avatar_too_large'));
+			askConfirm(get(t)('error'), get(t)('profile_avatar_too_large'), 'error', null);
 			return;
 		}
 
@@ -86,14 +87,14 @@
 			showCropModal = true;
 			setTimeout(drawCropCanvas, 50);
 		};
-		cropImageObj.src = user.avatar_url;
+		cropImageObj.src = resolveMediaUrl(user.avatar_url);
 	}
 
 	function handleAvatarChangeInModal(event) {
 		const file = event.target.files[0];
 		if (!file) return;
 		if (file.size > 10 * 1024 * 1024) {
-			alert(get(t)('profile_avatar_too_large'));
+			askConfirm(get(t)('error'), get(t)('profile_avatar_too_large'), 'error', null);
 			return;
 		}
 		pendingFile = file;
@@ -338,7 +339,7 @@
 			
 			window.dispatchEvent(new CustomEvent('user-updated'));
 		} catch (err) {
-			alert(get(t)('profile_avatar_save_error') + err.message);
+			askConfirm(get(t)('error'), get(t)('profile_avatar_save_error') + err.message, 'error', null);
 		} finally {
 			uploadingAvatar = false;
 			pendingFile = null;
@@ -357,7 +358,7 @@
 					user = { ...user };
 					window.dispatchEvent(new CustomEvent('user-updated'));
 				} catch (err) {
-					alert(get(t)('profile_avatar_delete_error') + err.message);
+					askConfirm(get(t)('error'), get(t)('profile_avatar_delete_error') + err.message, 'error', null);
 				}
 			}
 		);
@@ -443,7 +444,7 @@
 					localStorage.removeItem('alanbix_token');
 					window.location.href = '/';
 				} catch (err) {
-					alert(err.message || get(t)('profile_delete_account_err'));
+					askConfirm(get(t)('error'), err.message || get(t)('profile_delete_account_err'), 'error', null);
 				}
 			}
 		);
@@ -459,7 +460,7 @@
 		<div class="avatar-container">
 			<div class="avatar-lg avatar-shape-{user.avatar_shape || 'circle'}">
 				{#if user.avatar_url}
-					<img src={user.avatar_url} alt={user.username} class="avatar-img" />
+					<img src={resolveMediaUrl(user.avatar_url)} alt={user.username} class="avatar-img" />
 				{:else}
 					{user.username[0].toUpperCase()}
 				{/if}
@@ -600,10 +601,10 @@
 			</div>
 
 			<div style="margin-top: 1.5rem; text-align: right;">
-				<a href="/dashboard/settings" class="btn-secondary" style="font-size: 0.8rem; padding: 0.5rem 1rem; text-decoration: none; display: inline-flex; align-items: center; gap: 0.3rem;">⚙️ Paramètres de l'application</a>
+				<a href="/dashboard/settings" class="btn-secondary" style="font-size: 0.8rem; padding: 0.5rem 1rem; text-decoration: none; display: inline-flex; align-items: center; gap: 0.3rem;">⚙️ {$t('settings_page_title')}</a>
 				<button class="btn-secondary" on:click={() => goto('/dashboard/welcome')} style="font-size: 0.8rem; padding: 0.5rem 1rem;">{$t("profile_btn_tutorial")}</button>
 				{#if !user.is_admin}
-					<button type="button" class="btn-secondary" on:click={deleteOwnAccount} style="font-size: 0.8rem; padding: 0.5rem 1rem; margin-left: 0.5rem; color: var(--danger); border-color: rgba(239, 68, 68, 0.35);">🗑️ Supprimer mon compte</button>
+					<button type="button" class="btn-secondary" on:click={deleteOwnAccount} style="font-size: 0.8rem; padding: 0.5rem 1rem; margin-left: 0.5rem; color: var(--danger); border-color: rgba(239, 68, 68, 0.35);">🗑️ {$t('profile_btn_delete_account')}</button>
 				{/if}
 				<button type="button" style="display:none">
 					{$t("profile_btn_tutorial")}
@@ -642,7 +643,7 @@
 									{#if h.score_pts > 0}<span class="ph-bp ph-bp-score">⚡+{formatPoints(h.score_pts)}</span>{/if}
 								</div>
 								<button class="btn-goto-mobile" on:click={() => goToTournament(h.tournament_id)}>
-									Voir l'arbre →
+									{$t('profile_pts_tooltip_view')} →
 								</button>
 							</div>
 						</div>

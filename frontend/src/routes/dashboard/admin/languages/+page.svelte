@@ -62,6 +62,8 @@
 		stats:        { icon: '📈', order: 19 },
 		changelog:    { icon: '📦', order: 20 },
 		distillation: { icon: '⏳', order: 21 },
+		settings:     { icon: '⚙️', order: 22 },
+		mobile:       { icon: '📱', order: 23 },
 	};
 	const OTHER_CATEGORY = { icon: '📎', order: 999 };
 

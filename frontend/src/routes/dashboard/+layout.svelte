@@ -9,7 +9,7 @@
 	import TutorialOverlay from '$lib/components/TutorialOverlay.svelte';
 	import { page } from '$app/stores';
 	import { currentLang, availableLanguages, lanMultilingual, loadLocale, flagMap, t, initI18n, refreshEventName, eventName } from '$lib/i18nStore';
-	import { handleIncomingPush, getOrRegisterDeviceToken, startNativePushService, checkAndHandlePendingDeepLink } from '$lib/push';
+	import { handleIncomingPush, getOrRegisterDeviceToken, startNativePushService, stopNativePushService, revokeCurrentDeviceToken, getNativePushStatus, requestNativeNotificationPermission, checkAndHandlePendingDeepLink } from '$lib/push';
 	import { resolveMediaUrl, isCapacitorNative, getCustomServerUrl } from '$lib/config';
 
 	let user = { username: '...', is_admin: false };
@@ -74,6 +74,17 @@
 
 	let browserNotifSupport = false;
 	let browserNotifStatus = 'default';
+	let nativeNotifOperational = true;
+	let dismissNotifBanner = false;
+
+	async function checkNativeNotifOperational() {
+		if (!isCapacitorNative()) return;
+		const st = await getNativePushStatus();
+		if (st) {
+			browserNotifStatus = st.notificationPermission || 'default';
+			nativeNotifOperational = st.notificationPermission === 'granted' && st.isRunning;
+		}
+	}
 
 	function requestBrowserNotifications() {
 		if (!('Notification' in window)) return;
@@ -136,10 +147,12 @@
 		try {
 			user = await api.get('/me');
 			connectWS();
-			getOrRegisterDeviceToken().then(devToken => {
+			getOrRegisterDeviceToken().then(async devToken => {
 				if (devToken && isCapacitorNative()) {
 					const srvUrl = getCustomServerUrl() || (typeof window !== 'undefined' ? window.location.origin : '');
-					startNativePushService(srvUrl, devToken, get(eventName) || 'Alanbix LAN');
+					await startNativePushService(srvUrl, devToken, get(eventName) || 'Alanbix LAN');
+					await requestNativeNotificationPermission();
+					await checkNativeNotifOperational();
 				}
 			}).catch(() => {});
 			// Fetch initial unread count
@@ -400,7 +413,9 @@
 		document.documentElement.setAttribute('data-theme', theme);
 	}
 
-	function logout() {
+	async function logout() {
+		await stopNativePushService();
+		await revokeCurrentDeviceToken();
 		authStore.logout();
 		window.location.href = '/';
 	}
@@ -519,7 +534,7 @@
 			</a>
 			<a href="/dashboard/settings" class="nav-item">
 				<span class="icon">⚙️</span>
-				<span class="label">Paramètres</span>
+				<span class="label">{$t('settings_page_title')}</span>
 			</a>
 			
 			{#if user.is_admin}
@@ -588,7 +603,7 @@
 						<span class="theme-icon">🔔</span>
 					</button>
 				{/if}
-				<a href="/dashboard/settings" class="theme-toggle" title="Paramètres">
+				<a href="/dashboard/settings" class="theme-toggle" title={$t('settings_page_title')}>
 					<span class="theme-icon">⚙️</span>
 				</a>
 				<button class="theme-toggle" on:click={toggleTheme} title={isDark ? $t('tooltip_light_mode') : $t('tooltip_dark_mode')}>
@@ -602,6 +617,15 @@
 	</nav>
 
 	<main class="content-area">
+		{#if !dismissNotifBanner && !$page.url.pathname.startsWith('/dashboard/settings') && ((isCapacitorNative() && !nativeNotifOperational) || (!isCapacitorNative() && browserNotifSupport && browserNotifStatus !== 'granted'))}
+			<div class="notif-warning-banner glass" style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;padding:0.6rem 1rem;margin-bottom:0.85rem;border-radius:10px;border:1px solid rgba(245,158,11,0.35);background:rgba(245,158,11,0.1);font-size:0.8rem;">
+				<span>🔔 {$t('settings_notifs_banner_warn')}</span>
+				<div style="display:flex;align-items:center;gap:0.5rem;flex-shrink:0;">
+					<a href="/dashboard/settings" style="color:var(--accent);font-weight:700;text-decoration:underline;">{$t('settings_notifs_banner_btn')}</a>
+					<button type="button" on:click={() => dismissNotifBanner = true} style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:0.9rem;padding:0 0.2rem;">✕</button>
+				</div>
+			</div>
+		{/if}
 		<div class="container animate-in">
 			<slot />
 		</div>

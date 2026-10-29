@@ -18,11 +18,13 @@ export interface AlanbixPushPluginInterface {
 	getStatus(): Promise<{
 		isRunning: boolean;
 		isConnected: boolean;
+		notificationPermission?: 'granted' | 'denied' | 'default';
 		serverUrl?: string;
 		deviceToken?: string;
 		lanName?: string;
 		backgroundEnabled?: boolean;
 	}>;
+	requestNotificationPermission(): Promise<{ status: 'granted' | 'denied' | 'default' }>;
 	setPreferences(options: { preferences: any }): Promise<void>;
 	getPendingDeepLink(): Promise<{ link: string | null }>;
 	openBatteryOptimizationSettings(): Promise<void>;
@@ -45,6 +47,7 @@ export interface NotificationPreferences {
 	enabled: boolean;
 	sound: boolean;
 	vibration: boolean;
+	lockscreen_preview: boolean;
 	dnd_enabled: boolean;
 	dnd_start: string; // "02:00"
 	dnd_end: string;   // "09:00"
@@ -60,6 +63,7 @@ const DEFAULT_PREFERENCES: NotificationPreferences = {
 	enabled: true,
 	sound: true,
 	vibration: true,
+	lockscreen_preview: true,
 	dnd_enabled: false,
 	dnd_start: '02:00',
 	dnd_end: '09:00',
@@ -354,6 +358,7 @@ export async function syncNativePreferences(prefs: NotificationPreferences): Pro
 export async function getNativePushStatus(): Promise<{
 	isRunning: boolean;
 	isConnected: boolean;
+	notificationPermission?: 'granted' | 'denied' | 'default';
 	serverUrl?: string;
 	deviceToken?: string;
 	lanName?: string;
@@ -365,6 +370,25 @@ export async function getNativePushStatus(): Promise<{
 	} catch (e) {
 		console.warn('[Alanbix Push] getNativePushStatus error:', e);
 		return null;
+	}
+}
+
+/**
+ * Demande la permission système POST_NOTIFICATIONS sur Android 13+
+ */
+export async function requestNativeNotificationPermission(): Promise<'granted' | 'denied' | 'default'> {
+	if (!isCapacitorNative()) {
+		if (typeof window !== 'undefined' && 'Notification' in window) {
+			return (await Notification.requestPermission()) as 'granted' | 'denied' | 'default';
+		}
+		return 'denied';
+	}
+	try {
+		const res = await AlanbixPushNative.requestNotificationPermission();
+		return res?.status || 'default';
+	} catch (e) {
+		console.warn('[Alanbix Push] requestNativeNotificationPermission error:', e);
+		return 'default';
 	}
 }
 

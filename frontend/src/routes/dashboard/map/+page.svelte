@@ -870,8 +870,8 @@
 	<div class="map-mobile-bar glass">
 		<!-- svelte-ignore a11y-click-events-have-key-events -->
 		<!-- svelte-ignore a11y-no-static-element-interactions -->
-		<span class="mobile-my-seat" on:click={centerOnMySeat} title="Toucher pour centrer">
-			🪑 {user?.seat_id ? `Poste ${user.seat_id}` : 'Aucune place'}
+		<span class="mobile-my-seat" on:click={centerOnMySeat} title={$t('map_btn_center_title')}>
+			🪑 {selectedSeat ? $t('map_sheet_seat_prefix', { id: selectedSeat }) : $t('map_mobile_no_seat')}
 		</span>
 		<div class="map-mobile-btns">
 			<button class="map-top-btn" on:click={centerOnMySeat} title={$t('map_btn_center_title')}>
@@ -1076,7 +1076,7 @@
 						selectSeatInfo(seat);
 						if (draggingUserId && !isOccupied) { dropUserOnSeat(seat.id); return; }
 						if (isMine) return;
-						if (isOccupied && user?.is_admin) { assigningSeatId = seat.id; return; }
+						if (isOccupied && user?.is_admin && (typeof window === 'undefined' || window.innerWidth > 900)) { assigningSeatId = seat.id; return; }
 						if (!isOccupied && !activeSeatCard) claimSeat(seat.id);
 					}}
 					style="cursor: {editMode ? 'grab' : draggingUserId ? 'copy' : 'pointer'}"
@@ -1174,10 +1174,10 @@
 						{/if}
 					</div>
 			{:else}
-					<p class="sheet-free-text">Ce poste est actuellement disponible.</p>
+					<p class="sheet-free-text">{$t('map_sheet_free_desc')}</p>
 					<div class="sheet-actions">
 						<button class="btn btn-sm btn-primary" on:click={() => { claimSeat(activeSeatCard.seat.id); activeSeatCard = null; }} disabled={seatingLocked && !user?.is_admin}>
-							🪑 S'installer ici
+							🪑 {$t('map_sheet_claim_btn')}
 						</button>
 					</div>
 				{/if}
@@ -1242,7 +1242,7 @@
 				<button class="badge-cancel" on:click={() => draggingUserId = null}>✕ {$t("info_btn_cancel")}</button>
 			{/if}
 			{#if unassignedUsers.length === 0}
-				<span class="text-xs text-dim">Tous assignés ✓</span>
+				<span class="text-xs text-dim">{$t("map_assign_all_occupied")}</span>
 			{/if}
 		</div>
 	{/if}
@@ -1437,6 +1437,7 @@
 	@media (max-width: 900px) {
 		.map-page { display: flex; flex-direction: column; height: calc(100vh - 120px); gap: 0.5rem; }
 		.map-page > header { display: none !important; }
+		.player-badge-bar, .assign-panel { display: none !important; }
 		.canvas-wrapper {
 			flex: 1; min-height: 0; width: 100%; border-radius: 12px;
 			touch-action: none !important; -webkit-user-select: none; user-select: none;

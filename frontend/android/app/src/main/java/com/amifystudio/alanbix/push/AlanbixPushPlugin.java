@@ -10,11 +10,13 @@ import android.provider.Settings;
 import androidx.core.content.ContextCompat;
 
 import com.getcapacitor.JSObject;
+import com.getcapacitor.PermissionState;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import com.getcapacitor.annotation.Permission;
+import com.getcapacitor.annotation.PermissionCallback;
 
 import org.json.JSONObject;
 
@@ -98,15 +100,51 @@ public class AlanbixPushPlugin extends Plugin {
 
         boolean isRunning = AlanbixPushService.isRunning;
         boolean isConnected = AlanbixPushService.isConnected;
+        String permState = getNotificationPermissionString();
 
         JSObject res = new JSObject();
         res.put("isRunning", isRunning);
         res.put("isConnected", isConnected);
+        res.put("notificationPermission", permState);
         res.put("serverUrl", sp.getString(KEY_SERVER_URL, ""));
         res.put("deviceToken", sp.getString(KEY_DEVICE_TOKEN, ""));
         res.put("lanName", sp.getString(KEY_LAN_NAME, "Alanbix LAN"));
         res.put("backgroundEnabled", sp.getBoolean(KEY_BACKGROUND_ENABLED, false));
         call.resolve(res);
+    }
+
+    @PluginMethod
+    public void requestNotificationPermission(PluginCall call) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            JSObject res = new JSObject();
+            res.put("status", "granted");
+            call.resolve(res);
+            return;
+        }
+        if (getPermissionState("notifications") == PermissionState.GRANTED) {
+            JSObject res = new JSObject();
+            res.put("status", "granted");
+            call.resolve(res);
+            return;
+        }
+        requestPermissionForAlias("notifications", call, "notificationsPermCallback");
+    }
+
+    @PermissionCallback
+    private void notificationsPermCallback(PluginCall call) {
+        JSObject res = new JSObject();
+        res.put("status", getNotificationPermissionString());
+        call.resolve(res);
+    }
+
+    private String getNotificationPermissionString() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            return "granted";
+        }
+        PermissionState state = getPermissionState("notifications");
+        if (state == PermissionState.GRANTED) return "granted";
+        if (state == PermissionState.DENIED) return "denied";
+        return "default";
     }
 
     @PluginMethod
@@ -185,6 +223,7 @@ public class AlanbixPushPlugin extends Plugin {
         if (prefs.has("enabled")) editor.putBoolean("enabled", prefs.optBoolean("enabled", true));
         if (prefs.has("sound")) editor.putBoolean("sound", prefs.optBoolean("sound", true));
         if (prefs.has("vibration")) editor.putBoolean("vibration", prefs.optBoolean("vibration", true));
+        if (prefs.has("lockscreen_preview")) editor.putBoolean("lockscreen_preview", prefs.optBoolean("lockscreen_preview", true));
         if (prefs.has("dnd_enabled")) editor.putBoolean("dnd_enabled", prefs.optBoolean("dnd_enabled", false));
         if (prefs.has("dnd_start")) editor.putString("dnd_start", prefs.optString("dnd_start", "02:00"));
         if (prefs.has("dnd_end")) editor.putString("dnd_end", prefs.optString("dnd_end", "09:00"));

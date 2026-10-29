@@ -248,7 +248,12 @@
 	$: runningTournaments = tournaments.filter(t => t.status === 'RUNNING');
 	$: activeTournament = runningTournaments[selectedRunningIdx] || null;
 
-	let mobileActiveTab = 'matches'; // 'matches' | 'chat'
+	let mobileActiveTab = 'matches'; // 'matches' | 'chat'
+	let mobilePodiumOpen = true;
+	$: mobileTourneysSummary = (() => {
+		const active = (tournaments || []).filter(t => t.status === 'RUNNING' || t.status === 'OPEN');
+		return (active.length > 0 ? active : (tournaments || [])).slice(0, 4);
+	})();
 
 	$: myActiveMatches = (() => {
 		const tFunc = $t;
@@ -268,7 +273,8 @@
 				const p = m.p || [];
 				if (p.length < 2) continue;
 				const score = m.score || [];
-				const isCompleted = (score.length >= 2 && ((score[0] !== null && score[0] > 0) || (score[1] !== null && score[1] > 0)));
+				const s0 = score[0] ?? null, s1 = score[1] ?? null;
+				const isCompleted = p.length > 2 ? (score.length > 0 && score.every(s => s !== null && s > 0)) : (s0 !== null && s1 !== null && (s0 !== 0 || s1 !== 0) && (s0 !== s1 || config.allow_draws));
 				if (isCompleted) continue;
 
 				let mySlot = -1;
@@ -298,7 +304,7 @@
 						isReady = true;
 					} else {
 						oppUser = (allUsers || []).find(u => u.id === oppPid);
-						oppName = oppUser ? oppUser.username : `Joueur #${oppPid}`;
+						oppName = oppUser ? oppUser.username : `${tFunc('role_player')} #${oppPid}`;
 						oppSeat = oppUser?.seat_id || null;
 						isReady = true;
 					}
@@ -310,7 +316,7 @@
 						if (pid === 0) return 'TBD';
 						if (pid < 0) return teamMap[String(pid)] || tFunc('mobile_team_placeholder', { id: Math.abs(pid) });
 						const u = (allUsers || []).find(x => x.id === pid);
-						return u ? u.username : `Joueur #${pid}`;
+						return u ? u.username : `${tFunc('role_player')} #${pid}`;
 					});
 					oppName = `Groupe (${oppNames.join(', ')})`;
 					oppPid = otherPids.find(pid => pid > 0) || null;
@@ -410,7 +416,7 @@
 								<div class="opponent-name">
 									{m.opponent_name}
 									{#if m.opponent_seat}
-										<a href="/dashboard/map?highlight={m.opponent_seat}" class="seat-link" title="Voir sur le plan">
+										<a href="/dashboard/map?highlight={m.opponent_seat}" class="seat-link" title={$t('tourneys_view_on_map')}>
 											📍 {$t('mobile_match_seat_link', { seat: m.opponent_seat })}
 										</a>
 									{/if}
@@ -422,7 +428,7 @@
 									⚔️ {$t('mobile_match_enter_score')} →
 								</a>
 								{#if m.opponent_id}
-									<a href="/dashboard/players?chat={m.opponent_id}" class="btn btn-secondary btn-chat-action" title="Envoyer un message">
+									<a href="/dashboard/players?chat={m.opponent_id}" class="btn btn-secondary btn-chat-action" title={$t('mobile_match_send_msg')}>
 										💬 {$t('mobile_match_send_msg')}
 									</a>
 								{/if}

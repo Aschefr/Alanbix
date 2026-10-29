@@ -755,8 +755,8 @@
 							<span>👥 {$t('dash_team_lbl') || 'Équipe'} : <strong>{myTeam.name}</strong></span>
 							{#if myTeam.is_locked}<span title={$t('tourneys_team_locked')}>🔒</span>{/if}
 						{:else}
-							<span style="color: #f59e0b;">⚠️ Pas d'équipe</span>
-							<button class="admin-btn edit btn-xs" on:click={() => { showDetails = true; setTimeout(() => document.getElementById('teams-section')?.scrollIntoView({ behavior: 'smooth' }), 50); }} style="padding: 0.15rem 0.4rem; font-size: 0.65rem;">Rejoindre</button>
+							<span style="color: #f59e0b;">⚠️ {$t('profile_no_team')}</span>
+							<button class="admin-btn edit btn-xs" on:click={() => { showDetails = true; setTimeout(() => document.getElementById('teams-section')?.scrollIntoView({ behavior: 'smooth' }), 50); }} style="padding: 0.15rem 0.4rem; font-size: 0.65rem;">{$t('tourneys_btn_join_text')}</button>
 						{/if}
 					</div>
 				{/if}
@@ -951,14 +951,14 @@
 	<div class="edit-overlay" use:portal on:click={() => showCreateModal = false}>
 		<div class="edit-modal glass" on:click|stopPropagation>
 			<header class="edit-modal-header">
-				<h3>🏆 Nouveau Tournoi</h3>
+				<h3>🏆 {$t('tourneys_add_btn')}</h3>
 				<button class="close-btn" on:click={() => showCreateModal = false}>✕</button>
 			</header>
 			<div class="edit-modal-body">
 				<CreateTournamentWizard 
 					{games} 
 					onSuccess={async (newT) => {
-						toast('Tournoi créé avec succès !', 'success');
+						toast($t('tourneys_toast_updated'), 'success');
 						showCreateModal = false;
 						tournaments = await api.get('/tournaments');
 						await selectTournament(newT.id);
@@ -1233,4 +1233,86 @@
 	.toast-leave { animation: toastOut 0.4s ease-in forwards; }
 	@keyframes toastIn { from { opacity: 0; transform: translateX(80px); } to { opacity: 1; transform: translateX(0); } }
 	@keyframes toastOut { from { opacity: 1; } to { opacity: 0; transform: translateX(80px); } }
+
+	@media (max-width: 900px) {
+		.tournaments-layout {
+			flex-direction: column;
+			height: auto;
+			min-height: calc(100vh - 120px);
+			gap: 0.75rem;
+		}
+		.t-sidebar {
+			width: 100%;
+			min-width: 0;
+			margin-right: 0;
+			max-height: none;
+		}
+		.sidebar-header {
+			padding: 0.7rem 1rem;
+		}
+		.t-list {
+			flex-direction: row;
+			overflow-x: auto;
+			overflow-y: hidden;
+			padding: 0.5rem;
+			gap: 0.5rem;
+			-webkit-overflow-scrolling: touch;
+		}
+		.t-item {
+			min-width: 210px;
+			max-width: 240px;
+			flex-shrink: 0;
+		}
+		.t-detail {
+			margin-left: 0;
+			padding-left: 0;
+			overflow-y: visible;
+		}
+		.t-detail.collapsed-layout {
+			overflow-y: visible;
+		}
+		.detail-hero {
+			height: auto;
+			min-height: 150px;
+			display: flex;
+			flex-direction: column;
+			justify-content: flex-end;
+		}
+		.hero-overlay {
+			position: relative;
+			flex-wrap: wrap;
+			gap: 0.6rem;
+			padding: 1rem;
+		}
+		.hero-rules {
+			position: relative;
+			right: auto;
+			top: auto;
+			max-width: none;
+			margin: 0 1rem 0.75rem 1rem;
+		}
+		.detail-body {
+			padding: 0.9rem 0.75rem;
+			gap: 0.9rem;
+		}
+		.controls-row {
+			flex-wrap: wrap;
+		}
+		.admin-bar {
+			flex-direction: column;
+			align-items: flex-start;
+			gap: 0.5rem;
+			width: 100%;
+		}
+		.admin-bar-actions {
+			flex-wrap: wrap;
+		}
+		.tournament-split-layout.split-active {
+			flex-direction: column;
+		}
+		:global(.split-active > .live-standings) {
+			min-width: 0;
+			width: 100%;
+		}
+	}
 </style>

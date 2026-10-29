@@ -208,7 +208,7 @@
 			const conv = conversations.find(c => c.id === renamingConvId);
 			if (conv) { conv.title = renameTitle.trim(); conversations = conversations; }
 			showRenameModal = false;
-		} catch(e) { alert(e.message); }
+		} catch(e) { askConfirm($t('error'), e.message, 'error', null); }
 	}
 	async function suggestTitle() {
 		if (!renamingConvId) return;
@@ -220,7 +220,7 @@
 			// Keep spinner — WebSocket will clear it when result arrives
 		} catch(e) {
 			renameSuggesting = false;
-			alert(`Suggestion IA échouée : ${e.message}`);
+			askConfirm($t('error'), e.message, 'error', null);
 		}
 	}
 	let showCompressionModal = false;
@@ -350,7 +350,7 @@
 	}
 
 	function attachImage(file) {
-		if (file.size > 8 * 1024 * 1024) { alert('Image trop volumineuse (max 8 Mo)'); return; }
+		if (file.size > 8 * 1024 * 1024) { askConfirm($t('error'), $t('profile_avatar_too_large'), 'error', null); return; }
 		pendingImage = file;
 		const reader = new FileReader();
 		reader.onload = (e) => { pendingImagePreview = e.target.result; };
@@ -473,7 +473,7 @@
 					if (msg.suggestion) {
 						renameTitle = msg.suggestion;
 					} else if (msg.error) {
-						alert(`Suggestion IA échouée : ${msg.error}`);
+						askConfirm($t('error'), msg.error, 'error', null);
 					}
 				}
 			}
@@ -657,7 +657,7 @@
 			}
 		} catch (e) {
 			compressing = false;
-			alert(e.message);
+			askConfirm($t('error'), e.message, 'error', null);
 			// Restore pending query so user doesn't lose their message
 			if (pendingQuery) { query = pendingQuery; pendingQuery = ''; }
 		}
@@ -709,7 +709,7 @@
 			await selectConversation(activeId);
 			await send(true);
 		} catch (e) {
-			alert(e.message);
+			askConfirm($t('error'), e.message, 'error', null);
 			loading = false;
 		}
 	}
@@ -921,7 +921,7 @@
 				fd.append('file', pendingImage);
 				const uploadRes = await api.upload('/ia/upload-image', fd);
 				imagePath = uploadRes.image_path;
-			} catch (e) { alert('Erreur upload image: ' + e.message); loading = false; return; }
+			} catch (e) { askConfirm($t('error'), e.message, 'error', null); loading = false; return; }
 			clearPendingImage();
 		}
 
@@ -1078,7 +1078,7 @@
 				}
 			}
 		} catch (e) {
-			alert(e.message);
+			askConfirm($t('error'), e.message, 'error', null);
 			if (currentUserMsgId) {
 				try {
 					await api.delete(`/ia/message/${currentUserMsgId}`);
@@ -1555,7 +1555,7 @@
 		<div class="mobile-drawer-overlay" on:click|self={() => showMobileHistory = false}>
 			<div class="mobile-history-drawer glass animate-in">
 				<div class="drawer-header">
-					<h3>🕘 Discussions ({conversations.length})</h3>
+					<h3>🕘 {$t('ai_history_btn')} ({conversations.length})</h3>
 					<button class="btn-icon" on:click={() => showMobileHistory = false}>✕</button>
 				</div>
 				<button class="btn-primary w-full mb-3" on:click={() => { showMobileHistory = false; newConversation(); }} disabled={iaBlocked}>
@@ -2183,6 +2183,8 @@
 		}
 		.ai-top-btn.call-admin { color: #f87171; border-color: rgba(239, 68, 68, 0.35); background: rgba(239, 68, 68, 0.08); margin-left: auto; }
 		.msg-wrapper { max-width: 95% !important; }
+		header { padding: 0.6rem 0.8rem; min-height: auto; flex-wrap: wrap; gap: 0.5rem; }
+		.usage-bar { width: 100%; }
 	}
 
 </style>
