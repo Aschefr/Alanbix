@@ -27,6 +27,7 @@
   "Démuter du chat public"
  ],
  "admin_public_chat_ai_cooldown": [
+  "Cooldown IA @Alanbix (s)",
   "Cooldown IA @Alanbix (secondes)"
  ],
  "admin_public_chat_ai_mention": [
@@ -45,6 +46,7 @@
   "Longueur max message (caractères)"
  ],
  "admin_public_chat_slowmode": [
+  "Slowmode (secondes)",
   "Slowmode (secondes par message)"
  ],
  "admin_settings_ai_instances": [
@@ -59,8 +61,14 @@
  "admin_settings_lan_name_sub": [
   "Visible sur le Dashboard et la vue Projecteur"
  ],
+ "admin_settings_searxng_title": [
+  "Configuration de SearXNG"
+ ],
  "admin_tab_tournaments": [
   "Tournois"
+ ],
+ "ai_call_admin_cooldown_hint": [
+  "Anti-spam : Cooldown de {cooldown} min | Max {limit} demandes par jour"
  ],
  "ai_call_admin_err_cooldown": [
   "Tu as déjà appelé un admin récemment. Merci de patienter encore {minutes_left} minute(s)."
@@ -73,6 +81,12 @@
  ],
  "ai_confirm_delete_msg_desc": [
   "Voulez-vous supprimer ce message ?"
+ ],
+ "ai_setting_call_admin_cooldown": [
+  "Cooldown par joueur (minutes)"
+ ],
+ "dash_chat_slowmode_badge": [
+  "Slowmode : {s}s"
  ],
  "dash_lb_teams": [
   "Equipes"

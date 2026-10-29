@@ -247,7 +247,7 @@
 	async function saveSearxngUrl() {
 		try {
 			await api.put('/admin/config/searxng_url', { value: searxngUrl });
-			toast(get(t)('admin_toast_searxng_url_saved') || 'URL de l\'instance SearXNG enregistree.', 'success');
+			toast(get(t)('admin_toast_searxng_url_saved') || 'URL de l\'instance SearXNG enregistrée.', 'success');
 		} catch { toast('Erreur sauvegarde URL SearXNG.', 'error'); }
 	}
 
@@ -590,7 +590,9 @@
 
 	<!-- GENERAL TAB -->
 	{#if !settingsSubTab || settingsSubTab === 'general'}
+	<p class="autosave-note">{$t('admin_settings_autosave_note')}</p>
 	<div class="stab-content">
+		<h2 class="settings-section">{$t('admin_settings_section_event')}</h2>
 		<div class="sc glass">
 			<div class="sc-head">
 				<div class="sc-icon">🏷️</div>
@@ -645,6 +647,7 @@
 			</div>
 		</div>
 
+		<h2 class="settings-section">{$t('admin_settings_section_tournaments')}</h2>
 		<div class="sc glass sc-full">
 			<div class="sc-head">
 				<div class="sc-icon">🏆</div>
@@ -664,37 +667,7 @@
 			</div>
 		</div>
 
-		<div class="sc glass sc-full">
-			<div class="sc-head">
-				<div class="sc-icon">🔍</div>
-				<div>
-					<h3>{$t("admin_settings_searxng_title")}</h3>
-					<p class="sc-sub">{$t("admin_settings_searxng_sub")}</p>
-				</div>
-			</div>
-			<div class="sc-body">
-				<div class="flex-column gap-2" style="width: 100%;">
-					<div class="flex-row gap-2" style="width: 100%;">
-						<input type="text" bind:value={searxngUrl} on:input={() => debounceSave('searxngUrl', saveSearxngUrl)} placeholder="{$t('admin_settings_searxng_placeholder')}" style="flex:1" />
-						<button class="btn-primary" on:click={testSearxng} disabled={searxngTesting}>
-							{#if searxngTesting}
-								{$t("admin_settings_searxng_testing")}
-							{:else}
-								{$t("admin_settings_searxng_test_btn")}
-							{/if}
-						</button>
-					</div>
-					
-					{#if searxngTestResult}
-						<div class="searx-result-box {searxngTestResult.ok ? 'success' : 'error'}">
-							<span>{searxngTestResult.ok ? '✅' : '❌'}</span>
-							<span>{searxngTestResult.message}</span>
-						</div>
-					{/if}
-				</div>
-			</div>
-		</div>
-
+		<h2 class="settings-section">{$t('admin_settings_section_chat')}</h2>
 		<!-- Public Chat & Anti-Spam Settings -->
 		<div class="sc glass sc-full">
 			<div class="sc-head">
@@ -824,27 +797,43 @@
 					</div>
 
 					<!-- Action Buttons -->
-					<div class="pca-actions">
-						<button class="btn-primary" on:click={savePublicChatConfig}>
-							💾 {$t("admin_public_chat_save_btn")}
-						</button>
-						{#if purgeChatConfirm}
-							<div class="purge-confirm-group">
-								<span class="purge-confirm-text">⚠️ {$t("admin_public_chat_purge_confirm")}</span>
-								<button class="btn-danger-sm" on:click={clearChatHistoryAdmin}>{$t("admin_public_chat_purge_confirm_btn")}</button>
-								<button class="btn-secondary btn-xs" on:click={() => purgeChatConfirm = false}>{$t("admin_settings_cancel") || 'Annuler'}</button>
-							</div>
-						{:else}
-							<button class="btn-outline-danger" on:click={() => purgeChatConfirm = true}>
-								🗑️ {$t("admin_public_chat_purge_btn")}
-							</button>
-						{/if}
-					</div>
 				</div>
 			</div>
 		</div>
 
 		<!-- Danger Zone -->
+		<h2 class="settings-section">{$t('admin_settings_section_services')}</h2>
+		<div class="sc glass sc-full">
+			<div class="sc-head">
+				<div class="sc-icon">🔍</div>
+				<div>
+					<h3>{$t("admin_settings_searxng_title")}</h3>
+					<p class="sc-sub">{$t("admin_settings_searxng_sub")}</p>
+				</div>
+			</div>
+			<div class="sc-body">
+				<div class="flex-column gap-2" style="width: 100%;">
+					<div class="flex-row gap-2" style="width: 100%;">
+						<input type="text" bind:value={searxngUrl} on:input={() => debounceSave('searxngUrl', saveSearxngUrl)} placeholder="{$t('admin_settings_searxng_placeholder')}" style="flex:1" />
+						<button class="btn-primary" on:click={testSearxng} disabled={searxngTesting}>
+							{#if searxngTesting}
+								{$t("admin_settings_searxng_testing")}
+							{:else}
+								{$t("admin_settings_searxng_test_btn")}
+							{/if}
+						</button>
+					</div>
+					
+					{#if searxngTestResult}
+						<div class="searx-result-box {searxngTestResult.ok ? 'success' : 'error'}">
+							<span>{searxngTestResult.ok ? '✅' : '❌'}</span>
+							<span>{searxngTestResult.message}</span>
+						</div>
+					{/if}
+				</div>
+			</div>
+		</div>
+
 		<div class="sc danger-zone sc-full">
 			<div class="sc-head">
 				<div class="sc-icon">☢️</div>
@@ -855,6 +844,25 @@
 			</div>
 			<div class="sc-body">
 				<div class="nuke-grid">
+					<!-- Purge public chat -->
+					<div class="nuke-card">
+						<div class="nuke-info">
+							<span class="nuke-icon">💬</span>
+							<div>
+								<strong>{$t("admin_public_chat_purge_btn")}</strong>
+								<p>{$t("admin_public_chat_purge_desc")}</p>
+							</div>
+						</div>
+						{#if purgeChatConfirm}
+							<div class="nuke-confirm">
+								<button class="btn-danger-sm" on:click={clearChatHistoryAdmin}>{$t("admin_public_chat_purge_confirm_btn")}</button>
+								<button class="btn-secondary btn-xs" on:click={() => purgeChatConfirm = false}>{$t('admin_settings_cancel')}</button>
+							</div>
+						{:else}
+							<button class="btn-outline-danger" on:click={() => purgeChatConfirm = true}>{$t("admin_public_chat_purge_btn")}</button>
+						{/if}
+					</div>
+
 					<!-- Nuke Tournaments -->
 					<div class="nuke-card">
 						<div class="nuke-info">
@@ -1808,4 +1816,8 @@
 	.pmg-tip-list { margin: 0; padding-left: 1.1rem; display: flex; flex-direction: column; gap: 0.3rem; }
 	.pmg-tip-list li { font-size: 0.68rem; color: var(--text-dim); line-height: 1.4; }
 	.prompt-modal-footer { display: flex; justify-content: flex-end; gap: 0.6rem; padding: 0.8rem 1.2rem; border-top: 1px solid var(--glass-border); background: var(--hover-tint); flex-shrink: 0; }
+
+	.autosave-note { margin: 0 0 0.75rem; font-size: 0.85rem; color: var(--text-dim); }
+	.settings-section { grid-column: 1 / -1; font-size: 0.95rem; font-weight: 700; color: var(--text-main); margin: 0.75rem 0 -0.25rem; padding-bottom: 0.35rem; border-bottom: 1px solid var(--glass-border); }
+	.settings-section:first-child { margin-top: 0; }
 </style>

@@ -24,6 +24,7 @@
   "Quitar silencio del chat público"
  ],
  "admin_public_chat_ai_cooldown": [
+  "Cooldown IA @Alanbix (s)",
   "Cooldown IA @Alanbix (segundos)"
  ],
  "admin_public_chat_ai_mention": [
@@ -42,6 +43,7 @@
   "Limpiar historial de chat"
  ],
  "admin_public_chat_slowmode": [
+  "Slowmode (segundos)",
   "Slowmode (segundos por mensaje)"
  ],
  "admin_settings_ai_instances": [
@@ -50,11 +52,23 @@
  "admin_settings_ai_instances_sub": [
   "Servidores distribuidos para consultas de IA — ordenados por prioridad"
  ],
+ "admin_settings_searxng_title": [
+  "Configuracion de SearXNG"
+ ],
  "admin_tab_tournaments": [
   "Torneos"
  ],
+ "ai_call_admin_cooldown_hint": [
+  "Anti-spam: {cooldown} min de espera | Máx {limit} solicitudes por día"
+ ],
  "ai_confirm_delete_msg_desc": [
   "¿Quieres eliminar este mensaje?"
+ ],
+ "ai_setting_call_admin_cooldown": [
+  "Tiempo de espera por jugador (minutos)"
+ ],
+ "dash_chat_slowmode_badge": [
+  "Slowmode: {s}s"
  ],
  "map_instructions_view_click": [
   "Haz clic en una posición libre para ocuparla."
