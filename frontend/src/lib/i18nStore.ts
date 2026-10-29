@@ -1,8 +1,17 @@
 import { writable, derived, get } from 'svelte/store';
 import { API_URL, resolveApiUrl, isDemoMode } from './config';
+import frDefault from './locales/fr.json';
+import enDefault from './locales/en.json';
+import esDefault from './locales/es.json';
+
+const BUNDLED_LOCALES: Record<string, Record<string, string>> = {
+	fr: frDefault,
+	en: enDefault,
+	es: esDefault
+};
 
 export const currentLang = writable<string>('fr');
-export const i18nDict = writable<Record<string, string>>({});
+export const i18nDict = writable<Record<string, string>>(frDefault);
 export const lanMultilingual = writable<boolean>(false);
 export const availableLanguages = writable<string[]>(['fr', 'en']);
 export const eventName = writable<string>('Alanbix LAN');
@@ -24,7 +33,7 @@ export const flagMap: Record<string, string> = {
 // Derived store for translating
 export const t = derived(i18nDict, ($dict) => {
 	return (key: string, replacements?: Record<string, string | number>) => {
-		let text = $dict[key] || key;
+		let text = $dict[key] || (BUNDLED_LOCALES['fr'] && BUNDLED_LOCALES['fr'][key]) || key;
 		if (replacements) {
 			Object.entries(replacements).forEach(([k, v]) => {
 				text = text.replace(new RegExp(`{${k}}`, 'g'), String(v));
@@ -36,7 +45,9 @@ export const t = derived(i18nDict, ($dict) => {
 
 // Load the dictionary for a specific language
 export async function loadLocale(lang: string) {
+	const fallback = BUNDLED_LOCALES[lang] || BUNDLED_LOCALES['fr'] || {};
 	if (isDemoMode()) {
+		i18nDict.set(fallback);
 		currentLang.set(lang);
 		localStorage.setItem('alanbix_lang', lang);
 		return;
@@ -47,11 +58,14 @@ export async function loadLocale(lang: string) {
 		const res = await fetch(`${baseUrl}/api/i18n/${lang}?v=${Date.now()}`);
 		if (!res.ok) throw new Error(`Could not load locale ${lang}`);
 		const dict = await res.json();
-		i18nDict.set(dict);
+		// Merge server dict over bundled fallback so missing keys never display raw identifiers
+		i18nDict.set({ ...fallback, ...dict });
 		currentLang.set(lang);
 		localStorage.setItem('alanbix_lang', lang);
 	} catch (e) {
-		console.error(`Failed to load locale ${lang}:`, e);
+		console.error(`Failed to load locale ${lang}, falling back to bundled translations:`, e);
+		i18nDict.set(fallback);
+		currentLang.set(lang);
 	}
 }
 

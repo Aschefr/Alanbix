@@ -4,6 +4,7 @@ import { defineConfig } from 'vite';
 export default defineConfig({
 	plugins: [sveltekit()],
 	server: {
+		cors: true,
 		allowedHosts: true,
 		watch: {
 			usePolling: true,
@@ -14,7 +15,7 @@ export default defineConfig({
 			allow: ['..']
 		},
 		proxy: {
-			'^/(check-username|token|register|me|users|tournaments|notifications|players|games|ia|i18n|dashboard/stats|system|health|api|static|data)': {
+			'^/(check-username|token|register|me|users|tournaments|notifications|players|games|ia|i18n|dashboard|system|health|api|static|data|devices|room|public-chat)': {
 				target: 'http://backend:8000',
 				changeOrigin: true
 			}

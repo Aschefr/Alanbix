@@ -23,8 +23,18 @@ DATA_DIR = os.path.dirname(os.getenv("DATABASE_PATH", "/app/data/alanbix.db"))
 DATA_I18N_DIR = os.path.join(DATA_DIR, "i18n")
 os.makedirs(DATA_I18N_DIR, exist_ok=True)
 
-# In-memory dictionary cache to prevent disk reads on every client load
-_I18N_CACHE: Dict[str, dict] = {}
+# In-memory dictionary cache to prevent disk reads on every client load: lang -> (mtime, data)
+_I18N_CACHE: Dict[str, tuple] = {}
+
+def _get_i18n_files_mtime(lang: str) -> float:
+    static_path = os.path.join(STATIC_I18N_DIR, f"{lang}.json")
+    data_path = os.path.join(DATA_I18N_DIR, f"{lang}.json")
+    mtime = 0.0
+    if os.path.exists(static_path):
+        mtime = max(mtime, os.path.getmtime(static_path))
+    if os.path.exists(data_path):
+        mtime = max(mtime, os.path.getmtime(data_path))
+    return mtime
 
 
 RESERVED_LANGS = {"bulk-translate", "auto-translate"}
@@ -396,12 +406,14 @@ def get_language_static(lang: str):
 @router.get("/{lang}")
 def get_language(lang: str):
     lang = _sanitize_lang(lang)
-    if lang in _I18N_CACHE:
-        return _I18N_CACHE[lang]
+    current_mtime = _get_i18n_files_mtime(lang)
+    cached = _I18N_CACHE.get(lang)
+    if cached is not None and cached[0] == current_mtime:
+        return cached[1]
     data = load_i18n_merged(lang)
     if data is None:
         raise HTTPException(status_code=404, detail="Language not found")
-    _I18N_CACHE[lang] = data
+    _I18N_CACHE[lang] = (current_mtime, data)
     return data
 
 @router.post("/{lang}")
