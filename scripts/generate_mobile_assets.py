@@ -5,11 +5,12 @@ Alambic (favicon.svg : goutte/alambic inclinée à -15°, liquide #3b82f6 et bul
 sur le fond sombre officiel d'Alanbix (#0f172a).
 """
 from pathlib import Path
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFilter
 
 ROOT = Path(__file__).resolve().parent.parent
 FRONTEND_DIR = ROOT / "frontend"
 BG_COLOR = (15, 23, 42)        # #0f172a (--bg-primary), splash screens
+ADAPTIVE_RADIUS = 0.28          # inside the 0.305 safe circle of a 108dp adaptive icon
 ICON_BG = (255, 255, 255)      # launcher and store icons: white plate like system apps
 ACCENT_BLUE = (59, 130, 246)   # #3b82f6 (--accent)
 
@@ -18,43 +19,51 @@ LOGO_MASTER = FRONTEND_DIR / "resources" / "logo-symbol-2048.png"
 
 
 def _master_geometry():
-    """Alpha-weighted centre of the logo and the radius of the smallest circle
-    around that centre that contains every visible pixel."""
+    """
+    The logo is an open circle with a square corner attached at the bottom left.
+    In favicon.svg the circle's centre lands exactly on the centre of the 80x80
+    viewBox, so it is the centre of the master image. Returns that centre and the
+    distance to the farthest visible pixel (the tip of the corner).
+    """
     master = Image.open(LOGO_MASTER).convert("RGBA")
-    alpha = master.getchannel("A")
     w, h = master.size
-    px = alpha.load()
-    sx = sy = n = 0
-    pts = []
-    for y in range(0, h, 4):
-        for x in range(0, w, 4):
-            if px[x, y] > 40:
-                sx += x; sy += y; n += 1; pts.append((x, y))
-    cx, cy = sx / n, sy / n
-    r = max(((x - cx) ** 2 + (y - cy) ** 2) ** 0.5 for x, y in pts) + 6
+    cx, cy = w / 2, h / 2
+    px = master.getchannel("A").load()
+    r = max(
+        ((x - cx) ** 2 + (y - cy) ** 2) ** 0.5
+        for y in range(0, h, 4) for x in range(0, w, 4) if px[x, y] > 40
+    ) + 6
     return master, cx, cy, r
 
 
-def place_symbol(canvas_px: int, radius_ratio: float) -> Image.Image:
+def place_symbol(canvas_px: int, radius_ratio: float, shadow: bool = False) -> Image.Image:
     """
-    Transparent canvas with the logo centred on its visual centre, scaled so the
-    whole outline (including the rotated bottom-left tip) fits in a circle of
-    radius radius_ratio * canvas_px. Launchers crop icons to circles, so fitting
-    a circle rather than the bounding box keeps the tip from being cut.
+    Transparent canvas with the logo's circle centred, scaled so the whole logo
+    (corner tip included) fits in a circle of radius radius_ratio * canvas_px:
+    launchers crop icons to circles, so this keeps the tip visible.
+    With shadow, a soft drop shadow sits under the logo for depth.
     The source is frontend/resources/logo-symbol-2048.png, a browser rendering of
     frontend/static/favicon.svg: re-render it whenever the logo changes.
     """
     master, cx, cy, r = _master_geometry()
     scale = (radius_ratio * canvas_px) / r
     sym = master.resize((max(1, round(master.width * scale)), max(1, round(master.height * scale))), Image.Resampling.LANCZOS)
+    pos = (round(canvas_px / 2 - cx * scale), round(canvas_px / 2 - cy * scale))
     out = Image.new("RGBA", (canvas_px, canvas_px), (0, 0, 0, 0))
-    out.alpha_composite(sym, (round(canvas_px / 2 - cx * scale), round(canvas_px / 2 - cy * scale)))
+    if shadow:
+        sh_alpha = Image.new("L", (canvas_px, canvas_px), 0)
+        sh_alpha.paste(sym.getchannel("A").point(lambda a: int(a * 0.28)), (pos[0], pos[1] + round(canvas_px * 0.018)))
+        sh_alpha = sh_alpha.filter(ImageFilter.GaussianBlur(canvas_px * 0.022))
+        shade = Image.new("RGBA", (canvas_px, canvas_px), (15, 23, 42, 255))
+        shade.putalpha(sh_alpha)
+        out.alpha_composite(shade)
+    out.alpha_composite(sym, pos)
     return out
 
 
 def make_monochrome(size: int) -> Image.Image:
     """Android 13 themed icon layer: the symbol as a single-colour silhouette."""
-    fg = make_adaptive_foreground(size)
+    fg = place_symbol(size, ADAPTIVE_RADIUS)  # no shadow: the system recolours it
     white = Image.new("RGBA", fg.size, (255, 255, 255, 255))
     white.putalpha(fg.getchannel("A"))
     return white
@@ -62,7 +71,7 @@ def make_monochrome(size: int) -> Image.Image:
 
 def make_square_icon(size: int, circular_mask: bool = False) -> Image.Image:
     canvas = Image.new("RGBA", (size, size), ICON_BG + (255,))
-    canvas.alpha_composite(place_symbol(size, 0.34))
+    canvas.alpha_composite(place_symbol(size, 0.34, shadow=True))
 
     if circular_mask:
         mask = Image.new("L", (size, size), 0)
@@ -78,7 +87,7 @@ def make_square_icon(size: int, circular_mask: bool = False) -> Image.Image:
 def make_adaptive_foreground(size: int) -> Image.Image:
     # Adaptive icons are 108dp and only the central 66dp circle (radius 0.305)
     # is guaranteed visible: the whole logo stays inside a 0.26 radius, with breathing room.
-    return place_symbol(size, 0.26)
+    return place_symbol(size, ADAPTIVE_RADIUS, shadow=True)
 
 
 def make_splash(width: int, height: int) -> Image.Image:
