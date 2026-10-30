@@ -1660,5 +1660,6 @@
   "result_hide": "Hide",
   "result_show_hidden": "Show hidden scores ({n})",
   "result_ffa_mine": "Your score: {n}",
-  "dash_ffa_lobby": "Lobby · {n} opponents"
+  "dash_ffa_lobby": "Lobby · {n} opponents",
+  "result_hide_all": "Hide all"
 }

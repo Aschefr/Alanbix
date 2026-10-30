@@ -1643,5 +1643,11 @@
   "tourneys_hidden_hint": "Este torneo es invisible para los jugadores. Haz clic para hacerlo visible.",
   "tourneys_hidden_badge": "Oculto a los jugadores",
   "tourneys_toast_hidden": "Torneo oculto a los jugadores",
-  "tourneys_toast_shown": "Torneo visible de nuevo"
+  "tourneys_toast_shown": "Torneo visible de nuevo",
+  "result_last_label": "Último resultado introducido",
+  "result_hide": "Ocultar",
+  "result_show_hidden": "Mostrar resultados ocultos ({n})",
+  "result_ffa_mine": "Tu puntuación: {n}",
+  "dash_ffa_lobby": "Sala · {n} rivales",
+  "result_hide_all": "Ocultar todo"
 }

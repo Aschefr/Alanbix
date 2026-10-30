@@ -38,6 +38,7 @@
 		try { localStorage.setItem(HIDDEN_KEY, JSON.stringify(hiddenResults.slice(-200))); } catch (e) {}
 	}
 	function hideResult(key) { hiddenResults = [...hiddenResults.filter(k => k !== key), key]; saveHidden(); }
+	function hideAllResults() { hiddenResults = [...new Set([...hiddenResults, ...myMatchesAll.filter(m => m.completed).map(m => m.match_key)])]; saveHidden(); }
 	function showHiddenResults() { hiddenResults = []; saveHidden(); }
 	$: myActiveMatches = myMatchesAll.filter(m => !m.completed);
 	$: myResults = myMatchesAll.filter(m => m.completed && !hiddenResults.includes(m.match_key)).slice(-2).reverse();
@@ -960,9 +961,14 @@
 							<button class="rr-hide" on:click={() => hideResult(r.match_key)} title={$t('result_hide')} aria-label={$t('result_hide')}><Icon name="x" size={14} /></button>
 						</div>
 					{/each}
-					{#if hiddenResultsCount > 0}
-						<button class="rr-show" on:click={showHiddenResults}>{$t('result_show_hidden', { n: hiddenResultsCount })}</button>
-					{/if}
+					<div class="rr-actions">
+						{#if myResults.length > 0}
+							<button class="rr-show" on:click={hideAllResults}>{$t('result_hide_all')}</button>
+						{/if}
+						{#if hiddenResultsCount > 0}
+							<button class="rr-show" on:click={showHiddenResults}>{$t('result_show_hidden', { n: hiddenResultsCount })}</button>
+						{/if}
+					</div>
 				</div>
 			{/if}
 		</section>
@@ -1204,9 +1210,14 @@
 							<button class="rr-hide" on:click={() => hideResult(r.match_key)} title={$t('result_hide')} aria-label={$t('result_hide')}><Icon name="x" size={14} /></button>
 						</div>
 					{/each}
-					{#if hiddenResultsCount > 0}
-						<button class="rr-show" on:click={showHiddenResults}>{$t('result_show_hidden', { n: hiddenResultsCount })}</button>
-					{/if}
+					<div class="rr-actions">
+						{#if myResults.length > 0}
+							<button class="rr-show" on:click={hideAllResults}>{$t('result_hide_all')}</button>
+						{/if}
+						{#if hiddenResultsCount > 0}
+							<button class="rr-show" on:click={showHiddenResults}>{$t('result_show_hidden', { n: hiddenResultsCount })}</button>
+						{/if}
+					</div>
 				</div>
 			{/if}
 			</section>
@@ -1314,6 +1325,7 @@
 	.result-row .rr-meta { color: var(--text-dim); }
 	.rr-hide { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; flex-shrink: 0; border: none; border-radius: 6px; background: transparent; color: var(--text-dim); cursor: pointer; }
 	.rr-hide:hover { background: var(--hover-tint); color: var(--text-main); }
+	.rr-actions { display: flex; flex-wrap: wrap; gap: 0.2rem 1rem; }
 	.rr-show { align-self: flex-start; background: none; border: none; padding: 0.1rem 0; color: var(--accent); font-size: 0.75rem; font-weight: 600; cursor: pointer; }
 	.rr-show:hover { text-decoration: underline; }
 

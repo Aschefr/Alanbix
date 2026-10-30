@@ -1660,5 +1660,6 @@
   "result_hide": "Ocultar",
   "result_show_hidden": "Mostrar resultados ocultos ({n})",
   "result_ffa_mine": "Tu puntuación: {n}",
-  "dash_ffa_lobby": "Sala · {n} rivales"
+  "dash_ffa_lobby": "Sala · {n} rivales",
+  "result_hide_all": "Ocultar todo"
 }
