@@ -2,7 +2,7 @@
 	import { get } from 'svelte/store';
 	import { onMount } from 'svelte';
 	import { api } from '$lib/api';
-	import { API_URL } from '$lib/config';
+	import { API_URL, resolveMediaUrl } from '$lib/config';
 	import { t } from '$lib/i18nStore';
 	import CreateTournamentWizard from '$lib/components/CreateTournamentWizard.svelte';
 	import EditTournamentModal from '$lib/components/EditTournamentModal.svelte';
@@ -340,7 +340,7 @@
 				{#each tournaments as tourney}
 					<div class="admin-item-card glass-hover">
 						<div class="card-top-row">
-							<div class="game-mini-thumb" style="background-image: url({games.find(g => g.id === tourney.game_id)?.image_url})">
+							<div class="game-mini-thumb" style="background-image: url({resolveMediaUrl(games.find(g => g.id === tourney.game_id)?.image_url)})">
 								{#if !games.find(g => g.id === tourney.game_id)?.image_url}
 									<span class="thumb-placeholder">🎮</span>
 								{/if}
@@ -422,7 +422,7 @@
 			<div class="game-gallery">
 				{#each games as g}
 					<div class="game-card glass">
-						<div class="game-thumb" style="background-image: url({g.image_url})">
+						<div class="game-thumb" style="background-image: url({resolveMediaUrl(g.image_url)})">
 							{#if !g.image_url}<span class="thumb-placeholder">🎮</span>{/if}
 							<div class="game-card-actions" class:is-confirming={deleteConfirmGameId === g.id}>
 								<button class="game-action-btn edit" on:click={() => openEditGame(g)} title="{$t('admin_tourneys_tooltip_edit')}">✏️</button>

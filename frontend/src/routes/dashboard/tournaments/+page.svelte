@@ -1,4 +1,5 @@
 <script>
+	import { resolveMediaUrl } from '$lib/config';
 	import { t, currentLang } from '$lib/i18nStore';
 	import { get } from 'svelte/store';
 	import { api } from '$lib/api';
@@ -830,7 +831,7 @@
 						on:click={() => { selectTournament(tourney.id); showMobileTourneyDrawer = false; }}
 					>
 						{#if gameMap[tourney.game_id]?.image_url}
-							<span class="drawer-item-thumb" style="background-image: url({gameMap[tourney.game_id].image_url})"></span>
+							<span class="drawer-item-thumb" style="background-image: url({resolveMediaUrl(gameMap[tourney.game_id].image_url)})"></span>
 						{/if}
 						<div class="drawer-item-info">
 							<span class="drawer-item-name">{tourney.name}</span>
@@ -862,7 +863,7 @@
 		{/if}
 		<div class="t-list">
 			{#each tournaments as tourney}
-				<button class="t-item {String(selectedId) === String(tourney.id) ? 'active' : ''} {tourney.status.toLowerCase()}" on:click={() => selectTournament(tourney.id)} style="background-image: url({gameMap[tourney.game_id]?.image_url || ''})">
+				<button class="t-item {String(selectedId) === String(tourney.id) ? 'active' : ''} {tourney.status.toLowerCase()}" on:click={() => selectTournament(tourney.id)} style="background-image: url({resolveMediaUrl(gameMap[tourney.game_id]?.image_url)})">
 					{#if tourney.status === 'CLOSED'}<div class="t-item-checkered"></div>{/if}
 					<div class="t-item-overlay">
 						<div class="t-item-info">
@@ -885,7 +886,7 @@
 		{#if selected}
 			<!-- Hero (Desktop only) -->
 			{#if !isMobile}
-			<div class="detail-hero" style="background-image: url({selectedGame?.image_url || ''})">
+			<div class="detail-hero" style="background-image: url({resolveMediaUrl(selectedGame?.image_url)})">
 				{#if selected.status === 'CLOSED'}<div class="hero-checkered"></div>{/if}
 				<div class="hero-overlay">
 					<div class="hero-content">

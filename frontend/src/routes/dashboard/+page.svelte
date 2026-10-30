@@ -1,4 +1,5 @@
 <script>
+	import { resolveMediaUrl } from '$lib/config';
 
 	import { onMount, onDestroy } from 'svelte';
 
@@ -647,7 +648,7 @@
 					tournament_id: tourney.id,
 					tournament_name: tourney.name,
 					game_name: gameName,
-					game_image: gameObj?.image_url || '',
+					game_image: resolveMediaUrl(gameObj?.image_url),
 					round_label: roundLabel,
 					match_id: m.id,
 					raw_match: m,
@@ -1396,18 +1397,18 @@
 
 
 
+		/* Glued under the mobile top bar, full width and same surface, so the
+		   scrolling content never shows between the two */
 		.mobile-dash-header {
-
 			position: sticky;
-
-			top: 50px;
-
+			top: var(--mobile-top-h, 42px);
 			z-index: 50;
-
-			background: var(--bg-primary);
-
-			padding: 0.2rem 0 0.5rem;
-
+			margin: -0.5rem -0.5rem 0.5rem;
+			padding: 0.4rem 0.5rem;
+			background: var(--mobile-bar-bg, rgba(15, 23, 42, 0.95));
+			backdrop-filter: blur(12px);
+			-webkit-backdrop-filter: blur(12px);
+			border-bottom: 1px solid var(--glass-border, rgba(255, 255, 255, 0.08));
 		}
 
 

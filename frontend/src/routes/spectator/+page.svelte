@@ -4,7 +4,7 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { wsMessageStore } from '$lib/ws';
 	import { connectWS } from '$lib/ws';
-	import { API_URL } from '$lib/config';
+	import { API_URL, resolveMediaUrl } from '$lib/config';
 	import { formatPoints } from '$lib/utils';
 
 	const VIEWS = ['leaderboard', 'teams', 'map', 'bracket', 'info'];
@@ -374,7 +374,7 @@
 
 <div class="spectator-mode" class:bracket-active={currentView === 'bracket' && runningGame?.image_url}>
 	{#if currentView === 'bracket' && runningGame?.image_url}
-		<div class="game-fullscreen-bg" style="background-image: url({runningGame.image_url})"></div>
+		<div class="game-fullscreen-bg" style="background-image: url({resolveMediaUrl(runningGame.image_url)})"></div>
 		<div class="game-fullscreen-vignette"></div>
 	{/if}
 	<div class="spec-header">
