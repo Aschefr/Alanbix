@@ -1117,6 +1117,8 @@
 
 <svelte:window bind:innerWidth />
 
+<div class="ai-wrap">
+<header class="ai-header"><h1 class="title-premium">{$t('nav_ai_assistant')}</h1></header>
 <div class="ai-page flex-row">
 	<!-- Admin Notification Banner -->
 	{#if adminNotification}
@@ -1130,8 +1132,10 @@
 		</div>
 	{/if}
 	<!-- Sidebar: Conversation History -->
-	<aside class="chat-sidebar glass">
+	<aside class="chat-sidebar glass" class:empty={conversations.length === 0}>
+		{#if conversations.length > 0}
 		<button class="btn-primary w-full" on:click={newConversation} disabled={iaBlocked}>{$t("ai_btn_new_chat")}</button>
+		{/if}
 		<div class="conv-list">
 			{#each conversations as conv}
 				<div class="conv-item {activeId === conv.id ? 'active' : ''}" class:unread={conv.has_new_messages}>
@@ -1593,6 +1597,7 @@
 		</div>
 	{/if}
 </div>
+</div>
 
 <Modal 
 	bind:show={showModal} 
@@ -1628,7 +1633,11 @@
 {/if}
 
 <style>
-	.ai-page { height: 100%; gap: 2rem; align-items: stretch; }
+	.ai-wrap { height: 100%; display: flex; flex-direction: column; gap: 1rem; }
+	.ai-header { flex-shrink: 0; padding: 0; background: none; border: none; box-shadow: none; }
+	.ai-page { flex: 1; min-height: 0; gap: 1.25rem; align-items: stretch; }
+	/* No history yet: the welcome panel takes the whole width */
+	.chat-sidebar.empty { display: none; }
 	.chat-sidebar { width: 280px; min-width: 280px; max-width: 280px; flex-shrink: 0; padding: 1.5rem; display: flex; flex-direction: column; gap: 1.5rem; }
 	.conv-list { display: flex; flex-direction: column; gap: 0.5rem; overflow-y: auto; }
 	
@@ -2172,6 +2181,7 @@
 	.drawer-conv-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 0.4rem; }
 
 	@media (max-width: 900px) {
+		.ai-header { display: none; }
 		.ai-page { flex-direction: column; height: calc(100vh - 96px); gap: 0.35rem; }
 		.chat-sidebar { display: none !important; }
 		.chat-main {
