@@ -1,7 +1,7 @@
 <script>
 	import { get } from 'svelte/store';
 	import { api } from '$lib/api';
-	import { API_URL, resolveMediaUrl } from '$lib/config';
+	import { API_URL, resolveMediaUrl, mediaThumb } from '$lib/config';
 	import { t } from '$lib/i18nStore';
 	import CreateTournamentWizard from '$lib/components/CreateTournamentWizard.svelte';
 	import EditTournamentModal from '$lib/components/EditTournamentModal.svelte';
@@ -112,6 +112,14 @@
 			});
 			toast(get(t)('tourneys_toast_updated'), 'success');
 			editingTournament = null;
+			onReload();
+		} catch (e) { toast(e.message, 'error'); }
+	}
+
+	async function toggleHidden(tourney) {
+		try {
+			await api.put(`/tournaments/${tourney.id}`, { is_hidden: !tourney.is_hidden });
+			toast(get(t)(tourney.is_hidden ? 'tourneys_toast_shown' : 'tourneys_toast_hidden'), 'success');
 			onReload();
 		} catch (e) { toast(e.message, 'error'); }
 	}
@@ -237,7 +245,7 @@
 				{#each tournaments as tourney}
 					<div class="admin-item-card glass-hover">
 						<div class="card-top-row">
-							<div class="game-mini-thumb" style="background-image: url({resolveMediaUrl(games.find(g => g.id === tourney.game_id)?.image_url)})">
+							<div class="game-mini-thumb" style="background-image: url({mediaThumb(games.find(g => g.id === tourney.game_id)?.image_url, 160)})">
 								{#if !games.find(g => g.id === tourney.game_id)?.image_url}
 									<span class="thumb-placeholder"><Icon name="gamepad" size={20} /></span>
 								{/if}
@@ -245,6 +253,7 @@
 							<div class="item-info">
 								<div class="flex-row items-center gap-2">
 									<span class="item-name">{tourney.name}</span>
+									{#if tourney.is_hidden}<span class="status-pill-sm hidden-pill"><Icon name="eye-off" size={12} /> {$t('tourneys_hidden_badge')}</span>{/if}
 									<span class="status-pill-sm {tourney.status.toLowerCase()}">{tourney.status === 'OPEN' ? $t('admin_tourneys_status_pill_open') : tourney.status === 'RUNNING' ? $t('admin_tourneys_status_pill_running') : tourney.status === 'CLOSED' ? $t('admin_tourneys_status_pill_closed') : $t('admin_tourneys_status_pill_done')}</span>
 								</div>
 								<div class="item-meta">
@@ -265,6 +274,9 @@
 										<Icon name="refresh" size={16} />
 									</button>
 								{/if}
+								<button class="btn-icon-edit" class:is-on={tourney.is_hidden} on:click={() => toggleHidden(tourney)} title={$t(tourney.is_hidden ? 'tourneys_btn_show' : 'tourneys_btn_hide')} aria-label={$t(tourney.is_hidden ? 'tourneys_btn_show' : 'tourneys_btn_hide')}>
+									<Icon name={tourney.is_hidden ? 'eye' : 'eye-off'} size={16} />
+								</button>
 								<button class="btn-icon-edit" on:click={() => openEditTournament(tourney)} title="{$t('admin_tourneys_tooltip_edit')}" aria-label="{$t('admin_tourneys_tooltip_edit')}">
 									<Icon name="pencil" size={16} />
 								</button>
@@ -311,7 +323,7 @@
 			<div class="game-gallery">
 				{#each games as g}
 					<div class="game-card glass">
-						<div class="game-thumb" style="background-image: url({resolveMediaUrl(g.image_url)})">
+						<div class="game-thumb" style="background-image: url({mediaThumb(g.image_url, 320)})">
 							{#if !g.image_url}<span class="thumb-placeholder"><Icon name="gamepad" size={24} /></span>{/if}
 							<div class="game-card-actions" class:is-confirming={deleteConfirmGameId === g.id}>
 								<button class="game-action-btn edit" on:click={() => openEditGame(g)} title="{$t('admin_tourneys_tooltip_edit')}" aria-label="{$t('admin_tourneys_tooltip_edit')}"><Icon name="pencil" size={14} /></button>
@@ -488,6 +500,8 @@
 	.status-pill-sm.done { background: rgba(100,116,139,0.1); color: var(--text-muted); border: 1px solid rgba(100,116,139,0.2); }
 	.status-pill-sm.closed { background: rgba(139,92,246,0.1); color: #a78bfa; border: 1px solid rgba(139,92,246,0.2); }
 	.btn-icon-edit { background: rgba(255, 255, 255, 0.05); border: 1px solid var(--glass-border); color: var(--text-muted); cursor: pointer; padding: 0.6rem; border-radius: 8px; transition: all 0.2s; display: flex; align-items: center; justify-content: center; }
+	.hidden-pill { display: inline-flex; align-items: center; gap: 0.25rem; background: color-mix(in srgb, var(--warning) 14%, transparent); color: var(--warning); border: 1px solid color-mix(in srgb, var(--warning) 40%, transparent); }
+	.btn-icon-edit.is-on { color: var(--warning); border-color: var(--warning); }
 	.btn-icon-edit:hover { background: rgba(59, 130, 246, 0.2); color: var(--accent); border-color: var(--accent); }
 	.btn-icon-danger { background: rgba(255, 255, 255, 0.05); border: 1px solid var(--glass-border); color: var(--text-muted); cursor: pointer; padding: 0.6rem; border-radius: 8px; transition: all 0.2s; display: flex; align-items: center; justify-content: center; }
 	.btn-icon-danger:hover { background: rgba(239, 68, 68, 0.2); color: var(--danger); border-color: var(--danger); }

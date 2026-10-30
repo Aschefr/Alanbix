@@ -1030,3 +1030,26 @@ def test_double_elim_complete_ranks(client, db_session):
         else:
             assert r["placement_pts"] == 0, \
                 f"Rank {r['rank']} should get 0 placement pts, got {r['placement_pts']}"
+
+
+def test_started_tournament_structure_is_locked(client, db_session):
+    """Changing the format of a running tournament is refused; cosmetic edits still work."""
+    game = _create_game(db_session, "Lock", "single_elim")
+    t_id = _create_tournament(client, "Lock Cup", game.id, {"bracket_type": "single_elim", "use_teams": False})
+    _join_players(client, t_id, _get_user_ids(db_session, 4))
+    _start(client, t_id)
+
+    res = client.put(f"/tournaments/{t_id}", json={"config": {"bracket_type": "double_elim", "use_teams": False}})
+    assert res.status_code == 409
+
+    res = client.put(f"/tournaments/{t_id}", json={"config": {"bracket_type": "single_elim", "use_teams": True}})
+    assert res.status_code == 409
+
+    # unchanged structure, new name and rules: fine
+    res = client.put(f"/tournaments/{t_id}", json={"name": "Renamed", "config": {"bracket_type": "single_elim", "use_teams": False, "custom_rules": "x"}})
+    assert res.status_code == 200, res.text
+    assert res.json()["name"] == "Renamed"
+
+    # resetting to OPEN together with a new structure is allowed
+    res = client.put(f"/tournaments/{t_id}", json={"status": "OPEN", "config": {"bracket_type": "double_elim"}})
+    assert res.status_code == 200, res.text

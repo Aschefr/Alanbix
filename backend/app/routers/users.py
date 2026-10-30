@@ -6,6 +6,7 @@ from datetime import timedelta
 import os
 from .. import models, schemas, auth, database
 from ..websockets import manager as ws_manager
+from ..visibility import visible_tournaments
 
 router = APIRouter(tags=["Users"])
 
@@ -97,7 +98,7 @@ def get_points_history(db: Session = Depends(database.get_db), user: models.User
     """Get breakdown of how the user earned their points across tournaments."""
     from .tournaments import _compute_projected_standings
     
-    tournaments = db.query(models.Tournament).filter(
+    tournaments = visible_tournaments(db).filter(
         models.Tournament.status.in_(["RUNNING", "DONE", "CLOSED"])
     ).all()
     history = []
@@ -676,7 +677,7 @@ def _compute_awards_suggestions(db: Session, lang: str = "fr") -> dict:
         }
 
     # Query all tournaments that are running, done, or closed
-    tournaments = db.query(models.Tournament).filter(
+    tournaments = visible_tournaments(db).filter(
         models.Tournament.status.in_(["RUNNING", "DONE", "CLOSED"])
     ).all()
 

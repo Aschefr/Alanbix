@@ -268,6 +268,20 @@ async def startup():
     if migrated_files > 0 or migrated_records > 0:
         print(f"[Startup] Game images migration: {migrated_files} files moved, {migrated_records} DB records updated.")
 
+    # Groups + knockout tournaments whose server-side keys were lost by an older edit dialog
+    try:
+        from .routers.tournaments import _heal_two_phase_config
+        from sqlalchemy.orm.attributes import flag_modified
+        for tournament in db.query(models.Tournament).all():
+            fixed = dict(tournament.config or {})
+            if _heal_two_phase_config(fixed, tournament.bracket):
+                tournament.config = fixed
+                flag_modified(tournament, "config")
+                print(f"[Startup] Repaired the groups + knockout settings of tournament #{tournament.id}")
+        db.commit()
+    except Exception as e:
+        print(f"[Startup] Tournament settings check failed: {e}")
+
     db.close()
 
     from .discovery import discovery_manager
@@ -385,6 +399,7 @@ app.include_router(public_chat.router)
 
 # Serve uploaded images (legacy static mount)
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 import os
 os.makedirs("static/uploads/games", exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -397,6 +412,56 @@ os.makedirs(os.path.join(DATA_DIR, "info_files"), exist_ok=True)
 os.makedirs(os.path.join(DATA_DIR, "avatars"), exist_ok=True)
 os.makedirs(os.path.join(DATA_DIR, "i18n"), exist_ok=True)
 os.makedirs(os.path.join(DATA_DIR, "game_images"), exist_ok=True)
+
+# Thumbnails: the original game covers weigh up to 1.2 MB and are shown as 48 px
+# tiles. /data/thumbs/<width>/<kind>/<file> serves a small WebP copy, generated
+# once, cached on disk and by the browser. Registered before the /data mount.
+THUMB_WIDTHS = (96, 160, 320, 640)
+THUMB_KINDS = ("game_images", "avatars", "games")
+
+
+def _frontend_dir() -> str:
+    candidates = [
+        os.environ.get("FRONTEND_DIST_DIR"),
+        "/app/frontend_dist",
+        "/app/frontend/build",
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "build")),
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "static")),
+        os.path.abspath("frontend/build"),
+        os.path.abspath("build"),
+    ]
+    return next((d for d in candidates if d and os.path.isdir(d)), "/app/frontend_dist")
+
+
+@app.get("/data/thumbs/{width}/{kind}/{filename}")
+def get_thumbnail(width: int, kind: str, filename: str):
+    from fastapi import HTTPException
+    if width not in THUMB_WIDTHS or kind not in THUMB_KINDS or "/" in filename or "\\" in filename or filename.startswith("."):
+        raise HTTPException(status_code=404)
+    source_dir = os.path.join(_frontend_dir(), "games") if kind == "games" else os.path.join(DATA_DIR, kind)
+    source = os.path.join(source_dir, filename)
+    if not os.path.isfile(source):
+        raise HTTPException(status_code=404)
+    thumb_dir = os.path.join(DATA_DIR, "thumbs", str(width), kind)
+    os.makedirs(thumb_dir, exist_ok=True)
+    thumb = os.path.join(thumb_dir, os.path.splitext(filename)[0] + ".webp")
+    headers = {"Cache-Control": "public, max-age=604800"}
+    if not os.path.isfile(thumb) or os.path.getmtime(thumb) < os.path.getmtime(source):
+        try:
+            from PIL import Image
+            with Image.open(source) as img:
+                img.thumbnail((width, width * 2))
+                if img.mode not in ("RGB", "RGBA"):
+                    img = img.convert("RGBA" if "transparency" in img.info else "RGB")
+                tmp = thumb + ".tmp"
+                img.save(tmp, "WEBP", quality=80, method=4)
+            os.replace(tmp, thumb)
+        except Exception:
+            # Unreadable or unsupported image: fall back to the original file
+            return FileResponse(source, headers=headers)
+    return FileResponse(thumb, media_type="image/webp", headers=headers)
+
+
 app.mount("/data", StaticFiles(directory=DATA_DIR), name="data")
 
 
@@ -452,7 +517,11 @@ def _cache_headers(file_path: str) -> dict:
     # Immutable hashed assets (e.g. _app/immutable/chunks/app.DxF3k2.js)
     if "/_app/immutable/" in file_path.replace("\\", "/"):
         return {"Cache-Control": "public, max-age=31536000, immutable"}
-    # Everything else (index.html, favicon, manifest…) — always revalidate
+    # Images and fonts (game covers, logos): cache for a day instead of re-downloading
+    # several hundred KB on every page load
+    if file_path.lower().endswith((".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg", ".ico", ".woff", ".woff2")):
+        return {"Cache-Control": "public, max-age=86400"}
+    # Everything else (index.html, manifest…) — always revalidate
     return {"Cache-Control": "no-cache, no-store, must-revalidate"}
 
 # Some page addresses are also API addresses (/dashboard/info). When the

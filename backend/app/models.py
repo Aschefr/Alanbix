@@ -53,6 +53,8 @@ class Tournament(Base):
     bracket = Column(JSON, nullable=True) # Match data after start
     results = Column(JSON, nullable=True) # Final standings + points distributed at close
     points_per_win = Column(Integer, default=3)
+    # Hidden from players (admins still see it): paused, being prepared, or cancelled
+    is_hidden = Column(Boolean, default=False)
     
     game = relationship("Game", back_populates="tournaments")
     participants = relationship("TournamentParticipant", back_populates="tournament", cascade="all, delete-orphan")

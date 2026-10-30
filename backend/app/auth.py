@@ -100,6 +100,17 @@ async def get_current_user(db: Session = Depends(database.get_db), token: str = 
             
     return user
 
+oauth2_optional = OAuth2PasswordBearer(tokenUrl="token", auto_error=False)
+
+async def get_optional_user(db: Session = Depends(database.get_db), token: str = Depends(oauth2_optional)):
+    """The signed-in user, or None for anonymous callers (spectator screen) and invalid tokens."""
+    if not token:
+        return None
+    try:
+        return await get_current_user(db, token)
+    except HTTPException:
+        return None
+
 async def get_current_admin(current_user: models.User = Depends(get_current_user)):
     if not current_user.is_admin:
         raise HTTPException(

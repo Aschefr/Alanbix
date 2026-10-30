@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from .. import models, auth, database
 from ..websockets import manager as ws_manager
 from .public_chat import extract_link_preview, URL_REGEX
+from ..visibility import visible_tournaments
 
 router = APIRouter(prefix="/players", tags=["Players"])
 
@@ -49,7 +50,7 @@ def get_player_points_history(user_id: int, db: Session = Depends(database.get_d
     if not target:
         raise HTTPException(404, "User not found")
 
-    tournaments = db.query(models.Tournament).filter(
+    tournaments = visible_tournaments(db).filter(
         models.Tournament.status.in_(["OPEN", "RUNNING", "DONE", "CLOSED"])
     ).all()
     history = []

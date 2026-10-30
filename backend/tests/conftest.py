@@ -18,6 +18,7 @@ engine = create_engine(
     poolclass=StaticPool
 )
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+PASS_HASH = auth.get_password_hash("pass")
 
 
 @pytest.fixture()
@@ -25,12 +26,12 @@ def db_session():
     Base.metadata.create_all(bind=engine)
     db = TestingSessionLocal()
 
-    # Seed 21 players
+    # Seed 21 players (one shared hash: bcrypt is deliberately slow, ~0.25 s per call)
     for i in range(1, 22):
-        user = models.User(username=f"Player{i}", hashed_password=auth.get_password_hash("pass"))
+        user = models.User(username=f"Player{i}", hashed_password=PASS_HASH)
         db.add(user)
 
-    admin = models.User(username="admin", is_admin=True, hashed_password=auth.get_password_hash("pass"))
+    admin = models.User(username="admin", is_admin=True, hashed_password=PASS_HASH)
     db.add(admin)
     db.commit()
 
@@ -58,6 +59,8 @@ def client(db_session):
     app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[get_current_admin] = override_get_current_admin
     app.dependency_overrides[get_current_user] = override_get_current_user
+    from app.auth import get_optional_user
+    app.dependency_overrides[get_optional_user] = override_get_current_user
 
     # Mock IAQueueManager to avoid asyncio event loop conflicts across tests
     with patch("app.ia_queue.queue_manager.start", new_callable=AsyncMock), \

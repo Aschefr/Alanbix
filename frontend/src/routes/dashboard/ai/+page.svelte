@@ -1634,7 +1634,7 @@
 
 <style>
 	.ai-wrap { height: 100%; display: flex; flex-direction: column; gap: 1rem; }
-	.ai-header { flex-shrink: 0; padding: 0; background: none; border: none; box-shadow: none; }
+	.ai-header { flex-shrink: 0; min-height: 0; padding: 0; background: none; border: none; box-shadow: none; }
 	.ai-page { flex: 1; min-height: 0; gap: 1.25rem; align-items: stretch; }
 	/* No history yet: the welcome panel takes the whole width */
 	.chat-sidebar.empty { display: none; }

@@ -12,6 +12,8 @@
 	export let lbRounds = [];
 	export let lbRoundsRaw = [];
 	export let rrGroups = [];
+	export let groupTables = null; // { groupNumber: [row, ...] } from /group-stage (groups + knockout)
+	export let groupAdvancers = 0;
 	export let nameMap = {};
 	export let seatMap = {};
 	export let currentUser = null;
@@ -118,7 +120,7 @@
 	}
 
 	function handleAdvanceFFA() {
-		dispatch('advanceFFA', { keepCount: ffaKeepCount });
+		dispatch('advanceFFA', { keepCount: ffaKeepCount, perMatch: true });
 	}
 
 	function handleFinishFFA() {
@@ -149,6 +151,28 @@
 	function isRRDone(m) {
 		const a = m.score?.[0] ?? null, b = m.score?.[1] ?? null;
 		return a !== null && b !== null && (a !== 0 || b !== 0) && (a !== b || !!selected?.config?.allow_draws);
+	}
+	// group cards: my group first, matches folded away unless it is mine (or the only one)
+	let rrMatchesOpen = {};
+	const RR_CARD_W = 440;
+	$: rrColumns = Math.max(1, Math.min(rrGroups.length, 3));
+	// fit the groups in the frame when they first appear or their number changes
+	let rrFitted = -1;
+	$: if (bracketType === 'round_robin' && viewportEl && canvasEl && rrGroups.length !== rrFitted) {
+		rrFitted = rrGroups.length;
+		setTimeout(() => resetZoom(), 0);
+	}
+	function isMineMatch(m) {
+		return useTeams ? (m.p[0] === myTeamSlotId || m.p[1] === myTeamSlotId) : (m.p[0] === currentUser?.id || m.p[1] === currentUser?.id);
+	}
+	function groupHasMine(group) { return group.rounds.some(r => r.some(isMineMatch)); }
+	function groupCounts(group) {
+		const all = group.rounds.flat();
+		return { total: all.length, played: all.filter(isRRDone).length };
+	}
+	$: orderedGroups = [...rrGroups].sort((a, b) => Number(groupHasMine(b)) - Number(groupHasMine(a)));
+	function matchesOpen(group, mine) {
+		return rrMatchesOpen[group.id] ?? (mine || rrGroups.length === 1 || !groupTables);
 	}
 	function currentRRRound(group) {
 		const i = group.rounds.findIndex(r => r.some(m => !isRRDone(m)));
@@ -368,6 +392,59 @@
 
 	function panTo(dx, dy) { panX += dx; panY += dy; clampPan(); }
 
+	// ---- Free-for-all tree: rounds left to right, lobbies stacked, links from the lobbies players came from
+	const FFA_COL_W = 250, FFA_GAP_X = 90, FFA_ROW_H = 30, FFA_BOX_HEAD = 30, FFA_BOX_PAD = 10, FFA_GAP_Y = 22, FFA_HDR_H = 48, FFA_ACTIONS_H = 150;
+	function computeFFALayout(rounds) {
+		const boxes = [], edges = [], cols = [];
+		let prev = [];
+		rounds.forEach((matches, ri) => {
+			const x = ri * (FFA_COL_W + FFA_GAP_X);
+			cols.push({ x, ri, latest: ri === rounds.length - 1 });
+			const items = matches.map((match, mi) => ({
+				match, mi, ri, x, y: 0, latest: ri === rounds.length - 1,
+				h: FFA_BOX_HEAD + match.p.length * FFA_ROW_H + FFA_BOX_PAD, sources: [], want: null
+			}));
+			items.forEach(it => {
+				if (ri === 0) return;
+				const pids = new Set(it.match.p.filter(Boolean));
+				it.sources = prev.filter(pb => pb.match.p.some(pid => pid && pids.has(pid)));
+				const centers = it.sources.map(sb => sb.y + sb.h / 2);
+				it.want = centers.length ? centers.reduce((a, b) => a + b, 0) / centers.length - it.h / 2 : null;
+			});
+			let cursor = FFA_HDR_H;
+			const order = ri === 0 ? items : [...items].sort((a, b) => (a.want ?? 1e9) - (b.want ?? 1e9) || a.mi - b.mi);
+			order.forEach(it => {
+				it.y = Math.max(it.want ?? cursor, cursor);
+				cursor = it.y + it.h + FFA_GAP_Y;
+			});
+			items.forEach(it => it.sources.forEach(sb => {
+				const x1 = sb.x + FFA_COL_W, y1 = sb.y + sb.h / 2, x2 = it.x, y2 = it.y + it.h / 2;
+				const mx = (x1 + x2) / 2;
+				edges.push({ d: `M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`, key: `${sb.ri}-${sb.mi}-${it.mi}` });
+			}));
+			boxes.push(...items);
+			prev = items;
+		});
+		const latestBottom = Math.max(0, ...boxes.filter(b => b.latest).map(b => b.y + b.h));
+		const width = Math.max(1, rounds.length * (FFA_COL_W + FFA_GAP_X) - FFA_GAP_X);
+		const height = Math.max(FFA_HDR_H, ...boxes.map(b => b.y + b.h)) + FFA_ACTIONS_H;
+		return { boxes, edges, cols, width, height, actionsY: latestBottom + 16, actionsX: cols.length ? cols[cols.length - 1].x : 0 };
+	}
+	$: ffaLayout = bracketType === 'ffa' ? computeFFALayout(bracketRounds) : { boxes: [], edges: [], cols: [], width: 1, height: 1, actionsY: 0, actionsX: 0 };
+
+	// qualifiers per lobby: the tournament setting is the default for every new round
+	let ffaRoundsSeen = 0;
+	$: if (bracketType === 'ffa' && bracketRounds.length !== ffaRoundsSeen) {
+		ffaRoundsSeen = bracketRounds.length;
+		ffaKeepCount = Math.max(1, Number(selected?.config?.ffa_advancers) || 1);
+	}
+	// the tree changes size when a round is added: fit it again
+	let ffaFitted = 0;
+	$: if (bracketType === 'ffa' && viewportEl && canvasEl && bracketRounds.length !== ffaFitted) {
+		ffaFitted = bracketRounds.length;
+		setTimeout(() => resetZoom(), 0);
+	}
+
 	$: arrowLeft = panX < -10;
 	$: arrowRight = viewportEl && canvasEl ? (panX + canvasEl.scrollWidth * scale > viewportEl.clientWidth + 10) : false;
 	$: arrowUp = panY < -10;
@@ -377,80 +454,138 @@
 <div class="bracket-section glass" class:bracket-expanded={hasBracket}>
 	<div class="section-title">
 		<h3>{bracketType === 'round_robin' ? $t('admin_tourneys_wizard_format_championship') : bracketType === 'ffa' ? $t('tourneys_format_ffa') : $t('tourneys_tab_bracket')}</h3>
-		{#if hasBracket && bracketType !== 'round_robin' && bracketType !== 'ffa'}
+		{#if hasBracket}
 			<button class="btn-secondary btn-xs" on:click={resetZoom}>{$t('tourneys_btn_recenter')}</button>
 		{/if}
 	</div>
 	{#if hasBracket}
 		{#if bracketType === 'ffa'}
-			<!-- FFA View -->
-			<div class="ffa-container">
-				{#each bracketRounds as roundMatches, ri}
-					{@const isLatest = ri === bracketRounds.length - 1}
-					{@const roundAllPlaced = roundMatches.every(m => m.score?.every(s => s > 0))}
-					<div class="ffa-round {isLatest ? 'ffa-current' : 'ffa-past'}">
-						<div class="ffa-round-hdr" style="display: flex; justify-content: space-between; align-items: center;">
-							<span>{$t('tourneys_round_number', { num: ri + 1 })}</span>
-							{#if isAdmin && isLatest && ri > 0 && selected?.status === 'RUNNING'}
-								{#if confirmingRollback}
-									<span class="inline-confirm" style="margin-left: auto; display: inline-flex; align-items: center; gap: 0.3rem;">
-										<span class="inline-confirm-label" style="font-size: 0.7rem;">{$t('admin_tourneys_confirm_delete')}</span>
-										<button class="admin-btn confirm-yes" on:click|stopPropagation|preventDefault={handleRollbackFFA} style="padding: 0.1rem 0.3rem; font-size: 0.7rem; border-radius: 4px; border: 1px solid var(--success); background: none; color: var(--success); cursor: pointer;">✓</button>
-										<button class="admin-btn confirm-no" on:click|stopPropagation|preventDefault={() => confirmingRollback = false} style="padding: 0.1rem 0.3rem; font-size: 0.7rem; border-radius: 4px; border: 1px solid var(--danger); background: none; color: var(--danger); cursor: pointer;">✕</button>
-									</span>
-								{:else}
-									<button class="rollback-btn" on:click|stopPropagation|preventDefault={() => confirmingRollback = true} title={$t('tourneys_ffa_rollback_tooltip')} style="background: none; border: none; color: #ef4444; cursor: pointer; font-size: 1.1rem; padding: 0 0.5rem; display: flex; align-items: center; justify-content: center; margin-left: auto;">✕</button>
-								{/if}
+			<!-- Free-for-all tree (pan / zoom like the elimination bracket) -->
+			<!-- svelte-ignore a11y-no-static-element-interactions -->
+			<div class="bracket-viewport-wrapper">
+				<div class="bracket-viewport" bind:this={viewportEl} on:wheel={onWheel} on:mousedown={onMouseDown} on:touchstart={onTouchStart} on:touchmove={onTouchMove} on:touchend={onTouchEnd} on:touchcancel={onTouchEnd}>
+					<div class="bracket-canvas" bind:this={canvasEl} style="transform: translate({panX}px, {panY}px) scale({scale});">
+						<div class="ffa-tree" style="width: {ffaLayout.width}px; height: {ffaLayout.height}px;">
+							<svg class="ffa-edges" width={ffaLayout.width} height={ffaLayout.height} aria-hidden="true">
+								{#each ffaLayout.edges as e (e.key)}
+									<path d={e.d} />
+								{/each}
+							</svg>
+
+							{#each ffaLayout.cols as col}
+								<div class="ffa-col-head" class:current={col.latest} style="left: {col.x}px; width: {FFA_COL_W}px;">
+									<span>{$t('tourneys_round_number', { num: col.ri + 1 })}</span>
+									{#if isAdmin && col.latest && col.ri > 0 && selected?.status === 'RUNNING'}
+										{#if confirmingRollback}
+											<span class="ffa-confirm">
+												<span>{$t('admin_tourneys_confirm_delete')}</span>
+												<button class="ffa-mini yes" on:mousedown|stopPropagation on:click|stopPropagation|preventDefault={handleRollbackFFA} aria-label={$t('admin_tourneys_confirm_yes')}><Icon name="check" size={13} /></button>
+												<button class="ffa-mini no" on:mousedown|stopPropagation on:click|stopPropagation|preventDefault={() => confirmingRollback = false} aria-label={$t('admin_tourneys_confirm_no')}><Icon name="x" size={13} /></button>
+											</span>
+										{:else}
+											<button class="ffa-mini no" on:mousedown|stopPropagation on:click|stopPropagation|preventDefault={() => confirmingRollback = true} title={$t('tourneys_ffa_rollback_tooltip')} aria-label={$t('tourneys_ffa_rollback_tooltip')}><Icon name="x" size={13} /></button>
+										{/if}
+									{/if}
+								</div>
+							{/each}
+
+							{#each ffaLayout.boxes as box (`${box.ri}-${box.match.id.m}`)}
+								{@const match = box.match}
+								<div class="ffa-match-box" class:ffa-box-current={box.latest} style="left: {box.x}px; top: {box.y}px; width: {FFA_COL_W}px; height: {box.h}px;">
+									<div class="ffa-player-count">{$t('tourneys_ffa_match_label', { n: box.mi + 1 })} · {$t(match.p.length > 1 ? 'admin_tourneys_players_count_plural' : 'admin_tourneys_players_count_singular', { count: match.p.length })}</div>
+									<div class="ffa-players">
+										{#each match.p as playerId, pi}
+											{@const mRank = getFFAMatchRank(match, pi, lowerIsBetter)}
+											<div class="ffa-player-row {mRank === 1 ? 'ffa-gold' : mRank === 2 ? 'ffa-silver' : mRank === 3 ? 'ffa-bronze' : ''}" class:my-player-highlight={useTeams ? (playerId === myTeamSlotId) : (playerId === currentUser?.id)}>
+												<span class="ffa-rank">{#if mRank}#{mRank}{:else}—{/if}</span>
+												<span class="ffa-name">{getPlayerName(playerId, nameMap)}</span>
+												{#if canEditPlayerScore(match, pi, myTeamSlotId, isParticipant, currentUser) && box.latest}
+													<input type="number" class="score-input ffa-input" value={match.score?.[pi] || ''} placeholder={$t('tourneys_score_placeholder')}
+														on:mousedown|stopPropagation on:touchstart|stopPropagation
+														on:change={(e) => updateFFAPlacement(match, pi, e.target.value)} min="0" />
+												{:else if isPlayerLocked(match, pi, myTeamSlotId, isParticipant, currentUser)}
+													<span class="score-locked ffa-input" title={$t('tourneys_score_validated')}><Icon name="lock" size={12} /> {match.score?.[pi]}</span>
+												{:else if match.score?.[pi] > 0}
+													<span class="score-display ffa-input">{match.score[pi]}</span>
+												{/if}
+											</div>
+										{/each}
+									</div>
+								</div>
+							{/each}
+
+							{#if isAdmin && selected?.status === 'RUNNING' && ffaLayout.boxes.filter(b => b.latest).every(b => b.match.score?.length && b.match.score.every(sc => sc > 0))}
+								<!-- svelte-ignore a11y-no-static-element-interactions -->
+								<div class="ffa-actions" style="left: {ffaLayout.actionsX}px; top: {ffaLayout.actionsY}px; width: {FFA_COL_W}px;" on:mousedown|stopPropagation on:touchstart|stopPropagation>
+									<label class="ffa-keep">
+										<span>{$t('tourneys_ffa_keep_players')}</span>
+										<input type="number" bind:value={ffaKeepCount} min="1" max={Math.max(1, ...ffaLayout.boxes.filter(b => b.latest).map(b => b.match.p.length))} />
+									</label>
+									<button class="admin-btn" on:click={handleAdvanceFFA}><Icon name="play" size={14} /> {$t('tourneys_ffa_next_round')}</button>
+									<button class="admin-btn stop" on:click={handleFinishFFA}><Icon name="flag" size={14} /> {$t('tourneys_ffa_finish')}</button>
+								</div>
 							{/if}
 						</div>
-						<div class="ffa-matches-grid" style="display: flex; flex-direction: column; gap: 1rem;">
-						{#each roundMatches as match, mi}
-							<div class="ffa-match-box">
-								<div class="ffa-player-count" style="margin-bottom: 0.5rem;">{$t('tourneys_ffa_match_label', { n: mi + 1 })} - {$t(match.p.length > 1 ? 'admin_tourneys_players_count_plural' : 'admin_tourneys_players_count_singular', { count: match.p.length })}</div>
-								<div class="ffa-players">
-									{#each match.p as playerId, pi}
-										{@const mRank = getFFAMatchRank(match, pi, lowerIsBetter)}
-										<div class="ffa-player-row {mRank === 1 ? 'ffa-gold' : mRank === 2 ? 'ffa-silver' : mRank === 3 ? 'ffa-bronze' : ''}" class:my-player-highlight={useTeams ? (playerId === myTeamSlotId) : (playerId === currentUser?.id)}>
-											<span class="ffa-rank">
-												{#if mRank}#{mRank}{:else}—{/if}
-											</span>
-											<span class="ffa-name">{getPlayerName(playerId, nameMap)}</span>
-											{#if playerId > 0 && seatMap[playerId]}<a href="/dashboard/map?highlight={seatMap[playerId]}" class="seat-badge" title={$t('players_tooltip_seat')}>💺{seatMap[playerId]}</a>{/if}
-											{#if canEditPlayerScore(match, pi, myTeamSlotId, isParticipant, currentUser) && isLatest}
-												<input type="number" class="score-input ffa-input" value={match.score?.[pi] || ''} placeholder={$t('tourneys_score_placeholder')}
-													on:change={(e) => updateFFAPlacement(match, pi, e.target.value)} min="1" />
-											{:else if isPlayerLocked(match, pi, myTeamSlotId, isParticipant, currentUser)}
-												<span class="score-locked ffa-input" title={$t('tourneys_score_validated')}>🔒 {match.score?.[pi]}</span>
-											{:else if match.score?.[pi] > 0}
-												<span class="score-display ffa-input">{match.score[pi]}</span>
-											{/if}
-										</div>
-									{/each}
-								</div>
-							</div>
-						{/each}
-						</div>
-						{#if isAdmin && isLatest && roundAllPlaced && selected?.status === 'RUNNING'}
-							<div class="ffa-actions">
-								<div class="ffa-advance-box" style="display:flex; align-items:center; gap:0.5rem; justify-content:center; margin-bottom: 1rem;">
-									<label style="font-size: 0.9rem; color: var(--text-muted); font-weight: 600;">{$t('tourneys_ffa_keep_players')}</label>
-									<input type="number" bind:value={ffaKeepCount} min="1" max={roundMatches.reduce((sum, m) => sum + m.p.length, 0)} style="width: 60px; padding: 0.3rem 0.5rem; border-radius: 6px; background: var(--surface-sunken); border: 1px solid var(--glass-border); color: var(--text-main);" />
-									<button class="admin-btn" on:click={handleAdvanceFFA} style="margin: 0;">▶️ {$t('tourneys_ffa_next_round')}</button>
-								</div>
-								<button class="admin-btn stop" on:click={handleFinishFFA}>🏁 {$t('tourneys_ffa_finish')}</button>
-							</div>
-						{/if}
 					</div>
-				{/each}
+				</div>
 			</div>
 		{:else if bracketType === 'round_robin'}
 			<!-- Round Robin Table -->
+			<!-- svelte-ignore a11y-no-static-element-interactions -->
+			<div class="bracket-viewport-wrapper">
+			<div class="bracket-viewport" bind:this={viewportEl} on:wheel={onWheel} on:mousedown={onMouseDown} on:touchstart={onTouchStart} on:touchmove={onTouchMove} on:touchend={onTouchEnd} on:touchcancel={onTouchEnd}>
+			<div class="bracket-canvas" bind:this={canvasEl} style="transform: translate({panX}px, {panY}px) scale({scale});">
 			<div class="rr-container">
-				{#each rrGroups as group}
-					<div class="rr-group" style="width: 100%; margin-bottom: 1rem;">
-						{#if rrGroups.length > 1}
-							<h4 class="rr-group-title" style="margin-bottom: 0.5rem; font-weight: 800; color: var(--accent);">{$t('spec_group_num', { group: String.fromCharCode(64 + parseInt(group.id)) })}</h4>
+				<div class="rr-groups-grid" style="grid-template-columns: repeat({rrColumns}, {RR_CARD_W}px);">
+				{#each orderedGroups as group (group.id)}
+					{@const counts = groupCounts(group)}
+					{@const mineGroup = groupHasMine(group)}
+					{@const table = groupTables?.[group.id]}
+					{@const open = matchesOpen(group, mineGroup)}
+					<section class="rr-group" class:mine-group={mineGroup}>
+						<header class="rr-group-head">
+							{#if rrGroups.length > 1}
+								<h4 class="rr-group-title">{$t('spec_group_num', { group: String.fromCharCode(64 + parseInt(group.id)) })}</h4>
+							{/if}
+							{#if mineGroup}<span class="rr-mine-tag">{$t('groups_my_group')}</span>{/if}
+							<span class="rr-group-progress">{counts.played}/{counts.total}</span>
+						</header>
+
+						{#if table}
+							<table class="rr-table">
+								<thead>
+									<tr>
+										<th class="pos">#</th>
+										<th class="nm">{$t('groups_col_player')}</th>
+										<th title={$t('groups_col_played_tip')}>{$t('groups_col_played')}</th>
+										<th title={$t('groups_col_wins_tip')}>{$t('groups_col_wins')}</th>
+										<th title={$t('groups_col_draws_tip')}>{$t('groups_col_draws')}</th>
+										<th title={$t('groups_col_losses_tip')}>{$t('groups_col_losses')}</th>
+										<th title={$t('groups_col_diff_tip')}>{$t('groups_col_diff')}</th>
+										<th class="pts">{$t('groups_col_points')}</th>
+									</tr>
+								</thead>
+								<tbody>
+									{#each table as row}
+										<tr class:qualified={groupAdvancers > 0 && row.position <= groupAdvancers} class:me={useTeams ? row.entity_id === myTeamSlotId : row.entity_id === currentUser?.id}>
+											<td class="pos">{row.position}</td>
+											<td class="nm">{getPlayerName(row.entity_id, nameMap)}</td>
+											<td>{row.played}</td>
+											<td>{row.wins}</td>
+											<td>{row.draws}</td>
+											<td>{row.losses}</td>
+											<td>{row.diff > 0 ? `+${row.diff}` : row.diff}</td>
+											<td class="pts">{row.points}</td>
+										</tr>
+									{/each}
+								</tbody>
+							</table>
+							<button class="rr-matches-toggle" aria-expanded={open} on:click={() => rrMatchesOpen[group.id] = !open}>
+								<Icon name={open ? 'chevron-up' : 'chevron-down'} size={14} /> {open ? $t('groups_hide_matches') : $t('groups_show_matches')}
+							</button>
 						{/if}
+
+						{#if open}
 						<div class="rr-group-rounds">
 							{#each group.rounds as roundMatches, ri}
 								{@const playedCount = roundMatches.filter(m => isRRDone(m)).length}
@@ -475,26 +610,26 @@
 										{@const mKey = rrKey(match)}
 										{@const adminEditing = isAdmin && rrOpenKey === mKey}
 										<!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
-										<div class="rr-match" class:match-done={isDone} class:mine class:admin-tap={isAdmin} class:editing={adminEditing} on:click={() => { if (isAdmin) rrOpenKey = adminEditing ? null : mKey; }}>
+										<div class="rr-match" class:bool-row={booleanMode} class:match-done={isDone} class:mine class:admin-tap={isAdmin} class:editing={adminEditing} on:click={() => { if (isAdmin) rrOpenKey = adminEditing ? null : mKey; }}>
 											<span class="rr-p" class:winner={win0} class:loser={isDone && !win0 && win1}>{#if win0}<Icon name="check" size={13} />{/if}{getPlayerName(match.p[0], nameMap)}{#if match.p[0] > 0 && seatMap[match.p[0]]}<a href="/dashboard/map?highlight={seatMap[match.p[0]]}" class="seat-badge" title={$t('tourneys_view_on_map')} on:click|stopPropagation>💺{seatMap[match.p[0]]}</a>{/if}</span>
 											<div class="rr-scores">
 												{#if booleanMode}
 													{#if isDone}
 														<div class="bool-badge-container">
-															<span class="bool-badge {(lowerIsBetter ? (s0 ?? 0) < (s1 ?? 0) : (s0 ?? 0) > (s1 ?? 0)) ? 'win' : ((s0 ?? 0) === (s1 ?? 0) && (s0 ?? 0) !== 0 ? 'draw' : 'lose')}">{(lowerIsBetter ? (s0 ?? 0) < (s1 ?? 0) : (s0 ?? 0) > (s1 ?? 0)) ? '🏆' : ((s0 ?? 0) === (s1 ?? 0) && (s0 ?? 0) !== 0 ? '🤝' : '❌')}</span>
+															<span class="bool-badge {(lowerIsBetter ? (s0 ?? 0) < (s1 ?? 0) : (s0 ?? 0) > (s1 ?? 0)) ? 'win' : ((s0 ?? 0) === (s1 ?? 0) && (s0 ?? 0) !== 0 ? 'draw' : 'lose')}"><Icon name={(lowerIsBetter ? (s0 ?? 0) < (s1 ?? 0) : (s0 ?? 0) > (s1 ?? 0)) ? 'trophy' : ((s0 ?? 0) === (s1 ?? 0) && (s0 ?? 0) !== 0 ? 'minus' : 'x')} size={15} /></span>
 															<span class="rr-vs">-</span>
-															<span class="bool-badge {(lowerIsBetter ? (s1 ?? 0) < (s0 ?? 0) : (s1 ?? 0) > (s0 ?? 0)) ? 'win' : ((s0 ?? 0) === (s1 ?? 0) && (s0 ?? 0) !== 0 ? 'draw' : 'lose')}">{(lowerIsBetter ? (s1 ?? 0) < (s0 ?? 0) : (s1 ?? 0) > (s0 ?? 0)) ? '🏆' : ((s0 ?? 0) === (s1 ?? 0) && (s0 ?? 0) !== 0 ? '🤝' : '❌')}</span>
+															<span class="bool-badge {(lowerIsBetter ? (s1 ?? 0) < (s0 ?? 0) : (s1 ?? 0) > (s0 ?? 0)) ? 'win' : ((s0 ?? 0) === (s1 ?? 0) && (s0 ?? 0) !== 0 ? 'draw' : 'lose')}"><Icon name={(lowerIsBetter ? (s1 ?? 0) < (s0 ?? 0) : (s1 ?? 0) > (s0 ?? 0)) ? 'trophy' : ((s0 ?? 0) === (s1 ?? 0) && (s0 ?? 0) !== 0 ? 'minus' : 'x')} size={15} /></span>
 															{#if isAdmin}
-																<button class="bool-reset-btn" on:click={() => resetBoolScore(match)} title={$t('tourneys_reset_score_tooltip')}>⏪</button>
+																<button class="bool-reset-btn" on:click={() => resetBoolScore(match)} title={$t('tourneys_reset_score_tooltip')} aria-label={$t('tourneys_reset_score_tooltip')}><Icon name="restart" size={14} /></button>
 															{/if}
 														</div>
 													{:else if canEditPlayerScore(match, 0, myTeamSlotId, isParticipant, currentUser) || canEditPlayerScore(match, 1, myTeamSlotId, isParticipant, currentUser)}
 														<div class="bool-btns-rr">
-															<button class="bool-btn bool-check" on:click={() => setBoolScore(match, 0)} title={$t('tourneys_win_tooltip', { name: getPlayerName(match.p[0], nameMap) })}><span class="bool-default">☐</span><span class="bool-hover">✅</span></button>
+															<button class="bool-pick" on:click={() => setBoolScore(match, 0)} title={$t('tourneys_win_tooltip', { name: getPlayerName(match.p[0], nameMap) })} aria-label={$t('tourneys_win_tooltip', { name: getPlayerName(match.p[0], nameMap) })}><Icon name="trophy" size={16} /></button>
 															{#if selected?.config?.allow_draws}
-																<button class="bool-btn bool-draw" on:click={() => setBoolDraw(match)} title={$t('tourneys_draw_tooltip')}>🤝</button>
+																<button class="bool-pick draw" on:click={() => setBoolDraw(match)} title={$t('tourneys_draw_tooltip')} aria-label={$t('tourneys_draw_tooltip')}><Icon name="minus" size={16} /></button>
 															{/if}
-															<button class="bool-btn bool-check" on:click={() => setBoolScore(match, 1)} title={$t('tourneys_win_tooltip', { name: getPlayerName(match.p[1], nameMap) })}><span class="bool-default">☐</span><span class="bool-hover">✅</span></button>
+															<button class="bool-pick" on:click={() => setBoolScore(match, 1)} title={$t('tourneys_win_tooltip', { name: getPlayerName(match.p[1], nameMap) })} aria-label={$t('tourneys_win_tooltip', { name: getPlayerName(match.p[1], nameMap) })}><Icon name="trophy" size={16} /></button>
 														</div>
 													{:else}
 														<span class="rr-score">—</span><span class="rr-vs">-</span><span class="rr-score">—</span>
@@ -535,8 +670,13 @@
 								</div>
 							{/each}
 						</div>
-					</div>
+						{/if}
+					</section>
 				{/each}
+				</div>
+			</div>
+			</div>
+			</div>
 			</div>
 		{:else}
 			<!-- Duel Bracket (single/double) -->
@@ -750,7 +890,7 @@
 	.btn-xs { padding: 0.3rem 0.6rem; font-size: 0.7rem; }
 
 	/* Bracket Section */
-	.bracket-section { padding: 1rem; border-radius: 14px; display: flex; flex-direction: column; }
+	.bracket-section { padding: 1rem; border-radius: 14px; display: flex; flex-direction: column; min-height: 0; }
 	.bracket-section.bracket-expanded { flex-grow: 1; min-height: 400px; }
 	.bracket-viewport-wrapper { position: relative; flex-grow: 1; min-height: 450px; }
 	.bracket-viewport {
@@ -827,8 +967,34 @@
 	.bracket-empty p { margin: 0; font-size: 0.85rem; }
 
 	/* Round Robin */
-	.rr-container { padding: 0.5rem; display: flex; flex-direction: column; gap: 1rem; }
-	.rr-group-rounds { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem; align-items: start; }
+	/* the groups live in the zoomable / draggable canvas, like the elimination bracket */
+	.rr-container { padding: 0.25rem; }
+	.rr-groups-grid { display: grid; gap: 1rem; align-items: start; }
+	@media (max-width: 640px) {
+		.rr-match .seat-badge { display: none; }
+		.rr-match.bool-row .rr-p:first-child, .rr-match.bool-row .rr-p:last-child { justify-content: flex-start; text-align: left; }
+		.rr-match.bool-row .rr-p:first-child { justify-content: flex-end; text-align: right; }
+		.bool-pick { width: 30px; height: 30px; }
+	}
+	.rr-groups-grid.single { grid-template-columns: minmax(0, 1fr); }
+	.rr-group { display: flex; flex-direction: column; gap: 0.6rem; padding: 0.8rem 0.9rem; border-radius: 12px; border: 1px solid var(--glass-border); background: var(--surface-raised); min-width: 0; }
+	.rr-group.mine-group { border-color: color-mix(in srgb, var(--accent) 55%, var(--glass-border)); }
+	.rr-group-head { display: flex; align-items: center; gap: 0.6rem; }
+	.rr-group-title { margin: 0; font-family: var(--font-title); font-size: var(--fs-section); font-weight: 700; color: var(--text-main); }
+	.rr-mine-tag { font-size: 0.75rem; font-weight: 700; color: var(--accent); background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); border-radius: 999px; padding: 0.1rem 0.55rem; }
+	.rr-group-progress { margin-left: auto; font-size: 0.8125rem; font-weight: 700; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+	.rr-table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
+	.rr-table th { text-align: center; font-weight: 600; color: var(--text-dim); padding: 0.25rem 0.3rem; border-bottom: 1px solid var(--glass-border); white-space: nowrap; }
+	.rr-table td { text-align: center; padding: 0.3rem; color: var(--text-main); border-bottom: 1px solid color-mix(in srgb, var(--glass-border) 55%, transparent); font-variant-numeric: tabular-nums; }
+	.rr-table .nm { text-align: left; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+	.rr-table .pos { width: 1.5rem; color: var(--text-dim); }
+	.rr-table .pts { font-weight: 800; color: var(--accent); }
+	.rr-table tr.qualified td { background: color-mix(in srgb, var(--success) 8%, transparent); }
+	.rr-table tr.qualified .pos { color: var(--success); font-weight: 800; }
+	.rr-table tr.me .nm { color: var(--accent); }
+	.rr-matches-toggle { align-self: flex-start; display: inline-flex; align-items: center; gap: 0.4rem; background: none; border: none; padding: 0.2rem 0; color: var(--accent); font-size: 0.8125rem; font-weight: 600; cursor: pointer; }
+	.rr-matches-toggle:hover { text-decoration: underline; }
+	.rr-group-rounds { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.6rem; align-items: start; }
 	.rr-round { min-width: 0; }
 	.rr-round-hdr {
 		width: 100%; display: flex; align-items: center; gap: 0.5rem;
@@ -842,9 +1008,12 @@
 	.rr-round-count { margin-left: auto; font-size: 0.8rem; font-variant-numeric: tabular-nums; }
 	.rr-match {
 		display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 0.6rem;
-		padding: 0.55rem 0.75rem; margin-bottom: 0.35rem; background: var(--surface-sunken);
-		border-radius: 8px; border: 1px solid transparent; border-left: 3px solid transparent; font-size: 0.9rem;
+		padding: 0.5rem 0.7rem; margin-bottom: 0.3rem; background: var(--surface-sunken);
+		border-radius: 8px; border: 1px solid transparent; border-left: 3px solid transparent; font-size: 0.875rem;
 	}
+	/* win buttons sit right next to the player they credit */
+	.rr-match.bool-row .rr-p:first-child { justify-content: flex-end; text-align: right; }
+	.rr-match.bool-row .rr-p:last-child { justify-content: flex-start; text-align: left; }
 	.rr-match.mine { background: var(--highlight-bg); border-left-color: var(--highlight-border); }
 	.rr-match.admin-tap { cursor: pointer; }
 	.rr-match.admin-tap:hover, .rr-match.editing { border-color: var(--accent); }
@@ -857,7 +1026,16 @@
 	.rr-vs { color: var(--text-dim); }
 	.rr-score, .rr-score-text { font-weight: 800; color: var(--text-main); min-width: 16px; text-align: center; font-variant-numeric: tabular-nums; }
 	.rr-score-text { min-width: 3.2rem; }
-	.rr-edit .score-input { width: 44px; height: 34px; font-size: 0.95rem; }
+	.rr-edit .score-input { width: 52px; height: 36px; font-size: 1rem; text-align: center; border: 1px solid var(--glass-border); background: var(--input-bg); color: var(--input-color); border-radius: 8px; }
+	.rr-edit .score-input:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+	.bool-btns-rr { display: inline-flex; align-items: center; gap: 0.3rem; }
+	.bool-pick { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--glass-border); background: var(--surface-raised); color: var(--text-dim); cursor: pointer; transition: color 0.15s, border-color 0.15s, background 0.15s; }
+	.bool-pick:hover { color: var(--success); border-color: var(--success); background: color-mix(in srgb, var(--success) 10%, transparent); }
+	.bool-pick.draw:hover { color: var(--warning); border-color: var(--warning); background: color-mix(in srgb, var(--warning) 10%, transparent); }
+	.bool-badge { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 8px; }
+	.bool-badge.win { color: var(--success); background: color-mix(in srgb, var(--success) 12%, transparent); }
+	.bool-badge.draw { color: var(--warning); background: color-mix(in srgb, var(--warning) 12%, transparent); }
+	.bool-badge.lose { color: var(--text-muted); }
 
 	/* Zoom controls themed like the rest of the app */
 	.bracket-floating-tools { display: flex; gap: 0.4rem; padding: 0.5rem; }
@@ -876,24 +1054,30 @@
 	.lb-match { border-color: rgba(245,158,11,0.15) !important; }
 
 	/* FFA */
-	.ffa-container { padding: 0.5rem; display: flex; flex-direction: column; gap: 1rem; max-height: 55vh; overflow-y: auto; }
-	.ffa-round { border-radius: 10px; padding: 0.75rem; border: 1px solid var(--glass-border); }
-	.ffa-current { background: rgba(59,130,246,0.06); border-color: rgba(59,130,246,0.2); }
-	.ffa-past { opacity: 0.55; }
-	.ffa-round-hdr { display: flex; justify-content: space-between; align-items: center; font-weight: 800; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--accent); margin-bottom: 0.6rem; padding-bottom: 0.4rem; border-bottom: 1px solid var(--glass-border); }
-	.ffa-player-count { font-weight: 600; color: var(--text-muted); font-size: 0.65rem; }
-	.ffa-players { display: flex; flex-direction: column; gap: 0.25rem; }
-	.ffa-player-row { display: flex; align-items: center; gap: 0.6rem; padding: 0.35rem 0.5rem; border-radius: 6px; background: var(--surface-sunken); font-size: 0.78rem; }
+	.ffa-tree { position: relative; }
+	.ffa-edges { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
+	.ffa-edges path { fill: none; stroke: color-mix(in srgb, var(--accent) 45%, var(--glass-border)); stroke-width: 2; }
+	.ffa-col-head { position: absolute; top: 0; height: 34px; display: flex; align-items: center; justify-content: space-between; padding: 0 0.6rem; border-radius: 8px; font-weight: 800; font-size: 0.8125rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); border: 1px solid var(--glass-border); background: var(--surface-sunken); }
+	.ffa-col-head.current { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+	.ffa-confirm { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.75rem; text-transform: none; letter-spacing: 0; font-weight: 600; }
+	.ffa-mini { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 6px; border: 1px solid var(--glass-border); background: transparent; color: var(--text-dim); cursor: pointer; }
+	.ffa-mini.yes { color: var(--success); border-color: var(--success); }
+	.ffa-mini.no:hover { color: var(--danger); border-color: var(--danger); }
+	.ffa-match-box { position: absolute; box-sizing: border-box; padding: 0.35rem 0.4rem 0.4rem; border-radius: 10px; border: 1px solid var(--glass-border); background: var(--surface-raised); }
+	.ffa-match-box.ffa-box-current { border-color: color-mix(in srgb, var(--accent) 50%, var(--glass-border)); background: var(--surface-raised); }
+	.ffa-player-count { height: 22px; display: flex; align-items: center; padding: 0 0.3rem; font-weight: 700; color: var(--text-dim); font-size: 0.75rem; }
+	.ffa-players { display: flex; flex-direction: column; gap: 2px; }
+	.ffa-player-row { display: flex; align-items: center; gap: 0.5rem; height: 28px; box-sizing: border-box; padding: 0 0.5rem; border-radius: 6px; background: var(--surface-sunken); font-size: 0.8125rem; }
 	.ffa-gold { background: rgba(255,215,0,0.12) !important; border-left: 3px solid #ffd700; }
 	.ffa-silver { background: rgba(192,192,192,0.1) !important; border-left: 3px solid #c0c0c0; }
 	.ffa-bronze { background: rgba(205,127,50,0.1) !important; border-left: 3px solid #cd7f32; }
-	.ffa-player-row.my-player-highlight.ffa-gold { background: rgba(255,215,0,0.15) !important; }
-	.ffa-player-row.my-player-highlight.ffa-silver { background: rgba(192,192,192,0.12) !important; }
-	.ffa-player-row.my-player-highlight.ffa-bronze { background: rgba(205,127,50,0.12) !important; }
-	.ffa-rank { font-weight: 800; min-width: 28px; text-align: center; color: var(--accent); font-size: 0.75rem; }
-	.ffa-name { flex: 1; font-weight: 600; }
+	.ffa-rank { font-weight: 800; min-width: 26px; text-align: center; color: var(--accent); font-size: 0.75rem; }
+	.ffa-name { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	.ffa-input { width: 48px !important; text-align: center; }
-	.ffa-actions { margin-top: 0.75rem; padding-top: 0.6rem; border-top: 1px solid var(--glass-border); display: flex; flex-direction: column; gap: 0.5rem; }
+	.ffa-actions { position: absolute; display: flex; flex-direction: column; gap: 0.5rem; padding-top: 0.2rem; }
+	.ffa-keep { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; font-size: 0.8125rem; font-weight: 600; color: var(--text-dim); }
+	.ffa-keep input { width: 56px; padding: 0.3rem 0.5rem; border-radius: 6px; background: var(--surface-sunken); border: 1px solid var(--glass-border); color: var(--text-main); text-align: center; }
+	.ffa-actions .admin-btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; margin: 0; }
 
 	/* Boolean Mode */
 	.bool-btns { display: flex; gap: 0.2rem; align-items: center; }

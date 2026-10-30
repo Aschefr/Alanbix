@@ -1,5 +1,5 @@
 <script>
-	import { resolveMediaUrl } from '$lib/config';
+	import { resolveMediaUrl, mediaThumb } from '$lib/config';
 
 	import { onMount, onDestroy } from 'svelte';
 
@@ -28,6 +28,21 @@
 
 	// Quick Score & Navigation State (Home Page UX)
 	// Ready-to-play matches first, waiting ones (opponent unknown) after
+	// Scores the player entered stay visible until they hide them (shared with the tournaments page)
+	const HIDDEN_KEY = 'alanbix_hidden_results';
+	function loadHiddenResults() {
+		try { return JSON.parse(localStorage.getItem(HIDDEN_KEY) || '[]'); } catch (e) { return []; }
+	}
+	let hiddenResults = typeof localStorage !== 'undefined' ? loadHiddenResults() : [];
+	function saveHidden() {
+		try { localStorage.setItem(HIDDEN_KEY, JSON.stringify(hiddenResults.slice(-200))); } catch (e) {}
+	}
+	function hideResult(key) { hiddenResults = [...hiddenResults.filter(k => k !== key), key]; saveHidden(); }
+	function hideAllResults() { hiddenResults = [...new Set([...hiddenResults, ...myMatchesAll.filter(m => m.completed).map(m => m.match_key)])]; saveHidden(); }
+	function showHiddenResults() { hiddenResults = []; saveHidden(); }
+	$: myActiveMatches = myMatchesAll.filter(m => !m.completed);
+	$: myResults = myMatchesAll.filter(m => m.completed && !hiddenResults.includes(m.match_key)).slice(-2).reverse();
+	$: hiddenResultsCount = myMatchesAll.filter(m => m.completed && hiddenResults.includes(m.match_key)).length;
 	$: myMatchesSorted = [...myActiveMatches].sort((x, y) => Number(y.is_ready) - Number(x.is_ready));
 	let dashTab = 'tournaments';
 	try { dashTab = localStorage.getItem('alanbix_dash_tab') || 'tournaments'; } catch (e) {}
@@ -78,6 +93,11 @@
 		}
 		activeScoreMatchKey = m.match_key;
 		const currentScores = m.raw_match?.score || [];
+		if (m.is_ffa) {
+			quickScores[m.match_key] = { myScore: currentScores[m.my_slot] || 0, oppScore: 0 };
+			quickScores = quickScores;
+			return;
+		}
 		const myVal = m.my_slot === 0 ? (currentScores[0] ?? 0) : (currentScores[1] ?? 0);
 		const oppVal = m.my_slot === 0 ? (currentScores[1] ?? 0) : (currentScores[0] ?? 0);
 		quickScores[m.match_key] = {
@@ -101,7 +121,12 @@
 		isSubmittingScore = true;
 		try {
 			let scorePayload = [];
-			if (m.boolean_mode) {
+			if (m.is_ffa) {
+				// Free-for-all: send only my own slot, the server keeps everybody else's score
+				const entry = quickScores[m.match_key] || { myScore: 0 };
+				scorePayload = (m.raw_match?.p || []).map(() => null);
+				scorePayload[m.my_slot] = parseInt(entry.myScore, 10) || 0;
+			} else if (m.boolean_mode) {
 				if (outcome === 'win') {
 					scorePayload = m.my_slot === 0 ? [1, 0] : [0, 1];
 				} else if (outcome === 'loss') {
@@ -355,7 +380,7 @@
 			const [userRes, statsRes, tournamentsRes, layoutRes, roomUsersRes, gamesRes, teamLbRes] = await Promise.all([
 				api.get('/me').catch(() => user || null),
 				api.get('/dashboard/stats').catch(() => stats || { tournaments: 0, players: 0, leaderboard: [] }),
-				api.get('/tournaments').catch(() => tournaments || []),
+				api.get('/tournaments').then(list => (list || []).filter(t => !t.is_hidden)).catch(() => tournaments || []),
 				api.get('/room/layout').catch(() => ({ layout: { seats: [], tables: [], furniture: [] } })),
 				api.get('/room/users').catch(() => []),
 				api.get('/tournaments/games').catch(() => []),
@@ -490,7 +515,7 @@
 
 
 
-	$: myActiveMatches = (() => {
+	$: myMatchesAll = (() => {
 
 		const tFunc = $t;
 
@@ -529,7 +554,8 @@
 				const s0 = score[0] ?? null, s1 = score[1] ?? null;
 				const isCompleted = p.length > 2 ? (score.length > 0 && score.every(s => s !== null && s > 0)) : (s0 !== null && s1 !== null && (s0 !== 0 || s1 !== 0) && (s0 !== s1 || config.allow_draws));
 
-				if (isCompleted) continue;
+				// a finished match stays listed (as a result line) unless it was a walkover
+				if (isCompleted && p.includes(0)) continue;
 
 
 
@@ -639,6 +665,10 @@
 
 					roundLabel = `Loser Bracket · Tour ${m.id.r || '?'}`;
 
+				} else if (m.id?.s >= 100) {
+
+					roundLabel = `${tFunc('spec_group_num', { group: String.fromCharCode(64 + m.id.s - 100) })} · Tour ${m.id.r || '?'}`;
+
 				} else if (m.id?.s === 3) {
 
 					roundLabel = `Grande Finale`;
@@ -655,12 +685,19 @@
 					tournament_id: tourney.id,
 					tournament_name: tourney.name,
 					game_name: gameName,
-					game_image: resolveMediaUrl(gameObj?.image_url),
+					game_image: mediaThumb(gameObj?.image_url, 96),
 					round_label: roundLabel,
 					match_id: m.id,
 					raw_match: m,
 					is_ready: isReady,
 					my_slot: mySlot,
+					is_ffa: p.length > 2,
+					completed: isCompleted,
+					my_score: score[mySlot] ?? null,
+					opp_score: p.length === 2 ? (score[1 - mySlot] ?? null) : null,
+					outcome: p.length === 2 && isCompleted
+						? (score[mySlot] === score[1 - mySlot] ? 'draw' : ((config.lower_score_is_better ? score[mySlot] < score[1 - mySlot] : score[mySlot] > score[1 - mySlot]) ? 'win' : 'loss'))
+						: null,
 					my_name: user?.username || 'Vous',
 					opponent_name: oppName,
 					opponent_id: oppPid > 0 ? oppPid : null,
@@ -792,7 +829,21 @@
 										</button>
 									</div>
 
-									{#if m.boolean_mode}
+									{#if m.is_ffa}
+										<div class="numeric-score-row">
+											<div class="score-player-col">
+												<span class="player-label">{$t('mobile_score_ffa_mine')}</span>
+												<div class="score-stepper">
+													<button class="stepper-btn" on:click={() => adjustQuickScore(m.match_key, 'myScore', -1)} disabled={isSubmittingScore}>−</button>
+													<input type="number" min="0" class="stepper-input" bind:value={quickScores[m.match_key].myScore} disabled={isSubmittingScore} />
+													<button class="stepper-btn" on:click={() => adjustQuickScore(m.match_key, 'myScore', 1)} disabled={isSubmittingScore}>+</button>
+												</div>
+											</div>
+										</div>
+										<button class="btn btn-primary btn-submit-quick-score" disabled={isSubmittingScore} on:click={() => submitQuickScore(m)}>
+											<Icon name="check" size={14} /> {isSubmittingScore ? $t('mobile_score_submitting') : $t('mobile_score_submit')}
+										</button>
+									{:else if m.boolean_mode}
 										<div class="boolean-score-actions">
 											<button 
 												class="btn-bool-score win" 
@@ -895,6 +946,29 @@
 							</div>
 						</div>
 					{/each}
+				</div>
+			{/if}
+			{#if myResults.length > 0 || hiddenResultsCount > 0}
+				<div class="my-results">
+					{#each myResults as r (r.match_key)}
+						<div class="result-row" class:win={r.outcome === 'win'} class:loss={r.outcome === 'loss'}>
+							<Icon name="check-circle" size={15} />
+							<span class="rr-text">
+								<strong>{r.is_ffa ? $t('result_ffa_mine', { n: r.my_score }) : `${$t('mobile_score_my_score')} ${r.my_score} – ${r.opp_score}`}</strong>
+								{#if !r.is_ffa}{r.opponent_name}{/if}
+								<span class="rr-meta">· {r.game_name} · {r.round_label}</span>
+							</span>
+							<button class="rr-hide" on:click={() => hideResult(r.match_key)} title={$t('result_hide')} aria-label={$t('result_hide')}><Icon name="x" size={14} /></button>
+						</div>
+					{/each}
+					<div class="rr-actions">
+						{#if myResults.length > 0}
+							<button class="rr-show" on:click={hideAllResults}>{$t('result_hide_all')}</button>
+						{/if}
+						{#if hiddenResultsCount > 0}
+							<button class="rr-show" on:click={showHiddenResults}>{$t('result_show_hidden', { n: hiddenResultsCount })}</button>
+						{/if}
+					</div>
 				</div>
 			{/if}
 		</section>
@@ -1092,7 +1166,14 @@
 								</div>
 								{#if activeScoreMatchKey === m.match_key}
 									<div class="mym-score">
-										{#if m.boolean_mode}
+										{#if m.is_ffa}
+											<label class="mym-field"><span>{$t('mobile_score_ffa_mine')}</span>
+												<input type="number" min="0" inputmode="numeric" bind:value={quickScores[m.match_key].myScore} disabled={isSubmittingScore} />
+											</label>
+											<button class="btn-primary mym-btn" disabled={isSubmittingScore} on:click={() => submitQuickScore(m)}>
+												<Icon name="check" size={13} /> {isSubmittingScore ? $t('mobile_score_submitting') : $t('mobile_score_submit')}
+											</button>
+										{:else if m.boolean_mode}
 											<button class="btn-success mym-btn" disabled={isSubmittingScore} on:click={() => submitQuickScore(m, 'win')}><Icon name="trophy" size={13} /> {$t('mobile_score_win')}</button>
 											<button class="btn-secondary mym-btn" disabled={isSubmittingScore} on:click={() => submitQuickScore(m, 'loss')}><Icon name="x" size={13} /> {$t('mobile_score_loss')}</button>
 											{#if m.allow_draws}
@@ -1116,6 +1197,29 @@
 						{/each}
 					</ul>
 				{/if}
+				{#if myResults.length > 0 || hiddenResultsCount > 0}
+				<div class="my-results">
+					{#each myResults as r (r.match_key)}
+						<div class="result-row" class:win={r.outcome === 'win'} class:loss={r.outcome === 'loss'}>
+							<Icon name="check-circle" size={15} />
+							<span class="rr-text">
+								<strong>{r.is_ffa ? $t('result_ffa_mine', { n: r.my_score }) : `${$t('mobile_score_my_score')} ${r.my_score} – ${r.opp_score}`}</strong>
+								{#if !r.is_ffa}{r.opponent_name}{/if}
+								<span class="rr-meta">· {r.game_name} · {r.round_label}</span>
+							</span>
+							<button class="rr-hide" on:click={() => hideResult(r.match_key)} title={$t('result_hide')} aria-label={$t('result_hide')}><Icon name="x" size={14} /></button>
+						</div>
+					{/each}
+					<div class="rr-actions">
+						{#if myResults.length > 0}
+							<button class="rr-show" on:click={hideAllResults}>{$t('result_hide_all')}</button>
+						{/if}
+						{#if hiddenResultsCount > 0}
+							<button class="rr-show" on:click={showHiddenResults}>{$t('result_show_hidden', { n: hiddenResultsCount })}</button>
+						{/if}
+					</div>
+				</div>
+			{/if}
 			</section>
 
 			<section class="dash-tabs">
@@ -1212,6 +1316,19 @@
 {/if}
 
 <style>
+	.my-results { display: flex; flex-direction: column; gap: 0.3rem; margin-top: 0.5rem; }
+	.result-row { display: flex; align-items: center; gap: 0.5rem; padding: 0.3rem 0.4rem 0.3rem 0.7rem; border-radius: var(--radius-md); font-size: 0.8125rem; color: var(--text-dim); background: var(--surface-sunken); border: 1px solid var(--glass-border); }
+	.result-row.win { border-color: color-mix(in srgb, var(--success) 45%, transparent); }
+	.result-row.win > :global(svg) { color: var(--success); }
+	.result-row.loss { border-color: color-mix(in srgb, var(--danger) 30%, transparent); }
+	.result-row .rr-text { flex: 1; min-width: 0; color: var(--text-main); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.result-row .rr-meta { color: var(--text-dim); }
+	.rr-hide { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; flex-shrink: 0; border: none; border-radius: 6px; background: transparent; color: var(--text-dim); cursor: pointer; }
+	.rr-hide:hover { background: var(--hover-tint); color: var(--text-main); }
+	.rr-actions { display: flex; flex-wrap: wrap; gap: 0.2rem 1rem; }
+	.rr-show { align-self: flex-start; background: none; border: none; padding: 0.1rem 0; color: var(--accent); font-size: 0.75rem; font-weight: 600; cursor: pointer; }
+	.rr-show:hover { text-decoration: underline; }
+
 
 	.hq-dashboard {
 

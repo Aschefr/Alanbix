@@ -1,5 +1,32 @@
 # Changelog
 
+## [1.35.0] - 2026-10-31
+
+### 🏆 Tournament engine
+- **Groups, then knockout**: single and double elimination can start with a group stage (group size and qualifiers per group). Group tables show the qualifiers; the organiser starts the knockout once every group match is played (winners seeded first, no repeated group match-up in round 1) and can go back to the groups until a knockout match is played. Players out after the groups rank behind the knockout.
+- **Free-for-all as a tree**: rounds run left to right, every lobby is linked to the lobbies its players came from, with the same zoom / pan as the brackets. Qualifiers are taken per lobby.
+- **Group cards** (one per group: table + matches, your group first) in the zoomable canvas; clear win/loss buttons.
+- **Hide a tournament from the players** (setting up teams, fixing a score, cancellation): admins only see it, with a badge. Players and the projector no longer get it in lists, details, rankings, statistics, AI answers or notifications.
+- **Format and play mode are locked once a tournament has started** (reset it to change them).
+- The tournament edit dialog no longer drops the settings the server keeps for groups tournaments; existing ones are repaired at startup.
+
+### 🐛 Tournament fixes
+- **Single elimination**: the final was won by default (and the tournament flagged DONE) as soon as the first semi-final ended.
+- **Free-for-all**: final ranking was inverted when the highest score wins (the default); scoring crashed when a round ended with a single-player lobby; the "Mes matchs" quick entry only sends the player's own score.
+- **Finished groups tournaments**: the phase tabs no longer squeeze the bracket and the final ranking into narrow columns; "Back to the groups" is hidden once the tournament is over.
+- Tournament engine sweep tests cover 2 to 17 players in every format, groups and lobbies; the backend suite now runs in about 30 seconds instead of 14 minutes.
+
+### 📱 Players
+- **Your last score stays visible** on the tournament page and in "My matches", with a hide button.
+- **Score bar on the tournament page** also for free-for-all, with win / loss / draw buttons for those tournaments, and about half as tall on phones.
+- **Logout button** on the Profile page; the system notification permission refreshes when you come back to the app; the theme switch keeps the page background in sync.
+- **Faster, steadier game covers**: small cached WebP thumbnails instead of 1 MB originals, and images are cached by the browser.
+
+### 🛡️ Administration
+- One dialog pattern (icon header, sections, segmented choices, footer) for game, tournament and player dialogs; line icons and readable sizes across the admin tabs.
+- Deleting a tournament opens a confirmation explaining what is lost.
+- Game add and edit share the same dialog.
+
 ## [1.34.0] - 2026-10-30
 
 ### 🎨 Interface overhaul ("Le Labo de l'Alambic")

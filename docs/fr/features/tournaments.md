@@ -50,12 +50,20 @@ graph LR
 * Adapté aux jeux de course (Trackmania, Mario Kart) ou de combat multijoueur (Smash à 4).
 * Une manche se compose d'une seule série de placements.
 * L'administrateur saisit le classement final de la manche dans l'interface, puis définit par configuration combien de joueurs avancent à la manche suivante.
+* **Vue en arbre** : les manches s'affichent de gauche à droite, chaque salon (groupe de joueurs) est relié aux salons d'où viennent ses joueurs ; zoom, déplacement et « Recentrer » comme pour l'arbre d'élimination. L'administrateur choisit le nombre de qualifiés **par salon** pour la manche suivante.
 * **Mise en page fluide** : La vue spectateur utilise une disposition flexible (`flex-wrap`) et une hauteur dynamique (`fit-content`) qui élimine tout grand espace vide superflu entre les manches.
 * **Annulation de manche (Rollback)** : Les annulations de manche FFA sont sécurisées par une modale de confirmation inline non intrusive (évitant ainsi les `window.confirm` bloquants du navigateur).
 
 ![FFA](../../../screenshots/alanbix_tournois_FFA.png)
 
 ---
+
+### Poules puis phase finale (option des formats à élimination)
+À la création (ou à l'édition avant le lancement), choisissez **« Poules, puis phase finale »** avec la taille des poules et le nombre de qualifiés par poule.
+1. **Phase de poules** : chaque poule joue un championnat (3 points la victoire, 1 le nul). Les tableaux de poule sont affichés avec les qualifiés en surbrillance.
+2. Quand tous les matchs de poule sont joués, l'organisateur clique sur **« Lancer la phase finale »** : les qualifiés (premiers de poule d'abord, puis deuxièmes…) sont placés dans l'arbre d'élimination, en évitant de refaire un match de poule au premier tour.
+3. L'onglet **Poules** reste consultable pendant la phase finale ; **« Revenir aux poules »** annule l'arbre tant qu'aucun match de la phase finale n'a été joué.
+Les joueurs éliminés en poules sont classés derrière ceux de la phase finale. Une fois le tournoi lancé, le format et le mode de jeu sont verrouillés (réinitialisez le tournoi pour les changer).
 
 ## ⚙️ Les Mécaniques de Match et de Score
 

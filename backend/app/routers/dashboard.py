@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from .. import models, database, auth
 import os
 from .tournaments import _compute_projected_standings
+from ..visibility import visible_tournaments
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
@@ -12,17 +13,17 @@ INFO_FILES_DIR = os.path.join(DATA_DIR, "info_files")
 @router.get("/stats")
 def get_stats(db: Session = Depends(database.get_db)):
     """Public endpoint — no auth required (for spectator mode)."""
-    tournaments_count = db.query(models.Tournament).count()
+    tournaments_count = visible_tournaments(db).count()
     users_count = db.query(models.User).count()
     games_count = db.query(models.Game).count()
-    active_tournaments = db.query(models.Tournament).filter(models.Tournament.status == "RUNNING").count()
+    active_tournaments = visible_tournaments(db).filter(models.Tournament.status == "RUNNING").count()
     
     # Leaderboard: DB points + live projected points from RUNNING tournaments
     all_users = db.query(models.User).all()
     user_pts = {u.id: {"username": u.username, "points": u.points or 0, "team_name": u.team_name, "avatar_url": u.avatar_url, "avatar_shape": u.avatar_shape} for u in all_users}
     
     # Add live points from running tournaments
-    running = db.query(models.Tournament).filter(models.Tournament.status.in_(["RUNNING", "DONE"])).all()
+    running = visible_tournaments(db).filter(models.Tournament.status.in_(["RUNNING", "DONE"])).all()
     for t in running:
         config = t.config or {}
         use_teams = config.get("use_teams", False)
@@ -136,7 +137,7 @@ def get_team_leaderboard(db: Session = Depends(database.get_db)):
     
     # Compute live pts per user_id
     live_pts = {}
-    running = db.query(models.Tournament).filter(models.Tournament.status.in_(["RUNNING", "DONE"])).all()
+    running = visible_tournaments(db).filter(models.Tournament.status.in_(["RUNNING", "DONE"])).all()
     for t in running:
         config = t.config or {}
         use_teams_t = config.get("use_teams", False)
