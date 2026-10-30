@@ -138,3 +138,43 @@ def test_ffa_round_one_any_size(client, db_session, n, group):
     advanced = [pid for m in nxt for pid in m["p"]]
     assert len(advanced) == len(set(advanced)), "a player advanced twice"
     assert len(advanced) == 3, f"{len(advanced)} advanced, expected the 3 requested"
+
+
+def test_ffa_higher_score_wins_by_default(client, db_session):
+    """With the default direction (higher is better) the top score must rank first."""
+    game = _create_game(db_session, "ffa-high", "ffa")
+    t_id = _create_tournament(client, "FFA high", game.id, {
+        "bracket_type": "ffa", "ffa_group_size": 4, "lower_score_is_better": False,
+        "pts_winner": 10, "pts_second": 6, "pts_third": 4, "pts_participation": 1, "pts_per_match": 1,
+    })
+    ids = _get_user_ids(db_session, 4)
+    _join_players(client, t_id, ids)
+    _start(client, t_id)
+    match = _get_bracket(client, t_id)[0]
+    scores = [10, 20, 5, 15]
+    _score(client, t_id, match, scores)
+    best = match["p"][scores.index(20)]
+    worst = match["p"][scores.index(5)]
+    results = {r["entity_id"]: r["rank"] for r in _close(client, t_id)["results"]}
+    assert results[best] == 1, "the highest score must be first"
+    assert results[worst] == 4, "the lowest score must be last"
+
+
+def test_ffa_advance_per_match_keeps_the_best_of_each_lobby(client, db_session):
+    game = _create_game(db_session, "ffa-lobby", "ffa")
+    t_id = _create_tournament(client, "FFA lobbies", game.id, {
+        "bracket_type": "ffa", "ffa_group_size": 4, "lower_score_is_better": True,
+        "pts_winner": 10, "pts_second": 6, "pts_third": 4, "pts_participation": 1, "pts_per_match": 1,
+    })
+    ids = _get_user_ids(db_session, 8)
+    _join_players(client, t_id, ids)
+    _start(client, t_id)
+    bracket = _get_bracket(client, t_id)
+    assert len(bracket) == 2
+    for m in bracket:
+        _score(client, t_id, m, [1, 2, 3, 4])
+    res = client.post(f"/tournaments/{t_id}/ffa-advance", json={"keep_count": 2, "per_match": True})
+    assert res.status_code == 200, res.text
+    advanced = {pid for m in _get_bracket(client, t_id) if m["id"]["r"] == 2 for pid in m["p"]}
+    expected = {bracket[0]["p"][0], bracket[0]["p"][1], bracket[1]["p"][0], bracket[1]["p"][1]}
+    assert advanced == expected

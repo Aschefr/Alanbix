@@ -1578,6 +1578,7 @@ async def update_match_score(
 
 
 class FFAAdvance(BaseModel):
+    per_match: bool = False  # keep_count counts per match (lobby) instead of the whole round
     keep_count: int  # Number of top players to advance
 
 @router.get("/{tournament_id}/group-stage")
@@ -1726,8 +1727,16 @@ async def ffa_advance_round(
     if not all_player_scores:
         raise HTTPException(status_code=400, detail="Aucun joueur à avancer")
         
-    all_player_scores.sort(key=lambda x: x[1], reverse=not lower_is_better)
-    advancing_players = [p for p, s in all_player_scores[:body.keep_count]]
+    if body.per_match:
+        # Top N of every match (lobby), in match order then rank order
+        advancing_players = []
+        for m in sorted(current_matches, key=lambda x: x["id"]["m"]):
+            ranked = [(p, m["score"][i]) for i, p in enumerate(m.get("p", [])) if p != 0]
+            ranked.sort(key=lambda x: x[1], reverse=not lower_is_better)
+            advancing_players.extend(p for p, _ in ranked[:body.keep_count])
+    else:
+        all_player_scores.sort(key=lambda x: x[1], reverse=not lower_is_better)
+        advancing_players = [p for p, s in all_player_scores[:body.keep_count]]
         
     # Create next round matches
     group_size = int(config.get("ffa_group_size", len(advancing_players))) or len(advancing_players)
@@ -2413,9 +2422,8 @@ def _compute_standings(bracket, bracket_type, lower_is_better=False):
             for m in round_matches[max_r]:
                 paired = list(zip(m["p"], m.get("score", [])))
                 valid.extend([(pid, s) for pid, s in paired if pid and pid != 0 and s and s > 0])
-            # In FFA, score = placement position (lower = better regardless of config)
-            # because ffa-advance sorts by score ascending to pick top N
-            valid.sort(key=lambda x: x[1])
+            # Same direction as ffa-advance and the interface: "lower score wins" decides it
+            valid.sort(key=lambda x: x[1], reverse=not lower_is_better)
             prev_score = None
             for pid, score in valid:
                 if score != prev_score:
@@ -2426,8 +2434,8 @@ def _compute_standings(bracket, bracket_type, lower_is_better=False):
         # Then rank eliminated players, latest elimination round first
         for r in sorted(eliminated_per_round.keys(), reverse=True):
             elim = eliminated_per_round[r]
-            # Sort eliminated: lower score = better (they got a better placement before being cut)
-            elim.sort(key=lambda x: x[1])
+            # Eliminated players: the better score before being cut ranks first
+            elim.sort(key=lambda x: x[1], reverse=not lower_is_better)
             base_rank = current_rank + 1
             prev_score = None
             local_rank = base_rank - 1
