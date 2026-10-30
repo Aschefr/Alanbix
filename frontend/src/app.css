@@ -1013,3 +1013,24 @@ a.theme-toggle,
 .nav-item {
   text-decoration: none !important;
 }
+
+/* Hover lift: the button moves up but its hover zone must not, otherwise a
+   pointer resting just under the edge makes it bounce up and down. A
+   transparent strip fills the gap left under the lifted button. */
+:where(.btn-primary, .btn-secondary, .btn-success, .btn-danger, .btn-retry,
+  .admin-btn, .action-btn, .action-link-btn, .team-chat-btn, .toggle-details-btn,
+  .toggle-live-btn, .btn-edit, .btn-save, .btn-upload, .btn-nuke, .seat-badge,
+  .scroll-to-bottom-btn, .award-card, .game-card) {
+  position: relative;
+}
+:where(.btn-primary, .btn-secondary, .btn-success, .btn-danger, .btn-retry,
+  .admin-btn, .action-btn, .action-link-btn, .team-chat-btn, .toggle-details-btn,
+  .toggle-live-btn, .btn-edit, .btn-save, .btn-upload, .btn-nuke, .seat-badge,
+  .scroll-to-bottom-btn, .award-card, .game-card):hover::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  height: 4px;
+}
