@@ -483,6 +483,7 @@
 		const theme = isDark ? 'dark' : 'light';
 		localStorage.setItem('alanbix_theme', theme);
 		document.documentElement.setAttribute('data-theme', theme);
+		document.documentElement.style.background = theme === 'light' ? '#f1f5f9' : '#0f172a';
 	}
 
 	async function logout() {

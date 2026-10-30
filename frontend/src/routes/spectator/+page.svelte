@@ -180,6 +180,7 @@
 		// Apply theme
 		const theme = localStorage.getItem('alanbix_theme') || 'dark';
 		document.documentElement.setAttribute('data-theme', theme);
+		document.documentElement.style.background = theme === 'light' ? '#f1f5f9' : '#0f172a';
 
 		await initI18n();
 
