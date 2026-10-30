@@ -122,6 +122,20 @@ export function resolveMediaUrl(path: string | null | undefined): string {
 	return `${base}${cleanPath}`;
 }
 
+/**
+ * Small WebP copy of a game cover or avatar (generated and cached by the server).
+ * The originals weigh up to 1.2 MB; list tiles only need a few KB.
+ * Anything that is not a known uploaded image keeps its normal URL.
+ */
+export function mediaThumb(path: string | null | undefined, width: 96 | 160 | 320 | 640 = 160): string {
+	if (!path) return '';
+	const m = /^(https?:\/\/[^/]+)?\/(?:data\/(game_images|avatars)|(games))\/([^/?#]+)$/.exec(path);
+	if (!m) return resolveMediaUrl(path);
+	const kind = m[2] || m[3];
+	const thumbPath = `/data/thumbs/${width}/${kind}/${m[4]}`;
+	return m[1] ? `${m[1]}${thumbPath}` : resolveMediaUrl(thumbPath);
+}
+
 // Helper to derive ws(s):// URL from an absolute http(s):// endpoint
 function toWsFromHttp(url: string): string {
 	const clean = url.replace(/\/+$/, '');

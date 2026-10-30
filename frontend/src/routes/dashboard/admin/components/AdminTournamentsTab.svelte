@@ -1,7 +1,7 @@
 <script>
 	import { get } from 'svelte/store';
 	import { api } from '$lib/api';
-	import { API_URL, resolveMediaUrl } from '$lib/config';
+	import { API_URL, resolveMediaUrl, mediaThumb } from '$lib/config';
 	import { t } from '$lib/i18nStore';
 	import CreateTournamentWizard from '$lib/components/CreateTournamentWizard.svelte';
 	import EditTournamentModal from '$lib/components/EditTournamentModal.svelte';
@@ -237,7 +237,7 @@
 				{#each tournaments as tourney}
 					<div class="admin-item-card glass-hover">
 						<div class="card-top-row">
-							<div class="game-mini-thumb" style="background-image: url({resolveMediaUrl(games.find(g => g.id === tourney.game_id)?.image_url)})">
+							<div class="game-mini-thumb" style="background-image: url({mediaThumb(games.find(g => g.id === tourney.game_id)?.image_url, 160)})">
 								{#if !games.find(g => g.id === tourney.game_id)?.image_url}
 									<span class="thumb-placeholder"><Icon name="gamepad" size={20} /></span>
 								{/if}
@@ -311,7 +311,7 @@
 			<div class="game-gallery">
 				{#each games as g}
 					<div class="game-card glass">
-						<div class="game-thumb" style="background-image: url({resolveMediaUrl(g.image_url)})">
+						<div class="game-thumb" style="background-image: url({mediaThumb(g.image_url, 320)})">
 							{#if !g.image_url}<span class="thumb-placeholder"><Icon name="gamepad" size={24} /></span>{/if}
 							<div class="game-card-actions" class:is-confirming={deleteConfirmGameId === g.id}>
 								<button class="game-action-btn edit" on:click={() => openEditGame(g)} title="{$t('admin_tourneys_tooltip_edit')}" aria-label="{$t('admin_tourneys_tooltip_edit')}"><Icon name="pencil" size={14} /></button>

@@ -1,5 +1,5 @@
 <script>
-	import { resolveMediaUrl } from '$lib/config';
+	import { resolveMediaUrl, mediaThumb } from '$lib/config';
 
 	import { onMount, onDestroy } from 'svelte';
 
@@ -665,7 +665,7 @@
 					tournament_id: tourney.id,
 					tournament_name: tourney.name,
 					game_name: gameName,
-					game_image: resolveMediaUrl(gameObj?.image_url),
+					game_image: mediaThumb(gameObj?.image_url, 96),
 					round_label: roundLabel,
 					match_id: m.id,
 					raw_match: m,
