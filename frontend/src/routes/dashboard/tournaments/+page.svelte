@@ -671,6 +671,9 @@
 	$: stage = selected?.config?.stage || null;
 	$: isTwoPhase = selected?.config?.phases === 'double' && !!stage;
 	let phaseTab = 'knockout';
+	let groupData = null;
+	$: groupTables = groupData && groupData.groups ? Object.fromEntries(groupData.groups.map(g => [g.group, g.table])) : null;
+	$: if (!isTwoPhase) groupData = null;
 	$: if (stage !== 'knockout') phaseTab = 'knockout';
 	$: koMatches = (selected?.bracket || []).filter(m => m.id.s < 100);
 	$: groupMatches = (selected?.bracket || []).filter(m => m.id.s >= 100);
@@ -1110,13 +1113,11 @@
 								<button role="tab" class="seg-tab" class:active={phaseTab === 'groups'} aria-selected={phaseTab === 'groups'} on:click={() => phaseTab = 'groups'}><Icon name="layers" size={14} /> {$t('groups_tab_groups')}</button>
 							</div>
 						{/if}
-						{#if showingGroups}
-							<GroupStagePanel {selected} {nameMap} {isAdmin} on:changed={async (e) => {
-								if (e.detail?.error) toast(e.detail.error, 'error'); else if (e.detail?.toast) toast(e.detail.toast, 'success');
-								tournaments = await api.get('/tournaments');
-								await selectTournament(selectedId);
-							}} />
-						{/if}
+						<GroupStagePanel {selected} {isAdmin} on:loaded={(e) => groupData = e.detail} on:changed={async (e) => {
+							if (e.detail?.error) toast(e.detail.error, 'error'); else if (e.detail?.toast) toast(e.detail.toast, 'success');
+							tournaments = await api.get('/tournaments');
+							await selectTournament(selectedId);
+						}} />
 					{/if}
 					<TournamentBracket
 						bind:this={bracketRef}
@@ -1128,6 +1129,8 @@
 						{lbRounds}
 						{lbRoundsRaw}
 						{rrGroups}
+						{groupTables}
+						groupAdvancers={groupData?.advancers || 0}
 						{nameMap}
 						{seatMap}
 						{currentUser}

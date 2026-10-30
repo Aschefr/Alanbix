@@ -1644,5 +1644,9 @@
   "wizard_phases_lbl": "Déroulement",
   "wizard_phases_direct": "Phase finale directe",
   "wizard_phases_groups": "Poules, puis phase finale",
-  "groups_format_summary": "Poules + {format}"
+  "groups_format_summary": "Poules + {format}",
+  "groups_subtitle_one": "Le premier de chaque poule se qualifie pour la phase finale.",
+  "groups_my_group": "Ma poule",
+  "groups_show_matches": "Voir les matchs",
+  "groups_hide_matches": "Masquer les matchs"
 }

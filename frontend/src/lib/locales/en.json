@@ -1644,5 +1644,9 @@
   "wizard_phases_lbl": "Structure",
   "wizard_phases_direct": "Straight to the bracket",
   "wizard_phases_groups": "Groups, then knockout",
-  "groups_format_summary": "Groups + {format}"
+  "groups_format_summary": "Groups + {format}",
+  "groups_subtitle_one": "The winner of each group qualifies for the knockout.",
+  "groups_my_group": "My group",
+  "groups_show_matches": "Show matches",
+  "groups_hide_matches": "Hide matches"
 }

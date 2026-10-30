@@ -1644,5 +1644,9 @@
   "wizard_phases_lbl": "Desarrollo",
   "wizard_phases_direct": "Directo al cuadro",
   "wizard_phases_groups": "Grupos y fase final",
-  "groups_format_summary": "Grupos + {format}"
+  "groups_format_summary": "Grupos + {format}",
+  "groups_subtitle_one": "El primero de cada grupo se clasifica para la fase final.",
+  "groups_my_group": "Mi grupo",
+  "groups_show_matches": "Ver partidos",
+  "groups_hide_matches": "Ocultar partidos"
 }

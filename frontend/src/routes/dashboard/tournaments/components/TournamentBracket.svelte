@@ -12,6 +12,8 @@
 	export let lbRounds = [];
 	export let lbRoundsRaw = [];
 	export let rrGroups = [];
+	export let groupTables = null; // { groupNumber: [row, ...] } from /group-stage (groups + knockout)
+	export let groupAdvancers = 0;
 	export let nameMap = {};
 	export let seatMap = {};
 	export let currentUser = null;
@@ -149,6 +151,20 @@
 	function isRRDone(m) {
 		const a = m.score?.[0] ?? null, b = m.score?.[1] ?? null;
 		return a !== null && b !== null && (a !== 0 || b !== 0) && (a !== b || !!selected?.config?.allow_draws);
+	}
+	// group cards: my group first, matches folded away unless it is mine (or the only one)
+	let rrMatchesOpen = {};
+	function isMineMatch(m) {
+		return useTeams ? (m.p[0] === myTeamSlotId || m.p[1] === myTeamSlotId) : (m.p[0] === currentUser?.id || m.p[1] === currentUser?.id);
+	}
+	function groupHasMine(group) { return group.rounds.some(r => r.some(isMineMatch)); }
+	function groupCounts(group) {
+		const all = group.rounds.flat();
+		return { total: all.length, played: all.filter(isRRDone).length };
+	}
+	$: orderedGroups = [...rrGroups].sort((a, b) => Number(groupHasMine(b)) - Number(groupHasMine(a)));
+	function matchesOpen(group, mine) {
+		return rrMatchesOpen[group.id] ?? (mine || rrGroups.length === 1 || !groupTables);
 	}
 	function currentRRRound(group) {
 		const i = group.rounds.findIndex(r => r.some(m => !isRRDone(m)));
@@ -508,11 +524,56 @@
 		{:else if bracketType === 'round_robin'}
 			<!-- Round Robin Table -->
 			<div class="rr-container">
-				{#each rrGroups as group}
-					<div class="rr-group" style="width: 100%; margin-bottom: 1rem;">
-						{#if rrGroups.length > 1}
-							<h4 class="rr-group-title" style="margin-bottom: 0.5rem; font-weight: 800; color: var(--accent);">{$t('spec_group_num', { group: String.fromCharCode(64 + parseInt(group.id)) })}</h4>
+				<div class="rr-groups-grid" class:single={rrGroups.length === 1}>
+				{#each orderedGroups as group (group.id)}
+					{@const counts = groupCounts(group)}
+					{@const mineGroup = groupHasMine(group)}
+					{@const table = groupTables?.[group.id]}
+					{@const open = matchesOpen(group, mineGroup)}
+					<section class="rr-group" class:mine-group={mineGroup}>
+						<header class="rr-group-head">
+							{#if rrGroups.length > 1}
+								<h4 class="rr-group-title">{$t('spec_group_num', { group: String.fromCharCode(64 + parseInt(group.id)) })}</h4>
+							{/if}
+							{#if mineGroup}<span class="rr-mine-tag">{$t('groups_my_group')}</span>{/if}
+							<span class="rr-group-progress">{counts.played}/{counts.total}</span>
+						</header>
+
+						{#if table}
+							<table class="rr-table">
+								<thead>
+									<tr>
+										<th class="pos">#</th>
+										<th class="nm">{$t('groups_col_player')}</th>
+										<th title={$t('groups_col_played_tip')}>{$t('groups_col_played')}</th>
+										<th title={$t('groups_col_wins_tip')}>{$t('groups_col_wins')}</th>
+										<th title={$t('groups_col_draws_tip')}>{$t('groups_col_draws')}</th>
+										<th title={$t('groups_col_losses_tip')}>{$t('groups_col_losses')}</th>
+										<th title={$t('groups_col_diff_tip')}>{$t('groups_col_diff')}</th>
+										<th class="pts">{$t('groups_col_points')}</th>
+									</tr>
+								</thead>
+								<tbody>
+									{#each table as row}
+										<tr class:qualified={groupAdvancers > 0 && row.position <= groupAdvancers} class:me={useTeams ? row.entity_id === myTeamSlotId : row.entity_id === currentUser?.id}>
+											<td class="pos">{row.position}</td>
+											<td class="nm">{getPlayerName(row.entity_id, nameMap)}</td>
+											<td>{row.played}</td>
+											<td>{row.wins}</td>
+											<td>{row.draws}</td>
+											<td>{row.losses}</td>
+											<td>{row.diff > 0 ? `+${row.diff}` : row.diff}</td>
+											<td class="pts">{row.points}</td>
+										</tr>
+									{/each}
+								</tbody>
+							</table>
+							<button class="rr-matches-toggle" aria-expanded={open} on:click={() => rrMatchesOpen[group.id] = !open}>
+								<Icon name={open ? 'chevron-up' : 'chevron-down'} size={14} /> {open ? $t('groups_hide_matches') : $t('groups_show_matches')}
+							</button>
 						{/if}
+
+						{#if open}
 						<div class="rr-group-rounds">
 							{#each group.rounds as roundMatches, ri}
 								{@const playedCount = roundMatches.filter(m => isRRDone(m)).length}
@@ -537,26 +598,26 @@
 										{@const mKey = rrKey(match)}
 										{@const adminEditing = isAdmin && rrOpenKey === mKey}
 										<!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
-										<div class="rr-match" class:match-done={isDone} class:mine class:admin-tap={isAdmin} class:editing={adminEditing} on:click={() => { if (isAdmin) rrOpenKey = adminEditing ? null : mKey; }}>
+										<div class="rr-match" class:bool-row={booleanMode} class:match-done={isDone} class:mine class:admin-tap={isAdmin} class:editing={adminEditing} on:click={() => { if (isAdmin) rrOpenKey = adminEditing ? null : mKey; }}>
 											<span class="rr-p" class:winner={win0} class:loser={isDone && !win0 && win1}>{#if win0}<Icon name="check" size={13} />{/if}{getPlayerName(match.p[0], nameMap)}{#if match.p[0] > 0 && seatMap[match.p[0]]}<a href="/dashboard/map?highlight={seatMap[match.p[0]]}" class="seat-badge" title={$t('tourneys_view_on_map')} on:click|stopPropagation>💺{seatMap[match.p[0]]}</a>{/if}</span>
 											<div class="rr-scores">
 												{#if booleanMode}
 													{#if isDone}
 														<div class="bool-badge-container">
-															<span class="bool-badge {(lowerIsBetter ? (s0 ?? 0) < (s1 ?? 0) : (s0 ?? 0) > (s1 ?? 0)) ? 'win' : ((s0 ?? 0) === (s1 ?? 0) && (s0 ?? 0) !== 0 ? 'draw' : 'lose')}">{(lowerIsBetter ? (s0 ?? 0) < (s1 ?? 0) : (s0 ?? 0) > (s1 ?? 0)) ? '🏆' : ((s0 ?? 0) === (s1 ?? 0) && (s0 ?? 0) !== 0 ? '🤝' : '❌')}</span>
+															<span class="bool-badge {(lowerIsBetter ? (s0 ?? 0) < (s1 ?? 0) : (s0 ?? 0) > (s1 ?? 0)) ? 'win' : ((s0 ?? 0) === (s1 ?? 0) && (s0 ?? 0) !== 0 ? 'draw' : 'lose')}"><Icon name={(lowerIsBetter ? (s0 ?? 0) < (s1 ?? 0) : (s0 ?? 0) > (s1 ?? 0)) ? 'trophy' : ((s0 ?? 0) === (s1 ?? 0) && (s0 ?? 0) !== 0 ? 'minus' : 'x')} size={15} /></span>
 															<span class="rr-vs">-</span>
-															<span class="bool-badge {(lowerIsBetter ? (s1 ?? 0) < (s0 ?? 0) : (s1 ?? 0) > (s0 ?? 0)) ? 'win' : ((s0 ?? 0) === (s1 ?? 0) && (s0 ?? 0) !== 0 ? 'draw' : 'lose')}">{(lowerIsBetter ? (s1 ?? 0) < (s0 ?? 0) : (s1 ?? 0) > (s0 ?? 0)) ? '🏆' : ((s0 ?? 0) === (s1 ?? 0) && (s0 ?? 0) !== 0 ? '🤝' : '❌')}</span>
+															<span class="bool-badge {(lowerIsBetter ? (s1 ?? 0) < (s0 ?? 0) : (s1 ?? 0) > (s0 ?? 0)) ? 'win' : ((s0 ?? 0) === (s1 ?? 0) && (s0 ?? 0) !== 0 ? 'draw' : 'lose')}"><Icon name={(lowerIsBetter ? (s1 ?? 0) < (s0 ?? 0) : (s1 ?? 0) > (s0 ?? 0)) ? 'trophy' : ((s0 ?? 0) === (s1 ?? 0) && (s0 ?? 0) !== 0 ? 'minus' : 'x')} size={15} /></span>
 															{#if isAdmin}
-																<button class="bool-reset-btn" on:click={() => resetBoolScore(match)} title={$t('tourneys_reset_score_tooltip')}>⏪</button>
+																<button class="bool-reset-btn" on:click={() => resetBoolScore(match)} title={$t('tourneys_reset_score_tooltip')} aria-label={$t('tourneys_reset_score_tooltip')}><Icon name="restart" size={14} /></button>
 															{/if}
 														</div>
 													{:else if canEditPlayerScore(match, 0, myTeamSlotId, isParticipant, currentUser) || canEditPlayerScore(match, 1, myTeamSlotId, isParticipant, currentUser)}
 														<div class="bool-btns-rr">
-															<button class="bool-btn bool-check" on:click={() => setBoolScore(match, 0)} title={$t('tourneys_win_tooltip', { name: getPlayerName(match.p[0], nameMap) })}><span class="bool-default">☐</span><span class="bool-hover">✅</span></button>
+															<button class="bool-pick" on:click={() => setBoolScore(match, 0)} title={$t('tourneys_win_tooltip', { name: getPlayerName(match.p[0], nameMap) })} aria-label={$t('tourneys_win_tooltip', { name: getPlayerName(match.p[0], nameMap) })}><Icon name="trophy" size={16} /></button>
 															{#if selected?.config?.allow_draws}
-																<button class="bool-btn bool-draw" on:click={() => setBoolDraw(match)} title={$t('tourneys_draw_tooltip')}>🤝</button>
+																<button class="bool-pick draw" on:click={() => setBoolDraw(match)} title={$t('tourneys_draw_tooltip')} aria-label={$t('tourneys_draw_tooltip')}><Icon name="minus" size={16} /></button>
 															{/if}
-															<button class="bool-btn bool-check" on:click={() => setBoolScore(match, 1)} title={$t('tourneys_win_tooltip', { name: getPlayerName(match.p[1], nameMap) })}><span class="bool-default">☐</span><span class="bool-hover">✅</span></button>
+															<button class="bool-pick" on:click={() => setBoolScore(match, 1)} title={$t('tourneys_win_tooltip', { name: getPlayerName(match.p[1], nameMap) })} aria-label={$t('tourneys_win_tooltip', { name: getPlayerName(match.p[1], nameMap) })}><Icon name="trophy" size={16} /></button>
 														</div>
 													{:else}
 														<span class="rr-score">—</span><span class="rr-vs">-</span><span class="rr-score">—</span>
@@ -597,8 +658,10 @@
 								</div>
 							{/each}
 						</div>
-					</div>
+						{/if}
+					</section>
 				{/each}
+				</div>
 			</div>
 		{:else}
 			<!-- Duel Bracket (single/double) -->
@@ -812,7 +875,7 @@
 	.btn-xs { padding: 0.3rem 0.6rem; font-size: 0.7rem; }
 
 	/* Bracket Section */
-	.bracket-section { padding: 1rem; border-radius: 14px; display: flex; flex-direction: column; }
+	.bracket-section { padding: 1rem; border-radius: 14px; display: flex; flex-direction: column; min-height: 0; }
 	.bracket-section.bracket-expanded { flex-grow: 1; min-height: 400px; }
 	.bracket-viewport-wrapper { position: relative; flex-grow: 1; min-height: 450px; }
 	.bracket-viewport {
@@ -889,8 +952,34 @@
 	.bracket-empty p { margin: 0; font-size: 0.85rem; }
 
 	/* Round Robin */
-	.rr-container { padding: 0.5rem; display: flex; flex-direction: column; gap: 1rem; }
-	.rr-group-rounds { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem; align-items: start; }
+	/* the groups scroll inside the section: the page itself does not scroll */
+	.rr-container { padding: 0.5rem; display: flex; flex-direction: column; gap: 1rem; flex: 1 1 0; min-height: 0; overflow-y: auto; }
+	.rr-groups-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 440px), 1fr)); gap: 1rem; align-items: start; }
+	@media (max-width: 640px) {
+		.rr-match .seat-badge { display: none; }
+		.rr-match.bool-row .rr-p:first-child, .rr-match.bool-row .rr-p:last-child { justify-content: flex-start; text-align: left; }
+		.rr-match.bool-row .rr-p:first-child { justify-content: flex-end; text-align: right; }
+		.bool-pick { width: 30px; height: 30px; }
+	}
+	.rr-groups-grid.single { grid-template-columns: minmax(0, 1fr); }
+	.rr-group { display: flex; flex-direction: column; gap: 0.6rem; padding: 0.8rem 0.9rem; border-radius: 12px; border: 1px solid var(--glass-border); background: var(--surface-raised); min-width: 0; }
+	.rr-group.mine-group { border-color: color-mix(in srgb, var(--accent) 55%, var(--glass-border)); }
+	.rr-group-head { display: flex; align-items: center; gap: 0.6rem; }
+	.rr-group-title { margin: 0; font-family: var(--font-title); font-size: var(--fs-section); font-weight: 700; color: var(--text-main); }
+	.rr-mine-tag { font-size: 0.75rem; font-weight: 700; color: var(--accent); background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); border-radius: 999px; padding: 0.1rem 0.55rem; }
+	.rr-group-progress { margin-left: auto; font-size: 0.8125rem; font-weight: 700; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+	.rr-table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
+	.rr-table th { text-align: center; font-weight: 600; color: var(--text-dim); padding: 0.25rem 0.3rem; border-bottom: 1px solid var(--glass-border); white-space: nowrap; }
+	.rr-table td { text-align: center; padding: 0.3rem; color: var(--text-main); border-bottom: 1px solid color-mix(in srgb, var(--glass-border) 55%, transparent); font-variant-numeric: tabular-nums; }
+	.rr-table .nm { text-align: left; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+	.rr-table .pos { width: 1.5rem; color: var(--text-dim); }
+	.rr-table .pts { font-weight: 800; color: var(--accent); }
+	.rr-table tr.qualified td { background: color-mix(in srgb, var(--success) 8%, transparent); }
+	.rr-table tr.qualified .pos { color: var(--success); font-weight: 800; }
+	.rr-table tr.me .nm { color: var(--accent); }
+	.rr-matches-toggle { align-self: flex-start; display: inline-flex; align-items: center; gap: 0.4rem; background: none; border: none; padding: 0.2rem 0; color: var(--accent); font-size: 0.8125rem; font-weight: 600; cursor: pointer; }
+	.rr-matches-toggle:hover { text-decoration: underline; }
+	.rr-group-rounds { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.6rem; align-items: start; }
 	.rr-round { min-width: 0; }
 	.rr-round-hdr {
 		width: 100%; display: flex; align-items: center; gap: 0.5rem;
@@ -904,9 +993,12 @@
 	.rr-round-count { margin-left: auto; font-size: 0.8rem; font-variant-numeric: tabular-nums; }
 	.rr-match {
 		display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 0.6rem;
-		padding: 0.55rem 0.75rem; margin-bottom: 0.35rem; background: var(--surface-sunken);
-		border-radius: 8px; border: 1px solid transparent; border-left: 3px solid transparent; font-size: 0.9rem;
+		padding: 0.5rem 0.7rem; margin-bottom: 0.3rem; background: var(--surface-sunken);
+		border-radius: 8px; border: 1px solid transparent; border-left: 3px solid transparent; font-size: 0.875rem;
 	}
+	/* win buttons sit right next to the player they credit */
+	.rr-match.bool-row .rr-p:first-child { justify-content: flex-end; text-align: right; }
+	.rr-match.bool-row .rr-p:last-child { justify-content: flex-start; text-align: left; }
 	.rr-match.mine { background: var(--highlight-bg); border-left-color: var(--highlight-border); }
 	.rr-match.admin-tap { cursor: pointer; }
 	.rr-match.admin-tap:hover, .rr-match.editing { border-color: var(--accent); }
@@ -919,7 +1011,16 @@
 	.rr-vs { color: var(--text-dim); }
 	.rr-score, .rr-score-text { font-weight: 800; color: var(--text-main); min-width: 16px; text-align: center; font-variant-numeric: tabular-nums; }
 	.rr-score-text { min-width: 3.2rem; }
-	.rr-edit .score-input { width: 44px; height: 34px; font-size: 0.95rem; }
+	.rr-edit .score-input { width: 52px; height: 36px; font-size: 1rem; text-align: center; border: 1px solid var(--glass-border); background: var(--input-bg); color: var(--input-color); border-radius: 8px; }
+	.rr-edit .score-input:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+	.bool-btns-rr { display: inline-flex; align-items: center; gap: 0.3rem; }
+	.bool-pick { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--glass-border); background: var(--surface-raised); color: var(--text-dim); cursor: pointer; transition: color 0.15s, border-color 0.15s, background 0.15s; }
+	.bool-pick:hover { color: var(--success); border-color: var(--success); background: color-mix(in srgb, var(--success) 10%, transparent); }
+	.bool-pick.draw:hover { color: var(--warning); border-color: var(--warning); background: color-mix(in srgb, var(--warning) 10%, transparent); }
+	.bool-badge { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 8px; }
+	.bool-badge.win { color: var(--success); background: color-mix(in srgb, var(--success) 12%, transparent); }
+	.bool-badge.draw { color: var(--warning); background: color-mix(in srgb, var(--warning) 12%, transparent); }
+	.bool-badge.lose { color: var(--text-muted); }
 
 	/* Zoom controls themed like the rest of the app */
 	.bracket-floating-tools { display: flex; gap: 0.4rem; padding: 0.5rem; }

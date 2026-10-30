@@ -5,7 +5,6 @@
 	import Icon from '$lib/components/Icon.svelte';
 
 	export let selected;
-	export let nameMap = {};
 	export let isAdmin = false;
 
 	const dispatch = createEventDispatcher();
@@ -18,7 +17,7 @@
 	$: cfg = selected?.config || {};
 	$: enabled = cfg.phases === 'double' && !!cfg.stage;
 	$: stage = cfg.stage;
-	// reload whenever the bracket changes (a group score was entered, the knockout started...)
+	// reload whenever a group score changes or the stage changes
 	$: signature = selected ? `${selected.id}|${stage}|${JSON.stringify((selected.bracket || []).filter(m => m.id.s >= 100).map(m => m.score))}` : '';
 	$: if (enabled && signature !== loadedKey) load(signature);
 
@@ -26,15 +25,18 @@
 		loadedKey = key;
 		try {
 			data = await api.get(`/tournaments/${selected.id}/group-stage`);
+			dispatch('loaded', data);
 		} catch (e) {
 			data = null;
 		}
 	}
 
-	// reactive: the names arrive after the first render
-	$: label = (id) => nameMap[id] ?? nameMap[String(id)] ?? `#${Math.abs(id)}`;
-
-	$: remaining = (selected?.bracket || []).filter(m => m.id.s >= 100 && !(m.score?.[0] !== null && m.score?.[1] !== null && (m.score?.[0] || m.score?.[1]))).length;
+	$: groupMatches = (selected?.bracket || []).filter(m => m.id.s >= 100);
+	$: isPlayed = (m) => m.score?.[0] !== null && m.score?.[1] !== null && (m.score?.[0] || m.score?.[1]);
+	$: total = groupMatches.length;
+	$: played = groupMatches.filter(isPlayed).length;
+	$: remaining = total - played;
+	$: percent = total ? Math.round((played / total) * 100) : 0;
 
 	async function startKnockout() {
 		busy = true;
@@ -63,61 +65,30 @@
 </script>
 
 {#if enabled && data}
-	<section class="group-stage glass">
-		<header class="gs-head">
-			<span class="gs-ic"><Icon name="layers" size={18} /></span>
+	<section class="group-bar glass">
+		<span class="gs-ic"><Icon name="layers" size={18} /></span>
+		<div class="gs-main">
 			<div class="gs-title">
 				<h3>{$t('groups_title')}</h3>
-				<span>{$t('groups_subtitle', { n: data.advancers })}</span>
+				<span class="gs-sub">{$t(data.advancers === 1 ? 'groups_subtitle_one' : 'groups_subtitle', { n: data.advancers })}</span>
 			</div>
-		</header>
-
-		<div class="gs-grid">
-			{#each data.groups as g}
-				<div class="gs-table">
-					<h4>{$t('spec_group_num', { group: String.fromCharCode(64 + g.group) })}</h4>
-					<table>
-						<thead>
-							<tr>
-								<th class="pos">#</th>
-								<th class="name">{$t('groups_col_player')}</th>
-								<th title={$t('groups_col_played_tip')}>{$t('groups_col_played')}</th>
-								<th title={$t('groups_col_wins_tip')}>{$t('groups_col_wins')}</th>
-								<th title={$t('groups_col_draws_tip')}>{$t('groups_col_draws')}</th>
-								<th title={$t('groups_col_losses_tip')}>{$t('groups_col_losses')}</th>
-								<th title={$t('groups_col_diff_tip')}>{$t('groups_col_diff')}</th>
-								<th class="pts">{$t('groups_col_points')}</th>
-							</tr>
-						</thead>
-						<tbody>
-							{#each g.table as row}
-								<tr class:qualified={row.position <= data.advancers}>
-									<td class="pos">{row.position}</td>
-									<td class="name">{label(row.entity_id)}</td>
-									<td>{row.played}</td>
-									<td>{row.wins}</td>
-									<td>{row.draws}</td>
-									<td>{row.losses}</td>
-									<td>{row.diff > 0 ? `+${row.diff}` : row.diff}</td>
-									<td class="pts">{row.points}</td>
-								</tr>
-							{/each}
-						</tbody>
-					</table>
+			{#if stage === 'groups'}
+				<div class="gs-progress" title={$t('groups_remaining', { n: remaining })}>
+					<div class="gs-bar"><div class="gs-fill" style="width: {percent}%"></div></div>
+					<span class="gs-count">{played}/{total}</span>
 				</div>
-			{/each}
+			{/if}
 		</div>
 
-		<footer class="gs-foot">
+		<div class="gs-actions">
 			{#if stage === 'groups'}
 				{#if data.complete}
-					<span class="gs-note ok"><Icon name="check-circle" size={15} /> {$t('groups_all_played')}</span>
 					{#if isAdmin}
 						<button class="btn-primary btn-ic" on:click={startKnockout} disabled={busy}>
 							<Icon name="play" size={15} /> {$t('groups_start_knockout')}
 						</button>
 					{:else}
-						<span class="gs-note">{$t('groups_waiting_admin')}</span>
+						<span class="gs-note ok"><Icon name="check-circle" size={15} /> {$t('groups_waiting_admin')}</span>
 					{/if}
 				{:else}
 					<span class="gs-note"><Icon name="clock" size={15} /> {$t('groups_remaining', { n: remaining })}</span>
@@ -133,32 +104,30 @@
 					</button>
 				{/if}
 			{/if}
-		</footer>
+		</div>
 	</section>
 {/if}
 
 <style>
-	.group-stage { border-radius: var(--radius-lg); padding: 1rem 1.1rem; display: flex; flex-direction: column; gap: 0.9rem; margin-bottom: 1rem; }
-	.gs-head { display: flex; align-items: center; gap: 0.8rem; }
+	.group-bar { display: flex; align-items: center; gap: 0.9rem; padding: 0.7rem 1rem; border-radius: var(--radius-lg); margin-bottom: 0.9rem; flex-wrap: wrap; }
 	.gs-ic { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 10px; background: var(--accent-soft); color: var(--accent); flex-shrink: 0; }
+	.gs-main { flex: 1 1 260px; min-width: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+	.gs-title { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0.2rem 0.8rem; }
 	.gs-title h3 { margin: 0; font-size: var(--fs-section); }
-	.gs-title span { font-size: 0.8125rem; color: var(--text-dim); }
-	.gs-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 0.9rem; }
-	.gs-table h4 { margin: 0 0 0.4rem; font-size: var(--fs-sub); color: var(--text-main); }
-	table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
-	th { text-align: center; font-weight: 600; color: var(--text-dim); padding: 0.3rem 0.35rem; border-bottom: 1px solid var(--glass-border); white-space: nowrap; }
-	td { text-align: center; padding: 0.35rem; border-bottom: 1px solid color-mix(in srgb, var(--glass-border) 60%, transparent); color: var(--text-main); }
-	.name { text-align: left; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-	.pos { width: 1.6rem; color: var(--text-dim); }
-	.pts { font-weight: 800; color: var(--accent); }
-	tr.qualified td { background: color-mix(in srgb, var(--success) 8%, transparent); }
-	tr.qualified .pos { color: var(--success); font-weight: 800; }
-	.gs-foot { display: flex; align-items: center; flex-wrap: wrap; gap: 0.6rem; justify-content: flex-end; }
-	.gs-note { display: inline-flex; align-items: center; gap: 0.4rem; margin-right: auto; font-size: 0.8125rem; color: var(--text-dim); }
+	.gs-sub { font-size: 0.8125rem; color: var(--text-dim); }
+	.gs-progress { display: flex; align-items: center; gap: 0.6rem; }
+	.gs-bar { flex: 1; min-width: 140px; max-width: 320px; height: 6px; border-radius: 999px; background: var(--surface-sunken); border: 1px solid var(--glass-border); box-sizing: content-box; overflow: hidden; }
+	.gs-fill { height: 100%; background: var(--accent-solid); border-radius: 999px; transition: width 0.3s; }
+	.gs-count { font-size: 0.8125rem; font-weight: 700; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+	.gs-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 0.6rem; margin-left: auto; }
+	.gs-note { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.8125rem; color: var(--text-dim); }
 	.gs-note.ok { color: var(--success); }
 	.btn-ic { display: inline-flex; align-items: center; gap: 0.4rem; }
 	@media (max-width: 640px) {
-		.gs-grid { grid-template-columns: minmax(0, 1fr); }
-		.gs-foot .btn-primary, .gs-foot .btn-secondary, .gs-foot .btn-danger { flex: 1 1 auto; justify-content: center; }
+		/* phones keep the room for the groups: one slim line */
+		.group-bar { padding: 0.45rem 0.7rem; gap: 0.5rem; margin-bottom: 0.5rem; }
+		.gs-ic, .gs-sub { display: none; }
+		.gs-actions { margin-left: 0; width: 100%; }
+		.gs-actions .btn-primary, .gs-actions .btn-secondary, .gs-actions .btn-danger { flex: 1 1 auto; justify-content: center; }
 	}
 </style>
