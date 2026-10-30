@@ -96,11 +96,25 @@ def check_svelte_files():
         print("✅ Fichiers Svelte propres (aucune double accolade trouvée).")
     return not has_error
 
+def check_hardcoded_text():
+    print("\n--- VÉRIFICATION DES TEXTES EN DUR ---")
+    import subprocess
+    script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "check_hardcoded_text.py")
+    res = subprocess.run([sys.executable, script], capture_output=True, text=True, encoding="utf-8")
+    if res.returncode != 0:
+        print(res.stdout.strip())
+        print("[ERREUR] Utilisez une clé i18n ($t('...')) au lieu d'un texte écrit dans le code, "
+              "ou ajoutez « i18n-ignore » en fin de ligne pour un texte technique.")
+        return False
+    print("✅ Aucun texte en dur dans les fichiers Svelte.")
+    return True
+
 if __name__ == '__main__':
     json_ok = check_json_files()
     svelte_ok = check_svelte_files()
+    text_ok = check_hardcoded_text()
     
-    if not json_ok or not svelte_ok:
+    if not json_ok or not svelte_ok or not text_ok:
         sys.exit(1)
     else:
         print("\n🎉 Toutes les vérifications sont passées avec succès !")
