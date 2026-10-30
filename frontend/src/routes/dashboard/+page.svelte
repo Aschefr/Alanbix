@@ -476,6 +476,13 @@
 
 	let mobileActiveTab = 'matches'; // 'matches' | 'chat'
 	let mobilePodiumOpen = true;
+	// Full ranking on mobile: the choice is kept between visits
+	let mobileLbFull = false;
+	try { mobileLbFull = localStorage.getItem('alanbix_mobile_lb_full') === '1'; } catch {}
+	function toggleMobileLb() {
+		mobileLbFull = !mobileLbFull;
+		try { localStorage.setItem('alanbix_mobile_lb_full', mobileLbFull ? '1' : '0'); } catch {}
+	}
 	$: mobileTourneysSummary = (() => {
 		const active = (tournaments || []).filter(t => t.status === 'RUNNING' || t.status === 'OPEN');
 		return (active.length > 0 ? active : (tournaments || [])).slice(0, 4);
@@ -915,44 +922,40 @@
 			</div>
 		</section>
 
-		<!-- Leaderboard Top 3 -->
-
+		<!-- Leaderboard: top 3, unfolds (remembered) into the full player / team ranking -->
 		{#if stats.leaderboard && stats.leaderboard.length > 0}
-
 			<section class="mobile-section">
-
 				<div class="mobile-section-header">
-
-					<h2><Icon name="trophy" size={15} /> {$t('mobile_top_podium_title')}</h2>
-
+					<h2><Icon name="trophy" size={15} /> {mobileLbFull ? $t('dash_lb_title') : $t('mobile_top_podium_title')}</h2>
+					<button class="mobile-lb-toggle" on:click={toggleMobileLb} aria-expanded={mobileLbFull}>
+						{mobileLbFull ? $t('mobile_lb_show_top3') : $t('mobile_lb_show_all')}
+						<Icon name={mobileLbFull ? 'chevron-up' : 'chevron-down'} size={14} />
+					</button>
 				</div>
-
-				<div class="mobile-podium glass">
-
-					{#each stats.leaderboard.slice(0, 3) as p, idx}
-
-						<div class="podium-row">
-
-							<span class="podium-rank">{idx === 0 ? '🥇' : idx === 1 ? '🥈' : '🥉'}</span>
-
-							<span class="podium-name">{p.username}</span>
-
-							{#if p.team_name}
-
-								<span class="podium-team">👥 {p.team_name}</span>
-
-							{/if}
-
-							<span class="podium-pts">{p.points || 0} {$t('common_pts')}</span>
-
-						</div>
-
-					{/each}
-
-				</div>
-
+				{#if mobileLbFull}
+					<div class="mobile-lb-full">
+						<DashboardLeaderboard
+							{stats}
+							{teamLeaderboard}
+							{previousLeaderboard}
+							on:openPlayerStats={(e) => openPlayerStats(e.detail)}
+						/>
+					</div>
+				{:else}
+					<div class="mobile-podium glass">
+						{#each stats.leaderboard.slice(0, 3) as p, idx}
+							<div class="podium-row">
+								<span class="podium-rank">{idx === 0 ? '🥇' : idx === 1 ? '🥈' : '🥉'}</span>
+								<span class="podium-name">{p.username}</span>
+								{#if p.team_name}
+									<span class="podium-team">👥 {p.team_name}</span>
+								{/if}
+								<span class="podium-pts">{p.points || 0} {$t('common_pts')}</span>
+							</div>
+						{/each}
+					</div>
+				{/if}
 			</section>
-
 		{/if}
 
 	</div>
@@ -1504,6 +1507,8 @@
 			flex-direction: column;
 
 			gap: 1.25rem;
+			/* the last block must clear the bottom tab bar */
+			padding-bottom: calc(var(--mobile-nav-h, 48px) + var(--safe-bottom, 0px) + 1rem);
 
 		}
 
@@ -2222,6 +2227,10 @@
 
 		/* Mobile Podium */
 
+		.mobile-lb-toggle { display: inline-flex; align-items: center; gap: 0.25rem; background: none; border: none; color: var(--accent); font-size: 0.82rem; font-weight: 600; cursor: pointer; padding: 0.2rem 0; }
+		.mobile-lb-full { border-radius: 12px; overflow: hidden; }
+		/* the section header already says "Classement" */
+		.mobile-lb-full :global(.panel-header h2) { display: none; }
 		.mobile-podium {
 
 			border-radius: 12px;

@@ -1597,5 +1597,7 @@
   "map_empty_draw": "Dibujar el plano",
   "map_free_all_confirm": "¿Liberar todos los sitios?",
   "map_free_all_yes": "Sí, liberar todo",
-  "server_modal_other_addresses": "+ {n} otra(s) dirección(es)"
+  "server_modal_other_addresses": "+ {n} otra(s) dirección(es)",
+  "mobile_lb_show_all": "Ver todo",
+  "mobile_lb_show_top3": "Top 3"
 }
