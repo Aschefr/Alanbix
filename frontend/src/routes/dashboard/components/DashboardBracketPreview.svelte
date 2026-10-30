@@ -527,6 +527,9 @@
 	.pan-arrow-down { bottom: 4px; left: 50%; transform: translateX(-50%) rotate(-90deg); width: 22px; height: 40px; background: linear-gradient(90deg, rgba(59,130,246,0.15), transparent); border-radius: 4px; }
 	@keyframes panArrowPulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 0.85; } }
 
+	/* Round robin is a list: it scrolls instead of being cut off */
+	.dash-rr { flex-grow: 1; min-height: 0; overflow-y: auto; padding: 0.25rem; }
+	.dash-rr-match { font-size: 0.8rem; }
 	.dash-ffa { display: flex; flex-direction: column; gap: 0.5rem; flex-grow: 1; min-height: 0; overflow-y: auto; padding: 0.25rem; }
 	.dash-ffa-round { border: 1px solid var(--glass-border); border-radius: 8px; padding: 0.5rem; opacity: 0.5; }
 	.dash-ffa-round.ffa-latest { opacity: 1; background: rgba(59,130,246,0.05); border-color: rgba(59,130,246,0.2); }
