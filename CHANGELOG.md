@@ -30,6 +30,12 @@
 - Double scrollbar on the dashboard.
 - Translations edited by an administrator no longer freeze updates of the default texts.
 
+### 📱 Mobile app & Settings
+- **Settings page rebuilt**: sections with icon rows, two columns on wide screens, segmented theme and language controls, consistent badges and buttons.
+- System notification permission is refreshed when you return to the app; the page background follows the theme switch.
+- New app icon, server picker that lists the other addresses of a server, game images and profile data load reliably, faster login screen.
+- Mobile: leaderboard top 3 with unfold, team ranking, Tournaments page fits the screen without scrolling.
+
 ### 🌍 Internationalisation
 - Every user-facing text now goes through translation keys; a check in `verify_i18n.py` rejects hard-coded text.
 
