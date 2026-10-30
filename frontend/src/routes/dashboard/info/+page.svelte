@@ -349,14 +349,14 @@
 </div>
 
 <style>
-	.info-page { max-width: 960px; margin: 0 auto; font-family: var(--font-main); }
+	.info-page { width: 100%; max-width: 1100px; margin: 0 auto; font-family: var(--font-main); }
 
 	.info-header {
 		display: flex; align-items: center; gap: 1rem; margin-bottom: 2rem;
 	}
 	.info-header h1 {
 		font-size: var(--fs-page); font-weight: 700; margin: 0; flex: 1;
-		color: var(--accent);
+		color: var(--text-main);
 		font-family: var(--font-title);
 		letter-spacing: -0.02em;
 	}
@@ -494,15 +494,15 @@
 	/* File Manager (AXE-13) */
 	.files-section { margin-top: 2rem; padding: 1.5rem; border-radius: var(--radius-lg, 16px); }
 	.files-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
-	.files-header h2 { margin: 0; font-size: 1.2rem; font-weight: 800; color: var(--accent); font-family: var(--font-title); }
+	.files-header h2 { margin: 0; font-size: var(--fs-section); font-weight: 700; color: var(--text-main); font-family: var(--font-title); }
 	.btn-upload {
 		padding: 0.5rem 1rem; border-radius: var(--radius-md);
-		background: linear-gradient(135deg, #8b5cf6, #6d28d9); color: white;
-		font-weight: 700; font-size: 0.8rem; cursor: pointer;
-		transition: all 0.2s; border: none; display: inline-flex; align-items: center; gap: 0.4rem;
+		background: var(--surface-sunken); color: var(--text-main);
+		font-weight: 600; font-size: 0.85rem; cursor: pointer;
+		transition: all 0.2s; border: 1px solid var(--glass-border); display: inline-flex; align-items: center; gap: 0.4rem;
 		font-family: var(--font-main);
 	}
-	.btn-upload:hover { transform: translateY(-1px); box-shadow: 0 4px 15px rgba(139,92,246,0.4); }
+	.btn-upload:hover { transform: translateY(-1px); border-color: var(--accent); color: var(--accent); }
 	.btn-upload.uploading { opacity: 0.6; cursor: wait; }
 	.files-empty { color: var(--text-muted); font-size: 0.85rem; font-style: italic; text-align: center; padding: 1rem; }
 	.files-list { display: flex; flex-direction: column; gap: 0.5rem; }

@@ -618,7 +618,7 @@
   "info_files_add": "Add File",
   "info_files_delete_tooltip": "Delete",
   "info_files_download_tooltip": "Download",
-  "info_files_empty": "No files uploaded.",
+  "info_files_empty": "No files yet.",
   "info_files_error": "Upload error",
   "info_files_nuke_tooltip": "Delete all files",
   "info_files_title": "Useful Files",
