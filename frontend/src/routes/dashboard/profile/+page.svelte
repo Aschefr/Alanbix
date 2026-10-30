@@ -9,8 +9,19 @@
 	import { formatPoints } from '$lib/utils';
 	import { profanityFilterEnabled, toggleProfanityFilter } from '$lib/profanity';
 	import { resolveMediaUrl } from '$lib/config';
+	import Icon from '$lib/components/Icon.svelte';
+	import { authStore } from '$lib/auth';
+	import { stopNativePushService, revokeCurrentDeviceToken } from '$lib/push';
 
 	let user = null;
+	let confirmLogout = false;
+
+	async function logout() {
+		await stopNativePushService();
+		await revokeCurrentDeviceToken();
+		authStore.logout();
+		goto('/');
+	}
 	let teamName = '';
 	let saving = false;
 	let saved = false;
@@ -485,6 +496,17 @@
 				{user.is_admin ? '👑 ' + $t('role_admin') : '🎮 ' + $t('role_player')}
 			</span>
 		</div>
+		<div class="logout-zone">
+			{#if confirmLogout}
+				<span class="logout-ask">{$t('profile_logout_confirm')}</span>
+				<button class="btn-danger btn-compact" on:click={logout}>{$t('profile_logout_yes')}</button>
+				<button class="btn-secondary btn-compact" on:click={() => confirmLogout = false}>{$t('common_cancel')}</button>
+			{:else}
+				<button class="btn-secondary btn-compact btn-logout" on:click={() => confirmLogout = true}>
+					<Icon name="logout" size={15} /> {$t('settings_btn_logout')}
+				</button>
+			{/if}
+		</div>
 		{#if pointsData}
 			<div class="total-pts-badge">
 				<span class="pts-number">{formatPoints(pointsData.history.reduce((s, h) => s + (h.total || 0), 0))}</span>
@@ -713,6 +735,10 @@
 	.btn-danger-icon:hover { background: rgba(239, 68, 68, 0.2); transform: scale(1.08); }
 	.header-info { flex: 1; }
 	.header-info h1 { margin-bottom: 0.3rem; font-family: var(--font-title); letter-spacing: -0.02em; }
+	.logout-zone { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 0.5rem; }
+	.logout-ask { flex-basis: 100%; text-align: center; font-size: 0.875rem; color: var(--text-main); }
+	.btn-compact { padding: 0.4rem 0.8rem; font-size: 0.8125rem; }
+	.btn-logout { display: inline-flex; align-items: center; gap: 0.4rem; }
 	.role-badge { display: inline-block; padding: 0.3rem 0.8rem; border-radius: 20px; font-size: 0.75rem; font-weight: 700; font-family: var(--font-main); }
 	.role-badge.admin { background: rgba(251, 191, 36, 0.1); color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.2); }
 	.role-badge.player { background: rgba(59, 130, 246, 0.1); color: var(--accent); border: 1px solid rgba(59, 130, 246, 0.2); }

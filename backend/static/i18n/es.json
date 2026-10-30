@@ -1589,5 +1589,7 @@
   "mobile_lb_show_all": "Ver todo",
   "mobile_lb_show_top3": "Top 3",
   "settings_theme_opt_dark": "Oscuro",
-  "settings_theme_opt_light": "Claro"
+  "settings_theme_opt_light": "Claro",
+  "profile_logout_confirm": "¿Cerrar sesión?",
+  "profile_logout_yes": "Sí, cerrar sesión"
 }
