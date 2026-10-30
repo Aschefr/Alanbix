@@ -1,4 +1,5 @@
 <script>
+	import Icon from '$lib/components/Icon.svelte';
 	import { t } from '$lib/i18nStore';
 	import { get } from 'svelte/store';
 	import { onMount, onDestroy } from 'svelte';
@@ -822,7 +823,7 @@
 <div class="map-page">
 	<header class="flex-row justify-between items-center mb-4">
 		<div>
-			<h1 class="title-premium"><span class="title-icon">📍</span> {$t("map_title")}</h1>
+			<h1 class="title-premium page-title-icon"><Icon name="pin" size={22} /> {$t("map_title")}</h1>
 			<p class="text-dim text-sm">
 				{#if editMode}
 					{$t('map_edit_instructions')}

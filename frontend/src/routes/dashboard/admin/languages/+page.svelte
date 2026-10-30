@@ -1,4 +1,5 @@
 <script>
+	import Icon from '$lib/components/Icon.svelte';
 	import { t, flagMap } from '$lib/i18nStore';
 	import { api } from '$lib/api';
 	import { API_URL } from '$lib/config';
@@ -545,7 +546,7 @@
 	<!-- ─── Title bar ──────────────────────────────────────── -->
 	<div class="header-title-bar">
 		<a href="/dashboard/admin" class="back-link">← {$t('admin_languages_back')}</a>
-		<h1 class="page-title"><span class="title-icon">🌍</span> {$t('admin_languages_title')}</h1>
+		<h1 class="page-title page-title-icon"><Icon name="globe" size={22} /> {$t('admin_languages_title')}</h1>
 		<div class="header-spacer"></div>
 		<div class="add-lang-group">
 			<select bind:value={selectedAddCode} class="input-select compact" aria-label={$t('admin_languages_select_to_add')}>

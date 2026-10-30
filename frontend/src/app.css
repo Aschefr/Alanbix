@@ -1046,3 +1046,7 @@ a.theme-toggle,
   top: 100%;
   height: 4px;
 }
+
+/* Page titles carry a line icon (not an emoji) in the accent colour */
+.page-title-icon { display: inline-flex; align-items: center; gap: 0.5rem; }
+.page-title-icon .icon { color: var(--accent); flex-shrink: 0; }

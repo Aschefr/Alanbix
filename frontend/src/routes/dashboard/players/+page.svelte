@@ -426,7 +426,7 @@
 
 <div class="players-page animate-in" class:chat-active-mobile={chatMode !== null}>
 	<header class="players-header">
-		<h1 class="title-premium"><span class="title-icon">👥</span> {$t('players_title')}</h1>
+		<h1 class="title-premium page-title-icon"><Icon name="users" size={22} /> {$t('players_title')}</h1>
 		<span class="player-count">{$t('players_subtitle', { count: players.length, plural: players.length > 1 ? 's' : '' })}</span>
 	</header>
 
