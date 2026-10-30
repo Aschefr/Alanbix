@@ -455,6 +455,18 @@ def _cache_headers(file_path: str) -> dict:
     # Everything else (index.html, favicon, manifest…) — always revalidate
     return {"Cache-Control": "no-cache, no-store, must-revalidate"}
 
+# Some page addresses are also API addresses (/dashboard/info). When the
+# browser opens one directly (reload, bookmark), serve the app, not the JSON.
+SPA_PAGES_SHARING_API_PATH = {"/dashboard/info"}
+
+@app.middleware("http")
+async def spa_page_navigation(request, call_next):
+    if (request.method == "GET"
+            and request.url.path.rstrip("/") in SPA_PAGES_SHARING_API_PATH
+            and request.headers.get("sec-fetch-mode") == "navigate"):
+        return await serve_spa("")
+    return await call_next(request)
+
 @app.get("/{full_path:path}")
 async def serve_spa(full_path: str):
     import os
