@@ -361,7 +361,7 @@
 			}
 			// Check if we got logged out (401 response cleared authStore)
 			if (!get(authStore)) {
-				window.location.href = '/';
+				goto('/', { replaceState: true });
 				return;
 			}
 			connectionError = "Serveur hors ligne. Tentative de connexion...";
@@ -370,6 +370,12 @@
 	}
 
 	onMount(async () => {
+		// No session: go straight to the login screen, without asking the
+		// server first and without reloading the whole page
+		if (!get(authStore)) {
+			goto('/', { replaceState: true });
+			return;
+		}
 		isDark = (localStorage.getItem('alanbix_theme') || 'dark') === 'dark';
 		await initI18n();
 		if ('Notification' in window) {

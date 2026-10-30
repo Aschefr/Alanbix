@@ -8,6 +8,8 @@
 			(function() {
 				var t = localStorage.getItem('alanbix_theme') || 'dark';
 				document.documentElement.setAttribute('data-theme', t);
+				// Paint the theme background at once: no white/black flash while the app loads
+				document.documentElement.style.background = t === 'light' ? '#f1f5f9' : '#0f172a';
 			})();
 		</script>
 		%sveltekit.head%

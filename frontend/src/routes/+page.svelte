@@ -4,6 +4,7 @@
 	import { getCustomServerUrl, isCapacitorNative } from '$lib/config';
 	import ServerConfigModal from '$lib/components/ServerConfigModal.svelte';
 	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
 	import { t } from '$lib/i18nStore';
 
 	let username = '';
@@ -46,10 +47,10 @@
 			if (mode === 'register') {
 				await api.post('/register', { username: username.trim(), password });
 				await api.login(username.trim(), password);
-				window.location.href = '/dashboard/welcome';
+				goto('/dashboard/welcome', { replaceState: true });
 			} else {
 				await api.login(username.trim(), password);
-				window.location.href = '/dashboard';
+				goto('/dashboard', { replaceState: true });
 			}
 		} catch (e) {
 			error = e.message;
@@ -74,22 +75,21 @@
 	let currentServerUrl = '';
 	let eventName = 'Alanbix LAN';
 
-	onMount(async () => {
+	onMount(() => {
 		isDark = (localStorage.getItem('alanbix_theme') || 'dark') === 'dark';
 		currentServerUrl = getCustomServerUrl();
-		try {
-			const stats = await api.get('/dashboard/stats');
-			eventName = stats.event_name || 'Alanbix LAN';
-		} catch {
-			if (isCapacitorNative() && !currentServerUrl) {
-				showServerModal = true;
-			}
-		}
+		// Already signed in: switch screen in place (no full page reload)
 		if ($authStore) {
-			window.location.href = '/dashboard';
-		} else {
-			isCheckingAuth = false;
+			goto('/dashboard', { replaceState: true });
+			return;
 		}
+		// Show the form at once; the event name fills in when the server answers
+		isCheckingAuth = false;
+		api.get('/dashboard/stats')
+			.then((stats) => { eventName = stats.event_name || 'Alanbix LAN'; })
+			.catch(() => {
+				if (isCapacitorNative() && !currentServerUrl) showServerModal = true;
+			});
 	});
 </script>
 
