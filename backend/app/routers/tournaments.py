@@ -1369,7 +1369,7 @@ async def update_match_score(
     flag_modified(tournament, "bracket")
     db.commit()
     
-    await manager.broadcast({"type": "score_updated", "tournament_id": tournament_id, "done": tournament_done, "match": {"r": body.match_r, "m": body.match_m, "p1": scored_match["p"][0], "p2": scored_match["p"][1], "score": body.score}})
+    await manager.broadcast({"type": "score_updated", "tournament_id": tournament_id, "done": tournament_done, "match": {"r": body.match_r, "m": body.match_m, "p1": scored_match["p"][0] if scored_match["p"] else 0, "p2": scored_match["p"][1] if len(scored_match["p"]) > 1 else 0, "score": body.score}})
 
     # Check for newly ready matches in the bracket following score advancement
     if not tournament_done and bracket_type not in ("ffa", "round_robin"):
