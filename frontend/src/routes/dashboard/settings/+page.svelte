@@ -903,7 +903,10 @@
 		.settings-section { padding: 1rem 1rem 0.75rem; }
 		.settings-header { margin-bottom: 1rem; }
 		.row-sub { padding-left: 0; }
-		.row.static { flex-wrap: wrap; }
+		.row.static { flex-wrap: wrap; row-gap: 0.4rem; }
+		/* the text keeps a minimum width, so a wide badge wraps below instead of overlapping it */
+		.row.static > .row-text { flex: 1 1 9rem; }
+		.row.static > .badge { margin-left: auto; }
 		/* controls that do not fit beside the title drop to their own line */
 		.row.static > .seg,
 		.row.static > .field { margin-left: calc(var(--tile) + 0.85rem); }
