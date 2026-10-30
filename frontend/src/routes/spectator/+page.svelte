@@ -706,14 +706,19 @@
 	.spectator-mode {
 		/* Blue text tuned for a projected image: >= 7:1 on its card */
 		--spec-accent-text: #93c5fd;
-		--spec-card: rgba(30, 41, 59, 0.94);
+		--spec-card: #172033;
+		/* Same rule as the light theme: every surface is opaque, so the
+		   brackets stand out from the game art whatever is behind them */
+		--glass-bg: #172033;
+		--surface-raised: #1e293b;
+		--surface-sunken: #111a2c;
 		position: relative;
 		height: 100vh; width: 100vw; display: flex; flex-direction: column;
 		background: radial-gradient(ellipse at 30% 20%, rgba(59,130,246,0.08) 0%, transparent 50%), radial-gradient(ellipse at 70% 80%, rgba(139,92,246,0.06) 0%, transparent 50%), var(--bg-primary, #020617);
 		color: var(--text-main, white); font-family: var(--font-main);
 	}
 	.spectator-mode.bracket-active { background: transparent; }
-	:global([data-theme="light"]) .spectator-mode { --spec-accent-text: #1d4ed8; --spec-card: #ffffff; }
+	:global([data-theme="light"]) .spectator-mode { --spec-accent-text: #1d4ed8; --spec-card: #ffffff; --glass-bg: #ffffff; --surface-raised: #ffffff; --surface-sunken: #f8fafc; }
 
 	.spec-header { position: relative; z-index: 1; display: flex; justify-content: space-between; align-items: center; padding: 1.5rem 3rem; border-bottom: 1px solid var(--glass-border, rgba(255,255,255,0.06)); }
 	.spec-event { font-family: var(--font-title); font-size: 1.2rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: var(--spec-accent-text); margin: 0; }
