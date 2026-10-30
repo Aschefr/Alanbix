@@ -1591,5 +1591,15 @@
   "settings_theme_opt_dark": "Dark",
   "settings_theme_opt_light": "Light",
   "profile_logout_confirm": "Log out?",
-  "profile_logout_yes": "Yes, log me out"
+  "profile_logout_yes": "Yes, log me out",
+  "admin_games_edit_modal_title": "Edit game",
+  "admin_tourneys_delete_title": "Delete tournament",
+  "admin_tourneys_delete_body": "The tournament, its teams, matches and scores will be permanently deleted. This cannot be undone.",
+  "admin_tourneys_delete_running": "This tournament is running: {done} of {total} played match(es) will be lost.",
+  "admin_tourneys_delete_confirm_btn": "Delete permanently",
+  "admin_tourneys_edit_modal_title": "Edit tournament",
+  "admin_tourneys_edit_format_title": "Format",
+  "admin_tourneys_edit_rr_options": "League options",
+  "admin_players_modal_edit_title_short": "Edit player",
+  "admin_players_modal_reset_pwd_title_short": "Reset password"
 }

@@ -3,6 +3,7 @@
 	import { api } from '$lib/api';
 	import { onMount, createEventDispatcher } from 'svelte';
 	import AddGameModal from './AddGameModal.svelte';
+	import Icon from '$lib/components/Icon.svelte';
 
 	export let games = [];
 	export let onSuccess = (tournament) => {};
@@ -134,7 +135,7 @@
 						<option value={g.id}>{g.name}</option>
 					{/each}
 				</select>
-				<button type="button" class="btn-add-game-inline" on:click={() => showAddGameModal = true} title="{$t('admin_games_add')}">➕</button>
+				<button type="button" class="btn-add-game-inline" on:click={() => showAddGameModal = true} title="{$t('admin_games_add')}" aria-label="{$t('admin_games_add')}"><Icon name="plus" size={18} /></button>
 			</div>
 			
 			{#if errorMsg}
@@ -259,26 +260,26 @@
 			{/if}
 
 			<details class="pts-config glass-inner" open>
-				<summary>🏅 {$t('admin_tourneys_wizard_points_lbl')}</summary>
+				<summary><Icon name="medal" size={16} /> {$t('admin_tourneys_wizard_points_lbl')}</summary>
 				<div class="pts-grid">
 					<div class="pts-field">
-						<label>🥇 {$t('admin_tourneys_wizard_points_1st')}</label>
+						<label>{$t('admin_tourneys_wizard_points_1st')}</label>
 						<input type="number" bind:value={config.pts_winner} min="0" />
 					</div>
 					<div class="pts-field">
-						<label>🥈 {$t('admin_tourneys_wizard_points_2nd')}</label>
+						<label>{$t('admin_tourneys_wizard_points_2nd')}</label>
 						<input type="number" bind:value={config.pts_second} min="0" />
 					</div>
 					<div class="pts-field">
-						<label>🥉 {$t('admin_tourneys_wizard_points_3rd')}</label>
+						<label>{$t('admin_tourneys_wizard_points_3rd')}</label>
 						<input type="number" bind:value={config.pts_third} min="0" />
 					</div>
 					<div class="pts-field">
-						<label>👤 {$t('admin_tourneys_wizard_points_part')}</label>
+						<label>{$t('admin_tourneys_wizard_points_part')}</label>
 						<input type="number" bind:value={config.pts_participation} min="0" />
 					</div>
 					<div class="pts-field">
-						<label>⚡ {$t('admin_tourneys_wizard_points_bonus')}</label>
+						<label>{$t('admin_tourneys_wizard_points_bonus')}</label>
 						<input type="number" bind:value={config.pts_per_match} min="0" step="0.1" />
 					</div>
 				</div>
@@ -291,8 +292,8 @@
 
 			<div class="nav-btns">
 				<button class="btn-secondary" on:click={() => step = 2}>{$t('admin_tourneys_wizard_prev')}</button>
-				<button class="btn-primary {creatingTournament ? 'btn-success-anim' : ''}" on:click={saveTournament} disabled={creatingTournament}>
-					{creatingTournament ? '✨ ' + $t('distillation_loading') : $t('admin_tourneys_wizard_submit')}
+				<button class="btn-primary btn-ic {creatingTournament ? 'btn-success-anim' : ''}" on:click={saveTournament} disabled={creatingTournament}>
+					<Icon name={creatingTournament ? 'hourglass' : 'check'} size={16} /> {creatingTournament ? $t('distillation_loading') : $t('admin_tourneys_wizard_submit')}
 				</button>
 			</div>
 		</div>
@@ -308,12 +309,12 @@
 
 <style>
 	.flex-col { display: flex; flex-direction: column; gap: 0.8rem; }
-	.opt-label { font-weight: 400; font-size: 0.7rem; color: var(--text-muted); }
+	.opt-label { font-weight: 400; font-size: 0.75rem; color: var(--text-muted); }
 	.steps-indicator { display: flex; gap: 1rem; margin-bottom: 1.5rem; justify-content: center; }
-	.steps-indicator span { font-size: 0.8rem; color: var(--text-muted); font-weight: 600; padding: 0.4rem 0.8rem; border-radius: 8px; border: 1px solid var(--glass-border); transition: all 0.2s; }
-	.steps-indicator span.active { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); box-shadow: 0 0 10px var(--accent-glow); }
+	.steps-indicator span { font-size: 0.8125rem; color: var(--text-dim); font-weight: 600; padding: 0.35rem 0.8rem; border-radius: var(--radius-md); border: 1px solid transparent; transition: color 0.15s, background 0.15s; }
+	.steps-indicator span.active { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
 	
-	.step-box { min-height: 280px; display: flex; flex-direction: column; }
+	.step-box { display: flex; flex-direction: column; }
 	
 	.bracket-graphics-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.6rem; margin-bottom: 0.5rem; }
 	.graphic-card {
@@ -330,20 +331,19 @@
 		transition: all 0.2s;
 		color: var(--text-dim);
 	}
-	.graphic-card svg { width: 32px; height: 32px; stroke: currentColor; opacity: 0.6; transition: all 0.2s; }
-	.graphic-card span { font-size: 0.75rem; font-weight: 700; }
+	.graphic-card svg { width: 36px; height: 36px; stroke: currentColor; opacity: 0.6; transition: all 0.2s; }
+	.graphic-card span { font-size: 0.8125rem; font-weight: 600; }
 	.graphic-card:hover { border-color: rgba(59, 130, 246, 0.4); color: var(--text-main); }
 	.graphic-card:hover svg { opacity: 0.9; }
 	.graphic-card.active {
 		background: var(--accent-soft);
 		border-color: var(--accent);
 		color: var(--accent);
-		box-shadow: 0 0 12px var(--accent-glow);
 	}
 	.graphic-card.active svg { stroke: var(--accent); opacity: 1; }
 
-	.score-invert-label { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; font-weight: 600; color: var(--text-main); cursor: pointer; margin: 0.5rem 0; }
-	.score-invert-label input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+	.score-invert-label { display: flex; align-items: flex-start; flex-wrap: wrap; gap: 0.5rem; font-size: 0.875rem; font-weight: 600; color: var(--text-main); cursor: pointer; margin: 0.4rem 0; text-transform: none; letter-spacing: 0; }
+	.score-invert-label input[type="checkbox"] { width: 16px; height: 16px; margin-top: 0.15rem; accent-color: var(--accent); cursor: pointer; }
 
 	.glass-inner { background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 10px; padding: 0.8rem; }
 	.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; }
@@ -352,72 +352,46 @@
 
 	/* Points Config */
 	.pts-config { margin-top: 0.75rem; padding: 0.75rem; border-radius: 10px; }
-	.pts-config summary { cursor: pointer; font-weight: 700; font-size: 0.8rem; color: var(--text-main); margin-bottom: 0.5rem; outline: none; }
+	.pts-config summary { cursor: pointer; display: flex; align-items: center; gap: 0.4rem; font-weight: 700; font-size: 0.875rem; color: var(--text-main); margin-bottom: 0.6rem; outline: none; }
+	.pts-config summary :global(svg) { color: var(--accent); }
 	.pts-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.5rem; }
 	.pts-field { display: flex; flex-direction: column; gap: 0.3rem; }
 	.pts-field label { 
-		font-size: 0.6rem; 
-		font-weight: 700; 
-		color: var(--text-muted); 
+		font-size: 0.75rem; 
+		font-weight: 600; 
+		color: var(--text-dim); 
 		text-align: center; 
+		text-transform: none; 
+		letter-spacing: 0; 
 		display: flex; 
 		align-items: center; 
 		justify-content: center; 
 		gap: 0.25rem;
 		white-space: nowrap;
 	}
-	.pts-field input { width: 100%; padding: 0.35rem; text-align: center; font-size: 0.8rem; font-weight: 800; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 6px; color: var(--accent); outline: none; }
+	.pts-field input { width: 100%; padding: 0.4rem; text-align: center; font-size: 0.875rem; font-weight: 800; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 6px; color: var(--accent); outline: none; }
 	.pts-field input:focus { border-color: var(--accent); }
-	.pts-hint { font-size: 0.6rem; color: var(--text-dim); margin-top: 0.4rem; font-style: italic; line-height: 1.3; }
+	.pts-hint { font-size: 0.75rem; color: var(--text-dim); margin-top: 0.4rem; font-style: italic; line-height: 1.3; }
 
-	.error-banner { background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); color: var(--danger); padding: 0.6rem; border-radius: 8px; font-size: 0.75rem; font-weight: 600; text-align: center; margin-top: 0.5rem; }
+	.error-banner { background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); color: var(--danger); padding: 0.6rem; border-radius: 8px; font-size: 0.8125rem; font-weight: 600; text-align: center; margin-top: 0.5rem; }
 
 	.nav-btns { display: flex; justify-content: flex-end; gap: 0.6rem; margin-top: 1rem; }
-	.btn-primary {
-		padding: 0.55rem 1.2rem;
-		font-size: 0.8rem;
-		font-weight: 700;
-		border-radius: 8px;
-		cursor: pointer;
-		border: 1px solid transparent;
-		background: var(--accent);
-		color: white;
-		box-shadow: 0 4px 12px var(--accent-glow);
-		transition: all 0.2s;
-	}
-	.btn-primary:hover:not(:disabled) {
-		transform: translateY(-1px);
-		box-shadow: 0 6px 16px var(--accent-glow);
-	}
-	.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-	
-	.btn-secondary {
-		padding: 0.55rem 1.2rem;
-		font-size: 0.8rem;
-		font-weight: 700;
-		border-radius: 8px;
-		cursor: pointer;
-		border: 1px solid var(--glass-border);
-		background: transparent;
-		color: var(--text-main);
-		transition: all 0.2s;
-	}
-	.btn-secondary:hover { background: var(--hover-tint); }
+	.btn-ic { display: inline-flex; align-items: center; gap: 0.4rem; }
 
 	/* Success animation on create button */
 	.btn-success-anim { background: var(--success) !important; box-shadow: 0 4px 14px var(--success-glow) !important; }
 
-	label { font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+	label { font-size: 0.8125rem; font-weight: 600; color: var(--text-dim); }
 	input[type="text"],
 	input[type="number"],
 	select {
 		width: 100%;
-		padding: 0.5rem 0.8rem;
-		border-radius: 8px;
+		padding: 0.5rem 0.75rem;
+		border-radius: var(--radius-md);
 		border: 1px solid var(--glass-border);
-		background: var(--surface-sunken);
-		color: var(--text-main);
-		font-size: 0.8rem;
+		background: var(--input-bg);
+		color: var(--input-color);
+		font-size: 0.875rem;
 		outline: none;
 		transition: border-color 0.15s;
 	}
@@ -429,8 +403,8 @@
 	.game-select-row { display: flex; gap: 0.5rem; }
 	.game-select-row select { flex: 1; }
 	.btn-add-game-inline {
-		width: 36px;
-		height: 36px;
+		width: 38px;
+		height: 38px;
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -438,7 +412,6 @@
 		border: 1px dashed rgba(59, 130, 246, 0.3);
 		color: var(--accent);
 		border-radius: 8px;
-		font-size: 0.95rem;
 		cursor: pointer;
 		transition: all 0.2s;
 		flex-shrink: 0;

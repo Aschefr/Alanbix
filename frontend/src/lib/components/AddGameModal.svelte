@@ -5,12 +5,28 @@
 	import { get } from 'svelte/store';
 	import { createEventDispatcher, onMount } from 'svelte';
 
+	import Icon from '$lib/components/Icon.svelte';
+
 	export let show = false;
+	// edit mode when a game is given: same form, saved with PUT
+	export let game = null;
 
 	const dispatch = createEventDispatcher();
 
 	let newGame = { name: '', rules: '', image_url: '' };
 	let gameImageMode = 'search'; // 'url' | 'search' | 'upload'
+	let wasShown = false;
+
+	$: if (show !== wasShown) {
+		wasShown = show;
+		if (show) {
+			newGame = game
+				? { name: game.name, rules: game.rules || '', image_url: game.image_url || '' }
+				: { name: '', rules: '', image_url: '' };
+			gameImageMode = game ? 'url' : 'search';
+			searchResults = [];
+		}
+	}
 	let searchQuery = '';
 	let searchResults = [];
 	let searching = false;
@@ -59,7 +75,10 @@
 
 	async function createGame() {
 		try {
-			const res = await api.post('/tournaments/games', newGame);
+			const res = game
+				? await api.put(`/tournaments/games/${game.id}`, newGame)
+				: await api.post('/tournaments/games', newGame);
+			if (game) dispatch('toast', { message: get(t)('admin_toast_game_updated'), type: 'success' });
 			dispatch('success', res);
 			closeModal();
 		} catch (e) {
@@ -158,166 +177,104 @@
 		on:mouseup={(e) => { if (overlayMouseDown && e.target === e.currentTarget) closeModal(); overlayMouseDown = false; }}>
 		<div class="modal-card-global glass" on:click|stopPropagation>
 			<header class="edit-modal-header">
-				<h3>➕ {$t("admin_games_add")}</h3>
-				<button class="close-btn" on:click={closeModal} aria-label={$t('common_close')}>✕</button>
+				<div class="mh-main">
+					<span class="mh-ic"><Icon name={game ? 'pencil' : 'gamepad'} size={20} /></span>
+					<div class="mh-text">
+						<h3>{game ? $t('admin_games_edit_modal_title') : $t('admin_games_add')}</h3>
+						{#if game}<span class="mh-sub">{game.name}</span>{/if}
+					</div>
+				</div>
+				<button class="close-btn" on:click={closeModal} aria-label={$t('common_close')}><Icon name="x" size={18} /></button>
 			</header>
 			<div class="edit-modal-body">
-				<div class="flex-col gap-4">
-					<div class="edit-field full-width">
-						<label>{$t('admin_games_name_lbl')}</label>
-						<input type="text" bind:value={newGame.name} placeholder={$t('addgame_name_placeholder')} on:input={() => searchQuery = newGame.name} />
+				<div class="edit-field">
+					<label for="game-name">{$t('admin_games_name_lbl')}</label>
+					<input id="game-name" type="text" bind:value={newGame.name} placeholder={$t('addgame_name_placeholder')} on:input={() => { if (!game) searchQuery = newGame.name; }} />
+				</div>
+
+				<div class="edit-field">
+					<span class="edit-label">{$t('admin_games_illus_lbl')}</span>
+					<div class="img-mode-tabs">
+						<button type="button" class="img-tab {gameImageMode === 'search' ? 'active' : ''}" on:click={() => gameImageMode = 'search'}>{$t('admin_games_btn_search')}</button>
+						<button type="button" class="img-tab {gameImageMode === 'url' ? 'active' : ''}" on:click={() => gameImageMode = 'url'}>{$t('admin_games_btn_url')}</button>
+						<button type="button" class="img-tab {gameImageMode === 'upload' ? 'active' : ''}" on:click={() => gameImageMode = 'upload'}>{$t('admin_games_btn_file')}</button>
 					</div>
 
-					<div class="edit-field full-width">
-						<!-- Image Source Selector -->
-						<label>{$t('admin_games_illus_lbl')}</label>
-						<div class="img-mode-tabs">
-							<button type="button" class="img-tab {gameImageMode === 'search' ? 'active' : ''}" on:click={() => gameImageMode = 'search'}>{$t('admin_games_btn_search')}</button>
-							<button type="button" class="img-tab {gameImageMode === 'url' ? 'active' : ''}" on:click={() => gameImageMode = 'url'}>{$t('admin_games_btn_url')}</button>
-							<button type="button" class="img-tab {gameImageMode === 'upload' ? 'active' : ''}" on:click={() => gameImageMode = 'upload'}>{$t('admin_games_btn_file')}</button>
+					{#if gameImageMode === 'search'}
+						<div class="search-bar">
+							<input type="text" bind:value={searchQuery} placeholder="{$t('admin_games_search_placeholder')}" on:keydown={(e) => e.key === 'Enter' && searchCovers()} />
+							<button type="button" class="btn-primary btn-sm btn-ic" on:click={searchCovers} disabled={searching} aria-label={$t('admin_games_btn_search')}>
+								<Icon name={searching ? 'hourglass' : 'search'} size={16} />
+							</button>
 						</div>
-
-						{#if gameImageMode === 'search'}
-							<div class="search-bar mt-2">
-								<input type="text" bind:value={searchQuery} placeholder="{$t('admin_games_search_placeholder')}" on:keydown={(e) => e.key === 'Enter' && searchCovers()} />
-								<button type="button" class="btn-primary btn-sm" on:click={searchCovers} disabled={searching}>{searching ? '...' : '🔍'}</button>
-							</div>
-							{#if searxngNotConfigured}
-								<div class="mt-2" style="font-size: 0.75rem; color: #f59e0b; display: flex; align-items: center; gap: 0.4rem;">
-									<span>⚠️</span>
-									<span>{$t('admin_games_searxng_not_configured')}</span>
-								</div>
-							{/if}
-							{#if searchResults.length > 0}
-								<div class="cover-grid mt-2">
-									{#each searchResults as r}
-										<button type="button" class="cover-pick" on:click={() => pickCover(r.image)}>
-											<img src={r.thumbnail || r.image} alt={r.name} loading="lazy" />
-											<span class="cover-name">{r.name}</span>
-										</button>
-									{/each}
-								</div>
-							{/if}
-						{:else if gameImageMode === 'url'}
-							<input type="text" class="mt-2" bind:value={newGame.image_url} placeholder="https://..." /><!-- i18n-ignore -->
-						{:else}
-							<input type="file" class="mt-2" accept="image/*" on:change={handleFileUpload} />
-						{/if}
-
-						{#if newGame.image_url}
-							<div class="img-preview mt-2">
-								<img src={newGame.image_url} alt={$t('chat_preview_alt')} />
-								<button type="button" class="preview-clear" on:click={() => newGame.image_url = ''}>✕</button>
+						{#if searxngNotConfigured}
+							<div class="warn-line">
+								<Icon name="alert-triangle" size={14} />
+								<span>{$t('admin_games_searxng_not_configured')}</span>
 							</div>
 						{/if}
-					</div>
-
-					<div class="edit-field full-width editor-container">
-						<label>{$t('admin_games_rules_lbl')}</label>
-						{#if EasyMDE}
-							<textarea use:setupEditor={newGame.rules}></textarea>
-						{:else}
-							<textarea bind:value={newGame.rules} rows="4" placeholder={$t('addgame_rules_placeholder')}></textarea>
+						{#if searchResults.length > 0}
+							<div class="cover-grid">
+								{#each searchResults as r}
+									<button type="button" class="cover-pick" on:click={() => pickCover(r.image)}>
+										<img src={r.thumbnail || r.image} alt={r.name} loading="lazy" />
+										<span class="cover-name">{r.name}</span>
+									</button>
+								{/each}
+							</div>
 						{/if}
-					</div>
+					{:else if gameImageMode === 'url'}
+						<input type="text" bind:value={newGame.image_url} placeholder="https://..." /><!-- i18n-ignore -->
+					{:else}
+						<input type="file" accept="image/*" on:change={handleFileUpload} />
+					{/if}
+
+					{#if newGame.image_url}
+						<div class="img-preview">
+							<img src={newGame.image_url} alt={$t('chat_preview_alt')} />
+							<button type="button" class="preview-clear" on:click={() => newGame.image_url = ''} aria-label={$t('common_close')}><Icon name="x" size={14} /></button>
+						</div>
+					{/if}
+				</div>
+
+				<div class="edit-field editor-container">
+					<span class="edit-label">{$t('admin_games_rules_lbl')}</span>
+					{#if EasyMDE}
+						<textarea use:setupEditor={newGame.rules}></textarea>
+					{:else}
+						<textarea bind:value={newGame.rules} rows="4" placeholder={$t('addgame_rules_placeholder')}></textarea>
+					{/if}
 				</div>
 			</div>
 			<footer class="edit-modal-footer">
 				<button type="button" class="btn-secondary" on:click={closeModal}>{$t('admin_settings_cancel')}</button>
-				<button type="button" class="btn-primary" on:click={createGame} disabled={!newGame.name}>{$t('admin_games_btn_submit')}</button>
+				<button type="button" class="btn-primary btn-ic" on:click={createGame} disabled={!newGame.name}>
+					<Icon name={game ? 'save' : 'plus'} size={16} /> {game ? $t('admin_players_modal_btn_save') : $t('admin_games_btn_submit')}
+				</button>
 			</footer>
 		</div>
 	</div>
 {/if}
 
 <style>
-	.flex-col { display: flex; flex-direction: column; gap: 0.8rem; }
-	.edit-modal-header { display: flex; justify-content: space-between; align-items: center; padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--glass-border); background: var(--surface-sunken); flex-shrink: 0; }
-	.edit-modal-header h3 { font-family: var(--font-title); font-size: 1.15rem; font-weight: 800; margin: 0; color: var(--text-main); display: flex; align-items: center; gap: 0.5rem; }
-	.close-btn { background: var(--hover-tint); border: 1px solid var(--glass-border); color: var(--text-dim); cursor: pointer; font-size: 0.85rem; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: all 0.2s; }
-	.close-btn:hover { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); transform: rotate(90deg); }
-	.edit-modal-body { padding: 1.5rem; overflow-y: auto; flex: 1; min-height: 0; font-family: var(--font-main); }
-	.edit-modal-footer { display: flex; justify-content: flex-end; gap: 0.75rem; padding: 1rem 1.5rem; border-top: 1px solid var(--glass-border); background: var(--surface-sunken); flex-shrink: 0; }
-	.edit-field { display: flex; flex-direction: column; gap: 0.4rem; }
-	.edit-field.full-width { grid-column: 1 / -1; }
-	.edit-field label { font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; font-family: var(--font-main); }
-
-	.btn-primary {
-		padding: 0.55rem 1.2rem;
-		font-size: 0.85rem;
-		font-weight: 700;
-		font-family: var(--font-main);
-		border-radius: 8px;
-		cursor: pointer;
-		border: 1px solid transparent;
-		background: var(--accent);
-		color: white;
-		box-shadow: 0 4px 12px var(--accent-glow);
-		transition: all 0.2s;
-	}
-	.btn-primary:hover:not(:disabled) {
-		transform: translateY(-1px);
-		box-shadow: 0 6px 16px var(--accent-glow);
-	}
-	.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-	
-	.btn-secondary {
-		padding: 0.55rem 1.2rem;
-		font-size: 0.85rem;
-		font-weight: 700;
-		font-family: var(--font-main);
-		border-radius: 8px;
-		cursor: pointer;
-		border: 1px solid var(--glass-border);
-		background: transparent;
-		color: var(--text-main);
-		transition: all 0.2s;
-	}
-	.btn-secondary:hover { background: var(--hover-tint); }
-
-	label { font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; font-family: var(--font-main); }
-	input[type="text"],
-	textarea {
-		width: 100%;
-		padding: 0.55rem 0.85rem;
-		border-radius: 8px;
-		border: 1px solid var(--glass-border);
-		background: var(--input-bg);
-		color: var(--input-color);
-		font-size: 0.85rem;
-		font-family: var(--font-main);
-		outline: none;
-		transition: border-color 0.15s, box-shadow 0.15s;
-	}
-	input:focus,
-	textarea:focus {
-		border-color: var(--accent);
-		box-shadow: 0 0 0 3px var(--accent-soft);
-	}
+	.warn-line { display: flex; align-items: center; gap: 0.4rem; font-size: 0.75rem; color: var(--warning); }
 
 	/* Search bar */
 	.search-bar { display: flex; gap: 0.4rem; }
 	.search-bar input { flex-grow: 1; }
-	.btn-sm { padding: 0.4rem 0.8rem; font-size: 0.75rem; }
+	.btn-sm { padding: 0.4rem 0.8rem; font-size: 0.8125rem; }
 
 	/* Cover picker grid */
 	.cover-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 0.5rem; max-height: 220px; overflow-y: auto; }
 	.cover-pick { overflow: hidden; border: 2px solid var(--glass-border); border-radius: 8px; cursor: pointer; transition: all 0.15s; background: none; padding: 0; position: relative; }
 	.cover-pick:hover { border-color: var(--accent); transform: scale(1.03); }
 	.cover-pick img { width: 100%; height: 70px; object-fit: cover; display: block; }
-	.cover-name { display: block; padding: 0.2rem 0.3rem; font-size: 0.65rem; font-weight: 600; color: var(--text-dim); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background: var(--surface-sunken); font-family: var(--font-main); }
+	.cover-name { display: block; padding: 0.2rem 0.3rem; font-size: 0.75rem; font-weight: 600; color: var(--text-dim); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background: var(--surface-sunken); font-family: var(--font-main); }
 
 	/* Image preview */
 	.img-preview { position: relative; width: 100%; max-height: 120px; border-radius: 8px; overflow: hidden; border: 1px solid var(--glass-border); }
 	.img-preview img { width: 100%; height: 100px; object-fit: cover; display: block; }
-	.preview-clear { position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; border-radius: 50%; background: rgba(239, 68, 68, 0.8); color: white; border: none; cursor: pointer; font-size: 0.7rem; display: flex; align-items: center; justify-content: center; }
-
-	/* Image mode tabs */
-	.img-mode-tabs { display: flex; gap: 0.3rem; }
-	.img-tab { padding: 0.35rem 0.7rem; font-size: 0.75rem; font-weight: 600; font-family: var(--font-main); border: 1px solid var(--glass-border); border-radius: 8px; background: var(--hover-tint); color: var(--text-dim); cursor: pointer; transition: all 0.15s; }
-	.img-tab:hover { border-color: var(--accent); }
-	.img-tab.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
-	.mt-2 { margin-top: 0.5rem; }
+	.preview-clear { position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; border-radius: 50%; background: rgba(239, 68, 68, 0.8); color: white; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; }
 
 	/* EasyMDE theme overrides for dark and light modes */
 	.editor-container :global(.EasyMDEContainer) {

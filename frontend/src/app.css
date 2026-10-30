@@ -681,39 +681,67 @@ select option {
   animation: modalSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-/* Standardized Modal Sections */
+/* Standardized Modal Sections
+   One pattern for every admin dialog: header (icon tile + title + hint + close),
+   scrolling body made of sections, footer with actions.
+   Sizes: title --fs-section, labels 0.8125rem, inputs 0.875rem, hints 0.75rem. */
+.modal-card-global.wide { width: 780px; }
+.modal-card-global.narrow { width: 460px; }
+
 .edit-modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1.25rem 1.5rem;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
   border-bottom: 1px solid var(--glass-border);
   background: var(--surface-sunken);
   flex-shrink: 0;
 }
 
+.edit-modal-header .mh-main { display: flex; align-items: center; gap: 0.8rem; min-width: 0; }
+.edit-modal-header .mh-ic {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.edit-modal-header .mh-text { display: flex; flex-direction: column; min-width: 0; }
 .edit-modal-header h3 {
   margin: 0;
   font-family: var(--font-title);
-  font-size: 1.15rem;
-  font-weight: 800;
+  font-size: var(--fs-section);
+  font-weight: 700;
   color: var(--text-main);
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.edit-modal-header .mh-sub {
+  font-size: 0.8125rem;
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.edit-modal-header.danger-zone {
-  background: rgba(239, 68, 68, 0.12);
-  border-bottom: 1px solid rgba(239, 68, 68, 0.3);
+.edit-modal-header.danger-zone .mh-ic {
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+  color: var(--danger);
 }
-
-.edit-modal-header.danger-zone h3 {
-  color: #ef4444;
-}
+.edit-modal-header.danger-zone { border-bottom-color: color-mix(in srgb, var(--danger) 30%, transparent); }
+.edit-modal-header.danger-zone h3 { color: var(--danger); }
 
 .edit-modal-body {
-  padding: 1.5rem;
+  padding: 1.25rem;
   overflow-y: auto;
   flex: 1;
   min-height: 0;
@@ -727,46 +755,78 @@ select option {
 .edit-modal-footer {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
   gap: 0.6rem;
-  padding: 1rem 1.5rem;
+  padding: 0.85rem 1.25rem;
   border-top: 1px solid var(--glass-border);
   background: var(--surface-sunken);
   flex-shrink: 0;
 }
+.edit-modal-footer .btn-ic, .edit-modal-body .btn-ic { display: inline-flex; align-items: center; gap: 0.4rem; }
 
 .close-btn {
-  background: var(--hover-tint);
-  border: 1px solid var(--glass-border);
+  background: transparent;
+  border: 1px solid transparent;
   color: var(--text-dim);
   cursor: pointer;
-  font-size: 0.85rem;
-  width: 30px;
-  height: 30px;
-  display: flex;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
-  transition: all 0.2s;
+  border-radius: var(--radius-md);
+  transition: color 0.15s, background 0.15s;
 }
 
 .close-btn:hover {
-  background: var(--accent-soft);
-  color: var(--accent);
-  border-color: var(--accent);
-  transform: rotate(90deg);
+  background: var(--hover-tint);
+  color: var(--text-main);
 }
+
+/* Sections inside a dialog */
+.edit-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  background: var(--surface-raised);
+}
+.edit-section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  font-family: var(--font-title);
+  font-size: var(--fs-sub);
+  font-weight: 700;
+  color: var(--text-main);
+}
+.edit-section-title svg { color: var(--accent); }
+.edit-grid-2col { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.85rem 1rem; }
+.edit-field.full-width { grid-column: 1 / -1; }
+.edit-hint { font-size: 0.75rem; color: var(--text-dim); line-height: 1.4; }
 
 .edit-field {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
+  min-width: 0;
 }
 
-.edit-field label {
-  font-size: 0.85rem;
+.edit-field label, .edit-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   color: var(--text-dim);
   font-family: var(--font-main);
+  text-transform: none;
+  letter-spacing: 0;
 }
 
 .edit-field input[type="text"],
@@ -775,15 +835,15 @@ select option {
 .edit-field select,
 .edit-field textarea {
   width: 100%;
-  padding: 0.55rem 0.85rem;
-  font-size: 0.85rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
   font-family: var(--font-main);
   background: var(--input-bg);
   border: 1px solid var(--glass-border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   color: var(--input-color);
   outline: none;
-  transition: all 0.2s;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 .edit-field input:focus,
@@ -791,6 +851,73 @@ select option {
 .edit-field textarea:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* Segmented choice (2-4 exclusive options) */
+.edit-toggle-row {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--surface-sunken);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+}
+.edit-toggle {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.7rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  font-family: var(--font-main);
+  border: 1px solid transparent;
+  border-radius: calc(var(--radius-md) - 2px);
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+}
+.edit-toggle:hover { color: var(--text-main); }
+.edit-toggle.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+
+/* Selectable option cards (tournament options) */
+.option-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  padding: 0.7rem 0.85rem;
+  background: var(--surface-sunken);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--font-main);
+  transition: border-color 0.15s, background 0.15s;
+}
+.option-card:hover { border-color: var(--accent); }
+.option-card.active { border-color: var(--accent); background: var(--accent-soft); }
+.option-card .option-icon { display: inline-flex; color: var(--accent); margin-top: 0.1rem; }
+.option-card .option-content { display: flex; flex-direction: column; gap: 0.15rem; }
+.option-card .option-label { font-size: 0.875rem; font-weight: 600; color: var(--text-main); }
+.option-card .option-desc { font-size: 0.75rem; color: var(--text-dim); line-height: 1.35; }
+
+/* Inline image picker (games) */
+.img-mode-tabs { display: inline-flex; gap: 2px; padding: 3px; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: var(--radius-md); align-self: flex-start; }
+.img-tab { padding: 0.3rem 0.75rem; font-size: 0.8125rem; font-weight: 600; font-family: var(--font-main); border: 1px solid transparent; border-radius: calc(var(--radius-md) - 2px); background: transparent; color: var(--text-dim); cursor: pointer; }
+.img-tab:hover { color: var(--text-main); }
+.img-tab.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+
+@media (max-width: 640px) {
+  .modal-card-global, .modal-card-global.wide, .modal-card-global.narrow { width: 100%; max-height: 92vh; }
+  .modal-overlay-global { padding: 0.75rem; }
+  .edit-grid-2col { grid-template-columns: minmax(0, 1fr); }
+  .edit-toggle-row { flex-wrap: wrap; }
+  .edit-toggle { flex: 1 1 40%; }
+  .edit-modal-body { padding: 1rem; }
+  .edit-modal-footer { padding: 0.75rem 1rem; }
+  .edit-modal-footer > button { flex: 1 1 auto; justify-content: center; }
 }
 
 @keyframes modalFadeIn {

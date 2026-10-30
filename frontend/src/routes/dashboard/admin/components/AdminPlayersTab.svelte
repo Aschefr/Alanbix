@@ -5,6 +5,7 @@
 	import { t } from '$lib/i18nStore';
 	import { formatPoints } from '$lib/utils';
 	import { wsMessageStore } from '$lib/ws';
+	import Icon from '$lib/components/Icon.svelte';
 
 	export let toast = (msg, type) => {};
 	export let initialQuery = '';
@@ -197,10 +198,14 @@
 		{/each}
 	</datalist>
 	<div class="flex-row justify-between items-center mb-4">
-		<h3>{$t('admin_players_title')} <span class="t-count">{allPlayers.length}</span></h3>
+		<h3><span class="head-ic"><Icon name="users" size={20} /></span> {$t('admin_players_title')} <span class="t-count">{allPlayers.length}</span></h3>
 		<div class="flex-row gap-2">
-			<input class="pt-search" type="search" bind:value={playerQuery} placeholder={$t('admin_players_search_placeholder')} aria-label={$t('admin_players_search_placeholder')} />
-			<button class="btn-secondary btn-sm" on:click={() => showCreatePlayer = !showCreatePlayer}>
+			<div class="pt-search-wrap">
+				<Icon name="search" size={15} />
+				<input class="pt-search" type="search" bind:value={playerQuery} placeholder={$t('admin_players_search_placeholder')} aria-label={$t('admin_players_search_placeholder')} />
+			</div>
+			<button class="btn-primary btn-compact btn-ic" on:click={() => showCreatePlayer = !showCreatePlayer}>
+				<Icon name={showCreatePlayer ? 'x' : 'plus'} size={15} />
 				{showCreatePlayer ? $t('admin_players_btn_cancel_close') : $t('admin_players_btn_add')}
 			</button>
 		</div>
@@ -222,8 +227,8 @@
 					<input type="text" bind:value={newPlayerData.team_name} list="admin-existing-teams" placeholder="{$t('admin_players_team_placeholder')}" />
 				</div>
 				<div class="edit-field cpf-submit">
-					<button class="btn-primary" on:click={createPlayer} disabled={creatingPlayer || !newPlayerData.username.trim() || !newPlayerData.password.trim()}>
-						{creatingPlayer ? '⏳' : '✅'} {$t("admin_players_modal_btn_create")}
+					<button class="btn-primary btn-ic" on:click={createPlayer} disabled={creatingPlayer || !newPlayerData.username.trim() || !newPlayerData.password.trim()}>
+						<Icon name={creatingPlayer ? 'hourglass' : 'check'} size={16} /> {$t("admin_players_modal_btn_create")}
 					</button>
 				</div>
 			</div>
@@ -250,12 +255,12 @@
 						{/if}
 						<span>{p.username}</span>
 						{#if p.is_online}
-							<span style="color:#10b981; font-size:0.8rem; text-shadow: 0 0 6px rgba(16,185,129,0.6);" title={$t('players_status_online')}>●</span>
+							<span class="online-dot" title={$t('players_status_online')}></span>
 						{/if}
-						{#if p.is_admin}<span class="admin-badge">👑</span>{/if}
-						{#if p.ia_blocked}<span class="ia-blocked-badge" title="{$t('admin_players_ia_blocked_tooltip')}">🚫</span>{/if}
+						{#if p.is_admin}<span class="admin-badge" title={$t('role_admin')}><Icon name="crown" size={13} /></span>{/if}
+						{#if p.ia_blocked}<span class="ia-blocked-badge" title="{$t('admin_players_ia_blocked_tooltip')}"><Icon name="ban" size={14} /></span>{/if}
 						{#if p.public_chat_muted_until && new Date(p.public_chat_muted_until) > new Date()}
-							<span class="chat-muted-badge" title={$t('admin_players_muted_badge')}>🔇</span>
+							<span class="chat-muted-badge" title={$t('admin_players_muted_badge')}><Icon name="volume-x" size={14} /></span>
 						{/if}
 					</span>
 					<span class="pt-col pt-team">{p.team_name || '—'}</span>
@@ -264,18 +269,18 @@
 						{#if !p.is_admin}
 							{#if promoteConfirmPlayerId === p.id}
 								<button class="btn-primary-sm" on:click={() => { toggleAdmin(p); promoteConfirmPlayerId = null; }}>{$t("admin_players_promote_confirm")}</button>
-								<button class="btn-icon" on:click={() => promoteConfirmPlayerId = null} aria-label={$t('common_close')}>✕</button>
+								<button class="btn-icon" on:click={() => promoteConfirmPlayerId = null} aria-label={$t('common_close')}><Icon name="x" size={14} /></button>
 							{:else if deleteConfirmPlayerId === p.id}
 								<button class="btn-danger-sm" on:click={() => deletePlayer(p.id)}>{$t('admin_players_action_delete')} ?</button>
-								<button class="btn-icon" on:click={() => deleteConfirmPlayerId = null} aria-label={$t('common_close')}>✕</button>
+								<button class="btn-icon" on:click={() => deleteConfirmPlayerId = null} aria-label={$t('common_close')}><Icon name="x" size={14} /></button>
 							{:else}
 								<button class="btn-row" on:click={() => openEditPlayer(p)}>{$t('admin_players_tooltip_edit')}</button>
-								<button class="btn-row btn-more" class:open={openActionsId === p.id} aria-expanded={openActionsId === p.id} title={$t('admin_players_actions_more')} aria-label={$t('admin_players_actions_more')} on:click={() => openActionsId = openActionsId === p.id ? null : p.id}>⋯</button>
+								<button class="btn-row btn-more" class:open={openActionsId === p.id} aria-expanded={openActionsId === p.id} title={$t('admin_players_actions_more')} aria-label={$t('admin_players_actions_more')} on:click={() => openActionsId = openActionsId === p.id ? null : p.id}><Icon name={openActionsId === p.id ? 'chevron-up' : 'chevron-down'} size={15} /></button>
 							{/if}
 						{:else}
 							{#if demoteConfirmPlayerId === p.id}
 								<button class="btn-warning-sm" on:click={() => { toggleAdmin(p); demoteConfirmPlayerId = null; }}>{$t("admin_players_demote_confirm")}</button>
-								<button class="btn-icon" on:click={() => demoteConfirmPlayerId = null}>❌</button>
+								<button class="btn-icon" on:click={() => demoteConfirmPlayerId = null} aria-label={$t('common_close')}><Icon name="x" size={14} /></button>
 							{:else}
 								<button class="btn-row" on:click={() => { demoteConfirmPlayerId = p.id; promoteConfirmPlayerId = null; deleteConfirmPlayerId = null; }}>{$t('admin_players_tooltip_demote')}</button>
 							{/if}
@@ -312,61 +317,65 @@
 	<!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
 	<!-- svelte-ignore a11y-click-events-have-key-events -->
 	<div class="modal-overlay-global" use:portal role="dialog" aria-modal="true"
-		on:mousedown={(e) => { if (e.target === e.currentTarget) overlayMouseDown = true; }} 
+		on:mousedown={(e) => { if (e.target === e.currentTarget) overlayMouseDown = true; }}
 		on:mouseup={(e) => { if (overlayMouseDown && e.target === e.currentTarget) editingPlayer = null; overlayMouseDown = false; }}>
-		<div class="modal-card-global glass" on:click|stopPropagation style="max-width: 440px">
+		<div class="modal-card-global narrow glass" on:click|stopPropagation>
 			<header class="edit-modal-header">
-				<h3>✏️ {$t('admin_players_modal_edit_title', { name: editingPlayer.username })}</h3>
-				<button class="close-btn" on:click={() => editingPlayer = null} aria-label={$t('common_close')}>✕</button>
+				<div class="mh-main">
+					<span class="mh-ic"><Icon name="pencil" size={20} /></span>
+					<div class="mh-text">
+						<h3>{$t('admin_players_modal_edit_title_short')}</h3>
+						<span class="mh-sub">{editingPlayer.username}</span>
+					</div>
+				</div>
+				<button class="close-btn" on:click={() => editingPlayer = null} aria-label={$t('common_close')}><Icon name="x" size={18} /></button>
 			</header>
 			<div class="edit-modal-body">
 				{#if editingPlayer.avatar_url}
-					<div class="edit-field mb-3" style="display: flex; align-items: center; gap: 1rem;">
+					<div class="avatar-row">
 						<div class="admin-avatar-lg avatar-shape-{editingPlayer.avatar_shape || 'circle'}">
 							<img src={editingPlayer.avatar_url} alt="" />
 						</div>
 						{#if deleteAvatarConfirm}
 							<button class="btn-danger-sm" type="button" on:click={() => adminDeleteAvatar(editingPlayer.id)}>{$t('admin_confirm_delete_avatar_btn')}</button>
-							<button class="btn-icon" type="button" on:click={() => deleteAvatarConfirm = false}>✕</button>
+							<button class="btn-icon" type="button" on:click={() => deleteAvatarConfirm = false} aria-label={$t('common_close')}><Icon name="x" size={14} /></button>
 						{:else}
-							<button class="btn-danger-sm" type="button" on:click={() => deleteAvatarConfirm = true}>{$t('admin_players_modal_delete_avatar')}</button>
+							<button class="btn-row" type="button" on:click={() => deleteAvatarConfirm = true}><Icon name="trash" size={14} /> {$t('admin_players_modal_delete_avatar')}</button>
 						{/if}
 					</div>
 				{/if}
-				<div class="edit-field mb-3">
-					<label>{$t("admin_players_modal_pseudo")}</label>
-					<input type="text" bind:value={editPlayerData.username} />
+				<div class="edit-field">
+					<label for="pl-name">{$t("admin_players_modal_pseudo")}</label>
+					<input id="pl-name" type="text" bind:value={editPlayerData.username} />
 				</div>
-				<div class="edit-field mb-3">
-					<label>{$t('admin_players_modal_team_name')}</label>
-					<input type="text" bind:value={editPlayerData.team_name} list="admin-existing-teams" placeholder="{$t('admin_players_modal_no_team')}" />
+				<div class="edit-grid-2col">
+					<div class="edit-field">
+						<label for="pl-team">{$t('admin_players_modal_team_name')}</label>
+						<input id="pl-team" type="text" bind:value={editPlayerData.team_name} list="admin-existing-teams" placeholder="{$t('admin_players_modal_no_team')}" />
+					</div>
+					<div class="edit-field">
+						<label for="pl-seat">{$t('admin_players_modal_seat')}</label>
+						<input id="pl-seat" type="text" bind:value={editPlayerData.seat_id} placeholder="{$t('admin_players_modal_no_seat')}" />
+					</div>
 				</div>
-				<div class="edit-field mb-3">
-					<label>{$t('admin_players_modal_seat')}</label>
-					<input type="text" bind:value={editPlayerData.seat_id} placeholder="{$t('admin_players_modal_no_seat')}" />
+				<div class="edit-field">
+					<label for="pl-pts">{$t('admin_players_modal_points')}</label>
+					<input id="pl-pts" type="number" step="any" bind:value={editPlayerData.points} placeholder="0" />
 				</div>
-				<div class="edit-field mb-3">
-					<label>{$t('admin_players_modal_points')}</label>
-					<input type="number" step="any" bind:value={editPlayerData.points} placeholder="0" />
-				</div>
-				<div class="player-toggle-row mb-3">
-					<span class="player-toggle-label">{$t('admin_players_modal_is_admin')} 👑</span>
-					<label class="toggle-switch-mini">
-						<input type="checkbox" bind:checked={editPlayerData.is_admin} />
-						<span class="toggle-slider"></span>
+				<div class="edit-section toggles">
+					<label class="player-toggle-row">
+						<span class="player-toggle-label"><Icon name="crown" size={16} /> {$t('admin_players_modal_is_admin')}</span>
+						<span class="switch"><input type="checkbox" bind:checked={editPlayerData.is_admin} /><span class="slider"></span></span>
 					</label>
-				</div>
-				<div class="player-toggle-row mb-3">
-					<span class="player-toggle-label">{$t('admin_players_modal_block_ai')} 🚫</span>
-					<label class="toggle-switch-mini">
-						<input type="checkbox" bind:checked={editPlayerData.ia_blocked} />
-						<span class="toggle-slider"></span>
+					<label class="player-toggle-row">
+						<span class="player-toggle-label"><Icon name="ban" size={16} /> {$t('admin_players_modal_block_ai')}</span>
+						<span class="switch"><input type="checkbox" bind:checked={editPlayerData.ia_blocked} /><span class="slider"></span></span>
 					</label>
 				</div>
 			</div>
 			<footer class="edit-modal-footer">
 				<button class="btn-secondary" on:click={() => editingPlayer = null}>{$t('admin_settings_cancel')}</button>
-				<button class="btn-primary" on:click={savePlayer}>💾 {$t('admin_players_modal_btn_save')}</button>
+				<button class="btn-primary btn-ic" on:click={savePlayer}><Icon name="save" size={16} /> {$t('admin_players_modal_btn_save')}</button>
 			</footer>
 		</div>
 	</div>
@@ -376,22 +385,28 @@
 	<!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
 	<!-- svelte-ignore a11y-click-events-have-key-events -->
 	<div class="modal-overlay-global" use:portal role="dialog" aria-modal="true"
-		on:mousedown={(e) => { if (e.target === e.currentTarget) overlayMouseDown = true; }} 
+		on:mousedown={(e) => { if (e.target === e.currentTarget) overlayMouseDown = true; }}
 		on:mouseup={(e) => { if (overlayMouseDown && e.target === e.currentTarget) resetPwdPlayer = null; overlayMouseDown = false; }}>
-		<div class="modal-card-global glass" on:click|stopPropagation style="max-width: 440px">
+		<div class="modal-card-global narrow glass" on:click|stopPropagation>
 			<header class="edit-modal-header">
-				<h3>🔑 {$t('admin_players_modal_reset_pwd_title', { name: resetPwdPlayer.username })}</h3>
-				<button class="close-btn" on:click={() => resetPwdPlayer = null} aria-label={$t('common_close')}>✕</button>
+				<div class="mh-main">
+					<span class="mh-ic"><Icon name="key" size={20} /></span>
+					<div class="mh-text">
+						<h3>{$t('admin_players_modal_reset_pwd_title_short')}</h3>
+						<span class="mh-sub">{resetPwdPlayer.username}</span>
+					</div>
+				</div>
+				<button class="close-btn" on:click={() => resetPwdPlayer = null} aria-label={$t('common_close')}><Icon name="x" size={18} /></button>
 			</header>
 			<div class="edit-modal-body">
 				<div class="edit-field">
-					<label>{$t('admin_players_modal_new_pwd')}</label>
-					<input type="text" bind:value={resetPwdValue} />
+					<label for="pl-newpwd">{$t('admin_players_modal_new_pwd')}</label>
+					<input id="pl-newpwd" type="text" bind:value={resetPwdValue} />
 				</div>
 			</div>
 			<footer class="edit-modal-footer">
 				<button class="btn-secondary" on:click={() => resetPwdPlayer = null}>{$t('admin_settings_cancel')}</button>
-				<button class="btn-primary" on:click={resetPassword}>✅ {$t('admin_players_modal_reset_btn')}</button>
+				<button class="btn-primary btn-ic" on:click={resetPassword}><Icon name="check" size={16} /> {$t('admin_players_modal_reset_btn')}</button>
 			</footer>
 		</div>
 	</div>
@@ -399,9 +414,9 @@
 
 <style>
 	.players-view { border-radius: var(--radius-lg); }
-	.players-view h3 { font-size: 1rem; font-weight: 800; display: flex; align-items: center; gap: 0.5rem; margin: 0; }
+	.players-view h3 { font-size: var(--fs-section); font-weight: 700; display: flex; align-items: center; gap: 0.6rem; margin: 0; }
 	.players-table { display: flex; flex-direction: column; gap: 0; border-radius: 10px; overflow: hidden; border: 1px solid var(--glass-border); }
-	.pt-header { display: flex; padding: 0.6rem 0.8rem; background: var(--surface-sunken); font-weight: 700; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-dim); border-bottom: 1px solid var(--glass-border); }
+	.pt-header { display: flex; padding: 0.6rem 0.8rem; background: var(--surface-sunken); font-weight: 700; font-size: 0.8125rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-dim); border-bottom: 1px solid var(--glass-border); }
 	.pt-row { display: flex; padding: 0.55rem 0.8rem; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.03); transition: background 0.15s; }
 	.pt-row:hover { background: var(--hover-tint); }
 	.pt-row:last-child { border-bottom: none; }
@@ -412,14 +427,14 @@
 	.pt-team { flex: 2; min-width: 0; color: var(--text-dim); }
 	.pt-pts { width: 120px; flex-shrink: 0; text-align: center; font-weight: 800; color: var(--accent); }
 	.pt-actions { width: 240px; flex-shrink: 0; display: flex; gap: 0.3rem; align-items: center; justify-content: flex-end; flex-wrap: nowrap; }
-	.admin-badge { font-size: 0.75rem; padding: 0.1rem 0.3rem; background: rgba(234,179,8,0.15); color: #eab308; border-radius: 6px; font-weight: 800; }
-	.pt-search { width: 240px; padding: 0.45rem 0.7rem; font-size: 0.85rem; border-radius: var(--radius-md); }
-	.btn-row { background: var(--hover-tint); border: 1px solid var(--glass-border); color: var(--text-main); border-radius: var(--radius-md); padding: 0.3rem 0.7rem; font-size: 0.8rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
+	.admin-badge { display: inline-flex; align-items: center; padding: 0.15rem 0.35rem; background: rgba(234,179,8,0.15); color: #eab308; border-radius: 6px; }
+	.pt-search { width: 260px; padding: 0.45rem 0.7rem; font-size: 0.875rem; border-radius: var(--radius-md); }
+	.btn-row { display: inline-flex; align-items: center; gap: 0.35rem; background: var(--hover-tint); border: 1px solid var(--glass-border); color: var(--text-main); border-radius: var(--radius-md); padding: 0.35rem 0.8rem; font-size: 0.8125rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
 	.btn-row:hover, .btn-row.open { border-color: var(--accent); color: var(--accent); }
 	.btn-row.warn { color: var(--warning); border-color: var(--warning); }
 	.btn-row.danger { color: var(--danger); border-color: rgba(239,68,68,0.4); }
 	.btn-row.danger:hover { background: rgba(239,68,68,0.12); border-color: var(--danger); }
-	.btn-more { font-size: 1rem; line-height: 1; padding: 0.2rem 0.6rem; }
+	.btn-more { display: inline-flex; align-items: center; padding: 0.3rem 0.5rem; }
 	.pt-actions-drawer { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; justify-content: flex-end; padding: 0.5rem 0.8rem 0.7rem; background: var(--surface-sunken); border-bottom: 1px solid var(--glass-border); }
 	.drawer-sep { width: 1px; align-self: stretch; background: var(--glass-border); margin: 0 0.2rem; }
 	.pt-empty { padding: 1rem; margin: 0; font-size: 0.9rem; }
@@ -453,29 +468,32 @@
 	.admin-avatar-small img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
 	.admin-avatar-lg { width: 50px; height: 50px; border-radius: 50%; overflow: hidden; flex-shrink: 0; border: 1px solid var(--accent-soft); }
 	.admin-avatar-lg img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
-	.edit-modal-header { display: flex; justify-content: space-between; align-items: center; padding: 1.2rem 1.5rem; border-bottom: 1px solid var(--glass-border); background: rgba(59,130,246,0.08); }
-	.edit-modal-header h3 { font-size: 1rem; margin: 0; }
-	.close-btn { background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 1.2rem; padding: 0.2rem; }
-	.edit-modal-body { padding: 1.5rem; }
-	.edit-modal-footer { display: flex; justify-content: flex-end; gap: 0.75rem; padding: 1rem 1.5rem; border-top: 1px solid var(--glass-border); }
-	.edit-field { display: flex; flex-direction: column; gap: 0.4rem; }
-	.edit-field label { font-size: 0.75rem; font-weight: 700; color: var(--text-dim);  }
-	.ia-blocked-badge { font-size: 0.7rem; margin-left: 0.3rem; opacity: 0.8; }
-	.chat-muted-badge { font-size: 0.85rem; margin-left: 0.2rem; }
+	.ia-blocked-badge { display: inline-flex; color: var(--warning); margin-left: 0.3rem; }
+	.chat-muted-badge { display: inline-flex; color: var(--text-dim); margin-left: 0.2rem; }
 
-	/* Player Modal Toggles */
-	.player-toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 0.7rem 0.9rem; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: var(--radius-md); }
-	.player-toggle-label { font-size: 0.8rem; font-weight: 600; color: var(--text-main); font-family: var(--font-main); }
-	.toggle-switch-mini { position: relative; display: inline-block; width: 32px; height: 18px; cursor: pointer; flex-shrink: 0; }
-	.toggle-switch-mini input { opacity: 0; width: 0; height: 0; position: absolute; }
-	.toggle-switch-mini .toggle-slider { position: absolute; inset: 0; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 18px; transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
-	.toggle-switch-mini .toggle-slider::before { content: ''; position: absolute; height: 12px; width: 12px; left: 2px; bottom: 2px; background: var(--text-dim); border-radius: 50%; transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
-	.toggle-switch-mini input:checked + .toggle-slider { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 10px var(--accent-glow); }
-	.toggle-switch-mini input:checked + .toggle-slider::before { transform: translateX(14px); background: #ffffff; }
+	/* Player modal toggles: same switch as the Settings page */
+	.edit-section.toggles { gap: 0; padding: 0.25rem 1.1rem; }
+	.player-toggle-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.7rem 0; cursor: pointer; }
+	.player-toggle-row + .player-toggle-row { border-top: 1px solid var(--glass-border); }
+	.player-toggle-label { display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.9375rem; font-weight: 600; color: var(--text-main); font-family: var(--font-main); }
+	.switch { position: relative; display: inline-block; width: 44px; height: 24px; min-width: 44px; flex-shrink: 0; }
+	.switch input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; z-index: 1; }
+	.slider { position: absolute; inset: 0; background-color: var(--text-muted); opacity: 0.45; transition: background-color 0.2s, opacity 0.2s; border-radius: 12px; pointer-events: none; }
+	.slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; top: 3px; background-color: #fff; transition: transform 0.2s; border-radius: 50%; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25); }
+	input:checked + .slider { background-color: var(--accent-solid); opacity: 1; }
+	input:checked + .slider:before { transform: translateX(20px); }
+	input:focus-visible + .slider { outline: 2px solid var(--accent); outline-offset: 2px; }
+	.avatar-row { display: flex; align-items: center; gap: 1rem; }
+	.head-ic { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 10px; background: var(--accent-soft); color: var(--accent); }
+	.online-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); box-shadow: 0 0 6px color-mix(in srgb, var(--success) 60%, transparent); flex-shrink: 0; }
+	.pt-search-wrap { position: relative; display: flex; align-items: center; color: var(--text-muted); }
+	.pt-search-wrap :global(svg) { position: absolute; left: 0.65rem; pointer-events: none; }
+	.pt-search-wrap .pt-search { padding-left: 2rem; }
+	.btn-compact { padding: 0.4rem 0.8rem; font-size: 0.8125rem; }
 	@media (max-width: 900px) {
 		.players-view { padding: 1rem !important; }
 		.players-view > .flex-row { flex-wrap: wrap; gap: 0.6rem; }
-		.pt-search { width: 100%; }
+		.pt-search-wrap, .pt-search { width: 100%; }
 		.pt-id, .pt-team, .pt-pts { display: none; }
 		.pt-actions { width: auto; }
 		.cpf-grid { grid-template-columns: 1fr; }

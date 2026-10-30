@@ -1591,5 +1591,15 @@
   "settings_theme_opt_dark": "Oscuro",
   "settings_theme_opt_light": "Claro",
   "profile_logout_confirm": "¿Cerrar sesión?",
-  "profile_logout_yes": "Sí, cerrar sesión"
+  "profile_logout_yes": "Sí, cerrar sesión",
+  "admin_games_edit_modal_title": "Editar juego",
+  "admin_tourneys_delete_title": "Eliminar torneo",
+  "admin_tourneys_delete_body": "El torneo, sus equipos, partidos y resultados se eliminarán definitivamente. Esta acción es irreversible.",
+  "admin_tourneys_delete_running": "Este torneo está en curso: se perderán {done} de {total} partido(s) jugado(s).",
+  "admin_tourneys_delete_confirm_btn": "Eliminar definitivamente",
+  "admin_tourneys_edit_modal_title": "Editar torneo",
+  "admin_tourneys_edit_format_title": "Formato",
+  "admin_tourneys_edit_rr_options": "Opciones de la liga",
+  "admin_players_modal_edit_title_short": "Editar jugador",
+  "admin_players_modal_reset_pwd_title_short": "Restablecer contraseña"
 }
