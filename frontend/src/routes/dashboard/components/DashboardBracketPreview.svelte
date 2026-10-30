@@ -52,14 +52,15 @@
 		return null;
 	}
 
-	$: bracketRounds = activeTournament ? getRounds(activeTournament.bracket) : [];
+	$: bracketRounds = activeTournament ? getRounds(activeTournament.config?.stage === 'knockout' ? (activeTournament.bracket || []).filter(m => m.id.s < 100) : activeTournament.bracket) : [];
 
 	$: dashRRGroups = (() => {
 		if (activeBracketType !== 'round_robin' || !activeTournament) return [];
 		const groups = {};
 		(activeTournament.bracket || []).forEach(m => {
-			if (!groups[m.id.s]) groups[m.id.s] = [];
-			groups[m.id.s].push(m);
+			const g = m.id.s >= 100 ? m.id.s - 100 : m.id.s;
+			if (!groups[g]) groups[g] = [];
+			groups[g].push(m);
 		});
 		return Object.keys(groups).sort((a,b) => a-b).map(k => ({
 			id: k,

@@ -26,6 +26,8 @@
 		team_size: 2, 
 		points_per_win: 3, 
 		group_size: 4, 
+		phases: 'single',
+		advancers_count: 2,
 		meet_twice: false,
 		ffa_group_size: 4,
 		ffa_advancers: 2,
@@ -78,6 +80,8 @@
 					ffa_group_size: Number(config.ffa_group_size),
 					ffa_advancers: Number(config.ffa_advancers),
 					bracket_type: config.bracket_type,
+					phases: (config.bracket_type === 'single_elim' || config.bracket_type === 'double_elim') && config.phases === 'double' ? 'double' : 'single',
+					advancers_count: Number(config.advancers_count),
 					pts_winner: Number(config.pts_winner),
 					pts_second: Number(config.pts_second),
 					pts_third: Number(config.pts_third),
@@ -92,7 +96,7 @@
 			onSuccess(res);
 			setTimeout(() => {
 				step = 1;
-				config = { name: '', game_id: games.length > 0 ? games[0].id : null, use_teams: false, team_size: 2, points_per_win: 3, group_size: 4, meet_twice: false, ffa_group_size: 4, ffa_advancers: 2, bracket_type: 'single_elim', pts_winner: defaultPts.pts_winner, pts_second: defaultPts.pts_second, pts_third: defaultPts.pts_third, pts_participation: defaultPts.pts_participation, pts_per_match: defaultPts.pts_per_match, lower_score_is_better: false, boolean_mode: false, allow_draws: false };
+				config = { name: '', game_id: games.length > 0 ? games[0].id : null, use_teams: false, team_size: 2, points_per_win: 3, group_size: 4, phases: 'single', advancers_count: 2, meet_twice: false, ffa_group_size: 4, ffa_advancers: 2, bracket_type: 'single_elim', pts_winner: defaultPts.pts_winner, pts_second: defaultPts.pts_second, pts_third: defaultPts.pts_third, pts_participation: defaultPts.pts_participation, pts_per_match: defaultPts.pts_per_match, lower_score_is_better: false, boolean_mode: false, allow_draws: false };
 			}, 1000);
 		} catch (e) {
 			errorMsg = e.message || $t('wizard_create_error');
@@ -221,6 +225,30 @@
 				</button>
 			</div>
 
+			{#if config.bracket_type === 'single_elim' || config.bracket_type === 'double_elim'}
+				<label>{$t('wizard_phases_lbl')}</label>
+				<div class="phases-row">
+					<button type="button" class="phase-opt {config.phases !== 'double' ? 'active' : ''}" on:click={() => config.phases = 'single'}>{$t('wizard_phases_direct')}</button>
+					<button type="button" class="phase-opt {config.phases === 'double' ? 'active' : ''}" on:click={() => config.phases = 'double'}>{$t('wizard_phases_groups')}</button>
+				</div>
+				{#if config.phases === 'double'}
+					<div class="glass-inner p-4 mt-2">
+						<div class="grid-2">
+							<div><label for="wiz-group-size">{$t('admin_tourneys_wizard_group_size')}</label><input id="wiz-group-size" type="number" bind:value={config.group_size} min="2" max="16" /></div>
+							<div><label for="wiz-advancers">{$t('admin_tourneys_wizard_advancers')}</label><input id="wiz-advancers" type="number" bind:value={config.advancers_count} min="1" max="8" /></div>
+						</div>
+						<label class="score-invert-label mt-2">
+							<input type="checkbox" bind:checked={config.meet_twice} />
+							{$t('tournaments.config.meet_twice')}
+						</label>
+						<label class="score-invert-label">
+							<input type="checkbox" bind:checked={config.allow_draws} />
+							{$t('admin_tourneys_wizard_opt_draws')}
+						</label>
+					</div>
+				{/if}
+			{/if}
+
 			{#if config.bracket_type === 'round_robin'}
 				<div class="glass-inner p-4 mt-2">
 					<div class="grid-2">
@@ -345,6 +373,10 @@
 	.score-invert-label { display: flex; align-items: flex-start; flex-wrap: wrap; gap: 0.5rem; font-size: 0.875rem; font-weight: 600; color: var(--text-main); cursor: pointer; margin: 0.4rem 0; text-transform: none; letter-spacing: 0; }
 	.score-invert-label input[type="checkbox"] { width: 16px; height: 16px; margin-top: 0.15rem; accent-color: var(--accent); cursor: pointer; }
 
+	.phases-row { display: flex; gap: 2px; padding: 3px; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: var(--radius-md); }
+	.phase-opt { flex: 1; padding: 0.45rem 0.7rem; font-size: 0.8125rem; font-weight: 600; font-family: var(--font-main); border: 1px solid transparent; border-radius: calc(var(--radius-md) - 2px); background: transparent; color: var(--text-dim); cursor: pointer; }
+	.phase-opt:hover { color: var(--text-main); }
+	.phase-opt.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 	.glass-inner { background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 10px; padding: 0.8rem; }
 	.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; }
 	.p-4 { padding: 1rem; }

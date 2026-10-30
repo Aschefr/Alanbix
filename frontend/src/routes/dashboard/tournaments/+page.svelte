@@ -16,6 +16,7 @@
 	import TournamentTeams from './components/TournamentTeams.svelte';
 	import TournamentStandings from './components/TournamentStandings.svelte';
 	import TournamentBracket from './components/TournamentBracket.svelte';
+	import GroupStagePanel from './components/GroupStagePanel.svelte';
 
 	let tournaments = [];
 	let games = [];
@@ -631,7 +632,12 @@
 
 	function getGame(gid) { return games.find(g => g.id === gid) || games.find(g => String(g.id) === String(gid)); }
 
-	function bracketLabel(format) {
+	function bracketLabel(format, config = null) {
+		// groups then knockout: show both phases, whatever the current stage
+		if (config?.phases === 'double' && config.stage) {
+			const ko = config.stage === 'knockout' ? format : config.ko_type;
+			return get(t)('groups_format_summary', { format: bracketLabel(ko) });
+		}
 		if (format === 'single_elim') return get(t)('admin_tourneys_wizard_format_single');
 		if (format === 'double_elim') return get(t)('admin_tourneys_wizard_format_double');
 		if (format === 'round_robin') return get(t)('admin_tourneys_wizard_format_championship');
@@ -661,8 +667,17 @@
 	$: selectedGame = selected ? getGame(selected.game_id) : null;
 	$: gameMap = Object.fromEntries(games.map(g => [g.id, g]));
 	$: unregisteredUsers = allUsers.filter(u => !participants.find(p => p.user_id === u.id));
-	$: bracketRounds = selected ? getRounds(selected.bracket) : [];
-	$: hasBracket = bracketRounds.length > 0;
+	// Groups + knockout: the group matches (section >= 100) live in the same bracket list
+	$: stage = selected?.config?.stage || null;
+	$: isTwoPhase = selected?.config?.phases === 'double' && !!stage;
+	let phaseTab = 'knockout';
+	$: if (stage !== 'knockout') phaseTab = 'knockout';
+	$: koMatches = (selected?.bracket || []).filter(m => m.id.s < 100);
+	$: groupMatches = (selected?.bracket || []).filter(m => m.id.s >= 100);
+	$: showingGroups = isTwoPhase && (stage === 'groups' || phaseTab === 'groups');
+	$: bracketRounds = selected ? getRounds(isTwoPhase ? koMatches : selected.bracket) : [];
+	$: hasBracket = (selected?.bracket || []).length > 0;
+	$: viewBracketType = showingGroups ? 'round_robin' : bracketType;
 	$: isAdmin = currentUser?.is_admin;
 	$: isParticipant = participants.some(p => p.user_id === currentUser?.id);
 	$: myTeam = teams.find(t => t.members?.some(m => m.user_id === currentUser?.id));
@@ -715,10 +730,10 @@
 	$: displayStandings = liveStandings;
 
 	$: rrGroups = (() => {
-		if (!selected || !selected.bracket || bracketType !== 'round_robin') return [];
+		if (!selected || !selected.bracket || !(bracketType === 'round_robin' || showingGroups)) return [];
 		const groups = {};
-		selected.bracket.forEach(m => {
-			const gId = m.id.s;
+		(isTwoPhase ? groupMatches : selected.bracket).forEach(m => {
+			const gId = m.id.s >= 100 ? m.id.s - 100 : m.id.s;
 			if (!groups[gId]) groups[gId] = [];
 			groups[gId].push(m);
 		});
@@ -1023,7 +1038,7 @@
 
 				{#if showDetails || (!isMobile && selected.status === 'OPEN')}
 					<div class="info-row">
-						<div class="info-card glass"><span class="info-label">{$t("admin_tourneys_wizard_format_lbl")}</span><span class="info-value">{bracketLabel(selected.config?.bracket_type)}</span></div>
+						<div class="info-card glass"><span class="info-label">{$t("admin_tourneys_wizard_format_lbl")}</span><span class="info-value">{bracketLabel(selected.config?.bracket_type, selected.config)}</span></div>
 						<div class="info-card glass"><span class="info-label">{$t("admin_tourneys_wizard_mode_lbl")}</span><span class="info-value">{selected.config?.use_teams ? `${$t('admin_tourneys_wizard_mode_teams')} (x${selected.config?.team_size || 2})` : 'Solo'}</span></div>
 						<div class="info-card glass"><span class="info-label">{$t("admin_tourneys_wizard_points_lbl")}</span><span class="info-value accent" style="font-size:0.85rem">{$t('tourneys_pts_first')} {selected.config?.pts_winner ?? 1.5} · {$t('tourneys_pts_second')} {selected.config?.pts_second ?? 1.3} · {$t('tourneys_pts_third')} {selected.config?.pts_third ?? 1.0}<br>{$t('tourneys_pts_participation_short')} {selected.config?.pts_participation ?? 1.0}{$t('tourneys_per_match')} · {$t('tourneys_pts_score_bonus_short')} {selected.config?.pts_per_match ?? 0.5}</span></div>
 						<div class="info-card glass"><span class="info-label">{$t("dash_stat_players")}</span><span class="info-value">{participants.length}</span></div>
@@ -1088,11 +1103,26 @@
 
 				<!-- Split Layout: Bracket & Live Standings -->
 				<div class="tournament-split-layout" class:split-active={showLiveStandings && liveStandings.length > 0} class:split-fill={selected?.status !== 'OPEN' && !showDetails}>
+					{#if isTwoPhase && hasBracket}
+						{#if stage === 'knockout'}
+							<div class="phase-tabs" role="tablist">
+								<button role="tab" class="seg-tab" class:active={phaseTab === 'knockout'} aria-selected={phaseTab === 'knockout'} on:click={() => phaseTab = 'knockout'}><Icon name="trophy" size={14} /> {$t('groups_tab_knockout')}</button>
+								<button role="tab" class="seg-tab" class:active={phaseTab === 'groups'} aria-selected={phaseTab === 'groups'} on:click={() => phaseTab = 'groups'}><Icon name="layers" size={14} /> {$t('groups_tab_groups')}</button>
+							</div>
+						{/if}
+						{#if showingGroups}
+							<GroupStagePanel {selected} {nameMap} {isAdmin} on:changed={async (e) => {
+								if (e.detail?.error) toast(e.detail.error, 'error'); else if (e.detail?.toast) toast(e.detail.toast, 'success');
+								tournaments = await api.get('/tournaments');
+								await selectTournament(selectedId);
+							}} />
+						{/if}
+					{/if}
 					<TournamentBracket
 						bind:this={bracketRef}
 						{selected}
 						{hasBracket}
-						{bracketType}
+						bracketType={viewBracketType}
 						{bracketRounds}
 						{wbRounds}
 						{lbRounds}
@@ -1156,7 +1186,7 @@
 				<div class="m-modal-cards-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem;">
 					<div class="info-card glass" style="padding:0.6rem; border-radius:8px;">
 						<span class="info-label" style="font-size:0.7rem; color:var(--text-dim); display:block;">{$t("admin_tourneys_wizard_format_lbl")}</span>
-						<span class="info-value" style="font-weight:700; font-size:0.85rem;">{bracketLabel(selected.config?.bracket_type)}</span>
+						<span class="info-value" style="font-weight:700; font-size:0.85rem;">{bracketLabel(selected.config?.bracket_type, selected.config)}</span>
 					</div>
 					<div class="info-card glass" style="padding:0.6rem; border-radius:8px;">
 						<span class="info-label" style="font-size:0.7rem; color:var(--text-dim); display:block;">{$t("admin_tourneys_wizard_mode_lbl")}</span>
@@ -1422,6 +1452,10 @@
 
 	/* === DETAIL === */
 	.t-detail { flex-grow: 1; display: flex; flex-direction: column; overflow-y: auto; border-radius: var(--radius-lg); margin-left: -3rem; padding-left: 3rem; }
+	.phase-tabs { display: inline-flex; gap: 2px; padding: 3px; margin-bottom: 0.9rem; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: var(--radius-md); }
+	.seg-tab { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.4rem 0.9rem; border: 1px solid transparent; border-radius: calc(var(--radius-md) - 2px); background: transparent; color: var(--text-dim); font-size: 0.8125rem; font-weight: 600; cursor: pointer; }
+	.seg-tab:hover { color: var(--text-main); }
+	.seg-tab.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 	.detail-hero { height: 150px; background-size: cover; background-position: center; background-color: var(--bg-secondary); border-radius: var(--radius-lg) var(--radius-lg) 0 0; position: relative; flex-shrink: 0; }
 	.hero-overlay { position: absolute; inset: 0; display: flex; align-items: flex-end; justify-content: space-between; background: linear-gradient(to top, rgba(15,23,42,0.95) 0%, rgba(15,23,42,0.7) 55%, rgba(15,23,42,0.2)); padding: 1.2rem 1.5rem; border-radius: inherit; }
 	.hero-content { display: flex; flex-direction: column; gap: 0.2rem; }

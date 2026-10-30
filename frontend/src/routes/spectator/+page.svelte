@@ -241,7 +241,7 @@
 	let bracketTourneyIdx = 0;
 	$: if (runningTournaments.length > 0 && bracketTourneyIdx >= runningTournaments.length) bracketTourneyIdx = 0;
 	$: runningTournament = runningTournaments.length > 0 ? runningTournaments[bracketTourneyIdx] : null;
-	$: bracketRounds = runningTournament ? getRounds(runningTournament.bracket) : [];
+	$: bracketRounds = runningTournament ? getRounds(runningTournament.config?.stage === 'knockout' ? (runningTournament.bracket || []).filter(m => m.id.s < 100) : runningTournament.bracket) : [];
 	$: bracketType = runningTournament?.config?.bracket_type || 'single_elim';
 	$: specLowerIsBetter = runningTournament?.config?.lower_score_is_better || false;
 	
@@ -261,8 +261,9 @@
 		if (bracketType !== 'round_robin' || !runningTournament) return [];
 		const groups = {};
 		(runningTournament.bracket || []).forEach(m => {
-			if (!groups[m.id.s]) groups[m.id.s] = [];
-			groups[m.id.s].push(m);
+			const g = m.id.s >= 100 ? m.id.s - 100 : m.id.s;
+			if (!groups[g]) groups[g] = [];
+			groups[g].push(m);
 		});
 		return Object.keys(groups).sort((a,b) => a-b).map(k => ({
 			id: k,

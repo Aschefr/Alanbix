@@ -649,6 +649,10 @@
 
 					roundLabel = `Loser Bracket · Tour ${m.id.r || '?'}`;
 
+				} else if (m.id?.s >= 100) {
+
+					roundLabel = `${tFunc('spec_group_num', { group: String.fromCharCode(64 + m.id.s - 100) })} · Tour ${m.id.r || '?'}`;
+
 				} else if (m.id?.s === 3) {
 
 					roundLabel = `Grande Finale`;
