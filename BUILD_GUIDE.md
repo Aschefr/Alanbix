@@ -95,7 +95,9 @@ Pour mettre à jour une installation existante, relancer ces deux commandes : le
 
 Pour qu'Unraid affiche correctement ton application avec la belle interface, nous utilisons un modèle (Template XML).
 
-> [!WARNING]
-> Le fichier `unraid-template.xml` n'est plus présent dans le dépôt (supprimé lors d'un nettoyage). Il doit être recréé avant de pouvoir partager l'application via Community Applications.
+Le modèle ne vit pas dans ce dépôt mais dans le dépôt dédié **[Aschefr/unraid-templates](https://github.com/Aschefr/unraid-templates)**, fichier **`alanbix.xml`** : c'est ce dépôt que le store Community Applications (CA) lit, avec `ca_profile.xml` pour le profil de l'auteur.
 
-Un modèle Unraid doit contenir : l'image `aschefr/alanbix:latest`, l'icône depuis GitHub, le port WebUI `41481`, et le dossier de sauvegarde `appdata` monté sur `/app/data`. Il s'importe dans `/boot/config/plugins/dockerMan/templates-user/`.
+- Il contient la configuration officielle : image `aschefr/alanbix`, icône servie depuis ce dépôt GitHub (`frontend/static/favicon.png` sur `master`), port WebUI `41481`, dossier `appdata` monté sur `/app/data`.
+- Tant que l'icône reste présente sur `master`, Unraid l'affichera correctement.
+- À mettre à jour seulement si le port, les volumes, les variables d'environnement ou l'icône changent ; une nouvelle version de l'image ne demande aucune modification du modèle.
+- Pour un test local hors store, le XML s'importe dans `/boot/config/plugins/dockerMan/templates-user/`.
