@@ -40,7 +40,7 @@
 	function hideResult(key) { hiddenResults = [...hiddenResults.filter(k => k !== key), key]; saveHidden(); }
 	function showHiddenResults() { hiddenResults = []; saveHidden(); }
 	$: myActiveMatches = myMatchesAll.filter(m => !m.completed);
-	$: myResults = myMatchesAll.filter(m => m.completed && !hiddenResults.includes(m.match_key)).slice(-6).reverse();
+	$: myResults = myMatchesAll.filter(m => m.completed && !hiddenResults.includes(m.match_key)).slice(-2).reverse();
 	$: hiddenResultsCount = myMatchesAll.filter(m => m.completed && hiddenResults.includes(m.match_key)).length;
 	$: myMatchesSorted = [...myActiveMatches].sort((x, y) => Number(y.is_ready) - Number(x.is_ready));
 	let dashTab = 'tournaments';
