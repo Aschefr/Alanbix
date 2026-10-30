@@ -2121,11 +2121,13 @@
 	.mm-vs-label { color: var(--text-dim); font-weight: 500; font-size: 0.8125rem; }
 	.mm-score { display: flex; align-items: center; gap: 0.4rem; flex-wrap: nowrap; }
 	.mm-field { display: flex; align-items: center; gap: 0.3rem; font-size: 0.75rem; color: var(--text-dim); }
-	.mm-field span { max-width: 64px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-	.mm-field input { width: 44px !important; height: 34px; min-height: 0 !important; font-size: 1rem; font-weight: 700; text-align: center; border-radius: var(--radius-md); padding: 0; }
+	.mm-field span { max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	.mm-field input { width: 56px !important; height: 36px; min-height: 0 !important; font-size: 1rem; font-weight: 700; text-align: center; border-radius: var(--radius-md); padding: 0; }
+	/* the label sits beside the field on desktop: the placeholder is for phones only */
+	.mm-field input::placeholder { color: transparent; }
 	.mm-dash { color: var(--text-dim); }
-	.mm-submit { display: inline-flex; align-items: center; gap: 0.35rem; height: 34px; padding: 0 0.8rem; font-size: 0.8125rem; }
-	.mm-submit:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+	.mm-submit { display: inline-flex; align-items: center; gap: 0.35rem; height: 36px; padding: 0 0.9rem; font-size: 0.8125rem; }
+	.mm-submit:disabled { opacity: 1; background: var(--surface-sunken); color: var(--text-muted); border: 1px solid var(--glass-border); box-shadow: none; cursor: not-allowed; transform: none; }
 	.mm-bool { display: flex; gap: 0.4rem; }
 	.mm-pick { display: inline-flex; align-items: center; gap: 0.35rem; height: 34px; padding: 0 0.8rem; border-radius: var(--radius-md); border: 1px solid var(--glass-border); background: var(--surface-raised); color: var(--text-main); font-size: 0.8125rem; font-weight: 600; cursor: pointer; }
 	.mm-pick.win { border-color: var(--success); color: var(--success); }
@@ -2146,7 +2148,7 @@
 		.my-result .mr-text strong { display: none; }
 		.mm-field span { display: none; }
 		.mm-field input { font-size: 0.9375rem; }
-		.mm-field input::placeholder { font-size: 0.75rem; font-weight: 500; }
+		.mm-field input::placeholder { color: var(--text-muted); font-size: 0.75rem; font-weight: 500; }
 		.mm-field input { width: 100% !important; min-width: 0; }
 		.mm-submit { padding: 0 0.7rem; }
 		.mm-submit-txt { display: none; }
