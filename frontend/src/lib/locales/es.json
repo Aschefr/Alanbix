@@ -1661,5 +1661,9 @@
   "result_show_hidden": "Mostrar resultados ocultos ({n})",
   "result_ffa_mine": "Tu puntuación: {n}",
   "dash_ffa_lobby": "Sala · {n} rivales",
-  "result_hide_all": "Ocultar todo"
+  "result_hide_all": "Ocultar todo",
+  "login_server_down": "Servidor inaccesible",
+  "login_server_down_saved": "La dirección guardada ya no responde: {url}. Puede haber cambiado.",
+  "login_server_down_hint": "Sin respuesta. Comprueba que el servidor esté encendido y en la misma red.",
+  "login_server_search": "Buscar un servidor"
 }

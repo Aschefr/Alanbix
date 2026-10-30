@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.35.1] - Unreleased
+
+### 📱 Players
+- **Unreachable server on the login screen**: when the saved server address no longer answers (it changed, the server is off), a clear banner replaces "Failed to fetch" and a "Find a server" button opens the server search directly.
+
 ## [1.35.0] - 2026-10-31
 
 ### 🏆 Tournament engine

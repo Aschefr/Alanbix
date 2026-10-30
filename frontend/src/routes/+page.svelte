@@ -6,17 +6,25 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { t } from '$lib/i18nStore';
+	import Icon from '$lib/components/Icon.svelte';
 
 	let username = '';
 	let password = '';
 	let mode = 'idle'; // 'idle' | 'login' | 'register'
 	let checking = false;
 	let error = '';
+	let serverDown = false;
 	let isDark = true;
+
+	// A request that never reached a server (wrong or stale address, server off), not an HTTP error
+	function isNetworkError(e) {
+		return /failed to fetch|networkerror|load failed|network request failed/i.test(e?.message || '');
+	}
 
 	async function checkUsername() {
 		if (!username.trim()) return;
 		error = '';
+		serverDown = false;
 		checking = true;
 		try {
 			const res = await api.get(`/check-username/${encodeURIComponent(username.trim())}`);
@@ -32,13 +40,14 @@
 				setTimeout(() => checkUsername(), 300);
 				return;
 			}
-			error = e.message;
+			if (isNetworkError(e)) serverDown = true; else error = e.message;
 		}
 		checking = false;
 	}
 
 	async function handleSubmit() {
 		error = '';
+		serverDown = false;
 		if (mode === 'idle') {
 			await checkUsername();
 			return;
@@ -53,7 +62,7 @@
 				goto('/dashboard', { replaceState: true });
 			}
 		} catch (e) {
-			error = e.message;
+			if (isNetworkError(e)) serverDown = true; else error = e.message;
 		}
 	}
 
@@ -90,6 +99,7 @@
 			.then((stats) => { eventName = stats.event_name || 'Alanbix LAN'; })
 			.catch(() => {
 				if (isCapacitorNative() && !currentServerUrl) showServerModal = true;
+				else serverDown = true;
 			});
 	});
 </script>
@@ -124,6 +134,18 @@
 			{/if}
 		</p>
 
+		{#if serverDown}
+			<div class="server-down" role="alert">
+				<Icon name="alert-triangle" size={18} />
+				<div class="sd-text">
+					<strong>{$t('login_server_down')}</strong>
+					<span>{currentServerUrl ? $t('login_server_down_saved', { url: currentServerUrl }) : $t('login_server_down_hint')}</span>
+				</div>
+				<button type="button" class="sd-btn" on:click={() => (showServerModal = true)}>
+					<Icon name="search" size={14} /> {$t('login_server_search')}
+				</button>
+			</div>
+		{/if}
 		{#if error}
 			<p class="error-msg">{error}</p>
 		{/if}
@@ -250,6 +272,12 @@
 		font-size: 1rem;
 	}
 
+	.server-down { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; text-align: left; margin-bottom: 1rem; padding: 0.7rem 0.8rem; border-radius: var(--radius-md); font-size: 0.8125rem; color: var(--text-main); background: color-mix(in srgb, var(--warning) 12%, transparent); border: 1px solid color-mix(in srgb, var(--warning) 45%, transparent); }
+	.server-down > :global(svg) { color: var(--warning); flex-shrink: 0; }
+	.sd-text { display: flex; flex-direction: column; gap: 0.15rem; flex: 1 1 12rem; min-width: 0; overflow-wrap: anywhere; }
+	.sd-text span { color: var(--text-dim); }
+	.sd-btn { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.45rem 0.8rem; border-radius: var(--radius-md); border: 1px solid var(--accent); background: transparent; color: var(--accent); font-weight: 600; font-size: 0.8125rem; cursor: pointer; }
+	.sd-btn:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
 	.error-msg {
 		color: var(--danger);
 		background: rgba(239, 68, 68, 0.1);

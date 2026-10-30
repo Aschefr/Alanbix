@@ -1661,5 +1661,9 @@
   "result_show_hidden": "Réafficher les scores masqués ({n})",
   "result_ffa_mine": "Votre score : {n}",
   "dash_ffa_lobby": "Salon · {n} adversaires",
-  "result_hide_all": "Tout masquer"
+  "result_hide_all": "Tout masquer",
+  "login_server_down": "Serveur injoignable",
+  "login_server_down_saved": "L'adresse enregistrée ne répond plus : {url}. Elle a peut-être changé.",
+  "login_server_down_hint": "Aucune réponse. Vérifiez que le serveur est allumé et sur le même réseau.",
+  "login_server_search": "Chercher un serveur"
 }

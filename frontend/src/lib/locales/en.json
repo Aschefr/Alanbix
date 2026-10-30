@@ -1661,5 +1661,9 @@
   "result_show_hidden": "Show hidden scores ({n})",
   "result_ffa_mine": "Your score: {n}",
   "dash_ffa_lobby": "Lobby · {n} opponents",
-  "result_hide_all": "Hide all"
+  "result_hide_all": "Hide all",
+  "login_server_down": "Server unreachable",
+  "login_server_down_saved": "The saved address no longer answers: {url}. It may have changed.",
+  "login_server_down_hint": "No answer. Check that the server is on and on the same network.",
+  "login_server_search": "Find a server"
 }
