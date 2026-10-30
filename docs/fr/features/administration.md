@@ -4,6 +4,16 @@ Le panneau d'administration d'Alanbix (accessible uniquement aux utilisateurs ay
 
 ---
 
+## 🎚️ Régie (onglet par défaut)
+
+La Régie rassemble ce qui demande l'attention de l'organisateur pendant la LAN :
+* **Appels à l'aide** : demandes d'escalade venues de l'assistant IA. « Voir » ouvre la conversation d'origine (ou la plus récente du joueur) ; à défaut, « Écrire au joueur » ouvre ses messages privés. « Résolu » et « Ignorer » clôturent la demande.
+* **Matchs à saisir** : scores du tour en cours, saisissables directement ; « Voir » ouvre le tournoi concerné.
+* **Modération rapide** : recherche d'un joueur puis bouton « ⋯ » : couper le chat (15 min, 30 min, 1 h, 24 h) ou le rétablir, bloquer l'IA, écrire au joueur, ou ouvrir sa fiche complète dans Gestion Joueurs.
+* **Tournois en cours** : progression de chaque tournoi.
+
+---
+
 ## 👥 Gestion des Comptes Joueurs
 
 Accessible via l'onglet **Administration > Joueurs**.

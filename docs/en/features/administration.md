@@ -4,6 +4,16 @@ The administration panel of Alanbix (accessible only to users with `is_admin = t
 
 ---
 
+## 🎚️ Control Room (default tab)
+
+The Control Room gathers what needs the organiser's attention during the LAN:
+* **Help calls**: escalations raised by the AI assistant. "View" opens the original conversation (or the player's latest one); otherwise "Message player" opens their private messages. "Resolved" and "Ignore" close the request.
+* **Scores to enter**: current-round scores, entered in place; "View" opens the tournament.
+* **Quick moderation**: search a player, then the "⋯" button: mute chat (15 min, 30 min, 1 h, 24 h) or unmute, block the AI, message the player, or open their full profile in Player Management.
+* **Running tournaments**: progress of each tournament.
+
+---
+
 ## 👥 Player Account Management
 
 Accessible via the **Administration > Players** tab.

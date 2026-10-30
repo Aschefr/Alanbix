@@ -1,5 +1,38 @@
 # Changelog
 
+## [1.34.0] - 2026-10-30
+
+### 🎨 Interface overhaul ("Le Labo de l'Alambic")
+- **Dashboard**: "My matches" list with inline score entry, tabs (running tournaments, leaderboard, room map) and public chat on the right; compact mobile match cards.
+- **Consistent type scale**: one size for page titles, section titles and tabs across every page, desktop and mobile; the sidebar shows the current page.
+- **Settings** moved to the profile action bar (gear icon), next to theme and logout.
+- **Pages reviewed**: Info (wider, neutral titles), Room map (empty-map guidance, confirmation before freeing all seats), Players (larger conversation pane), AI assistant (page title, history column hidden until the first conversation).
+- **Line icons** instead of emojis in page titles.
+
+### 🏆 Tournaments & brackets
+- **Round robin** reworked: collapsible matchdays, current matchday highlighted, tap a row to enter a score (admin); the dashboard preview now scrolls.
+- **Bracket dragging** keeps following the mouse outside the frame and allows a much wider panning range.
+- "Your next match" compact card on the Tournaments page; game images on tournament buttons.
+
+### 📺 Projector
+- **Projector-grade contrast**: opaque bracket cards in both themes, lighter text blue, eliminated players readable (2.2:1 → 5.2:1), scores 7.2:1.
+- **Full light theme support** (background veil, titles, gold/silver/bronze colours).
+- **Progress bar** showing the time before the next screen.
+
+### 🛡️ Administration — new "Control Room" tab
+- Help calls with "View" (original conversation) or "Message player", scores to enter with "View", quick moderation with every player action (mute 15 min to 24 h, block AI, message, full profile), tournament progress.
+- Player search and action drawer in Player Management; settings grouped in sections.
+
+### 🐛 Fixes
+- Reloading the Info page showed raw JSON instead of the page.
+- Page changes sometimes required a manual refresh (F5).
+- Hover-lifted buttons no longer bounce when the pointer rests on their bottom edge.
+- Double scrollbar on the dashboard.
+- Translations edited by an administrator no longer freeze updates of the default texts.
+
+### 🌍 Internationalisation
+- Every user-facing text now goes through translation keys; a check in `verify_i18n.py` rejects hard-coded text.
+
 ## [1.33.1] - 2026-10-22
 
 ### 🐛 Correctif Critique — Fuite Mémoire & Saturation SWAP (WebSockets)

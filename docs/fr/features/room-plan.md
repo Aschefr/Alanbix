@@ -40,7 +40,8 @@ Le système gère l'association entre les comptes utilisateurs et les identifian
 
 ### Administration et Assignation Manuelle
 * L'administrateur peut cliquer sur n'importe quel siège et utiliser un menu déroulant contenant la liste des joueurs inscrits pour affecter manuellement un participant à un poste.
-* **Bouton "Libérer tout" (Bulk Unassign)** : Situé dans l'en-tête de l'éditeur d'administration. Ce bouton envoie une requête `POST /room/admin-unassign-all` au backend pour désassigner instantanément tous les joueurs de la salle d'un seul coup (pratique lors de la réinitialisation de l'événement).
+* **Bouton "Libérer tout" (Bulk Unassign)** : Situé dans l'en-tête de l'éditeur d'administration. Ce bouton envoie une requête `POST /room/admin-unassign-all` au backend pour désassigner instantanément tous les joueurs de la salle d'un seul coup (pratique lors de la réinitialisation de l'événement). Une confirmation « Oui, tout libérer » est demandée avant l'action.
+* **Plan vide** : tant qu'aucune table ni aucun poste n'existe, la page affiche un message explicatif ; l'administrateur dispose d'un bouton « Dessiner le plan » qui ouvre directement l'éditeur.
 
 ---
 

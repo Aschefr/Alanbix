@@ -40,7 +40,8 @@ The system manages the association between user accounts and seat IDs placed on 
 
 ### Administration and Manual Assignment
 * The administrator can click any seat and use a dropdown containing the list of registered players to manually assign a participant to a seat.
-* **"Free All" Button (Bulk Unassign)**: Located in the header of the admin editor. This button sends a `POST /room/admin-unassign-all` request to the backend to instantly unassign all players in the room in one go (handy when resetting the event).
+* **"Free All" Button (Bulk Unassign)**: Located in the header of the admin editor. This button sends a `POST /room/admin-unassign-all` request to the backend to instantly unassign all players in the room in one go (handy when resetting the event). A "Yes, free all" confirmation is asked first.
+* **Empty map**: while no table or seat exists, the page shows an explanation; administrators get a "Draw the map" button that opens the editor.
 
 ---
 
