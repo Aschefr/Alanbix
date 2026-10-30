@@ -575,7 +575,7 @@
 							<span class="user-sub">
 								{#if user.is_admin}👑 {$t('settings_user_admin_badge')} · {/if}
 								{user.team_name ? `🛡️ ${user.team_name}` : $t('settings_user_solo')}
-								{user.seat_id ? ` · 🪑 ${$t('settings_user_seat_prefix')} ${user.seat_id}` : ''}
+								{#if user.seat_id} · <a class="seat-link" href="/dashboard/map?highlight={encodeURIComponent(user.seat_id)}" title={$t('tourneys_view_on_map')}>🪑 {$t('settings_user_seat_prefix')} {user.seat_id}</a>{/if}
 							</span>
 						</div>
 					</div>
@@ -643,6 +643,8 @@
 <Modal bind:show={showModal} title={modalTitle} message={modalMessage} type={modalType} onConfirm={modalConfirmCallback} />
 
 <style>
+	.seat-link { color: var(--accent); text-decoration: none; font-weight: 600; }
+	.seat-link:hover { text-decoration: underline; }
 	.settings-page {
 		max-width: 860px;
 		margin: 0 auto;

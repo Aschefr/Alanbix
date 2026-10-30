@@ -1322,7 +1322,7 @@
 									<span class="team-tag">{msg.team_name}</span>
 								{/if}
 								{#if msg.seat_id}
-									<span class="seat-tag" title={$t('chat_seat_tooltip')}>💺 {msg.seat_id}</span>
+									<a class="seat-tag" href="/dashboard/map?highlight={encodeURIComponent(msg.seat_id)}" title={$t('tourneys_view_on_map')}>💺 {msg.seat_id}</a>
 								{/if}
 								<span class="msg-time">{formatTime(msg.created_at)}</span>
 							</div>
@@ -1834,6 +1834,7 @@
 		opacity: 0.85;
 	}
 
+	/* Seat badges always open the room map on that seat */
 	.seat-tag {
 		font-size: 0.72rem;
 		font-weight: 700;
@@ -1841,7 +1842,12 @@
 		background: var(--surface-sunken);
 		padding: 0.05rem 0.3rem;
 		border-radius: 4px;
+		border: 1px solid transparent;
+		text-decoration: none;
+		cursor: pointer;
+		transition: color 0.15s, border-color 0.15s;
 	}
+	.seat-tag:hover, .seat-tag:focus-visible { color: var(--accent); border-color: var(--accent); }
 
 	.msg-time {
 		font-size: 0.72rem;
