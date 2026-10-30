@@ -13,7 +13,8 @@
 ### 🐛 Tournament fixes
 - **Single elimination**: the final was won by default (and the tournament flagged DONE) as soon as the first semi-final ended.
 - **Free-for-all**: final ranking was inverted when the highest score wins (the default); scoring crashed when a round ended with a single-player lobby; the "Mes matchs" quick entry only sends the player's own score.
-- Tournament engine sweep tests cover 2 to 17 players in every format, groups and lobbies.
+- **Finished groups tournaments**: the phase tabs no longer squeeze the bracket and the final ranking into narrow columns; "Back to the groups" is hidden once the tournament is over.
+- Tournament engine sweep tests cover 2 to 17 players in every format, groups and lobbies; the backend suite now runs in about 30 seconds instead of 14 minutes.
 
 ### 📱 Players
 - **Your last score stays visible** on the tournament page and in "My matches", with a hide button.
