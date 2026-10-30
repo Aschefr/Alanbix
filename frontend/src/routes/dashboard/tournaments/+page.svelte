@@ -1895,13 +1895,21 @@
 			border-color: rgba(34, 197, 94, 0.4);
 		}
 
-		/* Pure Isolated Bracket Full Height on Mobile (No outer page scroll) */
-		.tournaments-layout {
-			flex: 1;
-			height: calc(100vh - 54px - 44px - 56px);
-			height: calc(100dvh - 54px - 44px - 56px);
+		/* Bracket fills exactly the room left under the selector and chips:
+		   the page itself never scrolls, only the bracket inside it */
+		:global(.content-area > .container:has(.tournaments-layout)) {
+			display: flex;
+			flex-direction: column;
 			overflow: hidden !important;
 		}
+		.tournaments-layout {
+			flex: 1 1 0;
+			min-height: 0 !important;
+			height: auto;
+			overflow: hidden !important;
+		}
+		/* Live standings open in their own popup on phones, never inline */
+		.tournament-split-layout :global(.live-standings) { display: none !important; }
 		.t-detail {
 			height: 100% !important;
 			max-height: 100% !important;
