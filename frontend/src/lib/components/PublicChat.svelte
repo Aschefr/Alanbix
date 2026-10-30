@@ -2548,7 +2548,7 @@
 		display: flex;
 		align-items: center;
 		gap: 2px;
-		background: var(--surface-raised);
+		background: var(--bg-secondary);
 		border: 1px solid var(--glass-border);
 		border-radius: 6px;
 		padding: 2px 3px;
@@ -2587,6 +2587,11 @@
 	}
 
 	/* Quick Reactions Popover (Point 1) */
+	/* The hint stays on one line; it is cut with an ellipsis rather than wrapping */
+	.textarea-wrapper textarea::placeholder { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	/* Room on the right for the character counter */
+	.textarea-wrapper textarea { padding-right: 3.2rem !important; }
+
 	.quick-reactions-popover {
 		position: absolute;
 		right: 0;
@@ -2594,7 +2599,8 @@
 		align-items: center;
 		gap: 3px;
 		padding: 4px 6px;
-		background: var(--surface-raised);
+		/* Opaque: floats over messages, which must not show through */
+		background: var(--bg-secondary);
 		border: 1px solid var(--glass-border);
 		border-radius: 8px;
 		box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
@@ -2846,7 +2852,7 @@
 		border: 1px solid var(--glass-border);
 		border-radius: 12px;
 		font-size: 0.72rem;
-		color: var(--text-secondary);
+		color: var(--text-main);
 		cursor: pointer;
 		transition: all 0.15s;
 	}
@@ -2859,6 +2865,10 @@
 		border-color: #a855f7;
 		color: #e9d5ff;
 		font-weight: 700;
+	}
+	:global([data-theme="light"]) .reaction-pill.reacted-by-user {
+		background: #f3e8ff;
+		color: #6b21a8;
 	}
 	.reaction-pill.is-text-tag {
 		font-family: monospace;

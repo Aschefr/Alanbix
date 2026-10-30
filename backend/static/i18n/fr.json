@@ -1005,7 +1005,7 @@
   "chat_new_messages": "Nouveaux messages",
   "chat_scroll_to_bottom": "Aller en bas",
   "dash_chat_title": "Chat Public",
-  "dash_chat_placeholder": "Envoyer un message à la salle... (@ pour mentionner)",
+  "dash_chat_placeholder": "Votre message…",
   "dash_chat_send": "Envoyer",
   "dash_chat_unread_divider": "Nouveaux messages",
   "dash_chat_jump_latest": "Nouveaux messages",

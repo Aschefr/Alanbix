@@ -1005,7 +1005,7 @@
   "chat_new_messages": "New messages",
   "chat_scroll_to_bottom": "Scroll to bottom",
   "dash_chat_title": "Public Chat",
-  "dash_chat_placeholder": "Send a message to the arena... (@ to mention)",
+  "dash_chat_placeholder": "Your message…",
   "dash_chat_send": "Send",
   "dash_chat_unread_divider": "New messages",
   "dash_chat_jump_latest": "New messages",
