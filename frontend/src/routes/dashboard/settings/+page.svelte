@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Icon from '$lib/components/Icon.svelte';
 	import pkg from '../../../../package.json';
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { api } from '$lib/api';
 	import { authStore } from '$lib/auth';
@@ -105,7 +105,27 @@
 			}
 		}
 		loading = false;
+
+		// the user may change the system permission while the app is in the background
+		document.addEventListener('visibilitychange', refreshPermission);
+		window.addEventListener('focus', refreshPermission);
 	});
+
+	onDestroy(() => {
+		if (typeof document === 'undefined') return;
+		document.removeEventListener('visibilitychange', refreshPermission);
+		window.removeEventListener('focus', refreshPermission);
+	});
+
+	async function refreshPermission() {
+		if (document.visibilityState === 'hidden') return;
+		if (isCapacitorNative()) {
+			nativeStatus = await getNativePushStatus();
+			if (nativeStatus?.notificationPermission) systemNotifPermission = nativeStatus.notificationPermission;
+		} else if ('Notification' in window) {
+			systemNotifPermission = Notification.permission;
+		}
+	}
 
 	function updatePrefs() {
 		saveNotificationPreferences(prefs);
