@@ -806,7 +806,9 @@
 		} catch (e) { toast(e.message, 'error'); seatingLocked = !seatingLocked; }
 	}
 
+	let confirmFreeAll = false;
 	async function unassignAll() {
+		confirmFreeAll = false;
 		try {
 			const res = await api.post('/room/admin-unassign-all', {});
 			await loadUsers();
@@ -857,7 +859,15 @@
 				{/if}
 				{#if !editMode}
 					<button class="btn-secondary" on:click={toggleSeatingLock}>{seatingLocked ? $t('map_edit_mode_lock_toggle_unlocked') : $t('map_edit_mode_lock_toggle_locked')}</button>
-					<button class="btn-secondary" on:click={unassignAll} style="color:var(--danger);border-color:rgba(239,68,68,0.3)">{$t("map_btn_free_all")}</button>
+					{#if confirmFreeAll}
+						<span class="free-all-confirm">
+							<span>{$t('map_free_all_confirm')}</span>
+							<button class="btn-danger" on:click={unassignAll}>{$t('map_free_all_yes')}</button>
+							<button class="btn-secondary" on:click={() => confirmFreeAll = false}>{$t('common_cancel')}</button>
+						</span>
+					{:else}
+						<button class="btn-outline-danger" on:click={() => confirmFreeAll = true}>{$t("map_btn_free_all")}</button>
+					{/if}
 				{/if}
 				<button class="btn-secondary" on:click={resetView}>{$t("map_btn_recenter")}</button>
 			</div>
@@ -870,13 +880,15 @@
 	<div class="map-mobile-bar glass">
 		<!-- svelte-ignore a11y-click-events-have-key-events -->
 		<!-- svelte-ignore a11y-no-static-element-interactions -->
-		<span class="mobile-my-seat" on:click={centerOnMySeat} title={$t('map_btn_center_title')}>
+		<span class="mobile-my-seat" class:none={!selectedSeat} on:click={centerOnMySeat} title={$t('map_btn_center_title')}>
 			🪑 {selectedSeat ? $t('map_sheet_seat_prefix', { id: selectedSeat }) : $t('map_mobile_no_seat')}
 		</span>
 		<div class="map-mobile-btns">
+			{#if selectedSeat}
 			<button class="map-top-btn" on:click={centerOnMySeat} title={$t('map_btn_center_title')}>
 				🎯 {$t('map_btn_center')}
 			</button>
+			{/if}
 			<button class="map-top-btn" on:click={resetView} title={$t('map_btn_global_title')}>
 				🔍 {$t('map_btn_global_title')}
 			</button>
@@ -884,6 +896,15 @@
 	</div>
 
 	<div class="canvas-wrapper glass" on:contextmenu|preventDefault>
+		{#if !editMode && layout.tables.length === 0 && layout.seats.length === 0}
+			<div class="map-empty">
+				<p class="map-empty-title">{$t('map_empty_title')}</p>
+				<p class="text-dim">{user?.is_admin ? $t('map_empty_admin') : $t('map_empty_player')}</p>
+				{#if user?.is_admin}
+					<button class="btn-primary" on:click={() => { editMode = true; assigningSeatId = null; }}>{$t('map_empty_draw')}</button>
+				{/if}
+			</div>
+		{/if}
 		<!-- svelte-ignore a11y-no-static-element-interactions -->
 		<svg 
 			viewBox="{vbX} {vbY} {vbW} {vbH}" 
@@ -1260,7 +1281,11 @@
 
 <style>
 	.map-page { display: flex; flex-direction: column; gap: 1rem; height: 100%; }
-	.canvas-wrapper { flex-grow: 1; padding: 0.5rem; overflow: hidden; border-radius: 16px; min-height: 400px; }
+	.canvas-wrapper { flex-grow: 1; padding: 0.5rem; overflow: hidden; border-radius: 16px; min-height: 400px; position: relative; }
+	.map-empty { position: absolute; inset: 0; z-index: 2; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.6rem; text-align: center; padding: 1.5rem; pointer-events: none; }
+	.map-empty > * { pointer-events: auto; margin: 0; max-width: 46ch; }
+	.map-empty-title { font-family: var(--font-title); font-size: var(--fs-section); font-weight: 700; color: var(--text-main); }
+	.free-all-confirm { display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.88rem; color: var(--text-main); }
 	.room-canvas { width: 100%; height: 100%; background: var(--map-canvas-bg); border-radius: 12px; user-select: none; }
 	.room-canvas.edit-mode { outline: 2px dashed rgba(59, 130, 246, 0.3); outline-offset: -2px; }
 
@@ -1454,6 +1479,9 @@
 			background: var(--accent-soft); padding: 0.25rem 0.6rem; border-radius: 8px;
 			border: 1px solid rgba(59,130,246,0.3); white-space: nowrap; cursor: pointer;
 		}
+		.mobile-my-seat.none { background: none; border-color: transparent; color: var(--text-muted); font-weight: 600; cursor: default; padding-left: 0.2rem; }
+		.mobile-my-seat { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+		.map-mobile-btns { flex-shrink: 0; }
 		.map-mobile-btns { display: flex; gap: 0.4rem; }
 		.map-top-btn {
 			background: var(--surface-sunken); border: 1px solid var(--glass-border);

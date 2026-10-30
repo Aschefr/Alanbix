@@ -1306,7 +1306,7 @@
   "settings_demo_disable": "Exit Demo Mode",
   "settings_license_label": "License:",
   "players_my_team_chat_btn": "My team chat ({team})",
-  "map_mobile_no_seat": "No seat",
+  "map_mobile_no_seat": "No seat yet",
   "map_sheet_free_desc": "This seat is currently available.",
   "map_sheet_claim_btn": "Claim this seat",
   "profile_btn_delete_account": "Delete my account",
@@ -1590,5 +1590,11 @@
   "regie_mute_60": "1 h",
   "regie_mute_day": "24 h",
   "regie_full_profile": "Full profile",
-  "regie_muted_until": "Chat muted until {time}"
+  "regie_muted_until": "Chat muted until {time}",
+  "map_empty_title": "The room map has not been drawn yet.",
+  "map_empty_player": "The organisers are preparing it: come back a little later to pick your seat.",
+  "map_empty_admin": "Add tables and seats so players can pick their place.",
+  "map_empty_draw": "Draw the map",
+  "map_free_all_confirm": "Free every seat?",
+  "map_free_all_yes": "Yes, free all"
 }

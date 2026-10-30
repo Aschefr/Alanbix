@@ -1306,7 +1306,7 @@
   "settings_demo_disable": "Salir del modo Demo",
   "settings_license_label": "Licencia:",
   "players_my_team_chat_btn": "Chat de mi equipo ({team})",
-  "map_mobile_no_seat": "Sin puesto",
+  "map_mobile_no_seat": "Aún sin sitio",
   "map_sheet_free_desc": "Este puesto esta disponible actualmente.",
   "map_sheet_claim_btn": "Instalarse aqui",
   "profile_btn_delete_account": "Eliminar mi cuenta",
@@ -1578,5 +1578,11 @@
   "regie_mute_60": "1 h",
   "regie_mute_day": "24 h",
   "regie_full_profile": "Ficha completa",
-  "regie_muted_until": "Chat silenciado hasta {time}"
+  "regie_muted_until": "Chat silenciado hasta {time}",
+  "map_empty_title": "El plano de la sala aún no está dibujado.",
+  "map_empty_player": "Los organizadores lo están preparando: vuelva un poco más tarde para elegir su sitio.",
+  "map_empty_admin": "Añada mesas y puestos para que los jugadores elijan su sitio.",
+  "map_empty_draw": "Dibujar el plano",
+  "map_free_all_confirm": "¿Liberar todos los sitios?",
+  "map_free_all_yes": "Sí, liberar todo"
 }
