@@ -28,6 +28,20 @@
 
 	// Quick Score & Navigation State (Home Page UX)
 	// Ready-to-play matches first, waiting ones (opponent unknown) after
+	// Scores the player entered stay visible until they hide them (shared with the tournaments page)
+	const HIDDEN_KEY = 'alanbix_hidden_results';
+	function loadHiddenResults() {
+		try { return JSON.parse(localStorage.getItem(HIDDEN_KEY) || '[]'); } catch (e) { return []; }
+	}
+	let hiddenResults = typeof localStorage !== 'undefined' ? loadHiddenResults() : [];
+	function saveHidden() {
+		try { localStorage.setItem(HIDDEN_KEY, JSON.stringify(hiddenResults.slice(-200))); } catch (e) {}
+	}
+	function hideResult(key) { hiddenResults = [...hiddenResults.filter(k => k !== key), key]; saveHidden(); }
+	function showHiddenResults() { hiddenResults = []; saveHidden(); }
+	$: myActiveMatches = myMatchesAll.filter(m => !m.completed);
+	$: myResults = myMatchesAll.filter(m => m.completed && !hiddenResults.includes(m.match_key)).slice(-6).reverse();
+	$: hiddenResultsCount = myMatchesAll.filter(m => m.completed && hiddenResults.includes(m.match_key)).length;
 	$: myMatchesSorted = [...myActiveMatches].sort((x, y) => Number(y.is_ready) - Number(x.is_ready));
 	let dashTab = 'tournaments';
 	try { dashTab = localStorage.getItem('alanbix_dash_tab') || 'tournaments'; } catch (e) {}
@@ -500,7 +514,7 @@
 
 
 
-	$: myActiveMatches = (() => {
+	$: myMatchesAll = (() => {
 
 		const tFunc = $t;
 
@@ -539,7 +553,8 @@
 				const s0 = score[0] ?? null, s1 = score[1] ?? null;
 				const isCompleted = p.length > 2 ? (score.length > 0 && score.every(s => s !== null && s > 0)) : (s0 !== null && s1 !== null && (s0 !== 0 || s1 !== 0) && (s0 !== s1 || config.allow_draws));
 
-				if (isCompleted) continue;
+				// a finished match stays listed (as a result line) unless it was a walkover
+				if (isCompleted && p.includes(0)) continue;
 
 
 
@@ -676,6 +691,12 @@
 					is_ready: isReady,
 					my_slot: mySlot,
 					is_ffa: p.length > 2,
+					completed: isCompleted,
+					my_score: score[mySlot] ?? null,
+					opp_score: p.length === 2 ? (score[1 - mySlot] ?? null) : null,
+					outcome: p.length === 2 && isCompleted
+						? (score[mySlot] === score[1 - mySlot] ? 'draw' : ((config.lower_score_is_better ? score[mySlot] < score[1 - mySlot] : score[mySlot] > score[1 - mySlot]) ? 'win' : 'loss'))
+						: null,
 					my_name: user?.username || 'Vous',
 					opponent_name: oppName,
 					opponent_id: oppPid > 0 ? oppPid : null,
@@ -926,6 +947,24 @@
 					{/each}
 				</div>
 			{/if}
+			{#if myResults.length > 0 || hiddenResultsCount > 0}
+				<div class="my-results">
+					{#each myResults as r (r.match_key)}
+						<div class="result-row" class:win={r.outcome === 'win'} class:loss={r.outcome === 'loss'}>
+							<Icon name="check-circle" size={15} />
+							<span class="rr-text">
+								<strong>{r.is_ffa ? $t('result_ffa_mine', { n: r.my_score }) : `${$t('mobile_score_my_score')} ${r.my_score} – ${r.opp_score}`}</strong>
+								{#if !r.is_ffa}{r.opponent_name}{/if}
+								<span class="rr-meta">· {r.game_name} · {r.round_label}</span>
+							</span>
+							<button class="rr-hide" on:click={() => hideResult(r.match_key)} title={$t('result_hide')} aria-label={$t('result_hide')}><Icon name="x" size={14} /></button>
+						</div>
+					{/each}
+					{#if hiddenResultsCount > 0}
+						<button class="rr-show" on:click={showHiddenResults}>{$t('result_show_hidden', { n: hiddenResultsCount })}</button>
+					{/if}
+				</div>
+			{/if}
 		</section>
 
 		<!-- Tournaments Summary -->
@@ -1152,6 +1191,24 @@
 						{/each}
 					</ul>
 				{/if}
+				{#if myResults.length > 0 || hiddenResultsCount > 0}
+				<div class="my-results">
+					{#each myResults as r (r.match_key)}
+						<div class="result-row" class:win={r.outcome === 'win'} class:loss={r.outcome === 'loss'}>
+							<Icon name="check-circle" size={15} />
+							<span class="rr-text">
+								<strong>{r.is_ffa ? $t('result_ffa_mine', { n: r.my_score }) : `${$t('mobile_score_my_score')} ${r.my_score} – ${r.opp_score}`}</strong>
+								{#if !r.is_ffa}{r.opponent_name}{/if}
+								<span class="rr-meta">· {r.game_name} · {r.round_label}</span>
+							</span>
+							<button class="rr-hide" on:click={() => hideResult(r.match_key)} title={$t('result_hide')} aria-label={$t('result_hide')}><Icon name="x" size={14} /></button>
+						</div>
+					{/each}
+					{#if hiddenResultsCount > 0}
+						<button class="rr-show" on:click={showHiddenResults}>{$t('result_show_hidden', { n: hiddenResultsCount })}</button>
+					{/if}
+				</div>
+			{/if}
 			</section>
 
 			<section class="dash-tabs">
@@ -1248,6 +1305,18 @@
 {/if}
 
 <style>
+	.my-results { display: flex; flex-direction: column; gap: 0.3rem; margin-top: 0.5rem; }
+	.result-row { display: flex; align-items: center; gap: 0.5rem; padding: 0.3rem 0.4rem 0.3rem 0.7rem; border-radius: var(--radius-md); font-size: 0.8125rem; color: var(--text-dim); background: var(--surface-sunken); border: 1px solid var(--glass-border); }
+	.result-row.win { border-color: color-mix(in srgb, var(--success) 45%, transparent); }
+	.result-row.win > :global(svg) { color: var(--success); }
+	.result-row.loss { border-color: color-mix(in srgb, var(--danger) 30%, transparent); }
+	.result-row .rr-text { flex: 1; min-width: 0; color: var(--text-main); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.result-row .rr-meta { color: var(--text-dim); }
+	.rr-hide { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; flex-shrink: 0; border: none; border-radius: 6px; background: transparent; color: var(--text-dim); cursor: pointer; }
+	.rr-hide:hover { background: var(--hover-tint); color: var(--text-main); }
+	.rr-show { align-self: flex-start; background: none; border: none; padding: 0.1rem 0; color: var(--accent); font-size: 0.75rem; font-weight: 600; cursor: pointer; }
+	.rr-show:hover { text-decoration: underline; }
+
 
 	.hq-dashboard {
 

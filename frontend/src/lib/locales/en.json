@@ -1655,5 +1655,10 @@
   "tourneys_hidden_hint": "This tournament is invisible to players. Click to make it visible.",
   "tourneys_hidden_badge": "Hidden from players",
   "tourneys_toast_hidden": "Tournament hidden from players",
-  "tourneys_toast_shown": "Tournament visible again"
+  "tourneys_toast_shown": "Tournament visible again",
+  "result_last_label": "Last score entered",
+  "result_hide": "Hide",
+  "result_show_hidden": "Show hidden scores ({n})",
+  "result_ffa_mine": "Your score: {n}",
+  "dash_ffa_lobby": "Lobby · {n} opponents"
 }

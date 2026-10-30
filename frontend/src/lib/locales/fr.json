@@ -1655,5 +1655,10 @@
   "tourneys_hidden_hint": "Ce tournoi est invisible pour les joueurs. Cliquez pour le rendre visible.",
   "tourneys_hidden_badge": "Masqué aux joueurs",
   "tourneys_toast_hidden": "Tournoi masqué aux joueurs",
-  "tourneys_toast_shown": "Tournoi de nouveau visible"
+  "tourneys_toast_shown": "Tournoi de nouveau visible",
+  "result_last_label": "Dernier score saisi",
+  "result_hide": "Masquer",
+  "result_show_hidden": "Réafficher les scores masqués ({n})",
+  "result_ffa_mine": "Votre score : {n}",
+  "dash_ffa_lobby": "Salon · {n} adversaires"
 }
