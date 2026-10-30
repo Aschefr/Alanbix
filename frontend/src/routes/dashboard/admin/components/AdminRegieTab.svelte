@@ -2,6 +2,7 @@
 	// Régie: what needs the organiser's attention right now during the LAN
 	// (help calls, scores to enter, quick moderation, tournament progress).
 	import { onMount, onDestroy } from 'svelte';
+	import { goto } from '$app/navigation';
 	import { api } from '$lib/api';
 	import { wsMessageStore } from '$lib/ws';
 	import { t } from '$lib/i18nStore';
@@ -10,12 +11,14 @@
 	export let tournaments = [];
 	export let onReload = () => {};
 	export let onOpenConversation = (convId) => {};
+	export let onOpenPlayer = (username) => {};
 	export let toast = (msg, type) => {};
 	export let pendingCount = 0;
 
 	let calls = [];
 	let users = [];
 	let playerQuery = '';
+	let openPlayerId = null;
 	let scoreDraft = {};
 	let savingKey = null;
 	let wsUnsub = null;
@@ -108,11 +111,20 @@
 		? players.filter(u => `${u.username} ${u.team_name || ''}`.toLowerCase().includes(playerQuery.trim().toLowerCase())).slice(0, 6)
 		: mutedPlayers;
 
-	async function toggleMute(u) {
-		const muted = isMuted(u);
+	const MUTE_OPTIONS = [[15, 'regie_mute_15'], [30, 'regie_mute_30'], [60, 'regie_mute_60'], [1440, 'regie_mute_day']];
+	async function setMute(u, minutes, labelKey) {
 		try {
-			await api.post(`/public-chat/mute/${u.id}`, { duration_minutes: muted ? 0 : 30 });
-			toast(muted ? $t('regie_unmuted', { name: u.username }) : $t('regie_muted', { name: u.username }), 'success');
+			await api.post(`/public-chat/mute/${u.id}`, { duration_minutes: minutes });
+			toast(minutes ? $t('regie_muted', { name: u.username, duration: $t(labelKey) }) : $t('regie_unmuted', { name: u.username }), 'success');
+			await loadUsers();
+		} catch (e) {
+			toast(e.message || $t('regie_error_generic'), 'error');
+		}
+	}
+	async function toggleIaBlocked(u) {
+		try {
+			await api.put(`/admin/users/${u.id}`, { ia_blocked: !u.ia_blocked });
+			toast(!u.ia_blocked ? $t('admin_toast_ai_blocked', { name: u.username }) : $t('admin_toast_ai_unblocked', { name: u.username }), 'success');
 			await loadUsers();
 		} catch (e) {
 			toast(e.message || $t('regie_error_generic'), 'error');
@@ -136,7 +148,9 @@
 						</div>
 						<div class="rg-actions">
 							{#if call.conversation_id}
-								<button class="btn-secondary rg-btn" on:click={() => onOpenConversation(call.conversation_id)}>{$t('regie_reply')}</button>
+								<button class="btn-secondary rg-btn" on:click={() => onOpenConversation(call.conversation_id)}>{$t('regie_view')}</button>
+							{:else if call.user_id}
+								<button class="btn-secondary rg-btn" on:click={() => goto(`/dashboard/players?chat=${call.user_id}`)}>{$t('regie_message_player')}</button>
 							{/if}
 							<button class="btn-primary rg-btn" on:click={() => resolveCall(call.id)}>{$t('ai_call_admin_resolve_btn')}</button>
 							<button class="rg-link" on:click={() => dismissCall(call.id)}>{$t('ai_call_admin_dismiss_btn')}</button>
@@ -164,6 +178,7 @@
 							<span>–</span>
 							<input type="number" min="0" inputmode="numeric" bind:value={scoreDraft[item.key].b} aria-label={nameOf(item.m.p[1], item.tr, users)} />
 							<button class="btn-primary rg-btn" type="submit" disabled={savingKey === item.key || scoreDraft[item.key].a === '' || scoreDraft[item.key].b === '' || scoreDraft[item.key].a == null || scoreDraft[item.key].b == null}>{$t('regie_validate')}</button>
+							<button class="btn-secondary rg-btn" type="button" title={$t('regie_view_match_tooltip')} on:click={() => goto(`/dashboard/tournaments?select=${item.tr.id}`)}>{$t('regie_view')}</button>
 						</form>
 					</li>
 				{/each}
@@ -180,10 +195,30 @@
 			<ul class="rg-list">
 				{#each foundPlayers as u (u.id)}
 					<li class="rg-item rg-player">
-						<span><strong>{u.username}</strong>{#if u.team_name} <span class="rg-meta">· {u.team_name}</span>{/if}</span>
-						<button class="rg-btn {isMuted(u) ? 'btn-secondary' : 'btn-outline-danger'}" on:click={() => toggleMute(u)}>
-							{isMuted(u) ? $t('admin_players_tooltip_unmute') : $t('admin_players_tooltip_mute')}
-						</button>
+						<span class="rg-item-main">
+							<span><strong>{u.username}</strong>{#if u.team_name} <span class="rg-meta">· {u.team_name}</span>{/if}</span>
+							{#if isMuted(u)}<span class="rg-meta rg-warn">{$t('regie_muted_until', { time: timeAgo(u.public_chat_muted_until) })}</span>{/if}
+						</span>
+						<button class="btn-secondary rg-btn rg-more" class:open={openPlayerId === u.id} aria-expanded={openPlayerId === u.id} title={$t('admin_players_actions_more')} aria-label={$t('admin_players_actions_more')} on:click={() => openPlayerId = openPlayerId === u.id ? null : u.id}>⋯</button>
+						{#if openPlayerId === u.id}
+							<div class="rg-drawer">
+								<div class="rg-drawer-row">
+									{#if isMuted(u)}
+										<button class="btn-secondary rg-btn" on:click={() => setMute(u, 0)}>{$t('admin_players_tooltip_unmute')}</button>
+									{:else}
+										<span class="rg-meta">{$t('regie_mute_for')}</span>
+										{#each MUTE_OPTIONS as [minutes, key]}
+											<button class="btn-outline-danger rg-btn" on:click={() => setMute(u, minutes, key)}>{$t(key)}</button>
+										{/each}
+									{/if}
+								</div>
+								<div class="rg-drawer-row">
+									<button class="btn-secondary rg-btn" class:rg-warn={u.ia_blocked} on:click={() => toggleIaBlocked(u)}>{u.ia_blocked ? $t('admin_players_tooltip_unblockai') : $t('admin_players_tooltip_blockai')}</button>
+									<button class="btn-secondary rg-btn" on:click={() => goto(`/dashboard/players?chat=${u.id}`)}>{$t('regie_message_player')}</button>
+									<button class="rg-link" on:click={() => onOpenPlayer(u.username)}>{$t('regie_full_profile')}</button>
+								</div>
+							</div>
+						{/if}
 					</li>
 				{/each}
 			</ul>
@@ -230,6 +265,11 @@
 	.rg-btn { padding: 0.35rem 0.8rem; font-size: 0.82rem; white-space: nowrap; }
 	.rg-link { background: none; border: none; color: var(--text-dim); font-size: 0.82rem; cursor: pointer; text-decoration: underline; }
 	.rg-score { display: flex; align-items: center; gap: 0.4rem; }
+	.rg-more { padding: 0.25rem 0.7rem; font-weight: 700; }
+	.rg-more.open { border-color: var(--accent); color: var(--accent); }
+	.rg-drawer { flex: 1 1 100%; display: flex; flex-direction: column; gap: 0.45rem; padding-top: 0.5rem; border-top: 1px solid var(--glass-border); }
+	.rg-drawer-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; }
+	.rg-warn { color: var(--warning, #f59e0b); }
 	.rg-score input { width: 52px; height: 34px; text-align: center; font-weight: 700; padding: 0; }
 	.rg-search { width: 100%; padding: 0.45rem 0.7rem; font-size: 0.9rem; }
 	.rg-progress { display: flex; flex-direction: column; gap: 0.35rem; }

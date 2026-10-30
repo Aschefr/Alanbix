@@ -1375,7 +1375,7 @@
   "regie_moderation_title": "Moderación rápida",
   "regie_no_muted": "Ningún jugador está silenciado. Busque un jugador para actuar.",
   "regie_muted_count": "{n} silenciado(s)",
-  "regie_muted": "{name} silenciado 30 min.",
+  "regie_muted": "Chat silenciado {duration} para {name}.",
   "regie_unmuted": "{name} reactivado.",
   "regie_reply": "Responder",
   "regie_validate": "Validar",
@@ -1580,5 +1580,15 @@
   "admin_lang_missing_title": "{count} clave(s) faltante(s)",
   "admin_lang_missing_desc": "El archivo {lang} no contiene todas las claves del idioma de referencia. Haga clic en «{button}» para añadir las claves faltantes con valores vacíos.",
   "admin_lang_instances_count": "{count} servidor(es)",
-  "admin_lang_autotranslate_tooltip": "Traducir automáticamente"
+  "admin_lang_autotranslate_tooltip": "Traducir automáticamente",
+  "regie_view": "Ver",
+  "regie_message_player": "Escribir al jugador",
+  "regie_view_match_tooltip": "Abrir este partido en su torneo",
+  "regie_mute_for": "Silenciar el chat",
+  "regie_mute_15": "15 min",
+  "regie_mute_30": "30 min",
+  "regie_mute_60": "1 h",
+  "regie_mute_day": "24 h",
+  "regie_full_profile": "Ficha completa",
+  "regie_muted_until": "Chat silenciado hasta {time}"
 }

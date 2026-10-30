@@ -18,6 +18,7 @@
 	if (activeTab === 'games') activeTab = 'tournaments';
 	let settingsSubTab = (typeof localStorage !== 'undefined' && localStorage.getItem('admin_subtab')) || 'general';
 	let selectedConvId = null;
+	let playersInitialQuery = '';
 
 	let playersTabRef = null;
 	let conversationsTabRef = null;
@@ -162,11 +163,11 @@
 
 	<div class="tab-content animate-in">
 		{#if activeTab === 'regie'}
-			<AdminRegieTab {tournaments} onReload={loadGamesAndTournaments} onOpenConversation={(id) => { selectedConvId = id; activeTab = 'conversations'; }} bind:pendingCount={regiePending} {toast} />
+			<AdminRegieTab {tournaments} onReload={loadGamesAndTournaments} onOpenConversation={(id) => { selectedConvId = id; activeTab = 'conversations'; }} onOpenPlayer={(name) => { playersInitialQuery = name; activeTab = 'players'; }} bind:pendingCount={regiePending} {toast} />
 		{:else if activeTab === 'tournaments'}
 			<AdminTournamentsTab {games} {tournaments} onReload={loadGamesAndTournaments} {toast} />
 		{:else if activeTab === 'players'}
-			<AdminPlayersTab bind:this={playersTabRef} {toast} />
+			<AdminPlayersTab bind:this={playersTabRef} initialQuery={playersInitialQuery} {toast} />
 		{:else if activeTab === 'settings'}
 			<AdminSettingsTab bind:settingsSubTab onDataReset={handleDataReset} {toast} />
 		{:else if activeTab === 'conversations'}

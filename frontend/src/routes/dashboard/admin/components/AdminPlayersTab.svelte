@@ -7,6 +7,7 @@
 	import { wsMessageStore } from '$lib/ws';
 
 	export let toast = (msg, type) => {};
+	export let initialQuery = '';
 
 	let allPlayers = [];
 	$: existingTeams = Array.from(new Set(allPlayers.map(p => p.team_name?.trim()).filter(Boolean))).sort();
@@ -26,7 +27,7 @@
 	let newPlayerData = { username: '', password: 'lan2025', team_name: '' };
 	let creatingPlayer = false;
 	let generatingPool = false;
-	let playerQuery = '';
+	let playerQuery = initialQuery;
 	let openActionsId = null;
 	$: filteredPlayers = playerQuery.trim()
 		? allPlayers.filter(p => `${p.username} ${p.team_name || ''}`.toLowerCase().includes(playerQuery.trim().toLowerCase()))

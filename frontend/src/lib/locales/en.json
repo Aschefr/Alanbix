@@ -1375,7 +1375,7 @@
   "regie_moderation_title": "Quick moderation",
   "regie_no_muted": "No player is muted. Search a player to act.",
   "regie_muted_count": "{n} muted",
-  "regie_muted": "{name} muted for 30 min.",
+  "regie_muted": "Chat muted for {duration} for {name}.",
   "regie_unmuted": "{name} unmuted.",
   "regie_reply": "Reply",
   "regie_validate": "Save",
@@ -1580,5 +1580,15 @@
   "admin_lang_missing_title": "{count} missing key(s)",
   "admin_lang_missing_desc": "The {lang} file does not contain every key of the reference language. Click “{button}” to add the missing keys with empty values.",
   "admin_lang_instances_count": "{count} server(s)",
-  "admin_lang_autotranslate_tooltip": "Auto-translate"
+  "admin_lang_autotranslate_tooltip": "Auto-translate",
+  "regie_view": "View",
+  "regie_message_player": "Message player",
+  "regie_view_match_tooltip": "Open this match in its tournament",
+  "regie_mute_for": "Mute chat",
+  "regie_mute_15": "15 min",
+  "regie_mute_30": "30 min",
+  "regie_mute_60": "1 h",
+  "regie_mute_day": "24 h",
+  "regie_full_profile": "Full profile",
+  "regie_muted_until": "Chat muted until {time}"
 }

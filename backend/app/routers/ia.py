@@ -1548,11 +1548,17 @@ async def list_admin_calls(status: Optional[str] = "pending", db: Session = Depe
     result = []
     for c in calls:
         caller = db.query(models.User).filter(models.User.id == c.user_id).first()
+        # Calls made outside a conversation point to the player's latest one
+        conv_id = c.conversation_id
+        if not conv_id:
+            latest = db.query(models.Conversation.id).filter(models.Conversation.user_id == c.user_id).order_by(models.Conversation.id.desc()).first()
+            conv_id = latest[0] if latest else None
         result.append({
             "id": c.id, "username": caller.username if caller else f"#{c.user_id}",
             "reason": c.reason, "question": c.question, "source": c.source,
             "status": c.status, "created_at": c.created_at.isoformat(),
-            "conversation_id": c.conversation_id, "resolution_note": c.resolution_note
+            "conversation_id": conv_id, "resolution_note": c.resolution_note,
+            "user_id": c.user_id
         })
     return result
 

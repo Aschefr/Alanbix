@@ -1363,7 +1363,7 @@
   "regie_moderation_title": "Modération rapide",
   "regie_no_muted": "Aucun joueur n'a le chat coupé. Recherchez un joueur pour agir.",
   "regie_muted_count": "{n} coupé(s)",
-  "regie_muted": "Chat coupé 30 min pour {name}.",
+  "regie_muted": "Chat coupé {duration} pour {name}.",
   "regie_unmuted": "Chat rétabli pour {name}.",
   "regie_reply": "Répondre",
   "regie_validate": "Valider",
@@ -1568,5 +1568,15 @@
   "admin_lang_missing_title": "{count} clé(s) manquante(s)",
   "admin_lang_missing_desc": "Le fichier {lang} ne contient pas toutes les clés de la langue de référence. Cliquez sur « {button} » pour ajouter les clés manquantes avec des valeurs vides.",
   "admin_lang_instances_count": "{count} serveur(s)",
-  "admin_lang_autotranslate_tooltip": "Traduire automatiquement"
+  "admin_lang_autotranslate_tooltip": "Traduire automatiquement",
+  "regie_view": "Voir",
+  "regie_message_player": "Écrire au joueur",
+  "regie_view_match_tooltip": "Ouvrir ce match dans son tournoi",
+  "regie_mute_for": "Couper le chat",
+  "regie_mute_15": "15 min",
+  "regie_mute_30": "30 min",
+  "regie_mute_60": "1 h",
+  "regie_mute_day": "24 h",
+  "regie_full_profile": "Fiche complète",
+  "regie_muted_until": "Chat coupé jusqu'à {time}"
 }
