@@ -49,6 +49,9 @@ def _play_out(client, t_id, bracket_type, rng, allow_draws=False, max_steps=500)
             a += 1
         res = _score(client, t_id, m, [a, b])
         done = bool(res.get("done"))
+        if done and bracket_type != "ffa":
+            left = [x for x in _get_bracket(client, t_id) if _playable(x, bracket_type)]
+            assert not left, f"tournament flagged DONE while matches are still to play: {[x['id'] for x in left]}"
     else:
         pytest.fail("tournament never ran out of playable matches")
     return done
@@ -178,3 +181,16 @@ def test_ffa_advance_per_match_keeps_the_best_of_each_lobby(client, db_session):
     advanced = {pid for m in _get_bracket(client, t_id) if m["id"]["r"] == 2 for pid in m["p"]}
     expected = {bracket[0]["p"][0], bracket[0]["p"][1], bracket[1]["p"][0], bracket[1]["p"][1]}
     assert advanced == expected
+
+
+def test_final_is_not_won_by_default_while_the_other_semi_final_is_pending(client, db_session):
+    game = _create_game(db_session, "semi", "single_elim")
+    t_id = _create_tournament(client, "Semis", game.id, {"bracket_type": "single_elim"})
+    _join_players(client, t_id, _get_user_ids(db_session, 4))
+    _start(client, t_id)
+    first = _get_bracket(client, t_id)[0]
+    res = _score(client, t_id, first, [2, 0])
+    assert res["done"] is False
+    final = next(m for m in _get_bracket(client, t_id) if m["id"]["r"] == 2)
+    assert final["score"] == [None, None], "the final must wait for the second semi-final"
+    assert client.get(f"/tournaments/{t_id}").json()["status"] == "RUNNING"

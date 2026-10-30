@@ -1116,9 +1116,11 @@ def _get_feeder(bd, s, r, m, slot):
     if s == 1:  # WB
         # Special case: GF (last WB round) slot 1 comes from LB Final
         max_wb = _get_max_round(bd, section=1)
-        if r == max_wb and slot == 1:
-            max_lb = _get_max_round(bd, section=2)
-            return _find_match(bd, 2, max_lb, 1) if max_lb > 0 else None
+        max_lb = _get_max_round(bd, section=2)
+        # Grand final of a double elimination: slot 1 comes from the LB final.
+        # (A single elimination has no losers bracket: its final is fed by the two semi-finals.)
+        if max_lb > 0 and r == max_wb and slot == 1:
+            return _find_match(bd, 2, max_lb, 1)
         return _find_match(bd, 1, r - 1, 2 * m - 1 + slot)
     if s == 2:  # LB
         if r % 2 == 0:  # Even LB: slot0 from LB prev, slot1 from WB
