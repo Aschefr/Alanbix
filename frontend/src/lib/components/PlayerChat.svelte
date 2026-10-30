@@ -707,20 +707,24 @@
 		<!-- Action tools: Profanity Shield, Sound, Close -->
 		<div class="header-tools">
 			<button
-				class="tool-btn shield-btn"
-				class:active={$profanityFilterEnabled}
+				class="chat-toggle"
+				class:on={$profanityFilterEnabled}
 				on:click={toggleProfanityFilter}
+				aria-pressed={$profanityFilterEnabled}
 				title={$profanityFilterEnabled ? $t('profanity_filter_enabled') : $t('profanity_filter_disabled')}
+				aria-label={$profanityFilterEnabled ? $t('profanity_filter_enabled') : $t('profanity_filter_disabled')}
 			>
-				<Icon name="shield" size={15} />
+				<Icon name={$profanityFilterEnabled ? 'shield-check' : 'shield-off'} size={15} />
 			</button>
 			<button
-				class="tool-btn sound-btn"
-				class:active={soundEnabled}
+				class="chat-toggle"
+				class:on={soundEnabled}
 				on:click={toggleSound}
+				aria-pressed={soundEnabled}
 				title={soundEnabled ? $t('dash_chat_sound_enabled') : $t('dash_chat_sound_disabled')}
+				aria-label={soundEnabled ? $t('dash_chat_sound_enabled') : $t('dash_chat_sound_disabled')}
 			>
-				<Icon name={soundEnabled ? 'volume-2' : 'volume-x'} size={15} />
+				<Icon name={soundEnabled ? 'bell' : 'bell-off'} size={15} />
 			</button>
 			<button class="tool-btn close-btn desktop-only" on:click={() => dispatch('close')} title={$t('players_chat_tooltip_close')}>
 				✕

@@ -60,6 +60,18 @@
   {:else if name === 'bell'}
     <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
     <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+  {:else if name === 'bell-off'}
+    <path d="M8.7 3A6 6 0 0 1 18 8a21.3 21.3 0 0 0 .6 5" />
+    <path d="M17 17H3s3-2 3-9a4.67 4.67 0 0 1 .3-1.7" />
+    <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+    <line x1="2" x2="22" y1="2" y2="22" />
+  {:else if name === 'shield-check'}
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+    <path d="m9 12 2 2 4-4" />
+  {:else if name === 'shield-off'}
+    <path d="M19.7 14a6.9 6.9 0 0 0 .3-2V5l-8-3-3.2 1.2" />
+    <path d="m4.7 4.7-.7.3v7c0 6 8 10 8 10a20.3 20.3 0 0 0 5.62-4.38" />
+    <line x1="2" x2="22" y1="2" y2="22" />
   {:else if name === 'shield'}
     <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
   {:else if name === 'arrow-left'}

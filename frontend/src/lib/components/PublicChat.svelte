@@ -1076,20 +1076,26 @@
 		<div class="header-right">
 			<!-- Sound Toggle Button (Point 5) -->
 			<button
-				class="chat-btn-icon-sound {soundEnabled ? 'sound-active' : 'sound-muted'}"
+				class="chat-toggle"
+				class:on={soundEnabled}
 				on:click={toggleSound}
+				aria-pressed={soundEnabled}
 				title={soundEnabled ? $t('dash_chat_sound_enabled') : $t('dash_chat_sound_disabled')}
+				aria-label={soundEnabled ? $t('dash_chat_sound_enabled') : $t('dash_chat_sound_disabled')}
 			>
-				{soundEnabled ? '🔔' : '🔕'}
+				<Icon name={soundEnabled ? 'bell' : 'bell-off'} size={15} />
 			</button>
 
 			<!-- Profanity Filter Toggle Button -->
 			<button
-				class="chat-btn-icon-sound {$profanityFilterEnabled ? 'sound-active' : 'sound-muted'}"
+				class="chat-toggle"
+				class:on={$profanityFilterEnabled}
 				on:click={() => toggleProfanityFilter()}
+				aria-pressed={$profanityFilterEnabled}
 				title={$profanityFilterEnabled ? $t('profanity_filter_enabled') : $t('profanity_filter_disabled')}
+				aria-label={$profanityFilterEnabled ? $t('profanity_filter_enabled') : $t('profanity_filter_disabled')}
 			>
-				<Icon name="shield" size={13} />
+				<Icon name={$profanityFilterEnabled ? 'shield-check' : 'shield-off'} size={15} />
 			</button>
 
 			{#if user?.is_admin}
@@ -1634,8 +1640,10 @@
 	}
 
 	.chat-btn-icon-danger {
+		display: inline-flex; align-items: center; justify-content: center;
+		width: 30px; height: 30px; padding: 0 !important;
 		background: none;
-		border: none;
+		border: 1px solid transparent;
 		color: var(--text-muted);
 		padding: 0.2rem 0.4rem;
 		border-radius: 6px;

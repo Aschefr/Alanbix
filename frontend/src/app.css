@@ -1050,3 +1050,19 @@ a.theme-toggle,
 /* Page titles carry a line icon (not an emoji) in the accent colour */
 .page-title-icon { display: inline-flex; align-items: center; gap: 0.5rem; }
 .page-title-icon .icon { color: var(--accent); flex-shrink: 0; }
+
+/* Chat on/off toggles (alert sound, insult filter): the icon itself says the
+   state (bell / bell-off, shield-check / shield-off) and "on" is tinted blue */
+.chat-toggle {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; padding: 0; flex-shrink: 0;
+  border-radius: var(--radius-sm, 6px);
+  border: 1px solid var(--glass-border);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.chat-toggle:hover { color: var(--text-main); border-color: var(--text-muted); }
+.chat-toggle.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.chat-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
