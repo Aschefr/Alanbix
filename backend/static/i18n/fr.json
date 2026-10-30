@@ -1584,5 +1584,6 @@
   "map_empty_admin": "Ajoutez des tables et des postes pour que les joueurs puissent choisir leur place.",
   "map_empty_draw": "Dessiner le plan",
   "map_free_all_confirm": "Libérer toutes les places ?",
-  "map_free_all_yes": "Oui, tout libérer"
+  "map_free_all_yes": "Oui, tout libérer",
+  "server_modal_other_addresses": "+ {n} autre(s) adresse(s)"
 }

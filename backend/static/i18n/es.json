@@ -1584,5 +1584,6 @@
   "map_empty_admin": "Añada mesas y puestos para que los jugadores elijan su sitio.",
   "map_empty_draw": "Dibujar el plano",
   "map_free_all_confirm": "¿Liberar todos los sitios?",
-  "map_free_all_yes": "Sí, liberar todo"
+  "map_free_all_yes": "Sí, liberar todo",
+  "server_modal_other_addresses": "+ {n} otra(s) dirección(es)"
 }

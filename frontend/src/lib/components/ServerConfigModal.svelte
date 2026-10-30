@@ -22,7 +22,7 @@
 	let showAdvanced = false;
 	let statusMessage = '';
 	let statusType: 'info' | 'success' | 'error' = 'info';
-	let discoveredServers: Array<{ url: string; name: string; version: string; hostname: string }> = [];
+	let discoveredServers: Array<{ url: string; name: string; version: string; hostname: string; altCount?: number }> = [];
 
 	let wasOpen = false;
 	$: if (isOpen && !wasOpen) {
@@ -196,9 +196,33 @@
 		return null;
 	}
 
+	// Rank among several addresses of the same server: saved one, then the
+	// production port, then a real LAN address over the emulator alias
+	function addressScore(url: string, saved: string | null): number {
+		if (saved && url === saved) return 3;
+		if (url.includes(':41481')) return 2;
+		if (!url.includes('10.0.2.2')) return 1;
+		return 0;
+	}
+
 	function addDiscovered(srv: { url: string; name: string; version: string; hostname: string }) {
-		if (!discoveredServers.some((s) => s.url === srv.url)) {
-			const saved = getCustomServerUrl();
+		if (discoveredServers.some((s) => s.url === srv.url)) return;
+		const saved = getCustomServerUrl();
+		// The same server reached through another address is shown once
+		const twinIdx = discoveredServers.findIndex(
+			(s) => s.hostname && s.hostname === srv.hostname && s.name === srv.name && !s.hostname.startsWith('http')
+		);
+		if (twinIdx >= 0) {
+			const twin = discoveredServers[twinIdx];
+			if (addressScore(srv.url, saved) > addressScore(twin.url, saved)) {
+				discoveredServers[twinIdx] = { ...srv, altCount: (twin.altCount || 0) + 1 };
+			} else {
+				discoveredServers[twinIdx] = { ...twin, altCount: (twin.altCount || 0) + 1 };
+			}
+			discoveredServers = discoveredServers;
+			return;
+		}
+		{
 			discoveredServers = [...discoveredServers, srv].sort((a, b) => {
 				if (saved && a.url === saved) return -1;
 				if (saved && b.url === saved) return 1;
@@ -390,23 +414,26 @@
 					<div class="discovered-list">
 						{#each discoveredServers as srv, idx}
 							<div class="discovered-card" class:recommended={idx === 0}>
-								<div class="srv-info">
-									<div class="srv-title-row">
-										<strong class="srv-name">{srv.name}</strong>
-										{#if idx === 0}
-											<span class="badge-recommended">{$t('server_modal_recommended')}</span>
-										{/if}
-									</div>
-									<div class="srv-meta">
-										<span class="srv-url">{srv.url}</span>
-										{#if srv.version}
-											<span class="srv-ver">v{srv.version}</span>
-										{/if}
-									</div>
+								<div class="srv-title-row">
+									<strong class="srv-name">{srv.name}</strong>
+									{#if srv.version}
+										<span class="srv-ver">v{srv.version}</span>
+									{/if}
+									{#if idx === 0}
+										<span class="badge-recommended">{$t('server_modal_recommended')}</span>
+									{/if}
 								</div>
-								<button type="button" class="btn-join" on:click={() => selectDiscovered(srv)}>
-									{$t('server_modal_join')} →
-								</button>
+								<div class="srv-bottom">
+									<div class="srv-meta">
+										<span class="srv-url" title={srv.url}>{srv.url.replace(/^https?:\/\//, '')}</span>
+										{#if srv.altCount}
+											<span class="srv-alt">{$t('server_modal_other_addresses', { n: srv.altCount })}</span>
+										{/if}
+									</div>
+									<button type="button" class="btn-join" on:click={() => selectDiscovered(srv)}>
+										{$t('server_modal_join')} →
+									</button>
+								</div>
 							</div>
 						{/each}
 					</div>
@@ -643,9 +670,8 @@
 
 	.discovered-card {
 		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 0.75rem;
+		flex-direction: column;
+		gap: 0.4rem;
 		padding: 0.7rem 0.85rem;
 		background: rgba(255, 255, 255, 0.04);
 		border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.12));
@@ -691,18 +717,35 @@
 		letter-spacing: 0.04em;
 	}
 
-	.srv-meta {
+	.srv-bottom {
 		display: flex;
 		align-items: center;
-		gap: 0.4rem;
+		justify-content: space-between;
+		gap: 0.6rem;
+	}
+
+	.srv-meta {
+		display: flex;
+		flex-direction: column;
+		gap: 0.1rem;
+		min-width: 0;
+		font-size: 0.85rem;
+		color: var(--text-main, #fff);
+		font-family: monospace;
+	}
+
+	.srv-url { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+	.srv-alt {
+		font-family: var(--font-main, sans-serif);
 		font-size: 0.75rem;
 		color: var(--text-dim, #9ca3af);
-		font-family: monospace;
 	}
 
 	.srv-ver {
 		color: var(--accent, #3b82f6);
-		font-weight: 600;
+		font-weight: 700;
+		font-size: 0.78rem;
 	}
 
 	.btn-join {

@@ -1596,5 +1596,6 @@
   "map_empty_admin": "Add tables and seats so players can pick their place.",
   "map_empty_draw": "Draw the map",
   "map_free_all_confirm": "Free every seat?",
-  "map_free_all_yes": "Yes, free all"
+  "map_free_all_yes": "Yes, free all",
+  "server_modal_other_addresses": "+ {n} other address(es)"
 }
