@@ -1,4 +1,5 @@
 <script lang="ts">
+	const DEV_API_PORT = import.meta.env.DEV ? ':' + '8000' : '';
 	import { createEventDispatcher, onMount } from 'svelte';
 	import { get } from 'svelte/store';
 	import { t } from '$lib/i18nStore';
@@ -201,9 +202,11 @@
 			discoveredServers = [...discoveredServers, srv].sort((a, b) => {
 				if (saved && a.url === saved) return -1;
 				if (saved && b.url === saved) return 1;
-				// In development, port 8000 is the direct FastAPI backend (unproxied)
-				if (a.url.includes(':8000') && !b.url.includes(':8000')) return -1;
-				if (!a.url.includes(':8000') && b.url.includes(':8000')) return 1;
+				// In development, the direct FastAPI backend (unproxied) comes first
+				if (import.meta.env.DEV && DEV_API_PORT) {
+					if (a.url.includes(DEV_API_PORT) && !b.url.includes(DEV_API_PORT)) return -1;
+					if (!a.url.includes(DEV_API_PORT) && b.url.includes(DEV_API_PORT)) return 1;
+				}
 				return 0;
 			});
 			if (!serverInput) {
@@ -231,13 +234,13 @@
 			if (norm && !priorityList.includes(norm)) priorityList.push(norm);
 		}
 
-		[
-			'http://10.0.2.2:41481',
-			'http://10.0.2.2:8000',
-			'http://alanbix.local:41481',
-			'http://alanbix.local:8000',
-			'http://unraid.local:41481'
-		].forEach((u) => {
+		// Production servers always listen on 41481; the dev backend port is only
+		// probed in development builds so it never ships in the production bundle
+		const knownHosts = ['http://10.0.2.2:41481', 'http://alanbix.local:41481', 'http://unraid.local:41481'];
+		if (import.meta.env.DEV && DEV_API_PORT) {
+			knownHosts.push(`http://10.0.2.2${DEV_API_PORT}`, `http://alanbix.local${DEV_API_PORT}`);
+		}
+		knownHosts.forEach((u) => {
 			if (!priorityList.includes(u)) priorityList.push(u);
 		});
 
@@ -249,8 +252,7 @@
 				`http://${sub}.100:41481`,
 				`http://${sub}.2:41481`,
 				`http://${sub}.254:41481`,
-				`http://${sub}.168:8000`,
-				`http://${sub}.1:8000`
+				...(DEV_API_PORT ? [`http://${sub}.168${DEV_API_PORT}`, `http://${sub}.1${DEV_API_PORT}`] : [])
 			].forEach((u) => {
 				if (!priorityList.includes(u)) priorityList.push(u);
 			});

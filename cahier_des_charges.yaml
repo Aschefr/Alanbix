@@ -1500,10 +1500,16 @@ future_axes:
       - "Exclusion totale de l'assistant @Alanbix des MP et des salons d'équipes (aucun bot, aucun déclenchement)."
     priority: high
 
-
-
-
-
-
-
-
+  - id: AXE-71
+    title: "Refonte de l'interface « Le Labo de l'Alambic » (v1.34.0)"
+    status: DONE
+    description: >
+      Revue écran par écran de toute l'application (joueur, admin, projecteur) : hiérarchie, densité, contrastes, mobile et i18n.
+    done:
+      - "Accueil : liste « Mes matchs » avec saisie rapide, onglets et chat public à droite."
+      - "Échelle typographique unique et repère de page active dans le menu."
+      - "Onglet Régie : appels à l'aide, matchs à saisir, modération rapide complète, progression des tournois."
+      - "Round robin retravaillé ; glissement des arbres libre et maintenu hors du cadre."
+      - "Projecteur : contrastes adaptés à la projection, cartes opaques dans les deux thèmes, mode clair complet, barre de progression."
+      - "Tous les textes passent par des clés i18n, contrôle automatique en CI."
+    priority: high
