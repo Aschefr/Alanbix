@@ -727,7 +727,7 @@
 <style>
 	.players-page { display: flex; flex-direction: column; gap: 1rem; height: 100%; }
 	.players-header { display: flex; align-items: center; justify-content: space-between; padding: 1.2rem 2rem; border-radius: 16px; flex-shrink: 0; }
-	.players-header h1 { margin: 0; font-size: 1.3rem; }
+	.players-header h1 { margin: 0; font-size: var(--fs-page); }
 	.player-count { font-size: 0.75rem; font-weight: 700; padding: 0.25rem 0.8rem; border-radius: 20px; background: rgba(59,130,246,0.1); color: var(--accent); border: 1px solid rgba(59,130,246,0.25); }
 
 	/* Layout — fill remaining height, both columns scroll independently */

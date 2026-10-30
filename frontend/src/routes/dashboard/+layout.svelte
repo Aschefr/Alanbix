@@ -552,40 +552,40 @@
 		</div>
 
 		<div class="nav-links">
-			<a href="/dashboard" class="nav-item">
+			<a href="/dashboard" class="nav-item" class:active={$page.url.pathname === '/dashboard'}>
 				<span class="icon">🏠</span>
 				<span class="label">{$t('nav_dashboard')}</span>
 			</a>
-			<a href="/dashboard/info" class="nav-item">
+			<a href="/dashboard/info" class="nav-item" class:active={$page.url.pathname.startsWith('/dashboard/info')}>
 				<span class="icon">📋</span>
 				<span class="label">{$t('nav_infos')}</span>
 			</a>
-			<a href="/dashboard/tournaments" class="nav-item">
+			<a href="/dashboard/tournaments" class="nav-item" class:active={$page.url.pathname.startsWith('/dashboard/tournaments')}>
 				<span class="icon">🏆</span>
 				<span class="label">{$t('nav_tournaments')}</span>
 			</a>
-			<a href="/dashboard/players{$totalMsgUnread > 0 && lastPmSender ? '?chat=' + lastPmSender : ''}" class="nav-item pm-nav">
+			<a href="/dashboard/players{$totalMsgUnread > 0 && lastPmSender ? '?chat=' + lastPmSender : ''}" class="nav-item pm-nav" class:active={$page.url.pathname.startsWith('/dashboard/players')}>
 				<span class="icon">👥</span>
 				<span class="label">{$t('nav_players')}</span>
 				{#if $totalMsgUnread > 0}
 					<span class="pm-count-badge" class:bounce={pmBounce}>{$totalMsgUnread}</span>
 				{/if}
 			</a>
-			<a href="/dashboard/notifications" class="nav-item notif-nav" on:click={() => { api.get('/notifications/unread-count').then(r => notifUnreadCount.set(r.count || 0)).catch(() => {}); }}>
+			<a href="/dashboard/notifications" class:active={$page.url.pathname.startsWith('/dashboard/notifications')} class="nav-item notif-nav" on:click={() => { api.get('/notifications/unread-count').then(r => notifUnreadCount.set(r.count || 0)).catch(() => {}); }}>
 				<span class="icon">🔔</span>
 				<span class="label">{$t('nav_notifications')}</span>
 				{#if $notifUnreadCount > 0}
 					<span class="notif-count-badge" class:bounce={notifBounce}>{$notifUnreadCount}</span>
 				{/if}
 			</a>
-			<a href="/dashboard/ai" class="nav-item ai-nav" on:click={() => aiUnreadCount.set(0)}>
+			<a href="/dashboard/ai" class:active={$page.url.pathname.startsWith('/dashboard/ai')} class="nav-item ai-nav" on:click={() => aiUnreadCount.set(0)}>
 				<span class="icon">🤖</span>
 				<span class="label">{$t('nav_ai_assistant')}</span>
 				{#if $aiUnreadCount > 0}
 					<span class="ai-count-badge" class:bounce={aiBounce}>{$aiUnreadCount}</span>
 				{/if}
 			</a>
-			<a href="/dashboard/map" class="nav-item">
+			<a href="/dashboard/map" class="nav-item" class:active={$page.url.pathname.startsWith('/dashboard/map')}>
 
 				<span class="icon">📍</span>
 				<span class="label">{$t('nav_map')}</span>
@@ -597,7 +597,7 @@
 			
 			{#if user.is_admin}
 				<div class="nav-separator"></div>
-				<a href="/dashboard/admin" class="nav-item admin">
+				<a href="/dashboard/admin" class:active={$page.url.pathname.startsWith('/dashboard/admin')} class="nav-item admin">
 					<span class="icon">⚙️</span>
 					<span class="label">{$t('nav_administration')}</span>
 				</a>
@@ -874,8 +874,15 @@
 	}
 
 	.nav-item .label {
-		font-size: var(--nav-font-size, 0.875rem);
+		font-size: var(--fs-nav);
+		font-weight: 600;
 	}
+	.nav-item.active {
+		background: var(--accent-soft);
+		color: var(--text-main);
+		box-shadow: inset 3px 0 0 var(--accent);
+	}
+	.nav-item.admin.active { background: rgba(251, 191, 36, 0.12); box-shadow: inset 3px 0 0 #fbbf24; }
 
 	.nav-item.admin {
 		color: #fbbf24;

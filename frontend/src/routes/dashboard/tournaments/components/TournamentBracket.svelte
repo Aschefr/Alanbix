@@ -746,7 +746,7 @@
 
 <style>
 	.section-title { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
-	.section-title h3 { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-dim); margin: 0; }
+	.section-title h3 { font-size: var(--fs-sub); font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-dim); margin: 0; }
 	.btn-xs { padding: 0.3rem 0.6rem; font-size: 0.7rem; }
 
 	/* Bracket Section */

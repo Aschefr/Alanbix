@@ -1391,7 +1391,7 @@
 	/* === SIDEBAR === */
 	.t-sidebar { width: 280px; min-width: 260px; display: flex; flex-direction: column; padding: 0; overflow: hidden; flex-shrink: 0; margin-right: 1.5rem; position: relative; z-index: 2; }
 	.sidebar-header { display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.2rem; border-bottom: 1px solid var(--glass-border); }
-	.sidebar-header h2 { font-size: 0.95rem; margin: 0; }
+	.sidebar-header h2 { font-size: var(--fs-section); margin: 0; }
 	.t-count { font-size: 0.65rem; background: var(--accent-soft); color: var(--accent); padding: 0.1rem 0.4rem; border-radius: 10px; font-weight: 800; border: 1px solid rgba(59,130,246,0.15); }
 	.t-list { flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 0.4rem; padding: 0.5rem; }
 	.t-item { position: relative; display: flex; align-items: flex-end; min-height: 84px; padding: 0; background-size: cover; background-position: center; background-color: rgba(0,0,0,0.4); border: 1px solid #1e293b; border-radius: 10px; cursor: pointer; transition: all 0.2s; text-align: left; color: white; width: 100%; overflow: hidden; }
@@ -1425,7 +1425,7 @@
 	.detail-hero { height: 150px; background-size: cover; background-position: center; background-color: var(--bg-secondary); border-radius: var(--radius-lg) var(--radius-lg) 0 0; position: relative; flex-shrink: 0; }
 	.hero-overlay { position: absolute; inset: 0; display: flex; align-items: flex-end; justify-content: space-between; background: linear-gradient(to top, rgba(15,23,42,0.95) 0%, rgba(15,23,42,0.7) 55%, rgba(15,23,42,0.2)); padding: 1.2rem 1.5rem; border-radius: inherit; }
 	.hero-content { display: flex; flex-direction: column; gap: 0.2rem; }
-	.hero-content h1 { font-size: 1.5rem; margin: 0; color: white; text-shadow: 0 2px 8px rgba(0,0,0,0.5); }
+	.hero-content h1 { font-size: var(--fs-page); margin: 0; color: white; text-shadow: 0 2px 8px rgba(0,0,0,0.5); }
 
 	.hero-checkered { position: absolute; top: 0; right: 0; width: 75%; height: 100%; z-index: 1; pointer-events: none;
 		background: repeating-conic-gradient(rgba(255,255,255,0.85) 0% 25%, rgba(20,20,20,0.85) 0% 50%) 0 0 / 22px 22px;
@@ -1728,7 +1728,7 @@
 			gap: 0.2rem;
 		}
 		.hero-content h1 {
-			font-size: 1.05rem;
+			font-size: var(--fs-page);
 			margin: 0.1rem 0;
 		}
 		.hero-game {

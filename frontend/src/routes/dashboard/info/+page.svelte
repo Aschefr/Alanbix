@@ -355,7 +355,7 @@
 		display: flex; align-items: center; gap: 1rem; margin-bottom: 2rem;
 	}
 	.info-header h1 {
-		font-size: 1.8rem; font-weight: 800; margin: 0; flex: 1;
+		font-size: var(--fs-page); font-weight: 700; margin: 0; flex: 1;
 		color: var(--accent);
 		font-family: var(--font-title);
 		letter-spacing: -0.02em;

@@ -117,12 +117,13 @@ Palette froide ardoise + bleu, déclinée en deux luminosités qui partagent les
 **Character:** Outfit, géométrique et un peu ludique, porte les titres et le nom Alanbix ; Inter, neutre et très lisible, porte tout le reste.
 
 ### Hierarchy
-- **Display** (700, ~2rem, letter-spacing -0.02em) : titres de page ; la classe `title-premium` leur applique un dégradé blanc → brume (sombre) ou encre → bleu (clair).
-- **Title** (700, 1.25–1.5rem) : titres de cartes (« Mon Équipe »).
+Une seule échelle, en variables dans `app.css` ; chaque page s'y réfère au lieu de fixer ses propres tailles.
+- **Titre de page** `--fs-page` (700, 1.625rem ; 1.375rem sur mobile) : un seul `h1` par page ; `title-premium` y ajoute le dégradé blanc → brume (sombre) ou encre → bleu (clair).
+- **Titre de section** `--fs-section` (700, 1.0625rem) : en-têtes de blocs (« Mes matchs », « Appels à l'aide »).
+- **Sous-section / onglets** `--fs-sub` (600–700, 0.875rem) : sous-titres en capitales espacées, onglets internes.
+- **Menu latéral** `--fs-nav` (600, 0.9375rem) : la page active a un fond bleu léger et un trait bleu à gauche.
 - **Body** (400, 1rem) : texte courant, champs.
-- **Label** (600, 0.75rem, majuscules, espacement léger) : étiquettes de champs (« PSEUDO »), badges.
-
-Sur mobile, les titres sont réduits de force (h1 1.2rem → h4 0.82rem).
+- **Label** (600, 0.75rem, majuscules, espacement léger) : étiquettes de champs, badges.
 
 ## Layout
 

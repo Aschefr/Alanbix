@@ -250,7 +250,7 @@
 	.rg-block { padding: 1rem 1.1rem; border-radius: var(--radius-lg); display: flex; flex-direction: column; gap: 0.75rem; min-width: 0; }
 	.rg-block.alert { border-color: var(--danger); }
 	.rg-block header { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
-	.rg-block h2 { font-size: 1rem; display: inline-flex; align-items: center; gap: 0.5rem; margin: 0; }
+	.rg-block h2 { font-size: var(--fs-section); display: inline-flex; align-items: center; gap: 0.5rem; margin: 0; }
 	.rg-count { font-size: 0.78rem; font-weight: 700; color: var(--accent); background: var(--accent-soft); border-radius: 999px; padding: 0.1rem 0.55rem; }
 	.rg-count.alert { color: #fff; background: var(--danger); }
 	.rg-empty { margin: 0; color: var(--text-dim); font-size: 0.9rem; }

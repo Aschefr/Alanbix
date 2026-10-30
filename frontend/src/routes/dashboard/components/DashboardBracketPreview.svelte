@@ -411,10 +411,8 @@
 		flex-shrink: 0;
 	}
 	.panel-header h2 {
-		font-size: 0.85rem;
-		font-weight: 800;
-		text-transform: uppercase;
-		letter-spacing: 0.08em;
+		font-size: var(--fs-section);
+		font-weight: 700;
 	}
 	.panel-header .subtitle {
 		font-size: 0.72rem;

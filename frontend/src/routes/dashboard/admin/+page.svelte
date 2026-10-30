@@ -194,7 +194,7 @@
 <style>
 	.admin-view { display: flex; flex-direction: column; gap: 2rem; }
 	.tabs { display: flex; padding: 0.3rem; border-radius: 12px; background: var(--surface-sunken); border: 1px solid var(--glass-border); flex-wrap: wrap; gap: 0.25rem; }
-	.tabs button { padding: 0.6rem 1.1rem; border: none; background: transparent; color: var(--text-dim); cursor: pointer; font-weight: 600; border-radius: 8px; transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1); font-size: 0.85rem; font-family: var(--font-main); }
+	.tabs button { padding: 0.6rem 1.1rem; border: none; background: transparent; color: var(--text-dim); cursor: pointer; font-weight: 600; border-radius: 8px; transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1); font-size: var(--fs-sub); font-family: var(--font-main); }
 	.tabs button:hover:not(.active) { color: var(--text-main); background: var(--hover-tint); }
 	.tabs button.active { background: var(--accent); color: white; box-shadow: 0 4px 14px var(--accent-glow); font-weight: 700; }
 
@@ -222,7 +222,6 @@
 	/* Phone: title above, tabs as one horizontally scrollable strip */
 	@media (max-width: 900px) {
 		.admin-view > header { flex-direction: column; align-items: stretch; gap: 0.6rem; }
-		.admin-view > header h1 { font-size: 1.2rem; }
 		.tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
 		.tabs::-webkit-scrollbar { display: none; }
 		.tabs button { flex-shrink: 0; white-space: nowrap; }

@@ -1237,8 +1237,9 @@
 	}
 
 	.cmd-left h1 {
+		font-size: var(--fs-page);
 
-		font-size: 1.4rem;
+		
 
 		white-space: nowrap;
 
@@ -2275,7 +2276,7 @@
 
 	.my-matches { padding: 0.9rem 1.1rem; display: flex; flex-direction: column; gap: 0.6rem; flex-shrink: 0; max-height: 45%; min-height: 0; }
 	.mym-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
-	.mym-header h2 { font-size: 1rem; display: inline-flex; align-items: center; gap: 0.5rem; }
+	.mym-header h2 { font-size: var(--fs-section); display: inline-flex; align-items: center; gap: 0.5rem; }
 	.mym-count { font-family: var(--font-main); font-size: 0.75rem; font-weight: 700; color: var(--accent); background: var(--accent-soft); border-radius: 999px; padding: 0.1rem 0.5rem; }
 	.mym-link { background: none; border: none; color: var(--accent); font-weight: 600; font-size: 0.85rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.2rem; }
 	.mym-link:hover { text-decoration: underline; }
@@ -2310,7 +2311,7 @@
 		display: inline-flex; align-items: center; gap: 0.4rem;
 		padding: 0.45rem 0.9rem; border-radius: var(--radius-md);
 		background: transparent; border: 1px solid var(--glass-border);
-		color: var(--text-dim); font-weight: 600; font-size: 0.88rem; cursor: pointer;
+		color: var(--text-dim); font-weight: 600; font-size: var(--fs-sub); cursor: pointer;
 	}
 	.dash-tab:hover { color: var(--text-main); border-color: var(--accent); }
 	.dash-tab.active { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }

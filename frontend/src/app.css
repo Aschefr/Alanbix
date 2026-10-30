@@ -235,6 +235,18 @@ h1, h2, h3, h4, h5, h6 {
   margin: 0;
 }
 
+/* Type scale shared by every page (see DESIGN.md) */
+:root {
+  --fs-page: 1.625rem;    /* page title */
+  --fs-section: 1.0625rem; /* section title */
+  --fs-sub: 0.875rem;     /* sub-section, tabs */
+  --fs-nav: 0.9375rem;    /* sidebar */
+}
+@media (max-width: 768px) {
+  :root { --fs-page: 1.375rem; }
+}
+.content-area h1 { font-size: var(--fs-page); line-height: 1.2; }
+
 .glass {
   background: var(--glass-bg);
   border: 1px solid var(--glass-border);
@@ -846,9 +858,9 @@ button, a, [role="button"] {
     line-height: 1.35 !important;
   }
 
-  h1 { font-size: 1.2rem !important; }
-  h2 { font-size: 1.0rem !important; }
-  h3 { font-size: 0.9rem !important; }
+  h1 { font-size: var(--fs-page) !important; }
+  h2 { font-size: var(--fs-section) !important; }
+  h3 { font-size: var(--fs-sub) !important; }
   h4 { font-size: 0.82rem !important; }
 
   /* Square & compact button styling on mobile */

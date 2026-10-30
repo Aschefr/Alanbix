@@ -148,7 +148,7 @@
 	/* Live Standings */
 	.live-standings { padding: 1.2rem; border-radius: var(--radius-lg); border: 1px solid rgba(59,130,246,0.15); }
 	.section-title { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
-	.section-title h3 { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-dim); margin: 0; }
+	.section-title h3 { font-size: var(--fs-sub); font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-dim); margin: 0; }
 	.live-badge { font-size: 0.55rem; font-weight: 800; color: #10b981; background: rgba(16,185,129,0.1); padding: 0.15rem 0.5rem; border-radius: 20px; border: 1px solid rgba(16,185,129,0.2); animation: pulse-live 2s infinite; }
 	.live-badge.final-badge { color: #3b82f6; background: rgba(59,130,246,0.1); border-color: rgba(59,130,246,0.2); animation: none; }
 	@keyframes pulse-live { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }

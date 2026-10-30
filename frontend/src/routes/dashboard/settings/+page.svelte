@@ -671,7 +671,7 @@
 	}
 
 	.header-title-box h1 {
-		font-size: 1.75rem;
+		font-size: var(--fs-page);
 		font-weight: 700;
 		margin: 0;
 		color: var(--text-main);
@@ -710,7 +710,7 @@
 		flex: 1;
 	}
 	.section-title-row h2 {
-		font-size: 1.2rem;
+		font-size: var(--fs-section);
 		margin: 0;
 		color: var(--text-main);
 	}
@@ -795,7 +795,7 @@
 		border-top: 1px solid var(--glass-border);
 	}
 	.settings-subgroup h3 {
-		font-size: 0.95rem;
+		font-size: var(--fs-sub);
 		font-weight: 600;
 		color: var(--text-main);
 		margin: 0 0 0.75rem;

@@ -217,7 +217,7 @@
 	.notif-page { display: flex; flex-direction: column; gap: 1rem; max-width: 700px; margin: 0 auto; }
 	.notif-header { display: flex; align-items: center; justify-content: space-between; padding: 1.5rem 2rem; border-radius: 16px; }
 	.header-left { display: flex; align-items: center; gap: 1rem; }
-	.header-left h1 { margin: 0; font-size: 1.3rem; }
+	.header-left h1 { margin: 0; font-size: var(--fs-page); }
 	.unread-badge { display: inline-block; padding: 0.25rem 0.7rem; border-radius: 20px; font-size: 0.7rem; font-weight: 800; background: rgba(59,130,246,0.15); color: var(--accent); border: 1px solid rgba(59,130,246,0.3); }
 	.btn-sm { font-size: 0.8rem; padding: 0.5rem 1rem; }
 
@@ -319,7 +319,7 @@
 			width: 100%;
 		}
 		.header-left h1 {
-			font-size: 1.05rem;
+			font-size: var(--fs-page);
 			display: flex;
 			align-items: center;
 			gap: 0.45rem;

@@ -112,7 +112,7 @@
 <style>
 	.participants-section { padding: 1rem; border-radius: 14px; }
 	.section-title { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
-	.section-title h3 { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-dim); margin: 0; }
+	.section-title h3 { font-size: var(--fs-sub); font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-dim); margin: 0; }
 	.btn-xs { padding: 0.3rem 0.6rem; font-size: 0.7rem; }
 	.part-count { font-size: 0.6rem; background: var(--accent-soft); color: var(--accent); padding: 0.1rem 0.4rem; border-radius: 10px; font-weight: 800; border: 1px solid rgba(59,130,246,0.15); margin-left: 0.3rem; }
 	.part-bulk-actions { display: flex; gap: 0.4rem; align-items: center; }
