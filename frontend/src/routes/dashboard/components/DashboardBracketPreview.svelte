@@ -1,5 +1,5 @@
 <script>
-	import { createEventDispatcher } from 'svelte';
+	import { createEventDispatcher, onDestroy } from 'svelte';
 	import { t } from '$lib/i18nStore';
 
 	export let runningTournaments = [];
@@ -91,21 +91,10 @@
 		const vh = brViewportEl.clientHeight;
 		const cw = brCanvasEl.scrollWidth * brScale;
 		const ch = brCanvasEl.scrollHeight * brScale;
-		const margin = 40;
-		if (cw <= vw) {
-			const minX = -margin;
-			const maxX = vw - cw + margin;
-			brPanX = Math.min(maxX, Math.max(brPanX, minX));
-		} else {
-			brPanX = Math.min(margin, Math.max(brPanX, vw - cw - margin));
-		}
-		if (ch <= vh) {
-			const minY = -margin;
-			const maxY = vh - ch + margin;
-			brPanY = Math.min(maxY, Math.max(brPanY, minY));
-		} else {
-			brPanY = Math.min(margin, Math.max(brPanY, vh - ch - margin));
-		}
+		// Free movement, as long as a slice of the bracket stays on screen
+		const keepX = Math.min(cw, vw) * 0.3, keepY = Math.min(ch, vh) * 0.3;
+		brPanX = Math.min(vw - keepX, Math.max(brPanX, keepX - cw));
+		brPanY = Math.min(vh - keepY, Math.max(brPanY, keepY - ch));
 	}
 
 	function brWheel(e) {
@@ -119,9 +108,19 @@
 		brPanY = my - (my - brPanY) * (brScale / old);
 		brClampPan();
 	}
-	function brDown(e) { brDrag = true; brStartX = e.clientX - brPanX; brStartY = e.clientY - brPanY; }
+	// Window listeners keep the drag alive when the mouse leaves the frame
+	function brDown(e) {
+		brDrag = true; brStartX = e.clientX - brPanX; brStartY = e.clientY - brPanY;
+		window.addEventListener('mousemove', brMove);
+		window.addEventListener('mouseup', brUp);
+	}
 	function brMove(e) { if (!brDrag) return; brPanX = e.clientX - brStartX; brPanY = e.clientY - brStartY; brClampPan(); }
-	function brUp() { brDrag = false; }
+	function brUp() {
+		brDrag = false;
+		window.removeEventListener('mousemove', brMove);
+		window.removeEventListener('mouseup', brUp);
+	}
+	onDestroy(brUp);
 	function brPanTo(dx, dy) { brPanX += dx; brPanY += dy; brClampPan(); }
 
 	$: brArrowLeft = brPanX < -10;
@@ -290,7 +289,7 @@
 					<!-- Duel bracket -->
 					<div class="bracket-visual">
 						<!-- svelte-ignore a11y-no-static-element-interactions -->
-						<div class="dash-bracket-viewport" bind:this={brViewportEl} on:wheel={brWheel} on:mousedown={brDown} on:mousemove={brMove} on:mouseup={brUp} on:mouseleave={brUp} style="cursor: {brDrag ? 'grabbing' : 'grab'}">
+						<div class="dash-bracket-viewport" bind:this={brViewportEl} on:wheel={brWheel} on:mousedown={brDown} style="cursor: {brDrag ? 'grabbing' : 'grab'}">
 							<div class="dash-bracket-canvas" bind:this={brCanvasEl} style="transform: translate({brPanX}px, {brPanY}px) scale({brScale});">
 								<div class="dash-rounds">
 									{#each wbRounds as roundMatches, ri}

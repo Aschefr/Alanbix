@@ -37,6 +37,7 @@
 	let pendingTick = 0;    // Reactive tick to force re-render of progress bars
 
 	onDestroy(() => {
+		onMouseUp();
 		Object.values(pendingScores).forEach(p => {
 			if (p?.timer) clearTimeout(p.timer);
 			if (p?.interval) clearInterval(p.interval);
@@ -205,9 +206,10 @@
 		const vh = viewportEl.clientHeight;
 		const cw = canvasEl.scrollWidth * scale;
 		const ch = canvasEl.scrollHeight * scale;
-		const margin = 100;
-		panX = Math.min(margin, Math.max(panX, vw - cw - margin));
-		panY = Math.min(margin, Math.max(panY, vh - ch - margin));
+		// Free movement, as long as a slice of the bracket stays on screen
+		const keepX = Math.min(cw, vw) * 0.3, keepY = Math.min(ch, vh) * 0.3;
+		panX = Math.min(vw - keepX, Math.max(panX, keepX - cw));
+		panY = Math.min(vh - keepY, Math.max(panY, keepY - ch));
 	}
 
 	function onWheel(e) {
@@ -245,6 +247,9 @@
 		isDragging = true;
 		startX = e.clientX - panX;
 		startY = e.clientY - panY;
+		// Follow the mouse even outside the frame, until the button is released
+		window.addEventListener('mousemove', onMouseMove);
+		window.addEventListener('mouseup', onMouseUp);
 	}
 
 	function onMouseMove(e) {
@@ -256,6 +261,8 @@
 
 	function onMouseUp() {
 		isDragging = false;
+		window.removeEventListener('mousemove', onMouseMove);
+		window.removeEventListener('mouseup', onMouseUp);
 	}
 
 	function onTouchStart(e) {
@@ -535,7 +542,7 @@
 			<!-- Duel Bracket (single/double) -->
 			<!-- svelte-ignore a11y-no-static-element-interactions -->
 			<div class="bracket-viewport-wrapper">
-				<div class="bracket-viewport" bind:this={viewportEl} on:wheel={onWheel} on:mousedown={onMouseDown} on:mousemove={onMouseMove} on:mouseup={onMouseUp} on:mouseleave={onMouseUp} on:touchstart={onTouchStart} on:touchmove={onTouchMove} on:touchend={onTouchEnd} on:touchcancel={onTouchEnd}>
+				<div class="bracket-viewport" bind:this={viewportEl} on:wheel={onWheel} on:mousedown={onMouseDown} on:touchstart={onTouchStart} on:touchmove={onTouchMove} on:touchend={onTouchEnd} on:touchcancel={onTouchEnd}>
 					<div class="bracket-canvas" bind:this={canvasEl} style="transform: translate({panX}px, {panY}px) scale({scale});">
 						{#if bracketType === 'double_elim' && lbRounds.length > 0}
 							<div class="de-label">{$t('tourneys_bracket_winners')}</div>
