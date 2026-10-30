@@ -1,4 +1,5 @@
 <script>
+	import Icon from '$lib/components/Icon.svelte';
 	import { createEventDispatcher } from 'svelte';
 	import { t } from '$lib/i18nStore';
 	import { formatPoints } from '$lib/utils';
@@ -57,7 +58,7 @@
 						<span class="player-modal-team">{allUsers.find(u => u.username === selectedPlayerStats?.username)?.team_name || $t('dash_modal_team_fallback')}</span>
 					</div>
 				</div>
-				<button class="player-modal-close" on:click={close}>✕</button>
+				<button class="player-modal-close" on:click={close}><Icon name="x" size={16} /></button>
 			</header>
 
 			<div class="player-modal-body">
@@ -91,7 +92,7 @@
 								{#each (selectedPlayerStats.history || []) as hist}
 									<div class="tournament-stat-row">
 										<div class="t-main">
-											<span class="t-game-emoji">🎮</span>
+											<span class="t-game-emoji"><Icon name="gamepad" size={16} /></span>
 											<div class="t-names">
 												<span class="t-name">{hist.tournament_name}</span>
 												<span class="t-game">{hist.game_name || $t('dash_unknown_game')}</span>
@@ -133,7 +134,7 @@
 							<div class="awards-list-scroll">
 								{#each (selectedPlayerStats.awards || []) as award}
 									<div class="award-item-card">
-										<span class="award-icon">⭐</span>
+										<span class="award-icon"><Icon name="star" size={16} /></span>
 										<div class="award-info">
 											<span class="award-title">{award.title}</span>
 											<p class="award-desc">{award.description || ''}</p>

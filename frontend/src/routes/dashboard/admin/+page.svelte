@@ -3,6 +3,7 @@
 	import { api } from '$lib/api';
 	import { wsMessageStore } from '$lib/ws';
 	import { t, customPageTitle } from '$lib/i18nStore';
+	import Icon from '$lib/components/Icon.svelte';
 	import AdminTournamentsTab from './components/AdminTournamentsTab.svelte';
 	import AdminPlayersTab from './components/AdminPlayersTab.svelte';
 	import AdminSettingsTab from './components/AdminSettingsTab.svelte';
@@ -156,8 +157,8 @@
 					<span class="tab-unread-badge" style="background:#22c55e;color:white;padding:0.1rem 0.4rem;border-radius:10px;font-size: 0.75rem;font-weight:bold;margin-left:0.4rem">{adminUnreadConvsCount}</span>
 				{/if}
 			</button>
-			<button class={activeTab === 'awards' ? 'active' : ''} on:click={() => { activeTab = 'awards'; if (awardsTabRef) awardsTabRef.loadAwardsTab(); }}>🏆 {$t('admin_tab_awards')}</button>
-			<button on:click={() => window.location.href = '/dashboard/admin/languages'}>🌐 {$t('admin_tab_languages')}</button>
+			<button class={activeTab === 'awards' ? 'active' : ''} on:click={() => { activeTab = 'awards'; if (awardsTabRef) awardsTabRef.loadAwardsTab(); }}><Icon name="trophy" size={15} /> {$t('admin_tab_awards')}</button>
+			<button on:click={() => window.location.href = '/dashboard/admin/languages'}><Icon name="globe" size={15} /> {$t('admin_tab_languages')}</button>
 		</div>
 	</header>
 
@@ -183,7 +184,7 @@
 	{#each toasts as t (t.id)}
 		<div class="toast {t.type} {t.leaving ? 'toast-leave' : 'toast-enter'}">
 			<span class="toast-icon">
-				{#if t.type === 'success'}✅{:else if t.type === 'error'}❌{:else}ℹ️{/if}
+				<Icon name={t.type === 'success' ? 'check-circle' : t.type === 'error' ? 'x-circle' : 'info'} size={18} />
 			</span>
 			<span class="toast-msg">{t.message}</span>
 		</div>
@@ -194,7 +195,7 @@
 <style>
 	.admin-view { display: flex; flex-direction: column; gap: 2rem; }
 	.tabs { display: flex; padding: 0.3rem; border-radius: 12px; background: var(--surface-sunken); border: 1px solid var(--glass-border); flex-wrap: wrap; gap: 0.25rem; }
-	.tabs button { padding: 0.6rem 1.1rem; border: none; background: transparent; color: var(--text-dim); cursor: pointer; font-weight: 600; border-radius: 8px; transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1); font-size: var(--fs-sub); font-family: var(--font-main); }
+	.tabs button { display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; padding: 0.6rem 1.1rem; border: none; background: transparent; color: var(--text-dim); cursor: pointer; font-weight: 600; border-radius: 8px; transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1); font-size: var(--fs-sub); font-family: var(--font-main); }
 	.tabs button:hover:not(.active) { color: var(--text-main); background: var(--hover-tint); }
 	.tabs button.active { background: var(--accent); color: white; box-shadow: 0 4px 14px var(--accent-glow); font-weight: 700; }
 

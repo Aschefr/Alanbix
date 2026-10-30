@@ -1,4 +1,5 @@
 <script>
+	import Icon from '$lib/components/Icon.svelte';
 	import { get } from 'svelte/store';
 	import { onMount, onDestroy } from 'svelte';
 	import { api } from '$lib/api';
@@ -80,10 +81,10 @@
 	let promptModalDraft = '';
 
 	const DEFAULT_PROMPT_SECTIONS = [
-		{ key: 'identity', icon: '🧙' },
-		{ key: 'context', icon: '🗺️' },
-		{ key: 'style', icon: '🎭' },
-		{ key: 'rules', icon: '⚖️' },
+		{ key: 'identity', icon: 'user' },
+		{ key: 'context', icon: 'map' },
+		{ key: 'style', icon: 'sparkles' },
+		{ key: 'rules', icon: 'scale' },
 	];
 
 	function openPromptModal() {
@@ -471,7 +472,7 @@
 		try {
 			const res = await api.put(`/ia/knowledge/${editingDocId}`, { content: editDocContent });
 			if (res.warning) {
-				toast(`⚠️ ${res.warning}`, 'error');
+				toast(res.warning, 'error');
 			} else if (res.chunks > 1) {
 				toast(get(t)('admin_rag_reindexed', { chunks: res.chunks, chars: res.content_length }), 'success');
 			} else {
@@ -491,7 +492,7 @@
 			const res = await api.post('/ia/upload-document', { content: newDocContent });
 			newDocContent = '';
 			if (res.warning) {
-				toast(`⚠️ ${res.warning}`, 'error');
+				toast(res.warning, 'error');
 			} else if (res.chunks > 1) {
 				toast(get(t)('admin_rag_indexed', { chunks: res.chunks, chars: res.content_length }), 'success');
 			} else {
@@ -581,10 +582,10 @@
 	<!-- Settings Sub-Tabs -->
 	<div class="settings-tabs">
 		<button class="stab" class:active={!settingsSubTab || settingsSubTab === 'general'} on:click={() => settingsSubTab = 'general'}>
-			<span class="stab-icon">⚙️</span> {$t("admin_settings_tab_general")}
+			<span class="stab-icon"><Icon name="settings" size={16} /></span> {$t("admin_settings_tab_general")}
 		</button>
 		<button class="stab" class:active={settingsSubTab === 'ia'} on:click={() => settingsSubTab = 'ia'}>
-			<span class="stab-icon">🤖</span> {$t("admin_settings_tab_ai")}
+			<span class="stab-icon"><Icon name="bot" size={16} /></span> {$t("admin_settings_tab_ai")}
 		</button>
 	</div>
 
@@ -595,7 +596,7 @@
 		<h2 class="settings-section">{$t('admin_settings_section_event')}</h2>
 		<div class="sc glass">
 			<div class="sc-head">
-				<div class="sc-icon">🏷️</div>
+				<div class="sc-icon"><Icon name="tag" size={16} /></div>
 				<div>
 					<h3>{$t("admin_settings_lan_name")}</h3>
 					<p class="sc-sub">{$t("admin_settings_lan_name_sub")}</p>
@@ -610,7 +611,7 @@
 
 		<div class="sc glass">
 			<div class="sc-head">
-				<div class="sc-icon">📶</div>
+				<div class="sc-icon"><Icon name="wifi" size={16} /></div>
 				<div>
 					<h3>{$t('admin_settings_wifi_title')}</h3>
 					<p class="sc-sub">{$t('admin_settings_wifi_sub')}</p>
@@ -625,7 +626,7 @@
 
 		<div class="sc glass">
 			<div class="sc-head">
-				<div class="sc-icon">📊</div>
+				<div class="sc-icon"><Icon name="bar-chart" size={16} /></div>
 				<div>
 					<h3>{$t("admin_settings_team_scoring")}</h3>
 					<p class="sc-sub">{$t("admin_settings_team_scoring_sub")}</p>
@@ -634,12 +635,12 @@
 			<div class="sc-body">
 				<div class="scoring-toggle">
 					<button class="score-opt {teamScoringMode === 'weighted' ? 'active' : ''}" on:click={() => { teamScoringMode = 'weighted'; saveTeamScoringMode(); }}>
-						<span class="score-opt-icon">📊</span>
+						<span class="score-opt-icon"><Icon name="bar-chart" size={18} /></span>
 						<span class="score-opt-label">{$t("admin_settings_scoring_weighted_label")}</span>
 						<span class="score-opt-desc">{$t("admin_settings_scoring_weighted_desc")}</span>
 					</button>
 					<button class="score-opt {teamScoringMode === 'raw' ? 'active' : ''}" on:click={() => { teamScoringMode = 'raw'; saveTeamScoringMode(); }}>
-						<span class="score-opt-icon">📈</span>
+						<span class="score-opt-icon"><Icon name="bar-chart" size={18} /></span>
 						<span class="score-opt-label">{$t("admin_settings_scoring_raw_label")}</span>
 						<span class="score-opt-desc">{$t("admin_settings_scoring_raw_desc")}</span>
 					</button>
@@ -650,7 +651,7 @@
 		<h2 class="settings-section">{$t('admin_settings_section_tournaments')}</h2>
 		<div class="sc glass sc-full">
 			<div class="sc-head">
-				<div class="sc-icon">🏆</div>
+				<div class="sc-icon"><Icon name="trophy" size={16} /></div>
 				<div>
 					<h3>{$t("admin_settings_default_pts")}</h3>
 					<p class="sc-sub">{$t("admin_settings_default_pts_sub")}</p>
@@ -671,7 +672,7 @@
 		<!-- Public Chat & Anti-Spam Settings -->
 		<div class="sc glass sc-full">
 			<div class="sc-head">
-				<div class="sc-icon">💬</div>
+				<div class="sc-icon"><Icon name="chat" size={16} /></div>
 				<div>
 					<h3>{$t("admin_public_chat_title")}</h3>
 					<p class="sc-sub">{$t("admin_public_chat_sub")}</p>
@@ -690,7 +691,7 @@
 							aria-checked={publicChatConfig.enabled}
 						>
 							<div class="pca-toggle-top">
-								<div class="pca-card-icon">💬</div>
+								<div class="pca-card-icon"><Icon name="chat" size={18} /></div>
 								<div class="toggle-switch-mini">
 									<input type="checkbox" checked={publicChatConfig.enabled} tabindex="-1" style="pointer-events: none;" />
 									<span class="toggle-slider"></span>
@@ -711,7 +712,7 @@
 							aria-checked={publicChatConfig.block_duplicates}
 						>
 							<div class="pca-toggle-top">
-								<div class="pca-card-icon">🛡️</div>
+								<div class="pca-card-icon"><Icon name="shield" size={18} /></div>
 								<div class="toggle-switch-mini">
 									<input type="checkbox" checked={publicChatConfig.block_duplicates} tabindex="-1" style="pointer-events: none;" />
 									<span class="toggle-slider"></span>
@@ -732,7 +733,7 @@
 							aria-checked={publicChatConfig.ai_mention_enabled}
 						>
 							<div class="pca-toggle-top">
-								<div class="pca-card-icon">🤖</div>
+								<div class="pca-card-icon"><Icon name="bot" size={18} /></div>
 								<div class="toggle-switch-mini">
 									<input type="checkbox" checked={publicChatConfig.ai_mention_enabled} tabindex="-1" style="pointer-events: none;" />
 									<span class="toggle-slider"></span>
@@ -785,7 +786,7 @@
 					<!-- Moderation Filter Section -->
 					<div class="pca-section">
 						<div class="pca-section-header">
-							<span class="pca-section-icon">🚫</span>
+							<span class="pca-section-icon"><Icon name="ban" size={16} /></span>
 							<span class="compact-label">{$t("admin_public_chat_section_filters")}</span>
 						</div>
 
@@ -805,7 +806,7 @@
 		<h2 class="settings-section">{$t('admin_settings_section_services')}</h2>
 		<div class="sc glass sc-full">
 			<div class="sc-head">
-				<div class="sc-icon">🔍</div>
+				<div class="sc-icon"><Icon name="search" size={16} /></div>
 				<div>
 					<h3>{$t("admin_settings_searxng_title")}</h3>
 					<p class="sc-sub">{$t("admin_settings_searxng_sub")}</p>
@@ -826,7 +827,7 @@
 					
 					{#if searxngTestResult}
 						<div class="searx-result-box {searxngTestResult.ok ? 'success' : 'error'}">
-							<span>{searxngTestResult.ok ? '✅' : '❌'}</span>
+							<Icon name={searxngTestResult.ok ? 'check-circle' : 'x-circle'} size={16} />
 							<span>{searxngTestResult.message}</span>
 						</div>
 					{/if}
@@ -836,7 +837,7 @@
 
 		<div class="sc danger-zone sc-full">
 			<div class="sc-head">
-				<div class="sc-icon">☢️</div>
+				<div class="sc-icon"><Icon name="alert-triangle" size={16} /></div>
 				<div>
 					<h3 style="color: var(--danger)">{$t("admin_settings_danger_zone")}</h3>
 					<p class="sc-sub">{$t("admin_settings_danger_zone_sub")}</p>
@@ -847,7 +848,7 @@
 					<!-- Purge public chat -->
 					<div class="nuke-card">
 						<div class="nuke-info">
-							<span class="nuke-icon">💬</span>
+							<span class="nuke-icon"><Icon name="chat" size={24} /></span>
 							<div>
 								<strong>{$t("admin_public_chat_purge_btn")}</strong>
 								<p>{$t("admin_public_chat_purge_desc")}</p>
@@ -866,7 +867,7 @@
 					<!-- Nuke Tournaments -->
 					<div class="nuke-card">
 						<div class="nuke-info">
-							<span class="nuke-icon">🏆</span>
+							<span class="nuke-icon"><Icon name="trophy" size={24} /></span>
 							<div>
 								<strong>{$t("admin_settings_del_tourneys")}</strong>
 								<p>{$t("admin_settings_del_tourneys_sub")}</p>
@@ -876,7 +877,7 @@
 							<div class="nuke-confirm">
 								<span class="text-danger text-xs font-bold">{$t("admin_settings_confirm_delete_q")}</span>
 								<button class="btn-danger-sm" on:click={nukeTournaments} disabled={nuking.tournaments}>
-									{nuking.tournaments ? '⏳...' : $t("admin_settings_del_tourneys_btn_confirm")}
+									{nuking.tournaments ? '...' : $t("admin_settings_del_tourneys_btn_confirm")}
 								</button>
 								<button class="btn-secondary btn-xs" on:click={() => nukeConfirm.tournaments = false}>{$t('admin_settings_cancel')}</button>
 							</div>
@@ -888,7 +889,7 @@
 					<!-- Nuke Players -->
 					<div class="nuke-card">
 						<div class="nuke-info">
-							<span class="nuke-icon">👥</span>
+							<span class="nuke-icon"><Icon name="users" size={24} /></span>
 							<div>
 								<strong>{$t("admin_settings_del_players")}</strong>
 								<p>{$t("admin_settings_del_players_sub")}</p>
@@ -898,7 +899,7 @@
 							<div class="nuke-confirm">
 								<span class="text-danger text-xs font-bold">{$t("admin_settings_confirm_delete_q")}</span>
 								<button class="btn-danger-sm" on:click={nukePlayers} disabled={nuking.players}>
-									{nuking.players ? '⏳...' : $t("admin_settings_del_tourneys_btn_confirm")}
+									{nuking.players ? '...' : $t("admin_settings_del_tourneys_btn_confirm")}
 								</button>
 								<button class="btn-secondary btn-xs" on:click={() => nukeConfirm.players = false}>{$t('admin_settings_cancel')}</button>
 							</div>
@@ -910,7 +911,7 @@
 					<!-- Nuke Games -->
 					<div class="nuke-card">
 						<div class="nuke-info">
-							<span class="nuke-icon">🎮</span>
+							<span class="nuke-icon"><Icon name="gamepad" size={24} /></span>
 							<div>
 								<strong>{$t("admin_settings_del_games")}</strong>
 								<p>{$t("admin_settings_del_games_sub")}</p>
@@ -920,7 +921,7 @@
 							<div class="nuke-confirm">
 								<span class="text-danger text-xs font-bold">{$t("admin_settings_delete_confirm_warning")}</span>
 								<button class="btn-danger-sm" on:click={nukeGames} disabled={nuking.games}>
-									{nuking.games ? '⏳...' : $t("admin_settings_del_games_btn_confirm")}
+									{nuking.games ? '...' : $t("admin_settings_del_games_btn_confirm")}
 								</button>
 								<button class="btn-secondary btn-xs" on:click={() => nukeConfirm.games = false}>{$t('admin_settings_cancel')}</button>
 							</div>
@@ -932,7 +933,7 @@
 					<!-- Nuke Images -->
 					<div class="nuke-card">
 						<div class="nuke-info">
-							<span class="nuke-icon">🗑️</span>
+							<span class="nuke-icon"><Icon name="trash" size={24} /></span>
 							<div>
 								<strong>{$t("admin_settings_purge_chat")}</strong>
 								<p>{$t("admin_settings_purge_chat_sub")}</p>
@@ -942,7 +943,7 @@
 							<div class="nuke-confirm">
 								<span class="text-danger text-xs font-bold">{$t("admin_settings_delete_confirm_images")}</span>
 								<button class="btn-danger-sm" on:click={nukeImages} disabled={nuking.images}>
-									{nuking.images ? '⏳...' : $t("admin_settings_del_games_btn_confirm")}
+									{nuking.images ? '...' : $t("admin_settings_del_games_btn_confirm")}
 								</button>
 								<button class="btn-secondary btn-xs" on:click={() => nukeConfirm.images = false}>{$t('admin_settings_cancel')}</button>
 							</div>
@@ -954,7 +955,7 @@
 					<!-- Nuke Notifications -->
 					<div class="nuke-card">
 						<div class="nuke-info">
-							<span class="nuke-icon">🔔</span>
+							<span class="nuke-icon"><Icon name="bell" size={24} /></span>
 							<div>
 								<strong>{$t("admin_settings_purge_notifs")}</strong>
 								<p>{$t("admin_settings_purge_notifs_sub")}</p>
@@ -964,7 +965,7 @@
 							<div class="nuke-confirm">
 								<span class="text-danger text-xs font-bold">{$t("admin_settings_delete_confirm_notifs")}</span>
 								<button class="btn-danger-sm" on:click={nukeNotifications} disabled={nuking.notifications}>
-									{nuking.notifications ? '⏳...' : $t("admin_settings_del_games_btn_confirm")}
+									{nuking.notifications ? '...' : $t("admin_settings_del_games_btn_confirm")}
 								</button>
 								<button class="btn-secondary btn-xs" on:click={() => nukeConfirm.notifications = false}>{$t('admin_settings_cancel')}</button>
 							</div>
@@ -976,7 +977,7 @@
 					<!-- Nuke Awards -->
 					<div class="nuke-card">
 						<div class="nuke-info">
-							<span class="nuke-icon">🏆</span>
+							<span class="nuke-icon"><Icon name="trophy" size={24} /></span>
 							<div>
 								<strong>{$t("admin_settings_purge_awards") || $t("admin_settings_purge_notifs")}</strong>
 								<p>{$t("admin_settings_purge_awards_sub")}</p>
@@ -986,7 +987,7 @@
 							<div class="nuke-confirm">
 								<span class="text-danger text-xs font-bold">{$t("admin_settings_delete_confirm_awards")}</span>
 								<button class="btn-danger-sm" on:click={nukeAwards} disabled={nuking.awards}>
-									{nuking.awards ? '⏳...' : $t("admin_settings_del_games_btn_confirm")}
+									{nuking.awards ? '...' : $t("admin_settings_del_games_btn_confirm")}
 								</button>
 								<button class="btn-secondary btn-xs" on:click={() => nukeConfirm.awards = false}>{$t('admin_settings_cancel')}</button>
 							</div>
@@ -1005,14 +1006,14 @@
 		<!-- AI Queue Panel -->
 		<div class="sc glass">
 			<div class="sc-head">
-				<div class="sc-icon">📋</div>
+				<div class="sc-icon"><Icon name="clipboard" size={16} /></div>
 				<div style="flex:1">
 					<h3>{$t('admin_settings_ai_queue')}</h3>
 					<p class="sc-sub">{$t("admin_settings_ai_queue_sub")}</p>
 				</div>
 				<div class="queue-stats-badges">
-					<span class="queue-stat-badge pending" title="{$t('admin_settings_queue_pending')}">⏳ {iaQueueData.queue_size}</span>
-					<span class="queue-stat-badge active" title="{$t('admin_settings_queue_processing')}">⚡ {iaQueueData.active_count}</span>
+					<span class="queue-stat-badge pending" title="{$t('admin_settings_queue_pending')}"><Icon name="hourglass" size={13} /> {iaQueueData.queue_size}</span>
+					<span class="queue-stat-badge active" title="{$t('admin_settings_queue_processing')}"><Icon name="zap" size={13} /> {iaQueueData.active_count}</span>
 					<span class="queue-stat-badge avg" title="{$t('admin_settings_queue_avg_duration')}">⏱️ {iaQueueData.avg_duration}s</span>
 				</div>
 			</div>
@@ -1021,11 +1022,11 @@
 					<div class="queue-section-label">{$t("admin_settings_queue_processing")}</div>
 					{#each iaQueueData.active as entry}
 						<div class="queue-row active">
-							<span class="queue-row-type">{entry.task_type === 'chat' ? '💬' : entry.task_type === 'compress' ? '🗜️' : (entry.task_type === 'title_suggestion' || entry.task_type === 'auto_title') ? '📝' : '🏆'}</span>
+							<span class="queue-row-type"><Icon name={entry.task_type === 'chat' ? 'chat' : entry.task_type === 'compress' ? 'layers' : (entry.task_type === 'title_suggestion' || entry.task_type === 'auto_title') ? 'pencil' : 'trophy'} size={16} /></span>
 							<span class="queue-row-user">{entry.username || '—'}</span>
 							<span class="queue-row-type-label">{entry.task_type}</span>
 							<span class="queue-row-time">{entry.processing_since}s</span>
-							<button class="queue-cancel-btn" on:click|stopPropagation={() => cancelQueueEntry(entry.id)} title="{$t('admin_settings_queue_cancel_tooltip')}">❌</button>
+							<button class="queue-cancel-btn" on:click|stopPropagation={() => cancelQueueEntry(entry.id)} title="{$t('admin_settings_queue_cancel_tooltip')}" aria-label="{$t('admin_settings_queue_cancel_tooltip')}"><Icon name="x" size={14} /></button>
 						</div>
 					{/each}
 				{/if}
@@ -1034,16 +1035,16 @@
 					{#each iaQueueData.pending as entry}
 						<div class="queue-row">
 							<span class="queue-row-pos">#{entry.position}</span>
-							<span class="queue-row-type">{entry.task_type === 'chat' ? '💬' : entry.task_type === 'compress' ? '🗜️' : (entry.task_type === 'title_suggestion' || entry.task_type === 'auto_title') ? '📝' : '🏆'}</span>
+							<span class="queue-row-type"><Icon name={entry.task_type === 'chat' ? 'chat' : entry.task_type === 'compress' ? 'layers' : (entry.task_type === 'title_suggestion' || entry.task_type === 'auto_title') ? 'pencil' : 'trophy'} size={16} /></span>
 							<span class="queue-row-user">{entry.username || '—'}</span>
 							<span class="queue-row-type-label">{entry.task_type}</span>
 							<span class="queue-row-time">{entry.waiting_since}s</span>
-							<button class="queue-cancel-btn" on:click|stopPropagation={() => cancelQueueEntry(entry.id)} title="{$t('admin_settings_queue_cancel_tooltip')}">❌</button>
+							<button class="queue-cancel-btn" on:click|stopPropagation={() => cancelQueueEntry(entry.id)} title="{$t('admin_settings_queue_cancel_tooltip')}" aria-label="{$t('admin_settings_queue_cancel_tooltip')}"><Icon name="x" size={14} /></button>
 						</div>
 					{/each}
 				{/if}
 				{#if iaQueueData.active.length === 0 && iaQueueData.pending.length === 0}
-					<div class="queue-empty">✅ {$t("admin_settings_ai_queue_empty")}</div>
+					<div class="queue-empty"><Icon name="check-circle" size={16} /> {$t("admin_settings_ai_queue_empty")}</div>
 				{/if}
 			</div>
 		</div>
@@ -1051,7 +1052,7 @@
 		<!-- Ollama Instances -->
 		<div class="sc glass">
 			<div class="sc-head">
-				<div class="sc-icon">🖥️</div>
+				<div class="sc-icon"><Icon name="server" size={16} /></div>
 				<div style="flex:1">
 					<h3>{$t('admin_settings_ai_instances')}</h3>
 					<p class="sc-sub">{$t("admin_settings_ai_instances_sub")}</p>
@@ -1067,7 +1068,7 @@
 							<span class="prio-num">{inst.priority ?? idx}</span>
 							<button class="reorder-btn" on:click={() => moveInstance(idx, 1)} disabled={idx === iaConfig.ollama_instances.length - 1}>▼</button>
 						</div>
-						<div class="inst-status">{status?.online ? '🟢' : '🔴'}</div>
+						<div class="inst-status"><span class="status-dot" class:on={status?.online}></span></div>
 						<div class="inst-main">
 							<input type="text" class="inst-name-input" bind:value={inst.label} on:change={saveIAConfig} placeholder="{$t('admin_settings_instances_gpu_placeholder')}" />
 							<div class="inst-meta">
@@ -1091,8 +1092,8 @@
 								<input type="checkbox" bind:checked={inst.enabled} on:change={saveIAConfig} />
 								<span class="toggle-slider"></span>
 							</label>
-							<button class="inst-btn-mini" on:click={() => testInstance(idx)} title={$t('admin_ai_test_instance')} aria-label={$t('admin_ai_test_instance')}>🔍</button>
-							<button class="inst-btn-mini danger" on:click={() => removeInstance(idx)} title="{$t('admin_tourneys_tooltip_delete')}">✕</button>
+							<button class="inst-btn-mini" on:click={() => testInstance(idx)} title={$t('admin_ai_test_instance')} aria-label={$t('admin_ai_test_instance')}><Icon name="search" size={14} /></button>
+							<button class="inst-btn-mini danger" on:click={() => removeInstance(idx)} title="{$t('admin_tourneys_tooltip_delete')}" aria-label="{$t('admin_tourneys_tooltip_delete')}"><Icon name="x" size={14} /></button>
 						</div>
 					</div>
 				{:else}
@@ -1104,7 +1105,7 @@
 		<!-- Configuration du Modèle -->
 		<div class="sc glass">
 			<div class="sc-head compact">
-				<div class="sc-icon sm">⚙️</div>
+				<div class="sc-icon sm"><Icon name="settings" size={13} /></div>
 				<div style="flex:1">
 					<h3>{$t('admin_settings_ai_model_cfg')}</h3>
 					<p class="sc-sub">{$t('admin_settings_ai_model_cfg_sub')}</p>
@@ -1244,7 +1245,7 @@
 		<!-- Prompts de l'IA -->
 		<div class="sc glass">
 			<div class="sc-head compact">
-				<div class="sc-icon sm">💬</div>
+				<div class="sc-icon sm"><Icon name="chat" size={13} /></div>
 				<div style="flex:1">
 					<h3>{$t('admin_settings_ai_prompts')}</h3>
 					<p class="sc-sub">{$t('admin_settings_ai_prompts_sub')}</p>
@@ -1255,7 +1256,7 @@
 					<div style="display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; flex: 1;">
 						<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.3rem;">
 							<label class="compact-label">{$t('admin_settings_ai_prompt_sys')}</label>
-							<button class="btn-prompt-edit" on:click={openPromptModal} title="{$t('admin_prompt_modal_open')}">✏️ {$t('admin_prompt_modal_open')}</button>
+							<button class="btn-prompt-edit" on:click={openPromptModal} title="{$t('admin_prompt_modal_open')}"><Icon name="pencil" size={14} /> {$t('admin_prompt_modal_open')}</button>
 						</div>
 						<textarea class="prompt-textarea-compact" bind:value={systemPrompt} on:input={() => debounceSave('systemPrompt', saveSystemPrompt)} placeholder="{$t('admin_settings_ai_prompt_sys_placeholder')}" rows="8" style="flex: 1; height: 100%; resize: none;"></textarea>
 					</div>
@@ -1270,7 +1271,7 @@
 		<!-- RAG -->
 		<div class="sc glass sc-full">
 			<div class="sc-head">
-				<div class="sc-icon">📚</div>
+				<div class="sc-icon"><Icon name="book-open" size={16} /></div>
 				<div style="flex:1">
 					<h3>{$t('admin_settings_ai_rag')}</h3>
 					<p class="sc-sub">{$t('admin_settings_ai_rag_sub')}</p>
@@ -1306,7 +1307,7 @@
 											{:else}
 												<div class="rag-edit-actions">
 													<span class="rag-edit-chars">{editDocContent.length} {$t("admin_settings_ai_rag_chars")}</span>
-													<button class="btn-secondary btn-xs" on:click={() => { editingDocId = null; editDocContent = ''; }}>✕ {$t('admin_settings_cancel')}</button>
+													<button class="btn-secondary btn-xs" on:click={() => { editingDocId = null; editDocContent = ''; }}><Icon name="x" size={13} /> {$t('admin_settings_cancel')}</button>
 													<button class="btn-primary btn-xs" on:click={saveKnowledgeEdit} disabled={!editDocContent.trim()}>{$t("admin_settings_ai_rag_btn_save_vectorize")}</button>
 												</div>
 											{/if}
@@ -1316,15 +1317,15 @@
 									{/if}
 								</div>
 								<div class="rag-item-actions">
-									<button class="btn-icon" title="{$t('admin_tourneys_tooltip_edit')}" on:click={() => editKnowledge(doc.id)}>{editingDocId === doc.id ? '✕' : '✏️'}</button>
-									<button class="btn-icon btn-icon-danger" title="{$t('admin_tourneys_tooltip_delete')}" on:click={() => deleteKnowledge(doc.id)}>🗑️</button>
+									<button class="btn-icon" title="{$t('admin_tourneys_tooltip_edit')}" on:click={() => editKnowledge(doc.id)} aria-label={$t('admin_tourneys_tooltip_edit')}><Icon name={editingDocId === doc.id ? 'x' : 'pencil'} size={14} /></button>
+									<button class="btn-icon btn-icon-danger" title="{$t('admin_tourneys_tooltip_delete')}" on:click={() => deleteKnowledge(doc.id)} aria-label={$t('admin_tourneys_tooltip_delete')}><Icon name="trash" size={14} /></button>
 								</div>
 							</div>
 						{/each}
 					</div>
 				{:else}
 					<div class="rag-empty">
-						<span>📭</span>
+						<span><Icon name="inbox" size={22} /></span>
 						<p>{$t("admin_settings_ai_rag_empty")}</p>
 					</div>
 				{/if}
@@ -1354,13 +1355,13 @@
 		<!-- Header -->
 		<div class="prompt-modal-header">
 			<div class="prompt-modal-title-group">
-				<span class="prompt-modal-icon">🧪</span>
+				<span class="prompt-modal-icon"><Icon name="flask" size={22} /></span>
 				<div>
 					<h2 class="prompt-modal-title">{$t('admin_prompt_modal_title')}</h2>
 					<p class="prompt-modal-subtitle">{$t('admin_prompt_modal_subtitle')}</p>
 				</div>
 			</div>
-			<button class="prompt-modal-close" on:click={() => showPromptModal = false}>✕</button>
+			<button class="prompt-modal-close" on:click={() => showPromptModal = false} aria-label={$t('common_close')}><Icon name="x" size={18} /></button>
 		</div>
 
 		<!-- Body: two-column layout -->
@@ -1380,13 +1381,13 @@
 			<div class="prompt-modal-guide">
 				<!-- Section blocks -->
 				<div class="pmg-section">
-					<h4 class="pmg-section-title">📐 {$t('admin_prompt_modal_guide_title')}</h4>
+					<h4 class="pmg-section-title"><Icon name="layers" size={15} /> {$t('admin_prompt_modal_guide_title')}</h4>
 					<p class="pmg-intro">{$t('admin_prompt_modal_guide_intro')}</p>
 					<div class="pmg-blocks">
 						{#each DEFAULT_PROMPT_SECTIONS as sec}
 							<div class="pmg-block">
 								<div class="pmg-block-header">
-									<span class="pmg-block-icon">{sec.icon}</span>
+									<span class="pmg-block-icon"><Icon name={sec.icon} size={16} /></span>
 									<code class="pmg-block-tag">{$t(`admin_prompt_modal_section_${sec.key}`)}</code>
 									<button class="pmg-insert-btn" on:click={() => insertSection(sec.key)} title="{$t('admin_prompt_modal_insert')}">
 										+ {$t('admin_prompt_modal_insert')}
@@ -1426,7 +1427,7 @@
 	.stab { flex: 1; padding: 0.7rem 1rem; background: none; border: none; color: var(--text-dim); font-size: 0.85rem; font-weight: 600; font-family: var(--font-main); cursor: pointer; border-radius: 8px; transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1); display: flex; align-items: center; justify-content: center; gap: 0.5rem; }
 	.stab:hover { color: var(--text-main); background: var(--hover-tint); }
 	.stab.active { background: var(--accent); color: white; box-shadow: 0 4px 14px var(--accent-glow); font-weight: 700; }
-	.stab-icon { font-size: 1rem; }
+	.stab-icon { display: inline-flex; }
 	.stab-content {
 		display: grid;
 		grid-template-columns: minmax(0, 1fr);
@@ -1447,9 +1448,9 @@
 	.sc-head { display: flex; align-items: center; gap: 0.6rem; padding: 0.75rem 1rem; border-bottom: 1px solid var(--glass-border); background: var(--hover-tint); }
 	.sc-head.compact { padding: 0.5rem 0.8rem; }
 	.sc-head h3 { font-family: var(--font-title); font-size: 0.95rem; font-weight: 700; color: var(--text-main); margin: 0; letter-spacing: -0.01em; }
-	.sc-icon { font-size: 1rem; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; background: rgba(59,130,246,0.08); border-radius: 8px; flex-shrink: 0; }
-	.sc-icon.sm { font-size: 0.85rem; width: 22px; height: 22px; border-radius: 6px; }
-	.sc-sub { font-family: var(--font-main); font-size: 0.72rem; color: var(--text-muted); margin: 0.15rem 0 0; line-height: 1.3; }
+	.sc-icon { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: var(--accent-soft); color: var(--accent); border-radius: 8px; flex-shrink: 0; }
+	.sc-icon.sm { width: 24px; height: 24px; border-radius: 6px; }
+	.sc-sub { font-family: var(--font-main); font-size: 0.75rem; color: var(--text-muted); margin: 0.15rem 0 0; line-height: 1.3; }
 	.sc-body { flex: 1; padding: 0.8rem 1rem; display: flex; flex-direction: column; }
 
 	/* Scoring toggle */
@@ -1457,19 +1458,19 @@
 	.score-opt { display: flex; flex-direction: column; align-items: center; gap: 0.2rem; padding: 0.8rem; background: var(--hover-tint); border: 1px solid var(--glass-border); border-radius: 12px; cursor: pointer; transition: all 0.2s; color: var(--text-main); }
 	.score-opt:hover { border-color: rgba(59,130,246,0.3); background: rgba(59,130,246,0.04); }
 	.score-opt.active { border-color: var(--accent); background: rgba(59,130,246,0.1); box-shadow: 0 0 15px rgba(59,130,246,0.1); }
-	.score-opt-icon { font-size: 1.2rem; }
+	.score-opt-icon { display: inline-flex; color: var(--accent); }
 	.score-opt-label { font-family: var(--font-title); font-size: 0.85rem; font-weight: 700; color: var(--text-main); }
 	.score-opt-desc { font-family: var(--font-main); font-size: 0.75rem; color: var(--text-muted); }
 
 	/* Default Points Grid */
 	.default-pts-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0.5rem; }
 	.dpt-field { display: flex; flex-direction: column; gap: 0.25rem; }
-	.dpt-field label { font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-align: center; }
+	.dpt-field label { font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-align: center; }
 	.dpt-field input { background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 8px; padding: 0.4rem; color: var(--text-main); font-size: 0.9rem; font-weight: 700; text-align: center; width: 100%; transition: border-color 0.2s; }
 	.dpt-field input:focus { border-color: var(--accent); outline: none; }
 
 	/* Compact Labels & Selects */
-	.compact-label { font-size: 0.72rem; font-weight: 700; color: var(--text-dim);  margin: 0; }
+	.compact-label { font-size: 0.75rem; font-weight: 700; color: var(--text-dim);  margin: 0; }
 	.ctx-preset-mini-btn { flex: 1; padding: 0.25rem 0.5rem; font-size: 0.75rem; font-weight: 600; border: 1px solid var(--glass-border); border-radius: 6px; background: var(--hover-tint); color: var(--text-dim); cursor: pointer; transition: all 0.15s; text-align: center; }
 	.ctx-preset-mini-btn:hover { border-color: var(--accent); background: rgba(59,130,246,0.05); }
 	.ctx-preset-mini-btn.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); box-shadow: 0 0 8px var(--accent-glow); }
@@ -1503,8 +1504,8 @@
 	.inst-name-input { width: 100%; background: transparent; border: none; border-bottom: 1px solid var(--glass-border); color: var(--text-main); font-size: 0.8rem; font-weight: 700; padding: 0.1rem 0; }
 	.inst-name-input:focus { border-color: var(--accent); outline: none; }
 	.inst-meta { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.3rem; }
-	.inst-url-input { flex: 1; min-width: 80px; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 6px; padding: 0.2rem 0.4rem; color: var(--text-dim); font-size: 0.7rem; font-family: monospace; }
-	.inst-model-select { background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 6px; padding: 0.2rem 0.4rem; color: var(--text-main); font-size: 0.7rem; max-width: 120px; min-width: 80px; }
+	.inst-url-input { flex: 1; min-width: 80px; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 6px; padding: 0.2rem 0.4rem; color: var(--text-dim); font-size: 0.75rem; font-family: monospace; }
+	.inst-model-select { background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 6px; padding: 0.2rem 0.4rem; color: var(--text-main); font-size: 0.75rem; max-width: 120px; min-width: 80px; }
 	.inst-model-select option { background: var(--bg-secondary); color: var(--text-main); }
 	.inst-ping { font-size: 0.75rem; color: #10b981; font-weight: 700; padding: 0.1rem 0.35rem; background: rgba(16,185,129,0.1); border-radius: 4px; }
 	.inst-actions { display: flex; align-items: center; gap: 0.3rem; }
@@ -1530,11 +1531,11 @@
 	.queue-stat-badge.pending { background: rgba(245,158,11,0.12); color: #f59e0b; border: 1px solid rgba(245,158,11,0.3); }
 	.queue-stat-badge.active { background: rgba(16,185,129,0.12); color: #10b981; border: 1px solid rgba(16,185,129,0.3); }
 	.queue-stat-badge.avg { background: rgba(99,102,241,0.12); color: #818cf8; border: 1px solid rgba(99,102,241,0.3); }
-	.queue-section-label { font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.4rem; }
+	.queue-section-label { font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.4rem; }
 	.queue-row { display: flex; align-items: center; gap: 0.6rem; padding: 0.5rem 0.6rem; border-radius: 8px; background: var(--hover-tint); border: 1px solid transparent; margin-bottom: 0.3rem; transition: all 0.2s; }
 	.queue-row:hover { border-color: var(--glass-border); }
 	.queue-row.active { background: rgba(16,185,129,0.06); border: 1px solid rgba(16,185,129,0.2); }
-	.queue-row-pos { font-size: 0.7rem; font-weight: 800; color: var(--accent); min-width: 1.5rem; }
+	.queue-row-pos { font-size: 0.75rem; font-weight: 800; color: var(--accent); min-width: 1.5rem; }
 	.queue-row-type { font-size: 0.85rem; }
 	.queue-row-user { flex: 1; font-size: 0.8rem; font-weight: 600; color: var(--text-main); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	.queue-row-type-label { font-size: 0.75rem; color: var(--text-muted); padding: 0.1rem 0.4rem; background: var(--surface-sunken); border-radius: 4px; }
@@ -1544,7 +1545,7 @@
 	.queue-empty { text-align: center; padding: 1rem; font-size: 0.8rem; color: var(--text-muted); }
 
 	/* RAG List */
-	.badge-count { font-size: 0.7rem; background: var(--accent-soft); color: var(--accent); padding: 0.2rem 0.6rem; border-radius: 4px; font-weight: 800; border: 1px solid var(--accent); }
+	.badge-count { font-size: 0.75rem; background: var(--accent-soft); color: var(--accent); padding: 0.2rem 0.6rem; border-radius: 4px; font-weight: 800; border: 1px solid var(--accent); }
 	.rag-list { display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 1rem; max-height: 300px; overflow-y: auto; }
 	.rag-item { display: flex; align-items: flex-start; gap: 0.5rem; padding: 0.6rem 0.7rem; border-radius: 8px; background: var(--hover-tint); border: 1px solid var(--glass-border); transition: all 0.15s; }
 	.rag-item:hover { border-color: rgba(59,130,246,0.2); background: rgba(59,130,246,0.03); }
@@ -1554,7 +1555,7 @@
 	.rag-size { font-size: 0.75rem; color: var(--text-muted); }
 	.rag-embed-badge { font-size: 0.75rem; font-weight: 700; padding: 0.1rem 0.35rem; border-radius: 4px; background: rgba(16,185,129,0.1); color: #10b981; }
 	.rag-embed-badge.no { background: rgba(245,158,11,0.1); color: #f59e0b; }
-	.rag-preview { font-size: 0.7rem; color: var(--text-dim); line-height: 1.4; margin: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; word-break: break-word; }
+	.rag-preview { font-size: 0.75rem; color: var(--text-dim); line-height: 1.4; margin: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; word-break: break-word; }
 	.rag-item-actions { display: flex; flex-direction: column; gap: 0.2rem; }
 	.rag-item-editing { border-color: rgba(59,130,246,0.3); background: rgba(59,130,246,0.05); }
 	.rag-edit-textarea { width: 100%; min-height: 120px; resize: vertical; border-radius: 6px; border: 1px solid var(--glass-border); background: var(--bg-secondary); color: var(--text-main); padding: 0.5rem; font-size: 0.75rem; font-family: inherit; line-height: 1.5; margin-top: 0.3rem; }
@@ -1564,7 +1565,7 @@
 	.rag-edit-loading { font-size: 0.75rem; color: var(--text-muted); padding: 0.5rem 0; }
 	.rag-vectorize-anim { position: relative; margin-top: 0.5rem; padding: 0.6rem 0.8rem; border-radius: 8px; overflow: hidden; background: rgba(99,102,241,0.06); border: 1px solid rgba(99,102,241,0.15); }
 	.rag-vectorize-bar { position: absolute; top: 0; left: 0; height: 100%; width: 40%; background: linear-gradient(90deg, transparent, rgba(99,102,241,0.15), rgba(139,92,246,0.2), rgba(99,102,241,0.15), transparent); animation: rag-sweep 1.8s ease-in-out infinite; border-radius: 8px; }
-	.rag-vectorize-label { position: relative; z-index: 1; font-size: 0.72rem; font-weight: 600; color: #a78bfa; display: flex; align-items: center; gap: 0.4rem; animation: rag-pulse-text 2s ease-in-out infinite; }
+	.rag-vectorize-label { position: relative; z-index: 1; font-size: 0.75rem; font-weight: 600; color: #a78bfa; display: flex; align-items: center; gap: 0.4rem; animation: rag-pulse-text 2s ease-in-out infinite; }
 	@keyframes rag-sweep { 0% { left: -40%; } 100% { left: 100%; } }
 	@keyframes rag-pulse-text { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
 	.rag-empty { display: flex; flex-direction: column; align-items: center; gap: 0.3rem; padding: 1.5rem; color: var(--text-muted); font-size: 0.8rem; }
@@ -1651,7 +1652,7 @@
 		line-height: 1.25;
 	}
 	.pca-toggle-desc {
-		font-size: 0.72rem;
+		font-size: 0.75rem;
 		color: var(--text-muted);
 		font-family: var(--font-main);
 		line-height: 1.35;
@@ -1706,7 +1707,7 @@
 	.pca-input-suffix {
 		position: absolute;
 		right: 0.8rem;
-		font-size: 0.72rem;
+		font-size: 0.75rem;
 		font-weight: 600;
 		color: var(--text-muted);
 		pointer-events: none;
@@ -1772,11 +1773,11 @@
 	.nuke-grid { display: flex; flex-direction: column; gap: 0.8rem; }
 	.nuke-card { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.8rem 1rem; border-radius: 10px; border: 1px solid var(--glass-border); background: var(--hover-tint); }
 	.nuke-info { display: flex; align-items: center; gap: 0.8rem; flex: 1; }
-	.nuke-icon { font-size: 1.5rem; }
+	.nuke-icon { display: inline-flex; color: var(--danger); }
 	.nuke-info strong { font-size: 0.8rem; color: var(--text-main); display: block; }
 	.nuke-info p { font-size: 0.75rem; color: var(--text-muted); margin: 0.15rem 0 0; }
 	.nuke-confirm { display: flex; align-items: center; gap: 0.5rem; }
-	.btn-outline-danger { padding: 0.4rem 0.9rem; font-size: 0.7rem; font-weight: 700; color: var(--danger); background: transparent; border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+	.btn-outline-danger { padding: 0.4rem 0.9rem; font-size: 0.75rem; font-weight: 700; color: var(--danger); background: transparent; border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
 	.btn-outline-danger:hover { background: rgba(239, 68, 68, 0.1); border-color: var(--danger); }
 	.btn-danger-sm { background: rgba(239,68,68,0.2); color: #ef4444; border: 1px solid rgba(239,68,68,0.3); border-radius: 6px; padding: 0.2rem 0.5rem; font-size: 0.75rem; font-weight: 700; cursor: pointer; white-space: nowrap; }
 	.btn-danger-sm:hover { background: rgba(239,68,68,0.35); }
@@ -1787,9 +1788,9 @@
 	@keyframes pmSlideIn { from { opacity: 0; transform: translateY(20px) scale(0.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
 	.prompt-modal-header { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.4rem; background: rgba(139,92,246,0.08); border-bottom: 1px solid rgba(139,92,246,0.2); flex-shrink: 0; }
 	.prompt-modal-title-group { display: flex; align-items: center; gap: 0.8rem; }
-	.prompt-modal-icon { font-size: 1.6rem; }
+	.prompt-modal-icon { display: inline-flex; color: var(--accent); }
 	.prompt-modal-title { font-size: 1rem; font-weight: 800; margin: 0; color: var(--text-main); }
-	.prompt-modal-subtitle { font-size: 0.7rem; color: var(--text-muted); margin: 0.1rem 0 0; }
+	.prompt-modal-subtitle { font-size: 0.75rem; color: var(--text-muted); margin: 0.1rem 0 0; }
 	.prompt-modal-close { background: none; border: 1px solid var(--glass-border); color: var(--text-dim); cursor: pointer; font-size: 1rem; width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
 	.prompt-modal-close:hover { background: rgba(239,68,68,0.1); border-color: var(--danger); color: var(--danger); }
 	.prompt-modal-body { display: grid; grid-template-columns: 1fr 340px; flex: 1; min-height: 0; overflow: hidden; }
@@ -1801,7 +1802,7 @@
 	.prompt-modal-guide { overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: 0.8rem; background: rgba(139,92,246,0.02); }
 	.pmg-section { background: var(--hover-tint); border: 1px solid var(--glass-border); border-radius: 12px; padding: 0.8rem 0.9rem; }
 	.pmg-section-title { font-size: 0.8rem; font-weight: 800; color: var(--text-main); margin: 0 0 0.4rem; }
-	.pmg-intro { font-size: 0.7rem; color: var(--text-dim); margin: 0 0 0.6rem; line-height: 1.4; }
+	.pmg-intro { font-size: 0.75rem; color: var(--text-dim); margin: 0 0 0.6rem; line-height: 1.4; }
 	.pmg-blocks { display: flex; flex-direction: column; gap: 0.5rem; }
 	.pmg-block { padding: 0.55rem 0.65rem; border-radius: 8px; background: var(--surface-sunken); border: 1px solid var(--glass-border); transition: border-color 0.15s; }
 	.pmg-block:hover { border-color: rgba(139,92,246,0.3); }
@@ -1820,4 +1821,6 @@
 	.autosave-note { margin: 0 0 0.75rem; font-size: 0.85rem; color: var(--text-dim); }
 	.settings-section { grid-column: 1 / -1; font-size: 0.95rem; font-weight: 700; color: var(--text-main); margin: 0.75rem 0 -0.25rem; padding-bottom: 0.35rem; border-bottom: 1px solid var(--glass-border); }
 	.settings-section:first-child { margin-top: 0; }
+	.status-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--danger); }
+	.status-dot.on { background: var(--success); box-shadow: 0 0 6px color-mix(in srgb, var(--success) 60%, transparent); }
 </style>

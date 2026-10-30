@@ -1,4 +1,5 @@
 <script>
+	import Icon from '$lib/components/Icon.svelte';
 	import { onMount } from 'svelte';
 	import { api } from '$lib/api';
 	import { t } from '$lib/i18nStore';
@@ -95,10 +96,10 @@
 	<section class="wizard glass" style="max-height: 85vh; overflow-y: auto;">
 		<div class="list-header">
 			<div class="flex-row items-center gap-3">
-				<div class="list-icon">🎁</div>
+				<div class="list-icon"><Icon name="gift" size={20} /></div>
 				<div>
-					<h2 class="text-accent" style="margin:0">{$t("admin_awards_title")}</h2>
-					<span class="text-xs text-dim">{$t("admin_awards_subtitle")}</span>
+					<h2>{$t("admin_awards_title")}</h2>
+					<span class="list-sub">{$t("admin_awards_subtitle")}</span>
 				</div>
 			</div>
 		</div>
@@ -107,7 +108,7 @@
 			<p>{$t('admin_awards_desc1')}</p>
 			<p>{$t('admin_awards_desc2')}</p>
 			<p class="text-dim text-xs" style="border-left: 2px solid var(--accent); padding-left: 0.5rem;">
-				💡 {$t('admin_awards_interpolation_tip')}
+				<span class="btn-ic"><Icon name="lightbulb" size={14} /> {$t('admin_awards_interpolation_tip')}</span>
 			</p>
 			<p class="text-dim text-xs" style="border-left: 2px solid var(--success); padding-left: 0.5rem; margin-top: 0.2rem;">
 				{$t('admin_awards_desc4')}
@@ -128,10 +129,10 @@
 	<section class="list glass" style="max-height: 85vh; overflow-y: auto;">
 		<div class="list-header">
 			<div class="flex-row items-center gap-3">
-				<div class="list-icon">🏆</div>
+				<div class="list-icon"><Icon name="trophy" size={20} /></div>
 				<div>
-					<h2 style="margin:0">{$t("admin_awards_list")}</h2>
-					<span class="text-xs text-dim">{$t("admin_awards_list_sub")}</span>
+					<h2>{$t("admin_awards_list")}</h2>
+					<span class="list-sub">{$t("admin_awards_list_sub")}</span>
 				</div>
 			</div>
 			<span class="badge-count">{awardsList.length}</span>
@@ -152,7 +153,7 @@
 						<div style="text-align: right; display: flex; flex-direction: column; align-items: flex-end; min-width: 120px;">
 							{#if award.has_recipient}
 								<span class="status-pill-sm running" style="font-size: 0.75rem; padding: 0.25rem 0.6rem; font-weight: 700;">
-									👤 {award.recipient_name}
+									<span class="btn-ic"><Icon name="user" size={13} /> {award.recipient_name}</span>
 								</span>
 								{#if award.stats_label}
 									<span class="text-xs text-accent" style="font-weight: 700; margin-top: 0.15rem;">
@@ -195,7 +196,7 @@
 				</div>
 			{:else}
 				<div class="empty-list">
-					<span class="empty-icon">📭</span>
+					<span class="empty-icon"><Icon name="inbox" size={40} /></span>
 					<p>{$t('admin_awards_none_available')}</p>
 				</div>
 			{/each}
@@ -206,17 +207,19 @@
 <style>
 	.admin-grid { display: grid; grid-template-columns: minmax(380px, 1fr) 2fr; gap: 2rem; }
 	@media (max-width: 1100px) { .admin-grid { grid-template-columns: minmax(0, 1fr); gap: 1rem; } }
-	.wizard { padding: 2rem; min-height: 500px; display: flex; flex-direction: column; }
-	.list { padding: 2rem; display: flex; flex-direction: column; }
+	.wizard { padding: 1.5rem; display: flex; flex-direction: column; }
+	.list { padding: 1.5rem; display: flex; flex-direction: column; }
+	.list-header h2 { margin: 0; font-size: var(--fs-section); }
+	.list-sub { font-size: 0.875rem; color: var(--text-dim); }
 	.list-header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 1rem; margin-bottom: 1rem; border-bottom: 1px solid var(--glass-border); }
-	.list-icon { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; background: var(--accent-soft); border-radius: 10px; border: 1px solid rgba(59,130,246,0.15); }
-	.badge-count { font-size: 0.7rem; background: var(--accent-soft); color: var(--accent); padding: 0.2rem 0.6rem; border-radius: 4px; font-weight: 800; border: 1px solid var(--accent); }
+	.list-icon { width: 40px; height: 40px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: var(--accent-soft); color: var(--accent); border-radius: var(--radius-lg); }
+	.badge-count { font-size: 0.75rem; background: var(--accent-soft); color: var(--accent); padding: 0.2rem 0.6rem; border-radius: 4px; font-weight: 800; border: 1px solid var(--accent); }
 	.compact-label { font-size: 0.85rem; font-weight: 600; color: var(--text-dim);  margin: 0; }
 	.status-pill-sm { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.15rem 0.5rem; border-radius: 20px; }
 	.status-pill-sm.running { background: var(--accent-soft); color: var(--accent); border: 1px solid rgba(59,130,246,0.2); }
 	.status-pill-sm.closed { background: rgba(139,92,246,0.1); color: #a78bfa; border: 1px solid rgba(139,92,246,0.2); }
 	.empty-list { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 3rem 1rem; gap: 0.5rem; }
-	.empty-icon { font-size: 2.5rem; opacity: 0.5; }
+	.empty-icon { display: inline-flex; color: var(--text-muted); opacity: 0.6; }
 	.empty-list p { color: var(--text-dim); font-weight: 600; margin: 0; }
 	.award-input, .award-textarea {
 		width: 100%;

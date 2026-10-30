@@ -206,7 +206,7 @@
   "admin_prompt_modal_tip_2": "Évitez les listes à puces dans les consignes : préférez des phrases directes.",
   "admin_prompt_modal_tip_3": "Le nom du joueur, son équipe et son rôle sont injectés automatiquement.",
   "admin_prompt_modal_tip_4": "Les données live (classements, matchs…) sont accessibles via les outils IA.",
-  "admin_prompt_modal_tip_title": "💡 Conseils",
+  "admin_prompt_modal_tip_title": "Conseils",
   "admin_prompt_modal_title": "Consignes de l'IA",
   "admin_settings_ai_active_lang": "Langue active de l'IA :",
   "admin_settings_ai_btn_translate": "Traduire avec l'IA",

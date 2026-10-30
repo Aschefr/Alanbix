@@ -206,7 +206,7 @@
   "admin_prompt_modal_tip_2": "Avoid bullet lists in the prompt — use direct sentences instead.",
   "admin_prompt_modal_tip_3": "The player's name, team, and role are injected automatically.",
   "admin_prompt_modal_tip_4": "Live data (standings, matches…) is accessible via the AI tools.",
-  "admin_prompt_modal_tip_title": "💡 Tips",
+  "admin_prompt_modal_tip_title": "Tips",
   "admin_prompt_modal_title": "System Prompt Editor",
   "admin_settings_ai_active_lang": "Active AI Language:",
   "admin_settings_ai_btn_translate": "Translate with AI",

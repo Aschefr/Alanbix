@@ -794,11 +794,11 @@
 		{#if selected.status === 'OPEN'}
 			{#if isParticipant}
 				<button class="m-chip joined" on:click={() => leaveTournament(selected.id)}>
-					<span>✅ {$t("tourneys_hero_joined")}</span>
+					<span><Icon name="check-circle" size={15} /> {$t("tourneys_hero_joined")}</span>
 				</button>
 			{:else}
 				<button class="m-chip join" on:click={() => joinTournament(selected.id)}>
-					<span>🎮 {$t("tourneys_btn_join_text")}</span>
+					<span><Icon name="gamepad" size={15} /> {$t("tourneys_btn_join_text")}</span>
 				</button>
 			{/if}
 		{/if}
@@ -871,7 +871,7 @@
 							<span class="t-item-meta">{gameMap[tourney.game_id]?.name || '—'}</span>
 						</div>
 						<span class="t-status-badge {tourney.status.toLowerCase()}">
-							{tourney.status === 'OPEN' ? '🟢 ' + $t('tourneys_status_open') : tourney.status === 'RUNNING' ? '🔵 ' + $t('tourneys_status_running') : tourney.status === 'CLOSED' ? '🏁 ' + $t('tourneys_status_closed') : '⚪ ' + $t('tourneys_status_done')}
+							{tourney.status === 'OPEN' ? $t('tourneys_status_open') : tourney.status === 'RUNNING' ? $t('tourneys_status_running') : tourney.status === 'CLOSED' ? $t('tourneys_status_closed') : $t('tourneys_status_done')}
 						</span>
 					</div>
 				</button>
@@ -891,7 +891,7 @@
 				<div class="hero-overlay">
 					<div class="hero-content">
 						<span class="status-pill {selected.status.toLowerCase()}">
-							{selected.status === 'OPEN' ? '🟢 ' + $t('tourneys_status_open') : selected?.status === 'RUNNING' ? '🔵 ' + $t('tourneys_status_running') : selected.status === 'CLOSED' ? '🏁 ' + $t('tourneys_status_closed') : '⚪ ' + $t('tourneys_status_done')}
+							{selected.status === 'OPEN' ? $t('tourneys_status_open') : selected?.status === 'RUNNING' ? $t('tourneys_status_running') : selected.status === 'CLOSED' ? $t('tourneys_status_closed') : $t('tourneys_status_done')}
 						</span>
 						<h1>{selected.name}</h1>
 						<span class="hero-game">{selectedGame?.name || '—'}</span>
@@ -901,17 +901,17 @@
 							{#if confirmingLeave}
 								<span class="inline-confirm">
 									<span class="inline-confirm-label">{$t("tourneys_confirm_leave")}</span>
-									<button class="admin-btn confirm-yes" on:click={() => leaveTournament(selected.id)}>✓ {$t("tourneys_confirm_yes")}</button>
-									<button class="admin-btn confirm-no" on:click={() => confirmingLeave = false}>✕</button>
+									<button class="admin-btn confirm-yes" on:click={() => leaveTournament(selected.id)}><Icon name="check" size={15} /> {$t("tourneys_confirm_yes")}</button>
+									<button class="admin-btn confirm-no" on:click={() => confirmingLeave = false}><Icon name="x" size={16} /></button>
 								</span>
 							{:else}
 								<div class="hero-joined-wrapper" style="display: flex; gap: 0.6rem; align-items: center;">
-									<span class="hero-joined">✅ {$t("tourneys_hero_joined")}</span>
-									<button class="admin-btn stop btn-xs" on:click={() => confirmingLeave = true}>❌ {$t("tourneys_btn_leave")}</button>
+									<span class="hero-joined"><Icon name="check-circle" size={15} /> {$t("tourneys_hero_joined")}</span>
+									<button class="admin-btn stop btn-xs" on:click={() => confirmingLeave = true}><Icon name="x-circle" size={15} /> {$t("tourneys_btn_leave")}</button>
 								</div>
 							{/if}
 						{:else}
-							<button class="btn-primary hero-join" on:click={() => joinTournament(selected.id)}>🎮 {$t("tourneys_btn_join_text")}</button>
+							<button class="btn-primary hero-join" on:click={() => joinTournament(selected.id)}><Icon name="gamepad" size={15} /> {$t("tourneys_btn_join_text")}</button>
 						{/if}
 					{/if}
 				</div>
@@ -924,10 +924,10 @@
 				{#if useTeams}
 					<div class="hero-team-badge" style="margin-top: 0.5rem; display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.25rem 0.6rem; border-radius: 6px; background: rgba(59,130,246,0.15); border: 1px solid rgba(59,130,246,0.3); font-size: 0.75rem;">
 						{#if myTeam}
-							<span>👥 {$t('dash_team_lbl')} : <strong>{myTeam.name}</strong></span>
-							{#if myTeam.is_locked}<span title={$t('tourneys_team_locked')}>🔒</span>{/if}
+							<span><Icon name="users" size={15} /> {$t('dash_team_lbl')} : <strong>{myTeam.name}</strong></span>
+							{#if myTeam.is_locked}<span title={$t('tourneys_team_locked')}><Icon name="lock" size={16} /></span>{/if}
 						{:else}
-							<span style="color: #f59e0b;">⚠️ {$t('profile_no_team')}</span>
+							<span style="color: #f59e0b;"><Icon name="alert-triangle" size={15} /> {$t('profile_no_team')}</span>
 							<button class="admin-btn edit btn-xs" on:click={() => { showDetails = true; setTimeout(() => document.getElementById('teams-section')?.scrollIntoView({ behavior: 'smooth' }), 50); }} style="padding: 0.15rem 0.4rem; font-size: 0.65rem;">{$t('tourneys_btn_join_text')}</button>
 						{/if}
 					</div>
@@ -971,7 +971,7 @@
 					{#if selected?.status === 'RUNNING' || selected?.status === 'DONE' || selected?.status === 'CLOSED'}
 						{#if liveStandings.length > 0}
 							<button class="toggle-live-btn glass" on:click={toggleLiveStandings}>
-								{showLiveStandings ? '◀ ' + ($t('tourneys_hide_standings')) : '▶ ' + ($t('tourneys_show_standings'))}
+								{showLiveStandings ? $t('tourneys_hide_standings') : $t('tourneys_show_standings')}
 							</button>
 						{/if}
 					{/if}
@@ -982,39 +982,39 @@
 							<div class="admin-bar-actions">
 								{#if selected.status === 'OPEN'}
 									<button class="admin-btn start" on:click={startTournament} disabled={participants.length < 2}>
-										▶ {$t('tourneys_btn_start')}{#if participants.length < 2} {$t('tourneys_start_min')}{/if}
+										<Icon name="play" size={14} /> {$t('tourneys_btn_start')}{#if participants.length < 2} {$t('tourneys_start_min')}{/if}
 									</button>
 								{/if}
 								{#if selected?.status === 'RUNNING'}
-									<button class="admin-btn stop" on:click={stopTournament}>⏹ {$t('tourneys_btn_finish')}</button>
+									<button class="admin-btn stop" on:click={stopTournament}><Icon name="stop" size={14} /> {$t('tourneys_btn_finish')}</button>
 								{/if}
 								{#if selected.status === 'DONE'}
 									{#if confirmingClose}
 										<span class="inline-confirm">
 											<span class="inline-confirm-label">{$t("tourneys_confirm_close")}</span>
-											<button class="admin-btn confirm-yes" on:click={closeTournament}>✓ {$t("tourneys_confirm_yes")}</button>
-											<button class="admin-btn confirm-no" on:click={() => confirmingClose = false}>✕</button>
+											<button class="admin-btn confirm-yes" on:click={closeTournament}><Icon name="check" size={15} /> {$t("tourneys_confirm_yes")}</button>
+											<button class="admin-btn confirm-no" on:click={() => confirmingClose = false}><Icon name="x" size={16} /></button>
 										</span>
 									{:else}
-										<button class="admin-btn close" on:click={() => confirmingClose = true}>🏁 {$t("tourneys_btn_close")}</button>
+										<button class="admin-btn close" on:click={() => confirmingClose = true}><Icon name="flag" size={15} /> {$t("tourneys_btn_close")}</button>
 									{/if}
 								{/if}
 								{#if selected.status === 'CLOSED'}
 									{#if confirmingReopen}
 										<span class="inline-confirm">
 											<span class="inline-confirm-label">{$t("tourneys_confirm_reopen")}</span>
-											<button class="admin-btn confirm-yes" on:click={reopenTournament}>✓ {$t("tourneys_confirm_yes")}</button>
-											<button class="admin-btn confirm-no" on:click={() => confirmingReopen = false}>✕</button>
+											<button class="admin-btn confirm-yes" on:click={reopenTournament}><Icon name="check" size={15} /> {$t("tourneys_confirm_yes")}</button>
+											<button class="admin-btn confirm-no" on:click={() => confirmingReopen = false}><Icon name="x" size={16} /></button>
 										</span>
 									{:else}
-										<button class="admin-btn reset" on:click={() => confirmingReopen = true}>🔓 {$t("tourneys_btn_reopen")}</button>
+										<button class="admin-btn reset" on:click={() => confirmingReopen = true}><Icon name="unlock" size={15} /> {$t("tourneys_btn_reopen")}</button>
 									{/if}
 								{/if}
 								{#if selected.status !== 'OPEN' && selected.status !== 'CLOSED'}
-									<button class="admin-btn reset" on:click={resetTournament}>🔄 {$t("tourneys_btn_reset")}</button>
+									<button class="admin-btn reset" on:click={resetTournament}><Icon name="refresh" size={15} /> {$t("tourneys_btn_reset")}</button>
 								{/if}
 								{#if selected.status !== 'CLOSED'}
-									<button class="admin-btn edit" on:click={openEdit}>✏️ {$t("tourneys_btn_edit")}</button>
+									<button class="admin-btn edit" on:click={openEdit}><Icon name="pencil" size={15} /> {$t("tourneys_btn_edit")}</button>
 								{/if}
 							</div>
 						</div>
@@ -1131,7 +1131,7 @@
 			</div>
 		{:else}
 			<div class="detail-empty">
-				<span class="empty-lg-icon">🏟️</span>
+				<span class="empty-lg-icon"><Icon name="trophy" size={16} /></span>
 				<h2>{$t('tourneys_select_tournament')}</h2>
 				<p class="text-dim">{$t('tourneys_choose_from_list')}</p>
 			</div>
@@ -1146,7 +1146,7 @@
 		<div class="edit-modal glass animate-in" on:click|stopPropagation>
 			<header class="edit-modal-header">
 				<h3><Icon name="info" size={16} /> {selected.name}</h3>
-				<button class="close-btn" on:click={() => showMobileInfoModal = false}>✕</button>
+				<button class="close-btn" on:click={() => showMobileInfoModal = false}><Icon name="x" size={16} /></button>
 			</header>
 			<div class="edit-modal-body">
 				<div class="m-modal-section">
@@ -1182,7 +1182,7 @@
 		<div class="edit-modal glass animate-in" on:click|stopPropagation style="max-height: 85vh; display: flex; flex-direction: column;">
 			<header class="edit-modal-header">
 				<h3><Icon name="users" size={16} /> {$t('dash_stat_players')} ({participants.length})</h3>
-				<button class="close-btn" on:click={() => showMobilePlayersModal = false}>✕</button>
+				<button class="close-btn" on:click={() => showMobilePlayersModal = false}><Icon name="x" size={16} /></button>
 			</header>
 			<div class="edit-modal-body" style="overflow-y: auto; flex: 1; padding: 0.75rem;">
 				<TournamentParticipants
@@ -1232,7 +1232,7 @@
 		<div class="edit-modal glass animate-in" on:click|stopPropagation style="max-height: 85vh; display: flex; flex-direction: column;">
 			<header class="edit-modal-header">
 				<h3><Icon name="trophy" size={16} /> {$t('tourneys_show_standings')}</h3>
-				<button class="close-btn" on:click={() => showMobileStandingsModal = false}>✕</button>
+				<button class="close-btn" on:click={() => showMobileStandingsModal = false}><Icon name="x" size={16} /></button>
 			</header>
 			<div class="edit-modal-body" style="overflow-y: auto; flex: 1; padding: 0.75rem;">
 				<TournamentStandings
@@ -1254,41 +1254,41 @@
 		<div class="edit-modal glass animate-in" on:click|stopPropagation>
 			<header class="edit-modal-header">
 				<h3><Icon name="gear" size={16} /> {$t('nav_administration')}</h3>
-				<button class="close-btn" on:click={() => showMobileAdminModal = false}>✕</button>
+				<button class="close-btn" on:click={() => showMobileAdminModal = false}><Icon name="x" size={16} /></button>
 			</header>
 			<div class="edit-modal-body" style="display:flex; flex-direction:column; gap:0.6rem; padding:1rem;">
 				{#if selected.status === 'OPEN'}
 					<button class="admin-btn start full-width" on:click={() => { showMobileAdminModal = false; startTournament(); }} disabled={participants.length < 2} style="padding:0.7rem; font-size:0.85rem;">
-						▶ {$t('tourneys_btn_start')}{#if participants.length < 2} {$t('tourneys_start_min')}{/if}
+						<Icon name="play" size={14} /> {$t('tourneys_btn_start')}{#if participants.length < 2} {$t('tourneys_start_min')}{/if}
 					</button>
 				{/if}
 				{#if selected?.status === 'RUNNING'}
 					<button class="admin-btn stop full-width" on:click={() => { showMobileAdminModal = false; stopTournament(); }} style="padding:0.7rem; font-size:0.85rem;">
-						⏹ {$t('tourneys_btn_finish')}
+						<Icon name="stop" size={14} /> {$t('tourneys_btn_finish')}
 					</button>
 				{/if}
 				{#if selected.status === 'DONE'}
 					<button class="admin-btn close full-width" on:click={() => { showMobileAdminModal = false; closeTournament(); }} style="padding:0.7rem; font-size:0.85rem;">
-						🏁 {$t("tourneys_btn_close")}
+						<Icon name="flag" size={15} /> {$t("tourneys_btn_close")}
 					</button>
 				{/if}
 				{#if selected.status === 'CLOSED'}
 					<button class="admin-btn reset full-width" on:click={() => { showMobileAdminModal = false; reopenTournament(); }} style="padding:0.7rem; font-size:0.85rem;">
-						🔓 {$t("tourneys_btn_reopen")}
+						<Icon name="unlock" size={15} /> {$t("tourneys_btn_reopen")}
 					</button>
 				{/if}
 				{#if selected.status !== 'OPEN' && selected.status !== 'CLOSED'}
 					<button class="admin-btn reset full-width" on:click={() => { showMobileAdminModal = false; resetTournament(); }} style="padding:0.7rem; font-size:0.85rem;">
-						🔄 {$t("tourneys_btn_reset")}
+						<Icon name="refresh" size={15} /> {$t("tourneys_btn_reset")}
 					</button>
 				{/if}
 				{#if selected.status !== 'CLOSED'}
 					<button class="admin-btn edit full-width" on:click={() => { showMobileAdminModal = false; openEdit(); }} style="padding:0.7rem; font-size:0.85rem;">
-						✏️ {$t("tourneys_btn_edit")}
+						<Icon name="pencil" size={15} /> {$t("tourneys_btn_edit")}
 					</button>
 				{/if}
 				<button class="admin-btn edit full-width" on:click={() => { showMobileAdminModal = false; openCreateTournamentModal(); }} style="padding:0.7rem; font-size:0.85rem; border-color:var(--accent);">
-					➕ {$t("tourneys_add_btn")}
+					<Icon name="plus" size={15} /> {$t("tourneys_add_btn")}
 				</button>
 			</div>
 		</div>
@@ -1312,8 +1312,8 @@
 	<div class="edit-overlay" use:portal on:click={() => showCreateModal = false}>
 		<div class="edit-modal glass" on:click|stopPropagation>
 			<header class="edit-modal-header">
-				<h3>🏆 {$t('tourneys_add_btn')}</h3>
-				<button class="close-btn" on:click={() => showCreateModal = false}>✕</button>
+				<h3><Icon name="trophy" size={15} /> {$t('tourneys_add_btn')}</h3>
+				<button class="close-btn" on:click={() => showCreateModal = false}><Icon name="x" size={16} /></button>
 			</header>
 			<div class="edit-modal-body">
 				<CreateTournamentWizard 
@@ -1342,7 +1342,7 @@
 <div class="toast-container" use:portal>
 	{#each toasts as t (t.id)}
 		<div class="toast {t.type} {t.leaving ? 'toast-leave' : 'toast-enter'}">
-			<span>{#if t.type === 'success'}✅{:else if t.type === 'error'}❌{:else}ℹ️{/if}</span>
+			<span><Icon name={t.type === 'success' ? 'check-circle' : t.type === 'error' ? 'x-circle' : 'info'} size={16} /></span>
 			<span class="toast-msg">{t.message}</span>
 		</div>
 	{/each}
@@ -1477,7 +1477,7 @@
 	.admin-bar { display: flex; justify-content: space-between; align-items: center; padding: 0.7rem 1rem; border-radius: 10px; border: 1px dashed rgba(59,130,246,0.2); background: rgba(59,130,246,0.04); }
 	.admin-bar-label { font-size: 0.75rem; font-weight: 700; color: var(--text-dim); }
 	.admin-bar-actions { display: flex; flex-wrap: wrap; gap: 0.4rem; }
-	.admin-btn { padding: 0.4rem 0.8rem; font-size: 0.72rem; font-weight: 700; border-radius: 8px; border: 1px solid var(--glass-border); cursor: pointer; transition: all 0.2s; background: var(--surface-raised); color: var(--text-dim); }
+	.admin-btn { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.4rem 0.8rem; font-size: 0.8125rem; font-weight: 700; border-radius: 8px; border: 1px solid var(--glass-border); cursor: pointer; transition: all 0.2s; background: var(--surface-raised); color: var(--text-dim); }
 	.admin-btn:hover { transform: translateY(-1px); }
 	.admin-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 	.admin-btn.start { border-color: rgba(34,197,94,0.3); color: var(--success); }

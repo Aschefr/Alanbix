@@ -206,7 +206,7 @@
   "admin_prompt_modal_tip_2": "Evita las listas con viñetas en el prompt — usa frases directas.",
   "admin_prompt_modal_tip_3": "El nombre del jugador, su equipo y su rol se inyectan automáticamente.",
   "admin_prompt_modal_tip_4": "Los datos en vivo (clasificaciones, partidas…) son accesibles mediante las herramientas IA.",
-  "admin_prompt_modal_tip_title": "💡 Consejos",
+  "admin_prompt_modal_tip_title": "Consejos",
   "admin_prompt_modal_title": "Editor de Prompt del Sistema",
   "admin_settings_ai_active_lang": "Idioma activo de la IA:",
   "admin_settings_ai_btn_translate": "Traducir con IA",

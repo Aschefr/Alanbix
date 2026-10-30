@@ -376,7 +376,7 @@
 
 <div class="bracket-section glass" class:bracket-expanded={hasBracket}>
 	<div class="section-title">
-		<h3>{bracketType === 'round_robin' ? '📊 ' + $t('admin_tourneys_wizard_format_championship') : bracketType === 'ffa' ? '🏁 ' + $t('tourneys_format_ffa') : '📊 ' + $t('tourneys_tab_bracket')}</h3>
+		<h3>{bracketType === 'round_robin' ? $t('admin_tourneys_wizard_format_championship') : bracketType === 'ffa' ? $t('tourneys_format_ffa') : $t('tourneys_tab_bracket')}</h3>
 		{#if hasBracket && bracketType !== 'round_robin' && bracketType !== 'ffa'}
 			<button class="btn-secondary btn-xs" on:click={resetZoom}>{$t('tourneys_btn_recenter')}</button>
 		{/if}
