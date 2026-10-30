@@ -59,6 +59,7 @@
 		if (path === '/dashboard/ai') return $t('nav_ai_assistant');
 		if (path === '/dashboard/map') return $t('nav_map');
 		if (path === '/dashboard/profile') return $t('profile_title');
+		if (path === '/dashboard/settings') return $t('settings_page_title');
 		if (path === '/dashboard/admin') return $t('nav_administration');
 		if (path === '/dashboard/admin/languages') return $t('admin_tab_languages');
 		if (path === '/dashboard/welcome') return $t('page_title_welcome');

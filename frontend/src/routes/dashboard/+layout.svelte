@@ -594,10 +594,6 @@
 				<span class="icon">📺</span>
 				<span class="label">{$t('nav_spectator')}</span>
 			</a>
-			<a href="/dashboard/settings" class="nav-item">
-				<span class="icon" style="display:inline-flex;align-items:center;"><Icon name="gear" size={18} /></span>
-				<span class="label">{$t('settings_page_title')}</span>
-			</a>
 			
 			{#if user.is_admin}
 				<div class="nav-separator"></div>
@@ -668,6 +664,9 @@
 				<button class="theme-toggle" on:click={toggleTheme} title={isDark ? $t('tooltip_light_mode') : $t('tooltip_dark_mode')}>
 					<span class="theme-icon" class:spin={true}>{isDark ? '☀️' : '🌙'}</span>
 				</button>
+				<a href="/dashboard/settings" class="theme-toggle" class:active-setting={$page.url.pathname.startsWith('/dashboard/settings')} title={$t('settings_page_title')} aria-label={$t('settings_page_title')}>
+					<span class="theme-icon"><Icon name="gear" size={18} /></span>
+				</a>
 				<button class="logout-btn" on:click={logout} title={$t('logout')} aria-label={$t('logout')}>
 					<Icon name="logout" size={18} />
 				</button>
@@ -1625,4 +1624,5 @@
 	}
 	.admin-top-btn { color: #fbbf24 !important; }
 	:global([data-theme="light"]) .admin-top-btn { color: #92400e !important; }
+	.theme-toggle.active-setting { border-color: var(--accent); color: var(--accent); }
 </style>
