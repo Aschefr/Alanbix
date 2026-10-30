@@ -535,9 +535,9 @@
 		} catch (e) { toast(e.message || $t('tourneys_score_error'), 'error'); }
 	}
 
-	async function advanceFFA(keepCount) {
+	async function advanceFFA(keepCount, perMatch = false) {
 		try {
-			await api.post(`/tournaments/${selectedId}/ffa-advance`, { keep_count: keepCount });
+			await api.post(`/tournaments/${selectedId}/ffa-advance`, { keep_count: keepCount, per_match: perMatch });
 			toast($t('tourneys_toast_round_advanced', { count: keepCount }), 'success');
 			await loadAll();
 			await selectTournament(selectedId);
@@ -1138,7 +1138,7 @@
 						{lowerIsBetter}
 						{booleanMode}
 						on:submitScore={(e) => doSubmitScore(e.detail.match, e.detail.score)}
-						on:advanceFFA={(e) => advanceFFA(e.detail.keepCount)}
+						on:advanceFFA={(e) => advanceFFA(e.detail.keepCount, e.detail.perMatch)}
 						on:finishFFA={finishFFA}
 						on:rollbackFFA={rollbackFFA}
 					/>

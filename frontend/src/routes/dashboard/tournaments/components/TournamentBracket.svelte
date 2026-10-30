@@ -118,7 +118,7 @@
 	}
 
 	function handleAdvanceFFA() {
-		dispatch('advanceFFA', { keepCount: ffaKeepCount });
+		dispatch('advanceFFA', { keepCount: ffaKeepCount, perMatch: true });
 	}
 
 	function handleFinishFFA() {
@@ -368,6 +368,59 @@
 
 	function panTo(dx, dy) { panX += dx; panY += dy; clampPan(); }
 
+	// ---- Free-for-all tree: rounds left to right, lobbies stacked, links from the lobbies players came from
+	const FFA_COL_W = 250, FFA_GAP_X = 90, FFA_ROW_H = 30, FFA_BOX_HEAD = 30, FFA_BOX_PAD = 10, FFA_GAP_Y = 22, FFA_HDR_H = 48, FFA_ACTIONS_H = 150;
+	function computeFFALayout(rounds) {
+		const boxes = [], edges = [], cols = [];
+		let prev = [];
+		rounds.forEach((matches, ri) => {
+			const x = ri * (FFA_COL_W + FFA_GAP_X);
+			cols.push({ x, ri, latest: ri === rounds.length - 1 });
+			const items = matches.map((match, mi) => ({
+				match, mi, ri, x, y: 0, latest: ri === rounds.length - 1,
+				h: FFA_BOX_HEAD + match.p.length * FFA_ROW_H + FFA_BOX_PAD, sources: [], want: null
+			}));
+			items.forEach(it => {
+				if (ri === 0) return;
+				const pids = new Set(it.match.p.filter(Boolean));
+				it.sources = prev.filter(pb => pb.match.p.some(pid => pid && pids.has(pid)));
+				const centers = it.sources.map(sb => sb.y + sb.h / 2);
+				it.want = centers.length ? centers.reduce((a, b) => a + b, 0) / centers.length - it.h / 2 : null;
+			});
+			let cursor = FFA_HDR_H;
+			const order = ri === 0 ? items : [...items].sort((a, b) => (a.want ?? 1e9) - (b.want ?? 1e9) || a.mi - b.mi);
+			order.forEach(it => {
+				it.y = Math.max(it.want ?? cursor, cursor);
+				cursor = it.y + it.h + FFA_GAP_Y;
+			});
+			items.forEach(it => it.sources.forEach(sb => {
+				const x1 = sb.x + FFA_COL_W, y1 = sb.y + sb.h / 2, x2 = it.x, y2 = it.y + it.h / 2;
+				const mx = (x1 + x2) / 2;
+				edges.push({ d: `M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`, key: `${sb.ri}-${sb.mi}-${it.mi}` });
+			}));
+			boxes.push(...items);
+			prev = items;
+		});
+		const latestBottom = Math.max(0, ...boxes.filter(b => b.latest).map(b => b.y + b.h));
+		const width = Math.max(1, rounds.length * (FFA_COL_W + FFA_GAP_X) - FFA_GAP_X);
+		const height = Math.max(FFA_HDR_H, ...boxes.map(b => b.y + b.h)) + FFA_ACTIONS_H;
+		return { boxes, edges, cols, width, height, actionsY: latestBottom + 16, actionsX: cols.length ? cols[cols.length - 1].x : 0 };
+	}
+	$: ffaLayout = bracketType === 'ffa' ? computeFFALayout(bracketRounds) : { boxes: [], edges: [], cols: [], width: 1, height: 1, actionsY: 0, actionsX: 0 };
+
+	// qualifiers per lobby: the tournament setting is the default for every new round
+	let ffaRoundsSeen = 0;
+	$: if (bracketType === 'ffa' && bracketRounds.length !== ffaRoundsSeen) {
+		ffaRoundsSeen = bracketRounds.length;
+		ffaKeepCount = Math.max(1, Number(selected?.config?.ffa_advancers) || 1);
+	}
+	// the tree changes size when a round is added: fit it again
+	let ffaFitted = 0;
+	$: if (bracketType === 'ffa' && viewportEl && canvasEl && bracketRounds.length !== ffaFitted) {
+		ffaFitted = bracketRounds.length;
+		setTimeout(() => resetZoom(), 0);
+	}
+
 	$: arrowLeft = panX < -10;
 	$: arrowRight = viewportEl && canvasEl ? (panX + canvasEl.scrollWidth * scale > viewportEl.clientWidth + 10) : false;
 	$: arrowUp = panY < -10;
@@ -377,71 +430,80 @@
 <div class="bracket-section glass" class:bracket-expanded={hasBracket}>
 	<div class="section-title">
 		<h3>{bracketType === 'round_robin' ? $t('admin_tourneys_wizard_format_championship') : bracketType === 'ffa' ? $t('tourneys_format_ffa') : $t('tourneys_tab_bracket')}</h3>
-		{#if hasBracket && bracketType !== 'round_robin' && bracketType !== 'ffa'}
+		{#if hasBracket && bracketType !== 'round_robin'}
 			<button class="btn-secondary btn-xs" on:click={resetZoom}>{$t('tourneys_btn_recenter')}</button>
 		{/if}
 	</div>
 	{#if hasBracket}
 		{#if bracketType === 'ffa'}
-			<!-- FFA View -->
-			<div class="ffa-container">
-				{#each bracketRounds as roundMatches, ri}
-					{@const isLatest = ri === bracketRounds.length - 1}
-					{@const roundAllPlaced = roundMatches.every(m => m.score?.every(s => s > 0))}
-					<div class="ffa-round {isLatest ? 'ffa-current' : 'ffa-past'}">
-						<div class="ffa-round-hdr" style="display: flex; justify-content: space-between; align-items: center;">
-							<span>{$t('tourneys_round_number', { num: ri + 1 })}</span>
-							{#if isAdmin && isLatest && ri > 0 && selected?.status === 'RUNNING'}
-								{#if confirmingRollback}
-									<span class="inline-confirm" style="margin-left: auto; display: inline-flex; align-items: center; gap: 0.3rem;">
-										<span class="inline-confirm-label" style="font-size: 0.7rem;">{$t('admin_tourneys_confirm_delete')}</span>
-										<button class="admin-btn confirm-yes" on:click|stopPropagation|preventDefault={handleRollbackFFA} style="padding: 0.1rem 0.3rem; font-size: 0.7rem; border-radius: 4px; border: 1px solid var(--success); background: none; color: var(--success); cursor: pointer;">✓</button>
-										<button class="admin-btn confirm-no" on:click|stopPropagation|preventDefault={() => confirmingRollback = false} style="padding: 0.1rem 0.3rem; font-size: 0.7rem; border-radius: 4px; border: 1px solid var(--danger); background: none; color: var(--danger); cursor: pointer;">✕</button>
-									</span>
-								{:else}
-									<button class="rollback-btn" on:click|stopPropagation|preventDefault={() => confirmingRollback = true} title={$t('tourneys_ffa_rollback_tooltip')} style="background: none; border: none; color: #ef4444; cursor: pointer; font-size: 1.1rem; padding: 0 0.5rem; display: flex; align-items: center; justify-content: center; margin-left: auto;">✕</button>
-								{/if}
+			<!-- Free-for-all tree (pan / zoom like the elimination bracket) -->
+			<!-- svelte-ignore a11y-no-static-element-interactions -->
+			<div class="bracket-viewport-wrapper">
+				<div class="bracket-viewport" bind:this={viewportEl} on:wheel={onWheel} on:mousedown={onMouseDown} on:touchstart={onTouchStart} on:touchmove={onTouchMove} on:touchend={onTouchEnd} on:touchcancel={onTouchEnd}>
+					<div class="bracket-canvas" bind:this={canvasEl} style="transform: translate({panX}px, {panY}px) scale({scale});">
+						<div class="ffa-tree" style="width: {ffaLayout.width}px; height: {ffaLayout.height}px;">
+							<svg class="ffa-edges" width={ffaLayout.width} height={ffaLayout.height} aria-hidden="true">
+								{#each ffaLayout.edges as e (e.key)}
+									<path d={e.d} />
+								{/each}
+							</svg>
+
+							{#each ffaLayout.cols as col}
+								<div class="ffa-col-head" class:current={col.latest} style="left: {col.x}px; width: {FFA_COL_W}px;">
+									<span>{$t('tourneys_round_number', { num: col.ri + 1 })}</span>
+									{#if isAdmin && col.latest && col.ri > 0 && selected?.status === 'RUNNING'}
+										{#if confirmingRollback}
+											<span class="ffa-confirm">
+												<span>{$t('admin_tourneys_confirm_delete')}</span>
+												<button class="ffa-mini yes" on:mousedown|stopPropagation on:click|stopPropagation|preventDefault={handleRollbackFFA} aria-label={$t('admin_tourneys_confirm_yes')}><Icon name="check" size={13} /></button>
+												<button class="ffa-mini no" on:mousedown|stopPropagation on:click|stopPropagation|preventDefault={() => confirmingRollback = false} aria-label={$t('admin_tourneys_confirm_no')}><Icon name="x" size={13} /></button>
+											</span>
+										{:else}
+											<button class="ffa-mini no" on:mousedown|stopPropagation on:click|stopPropagation|preventDefault={() => confirmingRollback = true} title={$t('tourneys_ffa_rollback_tooltip')} aria-label={$t('tourneys_ffa_rollback_tooltip')}><Icon name="x" size={13} /></button>
+										{/if}
+									{/if}
+								</div>
+							{/each}
+
+							{#each ffaLayout.boxes as box (`${box.ri}-${box.match.id.m}`)}
+								{@const match = box.match}
+								<div class="ffa-match-box" class:ffa-box-current={box.latest} style="left: {box.x}px; top: {box.y}px; width: {FFA_COL_W}px; height: {box.h}px;">
+									<div class="ffa-player-count">{$t('tourneys_ffa_match_label', { n: box.mi + 1 })} · {$t(match.p.length > 1 ? 'admin_tourneys_players_count_plural' : 'admin_tourneys_players_count_singular', { count: match.p.length })}</div>
+									<div class="ffa-players">
+										{#each match.p as playerId, pi}
+											{@const mRank = getFFAMatchRank(match, pi, lowerIsBetter)}
+											<div class="ffa-player-row {mRank === 1 ? 'ffa-gold' : mRank === 2 ? 'ffa-silver' : mRank === 3 ? 'ffa-bronze' : ''}" class:my-player-highlight={useTeams ? (playerId === myTeamSlotId) : (playerId === currentUser?.id)}>
+												<span class="ffa-rank">{#if mRank}#{mRank}{:else}—{/if}</span>
+												<span class="ffa-name">{getPlayerName(playerId, nameMap)}</span>
+												{#if canEditPlayerScore(match, pi, myTeamSlotId, isParticipant, currentUser) && box.latest}
+													<input type="number" class="score-input ffa-input" value={match.score?.[pi] || ''} placeholder={$t('tourneys_score_placeholder')}
+														on:mousedown|stopPropagation on:touchstart|stopPropagation
+														on:change={(e) => updateFFAPlacement(match, pi, e.target.value)} min="0" />
+												{:else if isPlayerLocked(match, pi, myTeamSlotId, isParticipant, currentUser)}
+													<span class="score-locked ffa-input" title={$t('tourneys_score_validated')}><Icon name="lock" size={12} /> {match.score?.[pi]}</span>
+												{:else if match.score?.[pi] > 0}
+													<span class="score-display ffa-input">{match.score[pi]}</span>
+												{/if}
+											</div>
+										{/each}
+									</div>
+								</div>
+							{/each}
+
+							{#if isAdmin && selected?.status === 'RUNNING' && ffaLayout.boxes.filter(b => b.latest).every(b => b.match.score?.length && b.match.score.every(sc => sc > 0))}
+								<!-- svelte-ignore a11y-no-static-element-interactions -->
+								<div class="ffa-actions" style="left: {ffaLayout.actionsX}px; top: {ffaLayout.actionsY}px; width: {FFA_COL_W}px;" on:mousedown|stopPropagation on:touchstart|stopPropagation>
+									<label class="ffa-keep">
+										<span>{$t('tourneys_ffa_keep_players')}</span>
+										<input type="number" bind:value={ffaKeepCount} min="1" max={Math.max(1, ...ffaLayout.boxes.filter(b => b.latest).map(b => b.match.p.length))} />
+									</label>
+									<button class="admin-btn" on:click={handleAdvanceFFA}><Icon name="play" size={14} /> {$t('tourneys_ffa_next_round')}</button>
+									<button class="admin-btn stop" on:click={handleFinishFFA}><Icon name="flag" size={14} /> {$t('tourneys_ffa_finish')}</button>
+								</div>
 							{/if}
 						</div>
-						<div class="ffa-matches-grid" style="display: flex; flex-direction: column; gap: 1rem;">
-						{#each roundMatches as match, mi}
-							<div class="ffa-match-box">
-								<div class="ffa-player-count" style="margin-bottom: 0.5rem;">{$t('tourneys_ffa_match_label', { n: mi + 1 })} - {$t(match.p.length > 1 ? 'admin_tourneys_players_count_plural' : 'admin_tourneys_players_count_singular', { count: match.p.length })}</div>
-								<div class="ffa-players">
-									{#each match.p as playerId, pi}
-										{@const mRank = getFFAMatchRank(match, pi, lowerIsBetter)}
-										<div class="ffa-player-row {mRank === 1 ? 'ffa-gold' : mRank === 2 ? 'ffa-silver' : mRank === 3 ? 'ffa-bronze' : ''}" class:my-player-highlight={useTeams ? (playerId === myTeamSlotId) : (playerId === currentUser?.id)}>
-											<span class="ffa-rank">
-												{#if mRank}#{mRank}{:else}—{/if}
-											</span>
-											<span class="ffa-name">{getPlayerName(playerId, nameMap)}</span>
-											{#if playerId > 0 && seatMap[playerId]}<a href="/dashboard/map?highlight={seatMap[playerId]}" class="seat-badge" title={$t('players_tooltip_seat')}>💺{seatMap[playerId]}</a>{/if}
-											{#if canEditPlayerScore(match, pi, myTeamSlotId, isParticipant, currentUser) && isLatest}
-												<input type="number" class="score-input ffa-input" value={match.score?.[pi] || ''} placeholder={$t('tourneys_score_placeholder')}
-													on:change={(e) => updateFFAPlacement(match, pi, e.target.value)} min="1" />
-											{:else if isPlayerLocked(match, pi, myTeamSlotId, isParticipant, currentUser)}
-												<span class="score-locked ffa-input" title={$t('tourneys_score_validated')}>🔒 {match.score?.[pi]}</span>
-											{:else if match.score?.[pi] > 0}
-												<span class="score-display ffa-input">{match.score[pi]}</span>
-											{/if}
-										</div>
-									{/each}
-								</div>
-							</div>
-						{/each}
-						</div>
-						{#if isAdmin && isLatest && roundAllPlaced && selected?.status === 'RUNNING'}
-							<div class="ffa-actions">
-								<div class="ffa-advance-box" style="display:flex; align-items:center; gap:0.5rem; justify-content:center; margin-bottom: 1rem;">
-									<label style="font-size: 0.9rem; color: var(--text-muted); font-weight: 600;">{$t('tourneys_ffa_keep_players')}</label>
-									<input type="number" bind:value={ffaKeepCount} min="1" max={roundMatches.reduce((sum, m) => sum + m.p.length, 0)} style="width: 60px; padding: 0.3rem 0.5rem; border-radius: 6px; background: var(--surface-sunken); border: 1px solid var(--glass-border); color: var(--text-main);" />
-									<button class="admin-btn" on:click={handleAdvanceFFA} style="margin: 0;">▶️ {$t('tourneys_ffa_next_round')}</button>
-								</div>
-								<button class="admin-btn stop" on:click={handleFinishFFA}>🏁 {$t('tourneys_ffa_finish')}</button>
-							</div>
-						{/if}
 					</div>
-				{/each}
+				</div>
 			</div>
 		{:else if bracketType === 'round_robin'}
 			<!-- Round Robin Table -->
@@ -876,24 +938,30 @@
 	.lb-match { border-color: rgba(245,158,11,0.15) !important; }
 
 	/* FFA */
-	.ffa-container { padding: 0.5rem; display: flex; flex-direction: column; gap: 1rem; max-height: 55vh; overflow-y: auto; }
-	.ffa-round { border-radius: 10px; padding: 0.75rem; border: 1px solid var(--glass-border); }
-	.ffa-current { background: rgba(59,130,246,0.06); border-color: rgba(59,130,246,0.2); }
-	.ffa-past { opacity: 0.55; }
-	.ffa-round-hdr { display: flex; justify-content: space-between; align-items: center; font-weight: 800; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--accent); margin-bottom: 0.6rem; padding-bottom: 0.4rem; border-bottom: 1px solid var(--glass-border); }
-	.ffa-player-count { font-weight: 600; color: var(--text-muted); font-size: 0.65rem; }
-	.ffa-players { display: flex; flex-direction: column; gap: 0.25rem; }
-	.ffa-player-row { display: flex; align-items: center; gap: 0.6rem; padding: 0.35rem 0.5rem; border-radius: 6px; background: var(--surface-sunken); font-size: 0.78rem; }
+	.ffa-tree { position: relative; }
+	.ffa-edges { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
+	.ffa-edges path { fill: none; stroke: color-mix(in srgb, var(--accent) 45%, var(--glass-border)); stroke-width: 2; }
+	.ffa-col-head { position: absolute; top: 0; height: 34px; display: flex; align-items: center; justify-content: space-between; padding: 0 0.6rem; border-radius: 8px; font-weight: 800; font-size: 0.8125rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); border: 1px solid var(--glass-border); background: var(--surface-sunken); }
+	.ffa-col-head.current { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+	.ffa-confirm { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.75rem; text-transform: none; letter-spacing: 0; font-weight: 600; }
+	.ffa-mini { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 6px; border: 1px solid var(--glass-border); background: transparent; color: var(--text-dim); cursor: pointer; }
+	.ffa-mini.yes { color: var(--success); border-color: var(--success); }
+	.ffa-mini.no:hover { color: var(--danger); border-color: var(--danger); }
+	.ffa-match-box { position: absolute; box-sizing: border-box; padding: 0.35rem 0.4rem 0.4rem; border-radius: 10px; border: 1px solid var(--glass-border); background: var(--surface-raised); }
+	.ffa-match-box.ffa-box-current { border-color: color-mix(in srgb, var(--accent) 50%, var(--glass-border)); background: var(--surface-raised); }
+	.ffa-player-count { height: 22px; display: flex; align-items: center; padding: 0 0.3rem; font-weight: 700; color: var(--text-dim); font-size: 0.75rem; }
+	.ffa-players { display: flex; flex-direction: column; gap: 2px; }
+	.ffa-player-row { display: flex; align-items: center; gap: 0.5rem; height: 28px; box-sizing: border-box; padding: 0 0.5rem; border-radius: 6px; background: var(--surface-sunken); font-size: 0.8125rem; }
 	.ffa-gold { background: rgba(255,215,0,0.12) !important; border-left: 3px solid #ffd700; }
 	.ffa-silver { background: rgba(192,192,192,0.1) !important; border-left: 3px solid #c0c0c0; }
 	.ffa-bronze { background: rgba(205,127,50,0.1) !important; border-left: 3px solid #cd7f32; }
-	.ffa-player-row.my-player-highlight.ffa-gold { background: rgba(255,215,0,0.15) !important; }
-	.ffa-player-row.my-player-highlight.ffa-silver { background: rgba(192,192,192,0.12) !important; }
-	.ffa-player-row.my-player-highlight.ffa-bronze { background: rgba(205,127,50,0.12) !important; }
-	.ffa-rank { font-weight: 800; min-width: 28px; text-align: center; color: var(--accent); font-size: 0.75rem; }
-	.ffa-name { flex: 1; font-weight: 600; }
+	.ffa-rank { font-weight: 800; min-width: 26px; text-align: center; color: var(--accent); font-size: 0.75rem; }
+	.ffa-name { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	.ffa-input { width: 48px !important; text-align: center; }
-	.ffa-actions { margin-top: 0.75rem; padding-top: 0.6rem; border-top: 1px solid var(--glass-border); display: flex; flex-direction: column; gap: 0.5rem; }
+	.ffa-actions { position: absolute; display: flex; flex-direction: column; gap: 0.5rem; padding-top: 0.2rem; }
+	.ffa-keep { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; font-size: 0.8125rem; font-weight: 600; color: var(--text-dim); }
+	.ffa-keep input { width: 56px; padding: 0.3rem 0.5rem; border-radius: 6px; background: var(--surface-sunken); border: 1px solid var(--glass-border); color: var(--text-main); text-align: center; }
+	.ffa-actions .admin-btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; margin: 0; }
 
 	/* Boolean Mode */
 	.bool-btns { display: flex; gap: 0.2rem; align-items: center; }
