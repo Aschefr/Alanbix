@@ -93,7 +93,7 @@
 				{:else}
 					<span class="gs-note"><Icon name="clock" size={15} /> {$t('groups_remaining', { n: remaining })}</span>
 				{/if}
-			{:else if isAdmin}
+			{:else if isAdmin && selected.status === 'RUNNING'}
 				{#if confirmingRollback}
 					<span class="gs-note">{$t('groups_rollback_confirm')}</span>
 					<button class="btn-danger btn-ic" on:click={rollback} disabled={busy}>{$t('groups_rollback_yes')}</button>

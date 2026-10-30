@@ -1218,8 +1218,7 @@
 				{/if}
 
 				<!-- Split Layout: Bracket & Live Standings -->
-				<div class="tournament-split-layout" class:split-active={showLiveStandings && liveStandings.length > 0} class:split-fill={selected?.status !== 'OPEN' && !showDetails}>
-					{#if isTwoPhase && hasBracket}
+				{#if isTwoPhase && hasBracket}
 						{#if stage === 'knockout'}
 							<div class="phase-tabs" role="tablist">
 								<button role="tab" class="seg-tab" class:active={phaseTab === 'knockout'} aria-selected={phaseTab === 'knockout'} on:click={() => phaseTab = 'knockout'}><Icon name="trophy" size={14} /> {$t('groups_tab_knockout')}</button>
@@ -1232,6 +1231,7 @@
 							await selectTournament(selectedId);
 						}} />
 					{/if}
+				<div class="tournament-split-layout" class:split-active={showLiveStandings && liveStandings.length > 0} class:split-fill={selected?.status !== 'OPEN' && !showDetails}>
 					<TournamentBracket
 						bind:this={bracketRef}
 						{selected}
