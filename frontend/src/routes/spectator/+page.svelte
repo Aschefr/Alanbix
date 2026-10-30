@@ -283,9 +283,12 @@
 		return `${minX} ${minY} ${maxX - minX} ${maxY - minY}`;
 	})();
 
+	// Progress bar under the header: shows how long before the next screen
+	let progressKey = 0, progressMs = 0;
 	function startSlideshow(delay = 12000) {
 		clearTimeout(slideTimeout);
 		if (paused) return;
+		progressMs = delay; progressKey += 1;
 		slideTimeout = setTimeout(() => {
 			nextView();
 		}, delay);
@@ -382,6 +385,9 @@
 			{/each}
 			{#if paused}<span class="pause-badge">⏸ {$t('spec_pause_badge')}</span>{/if}
 		</div>
+		{#if !paused && progressMs}
+			{#key progressKey}<div class="spec-progress" style="animation-duration: {progressMs}ms"></div>{/key}
+		{/if}
 	</div>
 
 	<div class="spec-content {transClass}">
@@ -698,15 +704,22 @@
 	:global(body) { overflow: hidden; }
 
 	.spectator-mode {
+		/* Blue text tuned for a projected image: >= 7:1 on its card */
+		--spec-accent-text: #93c5fd;
+		--spec-card: rgba(30, 41, 59, 0.94);
 		position: relative;
 		height: 100vh; width: 100vw; display: flex; flex-direction: column;
 		background: radial-gradient(ellipse at 30% 20%, rgba(59,130,246,0.08) 0%, transparent 50%), radial-gradient(ellipse at 70% 80%, rgba(139,92,246,0.06) 0%, transparent 50%), var(--bg-primary, #020617);
 		color: var(--text-main, white); font-family: var(--font-main);
 	}
 	.spectator-mode.bracket-active { background: transparent; }
+	:global([data-theme="light"]) .spectator-mode { --spec-accent-text: #1d4ed8; --spec-card: #ffffff; }
 
 	.spec-header { position: relative; z-index: 1; display: flex; justify-content: space-between; align-items: center; padding: 1.5rem 3rem; border-bottom: 1px solid var(--glass-border, rgba(255,255,255,0.06)); }
-	.spec-event { font-family: var(--font-title); font-size: 1.2rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent, #3b82f6); margin: 0; }
+	.spec-event { font-family: var(--font-title); font-size: 1.2rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: var(--spec-accent-text); margin: 0; }
+	.spec-progress { position: absolute; left: 0; bottom: -1px; height: 3px; width: 100%; background: var(--spec-accent-text); transform-origin: left; animation: specProgress linear forwards; }
+	@keyframes specProgress { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+	.nav-dot { width: 14px !important; height: 14px !important; }
 	.spec-nav { display: flex; align-items: center; gap: 0.75rem; }
 	.nav-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--text-muted); opacity: 0.35; cursor: pointer; transition: all 0.2s; border: 1px solid var(--glass-border); }
 	.nav-dot.active { background: var(--accent, #3b82f6); opacity: 1; box-shadow: 0 0 10px rgba(59,130,246,0.5); transform: scale(1.3); border-color: transparent; }
@@ -736,6 +749,12 @@
 	.spec-team { font-size: 0.9rem; color: var(--text-muted); font-weight: 600; }
 	.spec-members { font-size: 0.9rem; color: var(--text-muted); }
 	.spec-pts { font-weight: 800; color: #fbbf24; min-width: 100px; text-align: right; }
+	/* Light theme: gold, silver and bronze darkened to stay readable on white */
+	:global([data-theme="light"]) .spec-pts { color: #92400e; }
+	:global([data-theme="light"]) .spec-rank.gold, :global([data-theme="light"]) .spec-ffa-row.gold .spec-ffa-rank { color: #92400e; }
+	:global([data-theme="light"]) .spec-rank.silver, :global([data-theme="light"]) .spec-ffa-row.silver .spec-ffa-rank { color: #475569; }
+	:global([data-theme="light"]) .spec-rank.bronze, :global([data-theme="light"]) .spec-ffa-row.bronze .spec-ffa-rank { color: #9a3412; }
+	:global([data-theme="light"]) .pause-badge { color: #92400e; }
 	.spec-empty { text-align: center; color: var(--text-muted); font-size: 1.5rem; padding: 3rem; }
 
 	/* Map */
@@ -746,24 +765,29 @@
 
 	/* Bracket - Tournament-style */
 	.game-fullscreen-bg { position: fixed; inset: 0; z-index: 0; background-size: cover; background-position: center; background-repeat: no-repeat; }
-	.game-fullscreen-vignette { position: fixed; inset: 0; z-index: 0; pointer-events: none; background: radial-gradient(ellipse at center, rgba(10,15,30,0.6) 0%, rgba(10,15,30,0.82) 40%, rgba(10,15,30,0.96) 70%, rgba(10,15,30,1) 100%); }
+	/* Projectors wash colours out: the game art stays visible behind a lighter
+	   veil, and the bracket cards are opaque so text contrast does not depend on it */
+	.game-fullscreen-vignette { position: fixed; inset: 0; z-index: 0; pointer-events: none; background: radial-gradient(ellipse at center, rgba(15,23,42,0.45) 0%, rgba(15,23,42,0.65) 45%, rgba(15,23,42,0.85) 80%, rgba(15,23,42,0.92) 100%); }
+	:global([data-theme="light"]) .game-fullscreen-vignette { background: radial-gradient(ellipse at center, rgba(241,245,249,0.55) 0%, rgba(241,245,249,0.75) 45%, rgba(241,245,249,0.9) 80%, rgba(241,245,249,0.95) 100%); }
 	.bracket-top-info { position: relative; z-index: 1; text-align: center; padding: 0.5rem 0 0.8rem; }
-	.hero-title { font-family: var(--font-title); margin: 0; font-size: 2rem; color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; background: none !important; text-shadow: 0 2px 16px rgba(0,0,0,0.9), 0 0 40px rgba(0,0,0,0.5); }
-	.hero-game-name { font-size: 0.85rem; font-weight: 600; color: #ffffff; opacity: 0.85; text-shadow: 0 1px 8px rgba(0,0,0,0.8); }
+	.hero-title { font-family: var(--font-title); margin: 0; font-size: 2.4rem; color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; background: none !important; text-shadow: 0 2px 16px rgba(0,0,0,0.9), 0 0 40px rgba(0,0,0,0.5); }
+	:global([data-theme="light"]) .hero-title { color: #0f172a !important; -webkit-text-fill-color: #0f172a !important; text-shadow: 0 1px 12px rgba(255,255,255,0.9); }
+	.hero-game-name { font-size: 1.05rem; font-weight: 600; color: #e2e8f0; text-shadow: 0 1px 8px rgba(0,0,0,0.8); }
+	:global([data-theme="light"]) .hero-game-name { color: #334155; text-shadow: none; }
 	.spec-bracket-area { position: relative; z-index: 1; flex: 1; overflow-x: auto; overflow-y: hidden; display: flex; align-items: flex-start; justify-content: center; padding: 0.5rem 0; width: 100%; }
 	.spec-bracket-duel { flex-direction: column; align-items: center; justify-content: flex-start; gap: 4rem; overflow-y: visible; padding-top: 2rem; padding-bottom: 4rem; }
 	.spec-rounds { display: flex; gap: 2.5rem; align-items: flex-start; min-width: min-content; }
 	.spec-round-col { display: flex; flex-direction: column; min-width: 240px; flex-shrink: 0; }
-	.spec-round-hdr { font-family: var(--font-title); text-align: center; font-weight: 800; color: var(--accent); font-size: 1.1rem; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 1rem; padding: 0.4rem 1rem; background: var(--glass-bg); border-radius: 8px; border: 1px solid var(--glass-border); }
+	.spec-round-hdr { font-family: var(--font-title); text-align: center; font-weight: 800; color: var(--spec-accent-text); font-size: 1.1rem; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 1rem; padding: 0.4rem 1rem; background: var(--spec-card); border-radius: 8px; border: 1px solid var(--glass-border); }
 	.spec-matches { display: flex; flex-direction: column; justify-content: space-around; flex-grow: 1; gap: 1rem; }
-	.spec-match { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 12px; overflow: hidden; transition: all 0.2s; }
+	.spec-match { background: var(--spec-card); border: 1px solid var(--glass-border); border-radius: 12px; overflow: hidden; transition: all 0.2s; }
 	.spec-match.done { border-color: rgba(59,130,246,0.25); box-shadow: 0 0 15px rgba(59,130,246,0.05); }
 	.spec-player { display: flex; justify-content: space-between; align-items: center; padding: 0.7rem 1rem; transition: all 0.2s; }
 	.spec-player.winner { background: var(--accent-soft); }
-	.spec-player.loser { opacity: 0.4; }
+	.spec-player.loser .spec-pname, .spec-player.loser .spec-pscore { color: var(--text-muted); }
 	.spec-pname { font-size: 1.2rem; font-weight: 600; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	.spec-player.winner .spec-pname { color: var(--text-main); font-weight: 800; }
-	.spec-pscore { font-size: 1.3rem; font-weight: 900; color: var(--accent, #3b82f6); min-width: 2rem; text-align: right; }
+	.spec-pscore { font-size: 1.3rem; font-weight: 900; color: var(--spec-accent-text); min-width: 2rem; text-align: right; }
 	.spec-match-div { height: 1px; background: var(--glass-border); }
 
 	/* Losers Bracket wrap */
@@ -772,9 +796,9 @@
 	.spec-lb-title { font-family: var(--font-title); color: var(--text-muted); font-size: 1.5rem; font-weight: 800; letter-spacing: 0.2em; text-transform: uppercase; margin: 0; }
 
 	/* Tournament nav tabs (multiple running) */
-	.spec-tourney-nav { position: sticky; top: 0; z-index: 2; display: flex; gap: 0.3rem; justify-content: center; margin-bottom: 1rem; padding: 0.3rem; background: var(--glass-bg); border-radius: 10px; }
+	.spec-tourney-nav { position: sticky; top: 0; z-index: 2; display: flex; gap: 0.3rem; justify-content: center; margin: 0 auto 1rem; padding: 0.3rem; background: var(--spec-card); border-radius: 10px; width: fit-content; }
 	.spec-tourney-tab { font-family: var(--font-main); padding: 0.5rem 1.2rem; background: none; border: none; color: var(--text-muted); font-size: 1rem; font-weight: 700; cursor: pointer; border-radius: 8px; transition: all 0.2s; }
-	.spec-tourney-tab.active { background: var(--accent-soft); color: var(--accent); }
+	.spec-tourney-tab.active { background: var(--accent-soft); color: var(--spec-accent-text); }
 
 	/* FFA spectator */
 	.spec-ffa-area { position: relative; z-index: 1; flex: 1; overflow-y: auto; display: block; width: 100%; max-width: 1600px; margin: 0 auto; padding: 2rem 0; }
