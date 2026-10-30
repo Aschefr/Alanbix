@@ -647,6 +647,7 @@
 					tournament_id: tourney.id,
 					tournament_name: tourney.name,
 					game_name: gameName,
+					game_image: gameObj?.image_url || '',
 					round_label: roundLabel,
 					match_id: m.id,
 					raw_match: m,
@@ -755,6 +756,7 @@
 					{#each myActiveMatches as m}
 						<div class="match-card glass" class:match-ready={m.is_ready}>
 							<div class="match-card-top">
+								<span class="mym-thumb" class:empty={!m.game_image} style={m.game_image ? `background-image: url(${m.game_image})` : ''} aria-hidden="true">{#if !m.game_image}<Icon name="trophy" size={16} />{/if}</span>
 								<div class="mc-versus">
 									<span class="vs-label">{$t('mobile_match_versus')}</span>
 									<span class="opponent-name">{m.opponent_name}</span>
@@ -1060,6 +1062,7 @@
 					<ul class="mym-list">
 						{#each myMatchesSorted as m (m.match_key)}
 							<li class="mym-row" class:ready={m.is_ready}>
+								<span class="mym-thumb" class:empty={!m.game_image} style={m.game_image ? `background-image: url(${m.game_image})` : ''} aria-hidden="true">{#if !m.game_image}<Icon name="trophy" size={16} />{/if}</span>
 								<div class="mym-main">
 									<div class="mym-versus">
 										<span class="mym-vs">{$t('mobile_match_versus')}</span>
@@ -1659,7 +1662,8 @@
 			justify-content: space-between;
 			gap: 0.5rem;
 		}
-		.mc-versus { display: flex; align-items: baseline; gap: 0.35rem; min-width: 0; }
+		.mc-versus { display: flex; align-items: baseline; gap: 0.35rem; min-width: 0; flex: 1; }
+		.match-card-top .mym-thumb { width: 48px; height: 34px; }
 		.mc-versus .vs-label { white-space: nowrap; }
 		.mc-versus .opponent-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
@@ -2288,6 +2292,12 @@
 		background: var(--surface-raised); border: 1px solid var(--glass-border);
 	}
 	.mym-row.ready { border-color: var(--accent); }
+	/* Game artwork thumbnail: tells the stacked match rows apart at a glance */
+	.mym-thumb {
+		flex: 0 0 auto; width: 56px; height: 40px; border-radius: var(--radius-sm);
+		background: var(--surface-sunken) center / cover no-repeat; border: 1px solid var(--glass-border);
+		display: inline-flex; align-items: center; justify-content: center; color: var(--text-muted);
+	}
 	.mym-main { flex: 1 1 240px; min-width: 0; display: flex; flex-direction: column; gap: 0.15rem; }
 	.mym-versus { display: flex; align-items: baseline; gap: 0.4rem; flex-wrap: wrap; }
 	.mym-vs { color: var(--text-dim); font-size: 0.85rem; }
