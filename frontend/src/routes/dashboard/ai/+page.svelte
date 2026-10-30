@@ -1514,7 +1514,7 @@
 				</div>
 			{/if}
 
-			<form class="input-area" class:input-disabled={loading || busyOtherConv} on:submit|preventDefault={send}>
+			<form class="input-area" class:input-disabled={loading || busyOtherConv} on:submit|preventDefault={() => send()}>
 				{#if pendingImagePreview}
 					<div class="pending-image-preview">
 						<img src={pendingImagePreview} alt={$t('chat_preview_alt')} />

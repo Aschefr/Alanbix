@@ -11,6 +11,7 @@
 	import Icon from '$lib/components/Icon.svelte';
 
 	let players = [];
+	let retryTimer = null;
 	let currentUser = null;
 	let loading = true;
 
@@ -187,7 +188,8 @@
 		});
 	});
 
-	onDestroy(() => { 
+	onDestroy(() => {
+		clearTimeout(retryTimer); 
 		if (wsUnsub) wsUnsub(); 
 		if (typeof window !== 'undefined') {
 			window.removeEventListener('focus', onWindowFocus);
@@ -209,7 +211,11 @@
 				}
 			}
 		} catch { 
-			if (players.length === 0) players = []; 
+			if (players.length === 0) {
+				players = [];
+				// A dropped response must not leave the list empty: try again shortly
+				if (!retryTimer) retryTimer = setTimeout(() => { retryTimer = null; loadPlayers(true); }, 3000);
+			}
 		} finally {
 			if (!silent) loading = false;
 		}
