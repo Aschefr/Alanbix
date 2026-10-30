@@ -50,12 +50,20 @@ graph LR
 * Suitable for racing games (Trackmania, Mario Kart) or multiplayer fighting games (4-player Smash).
 * A round consists of a single series of placements.
 * The administrator enters the final ranking of the round in the interface, then configures how many players advance to the next round.
+* **Tree view**: rounds run from left to right, each lobby (group of players) is linked to the lobbies its players came from; zoom, pan and "Recenter" work like the elimination bracket. The administrator picks how many players qualify **per lobby** for the next round.
 * **Fluid Layout**: The spectator view uses a flexible (`flex-wrap`) and dynamic height (`fit-content`) layout that eliminates any superfluous empty space between rounds.
 * **Round Cancellation (Rollback)**: FFA round cancellations are secured by an inline, non-intrusive confirmation modal (avoiding blocking browser `window.confirm` dialogs).
 
 ![FFA](../../../screenshots/alanbix_tournois_FFA.png)
 
 ---
+
+### Groups, then knockout (option for elimination formats)
+When creating the tournament (or editing it before the start), choose **"Groups, then knockout"** with the group size and the number of qualifiers per group.
+1. **Group stage**: every group plays a round robin (3 points for a win, 1 for a draw). Group tables are displayed with the qualifiers highlighted.
+2. When every group match is played, the organiser clicks **"Start the knockout"**: qualifiers (group winners first, then runners-up...) are seeded into the elimination bracket, avoiding a repeat of a group match in the first round.
+3. The **Groups** tab stays available during the knockout; **"Back to the groups"** removes the bracket as long as no knockout match has been played.
+Players out after the groups rank behind the knockout players. Once the tournament has started, the format and play mode are locked (reset the tournament to change them).
 
 ## ⚙️ Match & Score Mechanics
 
