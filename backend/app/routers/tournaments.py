@@ -352,6 +352,13 @@ async def update_tournament(
     
     # If resetting to OPEN, also clear results
     if update_data.get("status") == "OPEN":
+        cfg = dict(db_tournament.config or {})
+        if cfg.get("ko_type"):
+            cfg["bracket_type"] = cfg.pop("ko_type")
+        cfg.pop("stage", None)
+        cfg.pop("group_stage", None)
+        db_tournament.config = cfg
+        flag_modified(db_tournament, "config")
         db_tournament.bracket = None
         db_tournament.results = None
         flag_modified(db_tournament, "bracket")
@@ -531,6 +538,148 @@ async def leave_all_players(
     await manager.broadcast({"type": "participant_left", "tournament_id": tournament_id})
     return {"status": "ok", "removed": count}
 
+# --- Groups + knockout -------------------------------------------------------
+# A "groups then knockout" tournament (config.phases == "double") runs in two stages
+# on the same bracket list:
+#   1. config.stage == "groups": round-robin matches, section id 100 + group number,
+#      config.bracket_type is "round_robin" and config.ko_type remembers the knockout format.
+#   2. config.stage == "knockout": the qualifiers are seeded into an elimination bracket
+#      (sections 1 and 2) appended to the group matches, config.bracket_type becomes ko_type.
+GROUP_SECTION_BASE = 100
+
+
+def _is_group_match(match) -> bool:
+    return match["id"]["s"] >= GROUP_SECTION_BASE
+
+
+def _match_is_scored(match) -> bool:
+    s = match.get("score") or []
+    return len(s) >= 2 and s[0] is not None and s[1] is not None and (s[0] != 0 or s[1] != 0)
+
+
+def _build_elimination_bracket(opponent_ids, bracket_type, config):
+    """Seeded single/double elimination bracket for the given entities (seed order), BYEs resolved."""
+    import math
+    num = len(opponent_ids)
+    engine = Duel(num, double_elim=(bracket_type == "double_elim"), config=config)
+    p_val = getattr(engine, "p", None)
+    if p_val is None:
+        p_val = math.ceil(math.log2(num)) if num > 0 else 0
+
+    # Standard seed order for a bracket of size 2^p spreads the BYEs evenly
+    order = [1, 2] if p_val > 0 else [1]
+    for r in range(2, p_val + 1):
+        next_order = []
+        for seed in order:
+            next_order.extend([seed, 2**r + 1 - seed])
+        order = next_order
+    ordered = [opponent_ids[seed - 1] if seed <= num else 0 for seed in order]
+
+    idx = 0
+    for match in engine.matches:
+        if match.id.r == 1 and match.id.s == 1:
+            match.p[0] = ordered[idx]
+            match.p[1] = ordered[idx + 1]
+            idx += 2
+
+    data = [{"id": {"s": m.id.s, "r": m.id.r, "m": m.id.m}, "p": list(m.p), "score": [None] * len(m.p)} for m in engine.matches]
+    changed = True
+    while changed:
+        changed = False
+        for match in data:
+            p0, p1 = match["p"][0], match["p"][1]
+            if match["score"][0] is not None or match["score"][1] is not None:
+                continue
+            if p0 != 0 and p1 == 0 and _is_genuine_bye(data, match):
+                match["score"] = [1, 0]
+                _advance_bracket(data, match, bracket_type, config=config)
+                changed = True
+            elif p1 != 0 and p0 == 0 and _is_genuine_bye(data, match):
+                match["score"] = [0, 1]
+                _advance_bracket(data, match, bracket_type, config=config)
+                changed = True
+    return data
+
+
+def _group_tables(bracket, lower_is_better=False):
+    """Per-group tables {group: [row, ...]} sorted by points, score difference, score for, head-to-head, id.
+
+    A win is worth 3 points, a draw 1. With "lower score wins", the difference is inverted.
+    """
+    groups = {}
+    for m in bracket:
+        if not _is_group_match(m):
+            continue
+        g = m["id"]["s"] - GROUP_SECTION_BASE
+        rows = groups.setdefault(g, {})
+        p0, p1 = m["p"][0], m["p"][1]
+        for pid in (p0, p1):
+            if pid:
+                rows.setdefault(pid, {"entity_id": pid, "played": 0, "wins": 0, "draws": 0, "losses": 0,
+                                      "score_for": 0, "score_against": 0, "diff": 0, "points": 0})
+        if not _match_is_scored(m) or not p0 or not p1:
+            continue
+        s0, s1 = m["score"][0], m["score"][1]
+        for pid, mine, theirs in ((p0, s0, s1), (p1, s1, s0)):
+            row = rows[pid]
+            row["played"] += 1
+            row["score_for"] += mine
+            row["score_against"] += theirs
+            row["diff"] += (theirs - mine) if lower_is_better else (mine - theirs)
+            if mine == theirs:
+                row["draws"] += 1
+                row["points"] += 1
+            elif (mine < theirs) == bool(lower_is_better):
+                row["wins"] += 1
+                row["points"] += 3
+            else:
+                row["losses"] += 1
+
+    def head_to_head(a, b):
+        for m in bracket:
+            if not _is_group_match(m) or not _match_is_scored(m):
+                continue
+            if set(m["p"][:2]) == {a, b}:
+                sa = m["score"][m["p"].index(a)]
+                sb = m["score"][m["p"].index(b)]
+                if sa == sb:
+                    return 0
+                return 1 if (sa < sb) == bool(lower_is_better) else -1
+        return 0
+
+    import functools
+    tables = {}
+    for g, rows in groups.items():
+        def cmp(x, y):
+            for key in ("points", "diff", "score_for"):
+                if x[key] != y[key]:
+                    return -1 if x[key] > y[key] else 1
+            h = head_to_head(x["entity_id"], y["entity_id"])
+            if h:
+                return -h
+            return -1 if x["entity_id"] < y["entity_id"] else 1
+        table = sorted(rows.values(), key=functools.cmp_to_key(cmp))
+        for pos, row in enumerate(table, start=1):
+            row["position"] = pos
+        tables[g] = table
+    return tables
+
+
+def _groups_complete(bracket) -> bool:
+    group_matches = [m for m in bracket if _is_group_match(m)]
+    return bool(group_matches) and all(_match_is_scored(m) for m in group_matches)
+
+
+def _knockout_seeds(tables, advancers):
+    """Qualifiers ordered group winners first, then runners-up...: 1A, 1B, 2A, 2B (cross-group pairing)."""
+    seeds = []
+    for place in range(advancers):
+        for g in sorted(tables):
+            if place < len(tables[g]):
+                seeds.append(tables[g][place]["entity_id"])
+    return seeds
+
+
 @router.post("/{tournament_id}/start")
 async def start_tournament(
     tournament_id: int,
@@ -561,7 +710,19 @@ async def start_tournament(
         opponents = [{"id": p.user_id, "label": None} for p in participants]
     
     num = len(opponents)
-    
+
+    group_stage = config.get("phases") == "double" and bracket_type in ("single_elim", "double_elim")
+    if group_stage:
+        # Stage 1: round-robin groups; the knockout format is applied once the groups are over
+        config["ko_type"] = bracket_type
+        config["stage"] = "groups"
+        config["bracket_type"] = "round_robin"
+        bracket_type = "round_robin"
+    else:
+        config.pop("ko_type", None)
+        config.pop("stage", None)
+        config.pop("group_stage", None)
+
     if bracket_type == "round_robin":
         engine = RoundRobin(num, config)
     elif bracket_type == "double_elim":
@@ -622,8 +783,9 @@ async def start_tournament(
                     match.p[slot] = 0
     
     bracket_data = []
+    section_shift = GROUP_SECTION_BASE if group_stage else 0
     for m in engine.matches:
-        bracket_data.append({"id": {"s": m.id.s, "r": m.id.r, "m": m.id.m}, "p": list(m.p), "score": [None] * len(m.p)})
+        bracket_data.append({"id": {"s": m.id.s + section_shift, "r": m.id.r, "m": m.id.m}, "p": list(m.p), "score": [None] * len(m.p)})
     
     if bracket_type not in ("round_robin", "ffa"):
         # Multi-pass BYE resolution using feeder-aware check
@@ -646,8 +808,8 @@ async def start_tournament(
     
     if use_teams:
         config["_team_map"] = {str(-t.id): t.name for t in teams_with_members}
-        tournament.config = config
-    
+    tournament.config = config
+
     tournament.bracket = bracket_data
     tournament.status = "RUNNING"
     from sqlalchemy.orm.attributes import flag_modified
@@ -1269,7 +1431,9 @@ async def update_match_score(
     scored_match = _find_match(bracket, body.match_s, body.match_r, body.match_m)
     if not scored_match:
         raise HTTPException(status_code=404, detail="Match not found")
-    
+    if _is_group_match(scored_match) and config.get("stage") == "knockout":
+        raise HTTPException(status_code=409, detail="La phase de poules est terminée. Revenez aux poules pour corriger un score.")
+
     # Non-admin: verify player is in this specific match
     if not user.is_admin:
         user_in_match = user.id in scored_match["p"]
@@ -1372,7 +1536,8 @@ async def update_match_score(
     tournament_done = False
     if bracket_type == "round_robin":
         all_scored = all((m["score"][0] is not None and m["score"][1] is not None and (m["score"][0] != 0 or m["score"][1] != 0)) for m in bracket)
-        if all_scored:
+        # With a knockout to come, finishing the groups does not finish the tournament
+        if all_scored and config.get("phases") != "double":
             tournament_done = True
     elif bracket_type == "ffa":
         # FFA: never auto-done from scoring — admin explicitly ends or advances
@@ -1414,6 +1579,107 @@ async def update_match_score(
 
 class FFAAdvance(BaseModel):
     keep_count: int  # Number of top players to advance
+
+@router.get("/{tournament_id}/group-stage")
+def get_group_stage(tournament_id: int, db: Session = Depends(database.get_db)):
+    """Tables of the group stage plus whether the knockout can start."""
+    tournament = db.query(models.Tournament).filter(models.Tournament.id == tournament_id).first()
+    if not tournament:
+        raise HTTPException(status_code=404, detail="Tournament not found")
+    config = tournament.config or {}
+    bracket = tournament.bracket or []
+    tables = _group_tables(bracket, config.get("lower_score_is_better", False))
+    advancers = int(config.get("advancers_count", 2) or 2)
+    return {
+        "enabled": config.get("phases") == "double",
+        "stage": config.get("stage"),
+        "ko_type": config.get("ko_type"),
+        "advancers": advancers,
+        "complete": _groups_complete(bracket),
+        "groups": [{"group": g, "table": rows} for g, rows in sorted(tables.items())],
+    }
+
+
+@router.post("/{tournament_id}/start-knockout")
+async def start_knockout(
+    tournament_id: int,
+    db: Session = Depends(database.get_db),
+    admin: models.User = Depends(auth.get_current_admin)
+):
+    """Seed the qualifiers of every group into the knockout bracket."""
+    tournament = db.query(models.Tournament).filter(models.Tournament.id == tournament_id).first()
+    if not tournament or not tournament.bracket:
+        raise HTTPException(status_code=404, detail="Tournament not found")
+    config = dict(tournament.config or {})
+    if config.get("stage") != "groups":
+        raise HTTPException(status_code=400, detail="Ce tournoi n'est pas en phase de poules")
+    bracket = list(tournament.bracket)
+    if not _groups_complete(bracket):
+        raise HTTPException(status_code=400, detail="Tous les matchs de poule doivent être joués avant de lancer la phase finale")
+
+    tables = _group_tables(bracket, config.get("lower_score_is_better", False))
+    advancers = max(1, int(config.get("advancers_count", 2) or 2))
+    seeds = _knockout_seeds(tables, advancers)
+    if len(seeds) < 2:
+        raise HTTPException(status_code=400, detail="Il faut au moins 2 qualifiés pour lancer la phase finale")
+
+    ko_type = config.get("ko_type", "single_elim")
+    ko_bracket = _build_elimination_bracket(seeds, ko_type, config)
+
+    config["bracket_type"] = ko_type
+    config["stage"] = "knockout"
+    config["group_stage"] = {
+        "advancers": advancers,
+        "qualifiers": seeds,
+        "tables": {str(g): rows for g, rows in tables.items()},
+    }
+    tournament.config = config
+    tournament.bracket = bracket + ko_bracket
+    from sqlalchemy.orm.attributes import flag_modified
+    flag_modified(tournament, "config")
+    flag_modified(tournament, "bracket")
+    db.commit()
+
+    await manager.broadcast({"type": "knockout_started", "tournament_id": tournament_id})
+    await manager.broadcast({"type": "tournament_updated", "tournament_id": tournament_id})
+    for m in ko_bracket:
+        try:
+            await _notify_match_ready(db, tournament, m, use_teams=config.get("use_teams", False))
+        except Exception:
+            pass
+    return {"status": "knockout", "qualifiers": seeds, "matches": len(ko_bracket)}
+
+
+@router.post("/{tournament_id}/groups-rollback")
+async def groups_rollback(
+    tournament_id: int,
+    db: Session = Depends(database.get_db),
+    admin: models.User = Depends(auth.get_current_admin)
+):
+    """Drop the knockout bracket and go back to the group stage (only while no knockout match was played)."""
+    tournament = db.query(models.Tournament).filter(models.Tournament.id == tournament_id).first()
+    if not tournament or not tournament.bracket:
+        raise HTTPException(status_code=404, detail="Tournament not found")
+    config = dict(tournament.config or {})
+    if config.get("stage") != "knockout":
+        raise HTTPException(status_code=400, detail="Aucune phase finale à annuler")
+    bracket = list(tournament.bracket)
+    ko = [m for m in bracket if not _is_group_match(m)]
+    # BYE walkovers are auto-scored at creation: only a real result blocks the rollback
+    if any(_match_is_scored(m) and 0 not in m["p"] for m in ko):
+        raise HTTPException(status_code=409, detail="Des matchs de la phase finale ont déjà été joués")
+    config["bracket_type"] = "round_robin"
+    config["stage"] = "groups"
+    config.pop("group_stage", None)
+    tournament.config = config
+    tournament.bracket = [m for m in bracket if _is_group_match(m)]
+    from sqlalchemy.orm.attributes import flag_modified
+    flag_modified(tournament, "config")
+    flag_modified(tournament, "bracket")
+    db.commit()
+    await manager.broadcast({"type": "tournament_updated", "tournament_id": tournament_id})
+    return {"status": "groups"}
+
 
 @router.post("/{tournament_id}/ffa-advance")
 async def ffa_advance_round(
@@ -2475,6 +2741,19 @@ def _compute_projected_standings(tournament, db):
             prev_score = entry["rank_score"]
         exaequo_ranks.append(current_rank)
 
+    # Groups + knockout: players who did not qualify rank behind everybody placed in the knockout
+    ko_rank_offset = 0
+    if config.get("stage") == "knockout" and bracket_rank_map:
+        ko_rank_offset = max(bracket_rank_map.values())
+        outside = [e for e in ranked if e["entity_id"] not in bracket_rank_map]
+        dense, prev, current = {}, None, 0
+        for e in outside:
+            if e["rank_score"] != prev:
+                current += 1
+                prev = e["rank_score"]
+            dense[e["entity_id"]] = current
+        exaequo_ranks = [dense.get(e["entity_id"], 0) for e in ranked]
+
     results = []
     for i, entry in enumerate(ranked):
         eid = entry["entity_id"]
@@ -2483,7 +2762,7 @@ def _compute_projected_standings(tournament, db):
         
         # Rank and placement points
         if mp > 0 or has_explicit_rank:
-            rank = bracket_rank_map.get(eid, exaequo_ranks[i])
+            rank = bracket_rank_map.get(eid, exaequo_ranks[i] + ko_rank_offset)
             placement_pts = placement_map.get(rank, 0)
         else:
             rank = None
