@@ -268,6 +268,20 @@ async def startup():
     if migrated_files > 0 or migrated_records > 0:
         print(f"[Startup] Game images migration: {migrated_files} files moved, {migrated_records} DB records updated.")
 
+    # Groups + knockout tournaments whose server-side keys were lost by an older edit dialog
+    try:
+        from .routers.tournaments import _heal_two_phase_config
+        from sqlalchemy.orm.attributes import flag_modified
+        for tournament in db.query(models.Tournament).all():
+            fixed = dict(tournament.config or {})
+            if _heal_two_phase_config(fixed, tournament.bracket):
+                tournament.config = fixed
+                flag_modified(tournament, "config")
+                print(f"[Startup] Repaired the groups + knockout settings of tournament #{tournament.id}")
+        db.commit()
+    except Exception as e:
+        print(f"[Startup] Tournament settings check failed: {e}")
+
     db.close()
 
     from .discovery import discovery_manager

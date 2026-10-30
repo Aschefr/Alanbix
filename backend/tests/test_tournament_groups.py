@@ -157,3 +157,29 @@ def test_reset_restores_the_knockout_format(client, db_session):
     assert "stage" not in cfg and "ko_type" not in cfg
     _start(client, t_id)
     assert client.get(f"/tournaments/{t_id}").json()["config"]["stage"] == "groups"
+
+
+def test_editing_keeps_the_server_side_group_settings(client, db_session):
+    t_id, _ = _setup(client, db_session, 8)
+    # an edit dialog sending a config without the keys the server wrote (or a wrong format)
+    res = client.put(f"/tournaments/{t_id}", json={"name": "Renamed", "config": {
+        "bracket_type": "round_robin", "phases": "double", "group_size": 4, "advancers_count": 2}})
+    assert res.status_code == 200, res.text
+    cfg = client.get(f"/tournaments/{t_id}").json()["config"]
+    assert cfg["stage"] == "groups" and cfg["ko_type"] == "single_elim" and cfg["bracket_type"] == "round_robin"
+    assert client.get(f"/tournaments/{t_id}/group-stage").json()["enabled"] is True
+
+
+def test_lost_group_settings_are_repaired():
+    from app.routers.tournaments import _heal_two_phase_config
+    groups = [{"id": {"s": 101, "r": 1, "m": 1}, "p": [1, 2], "score": [None, None]}]
+    cfg = {"bracket_type": "round_robin", "phases": "double"}
+    assert _heal_two_phase_config(cfg, groups) is True
+    assert cfg["stage"] == "groups" and cfg["ko_type"] == "single_elim" and cfg["bracket_type"] == "round_robin"
+
+    with_lb = groups + [{"id": {"s": 2, "r": 1, "m": 1}, "p": [0, 0], "score": [None, None]}]
+    cfg2 = {"bracket_type": "round_robin", "phases": "double"}
+    assert _heal_two_phase_config(cfg2, with_lb) is True
+    assert cfg2["stage"] == "knockout" and cfg2["ko_type"] == "double_elim" and cfg2["bracket_type"] == "double_elim"
+
+    assert _heal_two_phase_config({"bracket_type": "round_robin"}, groups) is False

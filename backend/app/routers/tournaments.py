@@ -308,6 +308,15 @@ async def update_tournament(
         
     update_data = tournament_update.model_dump(exclude_unset=True)
 
+    # The edit dialog sends the whole config: keep what only the server writes
+    if isinstance(update_data.get("config"), dict) and update_data.get("status") != "OPEN":
+        old_cfg = db_tournament.config or {}
+        for key in SERVER_OWNED_CONFIG_KEYS:
+            if key in old_cfg:
+                update_data["config"][key] = old_cfg[key]
+        if old_cfg.get("stage") in ("groups", "knockout"):
+            update_data["config"]["bracket_type"] = old_cfg.get("bracket_type")
+
     # Once the bracket exists, the structure that produced it cannot change under it
     # (unless the same request resets the tournament to OPEN, which wipes the bracket).
     if db_tournament.bracket and update_data.get("status") != "OPEN" and isinstance(update_data.get("config"), dict):
@@ -364,6 +373,12 @@ async def update_tournament(
         flag_modified(db_tournament, "bracket")
         flag_modified(db_tournament, "results")
     
+    healed = _heal_two_phase_config(dict(db_tournament.config or {}), db_tournament.bracket)
+    if healed:
+        fixed = dict(db_tournament.config or {})
+        _heal_two_phase_config(fixed, db_tournament.bracket)
+        db_tournament.config = fixed
+        flag_modified(db_tournament, "config")
     db.commit()
     db.refresh(db_tournament)
     
@@ -546,6 +561,27 @@ async def leave_all_players(
 #   2. config.stage == "knockout": the qualifiers are seeded into an elimination bracket
 #      (sections 1 and 2) appended to the group matches, config.bracket_type becomes ko_type.
 GROUP_SECTION_BASE = 100
+# Keys written by the server while a groups + knockout tournament runs: an edit from the
+# interface must never drop or change them.
+SERVER_OWNED_CONFIG_KEYS = ("ko_type", "stage", "group_stage", "_team_map")
+
+
+def _heal_two_phase_config(config, bracket):
+    """Repair a groups + knockout config whose server-owned keys were lost (older edit dialogs
+    overwrote them). Returns True when the config was changed."""
+    if not isinstance(config, dict) or config.get("phases") != "double" or config.get("stage"):
+        return False
+    if not any(m["id"]["s"] >= GROUP_SECTION_BASE for m in (bracket or [])):
+        return False
+    knockout = [m for m in bracket if m["id"]["s"] < GROUP_SECTION_BASE]
+    ko_type = config.get("ko_type")
+    if not ko_type:
+        ko_type = "double_elim" if any(m["id"]["s"] == 2 for m in knockout) else (
+            config.get("bracket_type") if config.get("bracket_type") in ("single_elim", "double_elim") else "single_elim")
+    config["ko_type"] = ko_type
+    config["stage"] = "knockout" if knockout else "groups"
+    config["bracket_type"] = ko_type if knockout else "round_robin"
+    return True
 
 
 def _is_group_match(match) -> bool:
