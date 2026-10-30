@@ -1,6 +1,9 @@
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
 
+// Docker dev stack reaches the API at http://backend:8000; override for a local run
+const PROXY_TARGET = process.env.PROXY_TARGET || 'http://backend:8000';
+
 export default defineConfig({
 	plugins: [sveltekit()],
 	server: {
@@ -16,12 +19,12 @@ export default defineConfig({
 		},
 		proxy: {
 			'/ws': {
-				target: 'http://backend:8000',
+				target: PROXY_TARGET,
 				ws: true,
 				changeOrigin: true
 			},
 			'^/(check-username|token|register|me|users|tournaments|notifications|players|games|ia|i18n|dashboard/(stats|team-leaderboard|info)|system|health|api|static|data|devices|room|public-chat)': {
-				target: 'http://backend:8000',
+				target: PROXY_TARGET,
 				changeOrigin: true
 			}
 		}

@@ -78,6 +78,11 @@
 		}
 		activeScoreMatchKey = m.match_key;
 		const currentScores = m.raw_match?.score || [];
+		if (m.is_ffa) {
+			quickScores[m.match_key] = { myScore: currentScores[m.my_slot] || 0, oppScore: 0 };
+			quickScores = quickScores;
+			return;
+		}
 		const myVal = m.my_slot === 0 ? (currentScores[0] ?? 0) : (currentScores[1] ?? 0);
 		const oppVal = m.my_slot === 0 ? (currentScores[1] ?? 0) : (currentScores[0] ?? 0);
 		quickScores[m.match_key] = {
@@ -101,7 +106,12 @@
 		isSubmittingScore = true;
 		try {
 			let scorePayload = [];
-			if (m.boolean_mode) {
+			if (m.is_ffa) {
+				// Free-for-all: send only my own slot, the server keeps everybody else's score
+				const entry = quickScores[m.match_key] || { myScore: 0 };
+				scorePayload = (m.raw_match?.p || []).map(() => null);
+				scorePayload[m.my_slot] = parseInt(entry.myScore, 10) || 0;
+			} else if (m.boolean_mode) {
 				if (outcome === 'win') {
 					scorePayload = m.my_slot === 0 ? [1, 0] : [0, 1];
 				} else if (outcome === 'loss') {
@@ -661,6 +671,7 @@
 					raw_match: m,
 					is_ready: isReady,
 					my_slot: mySlot,
+					is_ffa: p.length > 2,
 					my_name: user?.username || 'Vous',
 					opponent_name: oppName,
 					opponent_id: oppPid > 0 ? oppPid : null,
@@ -792,7 +803,21 @@
 										</button>
 									</div>
 
-									{#if m.boolean_mode}
+									{#if m.is_ffa}
+										<div class="numeric-score-row">
+											<div class="score-player-col">
+												<span class="player-label">{$t('mobile_score_ffa_mine')}</span>
+												<div class="score-stepper">
+													<button class="stepper-btn" on:click={() => adjustQuickScore(m.match_key, 'myScore', -1)} disabled={isSubmittingScore}>−</button>
+													<input type="number" min="0" class="stepper-input" bind:value={quickScores[m.match_key].myScore} disabled={isSubmittingScore} />
+													<button class="stepper-btn" on:click={() => adjustQuickScore(m.match_key, 'myScore', 1)} disabled={isSubmittingScore}>+</button>
+												</div>
+											</div>
+										</div>
+										<button class="btn btn-primary btn-submit-quick-score" disabled={isSubmittingScore} on:click={() => submitQuickScore(m)}>
+											<Icon name="check" size={14} /> {isSubmittingScore ? $t('mobile_score_submitting') : $t('mobile_score_submit')}
+										</button>
+									{:else if m.boolean_mode}
 										<div class="boolean-score-actions">
 											<button 
 												class="btn-bool-score win" 
@@ -1092,7 +1117,14 @@
 								</div>
 								{#if activeScoreMatchKey === m.match_key}
 									<div class="mym-score">
-										{#if m.boolean_mode}
+										{#if m.is_ffa}
+											<label class="mym-field"><span>{$t('mobile_score_ffa_mine')}</span>
+												<input type="number" min="0" inputmode="numeric" bind:value={quickScores[m.match_key].myScore} disabled={isSubmittingScore} />
+											</label>
+											<button class="btn-primary mym-btn" disabled={isSubmittingScore} on:click={() => submitQuickScore(m)}>
+												<Icon name="check" size={13} /> {isSubmittingScore ? $t('mobile_score_submitting') : $t('mobile_score_submit')}
+											</button>
+										{:else if m.boolean_mode}
 											<button class="btn-success mym-btn" disabled={isSubmittingScore} on:click={() => submitQuickScore(m, 'win')}><Icon name="trophy" size={13} /> {$t('mobile_score_win')}</button>
 											<button class="btn-secondary mym-btn" disabled={isSubmittingScore} on:click={() => submitQuickScore(m, 'loss')}><Icon name="x" size={13} /> {$t('mobile_score_loss')}</button>
 											{#if m.allow_draws}
