@@ -9,28 +9,46 @@ from PIL import Image, ImageDraw
 
 ROOT = Path(__file__).resolve().parent.parent
 FRONTEND_DIR = ROOT / "frontend"
-BG_COLOR = (15, 23, 42)        # #0f172a (--bg-primary)
+BG_COLOR = (15, 23, 42)        # #0f172a (--bg-primary), splash screens
+ICON_BG = (255, 255, 255)      # launcher and store icons: white plate like system apps
 ACCENT_BLUE = (59, 130, 246)   # #3b82f6 (--accent)
 
 
 LOGO_MASTER = FRONTEND_DIR / "resources" / "logo-symbol-2048.png"
 
 
-def render_alambic_symbol(symbol_px: int) -> Image.Image:
-    """
-    Returns the Alambic symbol, trimmed to its visible outline and fitted in a
-    symbol_px square. The source is frontend/resources/logo-symbol-2048.png, a
-    browser rendering of frontend/static/favicon.svg (transparent background):
-    re-render it from the SVG whenever the logo changes, so the app icons stay
-    identical to the website logo.
-    """
+def _master_geometry():
+    """Alpha-weighted centre of the logo and the radius of the smallest circle
+    around that centre that contains every visible pixel."""
     master = Image.open(LOGO_MASTER).convert("RGBA")
-    master = master.crop(master.getchannel("A").getbbox())
-    scale = symbol_px / max(master.size)
-    w, h = max(1, round(master.width * scale)), max(1, round(master.height * scale))
-    sym = master.resize((w, h), Image.Resampling.LANCZOS)
-    out = Image.new("RGBA", (symbol_px, symbol_px), (0, 0, 0, 0))
-    out.alpha_composite(sym, ((symbol_px - w) // 2, (symbol_px - h) // 2))
+    alpha = master.getchannel("A")
+    w, h = master.size
+    px = alpha.load()
+    sx = sy = n = 0
+    pts = []
+    for y in range(0, h, 4):
+        for x in range(0, w, 4):
+            if px[x, y] > 40:
+                sx += x; sy += y; n += 1; pts.append((x, y))
+    cx, cy = sx / n, sy / n
+    r = max(((x - cx) ** 2 + (y - cy) ** 2) ** 0.5 for x, y in pts) + 6
+    return master, cx, cy, r
+
+
+def place_symbol(canvas_px: int, radius_ratio: float) -> Image.Image:
+    """
+    Transparent canvas with the logo centred on its visual centre, scaled so the
+    whole outline (including the rotated bottom-left tip) fits in a circle of
+    radius radius_ratio * canvas_px. Launchers crop icons to circles, so fitting
+    a circle rather than the bounding box keeps the tip from being cut.
+    The source is frontend/resources/logo-symbol-2048.png, a browser rendering of
+    frontend/static/favicon.svg: re-render it whenever the logo changes.
+    """
+    master, cx, cy, r = _master_geometry()
+    scale = (radius_ratio * canvas_px) / r
+    sym = master.resize((max(1, round(master.width * scale)), max(1, round(master.height * scale))), Image.Resampling.LANCZOS)
+    out = Image.new("RGBA", (canvas_px, canvas_px), (0, 0, 0, 0))
+    out.alpha_composite(sym, (round(canvas_px / 2 - cx * scale), round(canvas_px / 2 - cy * scale)))
     return out
 
 
@@ -42,12 +60,9 @@ def make_monochrome(size: int) -> Image.Image:
     return white
 
 
-def make_square_icon(size: int, symbol_ratio: float = 0.66, circular_mask: bool = False) -> Image.Image:
-    canvas = Image.new("RGBA", (size, size), BG_COLOR + (255,))
-    sym_px = max(32, int(size * symbol_ratio))
-    sym = render_alambic_symbol(sym_px)
-    offset = ((size - sym_px) // 2, (size - sym_px) // 2)
-    canvas.alpha_composite(sym, offset)
+def make_square_icon(size: int, circular_mask: bool = False) -> Image.Image:
+    canvas = Image.new("RGBA", (size, size), ICON_BG + (255,))
+    canvas.alpha_composite(place_symbol(size, 0.34))
 
     if circular_mask:
         mask = Image.new("L", (size, size), 0)
@@ -61,23 +76,16 @@ def make_square_icon(size: int, symbol_ratio: float = 0.66, circular_mask: bool 
 
 
 def make_adaptive_foreground(size: int) -> Image.Image:
-    canvas = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    # Adaptive icons are 108dp; only the central 66dp circle is always visible.
-    # The symbol fills that safe zone (~60% of the layer) like other launcher icons.
-    sym_px = max(32, int(size * 0.60))
-    sym = render_alambic_symbol(sym_px)
-    offset = ((size - sym_px) // 2, (size - sym_px) // 2)
-    canvas.alpha_composite(sym, offset)
-    return canvas
+    # Adaptive icons are 108dp and only the central 66dp circle (radius 0.305)
+    # is guaranteed visible: the whole logo stays inside a 0.26 radius, with breathing room.
+    return place_symbol(size, 0.26)
 
 
 def make_splash(width: int, height: int) -> Image.Image:
     canvas = Image.new("RGBA", (width, height), BG_COLOR + (255,))
-    min_dim = min(width, height)
-    sym_px = max(96, int(min_dim * 0.24))
-    sym = render_alambic_symbol(sym_px)
-    offset = ((width - sym_px) // 2, (height - sym_px) // 2)
-    canvas.alpha_composite(sym, offset)
+    side = min(width, height)
+    sym = place_symbol(side, 0.13)
+    canvas.alpha_composite(sym, ((width - side) // 2, (height - side) // 2))
     return canvas.convert("RGB")
 
 
@@ -85,9 +93,9 @@ def main() -> None:
     # 1. Store Master Assets (frontend/resources/)
     res_dir = FRONTEND_DIR / "resources"
     res_dir.mkdir(exist_ok=True)
-    icon_1024_rgb = make_square_icon(1024, symbol_ratio=0.66).convert("RGB")
+    icon_1024_rgb = make_square_icon(1024).convert("RGB")
     icon_1024_rgb.save(res_dir / "icon-1024.png", format="PNG")
-    icon_512_rgb = make_square_icon(512, symbol_ratio=0.66).convert("RGB")
+    icon_512_rgb = make_square_icon(512).convert("RGB")
     icon_512_rgb.save(res_dir / "icon-512.png", format="PNG")
     splash_2732 = make_splash(2732, 2732)
     splash_2732.save(res_dir / "splash-2732.png", format="PNG")
@@ -143,7 +151,7 @@ def main() -> None:
         bg_xml.write_text(
             '<?xml version="1.0" encoding="utf-8"?>\n'
             "<resources>\n"
-            '    <color name="ic_launcher_background">#0F172A</color>\n'
+            '    <color name="ic_launcher_background">#FFFFFF</color>\n'
             "</resources>\n",
             encoding="utf-8",
         )
