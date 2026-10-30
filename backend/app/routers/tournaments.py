@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, Request
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from pydantic import BaseModel
@@ -10,11 +10,27 @@ import asyncio
 import json
 import httpx
 
-router = APIRouter(prefix="/tournaments", tags=["Tournaments"])
+async def _hidden_tournament_guard(
+    request: Request,
+    db: Session = Depends(database.get_db),
+    user: Optional[models.User] = Depends(auth.get_optional_user),
+):
+    """A hidden tournament does not exist for anybody but the administrators."""
+    tid = request.path_params.get("tournament_id")
+    if tid is None:
+        return
+    row = db.query(models.Tournament.is_hidden).filter(models.Tournament.id == tid).first()
+    if row and row[0] and not (user and user.is_admin):
+        raise HTTPException(status_code=404, detail="Tournament not found")
+
+
+router = APIRouter(prefix="/tournaments", tags=["Tournaments"], dependencies=[Depends(_hidden_tournament_guard)])
 
 
 async def _notify_match_ready(db: Session, tournament: models.Tournament, match: dict, use_teams: bool = False):
     """Notify players when both opponents in a match are known and the match is ready to be played."""
+    if tournament.is_hidden:
+        return
     p = match.get("p") or []
     if len(p) < 2:
         return
@@ -261,9 +277,15 @@ async def search_game_covers(q: str, db: Session = Depends(database.get_db)):
 # --- TOURNAMENTS ---
 
 @router.get("", response_model=List[schemas.Tournament])
-def list_tournaments(db: Session = Depends(database.get_db)):
-    """Public endpoint — no auth required (for spectator mode)."""
-    return db.query(models.Tournament).all()
+def list_tournaments(
+    db: Session = Depends(database.get_db),
+    user: Optional[models.User] = Depends(auth.get_optional_user),
+):
+    """Public endpoint — no auth required (for spectator mode). Hidden tournaments: admins only."""
+    if user and user.is_admin:
+        return db.query(models.Tournament).all()
+    from ..visibility import visible_tournaments
+    return visible_tournaments(db).all()
 
 @router.post("", response_model=schemas.Tournament)
 async def create_tournament(
@@ -383,7 +405,8 @@ async def update_tournament(
     db.refresh(db_tournament)
     
     tournament_dict = schemas.Tournament.model_validate(db_tournament).model_dump()
-    await manager.broadcast({"type": "tournament_updated", "data": tournament_dict, "tournament_id": tournament_id})
+    if not db_tournament.is_hidden:
+        await manager.broadcast({"type": "tournament_updated", "data": tournament_dict, "tournament_id": tournament_id})
     await manager.broadcast({"type": "tournaments_updated"})
     return db_tournament
 

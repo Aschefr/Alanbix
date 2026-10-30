@@ -58,6 +58,8 @@ def client(db_session):
     app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[get_current_admin] = override_get_current_admin
     app.dependency_overrides[get_current_user] = override_get_current_user
+    from app.auth import get_optional_user
+    app.dependency_overrides[get_optional_user] = override_get_current_user
 
     # Mock IAQueueManager to avoid asyncio event loop conflicts across tests
     with patch("app.ia_queue.queue_manager.start", new_callable=AsyncMock), \

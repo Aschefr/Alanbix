@@ -457,6 +457,16 @@
 		} catch (e) { toast(e.message || 'Erreur', 'error'); }
 	}
 
+	// Hide the tournament from the players (admins keep seeing it): setting up teams, fixing a score, cancelled...
+	async function toggleHidden() {
+		try {
+			await api.put(`/tournaments/${selectedId}`, { is_hidden: !selected.is_hidden });
+			toast($t(selected.is_hidden ? 'tourneys_toast_shown' : 'tourneys_toast_hidden'), 'success');
+			tournaments = await api.get('/tournaments');
+			await selectTournament(selectedId);
+		} catch (e) { toast(e.message || 'Erreur', 'error'); }
+	}
+
 	async function resetTournament() {
 		try {
 			await api.put(`/tournaments/${selectedId}`, { status: 'OPEN', bracket: null });
@@ -885,7 +895,7 @@
 					{#if tourney.status === 'CLOSED'}<div class="t-item-checkered"></div>{/if}
 					<div class="t-item-overlay">
 						<div class="t-item-info">
-							<span class="t-item-name">{tourney.name}</span>
+							<span class="t-item-name">{#if tourney.is_hidden}<Icon name="eye-off" size={13} />{/if} {tourney.name}</span>
 							<span class="t-item-meta">{gameMap[tourney.game_id]?.name || '—'}</span>
 						</div>
 						<span class="t-status-badge {tourney.status.toLowerCase()}">
@@ -911,6 +921,7 @@
 						<span class="status-pill {selected.status.toLowerCase()}">
 							{selected.status === 'OPEN' ? $t('tourneys_status_open') : selected?.status === 'RUNNING' ? $t('tourneys_status_running') : selected.status === 'CLOSED' ? $t('tourneys_status_closed') : $t('tourneys_status_done')}
 						</span>
+						{#if selected.is_hidden}<span class="hidden-pill"><Icon name="eye-off" size={13} /> {$t('tourneys_hidden_badge')}</span>{/if}
 						<h1>{selected.name}</h1>
 						<span class="hero-game">{selectedGame?.name || '—'}</span>
 					</div>
@@ -1031,6 +1042,9 @@
 								{#if selected.status !== 'OPEN' && selected.status !== 'CLOSED'}
 									<button class="admin-btn reset" on:click={resetTournament}><Icon name="refresh" size={15} /> {$t("tourneys_btn_reset")}</button>
 								{/if}
+								<button class="admin-btn" class:hidden-on={selected.is_hidden} on:click={toggleHidden} title={$t(selected.is_hidden ? 'tourneys_hidden_hint' : 'tourneys_btn_hide_hint')}>
+									<Icon name={selected.is_hidden ? 'eye' : 'eye-off'} size={15} /> {$t(selected.is_hidden ? 'tourneys_btn_show' : 'tourneys_btn_hide')}
+								</button>
 								{#if selected.status !== 'CLOSED'}
 									<button class="admin-btn edit" on:click={openEdit}><Icon name="pencil" size={15} /> {$t("tourneys_btn_edit")}</button>
 								{/if}
@@ -1315,6 +1329,9 @@
 						<Icon name="refresh" size={15} /> {$t("tourneys_btn_reset")}
 					</button>
 				{/if}
+				<button class="admin-btn full-width" class:hidden-on={selected.is_hidden} on:click={() => { showMobileAdminModal = false; toggleHidden(); }} style="padding:0.7rem; font-size:0.85rem;">
+					<Icon name={selected.is_hidden ? 'eye' : 'eye-off'} size={15} /> {$t(selected.is_hidden ? 'tourneys_btn_show' : 'tourneys_btn_hide')}
+				</button>
 				{#if selected.status !== 'CLOSED'}
 					<button class="admin-btn edit full-width" on:click={() => { showMobileAdminModal = false; openEdit(); }} style="padding:0.7rem; font-size:0.85rem;">
 						<Icon name="pencil" size={15} /> {$t("tourneys_btn_edit")}
@@ -1443,6 +1460,8 @@
 	}
 	.t-item-overlay { position: absolute; inset: 0; z-index: 2; display: flex; align-items: flex-end; justify-content: space-between; padding: 0.6rem 0.75rem; background: linear-gradient(to top, rgba(10,15,30,0.94) 0%, rgba(10,15,30,0.8) 50%, rgba(10,15,30,0.35) 100%); }
 	.t-item-info { flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.1rem; }
+	.hidden-pill { display: inline-flex; align-items: center; gap: 0.3rem; margin-left: 0.5rem; padding: 0.15rem 0.6rem; border-radius: 999px; font-size: 0.75rem; font-weight: 700; color: var(--warning); background: color-mix(in srgb, var(--warning) 14%, rgba(0,0,0,0.5)); border: 1px solid color-mix(in srgb, var(--warning) 45%, transparent); }
+	.admin-btn.hidden-on { color: var(--warning); border-color: var(--warning); }
 	.t-item-name { font-size: 0.95rem; font-weight: 700; line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-shadow: 0 1px 4px rgba(0,0,0,0.6); }
 	.t-item-meta { font-size: 0.75rem; color: rgba(255,255,255,0.8); text-shadow: 0 1px 2px rgba(0,0,0,0.5); }
 	.t-item.active { outline: 2px solid var(--accent); outline-offset: -2px; }

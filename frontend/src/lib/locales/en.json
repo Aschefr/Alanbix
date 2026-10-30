@@ -1648,5 +1648,12 @@
   "groups_subtitle_one": "The winner of each group qualifies for the knockout.",
   "groups_my_group": "My group",
   "groups_show_matches": "Show matches",
-  "groups_hide_matches": "Hide matches"
+  "groups_hide_matches": "Hide matches",
+  "tourneys_btn_hide": "Hide from players",
+  "tourneys_btn_show": "Make visible",
+  "tourneys_btn_hide_hint": "Players will no longer see this tournament (teams, a score to fix, cancellation...)",
+  "tourneys_hidden_hint": "This tournament is invisible to players. Click to make it visible.",
+  "tourneys_hidden_badge": "Hidden from players",
+  "tourneys_toast_hidden": "Tournament hidden from players",
+  "tourneys_toast_shown": "Tournament visible again"
 }

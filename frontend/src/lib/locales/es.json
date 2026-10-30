@@ -1648,5 +1648,12 @@
   "groups_subtitle_one": "El primero de cada grupo se clasifica para la fase final.",
   "groups_my_group": "Mi grupo",
   "groups_show_matches": "Ver partidos",
-  "groups_hide_matches": "Ocultar partidos"
+  "groups_hide_matches": "Ocultar partidos",
+  "tourneys_btn_hide": "Ocultar a los jugadores",
+  "tourneys_btn_show": "Hacer visible",
+  "tourneys_btn_hide_hint": "Los jugadores ya no verán este torneo (equipos, un resultado por corregir, cancelación...)",
+  "tourneys_hidden_hint": "Este torneo es invisible para los jugadores. Haz clic para hacerlo visible.",
+  "tourneys_hidden_badge": "Oculto a los jugadores",
+  "tourneys_toast_hidden": "Torneo oculto a los jugadores",
+  "tourneys_toast_shown": "Torneo visible de nuevo"
 }

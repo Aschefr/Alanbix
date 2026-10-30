@@ -154,6 +154,14 @@
 	}
 	// group cards: my group first, matches folded away unless it is mine (or the only one)
 	let rrMatchesOpen = {};
+	const RR_CARD_W = 440;
+	$: rrColumns = Math.max(1, Math.min(rrGroups.length, 3));
+	// fit the groups in the frame when they first appear or their number changes
+	let rrFitted = -1;
+	$: if (bracketType === 'round_robin' && viewportEl && canvasEl && rrGroups.length !== rrFitted) {
+		rrFitted = rrGroups.length;
+		setTimeout(() => resetZoom(), 0);
+	}
 	function isMineMatch(m) {
 		return useTeams ? (m.p[0] === myTeamSlotId || m.p[1] === myTeamSlotId) : (m.p[0] === currentUser?.id || m.p[1] === currentUser?.id);
 	}
@@ -446,7 +454,7 @@
 <div class="bracket-section glass" class:bracket-expanded={hasBracket}>
 	<div class="section-title">
 		<h3>{bracketType === 'round_robin' ? $t('admin_tourneys_wizard_format_championship') : bracketType === 'ffa' ? $t('tourneys_format_ffa') : $t('tourneys_tab_bracket')}</h3>
-		{#if hasBracket && bracketType !== 'round_robin'}
+		{#if hasBracket}
 			<button class="btn-secondary btn-xs" on:click={resetZoom}>{$t('tourneys_btn_recenter')}</button>
 		{/if}
 	</div>
@@ -523,8 +531,12 @@
 			</div>
 		{:else if bracketType === 'round_robin'}
 			<!-- Round Robin Table -->
+			<!-- svelte-ignore a11y-no-static-element-interactions -->
+			<div class="bracket-viewport-wrapper">
+			<div class="bracket-viewport" bind:this={viewportEl} on:wheel={onWheel} on:mousedown={onMouseDown} on:touchstart={onTouchStart} on:touchmove={onTouchMove} on:touchend={onTouchEnd} on:touchcancel={onTouchEnd}>
+			<div class="bracket-canvas" bind:this={canvasEl} style="transform: translate({panX}px, {panY}px) scale({scale});">
 			<div class="rr-container">
-				<div class="rr-groups-grid" class:single={rrGroups.length === 1}>
+				<div class="rr-groups-grid" style="grid-template-columns: repeat({rrColumns}, {RR_CARD_W}px);">
 				{#each orderedGroups as group (group.id)}
 					{@const counts = groupCounts(group)}
 					{@const mineGroup = groupHasMine(group)}
@@ -662,6 +674,9 @@
 					</section>
 				{/each}
 				</div>
+			</div>
+			</div>
+			</div>
 			</div>
 		{:else}
 			<!-- Duel Bracket (single/double) -->
@@ -952,9 +967,9 @@
 	.bracket-empty p { margin: 0; font-size: 0.85rem; }
 
 	/* Round Robin */
-	/* the groups scroll inside the section: the page itself does not scroll */
-	.rr-container { padding: 0.5rem; display: flex; flex-direction: column; gap: 1rem; flex: 1 1 0; min-height: 0; overflow-y: auto; }
-	.rr-groups-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 440px), 1fr)); gap: 1rem; align-items: start; }
+	/* the groups live in the zoomable / draggable canvas, like the elimination bracket */
+	.rr-container { padding: 0.25rem; }
+	.rr-groups-grid { display: grid; gap: 1rem; align-items: start; }
 	@media (max-width: 640px) {
 		.rr-match .seat-badge { display: none; }
 		.rr-match.bool-row .rr-p:first-child, .rr-match.bool-row .rr-p:last-child { justify-content: flex-start; text-align: left; }

@@ -365,7 +365,7 @@
 			const [userRes, statsRes, tournamentsRes, layoutRes, roomUsersRes, gamesRes, teamLbRes] = await Promise.all([
 				api.get('/me').catch(() => user || null),
 				api.get('/dashboard/stats').catch(() => stats || { tournaments: 0, players: 0, leaderboard: [] }),
-				api.get('/tournaments').catch(() => tournaments || []),
+				api.get('/tournaments').then(list => (list || []).filter(t => !t.is_hidden)).catch(() => tournaments || []),
 				api.get('/room/layout').catch(() => ({ layout: { seats: [], tables: [], furniture: [] } })),
 				api.get('/room/users').catch(() => []),
 				api.get('/tournaments/games').catch(() => []),

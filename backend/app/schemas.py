@@ -63,6 +63,7 @@ class TournamentUpdate(BaseModel):
     config: Optional[Any] = None
     bracket: Optional[Any] = None
     points_per_win: Optional[int] = None
+    is_hidden: Optional[bool] = None
 
 class TournamentParticipant(BaseModel):
     id: int
@@ -74,6 +75,7 @@ class Tournament(TournamentBase):
     id: int
     status: str
     points_per_win: Optional[int] = 3
+    is_hidden: Optional[bool] = False
     participants: List[TournamentParticipant] = []
     model_config = ConfigDict(from_attributes=True)
 

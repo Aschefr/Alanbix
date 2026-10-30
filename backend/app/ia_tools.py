@@ -7,6 +7,7 @@ import json
 import datetime
 import difflib
 from typing import Any, Dict, Optional
+from .visibility import visible_tournaments
 
 
 def _find_best_match(query: str, possibilities: list[str], cutoff: float = 0.55) -> Optional[str]:
@@ -692,7 +693,7 @@ async def execute_tool(name: str, arguments: Dict[str, Any], user_id: int = 0, o
 
 def _tool_get_tournaments(db, models, args: dict) -> str:
     """List tournaments with optional status filter."""
-    query = db.query(models.Tournament)
+    query = visible_tournaments(db)
     status = args.get("status")
     if status:
         query = query.filter(models.Tournament.status == status)
@@ -727,7 +728,7 @@ def _tool_get_tournament_standings(db, models, args: dict) -> str:
     if not search:
         return json.dumps({"error": "Nom du tournoi requis"})
 
-    all_tournaments = db.query(models.Tournament).all()
+    all_tournaments = visible_tournaments(db).all()
     tournaments_map = {t.name: t for t in all_tournaments}
     best_name = _find_best_match(search, list(tournaments_map.keys()))
 
@@ -815,7 +816,7 @@ def _tool_get_player_info(db, models, args: dict, user_id: int) -> str:
     tournament_ids = [p.tournament_id for p in participations]
     tournament_names = []
     for tid in tournament_ids:
-        t = db.query(models.Tournament).filter(models.Tournament.id == tid).first()
+        t = visible_tournaments(db).filter(models.Tournament.id == tid).first()
         if t:
             tournament_names.append({"name": t.name, "status": t.status})
 
@@ -859,7 +860,7 @@ def _tool_get_my_matches(db, models, args: dict, user_id: int) -> str:
             return json.dumps({"error": "Utilisateur courant introuvable"})
 
     # Find running/done tournaments where this user participates
-    running = db.query(models.Tournament).filter(
+    running = visible_tournaments(db).filter(
         models.Tournament.status.in_(["RUNNING", "DONE"])
     ).all()
 
@@ -949,7 +950,7 @@ def _tool_get_games(db, models, args: dict) -> str:
         games = db.query(models.Game).order_by(models.Game.name).all()
     result = []
     for g in games[:30]:
-        tournament_count = db.query(models.Tournament).filter(
+        tournament_count = visible_tournaments(db).filter(
             models.Tournament.game_id == g.id
         ).count()
         result.append({
@@ -979,8 +980,8 @@ def _tool_get_event_info(db, models, args: dict) -> str:
 
     # Stats
     players = db.query(models.User).count()
-    tournaments = db.query(models.Tournament).count()
-    active = db.query(models.Tournament).filter(models.Tournament.status == "RUNNING").count()
+    tournaments = visible_tournaments(db).count()
+    active = visible_tournaments(db).filter(models.Tournament.status == "RUNNING").count()
 
     return json.dumps({
         "event_name": event_name,
@@ -1365,7 +1366,7 @@ def _resolve_entity_name(db, models, entity_id, use_teams: bool, tournament_id: 
 
 def _tool_get_live_matches(db, models, args: dict) -> str:
     """List matches currently in progress in active tournaments (status = RUNNING)."""
-    running_tournaments = db.query(models.Tournament).filter(
+    running_tournaments = visible_tournaments(db).filter(
         models.Tournament.status == "RUNNING"
     ).all()
     
@@ -1463,7 +1464,7 @@ def _tool_get_team_roster(db, models, args: dict) -> str:
     
     t_teams_list = []
     for tt in tournament_teams:
-        t = db.query(models.Tournament).filter(models.Tournament.id == tt.tournament_id).first()
+        t = visible_tournaments(db).filter(models.Tournament.id == tt.tournament_id).first()
         t_name = t.name if t else "?"
         
         m_relations = db.query(models.TournamentTeamMember).filter(
@@ -1513,7 +1514,7 @@ def _tool_get_player_match_history(db, models, args: dict, user_id: int) -> str:
         if not user:
             return json.dumps({"error": "Utilisateur courant introuvable"}, ensure_ascii=False)
 
-    tournaments = db.query(models.Tournament).all()
+    tournaments = visible_tournaments(db).all()
     history = []
     
     for t in tournaments:
@@ -1624,7 +1625,7 @@ def _tool_get_awards(db, models) -> str:
 
 def _tool_get_upcoming_matches(db, models, args: dict) -> str:
     """List unplayed matches where both players/teams are known in running tournaments."""
-    running_tournaments = db.query(models.Tournament).filter(
+    running_tournaments = visible_tournaments(db).filter(
         models.Tournament.status == "RUNNING"
     ).all()
     
@@ -1715,7 +1716,7 @@ def _tool_get_player_rank_progression(db, models, args: dict, user_id: int) -> s
         if not user:
             return json.dumps({"error": "Utilisateur courant introuvable"}, ensure_ascii=False)
             
-    closed_tournaments = db.query(models.Tournament).filter(
+    closed_tournaments = visible_tournaments(db).filter(
         models.Tournament.status == "CLOSED"
     ).order_by(models.Tournament.id.asc()).all()
     
@@ -1796,7 +1797,7 @@ def _tool_get_bracket_detail(db, models, args: dict) -> str:
     if not search:
         return json.dumps({"error": "Nom du tournoi requis"}, ensure_ascii=False)
         
-    all_tournaments = db.query(models.Tournament).all()
+    all_tournaments = visible_tournaments(db).all()
     tournaments_map = {t.name: t for t in all_tournaments}
     best_name = _find_best_match(search, list(tournaments_map.keys()))
     if not best_name:
@@ -1865,7 +1866,7 @@ def _tool_get_leaderboard_by_game(db, models, args: dict) -> str:
         
     game = games_map[best_name]
     
-    tournaments = db.query(models.Tournament).filter(
+    tournaments = visible_tournaments(db).filter(
         models.Tournament.game_id == game.id
     ).all()
     
@@ -1911,7 +1912,7 @@ def _tool_get_tournament_bracket_path(db, models, args: dict, user_id: int) -> s
     if not t_search:
         return json.dumps({"error": "Nom du tournoi requis"}, ensure_ascii=False)
         
-    all_tournaments = db.query(models.Tournament).all()
+    all_tournaments = visible_tournaments(db).all()
     t_map = {t.name: t for t in all_tournaments}
     best_t_name = _find_best_match(t_search, list(t_map.keys()))
     if not best_t_name:
