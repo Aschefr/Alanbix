@@ -96,8 +96,18 @@
 		}
 	}
 
+	// The permission can change outside this layout (Settings page, browser
+	// site settings): read it again on navigation, focus and permission changes
+	function refreshBrowserNotifStatus() {
+		if (typeof window !== 'undefined' && 'Notification' in window && !isCapacitorNative()) {
+			browserNotifStatus = Notification.permission;
+		}
+	}
+
 	$: if ($page.url) {
 		refreshNotifPrefs();
+		refreshBrowserNotifStatus();
+		checkNativeNotifOperational();
 	}
 
 	async function checkNativeNotifOperational() {
@@ -365,7 +375,11 @@
 		if ('Notification' in window) {
 			browserNotifSupport = true;
 			browserNotifStatus = Notification.permission;
+			navigator.permissions?.query({ name: 'notifications' })
+				.then((status) => { status.onchange = refreshBrowserNotifStatus; })
+				.catch(() => {});
 		}
+		window.addEventListener('focus', refreshBrowserNotifStatus);
 		// Listen for page focus to handle notification click navigation
 		window.addEventListener('focus', handleNotifNav);
 		document.addEventListener('visibilitychange', () => {
