@@ -1,0 +1,12 @@
+# Dev image build context (docker-compose.yml): keep data and local env out.
+data
+*.db
+*.db-*
+.secret_key
+venv
+.venv
+__pycache__
+*.py[cod]
+.pytest_cache
+frontend_dist
+static/uploads
