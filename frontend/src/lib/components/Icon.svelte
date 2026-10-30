@@ -60,6 +60,72 @@
   {:else if name === 'bell'}
     <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
     <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+  {:else if name === 'zap'}
+    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+  {:else if name === 'battery'}
+    <rect width="16" height="10" x="2" y="7" rx="2" ry="2" />
+    <line x1="22" x2="22" y1="11" y2="13" />
+    <line x1="6" x2="6" y1="11" y2="13" />
+    <line x1="10" x2="10" y1="11" y2="13" />
+  {:else if name === 'vibrate'}
+    <path d="m2 8 2 2-2 2 2 2-2 2" />
+    <path d="m22 8-2 2 2 2-2 2 2 2" />
+    <path d="M8 8v10c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2" />
+    <path d="M16 10V6c0-.55-.45-1-1-1H9c-.55 0-1 .45-1 1v2" />
+  {:else if name === 'smartphone'}
+    <rect width="14" height="20" x="5" y="2" rx="2" ry="2" />
+    <path d="M12 18h.01" />
+  {:else if name === 'monitor'}
+    <rect width="20" height="14" x="2" y="3" rx="2" />
+    <line x1="8" x2="16" y1="21" y2="21" />
+    <line x1="12" x2="12" y1="17" y2="21" />
+  {:else if name === 'lock'}
+    <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+  {:else if name === 'moon'}
+    <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+  {:else if name === 'sun'}
+    <circle cx="12" cy="12" r="4" />
+    <path d="M12 2v2" /><path d="M12 20v2" />
+    <path d="m4.93 4.93 1.41 1.41" /><path d="m17.66 17.66 1.41 1.41" />
+    <path d="M2 12h2" /><path d="M20 12h2" />
+    <path d="m6.34 17.66-1.41 1.41" /><path d="m19.07 4.93-1.41 1.41" />
+  {:else if name === 'palette'}
+    <circle cx="13.5" cy="6.5" r=".5" fill="currentColor" />
+    <circle cx="17.5" cy="10.5" r=".5" fill="currentColor" />
+    <circle cx="8.5" cy="7.5" r=".5" fill="currentColor" />
+    <circle cx="6.5" cy="12.5" r=".5" fill="currentColor" />
+    <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z" />
+  {:else if name === 'server'}
+    <rect width="20" height="8" x="2" y="2" rx="2" ry="2" />
+    <rect width="20" height="8" x="2" y="14" rx="2" ry="2" />
+    <line x1="6" x2="6.01" y1="6" y2="6" />
+    <line x1="6" x2="6.01" y1="18" y2="18" />
+  {:else if name === 'wifi'}
+    <path d="M5 13a10 10 0 0 1 14 0" />
+    <path d="M8.5 16.5a5 5 0 0 1 7 0" />
+    <path d="M2 8.82a15 15 0 0 1 20 0" />
+    <line x1="12" x2="12.01" y1="20" y2="20" />
+  {:else if name === 'megaphone'}
+    <path d="m3 11 18-5v12L3 14v-3z" />
+    <path d="M11.6 16.8a3 3 0 1 1-5.8-1.6" />
+  {:else if name === 'crown'}
+    <path d="m2 4 3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14" />
+  {:else if name === 'flask'}
+    <path d="M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a1 1 0 0 0 .9 1.45h12.76a1 1 0 0 0 .9-1.45l-5.069-10.127A2 2 0 0 1 14 9.527V2" />
+    <path d="M8.5 2h7" />
+    <path d="M7 16h10" />
+  {:else if name === 'alert-triangle'}
+    <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" />
+    <path d="M12 9v4" />
+    <path d="M12 17h.01" />
+  {:else if name === 'x-circle'}
+    <circle cx="12" cy="12" r="10" />
+    <path d="m15 9-6 6" />
+    <path d="m9 9 6 6" />
+  {:else if name === 'check-circle'}
+    <circle cx="12" cy="12" r="10" />
+    <path d="m9 12 2 2 4-4" />
   {:else if name === 'bell-off'}
     <path d="M8.7 3A6 6 0 0 1 18 8a21.3 21.3 0 0 0 .6 5" />
     <path d="M17 17H3s3-2 3-9a4.67 4.67 0 0 1 .3-1.7" />

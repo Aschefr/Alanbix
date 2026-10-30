@@ -1587,5 +1587,7 @@
   "map_free_all_yes": "Yes, free all",
   "server_modal_other_addresses": "+ {n} other address(es)",
   "mobile_lb_show_all": "Show all",
-  "mobile_lb_show_top3": "Top 3"
+  "mobile_lb_show_top3": "Top 3",
+  "settings_theme_opt_dark": "Dark",
+  "settings_theme_opt_light": "Light"
 }
