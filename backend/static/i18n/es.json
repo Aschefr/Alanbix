@@ -1602,5 +1602,6 @@
   "admin_tourneys_edit_rr_options": "Opciones de la liga",
   "admin_players_modal_edit_title_short": "Editar jugador",
   "admin_players_modal_reset_pwd_title_short": "Restablecer contraseña",
-  "mobile_score_ffa_mine": "Tu puntuación"
+  "mobile_score_ffa_mine": "Tu puntuación",
+  "admin_tourneys_edit_locked_hint": "El torneo ha comenzado: el formato y el modo de juego están bloqueados. Reinicia el torneo para cambiarlos."
 }

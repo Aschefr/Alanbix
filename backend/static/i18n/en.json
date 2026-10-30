@@ -1602,5 +1602,6 @@
   "admin_tourneys_edit_rr_options": "League options",
   "admin_players_modal_edit_title_short": "Edit player",
   "admin_players_modal_reset_pwd_title_short": "Reset password",
-  "mobile_score_ffa_mine": "Your score"
+  "mobile_score_ffa_mine": "Your score",
+  "admin_tourneys_edit_locked_hint": "The tournament has started: format and play mode are locked. Reset the tournament to change them."
 }

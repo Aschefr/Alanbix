@@ -307,6 +307,31 @@ async def update_tournament(
         raise HTTPException(status_code=404, detail="Tournament not found")
         
     update_data = tournament_update.model_dump(exclude_unset=True)
+
+    # Once the bracket exists, the structure that produced it cannot change under it
+    # (unless the same request resets the tournament to OPEN, which wipes the bracket).
+    if db_tournament.bracket and update_data.get("status") != "OPEN" and isinstance(update_data.get("config"), dict):
+        old_cfg = db_tournament.config or {}
+        new_cfg = update_data["config"]
+        defaults = {"bracket_type": "single_elim", "use_teams": False, "phases": "single",
+                    "lower_score_is_better": False, "boolean_mode": False, "allow_draws": False, "meet_twice": False}
+        structural = ("bracket_type", "use_teams", "phases", "lower_score_is_better", "boolean_mode",
+                      "allow_draws", "meet_twice", "team_size", "group_size", "advancers_count", "ffa_group_size")
+        for key in structural:
+            if key not in new_cfg:
+                continue
+            if key in defaults:
+                before = old_cfg.get(key, defaults[key])
+            elif key in old_cfg:
+                before = old_cfg[key]
+            else:
+                continue
+            if new_cfg[key] != before:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Le tournoi a déjà démarré : sa structure ne peut plus être modifiée. Réinitialisez-le pour la changer."
+                )
+
     if "game_id" in update_data:
         new_gid = update_data["game_id"]
         if new_gid is not None:

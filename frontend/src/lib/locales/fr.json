@@ -1614,5 +1614,6 @@
   "admin_tourneys_edit_rr_options": "Options du championnat",
   "admin_players_modal_edit_title_short": "Modifier le joueur",
   "admin_players_modal_reset_pwd_title_short": "Réinitialiser le mot de passe",
-  "mobile_score_ffa_mine": "Votre score"
+  "mobile_score_ffa_mine": "Votre score",
+  "admin_tourneys_edit_locked_hint": "Le tournoi a démarré : le format et le mode de jeu sont verrouillés. Réinitialisez le tournoi pour les modifier."
 }

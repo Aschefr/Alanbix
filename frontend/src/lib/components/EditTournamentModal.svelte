@@ -11,6 +11,8 @@
 	export let games = [];
 
 	let editConfig = {};
+	// the bracket already exists: the structure that produced it is frozen
+	$: locked = !!(tournament && tournament.bracket && tournament.bracket.length > 0);
 	let lastTournamentId = null;
 	let lastShow = false;
 	let overlayMouseDown = false;
@@ -130,15 +132,15 @@
 						<div class="edit-field">
 							<span class="edit-label">{$t("admin_tourneys_wizard_mode_lbl")}</span>
 							<div class="edit-toggle-row">
-								<button type="button" class="edit-toggle {!editConfig.use_teams ? 'active' : ''}" on:click={() => editConfig.use_teams = false}><Icon name="user" size={14} /> {$t("admin_tourneys_wizard_mode_solo")}</button>
-								<button type="button" class="edit-toggle {editConfig.use_teams ? 'active' : ''}" on:click={() => editConfig.use_teams = true}><Icon name="users" size={14} /> {$t("admin_tourneys_wizard_mode_teams")}</button>
+								<button type="button" disabled={locked} class="edit-toggle {!editConfig.use_teams ? 'active' : ''}" on:click={() => editConfig.use_teams = false}><Icon name="user" size={14} /> {$t("admin_tourneys_wizard_mode_solo")}</button>
+								<button type="button" disabled={locked} class="edit-toggle {editConfig.use_teams ? 'active' : ''}" on:click={() => editConfig.use_teams = true}><Icon name="users" size={14} /> {$t("admin_tourneys_wizard_mode_teams")}</button>
 							</div>
 						</div>
 
 						{#if editConfig.use_teams}
 							<div class="edit-field anim-fade-in">
 								<label for="edit-team-size">{$t("admin_tourneys_wizard_team_size")}</label>
-								<input id="edit-team-size" type="number" bind:value={editConfig.team_size} min="2" max="16" />
+								<input id="edit-team-size" type="number" bind:value={editConfig.team_size} min="2" max="16" disabled={locked} />
 							</div>
 							<div class="edit-field anim-fade-in">
 								<label for="edit-lock-mode"><Icon name="lock" size={14} /> {$t("tourneys_edit_lock_mode_lbl")}</label>
@@ -157,8 +159,12 @@
 					</div>
 				</section>
 
+				{#if locked}
+					<p class="edit-lock-note"><Icon name="lock" size={15} /> {$t('admin_tourneys_edit_locked_hint')}</p>
+				{/if}
+
 				<!-- Format -->
-				<section class="edit-section">
+				<fieldset class="edit-section" disabled={locked}>
 					<h4 class="edit-section-title"><Icon name="trophy" size={16} /> {$t("admin_tourneys_edit_format_title")}</h4>
 					<div class="edit-field">
 						<span class="edit-label">{$t("admin_tourneys_wizard_format_lbl")}</span>
@@ -216,10 +222,10 @@
 							</div>
 						</div>
 					{/if}
-				</section>
+				</fieldset>
 
 				<!-- Structure -->
-				<section class="edit-section">
+				<fieldset class="edit-section" disabled={locked}>
 					<h4 class="edit-section-title"><Icon name="layers" size={16} /> {$t("admin_tourneys_wizard_struct_lbl")}</h4>
 					<div class="edit-toggle-row">
 						<button type="button" class="edit-toggle {editConfig.phases === 'single' ? 'active' : ''}" on:click={() => editConfig.phases = 'single'}>{$t("admin_tourneys_wizard_struct_ffa")}</button>
@@ -238,7 +244,7 @@
 							</div>
 						</div>
 					{/if}
-				</section>
+				</fieldset>
 
 				<!-- Points -->
 				<section class="edit-section">
@@ -276,6 +282,10 @@
 {/if}
 
 <style>
+	fieldset.edit-section { min-width: 0; margin: 0; }
+	fieldset.edit-section:disabled { opacity: 0.55; }
+	.edit-lock-note { display: flex; align-items: center; gap: 0.5rem; margin: 0; padding: 0.6rem 0.9rem; border-radius: var(--radius-md); font-size: 0.8125rem; color: var(--warning); background: color-mix(in srgb, var(--warning) 10%, transparent); border: 1px solid color-mix(in srgb, var(--warning) 30%, transparent); }
+	.edit-toggle:disabled { cursor: not-allowed; }
 	.edit-pts-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0.75rem; }
 	@media (max-width: 640px) { .edit-pts-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 	.edit-field textarea { resize: vertical; }
