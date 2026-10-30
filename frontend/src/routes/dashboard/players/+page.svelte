@@ -61,7 +61,7 @@
 		isResizing = false;
 		document.body.style.cursor = '';
 		document.body.style.userSelect = '';
-		localStorage.setItem('alanbix_chat_width', chatWidth);
+		localStorage.setItem('alanbix_chat_width_v2', chatWidth);
 		window.removeEventListener('mousemove', doResize);
 		window.removeEventListener('mouseup', stopResize);
 	}
@@ -120,8 +120,9 @@
 		}
 
 		// Restore chat width
-		const savedWidth = localStorage.getItem('alanbix_chat_width');
-		if (savedWidth) chatWidth = parseInt(savedWidth);
+		// The conversation gets the larger share by default; the list stays compact
+		const savedWidth = localStorage.getItem('alanbix_chat_width_v2');
+		chatWidth = savedWidth ? parseInt(savedWidth) : Math.round(window.innerWidth * 0.45);
 
 		// Restore last selected chat from localStorage (desktop only; on mobile, start on conversation list unless deep-linked)
 		const isMobileViewport = typeof window !== 'undefined' && window.innerWidth <= 900;
@@ -424,7 +425,7 @@
 </script>
 
 <div class="players-page animate-in" class:chat-active-mobile={chatMode !== null}>
-	<header class="players-header glass">
+	<header class="players-header">
 		<h1 class="title-premium"><span class="title-icon">👥</span> {$t('players_title')}</h1>
 		<span class="player-count">{$t('players_subtitle', { count: players.length, plural: players.length > 1 ? 's' : '' })}</span>
 	</header>
@@ -726,7 +727,7 @@
 
 <style>
 	.players-page { display: flex; flex-direction: column; gap: 1rem; height: 100%; }
-	.players-header { display: flex; align-items: center; justify-content: space-between; padding: 1.2rem 2rem; border-radius: 16px; flex-shrink: 0; }
+	.players-header { display: flex; align-items: center; justify-content: space-between; padding: 0.25rem 0.25rem 0.5rem; flex-shrink: 0; background: none; border: none; box-shadow: none; backdrop-filter: none; }
 	.players-header h1 { margin: 0; font-size: var(--fs-page); }
 	.player-count { font-size: 0.75rem; font-weight: 700; padding: 0.25rem 0.8rem; border-radius: 20px; background: rgba(59,130,246,0.1); color: var(--accent); border: 1px solid rgba(59,130,246,0.25); }
 
@@ -783,7 +784,7 @@
 	}
 	.player-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 	.player-username { font-weight: 700; font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-	.player-pts { font-size: 0.6rem; color: var(--text-muted); font-weight: 600; }
+	.player-pts { font-size: 0.75rem; color: var(--text-muted); font-weight: 600; }
 
 	/* Per-player unread badge */
 	.player-unread-badge {
