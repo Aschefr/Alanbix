@@ -1239,8 +1239,7 @@
 					mode={selected.status === 'CLOSED' ? 'results' : 'live'}
 					{selected}
 					results={selected.results}
-					{standingsData}
-					{liveStandings}
+					{displayStandings}
 					{teams}
 					{useTeams}
 				/>
