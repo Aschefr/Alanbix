@@ -10,6 +10,7 @@
 	import { t } from '$lib/i18nStore';
 
 	import PublicChat from '$lib/components/PublicChat.svelte';
+	import { fitPane } from '$lib/mobileViewport';
 
 	import Icon from '$lib/components/Icon.svelte';
 	import { goto } from '$app/navigation';
@@ -721,7 +722,7 @@
 
 
 
-<div class="hq-dashboard">
+<div class="hq-dashboard" class:chat-fill={mobileActiveTab === 'chat'}>
 
 	<!-- MOBILE-ONLY HEADER TABS (<= 900px) -->
 
@@ -1038,7 +1039,7 @@
 
 	<!-- MOBILE VIEW: PUBLIC CHAT TAB -->
 
-	<div class="mobile-tab-content mobile-chat-panel mobile-only" class:hidden-on-mobile={mobileActiveTab !== 'chat'}>
+	<div class="mobile-tab-content mobile-chat-panel mobile-only" class:hidden-on-mobile={mobileActiveTab !== 'chat'} use:fitPane={mobileActiveTab === 'chat'}>
 
 		<PublicChat
 
@@ -1515,6 +1516,8 @@
 
 		}
 
+		.hq-dashboard.chat-fill { min-height: 0; }
+
 
 
 		/* Glued under the mobile top bar, full width and same surface, so the
@@ -1641,7 +1644,10 @@
 
 		.mobile-chat-panel {
 
-			height: calc(100vh - 170px);
+			/* fills the space down to the tab bar (measured), nothing left blank under the input */
+			height: var(--pane-h, calc(100vh - 170px));
+			padding-bottom: 0;
+
 
 			border-radius: 14px;
 

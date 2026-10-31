@@ -29,6 +29,8 @@
 - **Small phones (320 px) in the administration**: the "Test validity" button of the image search service and the latency badges of the AI instances wrap instead of overflowing; the monospace text of the AI prompt viewers uses the generic monospace font.
 - **Top bar on very small phones**: the brand shrinks and the buttons tighten below 380 px so the settings button is no longer cut off and the page no longer scrolls sideways at 320 px.
 - **Administration, AI conversations on a phone like a messaging app**: tapping a conversation opens it full screen (title, player and "Take over" on top, back arrow to the list, input above the tab bar, messages follow the on-screen keyboard); the title and tabs of the page and the call/suggestion cards step aside while it is open.
+- **Home chat on a phone fills the screen**: the General Chat card now runs down to the tab bar (no blank band under the input) and follows the on-screen keyboard.
+- **Knowledge base editing on a phone**: the "Cancel" and "Save & re-vectorise" buttons stay inside their card and the document list no longer scrolls inside itself.
 - **AI assistant on a phone**: the input field is no longer hidden under the bottom tab bar.
 - **Profile on a phone**: the "insult filter" switch is drawn from its own track so the thumb stays inside it on every browser (Firefox included); the points history cards have a visible border and background.
 - **System theme by default**: the app follows the device's light or dark setting (and changes with it); Settings now offer System / Dark / Light, and an explicit choice is kept. The browser and phone status bar take the theme colour.

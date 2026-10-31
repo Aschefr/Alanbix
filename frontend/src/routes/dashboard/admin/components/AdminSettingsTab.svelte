@@ -1706,7 +1706,11 @@
 	.rag-item-editing { border-color: rgba(59,130,246,0.3); background: rgba(59,130,246,0.05); }
 	.rag-edit-textarea { width: 100%; min-height: 120px; resize: vertical; border-radius: 6px; border: 1px solid var(--glass-border); background: var(--bg-secondary); color: var(--text-main); padding: 0.5rem; font-size: 0.75rem; font-family: inherit; line-height: 1.5; margin-top: 0.3rem; }
 	.rag-edit-textarea:focus { outline: none; border-color: var(--accent); }
-	.rag-edit-actions { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.4rem; justify-content: flex-end; }
+	.rag-edit-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.4rem; justify-content: flex-end; }
+	.rag-edit-actions button { max-width: 100%; white-space: normal; }
+	/* editing a document: the list grows instead of scrolling inside itself; on a phone it never scrolls inside itself */
+	.rag-list:has(.rag-item-editing) { max-height: none; }
+	@media (max-width: 900px) { .rag-list { max-height: none; } }
 	.rag-edit-chars { font-size: 0.75rem; color: var(--text-muted); margin-right: auto; }
 	.rag-edit-loading { font-size: 0.75rem; color: var(--text-muted); padding: 0.5rem 0; }
 	.rag-vectorize-anim { position: relative; margin-top: 0.5rem; padding: 0.6rem 0.8rem; border-radius: 8px; overflow: hidden; background: rgba(99,102,241,0.06); border: 1px solid rgba(99,102,241,0.15); }
@@ -1987,6 +1991,7 @@
 	.settings-section { grid-column: 1 / -1; display: flex; align-items: center; gap: 0.6rem; scroll-margin-top: 4.5rem; font-family: var(--font-title); font-size: 1.1rem; font-weight: 700; color: var(--text-main); margin: 1rem 0 -0.25rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--glass-border); }
 	.settings-section:first-child { margin-top: 0; }
 	.ss-icon { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 8px; background: var(--accent-soft); color: var(--accent); flex-shrink: 0; }
+	.settings-section { padding-right: 0.35rem; }
 	.ss-sum { margin-left: auto; max-width: 50%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-main); font-size: 0.78rem; font-weight: 600; color: var(--text-dim); }
 	.ss-dot { margin-left: auto; width: 10px; height: 10px; border-radius: 50%; background: var(--text-dim); opacity: 0.6; }
 	.ss-dot.on { background: var(--success); opacity: 1; box-shadow: 0 0 6px color-mix(in srgb, var(--success) 60%, transparent); }
