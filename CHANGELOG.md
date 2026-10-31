@@ -9,6 +9,8 @@
 - **Keyboard gap and conversation opened from a scrolled list**: the conversation no longer loses its input-to-tab-bar layout when opened while the contact list was scrolled, and the remaining gap above the keyboard is closed.
 - **Conversation without a frame on a phone**: the open conversation runs edge to edge between the top bar and the tab bar instead of sitting in a bordered card.
 - **Keyboard keeps the conversation in place**: when the on-screen keyboard opens (or the text field grows), the messages scroll with it so the last ones stay visible just above the field, like a messaging app.
+- **Messages list on a phone**: it keeps its scroll position when you come back from a conversation, and the "Resume conversation" button and the unread-messages chips float at the top while the list scrolls.
+- **Conversation opens at the bottom**: a leftover scroll offset of about 20 px when opening a conversation is gone.
 - **AI assistant on a phone**: the input field is no longer hidden under the bottom tab bar.
 - **Profile on a phone**: the "insult filter" switch is drawn from its own track so the thumb stays inside it on every browser (Firefox included); the points history cards have a visible border and background.
 - **System theme by default**: the app follows the device's light or dark setting (and changes with it); Settings now offer System / Dark / Light, and an explicit choice is kept. The browser and phone status bar take the theme colour.

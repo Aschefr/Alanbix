@@ -312,6 +312,7 @@
 	function scrollToBottom(behavior = 'smooth') {
 		if (!chatScrollEl) return;
 		chatScrollEl.scrollTo({ top: chatScrollEl.scrollHeight, behavior });
+		distFromBottom = 0;
 		showScrollToBottom = false;
 		unreadCountSinceScroll = 0;
 	}

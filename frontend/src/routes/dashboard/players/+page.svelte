@@ -327,6 +327,7 @@
 	// --- P2P Chat ---
 	async function openChat(peerId) {
 		if (peerId === currentUser?.id) return;
+		rememberListScroll();
 		chatMode = 'p2p';
 		chatPeerId = peerId;
 		const found = players.find(p => p.id === peerId);
@@ -358,6 +359,7 @@
 	}
 
 	async function openGroupChat(channelKey) {
+		rememberListScroll();
 		chatMode = 'group';
 		chatChannelKey = channelKey;
 		chatPeerId = null;
@@ -369,6 +371,12 @@
 		localStorage.setItem('alanbix_players_group_chat', channelKey);
 		localStorage.removeItem('alanbix_players_chat');
 		await loadGroupUnreadMap();
+	}
+
+	// Phone: the contact list keeps its scroll position while a conversation is open
+	let listScrollY = 0;
+	function rememberListScroll() {
+		if (chatMode === null && typeof window !== 'undefined') listScrollY = window.scrollY;
 	}
 
 	// Phone: the conversation left through the back arrow, offered again from the contact list
@@ -386,6 +394,8 @@
 	}
 
 	function closeChat() {
+		const restoreY = listScrollY;
+		tick().then(() => tick()).then(() => window.scrollTo(0, restoreY));
 		if (chatMode === 'p2p' && chatPeerId) {
 			resumable = { kind: 'p2p', peerId: chatPeerId, label: chatPeer?.username || '' };
 		} else if (chatMode === 'group' && chatChannelKey) {
@@ -466,6 +476,7 @@
 	<div class="players-layout" style="grid-template-columns: minmax(0, 1fr) 8px {chatWidth}px;">
 		<!-- LEFT: Player directory -->
 		<div class="directory-col" class:mobile-hidden={chatMode !== null}>
+			<div class="float-stack">
 			{#if resumable && chatMode === null}
 				<button type="button" class="resume-chat-bar glass" on:click={resumeChat}>
 					<Icon name="chat" size={15} />
@@ -528,6 +539,7 @@
 					</div>
 				</div>
 			{/if}
+			</div>
 
 			{#if currentUser?.team_name}
 				<button type="button" class="my-team-quick-bar glass" on:click={(e) => openTeamChat(e, currentUser.team_name)}>
@@ -770,9 +782,14 @@
 	.players-page { display: flex; flex-direction: column; gap: 1rem; height: 100%; }
 	.players-header { display: flex; align-items: center; justify-content: space-between; padding: 0.25rem 0.25rem 0.5rem; flex-shrink: 0; background: none; border: none; box-shadow: none; backdrop-filter: none; }
 	.players-header h1 { margin: 0; font-size: var(--fs-page); }
+	.float-stack { display: contents; }
 	.resume-chat-bar { display: none; }
 	@media (max-width: 900px) {
 		.resume-chat-bar { display: flex; align-items: center; gap: 0.6rem; width: 100%; padding: 0.7rem 0.9rem; margin-bottom: 0.6rem; border-radius: var(--radius-md); border: 1px solid var(--accent); color: var(--accent); font-weight: 700; font-size: 0.85rem; cursor: pointer; text-align: left; }
+		/* the resume bar and the unread chips float at the top of the list while it scrolls */
+		.players-page:not(.chat-active-mobile) .players-layout, .players-page:not(.chat-active-mobile) .directory-col { overflow: visible; }
+		.float-stack { display: block; position: sticky; top: calc(var(--mobile-top-h, 42px) + 6px); z-index: 20; }
+		.float-stack .resume-chat-bar, .float-stack .unread-shortlist-bar { background: var(--bg-secondary) !important; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18); }
 		.resume-chat-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	}
 	.player-count { font-size: 0.75rem; font-weight: 700; padding: 0.25rem 0.8rem; border-radius: 20px; background: rgba(59,130,246,0.1); color: var(--accent); border: 1px solid rgba(59,130,246,0.25); }
