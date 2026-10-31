@@ -121,6 +121,37 @@
 	let nukeConfirm = { tournaments: false, players: false, games: false, images: false, notifications: false, awards: false };
 	let nuking = { tournaments: false, players: false, games: false, images: false, notifications: false, awards: false };
 
+	// Jump bar of the General tab: one entry per section, the visible one is highlighted
+	let activeSection = 'gs-event';
+	$: gSections = [
+		{ id: 'gs-event', icon: 'stadium', label: $t('admin_settings_section_event') },
+		{ id: 'gs-tournaments', icon: 'trophy', label: $t('admin_settings_section_tournaments') },
+		{ id: 'gs-chat', icon: 'chat', label: $t('admin_settings_section_chat') },
+		{ id: 'gs-services', icon: 'server', label: $t('admin_settings_section_services') },
+		{ id: 'gs-danger', icon: 'alert-triangle', label: $t('admin_settings_danger_zone') }
+	];
+	function jumpTo(id) {
+		const el = document.getElementById(id);
+		if (!el) return;
+		if (el.tagName === 'DETAILS') el.open = true;
+		el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+	}
+	function spySections(node) {
+		let io = null;
+		const timer = setTimeout(() => {
+			if (typeof IntersectionObserver === 'undefined') return;
+			io = new IntersectionObserver((entries) => {
+				const seen = entries.filter(e => e.isIntersecting);
+				if (seen.length) activeSection = seen[0].target.id;
+			}, { rootMargin: '-15% 0px -70% 0px' });
+			document.querySelectorAll('.settings-view [data-gsection]').forEach(el => io.observe(el));
+		}, 100);
+		return { destroy() { clearTimeout(timer); io?.disconnect(); } };
+	}
+	function hostOf(url) {
+		try { return new URL(url).host; } catch (e) { return (url || '').replace(/^https?:[/][/]/, '').split('/')[0]; }
+	}
+
 	onMount(async () => {
 		await loadData();
 
@@ -592,8 +623,19 @@
 	<!-- GENERAL TAB -->
 	{#if !settingsSubTab || settingsSubTab === 'general'}
 	<p class="autosave-note">{$t('admin_settings_autosave_note')}</p>
+	<nav class="gnav" aria-label={$t('admin_settings_tab_general')} use:spySections>
+		{#each gSections as sec (sec.id)}
+			<button type="button" class="gnav-chip" class:active={activeSection === sec.id} class:danger={sec.id === 'gs-danger'} on:click={() => jumpTo(sec.id)}>
+				<Icon name={sec.icon} size={14} /><span>{sec.label}</span>
+			</button>
+		{/each}
+	</nav>
 	<div class="stab-content">
-		<h2 class="settings-section">{$t('admin_settings_section_event')}</h2>
+		<h2 class="settings-section" id="gs-event" data-gsection>
+			<span class="ss-icon"><Icon name="stadium" size={16} /></span>
+			<span class="ss-title">{$t('admin_settings_section_event')}</span>
+			{#if eventName}<span class="ss-sum">{eventName}</span>{/if}
+		</h2>
 		<div class="sc glass">
 			<div class="sc-head">
 				<div class="sc-icon"><Icon name="tag" size={16} /></div>
@@ -624,7 +666,7 @@
 			</div>
 		</div>
 
-		<div class="sc glass">
+		<div class="sc glass sc-full">
 			<div class="sc-head">
 				<div class="sc-icon"><Icon name="bar-chart" size={16} /></div>
 				<div>
@@ -635,12 +677,12 @@
 			<div class="sc-body">
 				<div class="scoring-toggle">
 					<button class="score-opt {teamScoringMode === 'weighted' ? 'active' : ''}" on:click={() => { teamScoringMode = 'weighted'; saveTeamScoringMode(); }}>
-						<span class="score-opt-icon"><Icon name="bar-chart" size={18} /></span>
+						<span class="score-opt-icon"><Icon name="scale" size={18} /></span>
 						<span class="score-opt-label">{$t("admin_settings_scoring_weighted_label")}</span>
 						<span class="score-opt-desc">{$t("admin_settings_scoring_weighted_desc")}</span>
 					</button>
 					<button class="score-opt {teamScoringMode === 'raw' ? 'active' : ''}" on:click={() => { teamScoringMode = 'raw'; saveTeamScoringMode(); }}>
-						<span class="score-opt-icon"><Icon name="bar-chart" size={18} /></span>
+						<span class="score-opt-icon"><Icon name="layers" size={18} /></span>
 						<span class="score-opt-label">{$t("admin_settings_scoring_raw_label")}</span>
 						<span class="score-opt-desc">{$t("admin_settings_scoring_raw_desc")}</span>
 					</button>
@@ -648,7 +690,11 @@
 			</div>
 		</div>
 
-		<h2 class="settings-section">{$t('admin_settings_section_tournaments')}</h2>
+		<h2 class="settings-section" id="gs-tournaments" data-gsection>
+			<span class="ss-icon"><Icon name="trophy" size={16} /></span>
+			<span class="ss-title">{$t('admin_settings_section_tournaments')}</span>
+			<span class="ss-sum">{defaultPts.pts_winner} · {defaultPts.pts_second} · {defaultPts.pts_third}</span>
+		</h2>
 		<div class="sc glass sc-full">
 			<div class="sc-head">
 				<div class="sc-icon"><Icon name="trophy" size={16} /></div>
@@ -668,9 +714,13 @@
 			</div>
 		</div>
 
-		<h2 class="settings-section">{$t('admin_settings_section_chat')}</h2>
+		<h2 class="settings-section" id="gs-chat" data-gsection>
+			<span class="ss-icon"><Icon name="chat" size={16} /></span>
+			<span class="ss-title">{$t('admin_settings_section_chat')}</span>
+			<span class="ss-dot" class:on={publicChatConfig.enabled} title={$t('admin_public_chat_enable')}></span>
+		</h2>
 		<!-- Public Chat & Anti-Spam Settings -->
-		<div class="sc glass sc-full">
+		<div class="sc glass sc-full sc-bare">
 			<div class="sc-head">
 				<div class="sc-icon"><Icon name="chat" size={16} /></div>
 				<div>
@@ -746,10 +796,11 @@
 						</button>
 					</div>
 
+					<div class="pca-sections">
 					<!-- Limits & Delays Section -->
 					<div class="pca-section">
 						<div class="pca-section-header">
-							<span class="pca-section-icon">⏱️</span>
+							<span class="pca-section-icon"><Icon name="clock" size={16} /></span>
 							<span class="compact-label">{$t("admin_public_chat_section_limits")}</span>
 						</div>
 
@@ -797,13 +848,17 @@
 						</div>
 					</div>
 
+					</div>
 					<!-- Action Buttons -->
 				</div>
 			</div>
 		</div>
 
-		<!-- Danger Zone -->
-		<h2 class="settings-section">{$t('admin_settings_section_services')}</h2>
+		<h2 class="settings-section" id="gs-services" data-gsection>
+			<span class="ss-icon"><Icon name="server" size={16} /></span>
+			<span class="ss-title">{$t('admin_settings_section_services')}</span>
+			{#if searxngUrl}<span class="ss-sum">{hostOf(searxngUrl)}</span>{/if}
+		</h2>
 		<div class="sc glass sc-full">
 			<div class="sc-head">
 				<div class="sc-icon"><Icon name="search" size={16} /></div>
@@ -835,20 +890,22 @@
 			</div>
 		</div>
 
-		<div class="sc danger-zone sc-full">
-			<div class="sc-head">
+		<details class="sc danger-zone sc-full" id="gs-danger" data-gsection>
+			<summary class="sc-head">
 				<div class="sc-icon"><Icon name="alert-triangle" size={16} /></div>
-				<div>
+				<div class="dz-text">
 					<h3 style="color: var(--danger)">{$t("admin_settings_danger_zone")}</h3>
 					<p class="sc-sub">{$t("admin_settings_danger_zone_sub")}</p>
 				</div>
-			</div>
+				<span class="dz-count">7</span>
+				<span class="dz-chevron"><Icon name="chevron-down" size={16} /></span>
+			</summary>
 			<div class="sc-body">
 				<div class="nuke-grid">
 					<!-- Purge public chat -->
 					<div class="nuke-card">
 						<div class="nuke-info">
-							<span class="nuke-icon"><Icon name="chat" size={24} /></span>
+							<span class="nuke-icon"><Icon name="chat" size={18} /></span>
 							<div>
 								<strong>{$t("admin_public_chat_purge_btn")}</strong>
 								<p>{$t("admin_public_chat_purge_desc")}</p>
@@ -867,7 +924,7 @@
 					<!-- Nuke Tournaments -->
 					<div class="nuke-card">
 						<div class="nuke-info">
-							<span class="nuke-icon"><Icon name="trophy" size={24} /></span>
+							<span class="nuke-icon"><Icon name="trophy" size={18} /></span>
 							<div>
 								<strong>{$t("admin_settings_del_tourneys")}</strong>
 								<p>{$t("admin_settings_del_tourneys_sub")}</p>
@@ -889,7 +946,7 @@
 					<!-- Nuke Players -->
 					<div class="nuke-card">
 						<div class="nuke-info">
-							<span class="nuke-icon"><Icon name="users" size={24} /></span>
+							<span class="nuke-icon"><Icon name="users" size={18} /></span>
 							<div>
 								<strong>{$t("admin_settings_del_players")}</strong>
 								<p>{$t("admin_settings_del_players_sub")}</p>
@@ -911,7 +968,7 @@
 					<!-- Nuke Games -->
 					<div class="nuke-card">
 						<div class="nuke-info">
-							<span class="nuke-icon"><Icon name="gamepad" size={24} /></span>
+							<span class="nuke-icon"><Icon name="gamepad" size={18} /></span>
 							<div>
 								<strong>{$t("admin_settings_del_games")}</strong>
 								<p>{$t("admin_settings_del_games_sub")}</p>
@@ -933,7 +990,7 @@
 					<!-- Nuke Images -->
 					<div class="nuke-card">
 						<div class="nuke-info">
-							<span class="nuke-icon"><Icon name="trash" size={24} /></span>
+							<span class="nuke-icon"><Icon name="trash" size={18} /></span>
 							<div>
 								<strong>{$t("admin_settings_purge_chat")}</strong>
 								<p>{$t("admin_settings_purge_chat_sub")}</p>
@@ -955,7 +1012,7 @@
 					<!-- Nuke Notifications -->
 					<div class="nuke-card">
 						<div class="nuke-info">
-							<span class="nuke-icon"><Icon name="bell" size={24} /></span>
+							<span class="nuke-icon"><Icon name="bell" size={18} /></span>
 							<div>
 								<strong>{$t("admin_settings_purge_notifs")}</strong>
 								<p>{$t("admin_settings_purge_notifs_sub")}</p>
@@ -977,7 +1034,7 @@
 					<!-- Nuke Awards -->
 					<div class="nuke-card">
 						<div class="nuke-info">
-							<span class="nuke-icon"><Icon name="trophy" size={24} /></span>
+							<span class="nuke-icon"><Icon name="trophy" size={18} /></span>
 							<div>
 								<strong>{$t("admin_settings_purge_awards") || $t("admin_settings_purge_notifs")}</strong>
 								<p>{$t("admin_settings_purge_awards_sub")}</p>
@@ -997,7 +1054,7 @@
 					</div>
 				</div>
 			</div>
-		</div>
+		</details>
 	</div>
 
 	<!-- IA TAB -->
@@ -1834,8 +1891,53 @@
 	.prompt-modal-footer { display: flex; justify-content: flex-end; gap: 0.6rem; padding: 0.8rem 1.2rem; border-top: 1px solid var(--glass-border); background: var(--hover-tint); flex-shrink: 0; }
 
 	.autosave-note { margin: 0 0 0.75rem; font-size: 0.85rem; color: var(--text-dim); }
-	.settings-section { grid-column: 1 / -1; font-size: 0.95rem; font-weight: 700; color: var(--text-main); margin: 0.75rem 0 -0.25rem; padding-bottom: 0.35rem; border-bottom: 1px solid var(--glass-border); }
+	/* General tab: jump bar, section headers, compact groups */
+	.gnav { position: sticky; top: -1rem; z-index: 30; box-shadow: 0 6px 14px rgba(0, 0, 0, 0.18); display: flex; gap: 0.4rem; margin: 0 0 1rem; padding: 0.45rem 0.5rem; border-radius: 12px; background: var(--bg-secondary); border: 1px solid var(--glass-border); overflow-x: auto; scrollbar-width: none; }
+	.gnav::-webkit-scrollbar { display: none; }
+	.gnav-chip { display: inline-flex; align-items: center; gap: 0.4rem; flex-shrink: 0; padding: 0.4rem 0.8rem; border-radius: 8px; border: 1px solid transparent; background: none; color: var(--text-dim); font-family: var(--font-main); font-size: 0.8rem; font-weight: 600; cursor: pointer; white-space: nowrap; transition: all 0.15s; }
+	.gnav-chip:hover { color: var(--text-main); background: var(--hover-tint); }
+	.gnav-chip.active { color: var(--accent); background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
+	.gnav-chip.danger { margin-left: auto; }
+	.gnav-chip.danger.active { color: var(--danger); background: color-mix(in srgb, var(--danger) 10%, transparent); border-color: color-mix(in srgb, var(--danger) 40%, transparent); }
+	.settings-section { grid-column: 1 / -1; display: flex; align-items: center; gap: 0.6rem; scroll-margin-top: 4.5rem; font-family: var(--font-title); font-size: 1.1rem; font-weight: 700; color: var(--text-main); margin: 1rem 0 -0.25rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--glass-border); }
 	.settings-section:first-child { margin-top: 0; }
+	.ss-icon { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 8px; background: var(--accent-soft); color: var(--accent); flex-shrink: 0; }
+	.ss-sum { margin-left: auto; max-width: 50%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-main); font-size: 0.78rem; font-weight: 600; color: var(--text-dim); }
+	.ss-dot { margin-left: auto; width: 10px; height: 10px; border-radius: 50%; background: var(--text-dim); opacity: 0.6; }
+	.ss-dot.on { background: var(--success); opacity: 1; box-shadow: 0 0 6px color-mix(in srgb, var(--success) 60%, transparent); }
+	#gs-danger { scroll-margin-top: 4.5rem; }
+
+	/* the two team-scoring options sit side by side as compact choices */
+	.scoring-toggle .score-opt { display: grid; grid-template-columns: auto 1fr; column-gap: 0.7rem; row-gap: 0; align-items: center; text-align: left; padding: 0.55rem 0.9rem; }
+	.scoring-toggle .score-opt-icon { grid-row: 1 / 3; }
+	.scoring-toggle .score-opt-label, .scoring-toggle .score-opt-desc { grid-column: 2; }
+	.default-pts-grid { gap: 0.6rem; }
+
+	/* chat: compact toggle rows, limits and filters side by side */
+	.sc-bare > .sc-head { display: none; }
+	.pca-container { gap: 0.85rem; }
+	.pca-toggles-grid { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 0.6rem; }
+	.pca-toggle-card { flex-direction: row; align-items: center; gap: 0.8rem; min-height: 0; padding: 0.65rem 0.9rem; }
+	.pca-toggle-card:hover { transform: none; box-shadow: none; }
+	.pca-toggle-top { width: auto; order: 2; margin-left: auto; flex-shrink: 0; }
+	.pca-toggle-top .pca-card-icon { display: none; }
+	.pca-toggle-info { order: 1; flex: 1; min-width: 0; }
+	.pca-sections { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 0.85rem; align-items: stretch; }
+	.pca-section { padding: 0.8rem 1rem; gap: 0.65rem; }
+	.pca-section-icon { display: inline-flex; color: var(--accent); }
+	@media (max-width: 900px) { .pca-sections { grid-template-columns: minmax(0, 1fr); } }
+
+	/* danger zone: folded by default */
+	.danger-zone > summary { list-style: none; cursor: pointer; border-bottom: none; }
+	.danger-zone > summary::-webkit-details-marker { display: none; }
+	.danger-zone[open] > summary { border-bottom: 1px solid var(--glass-border); }
+	.dz-text { flex: 1; min-width: 0; }
+	.dz-count { font-size: 0.72rem; font-weight: 800; padding: 0.1rem 0.5rem; border-radius: 999px; color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); }
+	.dz-chevron { display: inline-flex; color: var(--text-dim); transition: transform 0.2s; }
+	.danger-zone[open] .dz-chevron { transform: rotate(180deg); }
+	.nuke-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; }
+	.nuke-card { padding: 0.55rem 0.8rem; flex-wrap: wrap; }
+	@media (max-width: 900px) { .nuke-grid { grid-template-columns: minmax(0, 1fr); } .gnav { top: var(--mobile-top-h, 42px); } }
 	.status-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--danger); }
 	.status-dot.on { background: var(--success); box-shadow: 0 0 6px color-mix(in srgb, var(--success) 60%, transparent); }
 </style>
