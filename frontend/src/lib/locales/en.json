@@ -1665,5 +1665,7 @@
   "login_server_down": "Server unreachable",
   "login_server_down_saved": "The saved address no longer answers: {url}. It may have changed.",
   "login_server_down_hint": "No answer. Check that the server is on and on the same network.",
-  "login_server_search": "Find a server"
+  "login_server_search": "Find a server",
+  "settings_theme_opt_system": "System",
+  "settings_theme_system_hint": "Follows your device's light or dark setting."
 }

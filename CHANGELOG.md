@@ -3,6 +3,8 @@
 ## [1.35.1] - Unreleased
 
 ### 📱 Players
+- **System theme by default**: the app follows the device's light or dark setting (and changes with it); Settings now offer System / Dark / Light, and an explicit choice is kept. The browser and phone status bar take the theme colour.
+- **Theme button in the phone header**, next to the settings (line sun / moon icons instead of emojis).
 - **Unreachable server on the login screen**: when the saved server address no longer answers (it changed, the server is off), a clear banner replaces "Failed to fetch" and a "Find a server" button opens the server search directly.
 
 ## [1.35.0] - 2026-10-31

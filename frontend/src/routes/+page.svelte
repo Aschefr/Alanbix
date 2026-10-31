@@ -15,6 +15,7 @@
 	let error = '';
 	let serverDown = false;
 	let isDark = true;
+	import { themeStore, toggleTheme } from '$lib/theme';
 
 	// A request that never reached a server (wrong or stale address, server off), not an HTTP error
 	function isNetworkError(e) {
@@ -72,13 +73,7 @@
 		error = '';
 	}
 
-	function toggleTheme() {
-		isDark = !isDark;
-		const theme = isDark ? 'dark' : 'light';
-		localStorage.setItem('alanbix_theme', theme);
-		document.documentElement.setAttribute('data-theme', theme);
-		document.documentElement.style.background = theme === 'light' ? '#f1f5f9' : '#0f172a';
-	}
+	$: isDark = $themeStore.theme === 'dark';
 
 	let isCheckingAuth = true;
 	let showServerModal = false;
@@ -86,7 +81,6 @@
 	let eventName = 'Alanbix LAN';
 
 	onMount(() => {
-		isDark = (localStorage.getItem('alanbix_theme') || 'dark') === 'dark';
 		currentServerUrl = getCustomServerUrl();
 		// Already signed in: switch screen in place (no full page reload)
 		if ($authStore) {
@@ -118,8 +112,8 @@
 	</div>
 {:else}
 <main class="login-page">
-	<button class="login-theme-toggle" on:click={toggleTheme} title={isDark ? $t('theme_switch_light') : $t('theme_switch_dark')}>
-		{isDark ? '☀️' : '🌙'}
+	<button class="login-theme-toggle" on:click={() => toggleTheme($themeStore.theme)} title={isDark ? $t('theme_switch_light') : $t('theme_switch_dark')} aria-label={isDark ? $t('theme_switch_light') : $t('theme_switch_dark')}>
+		<Icon name={isDark ? 'sun' : 'moon'} size={18} />
 	</button>
 	<div class="login-card glass" class:register-mode={mode === 'register'}>
 		<h1 class="title-premium">Alanbix</h1>

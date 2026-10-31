@@ -13,6 +13,7 @@
 	import { resolveMediaUrl, isCapacitorNative, getCustomServerUrl, setCustomServerUrl } from '$lib/config';
 	import ServerConfigModal from '$lib/components/ServerConfigModal.svelte';
 	import Icon from '$lib/components/Icon.svelte';
+	import { themeStore, toggleTheme } from '$lib/theme';
 
 	let user = { username: '...', is_admin: false };
 	let loading = true;
@@ -376,7 +377,6 @@
 			goto('/', { replaceState: true });
 			return;
 		}
-		isDark = (localStorage.getItem('alanbix_theme') || 'dark') === 'dark';
 		await initI18n();
 		if ('Notification' in window) {
 			browserNotifSupport = true;
@@ -478,13 +478,7 @@
 		}
 	}
 
-	function toggleTheme() {
-		isDark = !isDark;
-		const theme = isDark ? 'dark' : 'light';
-		localStorage.setItem('alanbix_theme', theme);
-		document.documentElement.setAttribute('data-theme', theme);
-		document.documentElement.style.background = theme === 'light' ? '#f1f5f9' : '#0f172a';
-	}
+	$: isDark = $themeStore.theme === 'dark';
 
 	async function logout() {
 		await stopNativePushService();
@@ -553,6 +547,9 @@
 					<Icon name="shield" size={16} />
 				</a>
 			{/if}
+			<button type="button" class="top-action-btn" on:click={() => toggleTheme($themeStore.theme)} title={isDark ? $t('tooltip_light_mode') : $t('tooltip_dark_mode')} aria-label={isDark ? $t('tooltip_light_mode') : $t('tooltip_dark_mode')}>
+				<Icon name={isDark ? 'sun' : 'moon'} size={16} />
+			</button>
 			<a href="/dashboard/settings" class="top-action-btn" class:active={$page.url.pathname.startsWith('/dashboard/settings')} title={$t('mobile_top_settings_title')}>
 				<Icon name="gear" size={16} />
 			</a>
@@ -682,8 +679,8 @@
 						<span class="theme-icon">🔔</span>
 					</button>
 				{/if}
-				<button class="theme-toggle" on:click={toggleTheme} title={isDark ? $t('tooltip_light_mode') : $t('tooltip_dark_mode')}>
-					<span class="theme-icon" class:spin={true}>{isDark ? '☀️' : '🌙'}</span>
+				<button class="theme-toggle" on:click={() => toggleTheme($themeStore.theme)} title={isDark ? $t('tooltip_light_mode') : $t('tooltip_dark_mode')} aria-label={isDark ? $t('tooltip_light_mode') : $t('tooltip_dark_mode')}>
+					<span class="theme-icon"><Icon name={isDark ? 'sun' : 'moon'} size={18} /></span>
 				</button>
 				<a href="/dashboard/settings" class="theme-toggle" class:active-setting={$page.url.pathname.startsWith('/dashboard/settings')} title={$t('settings_page_title')} aria-label={$t('settings_page_title')}>
 					<span class="theme-icon"><Icon name="gear" size={18} /></span>

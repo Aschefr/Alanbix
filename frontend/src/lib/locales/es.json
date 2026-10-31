@@ -1665,5 +1665,7 @@
   "login_server_down": "Servidor inaccesible",
   "login_server_down_saved": "La dirección guardada ya no responde: {url}. Puede haber cambiado.",
   "login_server_down_hint": "Sin respuesta. Comprueba que el servidor esté encendido y en la misma red.",
-  "login_server_search": "Buscar un servidor"
+  "login_server_search": "Buscar un servidor",
+  "settings_theme_opt_system": "Sistema",
+  "settings_theme_system_hint": "Sigue el ajuste claro u oscuro de tu dispositivo."
 }

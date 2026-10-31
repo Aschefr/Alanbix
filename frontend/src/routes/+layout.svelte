@@ -3,22 +3,19 @@
 	import { onMount } from 'svelte';
 	import { initI18n, eventName, customPageTitle, t } from '$lib/i18nStore';
 	import { isDemoMode, disableDemoMode } from '$lib/config';
+	import { initTheme } from '$lib/theme';
 	import { page } from '$app/stores';
 
 	let demoActive = false;
 
 	onMount(async () => {
-		const saved = localStorage.getItem('alanbix_theme') || 'dark';
-		document.documentElement.setAttribute('data-theme', saved);
+		initTheme();
 		demoActive = isDemoMode();
 		if (typeof window !== 'undefined' && window.Capacitor) {
 			try {
 				const plugins = window.Capacitor.Plugins || {};
 				if (plugins.SplashScreen && typeof plugins.SplashScreen.hide === 'function') {
 					setTimeout(() => plugins.SplashScreen.hide().catch(() => {}), 300);
-				}
-				if (plugins.StatusBar && typeof plugins.StatusBar.setBackgroundColor === 'function') {
-					plugins.StatusBar.setBackgroundColor({ color: '#0f172a' }).catch(() => {});
 				}
 				if (plugins.App && typeof plugins.App.addListener === 'function') {
 					plugins.App.addListener('backButton', ({ canGoBack }) => {

@@ -1653,5 +1653,7 @@
   "login_server_down": "Serveur injoignable",
   "login_server_down_saved": "L'adresse enregistrée ne répond plus : {url}. Elle a peut-être changé.",
   "login_server_down_hint": "Aucune réponse. Vérifiez que le serveur est allumé et sur le même réseau.",
-  "login_server_search": "Chercher un serveur"
+  "login_server_search": "Chercher un serveur",
+  "settings_theme_opt_system": "Système",
+  "settings_theme_system_hint": "Suit le réglage clair ou sombre de votre appareil."
 }

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Icon from '$lib/components/Icon.svelte';
+	import { themeStore, setThemePref } from '$lib/theme';
 	import pkg from '../../../../package.json';
 	import { onMount, onDestroy } from 'svelte';
 	import { goto } from '$app/navigation';
@@ -65,7 +66,6 @@
 	let modalConfirmCallback: any = null;
 
 	onMount(async () => {
-		isDark = (localStorage.getItem('alanbix_theme') || 'dark') === 'dark';
 		currentServer = getCustomServerUrl() || (typeof window !== 'undefined' ? window.location.origin : '');
 		demoActive = isDemoMode();
 
@@ -197,13 +197,7 @@
 		}
 	}
 
-	function toggleTheme() {
-		isDark = !isDark;
-		const theme = isDark ? 'dark' : 'light';
-		localStorage.setItem('alanbix_theme', theme);
-		document.documentElement.setAttribute('data-theme', theme);
-		document.documentElement.style.background = theme === 'light' ? '#f1f5f9' : '#0f172a';
-	}
+	$: isDark = $themeStore.theme === 'dark';
 
 	async function handleLogout() {
 		await stopNativePushService();
@@ -496,10 +490,13 @@
 						<span class="row-ic"><Icon name={isDark ? 'moon' : 'sun'} size={18} /></span>
 						<span class="row-text"><span class="row-title">{lbl($t('settings_theme_label'))}</span></span>
 						<div class="seg" role="group" aria-label={$t('settings_theme_label')}>
-							<button type="button" class="seg-btn" class:on={isDark} aria-pressed={isDark} on:click={() => { if (!isDark) toggleTheme(); }}>
+							<button type="button" class="seg-btn" class:on={$themeStore.pref === 'system'} aria-pressed={$themeStore.pref === 'system'} title={$t('settings_theme_system_hint')} on:click={() => setThemePref('system')}>
+								<Icon name="monitor" size={15} /> {$t('settings_theme_opt_system')}
+							</button>
+							<button type="button" class="seg-btn" class:on={$themeStore.pref === 'dark'} aria-pressed={$themeStore.pref === 'dark'} on:click={() => setThemePref('dark')}>
 								<Icon name="moon" size={15} /> {$t('settings_theme_opt_dark')}
 							</button>
-							<button type="button" class="seg-btn" class:on={!isDark} aria-pressed={!isDark} on:click={() => { if (isDark) toggleTheme(); }}>
+							<button type="button" class="seg-btn" class:on={$themeStore.pref === 'light'} aria-pressed={$themeStore.pref === 'light'} on:click={() => setThemePref('light')}>
 								<Icon name="sun" size={15} /> {$t('settings_theme_opt_light')}
 							</button>
 						</div>

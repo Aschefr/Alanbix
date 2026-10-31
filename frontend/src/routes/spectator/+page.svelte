@@ -1,5 +1,6 @@
 <script>
 	import { t, initI18n } from '$lib/i18nStore';
+	import { initTheme } from '$lib/theme';
 	import { get } from 'svelte/store';
 	import { onMount, onDestroy } from 'svelte';
 	import { wsMessageStore } from '$lib/ws';
@@ -178,9 +179,7 @@
 
 	onMount(async () => {
 		// Apply theme
-		const theme = localStorage.getItem('alanbix_theme') || 'dark';
-		document.documentElement.setAttribute('data-theme', theme);
-		document.documentElement.style.background = theme === 'light' ? '#f1f5f9' : '#0f172a';
+		initTheme();
 
 		await initI18n();
 
