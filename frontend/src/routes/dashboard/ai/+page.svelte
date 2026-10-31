@@ -1,3 +1,9 @@
+<script context="module">
+	// where the reader left each conversation (distance from the bottom) and which one was open, kept while the app is open
+	const scrollMemory = new Map();
+	let lastActiveConversation = null;
+</script>
+
 <script>
 	import { t } from '$lib/i18nStore';
 	import { isTouchKeyboard, fitPane } from '$lib/mobileViewport';
@@ -132,7 +138,55 @@
 		}
 	}
 
+	// When the area above the input shrinks (on-screen keyboard) or grows back, keep the messages at the same
+	// distance from the input. The distance is remembered while the reader scrolls; the browser clamps the
+	// position by itself when the area grows, so it cannot be re-read then.
+	let sizeObserver = null;
+	let observedEl = null;
+	let lastClientH = 0;
+	let distFromBottom = 0;
+	let lastResizeAt = 0;
+	let userMoved = false;
+	function watchScrollSize(el) {
+		if (el === observedEl) return;
+		sizeObserver?.disconnect();
+		observedEl = el;
+		if (!el || typeof ResizeObserver === 'undefined') return;
+		lastClientH = el.clientHeight;
+		sizeObserver = new ResizeObserver(() => {
+			const h = el.clientHeight;
+			if (h === lastClientH) return;
+			lastClientH = h;
+			lastResizeAt = performance.now();
+			el.scrollTop = Math.max(0, el.scrollHeight - h - distFromBottom);
+		});
+		sizeObserver.observe(el);
+	}
+	$: watchScrollSize(chatContainer);
+
+	// Reopening a conversation puts it back where it was left; false when it was read to the end
+	function restoreScroll(id) {
+		const dist = scrollMemory.get(id) ?? 0;
+		if (!chatContainer || dist <= 0) return false;
+		userMoved = false;
+		const apply = () => {
+			if (!chatContainer || userMoved || activeId !== id) return;
+			distFromBottom = dist;
+			lastResizeAt = performance.now();
+			chatContainer.scrollTop = Math.max(0, chatContainer.scrollHeight - chatContainer.clientHeight - dist);
+		};
+		apply();
+		requestAnimationFrame(apply);
+		setTimeout(apply, 150);
+		setTimeout(apply, 450);
+		return true;
+	}
+
 	function handleScroll() {
+		if (chatContainer && activeId && performance.now() - lastResizeAt > 200) {
+			distFromBottom = Math.max(0, Math.round(chatContainer.scrollHeight - chatContainer.scrollTop - chatContainer.clientHeight));
+			scrollMemory.set(activeId, distFromBottom);
+		}
 		if (isAutoScrolling || !chatContainer) return;
 		const threshold = 50;
 		const isAtBottom = chatContainer.scrollHeight - chatContainer.scrollTop - chatContainer.clientHeight < threshold;
@@ -370,6 +424,7 @@
 		if (chatContainer) {
 			isAutoScrolling = true;
 			chatContainer.scrollTop = chatContainer.scrollHeight;
+			distFromBottom = 0;
 			setTimeout(() => {
 				isAutoScrolling = false;
 			}, 50);
@@ -486,6 +541,7 @@
 
 	onDestroy(() => {
 		isMounted = false;
+		sizeObserver?.disconnect();
 		if (unsub) unsub();
 		if (progressInterval) clearInterval(progressInterval);
 		if (activeChatPingInterval) clearInterval(activeChatPingInterval);
@@ -496,13 +552,16 @@
 	async function loadConversations() {
 		conversations = await api.get('/ia/conversations');
 		if (conversations.length > 0 && !activeId) {
-			selectConversation(conversations[0].id);
+			// back on the page: reopen the conversation that was open
+			const remembered = conversations.find(c => c.id === lastActiveConversation);
+			selectConversation((remembered || conversations[0]).id);
 		}
 	}
 
 	async function selectConversation(id, forceScroll = false) {
 		const isNew = id !== activeId;
 		activeId = id;
+		lastActiveConversation = id;
 		// Send immediate ping on active conversation change
 		try { api.post(`/ia/active-chat/${id}`, {}); } catch(e) {}
 		const res = await api.get(`/ia/conversations/${id}/messages`);
@@ -517,7 +576,12 @@
 		if (isNew || forceScroll) {
 			autoScrollEnabled = true;
 		}
-		scrollToBottom();
+		await tick();
+		if (isNew && !forceScroll && restoreScroll(id)) {
+			autoScrollEnabled = false;
+		} else {
+			scrollToBottom();
+		}
 
 		// Check if user has an active/queued AI request FOR THIS conversation
 		busyOtherConv = false;
@@ -1284,7 +1348,7 @@
 				</div>
 			{/if}
 
-			<div class="messages-container" bind:this={chatContainer} on:scroll={handleScroll}>
+			<div class="messages-container" bind:this={chatContainer} on:scroll={handleScroll} on:touchstart={() => userMoved = true} on:wheel={() => userMoved = true}>
 				{#if autoCompressNotif}
 					<div class="auto-compress-notif">
 						<span>🗜️</span>
@@ -2184,14 +2248,17 @@
 
 	@media (max-width: 900px) {
 		.ai-header { display: none; }
-		.ai-page { flex-direction: column; height: var(--pane-h, calc(100vh - 96px)); gap: 0.35rem; }
+		/* the conversation fills the screen edge to edge, between the top bar and the tab bar */
+		.ai-page { flex-direction: column; margin: -0.5rem -0.5rem calc(-1 * var(--pane-bleed, 0px)); height: calc(var(--pane-h, calc(100vh - 96px)) + var(--pane-bleed, 0px)); gap: 0.35rem; }
 		.chat-sidebar { display: none !important; }
 		.chat-main {
 			width: 100% !important;
 			flex: 1;
 			min-height: 0;
 			padding: 0.35rem !important;
-			border-radius: var(--radius-md) !important;
+			border-radius: 0 !important;
+			border: none !important;
+			box-shadow: none !important;
 		}
 		.ai-mobile-top-bar {
 			display: flex;

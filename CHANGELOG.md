@@ -13,6 +13,7 @@
 - **Conversation opens at the bottom**: a leftover scroll offset of about 20 px when opening a conversation is gone.
 - **Conversations reopen where you left them**: leaving a conversation and coming back restores its scroll position (the bottom if you had read to the end), for private and team chats.
 - **Administration has its own accent colour**: every administration page uses the amber of the administration icon (a deeper amber in the light theme, for readable text), so the area is clearly told apart from the player pages; the logo and app name stay blue; selected tabs and primary buttons use the deeper amber so their white text stays readable.
+- **AI conversation like a messaging app**: it runs edge to edge between the top bar and the tab bar (no frame), the messages follow the on-screen keyboard, each conversation reopens where it was left (the bottom if read to the end), and coming back to the page reopens the conversation that was open.
 - **AI assistant on a phone**: the input field is no longer hidden under the bottom tab bar.
 - **Profile on a phone**: the "insult filter" switch is drawn from its own track so the thumb stays inside it on every browser (Firefox included); the points history cards have a visible border and background.
 - **System theme by default**: the app follows the device's light or dark setting (and changes with it); Settings now offer System / Dark / Light, and an explicit choice is kept. The browser and phone status bar take the theme colour.
