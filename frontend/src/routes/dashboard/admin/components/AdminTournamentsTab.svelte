@@ -536,6 +536,10 @@
 	.game-mini-thumb { width: 50px; height: 50px; border-radius: 8px; background-size: cover; background-position: center; border: 1px solid var(--glass-border); flex-shrink: 0; }
 	.thumb-placeholder { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; color: var(--text-dim); background: var(--surface-sunken); border-radius: 8px; }
 	.item-info { flex-grow: 1; min-width: 0; }
+	/* name and badges wrap onto several lines instead of running under the action buttons */
+	.item-info > .flex-row { flex-wrap: wrap; row-gap: 0.3rem; }
+	.item-info .status-pill-sm { white-space: nowrap; }
+	.item-info .status-pill-sm.hidden-pill { white-space: normal; max-width: 100%; line-height: 1.2; }
 	.item-name { font-weight: 700; font-size: 0.9375rem; }
 	.item-meta { font-size: 0.8125rem; color: var(--text-dim); margin-top: 0.2rem; }
 	.item-actions { display: flex; flex-direction: row; gap: 0.4rem; align-items: center; flex-shrink: 0; }
