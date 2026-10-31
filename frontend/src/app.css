@@ -162,6 +162,33 @@
   --map-badge-hover: rgba(29, 78, 216, 0.18);
 }
 
+/* Administration pages: amber accent, the same colour as the administration icon, so the area is told apart */
+.section-admin {
+  --accent: #fbbf24;
+  --accent-solid: #b45309; /* filled buttons: white text needs >=4.5:1 */
+  --accent-glow: rgba(251, 191, 36, 0.45);
+  --accent-soft: rgba(251, 191, 36, 0.12);
+}
+
+[data-theme="light"] .section-admin {
+  --accent: #b45309;
+  --accent-solid: #b45309;
+  --accent-glow: rgba(180, 83, 9, 0.25);
+  --accent-soft: rgba(180, 83, 9, 0.08);
+}
+/* the brand mark and name stay blue everywhere */
+.section-admin .logo-alambic, .section-admin .mobile-app-title {
+  --accent: #3b82f6;
+  --accent-glow: rgba(59, 130, 246, 0.5);
+  color: #3b82f6;
+}
+[data-theme="light"] .section-admin .logo-alambic, [data-theme="light"] .section-admin .mobile-app-title {
+  --accent: #2563eb;
+  color: #2563eb;
+}
+
+
+
 * {
   box-sizing: border-box;
   -webkit-font-smoothing: antialiased;

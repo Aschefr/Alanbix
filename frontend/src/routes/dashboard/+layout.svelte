@@ -524,7 +524,7 @@
 		</div>
 	</div>
 {:else}
-<div class="dashboard-layout">
+<div class="dashboard-layout" class:section-admin={$page.url.pathname.startsWith('/dashboard/admin')}>
 	<!-- Mobile Top Bar (<= 900px) -->
 	<header class="mobile-top-bar glass">
 		<a href="/dashboard" class="mobile-brand">
