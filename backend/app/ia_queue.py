@@ -541,6 +541,10 @@ class IAQueueManager:
             # Send initial thinking status (waiting for first token / prompt processing)
             await entry.result_stream.put({"status": "thinking"})
 
+            # Text already streamed to the player in earlier rounds (before a tool call)
+            shown_before = ""
+            last_visible = ""
+
             # Streaming loop (Option A and final leg of Option B/D)
             while tool_round < max_tool_rounds:
                 tool_round += 1
@@ -573,6 +577,9 @@ class IAQueueManager:
                 full_response = ""
                 in_think_block = False
                 first_token = True
+                repeat_target = " ".join(last_visible.split())
+                last_visible = ""
+                repeat_buf = ""
 
                 async with client.stream("POST", url,
                                          json=stream_req,
@@ -634,9 +641,23 @@ class IAQueueManager:
                                 native_tool_calls.extend(tc_list)
                                 continue
 
+                            # Small models often restart their answer after a tool call: hold the first tokens
+                            # and drop them if they only repeat what the player has already read
+                            if token and repeat_target:
+                                repeat_buf += token
+                                held = " ".join(repeat_buf.split())
+                                if "<think>" in repeat_buf or "<tool_call" in repeat_buf:
+                                    token, repeat_target = repeat_buf, ""
+                                elif repeat_target.startswith(held):
+                                    continue
+                                elif held.startswith(repeat_target):
+                                    token, repeat_target = held[len(repeat_target):].lstrip(), ""
+                                else:
+                                    token, repeat_target = repeat_buf, ""
+
                             if token:
                                 full_response += token
-                                
+
                                 # Check for XML tool call start and buffer it
                                 if is_buffering_xml:
                                     xml_buffer += token
@@ -738,10 +759,18 @@ class IAQueueManager:
                     t_names = ", ".join(c["function"]["name"] for c in parsed_calls)
                     await entry.result_stream.put({"status": "tool_call", "tool_name": t_names})
                     
-                    # Add assistant message
+                    # The player already sees the text written before the call: hand it back to the model
+                    # so the next round continues it instead of writing the whole answer again
+                    import re
+                    visible = re.sub(r'<think>.*?</think>', '', full_response, flags=re.DOTALL).strip()
+                    if detected_xml_call and "<tool_call" in visible:
+                        visible = visible.split("<tool_call", 1)[0].strip()
+                    if visible:
+                        shown_before = f"{shown_before}\n\n{visible}".strip()
+                        last_visible = visible
                     tool_messages.append({
                         "role": "assistant",
-                        "content": xml_buffer if detected_xml_call else "",
+                        "content": (visible + "\n" + xml_buffer).strip() if detected_xml_call else visible,
                         "tool_calls": native_tool_calls if native_tool_calls else None
                     })
 
@@ -761,6 +790,8 @@ class IAQueueManager:
                             tool_messages.append({"role": "user", "content": f"Résultat de l'outil {fn_name}: {result}"})
                         else:
                             tool_messages.append({"role": "tool", "content": result})
+                    if visible:
+                        tool_messages[-1]["content"] += "\n\n(The player has already read your previous message. Continue it with this result in one or two sentences; do not repeat it.)"
 
                     # Loop back for the next round of stream
                     continue
@@ -775,6 +806,9 @@ class IAQueueManager:
                     import re
                     clean_response = re.sub(r'<think>.*?</think>', '', full_response, flags=re.DOTALL).strip()
                     self._execute_post_stream_tool_calls(clean_response, tools, entry.user_id, used_tools)
+                    # Store what the player saw: text from the rounds before tool calls, then the final round
+                    if shown_before:
+                        clean_response = f"{shown_before}\n\n{clean_response}".strip()
                     meta = {
                         "model_info": entry.payload.get("model_info"),
                         "used_tools": used_tools,

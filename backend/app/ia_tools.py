@@ -901,7 +901,8 @@ def _tool_get_my_matches(db, models, args: dict, user_id: int) -> str:
                 continue
 
             # Determine match status
-            has_scores = len(scores) >= 2 and any(s > 0 for s in scores)
+            # Unplayed matches hold None scores: a played match has every score set
+            has_scores = bool(scores) and len(scores) >= 2 and all(s is not None for s in scores)
             opponent_ids = [pid for pid in players if pid and pid not in entity_ids and pid != 0]
             opponent_names = []
             for oid in opponent_ids:

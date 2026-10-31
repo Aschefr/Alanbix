@@ -852,8 +852,9 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
                 "The `call_admin` tool is CURRENTLY BLOCKED for this user due to the following spam/limit rule:\n"
                 f"{reasons_str}\n\n"
                 "Do NOT invoke the `call_admin` tool. Directly and politely explain to the player (in their language, e.g. French) "
-                "that you cannot contact the administrators right now due to anti-spam/frequency limits, "
-                "and ask them to wait."
+                "that you cannot contact the administrators right now due to anti-spam/frequency limits. "
+                "Never promise to send the alert later by yourself: you can only act while answering. "
+                "Tell them to send their request again once the wait is over, or, if it is urgent, to go and see an organiser in person."
             )
             system_parts.append(tool_restrictions)
     except Exception as e:
