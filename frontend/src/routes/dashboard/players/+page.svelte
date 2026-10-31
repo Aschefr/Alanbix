@@ -106,11 +106,35 @@
 	let groupUnreadMap = {}; // channel_key -> unread count
 	let wsUnsub = null;
 
+	// Phone, conversation open: the page fills the space between its own top and the tab bar. It is measured
+	// (not hard-coded) because a notification banner may sit above it and ancestors are animated.
+	let pageEl;
+	let paneH = 0;
+	let layoutObserver = null;
+	function measurePane() {
+		if (typeof window === 'undefined' || !pageEl) return;
+		if (window.innerWidth > 900 || chatMode === null) { paneH = 0; return; }
+		const area = document.querySelector('.content-area');
+		const bottomPad = area ? parseFloat(getComputedStyle(area).paddingBottom) || 0 : 0;
+		paneH = Math.max(240, Math.round(window.innerHeight - pageEl.getBoundingClientRect().top - bottomPad));
+	}
+	$: if (typeof window !== 'undefined' && chatMode !== null) {
+		tick().then(() => { window.scrollTo(0, 0); measurePane(); });
+	} else {
+		paneH = 0;
+	}
+
 	function onWindowFocus() {
 		loadPlayers(true);
 	}
 
 	onMount(async () => {
+		// the notification banner above the page can appear or be dismissed: keep the conversation pane in step
+		const area = document.querySelector('.content-area');
+		if (area && 'MutationObserver' in window) {
+			layoutObserver = new MutationObserver(() => measurePane());
+			layoutObserver.observe(area, { childList: true });
+		}
 		try { currentUser = await api.get('/me'); } catch {}
 		await loadPlayers();
 		await loadUnreadMap();
@@ -125,10 +149,10 @@
 		const savedWidth = localStorage.getItem('alanbix_chat_width_v2');
 		chatWidth = savedWidth ? parseInt(savedWidth) : Math.round(window.innerWidth * 0.45);
 
-		// Restore last selected chat from localStorage (desktop only; on mobile, start on conversation list unless deep-linked)
-		const isMobileViewport = typeof window !== 'undefined' && window.innerWidth <= 900;
-		const savedPeer = isMobileViewport ? null : localStorage.getItem('alanbix_players_chat');
-		const savedGroup = isMobileViewport ? null : localStorage.getItem('alanbix_players_group_chat');
+		// Reopen the last active conversation, on a phone too: like a messaging app, the conversation is the
+		// default view and the contact list is one step "back" (a deep link from a notification still wins)
+		const savedPeer = localStorage.getItem('alanbix_players_chat');
+		const savedGroup = localStorage.getItem('alanbix_players_group_chat');
 		// Check URL params for auto-open from notification click
 		const urlPeer = $page.url.searchParams.get('chat');
 		const urlGroup = $page.url.searchParams.get('group');
@@ -189,6 +213,7 @@
 	});
 
 	onDestroy(() => {
+		if (layoutObserver) layoutObserver.disconnect();
 		clearTimeout(retryTimer); 
 		if (wsUnsub) wsUnsub(); 
 		if (typeof window !== 'undefined') {
@@ -375,8 +400,12 @@
 		chatChannelKey = null;
 		chatChannelInfo = null;
 		chatChannelMembers = [];
-		localStorage.removeItem('alanbix_players_chat');
-		localStorage.removeItem('alanbix_players_group_chat');
+		// On a phone "back" only returns to the contact list: the last conversation is kept so the Messages
+		// tab reopens it next time. On a computer closing the chat forgets it.
+		if (!(typeof window !== 'undefined' && window.innerWidth <= 900)) {
+			localStorage.removeItem('alanbix_players_chat');
+			localStorage.removeItem('alanbix_players_group_chat');
+		}
 		if (typeof window !== 'undefined' && window.history && ($page.url.searchParams.has('chat') || $page.url.searchParams.has('group'))) {
 			const cleanUrl = window.location.pathname;
 			window.history.replaceState({}, '', cleanUrl);
@@ -430,7 +459,9 @@
 
 </script>
 
-<div class="players-page animate-in" class:chat-active-mobile={chatMode !== null}>
+<svelte:window on:resize={measurePane} />
+
+<div class="players-page animate-in" class:chat-active-mobile={chatMode !== null} style={paneH ? `--pane-h: ${paneH}px` : null} bind:this={pageEl}>
 	<header class="players-header">
 		<h1 class="title-premium page-title-icon"><Icon name="users" size={22} /> {$t('players_title')}</h1>
 		<span class="player-count">{$t('players_subtitle', { count: players.length, plural: players.length > 1 ? 's' : '' })}</span>
@@ -984,8 +1015,9 @@
 			height: auto;
 			min-height: calc(100vh - 120px);
 		}
+		/* Open conversation: fills the measured space above the tab bar, so the message box is never hidden */
 		.players-page.chat-active-mobile {
-			height: calc(100vh - 110px);
+			height: var(--pane-h, calc(100vh - 110px));
 			min-height: 0;
 			overflow: hidden;
 			gap: 0;

@@ -13,6 +13,7 @@
 - **Languages page is desktop-only**: the tab is hidden in the phone administration and the page sends a phone back to the administration.
 - **New typography**: Onest for text and Bricolage Grotesque for titles replace Inter and Outfit (bundled locally, so it still works offline).
 - **Home page on a wide screen**: the public chat column grows with the screen (about 28 %, from 380 to 520 px) so it is better proportioned; nothing else on the page wraps.
+- **Messages on a phone work like a messaging app**: the Messages tab reopens the last active conversation, and the contact list is one step back (arrow at the top left, like Messenger or WhatsApp). The conversation fills the space above the tab bar, so the message box is no longer hidden behind it, with or without the notification banner.
 - **Settings, account card**: the avatar keeps the shape chosen on the profile and no longer shows a solid blue background behind the picture.
 - **Unreachable server on the login screen**: when the saved server address no longer answers (it changed, the server is off), a clear banner replaces "Failed to fetch" and a "Find a server" button opens the server search directly.
 

@@ -1082,8 +1082,16 @@
 		opacity: 0.5;
 	}
 	@media (max-width: 900px) {
+		/* messaging-app style: just the arrow, so the contact's name keeps its room */
 		.mobile-back-btn {
 			display: flex;
+			justify-content: center;
+			width: 36px;
+			height: 36px;
+			padding: 0;
+		}
+		.mobile-back-label {
+			display: none;
 		}
 		.desktop-only {
 			display: none !important;
