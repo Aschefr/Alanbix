@@ -11,6 +11,7 @@
 - **Background tint**: a blue wash with a hard edge appeared only once the page was scrolled (the page background was hiding the mesh gradient over the first screen). The gradient is now the same everywhere and softer in the light theme.
 - **Pop-ups on a phone** (full review): the AI instructions editor no longer lets the guide overlap the text area and scrolls as one sheet; the auto-translate choices wrap instead of running out of their box (full-width buttons may now wrap their label on phones); the server picker is readable in the light theme; the tournament players and live standings pop-ups no longer use text under 11 px; the avatar crop window fits short screens.
 - **Languages page is desktop-only**: the tab is hidden in the phone administration and the page sends a phone back to the administration.
+- **New typography**: Onest for text and Bricolage Grotesque for titles replace Inter and Outfit (bundled locally, so it still works offline).
 - **Settings, account card**: the avatar keeps the shape chosen on the profile and no longer shows a solid blue background behind the picture.
 - **Unreachable server on the login screen**: when the saved server address no longer answers (it changed, the server is off), a clear banner replaces "Failed to fetch" and a "Find a server" button opens the server search directly.
 

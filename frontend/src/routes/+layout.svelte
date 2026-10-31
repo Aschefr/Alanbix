@@ -101,7 +101,7 @@
 		padding: 0;
 		background-color: transparent; /* the page colour is on <html>, so the fixed mesh gradient shows everywhere */
 		color: var(--text-main);
-		font-family: 'Inter', sans-serif;
+		font-family: var(--font-main);
 		-webkit-font-smoothing: antialiased;
 	}
 

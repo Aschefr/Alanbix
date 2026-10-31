@@ -19,20 +19,20 @@ colors:
   admin-amber: "#f59e0b"
 typography:
   display:
-    fontFamily: "Outfit, Segoe UI, system-ui, sans-serif"
+    fontFamily: "Bricolage Grotesque, Segoe UI, system-ui, sans-serif"
     fontSize: "2rem"
     fontWeight: 700
     letterSpacing: "-0.02em"
   title:
-    fontFamily: "Outfit, Segoe UI, system-ui, sans-serif"
+    fontFamily: "Bricolage Grotesque, Segoe UI, system-ui, sans-serif"
     fontSize: "1.5rem"
     fontWeight: 700
   body:
-    fontFamily: "Inter, -apple-system, Segoe UI, Roboto, sans-serif"
+    fontFamily: "Onest, -apple-system, Segoe UI, Roboto, sans-serif"
     fontSize: "1rem"
     fontWeight: 400
   label:
-    fontFamily: "Inter, -apple-system, Segoe UI, Roboto, sans-serif"
+    fontFamily: "Onest, -apple-system, Segoe UI, Roboto, sans-serif"
     fontSize: "0.75rem"
     fontWeight: 600
     letterSpacing: "0.05em"
@@ -80,7 +80,7 @@ L'application est un outil (mode Operate) : la lisibilité dans une salle sombre
 **Key Characteristics:**
 - Fond ardoise nuit, panneaux de verre fumé avec un liseré clair en haut (reflet).
 - Un seul bleu d'action ; le violet est réservé à ce qui doit ressortir (mentions, mises en avant).
-- Titres en Outfit, texte en Inter, polices embarquées localement (fonctionne hors internet).
+- Titres en Bricolage Grotesque, texte en Onest, polices embarquées localement (fonctionne hors internet).
 - Emojis utilisés comme icônes de navigation et de statut (🏆 🔒 👑 🛡️ ⚔️).
 - Mobile (≤ 900px) : version compacte et plus « géométrique » (coins presque droits).
 
@@ -111,10 +111,10 @@ Palette froide ardoise + bleu, déclinée en deux luminosités qui partagent les
 
 ## Typography
 
-**Display Font:** Outfit (variable 100–900, avec Segoe UI, system-ui)
-**Body Font:** Inter (400/600/700/800, avec -apple-system, Segoe UI, Roboto)
+**Display Font:** Bricolage Grotesque (variable 200–800, avec Segoe UI, system-ui)
+**Body Font:** Onest (variable 100–900, avec -apple-system, Segoe UI, Roboto)
 
-**Character:** Outfit, géométrique et un peu ludique, porte les titres et le nom Alanbix ; Inter, neutre et très lisible, porte tout le reste.
+**Character:** Bricolage Grotesque, expressive et un peu « bricolée » (en accord avec l'humour de la mascotte), porte les titres et le nom Alanbix ; Onest, neutre et très lisible en petit, porte tout le reste. Choisies le 2026-10-31 en remplacement d'Outfit et Inter (comparaison visuelle, option B).
 
 ### Hierarchy
 Une seule échelle, en variables dans `app.css` ; chaque page s'y réfère au lieu de fixer ses propres tailles.
@@ -170,7 +170,7 @@ Coins doucement arrondis sur bureau (petit 4px, moyen 8px, panneau 12px, grand 2
 - **Focus:** bordure bleue.
 
 ### Navigation
-- **Bureau:** emoji + libellé Inter, élément actif mis en évidence ; Administration en ambre, séparée par un trait.
+- **Bureau:** emoji + libellé Onest, élément actif mis en évidence ; Administration en ambre, séparée par un trait.
 - **Mobile:** onglets du bas avec icônes au trait et libellé court ; actif en bleu.
 
 ### La Fiole (Signature)

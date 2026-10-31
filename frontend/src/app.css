@@ -1,38 +1,17 @@
-/* Offline Resilience: Local font bundles for G-17 */
+/* Offline Resilience: Local font bundles for G-17 (variable fonts, one file each) */
 @font-face {
-  font-family: 'Inter';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url('/fonts/inter-latin-400.woff2') format('woff2');
-}
-@font-face {
-  font-family: 'Inter';
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url('/fonts/inter-latin-600.woff2') format('woff2');
-}
-@font-face {
-  font-family: 'Inter';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url('/fonts/inter-latin-700.woff2') format('woff2');
-}
-@font-face {
-  font-family: 'Inter';
-  font-style: normal;
-  font-weight: 800;
-  font-display: swap;
-  src: url('/fonts/inter-latin-800.woff2') format('woff2');
-}
-@font-face {
-  font-family: 'Outfit';
+  font-family: 'Onest';
   font-style: normal;
   font-weight: 100 900;
   font-display: swap;
-  src: url('/fonts/outfit-latin-var.woff2') format('woff2');
+  src: url('/fonts/onest-latin-var.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Bricolage Grotesque';
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: swap;
+  src: url('/fonts/bricolage-latin-var.woff2') format('woff2');
 }
 
 :root {
@@ -61,8 +40,8 @@
   --glass-border-highlight: rgba(255, 255, 255, 0.15);
   --glass-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.5);
   
-  --font-main: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-title: 'Outfit', 'Segoe UI', system-ui, sans-serif;
+  --font-main: 'Onest', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-title: 'Bricolage Grotesque', 'Segoe UI', system-ui, sans-serif;
 
   --radius-sm: 4px;
   --radius-md: 8px;
