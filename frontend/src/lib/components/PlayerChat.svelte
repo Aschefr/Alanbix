@@ -1,3 +1,8 @@
+<script context="module">
+	// where the reader left each conversation (distance from the bottom), kept while the app is open
+	const scrollMemory = new Map();
+</script>
+
 <script>
 	import { onMount, onDestroy, tick, createEventDispatcher } from 'svelte';
 	import { isTouchKeyboard } from '$lib/mobileViewport';
@@ -244,7 +249,8 @@
 					: -1;
 			}
 			await tick();
-			scrollToBottom(silent ? 'smooth' : 'auto');
+			if (silent) scrollToBottom('smooth');
+			else restoreScroll();
 			// opening the thread marks it read: let the page refresh its unread badges right away
 			dispatch('messageRead', { peerId: peer?.id });
 		} catch (e) {
@@ -303,10 +309,34 @@
 		const distanceToBottom = chatScrollEl.scrollHeight - chatScrollEl.scrollTop - chatScrollEl.clientHeight;
 		// scrolls caused by the area resizing are not the reader's: keep the distance they left
 		if (performance.now() - lastResizeAt > 200) distFromBottom = distanceToBottom;
+		if (performance.now() - lastResizeAt > 200) scrollMemory.set(convKey(), Math.max(0, Math.round(distanceToBottom)));
 		showScrollToBottom = distanceToBottom > 150;
 		if (!showScrollToBottom) {
 			unreadCountSinceScroll = 0;
 		}
+	}
+
+	function convKey() {
+		return mode === 'p2p' ? `p2p:${peer?.id}` : `group:${channelInfo?.channel_key}`;
+	}
+
+	// Reopening a conversation puts it back where it was left (the bottom when it was read to the end)
+	let userMoved = false;
+	function restoreScroll() {
+		if (!chatScrollEl) return;
+		userMoved = false;
+		const dist = scrollMemory.get(convKey()) ?? 0;
+		const apply = () => {
+			if (!chatScrollEl || userMoved) return;
+			distFromBottom = dist;
+			lastResizeAt = performance.now();
+			chatScrollEl.scrollTop = Math.max(0, chatScrollEl.scrollHeight - chatScrollEl.clientHeight - dist);
+		};
+		apply();
+		// images and the pane height settle a moment later
+		requestAnimationFrame(apply);
+		setTimeout(apply, 150);
+		setTimeout(apply, 450);
 	}
 
 	function scrollToBottom(behavior = 'smooth') {
@@ -771,7 +801,7 @@
 	</div>
 
 	<!-- Messages Scroll Area -->
-	<div class="messages-scroll" bind:this={chatScrollEl} on:scroll={handleScroll}>
+	<div class="messages-scroll" bind:this={chatScrollEl} on:scroll={handleScroll} on:touchstart={() => userMoved = true} on:wheel={() => userMoved = true}>
 		{#if loading}
 			<div class="empty-state"><span>⏳</span> {$t('loading')}</div>
 		{:else if messages.length === 0}
