@@ -1,5 +1,6 @@
 <script>
 	import { onMount, onDestroy, tick, createEventDispatcher } from 'svelte';
+	import { isTouchKeyboard } from '$lib/mobileViewport';
 	import { api } from '$lib/api';
 	import { wsMessageStore } from '$lib/ws';
 	import { t } from '$lib/i18nStore';
@@ -147,8 +148,8 @@
 						await loadMessages(true);
 					}
 					if (msg.sender_id === peer?.id) {
-						api.get(`/players/messages/${peer.id}`).catch(() => {});
-						dispatch('messageRead', { peerId: peer.id });
+						// reading the thread marks it read on the server: tell the page once that is done so the badges clear
+						api.get(`/players/messages/${peer.id}`).catch(() => {}).then(() => dispatch('messageRead', { peerId: peer.id }));
 					}
 				}
 			}
@@ -172,6 +173,9 @@
 						}
 					} else {
 						await loadMessages(true);
+					}
+					if (msg.sender_id !== currentUser?.id) {
+						api.get(`/players/group/channel/${encodeURIComponent(channelInfo.channel_key)}`).catch(() => {}).then(() => dispatch('messageRead', {}));
 					}
 				}
 			}
@@ -240,6 +244,8 @@
 			}
 			await tick();
 			scrollToBottom(silent ? 'smooth' : 'auto');
+			// opening the thread marks it read: let the page refresh its unread badges right away
+			dispatch('messageRead', { peerId: peer?.id });
 		} catch (e) {
 			console.error("Error loading chat messages:", e);
 		} finally {
@@ -408,7 +414,8 @@
 			}
 		}
 
-		if (e.key === 'Enter' && !e.shiftKey) {
+		// touch keyboard: Enter adds a line, the send button sends
+		if (e.key === 'Enter' && !e.shiftKey && !isTouchKeyboard()) {
 			e.preventDefault();
 			sendMessage();
 		}
@@ -991,6 +998,7 @@
 			<!-- Send Button -->
 			<button
 				class="send-btn"
+				on:mousedown|preventDefault
 				on:click={sendMessage}
 				disabled={(!textInput.trim() && !pendingImage) || isSending || isOverLimit}
 			>

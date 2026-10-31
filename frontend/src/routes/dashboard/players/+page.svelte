@@ -8,6 +8,7 @@
 	import { formatPoints } from '$lib/utils';
 	import { resolveMediaUrl } from '$lib/config';
 	import PlayerChat from '$lib/components/PlayerChat.svelte';
+	import { fitPane } from '$lib/mobileViewport';
 	import Icon from '$lib/components/Icon.svelte';
 
 	let players = [];
@@ -106,35 +107,12 @@
 	let groupUnreadMap = {}; // channel_key -> unread count
 	let wsUnsub = null;
 
-	// Phone, conversation open: the page fills the space between its own top and the tab bar. It is measured
-	// (not hard-coded) because a notification banner may sit above it and ancestors are animated.
-	let pageEl;
-	let paneH = 0;
-	let layoutObserver = null;
-	function measurePane() {
-		if (typeof window === 'undefined' || !pageEl) return;
-		if (window.innerWidth > 900 || chatMode === null) { paneH = 0; return; }
-		const area = document.querySelector('.content-area');
-		const bottomPad = area ? parseFloat(getComputedStyle(area).paddingBottom) || 0 : 0;
-		paneH = Math.max(240, Math.round(window.innerHeight - pageEl.getBoundingClientRect().top - bottomPad));
-	}
-	$: if (typeof window !== 'undefined' && chatMode !== null) {
-		tick().then(() => { window.scrollTo(0, 0); measurePane(); });
-	} else {
-		paneH = 0;
-	}
-
 	function onWindowFocus() {
 		loadPlayers(true);
 	}
 
 	onMount(async () => {
-		// the notification banner above the page can appear or be dismissed: keep the conversation pane in step
-		const area = document.querySelector('.content-area');
-		if (area && 'MutationObserver' in window) {
-			layoutObserver = new MutationObserver(() => measurePane());
-			layoutObserver.observe(area, { childList: true });
-		}
+		window.addEventListener('alanbix:messages-tab', onMessagesTab);
 		try { currentUser = await api.get('/me'); } catch {}
 		await loadPlayers();
 		await loadUnreadMap();
@@ -201,7 +179,7 @@
 				if (chatMode === 'p2p' && chatPeerId === msg.sender_id) {
 					unreadMap[msg.sender_id] = 0;
 					unreadMap = { ...unreadMap };
-					api.get(`/players/messages/${msg.sender_id}`).catch(() => {});
+					api.get(`/players/messages/${msg.sender_id}`).catch(() => {}).then(() => loadUnreadMap());
 				} else {
 					loadUnreadMap();
 				}
@@ -213,8 +191,8 @@
 	});
 
 	onDestroy(() => {
-		if (layoutObserver) layoutObserver.disconnect();
-		clearTimeout(retryTimer); 
+		clearTimeout(retryTimer);
+		if (typeof window !== 'undefined') window.removeEventListener('alanbix:messages-tab', onMessagesTab);
 		if (wsUnsub) wsUnsub(); 
 		if (typeof window !== 'undefined') {
 			window.removeEventListener('focus', onWindowFocus);
@@ -393,7 +371,27 @@
 		await loadGroupUnreadMap();
 	}
 
+	// Phone: the conversation left through the back arrow, offered again from the contact list
+	let resumable = null; // { kind: 'p2p', peerId, label } | { kind: 'group', key, label }
+
+	function resumeChat() {
+		if (!resumable) return;
+		const r = resumable;
+		if (r.kind === 'p2p') openChat(r.peerId); else openGroupChat(r.key);
+	}
+
+	// Tapping the Messages tab again, while on the contact list, goes back to the last conversation
+	function onMessagesTab() {
+		if (chatMode === null) resumeChat();
+	}
+
 	function closeChat() {
+		if (chatMode === 'p2p' && chatPeerId) {
+			resumable = { kind: 'p2p', peerId: chatPeerId, label: chatPeer?.username || '' };
+		} else if (chatMode === 'group' && chatChannelKey) {
+			const info = chatChannelInfo;
+			resumable = { kind: 'group', key: chatChannelKey, label: (info?.team_names || []).join(' · ') };
+		}
 		chatMode = null;
 		chatPeerId = null;
 		chatPeer = null;
@@ -459,9 +457,7 @@
 
 </script>
 
-<svelte:window on:resize={measurePane} />
-
-<div class="players-page animate-in" class:chat-active-mobile={chatMode !== null} style={paneH ? `--pane-h: ${paneH}px` : null} bind:this={pageEl}>
+<div class="players-page animate-in" class:chat-active-mobile={chatMode !== null} use:fitPane={chatMode !== null}>
 	<header class="players-header">
 		<h1 class="title-premium page-title-icon"><Icon name="users" size={22} /> {$t('players_title')}</h1>
 		<span class="player-count">{$t('players_subtitle', { count: players.length, plural: players.length > 1 ? 's' : '' })}</span>
@@ -470,6 +466,14 @@
 	<div class="players-layout" style="grid-template-columns: minmax(0, 1fr) 8px {chatWidth}px;">
 		<!-- LEFT: Player directory -->
 		<div class="directory-col" class:mobile-hidden={chatMode !== null}>
+			{#if resumable && chatMode === null}
+				<button type="button" class="resume-chat-bar glass" on:click={resumeChat}>
+					<Icon name="chat" size={15} />
+					<span class="resume-chat-text">{$t('players_resume_chat', { name: resumable.label })}</span>
+					<Icon name="chevron-right" size={15} />
+				</button>
+			{/if}
+
 			{#if totalUnreadChats > 0}
 				<div class="unread-shortlist-bar glass">
 					<div class="unread-shortlist-header">
@@ -755,7 +759,7 @@
 					allUsers={players}
 					on:close={closeChat}
 					on:messageSent={() => { loadUnreadMap(); loadGroupUnreadMap(); }}
-					on:messageRead={(e) => { if (e.detail?.peerId) { unreadMap[e.detail.peerId] = 0; unreadMap = { ...unreadMap }; } }}
+					on:messageRead={(e) => { if (e.detail?.peerId) { unreadMap[e.detail.peerId] = 0; unreadMap = { ...unreadMap }; } loadUnreadMap(); loadGroupUnreadMap(); }}
 				/>
 			{/if}
 		</div>
@@ -766,6 +770,11 @@
 	.players-page { display: flex; flex-direction: column; gap: 1rem; height: 100%; }
 	.players-header { display: flex; align-items: center; justify-content: space-between; padding: 0.25rem 0.25rem 0.5rem; flex-shrink: 0; background: none; border: none; box-shadow: none; backdrop-filter: none; }
 	.players-header h1 { margin: 0; font-size: var(--fs-page); }
+	.resume-chat-bar { display: none; }
+	@media (max-width: 900px) {
+		.resume-chat-bar { display: flex; align-items: center; gap: 0.6rem; width: 100%; padding: 0.7rem 0.9rem; margin-bottom: 0.6rem; border-radius: var(--radius-md); border: 1px solid var(--accent); color: var(--accent); font-weight: 700; font-size: 0.85rem; cursor: pointer; text-align: left; }
+		.resume-chat-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	}
 	.player-count { font-size: 0.75rem; font-weight: 700; padding: 0.25rem 0.8rem; border-radius: 20px; background: rgba(59,130,246,0.1); color: var(--accent); border: 1px solid rgba(59,130,246,0.25); }
 
 	/* Layout — fill remaining height, both columns scroll independently */

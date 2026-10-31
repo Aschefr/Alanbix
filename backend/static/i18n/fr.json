@@ -1657,5 +1657,6 @@
   "settings_theme_opt_system": "Système",
   "settings_theme_system_hint": "Suit le réglage clair ou sombre de votre appareil.",
   "admin_more_actions": "Plus d'actions",
-  "admin_awards_help_title": "Comment ça marche"
+  "admin_awards_help_title": "Comment ça marche",
+  "players_resume_chat": "Reprendre la conversation : {name}"
 }

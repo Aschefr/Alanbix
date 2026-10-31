@@ -1,5 +1,6 @@
 <script>
 	import { t } from '$lib/i18nStore';
+	import { isTouchKeyboard, fitPane } from '$lib/mobileViewport';
 	import { get } from 'svelte/store';
 	import { api } from '$lib/api';
 	import { onMount, onDestroy, tick } from 'svelte';
@@ -1101,7 +1102,8 @@
 	}
 
 	function handleInputKeydown(e) {
-		if (e.key === 'Enter' && !e.shiftKey) {
+		// touch keyboard: Enter adds a line, the send button sends
+		if (e.key === 'Enter' && !e.shiftKey && !isTouchKeyboard()) {
 			e.preventDefault();
 			send();
 		}
@@ -1119,7 +1121,7 @@
 
 <div class="ai-wrap">
 <header class="ai-header"><h1 class="title-premium">{$t('nav_ai_assistant')}</h1></header>
-<div class="ai-page flex-row">
+<div class="ai-page flex-row" use:fitPane>
 	<!-- Admin Notification Banner -->
 	{#if adminNotification}
 		<div class="admin-notif" on:click={goToNotifiedConv}>
@@ -1544,7 +1546,7 @@
 						{#if !userObj?.is_admin && !iaBlocked && iaConfig.call_admin_button_enabled !== false && messages.some(m => m.role === 'assistant' || m.role === 'bot')}
 							<button type="button" class="btn-call-admin" title={$t('ai_call_admin_button')} on:click={checkAndOpenCallAdmin}>📣</button>
 						{/if}
-						<button class="btn-primary" type="submit" disabled={iaBlocked}>{$t("ai_btn_send")}</button>
+						<button class="btn-primary" type="submit" on:mousedown|preventDefault disabled={iaBlocked}>{$t("ai_btn_send")}</button>
 					{/if}
 				</div>
 			</form>
@@ -2182,7 +2184,7 @@
 
 	@media (max-width: 900px) {
 		.ai-header { display: none; }
-		.ai-page { flex-direction: column; height: calc(100vh - 96px); gap: 0.35rem; }
+		.ai-page { flex-direction: column; height: var(--pane-h, calc(100vh - 96px)); gap: 0.35rem; }
 		.chat-sidebar { display: none !important; }
 		.chat-main {
 			width: 100% !important;

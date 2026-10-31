@@ -1669,5 +1669,6 @@
   "settings_theme_opt_system": "Sistema",
   "settings_theme_system_hint": "Sigue el ajuste claro u oscuro de tu dispositivo.",
   "admin_more_actions": "Más acciones",
-  "admin_awards_help_title": "Cómo funciona"
+  "admin_awards_help_title": "Cómo funciona",
+  "players_resume_chat": "Reanudar la conversación: {name}"
 }

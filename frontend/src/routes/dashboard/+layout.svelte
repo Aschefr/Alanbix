@@ -14,6 +14,7 @@
 	import ServerConfigModal from '$lib/components/ServerConfigModal.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import { themeStore, toggleTheme } from '$lib/theme';
+	import { initMobileViewport } from '$lib/mobileViewport';
 
 	let user = { username: '...', is_admin: false };
 	let loading = true;
@@ -370,7 +371,13 @@
 		}
 	}
 
+	// A second tap on the Messages tab, while already on the messages page, reopens the last conversation
+	function onMessagesTab() {
+		if ($page.url.pathname.startsWith('/dashboard/players')) window.dispatchEvent(new CustomEvent('alanbix:messages-tab'));
+	}
+
 	onMount(async () => {
+		initMobileViewport();
 		// No session: go straight to the login screen, without asking the
 		// server first and without reloading the whole page
 		if (!get(authStore)) {
@@ -717,7 +724,7 @@
 			<span class="tab-icon"><Icon name="trophy" size={17} /></span>
 			<span class="tab-label">{$t('mobile_tab_tournaments')}</span>
 		</a>
-		<a href="/dashboard/players{$totalMsgUnread > 0 && lastPmSender ? '?chat=' + lastPmSender : ''}" class="bottom-tab" class:active={$page.url.pathname.startsWith('/dashboard/players')}>
+		<a href="/dashboard/players{$totalMsgUnread > 0 && lastPmSender ? '?chat=' + lastPmSender : ''}" class="bottom-tab" class:active={$page.url.pathname.startsWith('/dashboard/players')} on:click={onMessagesTab}>
 			<span class="tab-icon tab-badge-wrap">
 				<Icon name="chat" size={17} />
 				{#if $totalMsgUnread > 0}
@@ -1553,6 +1560,18 @@
 			height: auto;
 			min-height: calc(100vh - 42px);
 			overflow-y: visible;
+		}
+
+		/* On-screen keyboard open: the tab bar steps aside so the field sits right on the keyboard */
+		:global(html.kb-open) .mobile-bottom-nav {
+			display: none;
+		}
+		:global(html.kb-open) .content-area {
+			padding-bottom: 0.5rem;
+		}
+		:global(html.kb-open.pane-fit),
+		:global(html.kb-open.pane-fit) :global(body) {
+			overflow: hidden;
 		}
 
 		.mobile-bottom-nav {

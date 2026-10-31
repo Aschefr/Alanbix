@@ -3,6 +3,11 @@
 ## [1.35.1] - Unreleased
 
 ### 📱 Players
+- **Messages, back to the last conversation**: after leaving a conversation with the back arrow, a "Resume conversation" button tops the contact list, and tapping the Messages tab again reopens it.
+- **Messages badge clears right away**: opening or receiving a message in the conversation you are reading now updates the tab badge and the unread chips at once.
+- **On-screen keyboard on a phone**: the tab bar steps aside and the conversation (or the AI assistant input) ends exactly on the keyboard, with no gap and no shift of the header; on a touch keyboard Enter adds a line and only the send button sends (private chat, team chat, public chat, AI assistant).
+- **AI assistant on a phone**: the input field is no longer hidden under the bottom tab bar.
+- **Profile on a phone**: the "insult filter" switch is drawn from its own track so the thumb stays inside it on every browser (Firefox included); the points history cards have a visible border and background.
 - **System theme by default**: the app follows the device's light or dark setting (and changes with it); Settings now offer System / Dark / Light, and an explicit choice is kept. The browser and phone status bar take the theme colour.
 - **Theme button in the phone header**, next to the settings (line sun / moon icons instead of emojis).
 - **Administration on a phone**: all the tabs are reachable (edges fade, the active tab is centred), a slimmer notification banner, sections use the full width instead of a card inside a card, and lists no longer scroll inside the page.
