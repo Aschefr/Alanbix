@@ -1665,5 +1665,6 @@
   "admin_ai_nav_prompts": "Instrucciones",
   "admin_ai_nav_knowledge": "Conocimientos",
   "admin_ai_sec_servers": "Servidores y cola",
-  "admin_ai_sec_behaviour": "Comportamiento y seguridad"
+  "admin_ai_sec_behaviour": "Comportamiento y seguridad",
+  "admin_awards_customised": "Texto personalizado"
 }

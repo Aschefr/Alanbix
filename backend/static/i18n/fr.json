@@ -1665,5 +1665,6 @@
   "admin_ai_nav_prompts": "Consignes",
   "admin_ai_nav_knowledge": "Connaissances",
   "admin_ai_sec_servers": "Serveurs & file d'attente",
-  "admin_ai_sec_behaviour": "Comportement & sécurité"
+  "admin_ai_sec_behaviour": "Comportement & sécurité",
+  "admin_awards_customised": "Texte personnalisé"
 }

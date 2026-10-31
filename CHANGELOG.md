@@ -22,6 +22,7 @@
 - **Administration, AI settings tab reorganised**: same jump bar and section headers as the General tab (Servers & queue, Model, Behaviour & safety, Prompts, Knowledge base), model fields on two columns, the behaviour options as compact rows with their own icons, the anti-spam limits on one row.
 - **AI context quick options up to 128K**: the context window presets now include 64K and 128K, and the stopwatch emoji on duration badges is a line icon.
 - **Jump bars on a phone**: the highlighted chip is always fully visible (the bar slides to it), and a section header jumped to is no longer hidden under the bars.
+- **Awards tab redesigned**: the two action buttons sit at the top, the explanation is folded, and each award is one compact row (emoji, title, criteria, winner and stats) in two columns on a computer; the text form opens with the pencil button, and a dot marks a customised text. The page is less than half as long on a phone.
 - **AI assistant on a phone**: the input field is no longer hidden under the bottom tab bar.
 - **Profile on a phone**: the "insult filter" switch is drawn from its own track so the thumb stays inside it on every browser (Firefox included); the points history cards have a visible border and background.
 - **System theme by default**: the app follows the device's light or dark setting (and changes with it); Settings now offer System / Dark / Light, and an explicit choice is kept. The browser and phone status bar take the theme colour.

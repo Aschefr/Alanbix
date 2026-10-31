@@ -1677,5 +1677,6 @@
   "admin_ai_nav_prompts": "Prompts",
   "admin_ai_nav_knowledge": "Knowledge",
   "admin_ai_sec_servers": "Servers & queue",
-  "admin_ai_sec_behaviour": "Behaviour & safety"
+  "admin_ai_sec_behaviour": "Behaviour & safety",
+  "admin_awards_customised": "Custom text"
 }
