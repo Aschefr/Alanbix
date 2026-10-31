@@ -1048,9 +1048,9 @@
 	}
 	.toolbar-btn:disabled { opacity: 0.5; cursor: wait; }
 	.toolbar-btn.primary {
-		background: var(--accent);
+		background: var(--accent-solid);
 		color: #fff;
-		border-color: var(--accent);
+		border-color: var(--accent-solid);
 	}
 	.toolbar-btn.primary:hover:not(:disabled) {
 		filter: brightness(1.15);

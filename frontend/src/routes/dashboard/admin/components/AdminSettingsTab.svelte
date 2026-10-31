@@ -1426,7 +1426,7 @@
 	.settings-tabs { display: flex; gap: 0.35rem; padding: 0.35rem; background: var(--surface-sunken); border-radius: 12px; margin-bottom: 1.5rem; border: 1px solid var(--glass-border); }
 	.stab { flex: 1; padding: 0.7rem 1rem; background: none; border: none; color: var(--text-dim); font-size: 0.85rem; font-weight: 600; font-family: var(--font-main); cursor: pointer; border-radius: 8px; transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1); display: flex; align-items: center; justify-content: center; gap: 0.5rem; }
 	.stab:hover { color: var(--text-main); background: var(--hover-tint); }
-	.stab.active { background: var(--accent); color: white; box-shadow: 0 4px 14px var(--accent-glow); font-weight: 700; }
+	.stab.active { background: var(--accent-solid); color: white; box-shadow: 0 4px 14px var(--accent-glow); font-weight: 700; }
 	.stab-icon { display: inline-flex; }
 	@media (max-width: 480px) {
 		.stab { padding: 0.6rem 0.4rem; font-size: 0.8125rem; white-space: nowrap; }
