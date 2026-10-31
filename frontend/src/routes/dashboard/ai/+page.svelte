@@ -5,7 +5,7 @@
 </script>
 
 <script>
-	import { t } from '$lib/i18nStore';
+	import { t, currentLang } from '$lib/i18nStore';
 	import { isTouchKeyboard, fitPane } from '$lib/mobileViewport';
 	import { get } from 'svelte/store';
 	import { api } from '$lib/api';
@@ -1029,7 +1029,8 @@
 					prompt: userMsg,
 					conversation_id: activeId,
 					image_path: imagePath,
-					skip_save_user: skipSaveUser
+					skip_save_user: skipSaveUser,
+					lang: $currentLang
 				})
 			});
 

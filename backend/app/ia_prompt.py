@@ -74,6 +74,19 @@ def app_guide_block(lang: str) -> str:
         return ""
 
 
+LANG_NAMES = {"fr": "French", "en": "English", "es": "Spanish", "de": "German", "it": "Italian", "pt": "Portuguese", "nl": "Dutch"}
+
+
+def language_block(player_lang: str | None) -> str:
+    """Last part of the prompt: small models follow the most recent instruction, and the
+    personality text is written in the LAN language, which otherwise drags answers into it."""
+    name = LANG_NAMES.get((player_lang or "").lower()[:2])
+    if not name:
+        return "=== LANGUAGE ===\nAnswer in the language of the player's last message."
+    return (f"=== LANGUAGE ===\nThe player's interface is in {name}. Answer in {name}, "
+            "unless the player's last message is written in another language: then answer in that language.")
+
+
 def live_context_block(db, models, user, lang: str) -> str:
     L = LIVE[_lang(lang)]
     ev = db.query(models.SystemConfig).filter(models.SystemConfig.key == "event_name").first()
