@@ -1025,8 +1025,10 @@
 			min-height: calc(100vh - 120px);
 		}
 		/* Open conversation: fills the measured space above the tab bar, so the message box is never hidden */
+		/* the conversation fills the screen edge to edge, between the top bar and the tab bar */
 		.players-page.chat-active-mobile {
-			height: var(--pane-h, calc(100vh - 110px));
+			margin: -0.5rem -0.5rem calc(-1 * var(--pane-bleed, 0px));
+			height: calc(var(--pane-h, calc(100vh - 110px)) + var(--pane-bleed, 0px));
 			min-height: 0;
 			overflow: hidden;
 			gap: 0;

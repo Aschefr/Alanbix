@@ -69,6 +69,7 @@ export function fitPane(node: HTMLElement, enabled: boolean = true) {
 	function measure() {
 		if (!on || window.innerWidth > PHONE_MAX) {
 			node.style.removeProperty('--pane-h');
+			node.style.removeProperty('--pane-bleed');
 			return;
 		}
 		// the pane is always laid out from the top of the page: a list scrolled down must not skew the measure
@@ -77,6 +78,10 @@ export function fitPane(node: HTMLElement, enabled: boolean = true) {
 		const open = root.classList.contains('kb-open');
 		const bottomPad = open ? 0 : (area ? parseFloat(getComputedStyle(area).paddingBottom) || 0 : 0);
 		const top = node.getBoundingClientRect().top + window.scrollY;
+		// space between the padding reserved under the content and the tab bar actually drawn there
+		const nav = document.querySelector('.mobile-bottom-nav');
+		const navH = nav && !open ? nav.getBoundingClientRect().height : 0;
+		node.style.setProperty('--pane-bleed', `${open ? 0 : Math.max(0, Math.round(bottomPad - navH))}px`);
 		node.style.setProperty('--pane-h', `${Math.max(200, Math.round(viewportHeight() - top - bottomPad))}px`);
 	}
 
