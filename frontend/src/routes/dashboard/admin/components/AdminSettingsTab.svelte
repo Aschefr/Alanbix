@@ -913,7 +913,7 @@
 			</div>
 			<div class="sc-body">
 				<div class="flex-column gap-2" style="width: 100%;">
-					<div class="flex-row gap-2" style="width: 100%;">
+					<div class="flex-row gap-2 searx-row" style="width: 100%;">
 						<input type="text" aria-label={$t("admin_settings_searxng_title")} bind:value={searxngUrl} on:input={() => debounceSave('searxngUrl', saveSearxngUrl)} placeholder="{$t('admin_settings_searxng_placeholder')}" style="flex:1" />
 						<button class="btn-primary" on:click={testSearxng} disabled={searxngTesting}>
 							{#if searxngTesting}
@@ -1645,7 +1645,10 @@
 	.inst-main { flex: 1; min-width: 0; }
 	.inst-name-input { width: 100%; background: transparent; border: none; border-bottom: 1px solid var(--glass-border); color: var(--text-main); font-size: 0.8rem; font-weight: 700; padding: 0.1rem 0; }
 	.inst-name-input:focus { border-color: var(--accent); outline: none; }
-	.inst-meta { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.3rem; }
+	.inst-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.3rem; }
+	.searx-row { flex-wrap: wrap; }
+	.searx-row input { flex: 1 1 180px !important; min-width: 0; }
+	.searx-row button { flex: 0 1 auto; }
 	.inst-url-input { flex: 1; min-width: 80px; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 6px; padding: 0.2rem 0.4rem; color: var(--text-dim); font-size: 0.75rem; font-family: monospace; }
 	.inst-model-select { background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 6px; padding: 0.2rem 0.4rem; color: var(--text-main); font-size: 0.75rem; max-width: 120px; min-width: 80px; }
 	.inst-model-select option { background: var(--bg-secondary); color: var(--text-main); }
@@ -1951,7 +1954,7 @@
 	}
 	.prompt-modal-editor { display: flex; flex-direction: column; padding: 1rem; border-right: 1px solid var(--glass-border); min-height: 0; }
 	.prompt-modal-char-count { font-size: 0.75rem; color: var(--text-muted); font-variant-numeric: tabular-nums; margin-bottom: 0.4rem; text-align: right; font-weight: 600; }
-	.prompt-modal-textarea { flex: 1; width: 100%; min-height: 400px; max-height: 100%; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 10px; padding: 0.8rem; color: var(--text-main); font-size: 0.8rem; font-family: 'Courier New', 'Consolas', monospace; line-height: 1.6; resize: none; transition: border-color 0.2s; }
+	.prompt-modal-textarea { flex: 1; width: 100%; min-height: 400px; max-height: 100%; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 10px; padding: 0.8rem; color: var(--text-main); font-size: 0.8rem; font-family: monospace; line-height: 1.6; resize: none; transition: border-color 0.2s; }
 	.prompt-modal-textarea:focus { outline: none; border-color: rgba(139,92,246,0.5); box-shadow: 0 0 0 3px rgba(139,92,246,0.08); }
 	.prompt-modal-guide { overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: 0.8rem; background: rgba(139,92,246,0.02); }
 	.pmg-section { background: var(--hover-tint); border: 1px solid var(--glass-border); border-radius: 12px; padding: 0.8rem 0.9rem; }
