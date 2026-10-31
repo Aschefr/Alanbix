@@ -817,7 +817,6 @@
 		display: grid;
 		grid-template-columns: 220px 1fr;
 		min-height: 100vh;
-		background: var(--bg-primary);
 	}
 
 	.side-nav {
@@ -1446,7 +1445,6 @@
 			flex-direction: column;
 			min-height: 100vh;
 			grid-template-columns: none;
-			background: var(--bg-primary);
 		}
 
 		.side-nav {

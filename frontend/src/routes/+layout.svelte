@@ -99,7 +99,7 @@
 	:global(body) {
 		margin: 0;
 		padding: 0;
-		background-color: var(--bg-primary);
+		background-color: transparent; /* the page colour is on <html>, so the fixed mesh gradient shows everywhere */
 		color: var(--text-main);
 		font-family: 'Inter', sans-serif;
 		-webkit-font-smoothing: antialiased;
