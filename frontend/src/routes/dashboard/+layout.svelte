@@ -1555,6 +1555,13 @@
 			box-shadow: 0 0 6px rgba(239, 68, 68, 0.6);
 		}
 
+		/* the page grows with its content so the bottom padding (above the tab bar) really ends the page */
+		.content-area > .container {
+			flex: 1 0 auto;
+			min-height: auto;
+			height: auto;
+		}
+
 		.content-area {
 			padding: 0.5rem 0.5rem calc(3.4rem + var(--safe-bottom, 0px));
 			height: auto;

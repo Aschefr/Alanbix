@@ -1911,7 +1911,9 @@
 	.scoring-toggle .score-opt { display: grid; grid-template-columns: auto 1fr; column-gap: 0.7rem; row-gap: 0; align-items: center; text-align: left; padding: 0.55rem 0.9rem; }
 	.scoring-toggle .score-opt-icon { grid-row: 1 / 3; }
 	.scoring-toggle .score-opt-label, .scoring-toggle .score-opt-desc { grid-column: 2; }
-	.default-pts-grid { gap: 0.6rem; }
+	.default-pts-grid { grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); gap: 0.6rem; align-items: end; }
+	.dpt-field { justify-content: flex-end; }
+	.dpt-field label { display: flex; align-items: flex-end; justify-content: center; min-height: 2.4em; line-height: 1.2; }
 
 	/* chat: compact toggle rows, limits and filters side by side */
 	.sc-bare > .sc-head { display: none; }
