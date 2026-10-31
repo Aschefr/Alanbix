@@ -31,6 +31,9 @@
 - **Administration, AI conversations on a phone like a messaging app**: tapping a conversation opens it full screen (title, player and "Take over" on top, back arrow to the list, input above the tab bar, messages follow the on-screen keyboard); the title and tabs of the page and the call/suggestion cards step aside while it is open.
 - **Home chat on a phone fills the screen**: the General Chat card now runs down to the tab bar (no blank band under the input) and follows the on-screen keyboard.
 - **Knowledge base editing on a phone**: the "Cancel" and "Save & re-vectorise" buttons stay inside their card and the document list no longer scrolls inside itself.
+- **AI assistant, light theme**: the "an administrator is handling this conversation" banner (and the blocked banner) use dark, readable colours, and the time under an admin message is no longer white on a pale bubble.
+- **AI assistant on a phone, short conversations**: the chat now always fills the screen down to the tab bar (a large empty band appeared under the input when the conversation was short).
+- **AI conversation list**: the unread badge says "New" instead of "Update" and no longer squeezes the title to one letter.
 - **AI assistant on a phone**: the input field is no longer hidden under the bottom tab bar.
 - **Profile on a phone**: the "insult filter" switch is drawn from its own track so the thumb stays inside it on every browser (Firefox included); the points history cards have a visible border and background.
 - **System theme by default**: the app follows the device's light or dark setting (and changes with it); Settings now offer System / Dark / Light, and an explicit choice is kept. The browser and phone status bar take the theme colour.

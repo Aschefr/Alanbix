@@ -1214,7 +1214,7 @@
 						<span class="icon">💬</span>
 						<span class="title" title={conv.title}>{conv.title}</span>
 						{#if conv.has_new_messages}
-							<span class="unread-badge">{$t("changelog_fallback_name")}</span>
+							<span class="unread-badge">{$t("dash_stat_new")}</span>
 						{/if}
 					</button>
 					<button class="btn-icon rename-btn" on:click|stopPropagation={() => openRename(conv)} title={$t('ai_tooltip_rename')}>✏️</button>
@@ -1649,7 +1649,7 @@
 								<span class="icon">💬</span>
 								<span class="title" title={conv.title}>{conv.title}</span>
 								{#if conv.has_new_messages}
-									<span class="unread-badge">{$t("changelog_fallback_name")}</span>
+									<span class="unread-badge">{$t("dash_stat_new")}</span>
 								{/if}
 							</button>
 							<button class="btn-icon rename-btn" on:click|stopPropagation={() => openRename(conv)} title={$t('ai_tooltip_rename')}>✏️</button>
@@ -1727,7 +1727,7 @@
 		display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem; 
 		background: none; border: none; color: inherit; cursor: pointer; flex: 1; min-width: 0; text-align: left; overflow: hidden;
 	}
-	.conv-btn .title { font-size: 0.82rem; white-space: normal; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.3; }
+	.conv-btn .title { flex: 1; min-width: 0; font-size: 0.82rem; white-space: normal; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.3; }
 	
 	.unread-badge {
 		background: var(--success);
@@ -1915,6 +1915,8 @@
 		letter-spacing: 0.2px;
 		user-select: none;
 	}
+	/* the time under an admin message sits on a pale purple bubble: not white */
+	.admin-msg .msg-time.user-time, .admin-msg .msg-time { color: var(--text-dim); opacity: 1; }
 	.msg-time.user-time {
 		display: block;
 		text-align: right;
@@ -2090,6 +2092,7 @@
 	}
 	.takeover-icon { font-size: 1.3rem; }
 	.takeover-text { font-size: 0.85rem; color: #c4b5fd; font-weight: 500; }
+	:global([data-theme="light"]) .takeover-text { color: #6b21a8; font-weight: 600; }
 	@keyframes takeover-pulse {
 		0%, 100% { background: rgba(168, 85, 247, 0.08); }
 		50% { background: rgba(168, 85, 247, 0.15); }
@@ -2104,6 +2107,7 @@
 		border-bottom: 2px solid rgba(239, 68, 68, 0.5);
 	}
 	.blocked-text { font-size: 0.85rem; color: #fca5a5; font-weight: 500; }
+	:global([data-theme="light"]) .blocked-text { color: #b91c1c; font-weight: 600; }
 	/* Pending message preview in modal */
 	.pending-msg-preview {
 		display: flex; flex-direction: column; gap: 0.2rem;
@@ -2249,7 +2253,8 @@
 	@media (max-width: 900px) {
 		.ai-header { display: none; }
 		/* the conversation fills the screen edge to edge, between the top bar and the tab bar */
-		.ai-page { flex-direction: column; margin: -0.5rem -0.5rem calc(-1 * var(--pane-bleed, 0px)); height: calc(var(--pane-h, calc(100vh - 96px)) + var(--pane-bleed, 0px)); gap: 0.35rem; }
+		.ai-wrap { height: auto; }
+		.ai-page { flex: 0 0 auto; flex-direction: column; margin: -0.5rem -0.5rem calc(-1 * var(--pane-bleed, 0px)); height: calc(var(--pane-h, calc(100vh - 96px)) + var(--pane-bleed, 0px)); gap: 0.35rem; }
 		.chat-sidebar { display: none !important; }
 		.chat-main {
 			width: 100% !important;
