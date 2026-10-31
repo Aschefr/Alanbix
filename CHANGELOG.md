@@ -9,6 +9,7 @@
 - **Tournament list on a phone**: shorter rows with one visible action (edit) and a "more" menu (AI prompt, regenerate, hide, delete); delete is set apart in red and still asks for confirmation. The desktop list is unchanged.
 - **Awards, players and settings tabs on a phone**: the awards buttons come first and the explanation folds into "How it works"; the player search has its own full-width line; the settings sub-tabs fit on one line.
 - **Background tint**: a blue wash with a hard edge appeared only once the page was scrolled (the page background was hiding the mesh gradient over the first screen). The gradient is now the same everywhere and softer in the light theme.
+- **Pop-ups on a phone** (full review): the AI instructions editor no longer lets the guide overlap the text area and scrolls as one sheet; the auto-translate choices wrap instead of running out of their box (full-width buttons may now wrap their label on phones); the server picker is readable in the light theme; the tournament players and live standings pop-ups no longer use text under 11 px; the avatar crop window fits short screens.
 - **Settings, account card**: the avatar keeps the shape chosen on the profile and no longer shows a solid blue background behind the picture.
 - **Unreachable server on the login screen**: when the saved server address no longer answers (it changed, the server is off), a clear banner replaces "Failed to fetch" and a "Find a server" button opens the server search directly.
 

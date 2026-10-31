@@ -905,6 +905,14 @@
 		cursor: pointer;
 	}
 
+	/* The pastel text colours above are meant for the dark theme: darker shades keep them readable on white */
+	:global([data-theme="light"]) .status-banner.info { color: #1d4ed8; }
+	:global([data-theme="light"]) .status-banner.success { color: #15803d; }
+	:global([data-theme="light"]) .status-banner.error { color: #b91c1c; }
+	:global([data-theme="light"]) .radar-text strong { color: #1d4ed8; }
+	:global([data-theme="light"]) .btn-demo { color: #047857; }
+	:global([data-theme="light"]) .btn-reset-local { color: #b91c1c; }
+
 	.btn-reset-local {
 		width: 100%;
 		padding: 0.5rem;

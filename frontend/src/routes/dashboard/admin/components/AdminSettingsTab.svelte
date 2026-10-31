@@ -1799,6 +1799,17 @@
 	.prompt-modal-close:hover { background: rgba(239,68,68,0.1); border-color: var(--danger); color: var(--danger); }
 	.prompt-modal-body { display: grid; grid-template-columns: 1fr 340px; flex: 1; min-height: 0; overflow: hidden; }
 	@media (max-width: 800px) { .prompt-modal-body { grid-template-columns: 1fr; } }
+	/* Phone: one column that scrolls as a whole (the editor and the guide used to overlap), a near full-screen sheet */
+	@media (max-width: 800px) {
+		.prompt-modal-overlay { padding: 0.5rem; align-items: stretch; }
+		.prompt-modal { max-height: none; height: 100%; width: 100%; border-radius: 16px; }
+		.prompt-modal-header { padding: 0.8rem 1rem; }
+		.prompt-modal-body { display: flex; flex-direction: column; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+		.prompt-modal-editor { flex: none; border-right: none; border-bottom: 1px solid var(--glass-border); padding: 0.75rem; }
+		.prompt-modal-textarea { min-height: 280px; font-size: 0.85rem; }
+		.prompt-modal-guide { flex: none; overflow: visible; padding: 0.75rem; }
+		.prompt-modal-footer { padding: 0.7rem 1rem calc(0.7rem + var(--safe-bottom, 0px)); }
+	}
 	.prompt-modal-editor { display: flex; flex-direction: column; padding: 1rem; border-right: 1px solid var(--glass-border); min-height: 0; }
 	.prompt-modal-char-count { font-size: 0.75rem; color: var(--text-muted); font-variant-numeric: tabular-nums; margin-bottom: 0.4rem; text-align: right; font-weight: 600; }
 	.prompt-modal-textarea { flex: 1; width: 100%; min-height: 400px; max-height: 100%; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 10px; padding: 0.8rem; color: var(--text-main); font-size: 0.8rem; font-family: 'Courier New', 'Consolas', monospace; line-height: 1.6; resize: none; transition: border-color 0.2s; }

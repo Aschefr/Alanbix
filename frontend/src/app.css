@@ -1003,6 +1003,11 @@ button, a, [role="button"] {
     border-radius: 3px !important;
     white-space: nowrap !important;
   }
+  /* a full-width button may wrap its label instead of running out of its box */
+  button.btn-primary.w-full, button.btn-secondary.w-full, button.btn-success.w-full {
+    white-space: normal !important;
+    line-height: 1.35;
+  }
 
   /* Square compact inputs on mobile */
   input, select, textarea {

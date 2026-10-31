@@ -829,9 +829,16 @@
 		gap: 1.5rem;
 		max-width: 420px;
 		width: 90%;
+		max-height: calc(100dvh - 1.5rem);
+		overflow-y: auto;
+		box-sizing: border-box;
 		background: var(--surface-raised, rgba(17, 24, 39, 0.95));
 		border: 1px solid var(--glass-border);
 		box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+	}
+	@media (max-width: 600px) {
+		.crop-modal-content { padding: 1rem; gap: 0.9rem; width: calc(100% - 1rem); }
+		.canvas-wrapper canvas { max-width: 100%; height: auto; }
 	}
 	.crop-modal-title {
 		font-size: 1.25rem;
