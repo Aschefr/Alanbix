@@ -1677,5 +1677,10 @@
   "admin_settings_ai_preview_size": "≈ {count} tokens",
   "admin_settings_ai_preview_refresh": "Actualizar",
   "admin_settings_ai_rag_min_score": "Umbral de relevancia del conocimiento",
-  "admin_settings_ai_rag_min_score_hint": "Una ficha solo se da a la IA si se parece lo suficiente a la pregunta. Más alto: menos fichas fuera de tema; más bajo: se transmiten más fichas."
+  "admin_settings_ai_rag_min_score_hint": "Una ficha solo se da a la IA si se parece lo suficiente a la pregunta. Más alto: menos fichas fuera de tema; más bajo: se transmiten más fichas.",
+  "ai_starters_title": "¿Por dónde empezar?",
+  "ai_starter_tour": "Enséñame la aplicación",
+  "ai_starter_match": "¿Cuál es mi próximo partido?",
+  "ai_starter_network": "Tengo un problema de conexión",
+  "ai_starter_fun": "Cuéntame un chiste de LAN"
 }

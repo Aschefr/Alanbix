@@ -1688,5 +1688,10 @@
   "admin_settings_ai_preview_size": "≈ {count} tokens",
   "admin_settings_ai_preview_refresh": "Actualiser",
   "admin_settings_ai_rag_min_score": "Seuil de pertinence des connaissances",
-  "admin_settings_ai_rag_min_score_hint": "Une fiche n'est donnée à l'IA que si elle ressemble assez à la question. Plus haut : moins de fiches hors sujet ; plus bas : plus de fiches transmises."
+  "admin_settings_ai_rag_min_score_hint": "Une fiche n'est donnée à l'IA que si elle ressemble assez à la question. Plus haut : moins de fiches hors sujet ; plus bas : plus de fiches transmises.",
+  "ai_starters_title": "Par où commencer ?",
+  "ai_starter_tour": "Fais-moi visiter l'application",
+  "ai_starter_match": "Quel est mon prochain match ?",
+  "ai_starter_network": "J'ai un souci de connexion",
+  "ai_starter_fun": "Raconte-moi une blague de LAN"
 }

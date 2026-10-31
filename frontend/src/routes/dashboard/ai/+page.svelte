@@ -955,6 +955,13 @@
 		}
 	}
 
+	const starters = [
+		{ key: 'ai_starter_tour', icon: 'map' },
+		{ key: 'ai_starter_match', icon: 'trophy' },
+		{ key: 'ai_starter_network', icon: 'wifi' },
+		{ key: 'ai_starter_fun', icon: 'sparkles' }
+	];
+
 	async function send(skipSaveUser = false) {
 		if ((!query && !pendingImage) || loading || !activeId) return;
 		currentUserMsgId = null;
@@ -1499,6 +1506,19 @@
 						{/if}
 					</div>
 				{/each}
+				{#if messages.length === 0 && !loading}
+					<!-- Starter questions on an empty conversation: a way in for players discovering the assistant -->
+					<div class="starters">
+						<p class="starters-title">{$t('ai_starters_title')}</p>
+						<div class="starters-grid">
+							{#each starters as s (s.key)}
+								<button type="button" class="starter" disabled={iaBlocked || busyOtherConv} on:click={() => { query = $t(s.key); send(); }}>
+									<Icon name={s.icon} size={16} /><span>{$t(s.key)}</span>
+								</button>
+							{/each}
+						</div>
+					</div>
+				{/if}
 				{#if compressionInsertIdx >= messages.length && compression.mode}
 					<div class="msg-wrapper system">
 						<div class="msg-row system">
@@ -2384,4 +2404,13 @@
 		}
 	}
 
+	.starters { margin: auto 0 0; padding: 1rem 0.25rem 0.5rem; display: flex; flex-direction: column; gap: 0.6rem; }
+	.starters-title { margin: 0; font-size: 0.85rem; font-weight: 700; color: var(--text-dim); }
+	.starters-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; }
+	.starter { display: flex; align-items: center; gap: 0.6rem; min-width: 0; padding: 0.7rem 0.85rem; border-radius: 12px; border: 1px solid var(--glass-border); background: var(--hover-tint); color: var(--text-main); font: inherit; font-size: 0.88rem; text-align: left; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+	.starter :global(svg) { flex-shrink: 0; color: var(--accent); }
+	.starter span { min-width: 0; }
+	.starter:hover:not(:disabled) { border-color: var(--accent); background: var(--accent-soft); }
+	.starter:disabled { opacity: 0.5; cursor: not-allowed; }
+	@media (max-width: 420px) { .starters-grid { grid-template-columns: minmax(0, 1fr); } }
 </style>

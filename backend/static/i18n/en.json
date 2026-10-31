@@ -1677,5 +1677,10 @@
   "admin_settings_ai_preview_size": "≈ {count} tokens",
   "admin_settings_ai_preview_refresh": "Refresh",
   "admin_settings_ai_rag_min_score": "Knowledge relevance threshold",
-  "admin_settings_ai_rag_min_score_hint": "An entry is only given to the AI if it is close enough to the question. Higher: fewer off-topic entries; lower: more entries passed on."
+  "admin_settings_ai_rag_min_score_hint": "An entry is only given to the AI if it is close enough to the question. Higher: fewer off-topic entries; lower: more entries passed on.",
+  "ai_starters_title": "Where to start?",
+  "ai_starter_tour": "Give me a tour of the app",
+  "ai_starter_match": "What is my next match?",
+  "ai_starter_network": "I have a connection problem",
+  "ai_starter_fun": "Tell me a LAN joke"
 }
