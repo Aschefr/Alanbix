@@ -876,23 +876,12 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
     # Build system prompt — read from SystemConfig, fallback to i18n JSON, then default
     system_prompt = get_active_system_prompt(db)
     
-    # Inject user identity so the model knows who is asking
-    user_context = f"L'utilisateur qui te parle s'appelle \"{user.username}\""
-    if user.team_name:
-        user_context += f", il fait partie de l'équipe \"{user.team_name}\""
-    if user.is_admin:
-        user_context += ", c'est un administrateur de la LAN"
-    user_context += "."
-    
-    # Consolidate all system messages into a single system prompt to prevent template/parsing issues in local models
-    system_parts = [system_prompt, user_context]
-    # Fixed technical rule (not editable from the admin prompt): internal tool names and API paths are never shown to players
-    system_parts.append(
-        "=== RÈGLE TECHNIQUE ===\n"
-        "Ne cite jamais à l'utilisateur les noms internes de tes outils ou fonctions (par exemple get_my_matches, get_leaderboard, "
-        "get_upcoming_matches, call_admin) ni des chemins d'API (comme /me). Explique plutôt ce que tu peux faire en langage naturel "
-        "(« je peux consulter le classement », « je peux voir tes prochains matchs »)."
-    )
+    # Layered prompt: editable personality, fixed operating rules, live context (who, when, where).
+    # Consolidated into a single system message to prevent template/parsing issues in local models
+    from ..ia_prompt import rules_block, live_context_block
+    lang_cfg = db.query(models.SystemConfig).filter(models.SystemConfig.key == "lan_default_language").first()
+    prompt_lang = lang_cfg.value if lang_cfg and lang_cfg.value else "fr"
+    system_parts = [system_prompt, rules_block(prompt_lang), live_context_block(db, models, user, prompt_lang)]
 
     # Inject call_admin restriction status if currently limited / on cooldown
     try:

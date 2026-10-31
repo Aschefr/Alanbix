@@ -36,6 +36,7 @@
 - **AI conversation list**: the unread badge says "New" instead of "Update" and no longer squeezes the title to one letter.
 - **AI no longer names its internal tools to players**: a fixed technical rule is added to the AI's instructions (whatever the admin prompt says) so it describes what it can do in plain language instead of quoting names like get_my_matches or /me.
 - **Pop-ups above the on-screen keyboard (phones)**: when the keyboard opens, pop-ups such as "Contact an administrator", player editing or the crop window are laid out in the visible area only, so the field and the buttons stay above the keyboard.
+- **AI assistant prompt in layers**: the editable admin prompt now only holds the personality. The operating rules (never invent data, never name internal tools, diagnose before alerting an admin, answer in the player's language, moderation) are fixed and can no longer be erased by accident. A live context (date and time, event, player's team and seat, admin role) is added to every request.
 - **AI assistant on a phone**: the input field is no longer hidden under the bottom tab bar.
 - **Profile on a phone**: the "insult filter" switch is drawn from its own track so the thumb stays inside it on every browser (Firefox included); the points history cards have a visible border and background.
 - **System theme by default**: the app follows the device's light or dark setting (and changes with it); Settings now offer System / Dark / Light, and an explicit choice is kept. The browser and phone status bar take the theme colour.
