@@ -189,9 +189,15 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* The page colour lives on <html> (the theme script paints it at once); the body stays transparent so the
+   fixed mesh gradient below shows everywhere, not only past the first screen. */
+html {
+  background-color: var(--bg-primary);
+}
+
 body {
   margin: 0;
-  background-color: var(--bg-primary);
+  background-color: transparent;
   color: var(--text-main);
   font-family: var(--font-main);
   min-height: 100vh;
@@ -213,9 +219,9 @@ body::before {
 
 [data-theme="light"] body::before {
   background: 
-    radial-gradient(circle at 15% 50%, rgba(37, 99, 235, 0.12) 0%, transparent 40%),
-    radial-gradient(circle at 85% 30%, rgba(96, 165, 250, 0.12) 0%, transparent 40%),
-    radial-gradient(circle at 50% 90%, rgba(147, 197, 253, 0.15) 0%, transparent 50%);
+    radial-gradient(circle at 15% 50%, rgba(37, 99, 235, 0.06) 0%, transparent 40%),
+    radial-gradient(circle at 85% 30%, rgba(96, 165, 250, 0.06) 0%, transparent 40%),
+    radial-gradient(circle at 50% 90%, rgba(147, 197, 253, 0.08) 0%, transparent 50%);
 }
 
 ::placeholder {
