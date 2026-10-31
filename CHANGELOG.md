@@ -34,6 +34,8 @@
 - **AI assistant, light theme**: the "an administrator is handling this conversation" banner (and the blocked banner) use dark, readable colours, and the time under an admin message is no longer white on a pale bubble.
 - **AI assistant on a phone, short conversations**: the chat now always fills the screen down to the tab bar (a large empty band appeared under the input when the conversation was short).
 - **AI conversation list**: the unread badge says "New" instead of "Update" and no longer squeezes the title to one letter.
+- **AI no longer names its internal tools to players**: a fixed technical rule is added to the AI's instructions (whatever the admin prompt says) so it describes what it can do in plain language instead of quoting names like get_my_matches or /me.
+- **Pop-ups above the on-screen keyboard (phones)**: when the keyboard opens, pop-ups such as "Contact an administrator", player editing or the crop window are laid out in the visible area only, so the field and the buttons stay above the keyboard.
 - **AI assistant on a phone**: the input field is no longer hidden under the bottom tab bar.
 - **Profile on a phone**: the "insult filter" switch is drawn from its own track so the thumb stays inside it on every browser (Firefox included); the points history cards have a visible border and background.
 - **System theme by default**: the app follows the device's light or dark setting (and changes with it); Settings now offer System / Dark / Light, and an explicit choice is kept. The browser and phone status bar take the theme colour.

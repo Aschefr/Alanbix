@@ -886,6 +886,13 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
     
     # Consolidate all system messages into a single system prompt to prevent template/parsing issues in local models
     system_parts = [system_prompt, user_context]
+    # Fixed technical rule (not editable from the admin prompt): internal tool names and API paths are never shown to players
+    system_parts.append(
+        "=== RÈGLE TECHNIQUE ===\n"
+        "Ne cite jamais à l'utilisateur les noms internes de tes outils ou fonctions (par exemple get_my_matches, get_leaderboard, "
+        "get_upcoming_matches, call_admin) ni des chemins d'API (comme /me). Explique plutôt ce que tu peux faire en langage naturel "
+        "(« je peux consulter le classement », « je peux voir tes prochains matchs »)."
+    )
 
     # Inject call_admin restriction status if currently limited / on cooldown
     try:

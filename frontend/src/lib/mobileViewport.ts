@@ -32,6 +32,9 @@ function update() {
 	tallest = Math.max(tallest, window.innerHeight, h);
 	const open = window.innerWidth <= PHONE_MAX && isTyping(document.activeElement) && tallest - h > KEYBOARD_MIN;
 	root.classList.toggle('kb-open', open);
+	// the visible area (without the keyboard): pop-ups use it to stay above the keyboard
+	root.style.setProperty('--vvh', `${h}px`);
+	root.style.setProperty('--vv-top', `${window.visualViewport ? window.visualViewport.offsetTop : 0}px`);
 	keyboardOpen.set(open);
 	listeners.forEach(fn => fn());
 }

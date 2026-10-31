@@ -1210,3 +1210,20 @@ a.theme-toggle,
 .chat-toggle:hover { color: var(--text-main); border-color: var(--text-muted); }
 .chat-toggle.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 .chat-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Phone, on-screen keyboard open: pop-ups are laid out in the visible area only, so their fields and buttons stay above the keyboard */
+@media (max-width: 900px) {
+  html.kb-open :is(.modal-overlay-global, .modal-overlay, .call-admin-overlay, .crop-modal-overlay, .prompt-modal-overlay) {
+    top: var(--vv-top, 0px) !important;
+    bottom: auto !important;
+    height: var(--vvh, 100dvh) !important;
+    align-items: flex-start !important;
+    padding-top: 0.75rem !important;
+    overflow-y: auto;
+  }
+  html.kb-open :is(.modal-overlay-global, .modal-overlay, .call-admin-overlay, .crop-modal-overlay, .prompt-modal-overlay) > * {
+    max-height: calc(var(--vvh, 100dvh) - 1.5rem);
+    overflow-y: auto;
+  }
+}
+
