@@ -1686,5 +1686,7 @@
   "admin_settings_ai_preview": "Aperçu du prompt final",
   "admin_settings_ai_preview_hint": "Ce que le modèle reçoit au début de chaque conversation, construit ici pour votre compte. Les extraits de la base de connaissances et les limites d'appel aux admins s'y ajoutent selon la question.",
   "admin_settings_ai_preview_size": "≈ {count} tokens",
-  "admin_settings_ai_preview_refresh": "Actualiser"
+  "admin_settings_ai_preview_refresh": "Actualiser",
+  "admin_settings_ai_rag_min_score": "Seuil de pertinence des connaissances",
+  "admin_settings_ai_rag_min_score_hint": "Une fiche n'est donnée à l'IA que si elle ressemble assez à la question. Plus haut : moins de fiches hors sujet ; plus bas : plus de fiches transmises."
 }

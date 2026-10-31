@@ -65,7 +65,8 @@
 		call_admin_cooldown_minutes: 30,
 		call_admin_daily_limit: 3,
 		call_admin_global_hourly_limit: 15,
-		rag_suggestion_enabled: true
+		rag_suggestion_enabled: true,
+		rag_min_score: 0.65
 	};
 	let availableModels = [];
 	let instanceStatuses = [];
@@ -1319,6 +1320,15 @@
 							<option value={m.name}>{m.name}</option>
 						{/each}
 					</select>
+				</div>
+
+				<!-- Knowledge base relevance threshold -->
+				<div>
+					<label class="compact-label" for="rag-min-score" style="margin-bottom: 0.2rem; display: block;">{$t('admin_settings_ai_rag_min_score')} : {Number(iaConfig.rag_min_score ?? 0.65).toFixed(2)}</label>
+					<input id="rag-min-score" type="range" bind:value={iaConfig.rag_min_score} on:change={saveIAConfig} min="0.4" max="0.9" step="0.01" class="range-accent" style="width: 100%;" />
+					<span class="range-hint text-xs" style="color: var(--text-muted); font-size: 0.75rem; display: block; margin-top: 0.25rem; line-height: 1.2;">
+						{$t('admin_settings_ai_rag_min_score_hint')}
+					</span>
 				</div>
 
 				<!-- Tool Calling Mode -->

@@ -1686,5 +1686,7 @@
   "admin_settings_ai_preview": "Final prompt preview",
   "admin_settings_ai_preview_hint": "What the model receives at the start of each conversation, built here for your account. Knowledge base excerpts and admin-call limits are added depending on the question.",
   "admin_settings_ai_preview_size": "≈ {count} tokens",
-  "admin_settings_ai_preview_refresh": "Refresh"
+  "admin_settings_ai_preview_refresh": "Refresh",
+  "admin_settings_ai_rag_min_score": "Knowledge relevance threshold",
+  "admin_settings_ai_rag_min_score_hint": "An entry is only given to the AI if it is close enough to the question. Higher: fewer off-topic entries; lower: more entries passed on."
 }

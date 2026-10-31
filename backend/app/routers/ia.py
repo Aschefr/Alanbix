@@ -51,6 +51,8 @@ def get_effective_config(db: Session):
         # rag suggestion settings
         if "rag_suggestion_enabled" not in val:
             val["rag_suggestion_enabled"] = True
+        if "rag_min_score" not in val:
+            val["rag_min_score"] = 0.65
         return val
     return {
         "ollama_host": os.getenv("OLLAMA_HOST", "http://host.docker.internal:11434"),
@@ -65,6 +67,7 @@ def get_effective_config(db: Session):
         "call_admin_daily_limit": 3,
         "call_admin_global_hourly_limit": 15,
         "rag_suggestion_enabled": True,
+        "rag_min_score": 0.65,
     }
 
 def get_instances(db: Session):
@@ -764,14 +767,25 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
         model_to_use = instance["model"]
     
     # 1. RAG (numpy cosine similarity in memory)
-    query_embedding = await get_embedding(request.prompt, ollama_host=ollama_host)
+    # The previous player message joins the query so a follow-up ("and how do I do that?") still finds its topic
     rag_context = ""
-    if query_embedding:
-        all_docs = db.query(models.KnowledgeBase).all()
-        if request.game_id is not None:
-            all_docs = [d for d in all_docs if d.metadata_json and d.metadata_json.get('game_id') == request.game_id]
-        results = search_similar(query_embedding, all_docs, top_k=3)
-        rag_context = "\n".join([doc.content for doc, score in results])
+    if ia_cfg.get("rag_enabled", True):
+        prev_user = db.query(models.ChatMessage).filter(
+            models.ChatMessage.conversation_id == request.conversation_id,
+            models.ChatMessage.role == "user"
+        ).order_by(models.ChatMessage.timestamp.desc()).first()
+        query_text = request.prompt
+        if prev_user and not request.skip_save_user and prev_user.content != request.prompt:
+            query_text = f"{prev_user.content[:300]}\n{request.prompt}"
+        query_embedding = await get_embedding(query_text, ollama_host=ollama_host)
+        if query_embedding:
+            all_docs = db.query(models.KnowledgeBase).all()
+            if request.game_id is not None:
+                # General entries (no game) stay available next to the selected game's entries
+                all_docs = [d for d in all_docs if not (d.metadata_json or {}).get('game_id') or d.metadata_json.get('game_id') == request.game_id]
+            min_score = float(ia_cfg.get("rag_min_score", 0.65))
+            results = [(doc, score) for doc, score in search_similar(query_embedding, all_docs, top_k=3) if score >= min_score]
+            rag_context = "\n".join([doc.content for doc, score in results])
         
     # 2. History
     history_query = db.query(models.ChatMessage).filter(models.ChatMessage.conversation_id == request.conversation_id)
