@@ -197,9 +197,9 @@
 			<option value={team}></option>
 		{/each}
 	</datalist>
-	<div class="flex-row justify-between items-center mb-4">
+	<div class="flex-row justify-between items-center mb-4 pt-toolbar">
 		<h3><span class="head-ic"><Icon name="users" size={20} /></span> {$t('admin_players_title')} <span class="t-count">{allPlayers.length}</span></h3>
-		<div class="flex-row gap-2">
+		<div class="flex-row gap-2 pt-tools">
 			<div class="pt-search-wrap">
 				<Icon name="search" size={15} />
 				<input class="pt-search" type="search" bind:value={playerQuery} placeholder={$t('admin_players_search_placeholder')} aria-label={$t('admin_players_search_placeholder')} />
@@ -493,6 +493,8 @@
 	@media (max-width: 900px) {
 		.players-view { padding: 1rem !important; }
 		.players-view > .flex-row { flex-wrap: wrap; gap: 0.6rem; }
+		.pt-tools { width: 100%; flex-wrap: wrap; }
+		.pt-tools > * { flex: 1 1 100%; }
 		.pt-search-wrap, .pt-search { width: 100%; }
 		.pt-id, .pt-team, .pt-pts { display: none; }
 		.pt-actions { width: auto; }

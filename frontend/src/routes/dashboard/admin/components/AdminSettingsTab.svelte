@@ -1428,6 +1428,10 @@
 	.stab:hover { color: var(--text-main); background: var(--hover-tint); }
 	.stab.active { background: var(--accent); color: white; box-shadow: 0 4px 14px var(--accent-glow); font-weight: 700; }
 	.stab-icon { display: inline-flex; }
+	@media (max-width: 480px) {
+		.stab { padding: 0.6rem 0.4rem; font-size: 0.8125rem; white-space: nowrap; }
+		.stab-icon { display: none; }
+	}
 	.stab-content {
 		display: grid;
 		grid-template-columns: minmax(0, 1fr);

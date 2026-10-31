@@ -8,6 +8,8 @@
 
 	let awardsList = [];
 	let awardsLoading = false;
+	// the explanation is always open on a computer, folded on a phone where the buttons come first
+	const helpOpen = typeof window !== 'undefined' && window.innerWidth > 900;
 
 	function getAwardEmoji(key) {
 		const map = {
@@ -104,22 +106,25 @@
 			</div>
 		</div>
 
-		<div style="display: flex; flex-direction: column; gap: 1rem; margin-top: 1rem;" class="text-sm">
-			<p>{$t('admin_awards_desc1')}</p>
-			<p>{$t('admin_awards_desc2')}</p>
-			<p class="text-dim text-xs" style="border-left: 2px solid var(--accent); padding-left: 0.5rem;">
-				<span class="btn-ic"><Icon name="lightbulb" size={14} /> {$t('admin_awards_interpolation_tip')}</span>
-			</p>
-			<p class="text-dim text-xs" style="border-left: 2px solid var(--success); padding-left: 0.5rem; margin-top: 0.2rem;">
-				{$t('admin_awards_desc4')}
-			</p>
-		</div>
+		<details class="awards-help" open={helpOpen}>
+			<summary>{$t('admin_awards_help_title')}</summary>
+			<div style="display: flex; flex-direction: column; gap: 1rem; margin-top: 1rem;" class="text-sm">
+				<p>{$t('admin_awards_desc1')}</p>
+				<p>{$t('admin_awards_desc2')}</p>
+				<p class="text-dim text-xs" style="border-left: 2px solid var(--accent); padding-left: 0.5rem;">
+					<span class="btn-ic"><Icon name="lightbulb" size={14} /> {$t('admin_awards_interpolation_tip')}</span>
+				</p>
+				<p class="text-dim text-xs" style="border-left: 2px solid var(--success); padding-left: 0.5rem; margin-top: 0.2rem;">
+					{$t('admin_awards_desc4')}
+				</p>
+			</div>
+		</details>
 
-		<button class="btn-primary" style="margin-top: 1.5rem; width: 100%; padding: 0.6rem 1rem;" on:click={triggerSync} disabled={awardsLoading}>
+		<button class="btn-primary award-act" style="margin-top: 1.5rem; width: 100%; padding: 0.6rem 1rem;" on:click={triggerSync} disabled={awardsLoading}>
 			{$t('admin_awards_btn_recalc')}
 		</button>
 
-		<button class="btn-success" style="margin-top: 1rem; width: 100%; padding: 0.6rem 1rem;" on:click={sendAwardsNotifications} disabled={awardsLoading}>
+		<button class="btn-success award-act" style="margin-top: 1rem; width: 100%; padding: 0.6rem 1rem;" on:click={sendAwardsNotifications} disabled={awardsLoading}>
 			{$t('admin_awards_btn_broadcast')}
 		</button>
 
@@ -208,6 +213,13 @@
 	.admin-grid { display: grid; grid-template-columns: minmax(380px, 1fr) 2fr; gap: 2rem; }
 	@media (max-width: 1100px) { .admin-grid { grid-template-columns: minmax(0, 1fr); gap: 1rem; } }
 	.wizard { padding: 1.5rem; display: flex; flex-direction: column; }
+	.awards-help summary { display: none; }
+	@media (max-width: 900px) {
+		.awards-help { order: 3; margin-top: 0.75rem; }
+		.awards-help summary { display: list-item; cursor: pointer; font-weight: 600; font-size: 0.875rem; color: var(--text-dim); padding: 0.4rem 0; }
+		.awards-help[open] summary { color: var(--text-main); }
+		.award-act { order: 2; margin-top: 0.6rem !important; }
+	}
 	.list { padding: 1.5rem; display: flex; flex-direction: column; }
 	.list-header h2 { margin: 0; font-size: var(--fs-section); }
 	.list-sub { font-size: 0.875rem; color: var(--text-dim); }

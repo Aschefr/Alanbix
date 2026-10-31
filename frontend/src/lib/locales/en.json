@@ -1668,5 +1668,6 @@
   "login_server_search": "Find a server",
   "settings_theme_opt_system": "System",
   "settings_theme_system_hint": "Follows your device's light or dark setting.",
-  "admin_more_actions": "More actions"
+  "admin_more_actions": "More actions",
+  "admin_awards_help_title": "How it works"
 }
