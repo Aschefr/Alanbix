@@ -138,6 +138,18 @@
 		{ id: 'gi-prompts', icon: 'pencil', label: $t('admin_ai_nav_prompts') },
 		{ id: 'gi-knowledge', icon: 'book-open', label: $t('admin_ai_nav_knowledge') }
 	];
+	// keep the highlighted chip fully visible in the jump bar (the bar scrolls sideways on a phone)
+	function centerChip(id) {
+		if (typeof document === 'undefined') return;
+		setTimeout(() => {
+			const bar = document.querySelector('.settings-view .gnav');
+			const chip = bar && bar.querySelector('.gnav-chip.active');
+			if (!bar || !chip || bar.scrollWidth <= bar.clientWidth) return;
+			bar.scrollTo({ left: chip.offsetLeft - (bar.clientWidth - chip.offsetWidth) / 2, behavior: 'smooth' });
+		}, 0);
+	}
+	$: centerChip(activeSection);
+
 	function jumpTo(id) {
 		const el = document.getElementById(id);
 		if (!el) return;
@@ -1115,7 +1127,7 @@
 				<div class="queue-stats-badges">
 					<span class="queue-stat-badge pending" title="{$t('admin_settings_queue_pending')}"><Icon name="hourglass" size={13} /> {iaQueueData.queue_size}</span>
 					<span class="queue-stat-badge active" title="{$t('admin_settings_queue_processing')}"><Icon name="zap" size={13} /> {iaQueueData.active_count}</span>
-					<span class="queue-stat-badge avg" title="{$t('admin_settings_queue_avg_duration')}">⏱️ {iaQueueData.avg_duration}s</span>
+					<span class="queue-stat-badge avg" title="{$t('admin_settings_queue_avg_duration')}"><Icon name="clock" size={13} /> {iaQueueData.avg_duration}s</span>
 				</div>
 			</div>
 			<div class="sc-body">
@@ -1184,7 +1196,7 @@
 									<span class="inst-ping">{status.latency_ms}ms</span>
 								{/if}
 								{#if status?.avg_duration !== undefined && status?.avg_duration !== null}
-									<span class="inst-ping" style="background: rgba(139, 92, 246, 0.15); color: #c084fc; border-color: rgba(139, 92, 246, 0.35);">⏱️ {status.avg_duration}s</span>
+									<span class="inst-ping" style="background: rgba(139, 92, 246, 0.15); color: #c084fc; border-color: rgba(139, 92, 246, 0.35);"><Icon name="clock" size={11} /> {status.avg_duration}s</span>
 								{/if}
 							</div>
 						</div>
@@ -1242,8 +1254,8 @@
 							style="width: 80px; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 6px; padding: 0.15rem 0.4rem; color: var(--text-main); font-size: 0.72rem; font-weight: 700; text-align: right;" 
 						/>
 					</div>
-					<div class="ctx-presets-grid" style="display: flex; gap: 0.25rem;">
-						{#each [2048, 4096, 8192, 16384, 32768] as size}
+					<div class="ctx-presets-grid" style="display: flex; flex-wrap: wrap; gap: 0.25rem;">
+						{#each [2048, 4096, 8192, 16384, 32768, 65536, 131072] as size}
 							<button 
 								type="button" 
 								class="ctx-preset-mini-btn" 
@@ -1657,6 +1669,7 @@
 
 	/* Queue */
 	.queue-stats-badges { display: flex; gap: 0.4rem; }
+	.queue-stat-badge, .inst-ping { display: inline-flex; align-items: center; gap: 0.25rem; }
 	.queue-stat-badge { font-size: 0.75rem; font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 6px; font-family: monospace; }
 	.queue-stat-badge.pending { background: rgba(245,158,11,0.12); color: #f59e0b; border: 1px solid rgba(245,158,11,0.3); }
 	.queue-stat-badge.active { background: rgba(16,185,129,0.12); color: #10b981; border: 1px solid rgba(16,185,129,0.3); }
@@ -1975,6 +1988,7 @@
 	.ss-dot { margin-left: auto; width: 10px; height: 10px; border-radius: 50%; background: var(--text-dim); opacity: 0.6; }
 	.ss-dot.on { background: var(--success); opacity: 1; box-shadow: 0 0 6px color-mix(in srgb, var(--success) 60%, transparent); }
 	#gs-danger { scroll-margin-top: 4.5rem; }
+	@media (max-width: 900px) { .settings-section, #gs-danger { scroll-margin-top: 7.2rem; } }
 
 	/* the two team-scoring options sit side by side as compact choices */
 	.scoring-toggle .score-opt { display: grid; grid-template-columns: auto 1fr; column-gap: 0.7rem; row-gap: 0; align-items: center; text-align: left; padding: 0.55rem 0.9rem; }

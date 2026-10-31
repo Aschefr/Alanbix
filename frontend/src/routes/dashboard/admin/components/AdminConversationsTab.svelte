@@ -6,6 +6,7 @@
 	import { API_URL } from '$lib/config';
 	import { t } from '$lib/i18nStore';
 	import { wsMessageStore } from '$lib/ws';
+	import Icon from '$lib/components/Icon.svelte';
 
 	marked.setOptions({ breaks: true, gfm: true });
 	function parseMd(text) { return text ? marked.parse(text) : ''; }
@@ -402,7 +403,7 @@
 										<span title={$t('admin_conv_model_tooltip')} style="background:rgba(255,255,255,0.05);padding:1px 4px;border-radius:4px;border:1px solid var(--glass-border)">🤖 {m.meta.model_info.model || $t('admin_conv_model_fallback')} ({m.meta.model_info.instance || $t('admin_conv_instance_default')})</span>
 									{/if}
 									{#if m.meta.duration}
-										<span title={$t('admin_conv_response_time')} style="background:rgba(255,255,255,0.05);padding:1px 4px;border-radius:4px;border:1px solid var(--glass-border)">⏱️ {m.meta.duration.toFixed(1)}s</span>
+										<span title={$t('admin_conv_response_time')} style="background:rgba(255,255,255,0.05);padding:1px 4px;border-radius:4px;border:1px solid var(--glass-border);display:inline-flex;align-items:center;gap:0.25rem"><Icon name="clock" size={11} /> {m.meta.duration.toFixed(1)}s</span>
 									{/if}
 									{#if m.meta.used_tools && m.meta.used_tools.length > 0}
 										<span title={$t('admin_conv_tools_used', { tools: m.meta.used_tools.join(', ') })} style="background:rgba(59,130,246,0.1);color:var(--accent);padding:1px 4px;border-radius:4px;border:1px solid rgba(59,130,246,0.2)">🛠️ {m.meta.used_tools.join(', ')}</span>
