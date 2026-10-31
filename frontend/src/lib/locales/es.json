@@ -1678,5 +1678,9 @@
   "admin_ai_nav_knowledge": "Conocimientos",
   "admin_ai_sec_servers": "Servidores y cola",
   "admin_ai_sec_behaviour": "Comportamiento y seguridad",
-  "admin_awards_customised": "Texto personalizado"
+  "admin_awards_customised": "Texto personalizado",
+  "admin_settings_ai_app_guide": "Guía de la aplicación",
+  "admin_settings_ai_app_guide_hint": "Lo que el asistente sabe de las páginas del sitio, para guiar a los jugadores. Adáptalo si desactivas o renombras una función.",
+  "admin_settings_ai_restore_default": "Restablecer el texto por defecto",
+  "admin_toast_app_guide_saved": "Guía de la aplicación guardada"
 }

@@ -64,6 +64,16 @@ def rules_block(lang: str) -> str:
     return RULES[_lang(lang)]
 
 
+def app_guide_block(lang: str) -> str:
+    """Map of the app's pages, editable by the admin like the personality (i18n key ai_app_guide)."""
+    try:
+        from .routers.i18n import load_i18n_merged
+        return load_i18n_merged(lang).get("ai_app_guide", "")
+    except Exception as e:
+        print(f"[ERROR] Failed to read ai_app_guide for lang {lang}: {e}")
+        return ""
+
+
 def live_context_block(db, models, user, lang: str) -> str:
     L = LIVE[_lang(lang)]
     ev = db.query(models.SystemConfig).filter(models.SystemConfig.key == "event_name").first()

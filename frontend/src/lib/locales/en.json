@@ -1678,5 +1678,9 @@
   "admin_ai_nav_knowledge": "Knowledge",
   "admin_ai_sec_servers": "Servers & queue",
   "admin_ai_sec_behaviour": "Behaviour & safety",
-  "admin_awards_customised": "Custom text"
+  "admin_awards_customised": "Custom text",
+  "admin_settings_ai_app_guide": "App guide",
+  "admin_settings_ai_app_guide_hint": "What the assistant knows about the site's pages, to guide players. Adapt it if you disable or rename a feature.",
+  "admin_settings_ai_restore_default": "Restore the default text",
+  "admin_toast_app_guide_saved": "App guide saved"
 }

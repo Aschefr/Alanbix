@@ -878,10 +878,14 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
     
     # Layered prompt: editable personality, fixed operating rules, live context (who, when, where).
     # Consolidated into a single system message to prevent template/parsing issues in local models
-    from ..ia_prompt import rules_block, live_context_block
+    from ..ia_prompt import rules_block, app_guide_block, live_context_block
     lang_cfg = db.query(models.SystemConfig).filter(models.SystemConfig.key == "lan_default_language").first()
     prompt_lang = lang_cfg.value if lang_cfg and lang_cfg.value else "fr"
-    system_parts = [system_prompt, rules_block(prompt_lang), live_context_block(db, models, user, prompt_lang)]
+    system_parts = [system_prompt, rules_block(prompt_lang)]
+    app_guide = app_guide_block(prompt_lang)
+    if app_guide:
+        system_parts.append(app_guide)
+    system_parts.append(live_context_block(db, models, user, prompt_lang))
 
     # Inject call_admin restriction status if currently limited / on cooldown
     try:

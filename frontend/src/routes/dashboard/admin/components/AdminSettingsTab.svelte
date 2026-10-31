@@ -75,6 +75,7 @@
 	let defaultLang = 'fr';
 	let systemPrompt = '';
 	let closingPrompt = '';
+	let appGuide = '';
 
 	// System Prompt Editor Modal
 	let showPromptModal = false;
@@ -293,6 +294,7 @@
 			const translations = await api.get(`/api/i18n/${defaultLang}`);
 			systemPrompt = translations.system_prompt || "Tu es Alanbix, l'IA de gestion de LAN.";
 			closingPrompt = translations.tournament_closing_prompt || "";
+			appGuide = translations.ai_app_guide || "";
 		} catch (err) {
 			console.error('Failed to load prompts from default language:', err);
 		}
@@ -362,6 +364,30 @@
 			toast(get(t)('admin_toast_system_prompt_saved'), 'success');
 		} catch (err) {
 			console.error('Failed to save system prompt:', err);
+			toast(get(t)('admin_error_save'), 'error');
+		}
+	}
+
+	async function saveAppGuide() {
+		try {
+			const translations = await api.get(`/api/i18n/${defaultLang}`);
+			translations.ai_app_guide = appGuide;
+			await api.put(`/api/i18n/${defaultLang}`, translations);
+			toast(get(t)('admin_toast_app_guide_saved'), 'success');
+		} catch (err) {
+			console.error('Failed to save app guide:', err);
+			toast(get(t)('admin_error_save'), 'error');
+		}
+	}
+
+	// Saving the shipped text drops the customisation, so later app updates of the guide apply again
+	async function restoreAppGuide() {
+		try {
+			const shipped = await api.get(`/api/i18n/${defaultLang}/static`);
+			appGuide = shipped.ai_app_guide || '';
+			await saveAppGuide();
+		} catch (err) {
+			console.error('Failed to restore app guide:', err);
 			toast(get(t)('admin_error_save'), 'error');
 		}
 	}
@@ -1398,6 +1424,14 @@
 						<textarea class="prompt-textarea-compact" bind:value={closingPrompt} on:input={() => debounceSave('closingPrompt', saveClosingPrompt)} placeholder="{$t('admin_settings_ai_prompt_close_placeholder')}" rows="6" style="flex: 1; height: 100%; resize: none;"></textarea>
 					</div>
 				</div>
+				<div class="app-guide-field">
+					<div class="app-guide-head">
+						<label class="compact-label" for="ai-app-guide">{$t('admin_settings_ai_app_guide')}</label>
+						<button type="button" class="btn-prompt-edit" on:click={restoreAppGuide}><Icon name="refresh" size={14} /> {$t('admin_settings_ai_restore_default')}</button>
+					</div>
+					<p class="sc-sub">{$t('admin_settings_ai_app_guide_hint')}</p>
+					<textarea id="ai-app-guide" class="prompt-textarea-compact" bind:value={appGuide} on:input={() => debounceSave('appGuide', saveAppGuide)} rows="10" style="resize: vertical;"></textarea>
+				</div>
 			</div>
 		</div>
 
@@ -2044,4 +2078,7 @@
 	.ai-opt-label { display: inline-flex; align-items: center; gap: 0.5rem; }
 	.ai-opt-label :global(svg) { color: var(--accent); flex-shrink: 0; }
 	@media (max-width: 900px) { .ai-model-body, .ai-opts { grid-template-columns: minmax(0, 1fr); } }
+	.app-guide-field { display: flex; flex-direction: column; gap: 0.35rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--glass-border); }
+	.app-guide-head { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; }
+	.app-guide-field .sc-sub { margin: 0; }
 </style>
