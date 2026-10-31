@@ -123,6 +123,7 @@
 
 	// Jump bar of the General tab: one entry per section, the visible one is highlighted
 	let activeSection = 'gs-event';
+	let holdUntil = 0; // after a click on the bar, the clicked section stays highlighted while the page glides there
 	$: gSections = [
 		{ id: 'gs-event', icon: 'stadium', label: $t('admin_settings_section_event') },
 		{ id: 'gs-tournaments', icon: 'trophy', label: $t('admin_settings_section_tournaments') },
@@ -134,19 +135,43 @@
 		const el = document.getElementById(id);
 		if (!el) return;
 		if (el.tagName === 'DETAILS') el.open = true;
+		activeSection = id;
+		holdUntil = performance.now() + 900;
 		el.scrollIntoView({ behavior: 'smooth', block: 'start' });
 	}
+	// The active section is the last one whose top has passed under the jump bar; at the very bottom of the page,
+	// the last one (the folded danger zone), since it can never reach the top.
 	function spySections(node) {
-		let io = null;
-		const timer = setTimeout(() => {
-			if (typeof IntersectionObserver === 'undefined') return;
-			io = new IntersectionObserver((entries) => {
-				const seen = entries.filter(e => e.isIntersecting);
-				if (seen.length) activeSection = seen[0].target.id;
-			}, { rootMargin: '-15% 0px -70% 0px' });
-			document.querySelectorAll('.settings-view [data-gsection]').forEach(el => io.observe(el));
-		}, 100);
-		return { destroy() { clearTimeout(timer); io?.disconnect(); } };
+		let raf = 0;
+		// the element that actually scrolls: the content area on a computer, the page on a phone
+		function scroller() {
+			let el = node.parentElement;
+			while (el && el !== document.body) {
+				const oy = getComputedStyle(el).overflowY;
+				if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight) return el;
+				el = el.parentElement;
+			}
+			return document.scrollingElement || document.documentElement;
+		}
+		function update() {
+			if (raf) return;
+			raf = requestAnimationFrame(() => {
+				raf = 0;
+				if (performance.now() < holdUntil) return;
+				const els = [...document.querySelectorAll('.settings-view [data-gsection]')];
+				if (!els.length) return;
+				const line = node.getBoundingClientRect().bottom + 24;
+				let current = els[0].id;
+				for (const el of els) if (el.getBoundingClientRect().top <= line) current = el.id;
+				const sc = scroller();
+				if (sc.scrollHeight > sc.clientHeight + 8 && sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 6) current = els[els.length - 1].id;
+				activeSection = current;
+			});
+		}
+		document.addEventListener('scroll', update, true);
+		window.addEventListener('resize', update);
+		update();
+		return { destroy() { document.removeEventListener('scroll', update, true); window.removeEventListener('resize', update); if (raf) cancelAnimationFrame(raf); } };
 	}
 	function hostOf(url) {
 		try { return new URL(url).host; } catch (e) { return (url || '').replace(/^https?:[/][/]/, '').split('/')[0]; }
@@ -1479,7 +1504,7 @@
 {/if}
 
 <style>
-	.settings-view { display: flex; flex-direction: column; gap: 0; }
+	.settings-view { display: flex; flex-direction: column; gap: 0; padding-bottom: 3rem; }
 	.settings-tabs { display: flex; gap: 0.35rem; padding: 0.35rem; background: var(--surface-sunken); border-radius: 12px; margin-bottom: 1.5rem; border: 1px solid var(--glass-border); }
 	.stab { flex: 1; padding: 0.7rem 1rem; background: none; border: none; color: var(--text-dim); font-size: 0.85rem; font-weight: 600; font-family: var(--font-main); cursor: pointer; border-radius: 8px; transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1); display: flex; align-items: center; justify-content: center; gap: 0.5rem; }
 	.stab:hover { color: var(--text-main); background: var(--hover-tint); }
