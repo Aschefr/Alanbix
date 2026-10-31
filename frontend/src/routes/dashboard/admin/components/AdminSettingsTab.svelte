@@ -131,6 +131,13 @@
 		{ id: 'gs-services', icon: 'server', label: $t('admin_settings_section_services') },
 		{ id: 'gs-danger', icon: 'alert-triangle', label: $t('admin_settings_danger_zone') }
 	];
+	$: iSections = [
+		{ id: 'gi-servers', icon: 'server', label: $t('admin_ai_nav_servers') },
+		{ id: 'gi-model', icon: 'settings', label: $t('admin_ai_nav_model') },
+		{ id: 'gi-behaviour', icon: 'shield-check', label: $t('admin_ai_nav_behaviour') },
+		{ id: 'gi-prompts', icon: 'pencil', label: $t('admin_ai_nav_prompts') },
+		{ id: 'gi-knowledge', icon: 'book-open', label: $t('admin_ai_nav_knowledge') }
+	];
 	function jumpTo(id) {
 		const el = document.getElementById(id);
 		if (!el) return;
@@ -1084,7 +1091,19 @@
 
 	<!-- IA TAB -->
 	{:else if settingsSubTab === 'ia'}
-	<div class="stab-content">
+			<nav class="gnav" aria-label={$t("admin_settings_tab_ai")} use:spySections>
+			{#each iSections as sec (sec.id)}
+				<button type="button" class="gnav-chip" class:active={activeSection === sec.id} on:click={() => jumpTo(sec.id)}>
+					<Icon name={sec.icon} size={14} /><span>{sec.label}</span>
+				</button>
+			{/each}
+		</nav>
+		<div class="stab-content">
+		<h2 class="settings-section" id="gi-servers" data-gsection>
+			<span class="ss-icon"><Icon name="server" size={16} /></span>
+			<span class="ss-title">{$t('admin_ai_sec_servers')}</span>
+			<span class="ss-sum">{instanceStatuses.filter(x => x.online).length}/{iaConfig.ollama_instances.length} · {iaQueueData.queue_size}</span>
+		</h2>
 		<!-- AI Queue Panel -->
 		<div class="sc glass">
 			<div class="sc-head">
@@ -1184,8 +1203,13 @@
 			</div>
 		</div>
 
+		<h2 class="settings-section" id="gi-model" data-gsection>
+			<span class="ss-icon"><Icon name="settings" size={16} /></span>
+			<span class="ss-title">{$t('admin_settings_ai_model_cfg')}</span>
+			<span class="ss-sum">{iaConfig.temperature} · {iaConfig.context_window}</span>
+		</h2>
 		<!-- Configuration du Modèle -->
-		<div class="sc glass">
+		<div class="sc glass sc-full sc-bare">
 			<div class="sc-head compact">
 				<div class="sc-icon sm"><Icon name="settings" size={13} /></div>
 				<div style="flex:1">
@@ -1193,7 +1217,7 @@
 					<p class="sc-sub">{$t('admin_settings_ai_model_cfg_sub')}</p>
 				</div>
 			</div>
-			<div class="sc-body" style="gap: 0.8rem;">
+			<div class="sc-body ai-model-body">
 				<!-- Temperature -->
 				<div>
 					<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem;">
@@ -1256,9 +1280,19 @@
 					</select>
 				</div>
 
-				<!-- Network Tools -->
+			</div>
+		</div>
+
+		<h2 class="settings-section" id="gi-behaviour" data-gsection>
+			<span class="ss-icon"><Icon name="shield-check" size={16} /></span>
+			<span class="ss-title">{$t('admin_ai_sec_behaviour')}</span>
+		</h2>
+		<div class="sc glass sc-full sc-bare">
+			<div class="sc-body">
+				<div class="ai-opts">
+<!-- Network Tools -->
 				<div style="display: flex; align-items: center; justify-content: space-between; padding-top: 0.4rem; border-top: 1px solid var(--glass-border);">
-					<span class="compact-label" style="font-weight: 600;">{$t('admin_settings_ai_tools')}</span>
+					<span class="compact-label ai-opt-label" style="font-weight: 600;"><Icon name="globe" size={15} /> {$t('admin_settings_ai_tools')}</span>
 					<label class="toggle-switch-mini">
 						<input type="checkbox" bind:checked={iaConfig.network_tools_enabled} on:change={saveIAConfig} />
 						<span class="toggle-slider"></span>
@@ -1267,7 +1301,7 @@
 
 				<!-- Auto-moderation -->
 				<div style="display: flex; align-items: center; justify-content: space-between; padding-top: 0.4rem; border-top: 1px solid var(--glass-border);">
-					<span class="compact-label" style="font-weight: 600;">{$t('admin_settings_ai_moderation')}</span>
+					<span class="compact-label ai-opt-label" style="font-weight: 600;"><Icon name="shield" size={15} /> {$t('admin_settings_ai_moderation')}</span>
 					<label class="toggle-switch-mini">
 						<input type="checkbox" bind:checked={iaConfig.auto_moderation_enabled} on:change={saveIAConfig} />
 						<span class="toggle-slider"></span>
@@ -1276,7 +1310,7 @@
 
 				<!-- Appel Admin Outil -->
 				<div style="display: flex; align-items: center; justify-content: space-between; padding-top: 0.4rem; border-top: 1px solid var(--glass-border);">
-					<span class="compact-label" style="font-weight: 600;">{$t('ai_setting_call_admin_tool_enabled')}</span>
+					<span class="compact-label ai-opt-label" style="font-weight: 600;"><Icon name="megaphone" size={15} /> {$t('ai_setting_call_admin_tool_enabled')}</span>
 					<label class="toggle-switch-mini">
 						<input type="checkbox" bind:checked={iaConfig.call_admin_enabled} on:change={saveIAConfig} />
 						<span class="toggle-slider"></span>
@@ -1285,14 +1319,14 @@
 
 				<!-- Appel Admin Bouton Manuel -->
 				<div style="display: flex; align-items: center; justify-content: space-between; padding-top: 0.4rem; border-top: 1px solid var(--glass-border);">
-					<span class="compact-label" style="font-weight: 600;">{$t('ai_setting_call_admin_btn_enabled')}</span>
+					<span class="compact-label ai-opt-label" style="font-weight: 600;"><Icon name="bell" size={15} /> {$t('ai_setting_call_admin_btn_enabled')}</span>
 					<label class="toggle-switch-mini">
 						<input type="checkbox" bind:checked={iaConfig.call_admin_button_enabled} on:change={saveIAConfig} />
 						<span class="toggle-slider"></span>
 					</label>
 				</div>
 				{#if iaConfig.call_admin_enabled || iaConfig.call_admin_button_enabled}
-				<div style="padding: 0.6rem; margin-top: 0.4rem; background: rgba(255, 255, 255, 0.03); border: 1px dashed var(--glass-border); border-radius: 4px; display: flex; flex-direction: column; gap: 0.5rem;">
+				<div class="ai-antispam" style="padding: 0.6rem; margin-top: 0.4rem; background: rgba(255, 255, 255, 0.03); border: 1px dashed var(--glass-border); border-radius: 4px; display: flex; flex-direction: column; gap: 0.5rem;">
 					<span class="compact-label" style="font-weight: 600; font-size: 0.85rem; letter-spacing: 0.05em; color: var(--text-muted);">
 						{$t('ai_setting_call_admin_antispam_section_title')}
 					</span>
@@ -1315,17 +1349,22 @@
 
 				<!-- Suggestions RAG -->
 				<div style="display: flex; align-items: center; justify-content: space-between; padding-top: 0.4rem; border-top: 1px solid var(--glass-border);">
-					<span class="compact-label" style="font-weight: 600;">{$t('ai_setting_rag_suggestion_enabled')}</span>
+					<span class="compact-label ai-opt-label" style="font-weight: 600;"><Icon name="lightbulb" size={15} /> {$t('ai_setting_rag_suggestion_enabled')}</span>
 					<label class="toggle-switch-mini">
 						<input type="checkbox" bind:checked={iaConfig.rag_suggestion_enabled} on:change={saveIAConfig} />
 						<span class="toggle-slider"></span>
 					</label>
 				</div>
+				</div>
 			</div>
 		</div>
 
+		<h2 class="settings-section" id="gi-prompts" data-gsection>
+			<span class="ss-icon"><Icon name="pencil" size={16} /></span>
+			<span class="ss-title">{$t('admin_settings_ai_prompts')}</span>
+		</h2>
 		<!-- Prompts de l'IA -->
-		<div class="sc glass">
+		<div class="sc glass sc-full sc-bare">
 			<div class="sc-head compact">
 				<div class="sc-icon sm"><Icon name="chat" size={13} /></div>
 				<div style="flex:1">
@@ -1350,8 +1389,13 @@
 			</div>
 		</div>
 
+		<h2 class="settings-section" id="gi-knowledge" data-gsection>
+			<span class="ss-icon"><Icon name="book-open" size={16} /></span>
+			<span class="ss-title">{$t('admin_settings_ai_rag')}</span>
+			<span class="ss-sum">{knowledgeDocs.length}</span>
+		</h2>
 		<!-- RAG -->
-		<div class="sc glass sc-full">
+		<div class="sc glass sc-full sc-bare">
 			<div class="sc-head">
 				<div class="sc-icon"><Icon name="book-open" size={16} /></div>
 				<div style="flex:1">
@@ -1967,4 +2011,15 @@
 	@media (max-width: 900px) { .nuke-grid { grid-template-columns: minmax(0, 1fr); } .gnav { top: var(--mobile-top-h, 42px); } }
 	.status-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--danger); }
 	.status-dot.on { background: var(--success); box-shadow: 0 0 6px color-mix(in srgb, var(--success) 60%, transparent); }
+	/* AI tab: model fields in two columns, behaviour options as compact rows */
+	.ai-model-body { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.9rem 1.5rem; }
+	.ai-opts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.6rem; }
+	.ai-opts > div { border-top: none !important; padding-top: 0 !important; }
+	.ai-opts > div:not(.ai-antispam) { padding: 0.65rem 0.9rem !important; border-radius: 10px; background: var(--hover-tint); border: 1px solid var(--glass-border) !important; }
+	.ai-opts > .ai-antispam { grid-column: 1 / -1; margin-top: 0 !important; }
+	.ai-antispam > div { display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem 1.5rem !important; }
+	@media (max-width: 900px) { .ai-antispam > div { grid-template-columns: minmax(0, 1fr); } }
+	.ai-opt-label { display: inline-flex; align-items: center; gap: 0.5rem; }
+	.ai-opt-label :global(svg) { color: var(--accent); flex-shrink: 0; }
+	@media (max-width: 900px) { .ai-model-body, .ai-opts { grid-template-columns: minmax(0, 1fr); } }
 </style>

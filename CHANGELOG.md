@@ -19,6 +19,7 @@
 - **Bottom of the page reachable on a phone**: the last block of long pages (danger zone, AI knowledge base "Vectorise" button, awards) was hidden under the tab bar because the page did not grow with its content; it now does.
 - **Default points fields aligned**: the five fields line up on one baseline whatever the label wraps to.
 - **General settings jump bar follows the page**: the highlighted section is the last one that has passed under the bar (the danger zone at the very bottom), a clicked section stays highlighted while the page glides to it, and the page ends with a comfortable margin under the folded danger zone.
+- **Administration, AI settings tab reorganised**: same jump bar and section headers as the General tab (Servers & queue, Model, Behaviour & safety, Prompts, Knowledge base), model fields on two columns, the behaviour options as compact rows with their own icons, the anti-spam limits on one row.
 - **AI assistant on a phone**: the input field is no longer hidden under the bottom tab bar.
 - **Profile on a phone**: the "insult filter" switch is drawn from its own track so the thumb stays inside it on every browser (Firefox included); the points history cards have a visible border and background.
 - **System theme by default**: the app follows the device's light or dark setting (and changes with it); Settings now offer System / Dark / Light, and an explicit choice is kept. The browser and phone status bar take the theme colour.

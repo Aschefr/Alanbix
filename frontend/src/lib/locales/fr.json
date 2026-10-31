@@ -1670,5 +1670,12 @@
   "settings_theme_system_hint": "Suit le réglage clair ou sombre de votre appareil.",
   "admin_more_actions": "Plus d'actions",
   "admin_awards_help_title": "Comment ça marche",
-  "players_resume_chat": "Reprendre la conversation : {name}"
+  "players_resume_chat": "Reprendre la conversation : {name}",
+  "admin_ai_nav_servers": "Serveurs",
+  "admin_ai_nav_model": "Modèle",
+  "admin_ai_nav_behaviour": "Comportement",
+  "admin_ai_nav_prompts": "Consignes",
+  "admin_ai_nav_knowledge": "Connaissances",
+  "admin_ai_sec_servers": "Serveurs & file d'attente",
+  "admin_ai_sec_behaviour": "Comportement & sécurité"
 }

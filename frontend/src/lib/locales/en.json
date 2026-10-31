@@ -1670,5 +1670,12 @@
   "settings_theme_system_hint": "Follows your device's light or dark setting.",
   "admin_more_actions": "More actions",
   "admin_awards_help_title": "How it works",
-  "players_resume_chat": "Resume conversation: {name}"
+  "players_resume_chat": "Resume conversation: {name}",
+  "admin_ai_nav_servers": "Servers",
+  "admin_ai_nav_model": "Model",
+  "admin_ai_nav_behaviour": "Behaviour",
+  "admin_ai_nav_prompts": "Prompts",
+  "admin_ai_nav_knowledge": "Knowledge",
+  "admin_ai_sec_servers": "Servers & queue",
+  "admin_ai_sec_behaviour": "Behaviour & safety"
 }

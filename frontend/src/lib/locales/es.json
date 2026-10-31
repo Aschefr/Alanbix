@@ -1670,5 +1670,12 @@
   "settings_theme_system_hint": "Sigue el ajuste claro u oscuro de tu dispositivo.",
   "admin_more_actions": "Más acciones",
   "admin_awards_help_title": "Cómo funciona",
-  "players_resume_chat": "Reanudar la conversación: {name}"
+  "players_resume_chat": "Reanudar la conversación: {name}",
+  "admin_ai_nav_servers": "Servidores",
+  "admin_ai_nav_model": "Modelo",
+  "admin_ai_nav_behaviour": "Comportamiento",
+  "admin_ai_nav_prompts": "Instrucciones",
+  "admin_ai_nav_knowledge": "Conocimientos",
+  "admin_ai_sec_servers": "Servidores y cola",
+  "admin_ai_sec_behaviour": "Comportamiento y seguridad"
 }
