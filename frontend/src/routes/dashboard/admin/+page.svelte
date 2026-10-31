@@ -264,4 +264,5 @@
 		}
 		.tab-content :global(.rg-list) { max-height: none; overflow: visible; }
 	}
+	@media (max-width: 1100px) { :global(html.conv-chat-open) .admin-view > header { display: none; } }
 </style>

@@ -7,6 +7,7 @@
 	import { t } from '$lib/i18nStore';
 	import { wsMessageStore } from '$lib/ws';
 	import Icon from '$lib/components/Icon.svelte';
+	import { fitPane } from '$lib/mobileViewport';
 
 	marked.setOptions({ breaks: true, gfm: true });
 	function parseMd(text) { return text ? marked.parse(text) : ''; }
@@ -55,6 +56,38 @@
 	$: unreadCount = adminUnreadConvsCount;
 
 	let adminActiveConvId = null;
+	// Phone: an open conversation fills the screen like a messaging app; the back arrow returns to the list
+	$: mobileChat = adminActiveConvId !== null && adminConvInfo !== null;
+	$: if (typeof document !== 'undefined') document.documentElement.classList.toggle('conv-chat-open', mobileChat);
+	function closeAdminConv() {
+		adminActiveConvId = null;
+		adminConvInfo = null;
+		adminConvMessages = [];
+		adminInterveneText = '';
+	}
+
+	// Keep the messages at the same distance from the input when the area above it shrinks (on-screen keyboard)
+	let convObserver = null;
+	let convObservedEl = null;
+	let convLastH = 0;
+	let convDist = 0;
+	let convResizeAt = 0;
+	function watchConvSize(el) {
+		if (el === convObservedEl) return;
+		convObserver?.disconnect();
+		convObservedEl = el;
+		if (!el || typeof ResizeObserver === 'undefined') return;
+		convLastH = el.clientHeight;
+		convObserver = new ResizeObserver(() => {
+			const h = el.clientHeight;
+			if (h === convLastH) return;
+			convLastH = h;
+			convResizeAt = performance.now();
+			el.scrollTop = Math.max(0, el.scrollHeight - h - convDist);
+		});
+		convObserver.observe(el);
+	}
+	$: watchConvSize(adminChatContainer);
 	let adminConvMessages = [];
 	let adminConvInfo = null;
 	let adminInterveneText = '';
@@ -141,6 +174,8 @@
 
 	onDestroy(() => {
 		if (wsUnsub) wsUnsub();
+		convObserver?.disconnect();
+		if (typeof document !== 'undefined') document.documentElement.classList.remove('conv-chat-open');
 	});
 
 	function handleAdminFileSelect(e) {
@@ -173,11 +208,12 @@
 
 	async function adminScrollToBottom() {
 		await tick();
-		if (adminChatContainer) adminChatContainer.scrollTop = adminChatContainer.scrollHeight;
+		if (adminChatContainer) { adminChatContainer.scrollTop = adminChatContainer.scrollHeight; convDist = 0; }
 	}
 
 	function handleAdminChatScroll() {
 		if (!adminChatContainer) return;
+		if (performance.now() - convResizeAt > 200) convDist = Math.max(0, adminChatContainer.scrollHeight - adminChatContainer.scrollTop - adminChatContainer.clientHeight);
 		adminShowScrollToBottom = adminChatContainer.scrollTop + adminChatContainer.clientHeight < adminChatContainer.scrollHeight - 300;
 	}
 
@@ -286,9 +322,9 @@
 	}
 </script>
 
-<div class="admin-grid">
+<div class="admin-grid" class:chat-open={mobileChat} use:fitPane={mobileChat}>
 	<!-- Conversation list -->
-	<section class="list glass" style="max-height:80vh;overflow-y:auto">
+	<section class="list glass conv-list" style="max-height:80vh;overflow-y:auto">
 		<div class="list-header">
 			<div class="flex-row items-center gap-3">
 				<div class="list-icon">💬</div>
@@ -354,12 +390,13 @@
 	</section>
 
 	<!-- Conversation detail -->
-	<section class="list glass" style="max-height:80vh;display:flex;flex-direction:column;position:relative">
+	<section class="list glass conv-detail" style="max-height:80vh;display:flex;flex-direction:column;position:relative">
 		{#if adminActiveConvId && adminConvInfo}
 			<div class="list-header">
-				<div class="flex-row items-center gap-3">
-					<div class="list-icon">🔍</div>
-					<div>
+				<div class="flex-row items-center gap-3 conv-head-main">
+					<button type="button" class="conv-back" on:click={closeAdminConv} aria-label={$t('common_back')} title={$t('common_back')}><Icon name="arrow-left" size={18} /></button>
+					<div class="list-icon conv-head-icon">🔍</div>
+					<div class="conv-head-text">
 						<h2 style="margin:0">{adminConvInfo.title}</h2>
 						<span class="text-xs text-dim">{$t("admin_chats_player")} {adminConvInfo.username}</span>
 					</div>
@@ -453,7 +490,7 @@
 </div>
 
 <!-- Appels Admin & Suggestions RAG -->
-<div style="display:flex;gap:1.5rem;flex-wrap:wrap;padding:1rem 0">
+<div class="conv-extra" class:chat-open={mobileChat} style="display:flex;gap:1.5rem;flex-wrap:wrap;padding:1rem 0">
 	<!-- Appels Admin IA -->
 	<section class="list glass" style="flex:1;min-width:300px">
 		<div class="list-header">
@@ -561,6 +598,20 @@
 	.btn-icon-sm:hover { background: var(--accent-soft); border-color: var(--accent); }
 	.edit-textarea { background: var(--input-bg); border: 1px solid var(--glass-border); border-radius: 8px; padding: 0.6rem 0.8rem; color: var(--input-color); font-family: var(--font-main); font-size: 0.85rem; transition: all 0.2s; }
 	.edit-textarea:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+	.conv-back { display: none; }
+	@media (max-width: 1100px) {
+		.conv-back { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--glass-border); background: var(--accent-soft); color: var(--accent); cursor: pointer; }
+		.admin-grid.chat-open { margin: -0.5rem -0.5rem calc(-1 * var(--pane-bleed, 0px)); height: calc(var(--pane-h, 75vh) + var(--pane-bleed, 0px)); overflow: hidden; gap: 0; }
+		.admin-grid.chat-open .conv-list { display: none; }
+		.admin-grid.chat-open .conv-detail { max-height: none !important; height: 100%; border-radius: 0; border: none; padding: 0; min-height: 0; }
+		.conv-detail .list-header { padding: 0.5rem 0.75rem; margin-bottom: 0; gap: 0.5rem; }
+		.conv-head-main { min-width: 0; flex: 1; gap: 0.6rem !important; }
+		.conv-head-icon { display: none; }
+		.conv-head-text { min-width: 0; }
+		.conv-head-text h2 { font-size: 1rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+		.conv-head-text span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+		.conv-extra.chat-open { display: none !important; }
+	}
 	.admin-conv-md :global(p) { margin: 0.3em 0; }
 	.admin-conv-md :global(p:first-child) { margin-top: 0; }
 	.admin-conv-md :global(p:last-child) { margin-bottom: 0; }
