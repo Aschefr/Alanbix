@@ -8,6 +8,7 @@
 - **On-screen keyboard on a phone**: the tab bar steps aside and the conversation (or the AI assistant input) ends exactly on the keyboard, with no gap and no shift of the header; on a touch keyboard Enter adds a line and only the send button sends (private chat, team chat, public chat, AI assistant).
 - **Keyboard gap and conversation opened from a scrolled list**: the conversation no longer loses its input-to-tab-bar layout when opened while the contact list was scrolled, and the remaining gap above the keyboard is closed.
 - **Conversation without a frame on a phone**: the open conversation runs edge to edge between the top bar and the tab bar instead of sitting in a bordered card.
+- **Keyboard keeps the conversation in place**: when the on-screen keyboard opens (or the text field grows), the messages scroll with it so the last ones stay visible just above the field, like a messaging app.
 - **AI assistant on a phone**: the input field is no longer hidden under the bottom tab bar.
 - **Profile on a phone**: the "insult filter" switch is drawn from its own track so the thumb stays inside it on every browser (Firefox included); the points history cards have a visible border and background.
 - **System theme by default**: the app follows the device's light or dark setting (and changes with it); Settings now offer System / Dark / Light, and an explicit choice is kept. The browser and phone status bar take the theme colour.

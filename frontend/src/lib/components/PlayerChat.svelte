@@ -212,6 +212,7 @@
 
 	onDestroy(() => {
 		if (wsUnsub) wsUnsub();
+		sizeObserver?.disconnect();
 		if (pruneTypersInterval) clearInterval(pruneTypersInterval);
 		if (highlightTimer) clearTimeout(highlightTimer);
 		if (typingDebounceTimer) clearTimeout(typingDebounceTimer);
@@ -269,6 +270,31 @@
 			showScrollToBottom = true;
 		}
 	}
+
+	// When the area above the input shrinks (on-screen keyboard, growing text field) or grows back, scroll by the
+	// same amount so the messages keep their place just above the input, as in a messaging app.
+	let sizeObserver = null;
+	let observedEl = null;
+	let lastClientH = 0;
+	function watchScrollSize(el) {
+		if (el === observedEl) return;
+		sizeObserver?.disconnect();
+		observedEl = el;
+		if (!el || typeof ResizeObserver === 'undefined') return;
+		lastClientH = el.clientHeight;
+		sizeObserver = new ResizeObserver(() => {
+			const h = el.clientHeight;
+			const delta = lastClientH - h;
+			// was the reader at the bottom before the change? (measured against the previous height)
+			const wasAtBottom = el.scrollHeight - el.scrollTop - lastClientH <= 60;
+			lastClientH = h;
+			if (delta === 0 || loading) return;
+			if (wasAtBottom) el.scrollTop = el.scrollHeight;
+			else el.scrollTop += delta;
+		});
+		sizeObserver.observe(el);
+	}
+	$: watchScrollSize(chatScrollEl);
 
 	function handleScroll() {
 		if (!chatScrollEl) return;
