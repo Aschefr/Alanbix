@@ -522,7 +522,6 @@ class IAQueueManager:
                         fn_name = fn.get("name", "")
                         fn_args = fn.get("arguments", {})
                         await entry.result_stream.put({"status": "tool_call", "tool_name": fn_name})
-                        await entry.result_stream.put({"text": f"🔍 *Consultation des données : {fn_name}...*\n\n"})
                         if fn_name not in used_tools:
                             used_tools.append(fn_name)
                         t_tool_start = time.time()
@@ -738,7 +737,6 @@ class IAQueueManager:
                     # Notify tool executing
                     t_names = ", ".join(c["function"]["name"] for c in parsed_calls)
                     await entry.result_stream.put({"status": "tool_call", "tool_name": t_names})
-                    await entry.result_stream.put({"text": f"🔍 *Consultation des données : {t_names}...*\n\n"})
                     
                     # Add assistant message
                     tool_messages.append({
