@@ -789,7 +789,7 @@
 		/* the resume bar and the unread chips float at the top of the list while it scrolls */
 		.players-page:not(.chat-active-mobile) .players-layout, .players-page:not(.chat-active-mobile) .directory-col { overflow: visible; }
 		.float-stack { display: block; position: sticky; top: calc(var(--mobile-top-h, 42px) + 6px); z-index: 20; }
-		.float-stack .resume-chat-bar, .float-stack .unread-shortlist-bar { background: var(--bg-secondary) !important; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18); }
+		.float-stack .resume-chat-bar, .float-stack .unread-shortlist-bar { background: var(--bg-secondary) !important; border: 1px solid color-mix(in srgb, var(--accent) 60%, transparent) !important; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18); }
 		.resume-chat-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	}
 	.player-count { font-size: 0.75rem; font-weight: 700; padding: 0.25rem 0.8rem; border-radius: 20px; background: rgba(59,130,246,0.1); color: var(--accent); border: 1px solid rgba(59,130,246,0.25); }
