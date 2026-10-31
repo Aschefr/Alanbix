@@ -1475,6 +1475,8 @@
 		}
 
 		.mobile-brand {
+			min-width: 0;
+			flex: 1 1 auto;
 			display: flex;
 			align-items: center;
 			gap: 0.6rem;
@@ -1488,6 +1490,7 @@
 		}
 
 		.mobile-brand-info {
+			min-width: 0;
 			display: flex;
 			flex-direction: column;
 			line-height: 1.15;
@@ -1511,6 +1514,7 @@
 		}
 
 		.mobile-top-actions {
+			flex-shrink: 0;
 			display: flex;
 			align-items: center;
 			gap: 0.4rem;
@@ -1536,6 +1540,14 @@
 			background: var(--accent-soft);
 			border-color: var(--accent);
 			color: var(--accent);
+		}
+
+		/* very small phones: tighter bar so every button stays on screen */
+		@media (max-width: 380px) {
+			.mobile-top-bar { padding-left: 0.5rem; padding-right: 0.5rem; }
+			.mobile-top-actions { gap: 0.25rem; }
+			.top-action-btn { width: 30px; height: 30px; }
+			.mobile-brand { gap: 0.4rem; }
 		}
 
 		.badge-dot {

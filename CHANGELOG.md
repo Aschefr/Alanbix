@@ -27,6 +27,7 @@
 - **Players tab**: click a column header (Pseudo, Team, Points) to sort, click again to reverse, a third time to go back to the original order; on a phone the team and points show under each pseudo; the points header and the search placeholder are no longer cut off.
 - **Tournament rows no longer overlap on a phone**: the name and badges ("Hidden from players", status) wrap onto several lines instead of running under the action buttons, checked from 320 to 430 px wide.
 - **Small phones (320 px) in the administration**: the "Test validity" button of the image search service and the latency badges of the AI instances wrap instead of overflowing; the monospace text of the AI prompt viewers uses the generic monospace font.
+- **Top bar on very small phones**: the brand shrinks and the buttons tighten below 380 px so the settings button is no longer cut off and the page no longer scrolls sideways at 320 px.
 - **AI assistant on a phone**: the input field is no longer hidden under the bottom tab bar.
 - **Profile on a phone**: the "insult filter" switch is drawn from its own track so the thumb stays inside it on every browser (Firefox included); the points history cards have a visible border and background.
 - **System theme by default**: the app follows the device's light or dark setting (and changes with it); Settings now offer System / Dark / Light, and an explicit choice is kept. The browser and phone status bar take the theme colour.
