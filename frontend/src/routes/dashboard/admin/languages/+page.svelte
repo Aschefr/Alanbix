@@ -120,6 +120,11 @@
 	}
 
 	onMount(async () => {
+		// Translations are edited on a computer: a phone goes back to the administration
+		if (window.matchMedia('(max-width: 900px)').matches) {
+			goto('/dashboard/admin', { replaceState: true });
+			return;
+		}
 		try {
 			const me = await api.get('/me');
 			if (!me.is_admin) {

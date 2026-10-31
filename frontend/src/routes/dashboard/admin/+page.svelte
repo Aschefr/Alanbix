@@ -174,7 +174,7 @@
 				{/if}
 			</button>
 			<button class={activeTab === 'awards' ? 'active' : ''} on:click={() => { activeTab = 'awards'; if (awardsTabRef) awardsTabRef.loadAwardsTab(); }}><Icon name="trophy" size={15} /> {$t('admin_tab_awards')}</button>
-			<button on:click={() => window.location.href = '/dashboard/admin/languages'}><Icon name="globe" size={15} /> {$t('admin_tab_languages')}</button>
+			<button class="desktop-only" on:click={() => window.location.href = '/dashboard/admin/languages'}><Icon name="globe" size={15} /> {$t('admin_tab_languages')}</button>
 		</div>
 	</header>
 
@@ -244,6 +244,8 @@
 		.tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding: 0.2rem; }
 		.tabs::-webkit-scrollbar { display: none; }
 		.tabs button { flex-shrink: 0; white-space: nowrap; padding: 0.5rem 0.85rem; }
+		/* the translation editor is for computers only */
+		.tabs button.desktop-only { display: none; }
 		/* the edges that hide other tabs fade out */
 		.tabs.fade-end { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent); }
 		.tabs.fade-start { -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 36px), transparent); mask-image: linear-gradient(to left, #000 calc(100% - 36px), transparent); }
