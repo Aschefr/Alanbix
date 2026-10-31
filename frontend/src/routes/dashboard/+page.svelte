@@ -2396,10 +2396,15 @@
 	/* === Desktop layout: Mes matchs + tabs on the left, chat on the right === */
 	.dash-grid {
 		display: grid;
-		grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
+		/* the chat column grows with a wide screen (about 28 %), never below 380px nor above 520px */
+		grid-template-columns: minmax(0, 1fr) clamp(380px, 28%, 520px);
 		gap: 1.2rem;
 		flex: 1;
 		min-height: 0;
+	}
+	/* narrower desktops keep the original, more flexible chat column */
+	@media (max-width: 1200px) {
+		.dash-grid { grid-template-columns: minmax(0, 1fr) minmax(300px, 380px); }
 	}
 	.dash-left { display: flex; flex-direction: column; gap: 1rem; min-height: 0; min-width: 0; }
 	.dash-right { min-height: 0; display: flex; flex-direction: column; }
