@@ -30,9 +30,31 @@
 	let generatingPool = false;
 	let playerQuery = initialQuery;
 	let openActionsId = null;
-	$: filteredPlayers = playerQuery.trim()
+	$: searchedPlayers = playerQuery.trim()
 		? allPlayers.filter(p => `${p.username} ${p.team_name || ''}`.toLowerCase().includes(playerQuery.trim().toLowerCase()))
 		: allPlayers;
+
+	// Column sorting (click a header; click again to reverse; a third click clears it)
+	let sortKey = null;
+	let sortDir = 1;
+	let sortStep = 0; // 1 = first direction, 2 = reversed, then back to the server order
+	function sortBy(key) {
+		if (sortKey !== key) { sortKey = key; sortDir = key === 'points' ? -1 : 1; sortStep = 1; return; }
+		if (sortStep === 1) { sortDir = -sortDir; sortStep = 2; return; }
+		sortKey = null; sortStep = 0; sortDir = 1;
+	}
+	function sortValue(p, key) {
+		if (key === 'points') return p.points || 0;
+		if (key === 'team') return (p.team_name || '').toLowerCase();
+		return (p.username || '').toLowerCase();
+	}
+	$: filteredPlayers = sortKey
+		? [...searchedPlayers].sort((a, b) => {
+			const x = sortValue(a, sortKey), y = sortValue(b, sortKey);
+			return (x < y ? -1 : x > y ? 1 : 0) * sortDir;
+		})
+		: searchedPlayers;
+	$: ariaSort = (key) => sortKey === key ? (sortDir === 1 ? 'ascending' : 'descending') : 'none';
 
 	function openEditPlayer(p) {
 		editingPlayer = p;
@@ -241,9 +263,9 @@
 		<div class="players-table">
 			<div class="pt-header">
 				<span class="pt-col pt-id">#</span>
-				<span class="pt-col pt-name">{$t("admin_players_hdr_pseudo")}</span>
-				<span class="pt-col pt-team">{$t("admin_players_hdr_team")}</span>
-				<span class="pt-col pt-pts">{$t("dash_modal_points_total")}</span>
+				<span class="pt-col pt-name" aria-sort={ariaSort('name')}><button type="button" class="pt-sort" on:click={() => sortBy('name')}>{$t("admin_players_hdr_pseudo")}<span class="pt-sort-ic" class:on={sortKey === 'name'}><Icon name={sortKey === 'name' && sortDir === -1 ? 'chevron-up' : 'chevron-down'} size={12} /></span></button></span>
+				<span class="pt-col pt-team" aria-sort={ariaSort('team')}><button type="button" class="pt-sort" on:click={() => sortBy('team')}>{$t("admin_players_hdr_team")}<span class="pt-sort-ic" class:on={sortKey === 'team'}><Icon name={sortKey === 'team' && sortDir === -1 ? 'chevron-up' : 'chevron-down'} size={12} /></span></button></span>
+				<span class="pt-col pt-pts" aria-sort={ariaSort('points')}><button type="button" class="pt-sort" on:click={() => sortBy('points')}>{$t("dash_modal_points_total")}<span class="pt-sort-ic" class:on={sortKey === 'points'}><Icon name={sortKey === 'points' && sortDir === -1 ? 'chevron-up' : 'chevron-down'} size={12} /></span></button></span>
 				<span class="pt-col pt-actions">{$t('admin_players_hdr_actions')}</span>
 			</div>
 			{#each filteredPlayers as p, i (p.id)}
@@ -253,7 +275,7 @@
 						{#if p.avatar_url}
 							<div class="admin-avatar-small avatar-shape-{p.avatar_shape || 'circle'}"><img src={p.avatar_url} alt="" /></div>
 						{/if}
-						<span>{p.username}</span>
+						<span class="pt-who"><span class="pt-nameline"><span>{p.username}</span>
 						{#if p.is_online}
 							<span class="online-dot" title={$t('players_status_online')}></span>
 						{/if}
@@ -262,6 +284,7 @@
 						{#if p.public_chat_muted_until && new Date(p.public_chat_muted_until) > new Date()}
 							<span class="chat-muted-badge" title={$t('admin_players_muted_badge')}><Icon name="volume-x" size={14} /></span>
 						{/if}
+						</span><span class="pt-sub">{p.team_name || '—'} · {formatPoints(p.points || 0)} {$t('common_pts')}</span></span>
 					</span>
 					<span class="pt-col pt-team">{p.team_name || '—'}</span>
 					<span class="pt-col pt-pts">{formatPoints(p.points || 0)}</span>
@@ -421,11 +444,19 @@
 	.pt-row:hover { background: var(--hover-tint); }
 	.pt-row:last-child { border-bottom: none; }
 	.pt-row.is-admin { background: rgba(59,130,246,0.06); }
+	.pt-sort { all: unset; display: inline-flex; align-items: center; gap: 0.25rem; cursor: pointer; text-transform: inherit; letter-spacing: inherit; font-weight: inherit; color: inherit; }
+	.pt-sort:hover, .pt-sort:focus-visible { color: var(--text-main); }
+	.pt-sort-ic { display: inline-flex; opacity: 0; }
+	.pt-sort:hover .pt-sort-ic, .pt-sort-ic.on { opacity: 1; color: var(--accent); }
+	.pt-pts .pt-sort { justify-content: center; width: 100%; }
+	.pt-who { display: flex; flex-direction: column; min-width: 0; }
+	.pt-nameline { display: inline-flex; align-items: center; gap: 0.4rem; min-width: 0; }
+	.pt-sub { display: none; font-size: 0.75rem; font-weight: 600; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	.pt-col { font-size: 0.875rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	.pt-id { width: 36px; flex-shrink: 0; color: var(--text-muted); font-size: 0.8rem; }
 	.pt-name { flex: 3; min-width: 0; font-weight: 700; display: flex; align-items: center; gap: 0.4rem; }
 	.pt-team { flex: 2; min-width: 0; color: var(--text-dim); }
-	.pt-pts { width: 120px; flex-shrink: 0; text-align: center; font-weight: 800; color: var(--accent); }
+	.pt-pts { width: 170px; flex-shrink: 0; text-align: center; font-weight: 800; color: var(--accent); }
 	.pt-actions { width: 240px; flex-shrink: 0; display: flex; gap: 0.3rem; align-items: center; justify-content: flex-end; flex-wrap: nowrap; }
 	.admin-badge { display: inline-flex; align-items: center; padding: 0.15rem 0.35rem; background: rgba(234,179,8,0.15); color: #eab308; border-radius: 6px; }
 	.pt-search { width: 260px; padding: 0.45rem 0.7rem; font-size: 0.875rem; border-radius: var(--radius-md); }
@@ -489,6 +520,8 @@
 	.pt-search-wrap { position: relative; display: flex; align-items: center; color: var(--text-muted); }
 	.pt-search-wrap :global(svg) { position: absolute; left: 0.65rem; pointer-events: none; }
 	.pt-search-wrap .pt-search { padding-left: 2rem; }
+	.pt-search-wrap .pt-search { min-width: 300px; }
+	@media (max-width: 900px) { .pt-search-wrap .pt-search { min-width: 0; } }
 	.btn-compact { padding: 0.4rem 0.8rem; font-size: 0.8125rem; }
 	@media (max-width: 900px) {
 		.players-view { padding: 1rem !important; }
@@ -497,6 +530,7 @@
 		.pt-tools > * { flex: 1 1 100%; }
 		.pt-search-wrap, .pt-search { width: 100%; }
 		.pt-id, .pt-team, .pt-pts { display: none; }
+		.pt-sub { display: block; }
 		.pt-actions { width: auto; }
 		.cpf-grid { grid-template-columns: 1fr; }
 	}

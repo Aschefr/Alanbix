@@ -190,6 +190,9 @@
 	}
 
 	// Live state of a running tournament for the admin list (replaces the coefficient string)
+	// On a phone the creation card is folded to a single header line above the list of tournaments
+	let wizardOpen = typeof window === 'undefined' || window.innerWidth > 1100;
+
 	function liveState(tr) {
 		const cfg = tr.config || {};
 		const played = (m) => {
@@ -213,8 +216,8 @@
 <svelte:window on:keydown={(e) => { if (e.key === 'Escape') menuOpenId = null; handleKeydown(e); }} on:click={() => menuOpenId = null} />
 
 <div class="admin-grid">
-	<section class="wizard glass">
-		<div class="list-header">
+	<section class="wizard glass" class:folded={!wizardOpen}>
+		<button type="button" class="list-header wizard-toggle" aria-expanded={wizardOpen} on:click={() => wizardOpen = !wizardOpen}>
 			<div class="flex-row items-center gap-3">
 				<div class="list-icon"><Icon name="sparkles" size={20} /></div>
 				<div>
@@ -222,7 +225,9 @@
 					<span class="list-sub">{$t("admin_tourneys_wizard_subtitle")}</span>
 				</div>
 			</div>
-		</div>
+			<span class="wizard-chevron"><Icon name={wizardOpen ? 'chevron-up' : 'chevron-down'} size={18} /></span>
+		</button>
+		<div class="wizard-body">
 		<CreateTournamentWizard 
 			{games} 
 			onSuccess={() => {
@@ -234,6 +239,7 @@
 			}}
 			on:toast={(e) => toast(e.detail.message, e.detail.type)}
 		/>
+		</div>
 	</section>
 
 	<div class="flex-col gap-6" style="display:flex; flex-direction:column; gap:1.5rem;">
@@ -500,7 +506,15 @@
 
 <style>
 	.admin-grid { display: grid; grid-template-columns: minmax(380px, 1fr) 2fr; gap: 2rem; }
-	@media (max-width: 1100px) { .admin-grid { grid-template-columns: minmax(0, 1fr); gap: 1rem; } }
+	@media (max-width: 1100px) {
+		.admin-grid { grid-template-columns: minmax(0, 1fr); gap: 1rem; }
+		.wizard.folded .wizard-body { display: none; }
+		.wizard.folded .list-header { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
+	}
+	.wizard-toggle { width: 100%; background: none; border-left: none; border-right: none; border-top: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+	.wizard-chevron { display: none; color: var(--text-dim); }
+	@media (max-width: 1100px) { .wizard-chevron { display: inline-flex; } }
+	@media (min-width: 1101px) { .wizard-toggle { cursor: default; pointer-events: none; } }
 	@media (max-width: 640px) {
 		.wizard, .list { padding: 1rem; }
 		.card-top-row { flex-wrap: wrap; gap: 0.6rem 0.8rem; }
