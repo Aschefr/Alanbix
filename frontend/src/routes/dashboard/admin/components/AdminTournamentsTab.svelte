@@ -3,6 +3,14 @@
 	import { api } from '$lib/api';
 	import { API_URL, resolveMediaUrl, mediaThumb } from '$lib/config';
 	import { t } from '$lib/i18nStore';
+	let menuOpenId = null;
+	let menuUp = false;
+	// open the "more" menu upwards when there is no room below it (the phone tab bar covers the bottom)
+	function toggleMenu(id, btn) {
+		if (menuOpenId === id) { menuOpenId = null; return; }
+		menuUp = window.innerHeight - btn.getBoundingClientRect().bottom < 290;
+		menuOpenId = id;
+	}
 	import CreateTournamentWizard from '$lib/components/CreateTournamentWizard.svelte';
 	import EditTournamentModal from '$lib/components/EditTournamentModal.svelte';
 	import AddGameModal from '$lib/components/AddGameModal.svelte';
@@ -202,7 +210,7 @@
 	}
 </script>
 
-<svelte:window on:keydown={handleKeydown} />
+<svelte:window on:keydown={(e) => { if (e.key === 'Escape') menuOpenId = null; handleKeydown(e); }} on:click={() => menuOpenId = null} />
 
 <div class="admin-grid">
 	<section class="wizard glass">
@@ -262,6 +270,29 @@
 										{@const st = liveState(tourney)}
 										· {st.round} · {$t('admin_tourneys_live_progress', { done: st.done, total: st.total })}
 										{#if st.waiting > 0}<span class="live-waiting">{$t('admin_tourneys_live_waiting', { n: st.waiting })}</span>{/if}
+									{/if}
+								</div>
+							</div>
+							<div class="item-actions-mobile">
+								<button class="btn-icon-edit" on:click={() => openEditTournament(tourney)} title="{$t('admin_tourneys_tooltip_edit')}" aria-label="{$t('admin_tourneys_tooltip_edit')}">
+									<Icon name="pencil" size={16} />
+								</button>
+								<div class="more-wrap">
+									<button class="btn-icon-edit" class:is-open={menuOpenId === tourney.id} aria-haspopup="menu" aria-expanded={menuOpenId === tourney.id} aria-label={$t('admin_more_actions')} on:click|stopPropagation={(e) => toggleMenu(tourney.id, e.currentTarget)}>
+										<Icon name="more-vertical" size={16} />
+									</button>
+									{#if menuOpenId === tourney.id}
+										<div class="more-menu" class:up={menuUp} role="menu" on:click|stopPropagation>
+											{#if tourney.status === 'CLOSED'}
+												<button role="menuitem" on:click={() => { menuOpenId = null; previewAiPrompt(tourney.id); }}><Icon name="eye" size={16} /> {$t('admin_tourneys_view_ai_prompt')}</button>
+												<button role="menuitem" on:click={() => { menuOpenId = null; retryNotifications(tourney.id); }}><Icon name="refresh" size={16} /> {$t('admin_tourneys_regen_ai_msgs')}</button>
+											{/if}
+											<button role="menuitem" on:click={() => { menuOpenId = null; toggleHidden(tourney); }}>
+												<Icon name={tourney.is_hidden ? 'eye' : 'eye-off'} size={16} /> {$t(tourney.is_hidden ? 'tourneys_btn_show' : 'tourneys_btn_hide')}
+											</button>
+											<div class="more-sep"></div>
+											<button role="menuitem" class="danger" on:click={() => { menuOpenId = null; tournamentToDelete = tourney; }}><Icon name="trash" size={16} /> {$t('admin_tourneys_tooltip_delete')}</button>
+										</div>
 									{/if}
 								</div>
 							</div>
@@ -502,6 +533,25 @@
 	.btn-icon-edit { background: rgba(255, 255, 255, 0.05); border: 1px solid var(--glass-border); color: var(--text-muted); cursor: pointer; padding: 0.6rem; border-radius: 8px; transition: all 0.2s; display: flex; align-items: center; justify-content: center; }
 	.hidden-pill { display: inline-flex; align-items: center; gap: 0.25rem; background: color-mix(in srgb, var(--warning) 14%, transparent); color: var(--warning); border: 1px solid color-mix(in srgb, var(--warning) 40%, transparent); }
 	.btn-icon-edit.is-on { color: var(--warning); border-color: var(--warning); }
+	/* Phone: one visible action (edit) and a "more" menu; delete is set apart at the bottom of the menu */
+	.item-actions-mobile { display: none; }
+	.more-wrap { position: relative; }
+	.more-menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 30; min-width: 230px; display: flex; flex-direction: column; padding: 0.3rem; border-radius: var(--radius-md); background: var(--bg-secondary); border: 1px solid var(--glass-border-highlight, var(--glass-border)); box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35); }
+	.more-menu.up { top: auto; bottom: calc(100% + 6px); }
+	.more-menu button { display: flex; align-items: center; gap: 0.6rem; width: 100%; padding: 0.7rem 0.75rem; border: none; border-radius: 8px; background: transparent; color: var(--text-main); font: inherit; font-size: 0.875rem; text-align: left; cursor: pointer; }
+	.more-menu button:hover { background: var(--hover-tint); }
+	.more-menu button.danger { color: var(--danger); }
+	.more-menu button.danger:hover { background: color-mix(in srgb, var(--danger) 14%, transparent); }
+	.more-sep { height: 1px; margin: 0.3rem 0.4rem; background: var(--glass-border); }
+	.btn-icon-edit.is-open { background: var(--hover-tint); color: var(--text-main); }
+	@media (max-width: 900px) {
+		.item-actions { display: none; }
+		.item-actions-mobile { display: flex; align-items: center; gap: 0.4rem; flex-shrink: 0; }
+		.card-top-row { flex-wrap: nowrap; gap: 0.7rem; }
+		.admin-item-card { padding: 0.7rem 0.75rem; margin-bottom: 0.5rem; }
+		.game-mini-thumb { width: 44px; height: 44px; }
+		.item-name { font-size: 0.9rem; }
+	}
 	.btn-icon-edit:hover { background: rgba(59, 130, 246, 0.2); color: var(--accent); border-color: var(--accent); }
 	.btn-icon-danger { background: rgba(255, 255, 255, 0.05); border: 1px solid var(--glass-border); color: var(--text-muted); cursor: pointer; padding: 0.6rem; border-radius: 8px; transition: all 0.2s; display: flex; align-items: center; justify-content: center; }
 	.btn-icon-danger:hover { background: rgba(239, 68, 68, 0.2); color: var(--danger); border-color: var(--danger); }

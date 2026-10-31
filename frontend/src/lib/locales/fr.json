@@ -1667,5 +1667,6 @@
   "login_server_down_hint": "Aucune réponse. Vérifiez que le serveur est allumé et sur le même réseau.",
   "login_server_search": "Chercher un serveur",
   "settings_theme_opt_system": "Système",
-  "settings_theme_system_hint": "Suit le réglage clair ou sombre de votre appareil."
+  "settings_theme_system_hint": "Suit le réglage clair ou sombre de votre appareil.",
+  "admin_more_actions": "Plus d'actions"
 }

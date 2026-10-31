@@ -1667,5 +1667,6 @@
   "login_server_down_hint": "Sin respuesta. Comprueba que el servidor esté encendido y en la misma red.",
   "login_server_search": "Buscar un servidor",
   "settings_theme_opt_system": "Sistema",
-  "settings_theme_system_hint": "Sigue el ajuste claro u oscuro de tu dispositivo."
+  "settings_theme_system_hint": "Sigue el ajuste claro u oscuro de tu dispositivo.",
+  "admin_more_actions": "Más acciones"
 }
