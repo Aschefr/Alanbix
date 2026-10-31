@@ -527,7 +527,7 @@
 					</header>
 
 					<div class="user-summary">
-						<div class="user-avatar">
+						<div class="user-avatar avatar-shape-{user.avatar_shape || 'circle'}" class:has-img={!!user.avatar_url}>
 							{#if user.avatar_url}
 								<img src={resolveMediaUrl(user.avatar_url)} alt={user.username} />
 							{:else}
@@ -906,6 +906,8 @@
 		color: #fff;
 		overflow: hidden;
 	}
+	/* a picture keeps the shape and the transparency chosen on the profile: no solid colour behind it */
+	.user-avatar.has-img { background: var(--bg-tertiary); }
 	.user-avatar img { width: 100%; height: 100%; object-fit: cover; }
 	.user-details { display: flex; flex-direction: column; gap: 0.25rem; min-width: 0; }
 	.user-name { font-size: 1.0625rem; font-weight: 700; color: var(--text-main); }

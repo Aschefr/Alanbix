@@ -694,11 +694,11 @@
 
 	<main class="content-area">
 		{#if !dismissNotifBanner && notifPrefs?.enabled !== false && !$page.url.pathname.startsWith('/dashboard/settings') && !$page.url.pathname.startsWith('/dashboard/welcome') && ((isCapacitorNative() && !nativeNotifOperational) || (!isCapacitorNative() && browserNotifSupport && browserNotifStatus !== 'granted'))}
-			<div class="notif-warning-banner glass" style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;padding:0.6rem 1rem;margin-bottom:0.85rem;border-radius:10px;border:1px solid rgba(245,158,11,0.35);background:rgba(245,158,11,0.1);font-size:0.8rem;">
-				<span style="display:inline-flex;align-items:center;gap:0.4rem;"><Icon name="bell" size={14} /> {$t('settings_notifs_banner_warn')}</span>
-				<div style="display:flex;align-items:center;gap:0.5rem;flex-shrink:0;">
-					<a href="/dashboard/settings" style="color:var(--accent);font-weight:700;text-decoration:underline;">{$t('settings_notifs_banner_btn')}</a>
-					<button type="button" on:click={dismissBanner} style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:0.9rem;padding:0 0.2rem;">✕</button>
+			<div class="notif-warning-banner glass">
+				<span class="nb-text"><Icon name="bell" size={14} /> {$t('settings_notifs_banner_warn')}</span>
+				<div class="nb-actions">
+					<a href="/dashboard/settings">{$t('settings_notifs_banner_btn')}</a>
+					<button type="button" on:click={dismissBanner} aria-label={$t('common_close')}><Icon name="x" size={14} /></button>
 				</div>
 			</div>
 		{/if}
@@ -1046,6 +1046,15 @@
 		align-items: center;
 	}
 
+	.notif-warning-banner { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.6rem 1rem; margin-bottom: 0.85rem; border-radius: 10px; border: 1px solid rgba(245,158,11,0.35); background: rgba(245,158,11,0.1); font-size: 0.8rem; }
+	.nb-text { display: inline-flex; align-items: center; gap: 0.4rem; min-width: 0; }
+	.nb-actions { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
+	.nb-actions a { color: var(--accent); font-weight: 700; text-decoration: underline; }
+	.nb-actions button { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; background: none; border: none; border-radius: 6px; color: var(--text-dim); cursor: pointer; }
+	.nb-actions button:hover { background: var(--hover-tint); color: var(--text-main); }
+	@media (max-width: 900px) {
+		.notif-warning-banner { padding: 0.3rem 0.4rem 0.3rem 0.7rem; margin-bottom: 0.5rem; font-size: 0.75rem; gap: 0.5rem; }
+	}
 	.theme-toggle {
 		width: 38px;
 		height: 38px;
