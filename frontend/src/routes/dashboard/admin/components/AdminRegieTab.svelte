@@ -7,8 +7,10 @@
 	import { wsMessageStore } from '$lib/ws';
 	import { t } from '$lib/i18nStore';
 	import Icon from '$lib/components/Icon.svelte';
+	import { mediaThumb } from '$lib/config';
 
 	export let tournaments = [];
+	export let games = [];
 	export let onReload = () => {};
 	export let onOpenConversation = (convId) => {};
 	export let onOpenPlayer = (username) => {};
@@ -64,6 +66,12 @@
 		if (tourney.config?.bracket_type === 'round_robin') return $t('spec_matchday_num', { num: m.id?.r || 1 });
 		if (m.id?.s === 2) return $t('tourneys_bracket_lb_round', { n: m.id?.r || 1 });
 		return $t('tourneys_round_n', { n: m.id?.r || 1 });
+	}
+
+	// Game artwork (the same thumbnail as "My matches" on the dashboard)
+	function gameThumb(tr) {
+		const g = (games || []).find(x => x.id === tr.game_id);
+		return g?.image_url ? mediaThumb(g.image_url, 96) : '';
 	}
 
 	$: running = (tournaments || []).filter(tr => tr.status === 'RUNNING' && Array.isArray(tr.bracket));
@@ -169,6 +177,11 @@
 			<ul class="rg-list">
 				{#each toScore as item (item.key)}
 					<li class="rg-item rg-score-item">
+						{#if gameThumb(item.tr)}
+							<span class="rg-thumb" style={`background-image: url(${gameThumb(item.tr)})`} aria-hidden="true"></span>
+						{:else}
+							<span class="rg-thumb empty" aria-hidden="true"><Icon name="trophy" size={16} /></span>
+						{/if}
 						<div class="rg-item-main">
 							<span class="rg-meta">{item.tr.name} · {roundLabel(item.m, item.tr)}</span>
 							<span class="rg-versus">{nameOf(item.m.p[0], item.tr, users)} <span class="rg-vs">vs</span> {nameOf(item.m.p[1], item.tr, users)}</span>
@@ -256,6 +269,7 @@
 	.rg-empty { margin: 0; color: var(--text-dim); font-size: 0.9rem; }
 	.rg-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; max-height: 420px; overflow-y: auto; }
 	.rg-item { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; padding: 0.55rem 0.75rem; border-radius: var(--radius-md); background: var(--surface-sunken); border: 1px solid var(--glass-border); }
+	.rg-thumb { flex: 0 0 auto; width: 56px; height: 40px; border-radius: var(--radius-sm); background: var(--surface-sunken) center / cover no-repeat; border: 1px solid var(--glass-border); display: inline-flex; align-items: center; justify-content: center; color: var(--text-muted); }
 	.rg-item-main { min-width: 0; flex: 1 1 200px; display: flex; flex-direction: column; gap: 0.15rem; }
 	.rg-time, .rg-meta { color: var(--text-muted); font-size: 0.82rem; }
 	.rg-question { margin: 0.2rem 0 0; font-size: 0.9rem; color: var(--text-main); line-height: 1.4; }

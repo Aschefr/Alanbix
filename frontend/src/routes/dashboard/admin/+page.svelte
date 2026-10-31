@@ -180,7 +180,7 @@
 
 	<div class="tab-content animate-in">
 		{#if activeTab === 'regie'}
-			<AdminRegieTab {tournaments} onReload={loadGamesAndTournaments} onOpenConversation={(id) => { selectedConvId = id; activeTab = 'conversations'; }} onOpenPlayer={(name) => { playersInitialQuery = name; activeTab = 'players'; }} bind:pendingCount={regiePending} {toast} />
+			<AdminRegieTab {games} {tournaments} onReload={loadGamesAndTournaments} onOpenConversation={(id) => { selectedConvId = id; activeTab = 'conversations'; }} onOpenPlayer={(name) => { playersInitialQuery = name; activeTab = 'players'; }} bind:pendingCount={regiePending} {toast} />
 		{:else if activeTab === 'tournaments'}
 			<AdminTournamentsTab {games} {tournaments} onReload={loadGamesAndTournaments} {toast} />
 		{:else if activeTab === 'players'}
