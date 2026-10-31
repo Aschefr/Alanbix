@@ -1567,7 +1567,7 @@
 			display: none;
 		}
 		:global(html.kb-open) .content-area {
-			padding-bottom: 0.5rem;
+			padding-bottom: 0;
 		}
 		:global(html.kb-open.pane-fit),
 		:global(html.kb-open.pane-fit) :global(body) {

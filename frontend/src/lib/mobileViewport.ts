@@ -71,11 +71,12 @@ export function fitPane(node: HTMLElement, enabled: boolean = true) {
 			node.style.removeProperty('--pane-h');
 			return;
 		}
-		if (root.classList.contains('kb-open') && window.scrollY !== 0) window.scrollTo(0, 0);
+		// the pane is always laid out from the top of the page: a list scrolled down must not skew the measure
+		if (window.scrollY !== 0) window.scrollTo(0, 0);
 		const area = document.querySelector('.content-area');
 		const open = root.classList.contains('kb-open');
-		const bottomPad = open ? 8 : (area ? parseFloat(getComputedStyle(area).paddingBottom) || 0 : 0);
-		const top = node.getBoundingClientRect().top;
+		const bottomPad = open ? 0 : (area ? parseFloat(getComputedStyle(area).paddingBottom) || 0 : 0);
+		const top = node.getBoundingClientRect().top + window.scrollY;
 		node.style.setProperty('--pane-h', `${Math.max(200, Math.round(viewportHeight() - top - bottomPad))}px`);
 	}
 
@@ -93,7 +94,9 @@ export function fitPane(node: HTMLElement, enabled: boolean = true) {
 				observer.observe(area, { childList: true });
 			}
 			measure();
+			requestAnimationFrame(measure);
 			setTimeout(measure, 80);
+			setTimeout(measure, 300);
 		} else {
 			measure();
 		}

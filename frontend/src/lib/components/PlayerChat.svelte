@@ -1698,6 +1698,8 @@
 		padding: 0.5rem 0.75rem;
 		flex-shrink: 0;
 	}
+	/* on-screen keyboard open: the field sits right on the keyboard */
+	:global(html.kb-open) .input-container { padding-bottom: 0.2rem; }
 	.input-actions-row {
 		display: flex;
 		align-items: flex-end;
