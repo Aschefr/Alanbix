@@ -331,6 +331,37 @@ def get_active_closing_prompt(db: Session) -> str:
         return "You are an enthusiastic video game tournament (LAN) commentator. You can use sarcasm and gently tease players. Use humor as much as possible."
     return "Tu est un commentateur enthousiaste de tournois de jeux vidéo (LAN). Tu peut faire du sarcasme et gentiment taquiner les joueurs. Fait de l'humour autant que possible."
 
+def build_base_prompt_parts(db: Session, user, player_lang: Optional[str]):
+    """Layered prompt: editable personality, fixed operating rules, app guide, live context (who, when, where).
+    Shared by the chat and the admin preview so the preview shows exactly what the model gets."""
+    from ..ia_prompt import rules_block, app_guide_block, live_context_block
+    from .i18n import list_all_languages
+    lang_cfg = db.query(models.SystemConfig).filter(models.SystemConfig.key == "lan_default_language").first()
+    lan_lang = lang_cfg.value if lang_cfg and lang_cfg.value else "fr"
+    # Rules, guide and live context follow the player's interface so button names match what they see;
+    # the personality stays the admin's text in the LAN language
+    prompt_lang = (player_lang or lan_lang).lower()[:2]
+    if prompt_lang not in list_all_languages():
+        prompt_lang = lan_lang
+    parts = [get_active_system_prompt(db), rules_block(prompt_lang)]
+    app_guide = app_guide_block(prompt_lang)
+    if app_guide:
+        parts.append(app_guide)
+    parts.append(live_context_block(db, models, user, prompt_lang))
+    return parts, prompt_lang, lan_lang
+
+
+@router.get("/admin/prompt-preview")
+def admin_prompt_preview(lang: Optional[str] = None, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
+    """The base system prompt as the model receives it, built for the requesting admin.
+    Per-request parts (knowledge base excerpts, admin-call limits, compressed history) are added on top."""
+    from ..ia_prompt import language_block
+    parts, prompt_lang, _ = build_base_prompt_parts(db, admin, lang)
+    parts.append(language_block(prompt_lang))
+    text = "\n\n".join(parts)
+    return {"prompt": text, "lang": prompt_lang, "chars": len(text), "estimated_tokens": int(len(text) / 3.5)}
+
+
 @router.get("/conversations")
 def list_conversations(db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
     convs = db.query(models.Conversation).filter(models.Conversation.user_id == user.id).order_by(models.Conversation.created_at.desc()).all()
@@ -758,24 +789,7 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
         await ws_manager.broadcast({"type": "chat_updated", "conversation_id": request.conversation_id, "user_id": conv.user_id, "role": "user"})
     
     # Build system prompt — read from SystemConfig, fallback to i18n JSON, then default
-    system_prompt = get_active_system_prompt(db)
-    
-    # Layered prompt: editable personality, fixed operating rules, live context (who, when, where).
-    # Consolidated into a single system message to prevent template/parsing issues in local models
-    from ..ia_prompt import rules_block, app_guide_block, live_context_block
-    lang_cfg = db.query(models.SystemConfig).filter(models.SystemConfig.key == "lan_default_language").first()
-    lan_lang = lang_cfg.value if lang_cfg and lang_cfg.value else "fr"
-    # Rules, guide and live context follow the player's interface so button names match what they see;
-    # the personality stays the admin's text in the LAN language
-    prompt_lang = (request.lang or lan_lang).lower()[:2]
-    from .i18n import list_all_languages
-    if prompt_lang not in list_all_languages():
-        prompt_lang = lan_lang
-    system_parts = [system_prompt, rules_block(prompt_lang)]
-    app_guide = app_guide_block(prompt_lang)
-    if app_guide:
-        system_parts.append(app_guide)
-    system_parts.append(live_context_block(db, models, user, prompt_lang))
+    system_parts, prompt_lang, lan_lang = build_base_prompt_parts(db, user, request.lang)
 
     # Inject call_admin restriction status if currently limited / on cooldown
     try:
@@ -836,7 +850,7 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
         system_parts.append(f"=== Base de Connaissances ===\n{rag_context}")
         
     from ..ia_prompt import language_block, LANG_NAMES
-    system_parts.append(language_block(request.lang))
+    system_parts.append(language_block(prompt_lang))
     ollama_messages = [{"role": "system", "content": "\n\n".join(system_parts)}]
     
     # Inject conversation history (include images as base64 for vision models)

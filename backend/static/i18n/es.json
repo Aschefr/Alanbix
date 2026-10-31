@@ -1671,5 +1671,9 @@
   "admin_settings_ai_app_guide": "Guía de la aplicación",
   "admin_settings_ai_app_guide_hint": "Lo que el asistente sabe de las páginas del sitio, para guiar a los jugadores. Adáptalo si desactivas o renombras una función.",
   "admin_settings_ai_restore_default": "Restablecer el texto por defecto",
-  "admin_toast_app_guide_saved": "Guía de la aplicación guardada"
+  "admin_toast_app_guide_saved": "Guía de la aplicación guardada",
+  "admin_settings_ai_preview": "Vista previa del prompt final",
+  "admin_settings_ai_preview_hint": "Lo que el modelo recibe al inicio de cada conversación, construido aquí para tu cuenta. Los extractos de la base de conocimientos y los límites de llamada a los admins se añaden según la pregunta.",
+  "admin_settings_ai_preview_size": "≈ {count} tokens",
+  "admin_settings_ai_preview_refresh": "Actualizar"
 }

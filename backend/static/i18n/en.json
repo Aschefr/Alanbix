@@ -1671,5 +1671,9 @@
   "admin_settings_ai_app_guide": "App guide",
   "admin_settings_ai_app_guide_hint": "What the assistant knows about the site's pages, to guide players. Adapt it if you disable or rename a feature.",
   "admin_settings_ai_restore_default": "Restore the default text",
-  "admin_toast_app_guide_saved": "App guide saved"
+  "admin_toast_app_guide_saved": "App guide saved",
+  "admin_settings_ai_preview": "Final prompt preview",
+  "admin_settings_ai_preview_hint": "What the model receives at the start of each conversation, built here for your account. Knowledge base excerpts and admin-call limits are added depending on the question.",
+  "admin_settings_ai_preview_size": "≈ {count} tokens",
+  "admin_settings_ai_preview_refresh": "Refresh"
 }

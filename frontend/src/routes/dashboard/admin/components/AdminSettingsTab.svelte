@@ -76,6 +76,19 @@
 	let systemPrompt = '';
 	let closingPrompt = '';
 	let appGuide = '';
+	let promptPreview = null;
+	let promptPreviewLoading = false;
+	async function loadPromptPreview() {
+		promptPreviewLoading = true;
+		try {
+			promptPreview = await api.get(`/ia/admin/prompt-preview?lang=${defaultLang}`);
+		} catch (err) {
+			console.error('Failed to load prompt preview:', err);
+			toast(get(t)('admin_error_unknown'), 'error');
+		} finally {
+			promptPreviewLoading = false;
+		}
+	}
 
 	// System Prompt Editor Modal
 	let showPromptModal = false;
@@ -1432,6 +1445,18 @@
 					<p class="sc-sub">{$t('admin_settings_ai_app_guide_hint')}</p>
 					<textarea id="ai-app-guide" class="prompt-textarea-compact" bind:value={appGuide} on:input={() => debounceSave('appGuide', saveAppGuide)} rows="10" style="resize: vertical;"></textarea>
 				</div>
+				<details class="prompt-preview" on:toggle={(e) => { if (e.currentTarget.open && !promptPreview) loadPromptPreview(); }}>
+					<summary><Icon name="eye" size={14} /> {$t('admin_settings_ai_preview')}
+						{#if promptPreview}<span class="pp-size">{$t('admin_settings_ai_preview_size', { count: promptPreview.estimated_tokens })}</span>{/if}
+					</summary>
+					<div class="pp-body">
+						<div class="app-guide-head">
+							<p class="sc-sub">{$t('admin_settings_ai_preview_hint')}</p>
+							<button type="button" class="btn-prompt-edit" on:click={loadPromptPreview} disabled={promptPreviewLoading}><Icon name="refresh" size={14} /> {$t('admin_settings_ai_preview_refresh')}</button>
+						</div>
+						{#if promptPreview}<pre class="pp-text">{promptPreview.prompt}</pre>{/if}
+					</div>
+				</details>
 			</div>
 		</div>
 
@@ -2081,4 +2106,11 @@
 	.app-guide-field { display: flex; flex-direction: column; gap: 0.35rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--glass-border); }
 	.app-guide-head { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; }
 	.app-guide-field .sc-sub { margin: 0; }
+	.prompt-preview { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--glass-border); }
+	.prompt-preview summary { display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-weight: 600; font-size: 0.85rem; color: var(--text-dim); }
+	.prompt-preview[open] summary { color: var(--text-main); }
+	.pp-size { margin-left: auto; font-size: 0.75rem; font-weight: 700; color: var(--accent); }
+	.pp-body { display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.6rem; }
+	.pp-body .sc-sub { margin: 0; flex: 1; min-width: 0; }
+	.pp-text { margin: 0; max-height: 420px; overflow: auto; white-space: pre-wrap; word-break: break-word; font-size: 0.78rem; line-height: 1.45; padding: 0.75rem; border-radius: var(--radius-md); background: var(--surface-sunken); border: 1px solid var(--glass-border); color: var(--text-main); }
 </style>
