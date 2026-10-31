@@ -271,11 +271,14 @@
 		}
 	}
 
-	// When the area above the input shrinks (on-screen keyboard, growing text field) or grows back, scroll by the
-	// same amount so the messages keep their place just above the input, as in a messaging app.
+	// When the area above the input shrinks (on-screen keyboard, growing text field) or grows back, keep the messages
+	// at the same distance from the input, as in a messaging app. The distance is remembered while the reader
+	// scrolls; the browser clamps the position by itself when the area grows, so it cannot be re-read then.
 	let sizeObserver = null;
 	let observedEl = null;
 	let lastClientH = 0;
+	let distFromBottom = 0;
+	let lastResizeAt = 0;
 	function watchScrollSize(el) {
 		if (el === observedEl) return;
 		sizeObserver?.disconnect();
@@ -284,13 +287,12 @@
 		lastClientH = el.clientHeight;
 		sizeObserver = new ResizeObserver(() => {
 			const h = el.clientHeight;
-			const delta = lastClientH - h;
-			// was the reader at the bottom before the change? (measured against the previous height)
-			const wasAtBottom = el.scrollHeight - el.scrollTop - lastClientH <= 60;
+			if (h === lastClientH) return;
 			lastClientH = h;
-			if (delta === 0 || loading) return;
-			if (wasAtBottom) el.scrollTop = el.scrollHeight;
-			else el.scrollTop += delta;
+			lastResizeAt = performance.now();
+			if (!loading) {
+				el.scrollTop = Math.max(0, el.scrollHeight - h - distFromBottom);
+			}
 		});
 		sizeObserver.observe(el);
 	}
@@ -299,6 +301,8 @@
 	function handleScroll() {
 		if (!chatScrollEl) return;
 		const distanceToBottom = chatScrollEl.scrollHeight - chatScrollEl.scrollTop - chatScrollEl.clientHeight;
+		// scrolls caused by the area resizing are not the reader's: keep the distance they left
+		if (performance.now() - lastResizeAt > 200) distFromBottom = distanceToBottom;
 		showScrollToBottom = distanceToBottom > 150;
 		if (!showScrollToBottom) {
 			unreadCountSinceScroll = 0;
