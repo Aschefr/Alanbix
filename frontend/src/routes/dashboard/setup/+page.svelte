@@ -104,8 +104,9 @@
 		goto('/dashboard/admin');
 	}
 
-	function stepState(id) {
-		return setup.steps[id] || 'todo';
+	// Takes the steps as an argument so Svelte re-renders the rail and summary when they change
+	function stepState(steps, id) {
+		return steps[id] || 'todo';
 	}
 </script>
 
@@ -125,13 +126,13 @@
 				{#each SETUP_STEPS as s, i}
 					<li>
 						<button class="rail-item" class:current={s.id === step.id} on:click={() => goTo(s.id)} aria-current={s.id === step.id ? 'step' : undefined}>
-							<span class="rail-mark {stepState(s.id)}">
-								{#if stepState(s.id) === 'done'}<Icon name="check" size={14} strokeWidth={3} />{:else}{i + 1}{/if}
+							<span class="rail-mark {stepState(setup.steps, s.id)}">
+								{#if stepState(setup.steps, s.id) === 'done'}<Icon name="check" size={14} strokeWidth={3} />{:else}{i + 1}{/if}
 							</span>
 							<span class="rail-text">
 								<span class="rail-label">{$t(`setup_step_${s.id}`)}</span>
 								{#if s.optional}<span class="rail-hint">{$t('setup_optional')}</span>{/if}
-								{#if stepState(s.id) === 'skipped'}<span class="rail-hint">{$t('setup_state_skipped')}</span>{/if}
+								{#if stepState(setup.steps, s.id) === 'skipped'}<span class="rail-hint">{$t('setup_state_skipped')}</span>{/if}
 							</span>
 						</button>
 					</li>
@@ -186,11 +187,11 @@
 						{#each SETUP_STEPS.filter(s => s.id !== 'recap') as s}
 							<li>
 								<button class="recap-item" on:click={() => goTo(s.id)}>
-									<span class="rail-mark {stepState(s.id)}">
-										{#if stepState(s.id) === 'done'}<Icon name="check" size={14} strokeWidth={3} />{:else}<Icon name={s.icon} size={14} />{/if}
+									<span class="rail-mark {stepState(setup.steps, s.id)}">
+										{#if stepState(setup.steps, s.id) === 'done'}<Icon name="check" size={14} strokeWidth={3} />{:else}<Icon name={s.icon} size={14} />{/if}
 									</span>
 									<span class="recap-label">{$t(`setup_step_${s.id}`)}</span>
-									<span class="recap-state {stepState(s.id)}">{$t(`setup_state_${stepState(s.id)}`)}</span>
+									<span class="recap-state {stepState(setup.steps, s.id)}">{$t(`setup_state_${stepState(setup.steps, s.id)}`)}</span>
 								</button>
 							</li>
 						{/each}
