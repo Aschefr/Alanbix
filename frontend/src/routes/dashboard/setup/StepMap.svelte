@@ -3,7 +3,7 @@
 	import { api } from '$lib/api';
 	import { t } from '$lib/i18nStore';
 	import Icon from '$lib/components/Icon.svelte';
-	import { SEAT_SIZE as SEAT, SEAT_GAP as GAP, TABLE_DEPTH, seatSlots, tableWidthFor } from '$lib/roomLayout';
+	import { SEAT_SIZE as SEAT, SEAT_RING, TABLE_DEPTH, seatSlots, tableWidthFor } from '$lib/roomLayout';
 
 	const MAX_SEATS = 60; // tables put end to end form one long table on the map
 
@@ -19,12 +19,13 @@
 	function generate(nTables, nSeats, nPerRow) {
 		const w = tableWidthFor(Math.ceil(nSeats / 2));
 		const h = TABLE_DEPTH;
+		// Every coordinate stays a multiple of the editor's 20 px grid
 		const cellW = w + 60;
-		const cellH = h + 2 * (SEAT + GAP) + 40;
+		const cellH = h + 2 * 80 + 40;
 		const out = { tables: [], seats: [], furniture: [] };
 		for (let i = 0; i < nTables; i++) {
 			const n = i + 1;
-			const table = { id: 'T' + n, x: 40 + (i % nPerRow) * cellW, y: 40 + SEAT + GAP + Math.floor(i / nPerRow) * cellH, w, h, label: 'Table ' + n, rotation: 0 };
+			const table = { id: 'T' + n, x: 40 + (i % nPerRow) * cellW, y: 40 + 80 + Math.floor(i / nPerRow) * cellH, w, h, label: 'Table ' + n, rotation: 0 };
 			out.tables.push(table);
 			seatSlots(table).slice(0, nSeats).forEach((c, s) => {
 				out.seats.push({ id: `T${n}_S${s + 1}`, x: c.x - SEAT / 2, y: c.y - SEAT / 2, rotation: 0 });

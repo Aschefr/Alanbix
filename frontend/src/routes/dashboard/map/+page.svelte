@@ -6,7 +6,7 @@
 	import { api } from '$lib/api';
 	import { page } from '$app/stores';
 	import { wsMessageStore } from '$lib/ws';
-	import { SEAT_SIZE, SEAT_GAP, TABLE_DEPTH, firstFreeSlot } from '$lib/roomLayout';
+	import { SEAT_SIZE, SEAT_RING, TABLE_DEPTH, firstFreeSlot } from '$lib/roomLayout';
 
 	let layout = { seats: [], tables: [], furniture: [] };
 
@@ -246,7 +246,7 @@
 		const w = 300;
 		const h = TABLE_DEPTH; // the seats go around it, not on it
 		const tempTable = { id: 'T' + n };
-		const ring = SEAT_SIZE + SEAT_GAP; // keep room for the seats above and below it
+		const ring = SEAT_RING; // keep room for the seats above and below it
 		while (hasCollision(tempTable, x, y - ring, w, h + 2 * ring)) {
 			x += GRID_SIZE;
 			y += GRID_SIZE;
@@ -988,7 +988,7 @@
 								class="rotate-handle"
 								on:mousedown={(e) => startDragTable(e, table, 'rotate')}
 							/>
-							<text x={table.x + table.w + 30} y={cy + 3} text-anchor="middle" fill="white" font-size="8" font-weight="bold" style="pointer-events:none">↻</text>
+							<text x={table.x + table.w + 30} y={cy + 3} text-anchor="middle" fill="white" font-size="8" font-weight="bold" class="rotate-glyph" style="pointer-events:none">↻</text>
 
 							<!-- Remove -->
 							<!-- svelte-ignore a11y-no-static-element-interactions -->
@@ -1112,7 +1112,7 @@
 						<circle cx={scx} cy={seat.y - 20} r="5" class="rotate-handle"
 							on:mousedown|stopPropagation={(e) => startDragSeat(e, seat, 'rotate-seat')}
 						/>
-						<text x={scx} y={seat.y - 17} text-anchor="middle" fill="white" font-size="6" font-weight="bold" style="pointer-events:none">↻</text>
+						<text x={scx} y={seat.y - 17} text-anchor="middle" fill="white" font-size="6" font-weight="bold" class="rotate-glyph" style="pointer-events:none">↻</text>
 						<!-- Remove -->
 						<!-- svelte-ignore a11y-no-static-element-interactions -->
 						<g class="remove-btn" on:click|stopPropagation={() => removeItem('seat', seat.id)}>
@@ -1345,8 +1345,8 @@
 
 	/* Rotate handle */
 	.rotate-handle { fill: var(--accent); stroke: white; stroke-width: 1.5; cursor: grab; opacity: 0; transition: opacity 0.15s; }
-	.seat-rotate-line { opacity: 0; transition: opacity 0.15s; }
-	g:hover > line, g:hover > .rotate-handle, g:hover > .seat-rotate-line { opacity: 1; }
+	.seat-rotate-line, .rotate-glyph { opacity: 0; transition: opacity 0.15s; }
+	g:hover > line, g:hover > .rotate-handle, g:hover > .seat-rotate-line, g:hover > .rotate-glyph { opacity: 1; }
 
 	/* Seats */
 	.seat-rect {
