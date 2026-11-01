@@ -152,3 +152,24 @@ async def test_public_answer_runs_a_tool_for_the_asker():
     assert first["tools"] == tools and first["messages"][1]["content"].startswith("You can look up")
     result = await entry.result_stream.get()
     assert result["result"] == "Tu joues contre Player2 en WB Round 1."
+
+
+def test_team_roster_gives_each_member_seat(db_session):
+    from app.ia_tools import _tool_get_team_roster
+    t = models.Tournament(name="BF4", status="RUNNING", config={"use_teams": True})
+    db_session.add(t)
+    db_session.add(models.RoomMap(name="Main Room", layout={"tables": [{"id": "T3", "label": "Fond de salle"}], "seats": []}))
+    db_session.commit()
+    team = models.TournamentTeam(tournament_id=t.id, name="Bouzeux")
+    db_session.add(team)
+    db_session.commit()
+    p1, p2 = (db_session.query(models.User).filter(models.User.username == f"Player{i}").first() for i in (1, 2))
+    p1.seat_id, p2.seat_id = "T3_S7", None
+    db_session.add_all([models.TournamentTeamMember(team_id=team.id, user_id=p.id) for p in (p1, p2)])
+    db_session.commit()
+
+    data = json.loads(_tool_get_team_roster(db_session, models, {"team_name": "bouzeux"}))
+
+    members = data["tournament_teams"][0]["members"]
+    assert {"username": "Player1", "seat": "Fond de salle, place 7"} in members
+    assert {"username": "Player2", "seat": "Non assigné"} in members
