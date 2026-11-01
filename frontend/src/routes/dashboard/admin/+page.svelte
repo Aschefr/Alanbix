@@ -10,7 +10,17 @@
 	import AdminConversationsTab from './components/AdminConversationsTab.svelte';
 	import AdminAwardsTab from './components/AdminAwardsTab.svelte';
 	import AdminRegieTab from './components/AdminRegieTab.svelte';
+	import { SETUP_STEPS, loadSetupRaw, saveSetup } from '$lib/adminSetup';
 	let regiePending = 0;
+
+	// Guided setup reminder: shown until the admin finishes or hides it
+	let setupState = undefined;
+	$: setupPending = setupState !== undefined && (!setupState || setupState.status === 'in_progress');
+	$: setupDone = setupState ? SETUP_STEPS.filter(s => setupState.steps?.[s.id]).length : 0;
+	async function hideSetup() {
+		setupState = { current: 'event', steps: {}, ...(setupState || {}), status: 'skipped' };
+		await saveSetup(setupState);
+	}
 
 	// Phone: the tab strip scrolls; fade the edges that hide more tabs and keep the active one in view
 	let tabsEl;
@@ -114,6 +124,7 @@
 			return;
 		}
 
+		loadSetupRaw().then(s => setupState = s);
 		await loadGamesAndTournaments();
 		await loadAdminUnreadCount();
 
@@ -175,6 +186,20 @@
 		</div>
 	</header>
 
+	{#if setupPending}
+		<div class="setup-banner" role="status">
+			<span class="setup-banner-icon"><Icon name="flag" size={20} /></span>
+			<div class="setup-banner-text">
+				<strong>{$t(setupState ? 'setup_banner_resume_title' : 'setup_banner_title')}</strong>
+				<span>{setupState ? $t('setup_banner_resume_desc', { done: setupDone, total: SETUP_STEPS.length - 1 }) : $t('setup_banner_desc')}</span>
+			</div>
+			<div class="setup-banner-actions">
+				<button class="btn-quiet-sm" on:click={hideSetup}>{$t('setup_banner_hide')}</button>
+				<a class="btn-primary" href="/dashboard/setup">{$t(setupState ? 'setup_banner_resume' : 'setup_banner_start')}</a>
+			</div>
+		</div>
+	{/if}
+
 	<div class="tab-content animate-in">
 		{#if activeTab === 'regie'}
 			<AdminRegieTab {games} {tournaments} onReload={loadGamesAndTournaments} onOpenConversation={(id) => { selectedConvId = id; activeTab = 'conversations'; }} onOpenPlayer={(name) => { playersInitialQuery = name; activeTab = 'players'; }} bind:pendingCount={regiePending} {toast} />
@@ -231,6 +256,19 @@
 	@keyframes toastOut {
 		from { opacity: 1; transform: translateX(0) scale(1); }
 		to { opacity: 0; transform: translateX(80px) scale(0.9); }
+	}
+	.setup-banner { display: flex; align-items: center; gap: 1rem; padding: 1rem 1.25rem; border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--glass-border)); border-radius: 14px; background: color-mix(in srgb, var(--accent) 7%, var(--surface-raised)); }
+	.setup-banner-icon { flex-shrink: 0; width: 40px; height: 40px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; background: var(--accent-soft); color: var(--accent); }
+	.setup-banner-text { flex: 1; display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+	.setup-banner-text span { font-size: 0.88rem; color: var(--text-dim); line-height: 1.45; }
+	.setup-banner-actions { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
+	.setup-banner-actions .btn-primary { text-decoration: none; white-space: nowrap; }
+	.btn-quiet-sm { background: transparent; border: none; color: var(--text-dim); font: inherit; font-size: 0.85rem; font-weight: 600; padding: 0.5rem 0.7rem; border-radius: 8px; cursor: pointer; }
+	.btn-quiet-sm:hover { color: var(--text-main); background: var(--hover-tint); }
+	@media (max-width: 600px) {
+		.setup-banner { flex-wrap: wrap; padding: 0.9rem; gap: 0.75rem; }
+		.setup-banner-icon { display: none; }
+		.setup-banner-actions { width: 100%; justify-content: flex-end; }
 	}
 	.regie-badge { background: var(--danger); color: #fff; padding: 0.05rem 0.45rem; border-radius: 999px; font-size: 0.72rem; font-weight: 700; margin-left: 0.4rem; }
 	/* Phone: title above, tabs as one horizontally scrollable strip */

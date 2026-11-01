@@ -730,7 +730,10 @@
 
 	<!-- GENERAL TAB -->
 	{#if !settingsSubTab || settingsSubTab === 'general'}
-	<p class="autosave-note">{$t('admin_settings_autosave_note')}</p>
+	<div class="general-top">
+		<p class="autosave-note">{$t('admin_settings_autosave_note')}</p>
+		<a class="setup-link" href="/dashboard/setup"><Icon name="play" size={14} /> {$t('setup_relaunch')}</a>
+	</div>
 	<nav class="gnav" aria-label={$t('admin_settings_tab_general')} use:spySections>
 		{#each gSections as sec (sec.id)}
 			<button type="button" class="gnav-chip" class:active={activeSection === sec.id} class:danger={sec.id === 'gs-danger'} on:click={() => jumpTo(sec.id)}>
@@ -2104,7 +2107,10 @@
 	.pmg-tip-list li { font-size: 0.75rem; color: var(--text-dim); line-height: 1.4; }
 	.prompt-modal-footer { display: flex; justify-content: flex-end; gap: 0.6rem; padding: 0.8rem 1.2rem; border-top: 1px solid var(--glass-border); background: var(--hover-tint); flex-shrink: 0; }
 
-	.autosave-note { margin: 0 0 0.75rem; font-size: 0.85rem; color: var(--text-dim); }
+	.autosave-note { margin: 0; font-size: 0.85rem; color: var(--text-dim); }
+	.general-top { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem 1rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+	.setup-link { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.85rem; font-weight: 600; color: var(--accent); text-decoration: none; }
+	.setup-link:hover { text-decoration: underline; text-underline-offset: 3px; }
 	/* General tab: jump bar, section headers, compact groups */
 	.gnav { position: sticky; top: -1rem; z-index: 30; box-shadow: 0 6px 14px rgba(0, 0, 0, 0.18); display: flex; gap: 0.4rem; margin: 0 0 1rem; padding: 0.45rem 0.5rem; border-radius: 12px; background: var(--bg-secondary); border: 1px solid var(--glass-border); overflow-x: auto; scrollbar-width: none; }
 	.gnav::-webkit-scrollbar { display: none; }

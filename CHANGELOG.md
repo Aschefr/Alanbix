@@ -2,6 +2,9 @@
 
 ## [1.35.3] - Unreleased
 
+### 🧭 Admin onboarding
+- **Guided server setup**: the first account created on a new server (the admin) now lands on a step-by-step setup instead of the player welcome: event (LAN name, default language), network (LAN Wi-Fi names, address to give the players, with a warning when it is a `localhost` address), info page, games and tournaments, AI assistant and room map (optional), inviting players (address with a copy button), then a summary with "Finish" or "I'm playing too" (which continues with the player welcome). Every step can be skipped, the whole setup too, and the progress is saved on the server. The administration shows a banner until the setup is finished or hidden, and Settings > General has a "Guided setup" link to run it again.
+
 ### 🐛 Fixes
 - **Full reset in the danger zone**: a new "Full reset" empties the whole server like a new installation (every table, uploaded files, settings and customised translations), with the choice to keep the admin accounts. Typing RESET confirms it; other connected people are reloaded.
 - **Danger zone purges fixed**: purging images left the private and public chat upload folders missing (sending an image failed until a restart) and kept image references in private, team and public messages; purging players left their chat images and avatar thumbnails on disk and their names in closed standings; purging games left the uploaded covers, thumbnails and game-specific knowledge entries; purging the public chat only hid the messages. All of them now delete what they announce.

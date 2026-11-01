@@ -57,7 +57,10 @@
 			if (mode === 'register') {
 				await api.post('/register', { username: username.trim(), password });
 				await api.login(username.trim(), password);
-				goto('/dashboard/welcome', { replaceState: true });
+				// The first account on a new server is the admin: it starts with the guided server setup
+				let isAdmin = false;
+				try { isAdmin = !!(await api.get('/me')).is_admin; } catch {}
+				goto(isAdmin ? '/dashboard/setup' : '/dashboard/welcome', { replaceState: true });
 			} else {
 				await api.login(username.trim(), password);
 				goto('/dashboard', { replaceState: true });
