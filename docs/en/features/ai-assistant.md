@@ -18,6 +18,18 @@ To avoid the complex infrastructure of a dedicated vector database (like pgvecto
 1. **Indexing**: Documents uploaded by administrators are chunked, and their embeddings (vector representations) are calculated via Ollama and stored in JSON format inside the SQLite database.
 2. **Vector Search**: For each question asked by a user, the backend loads the embeddings from SQLite and performs a **Cosine Similarity** calculation in RAM via NumPy.
 3. **Context Isolation**: The AI intelligently switches between the general LAN context (schedule, WiFi, rules) and the context of a specific game to optimize response quality.
+4. **Relevance threshold**: an entry is only passed to the AI when its similarity is above an adjustable threshold (0.65 by default, in the model settings). The search combines the question with the player's previous message, so a follow-up ("and how do I do that?") still finds its topic.
+
+### System prompt construction (layers)
+Each request sends the model a single system message, built in this order:
+1. **Personality**: the admin-editable "Main instructions" text (identity, tone, style).
+2. **Operating rules**: fixed and translated, they cannot be erased from the admin (never invent data, never name internal tools, diagnosis method, when and how to alert an admin, moderation).
+3. **App guide**: a map of the site's pages, to guide players. Editable by the admin, with a "Restore the default text" button.
+4. **Live context**: date and time, event, player's username, team, seat and role.
+5. **Admin-call limits, compressed context and relevant knowledge**, depending on the conversation.
+6. **Language**: the assistant answers in the player's interface language; rules, guide and context follow it.
+
+The AI tab of the administration offers a **final prompt preview** (with its estimated size in tokens) to see exactly what the model receives.
 
 ---
 

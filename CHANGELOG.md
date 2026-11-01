@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.35.1] - Unreleased
+## [1.35.1] - 2026-11-01
 
 ### 📱 Players
 - **Messages, back to the last conversation**: after leaving a conversation with the back arrow, a "Resume conversation" button tops the contact list, and tapping the Messages tab again reopens it.
