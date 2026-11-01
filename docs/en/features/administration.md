@@ -56,11 +56,14 @@ To associate an image and rules with tournaments, administrators manage a local 
 
 To facilitate database cleaning between two events or after intensive testing phases, the administration settings tab offers massive purge buttons (called **NUKE Buttons**):
 
-* **Nuke Tournaments**: Deletes all tournaments, brackets, match history, and associated teams.
-* **Nuke Players**: Deletes all player accounts (except the currently connected administrator).
-* **Nuke Games**: Empties the game library and deletes associated cover image files from disk.
-* **Nuke Files**: Deletes all physical files uploaded by the file manager in bulk.
-* **Nuke Notifications & Messages**: Erases the entire history of private chats, team channels, and generated notifications.
+* **Purge the public chat**: permanently deletes every public chat message and its images, and removes the pinned message.
+* **Tournaments**: deletes all tournaments, brackets, scores and tournament teams, and resets every player's points to zero.
+* **Players**: deletes every non-admin account with its messages, AI conversations, notifications, devices and uploaded images; their username is removed from the standings of closed tournaments.
+* **Games**: deletes every game (and therefore every tournament), their uploaded covers and thumbnails, and the knowledge base entries written for a game.
+* **Images**: deletes every uploaded image (AI assistant, private and team messages, public chat) and removes their references from the messages.
+* **Notifications**: deletes every player's notifications.
+* **Awards**: deletes awarded prizes and customised texts, then recomputes the default awards.
+* **Full reset**: empties the whole server like a new installation (all data, all uploaded files, settings and customised translations). Admin accounts can be kept (username, password, avatar). Typing `RESET` confirms it; other connected people are reloaded automatically.
 
 ### Security Ergonomics (No window.confirm)
 To avoid accidental deletions while keeping a clean UI:

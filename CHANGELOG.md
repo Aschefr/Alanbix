@@ -3,6 +3,8 @@
 ## [1.35.3] - Unreleased
 
 ### 🐛 Fixes
+- **Full reset in the danger zone**: a new "Full reset" empties the whole server like a new installation (every table, uploaded files, settings and customised translations), with the choice to keep the admin accounts. Typing RESET confirms it; other connected people are reloaded.
+- **Danger zone purges fixed**: purging images left the private and public chat upload folders missing (sending an image failed until a restart) and kept image references in private, team and public messages; purging players left their chat images and avatar thumbnails on disk and their names in closed standings; purging games left the uploaded covers, thumbnails and game-specific knowledge entries; purging the public chat only hid the messages. All of them now delete what they announce.
 - **Notification archive**: the notification page gets two tabs, Inbox and Archive. A notification (or all of them at once) can be archived to empty the page without deleting anything; archived notifications count as read, can be moved back, and are only deleted for good from the Archive tab (one by one, or "Empty the archive" after a confirmation).
 - **Public chat like a messaging app**: your own messages are on the right in a blue bubble (no avatar or name repeated), like private messages.
 - **Resizable home chat (desktop)**: a grip between the panels resizes the public chat column; the width is remembered per browser, double-click (or Enter on the focused grip) restores the default width, and the arrow keys resize it from the keyboard.

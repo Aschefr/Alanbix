@@ -57,11 +57,14 @@ Pour associer une image et un règlement aux tournois, les administrateurs gère
 
 Pour faciliter le nettoyage de la base de données entre deux événements ou après des phases de tests intensifs, l'onglet Paramètres d'administration propose des boutons de purge massive (dits **Boutons NUKE**) :
 
-* **Nuke Tournois** : Supprime tous les tournois, brackets, historiques de matchs et équipes associées.
-* **Nuke Joueurs** : Supprime tous les comptes de joueurs (sauf l'administrateur actuellement connecté).
-* **Nuke Jeux** : Vide la bibliothèque de jeux et supprime les fichiers d'images associés du disque.
-* **Nuke Fichiers** : Supprime en masse tous les fichiers physiques téléversés par le gestionnaire de fichiers.
-* **Nuke Notifications & Messages** : Efface l'intégralité de l'historique des discussions privées, des canaux d'équipes et des notifications générées.
+* **Purger le chat public** : supprime définitivement tous les messages du chat public et leurs images, et retire le message épinglé.
+* **Tournois** : supprime tous les tournois, arbres, scores, équipes de tournoi et remet les points de tous les joueurs à zéro.
+* **Joueurs** : supprime tous les comptes non administrateurs avec leurs messages, conversations IA, notifications, appareils et images envoyées ; leur pseudo est retiré des classements des tournois terminés.
+* **Jeux** : supprime tous les jeux (et donc les tournois), leurs jaquettes téléversées et miniatures, et les fiches de la base de connaissances propres à un jeu.
+* **Images** : supprime toutes les images envoyées (assistant IA, messages privés et d'équipe, chat public) et retire leurs références dans les messages.
+* **Notifications** : supprime les notifications de tous les joueurs.
+* **Distinctions** : supprime les distinctions attribuées et les textes personnalisés, puis recalcule les distinctions par défaut.
+* **Réinitialisation complète** : vide tout le serveur comme une nouvelle installation (toutes les données, tous les fichiers téléversés, les réglages et les traductions personnalisées). Les comptes administrateurs peuvent être conservés (pseudo, mot de passe, avatar). Il faut taper `RESET` pour confirmer ; les autres personnes connectées sont rechargées automatiquement.
 
 ### Ergonomie de Sécurité (Pas de window.confirm)
 Pour éviter les suppressions accidentelles tout en conservant une interface soignée :

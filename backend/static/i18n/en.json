@@ -1715,5 +1715,12 @@
   "notifs_archive_empty": "No archived notification",
   "notifs_archive_empty_desc": "Notifications you archive land here. You can move them back or delete them for good.",
   "notifs_archive_tooltip": "Archive",
-  "notifs_unarchive_tooltip": "Move back to notifications"
+  "notifs_unarchive_tooltip": "Move back to notifications",
+  "admin_reset_all_title": "Full reset",
+  "admin_reset_all_desc": "Wipes the whole server like a new installation: players, tournaments, games, messages, AI conversations, notifications, room map, info page and files, knowledge base, settings (AI, prompts, language, LAN name) and customised translations.",
+  "admin_reset_all_keep_admins": "Keep the admin accounts (username, password, avatar)",
+  "admin_reset_all_no_admin_warn": "No account will remain, yours included: the next account created will become the administrator.",
+  "admin_reset_all_type": "Type <strong>RESET</strong> to confirm:",
+  "admin_reset_all_btn": "Reset everything…",
+  "admin_reset_all_btn_confirm": "Erase everything for good"
 }

@@ -1715,5 +1715,12 @@
   "notifs_archive_empty": "Aucune notification archivée",
   "notifs_archive_empty_desc": "Les notifications que vous archivez arrivent ici. Vous pouvez les remettre dans vos notifications ou les supprimer définitivement.",
   "notifs_archive_tooltip": "Archiver",
-  "notifs_unarchive_tooltip": "Remettre dans les notifications"
+  "notifs_unarchive_tooltip": "Remettre dans les notifications",
+  "admin_reset_all_title": "Réinitialisation complète",
+  "admin_reset_all_desc": "Efface tout le serveur comme une nouvelle installation : joueurs, tournois, jeux, messages, conversations IA, notifications, plan de salle, page Infos et fichiers, base de connaissances, réglages (IA, prompts, langue, nom de la LAN) et traductions personnalisées.",
+  "admin_reset_all_keep_admins": "Conserver les comptes administrateurs (pseudo, mot de passe, avatar)",
+  "admin_reset_all_no_admin_warn": "Aucun compte ne restera, y compris le vôtre : le premier compte créé ensuite deviendra administrateur.",
+  "admin_reset_all_type": "Tapez <strong>RESET</strong> pour confirmer :",
+  "admin_reset_all_btn": "Tout réinitialiser…",
+  "admin_reset_all_btn_confirm": "Tout effacer définitivement"
 }

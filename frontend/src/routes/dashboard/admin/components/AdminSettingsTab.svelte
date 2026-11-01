@@ -673,6 +673,30 @@
 		nukeConfirm.images = false;
 	}
 
+	// Full reset: everything on the server, as on a new installation (admin accounts optionally kept)
+	let resetOpen = false;
+	let resetKeepAdmins = true;
+	let resetWord = '';
+	let resetting = false;
+	$: resetReady = resetWord.trim().toUpperCase() === 'RESET';
+	async function fullReset() {
+		if (!resetReady) return;
+		resetting = true;
+		try {
+			await api.post('/admin/reset-all', { keep_admins: resetKeepAdmins, confirm: resetWord.trim() });
+			// Everything changed: start again from a fresh page (the login page if no account is left)
+			if (!resetKeepAdmins) {
+				try { localStorage.removeItem('alanbix_token'); } catch {}
+				window.location.href = '/';
+			} else {
+				window.location.href = '/dashboard';
+			}
+		} catch (e) {
+			toast(e.message || get(t)('admin_error_unknown'), 'error');
+			resetting = false;
+		}
+	}
+
 	async function nukeNotifications() {
 		nuking.notifications = true;
 		try {
@@ -981,7 +1005,7 @@
 					<h3 style="color: var(--danger)">{$t("admin_settings_danger_zone")}</h3>
 					<p class="sc-sub">{$t("admin_settings_danger_zone_sub")}</p>
 				</div>
-				<span class="dz-count">7</span>
+				<span class="dz-count">8</span>
 				<span class="dz-chevron"><Icon name="chevron-down" size={16} /></span>
 			</summary>
 			<div class="sc-body">
@@ -1136,6 +1160,38 @@
 							<button class="btn-outline-danger" on:click={() => nukeConfirm.awards = true}>{$t('admin_settings_purge_awards')}</button>
 						{/if}
 					</div>
+				</div>
+
+				<!-- Full reset: everything at once, with a typed confirmation -->
+				<div class="nuke-card reset-card">
+					<div class="nuke-info">
+						<span class="nuke-icon"><Icon name="alert-triangle" size={18} /></span>
+						<div>
+							<strong>{$t('admin_reset_all_title')}</strong>
+							<p>{$t('admin_reset_all_desc')}</p>
+						</div>
+					</div>
+					{#if resetOpen}
+						<div class="reset-form">
+							<label class="reset-keep">
+								<input type="checkbox" bind:checked={resetKeepAdmins} />
+								<span>{$t('admin_reset_all_keep_admins')}</span>
+							</label>
+							{#if !resetKeepAdmins}
+								<p class="reset-warn">{$t('admin_reset_all_no_admin_warn')}</p>
+							{/if}
+							<label class="reset-type" for="reset-word">{@html $t('admin_reset_all_type')}</label>
+							<div class="reset-actions">
+								<input id="reset-word" type="text" bind:value={resetWord} autocomplete="off" spellcheck="false" placeholder="RESET" /><!-- i18n-ignore: confirmation keyword, the same in every language -->
+								<button class="btn-danger-sm" on:click={fullReset} disabled={!resetReady || resetting}>
+									{resetting ? '...' : $t('admin_reset_all_btn_confirm')}
+								</button>
+								<button class="btn-secondary btn-xs" on:click={() => { resetOpen = false; resetWord = ''; }}>{$t('admin_settings_cancel')}</button>
+							</div>
+						</div>
+					{:else}
+						<button class="btn-outline-danger" on:click={() => resetOpen = true}>{$t('admin_reset_all_btn')}</button>
+					{/if}
 				</div>
 			</div>
 		</details>
@@ -2123,4 +2179,11 @@
 	.pp-body { display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.6rem; }
 	.pp-body .sc-sub { margin: 0; flex: 1; min-width: 0; }
 	.pp-text { margin: 0; max-height: 420px; overflow: auto; white-space: pre-wrap; word-break: break-word; font-size: 0.78rem; line-height: 1.45; padding: 0.75rem; border-radius: var(--radius-md); background: var(--surface-sunken); border: 1px solid var(--glass-border); color: var(--text-main); }
+	.reset-card { flex-wrap: wrap; border-color: color-mix(in srgb, var(--danger, #dc2626) 45%, var(--glass-border)); margin-top: 0.8rem; }
+	.reset-form { display: flex; flex-direction: column; gap: 0.5rem; flex: 1 1 320px; }
+	.reset-keep { display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
+	.reset-warn { margin: 0; font-size: 0.8rem; font-weight: 600; color: var(--danger, #dc2626); }
+	.reset-type { font-size: 0.8rem; color: var(--text-dim); }
+	.reset-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+	.reset-actions input { width: 9rem; font-family: ui-monospace, monospace; letter-spacing: 0.08em; }
 </style>

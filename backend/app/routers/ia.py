@@ -1362,8 +1362,12 @@ async def admin_nuke_images(db: Session = Depends(database.get_db), admin: model
     if os.path.isdir(CHAT_IMAGES_DIR):
         shutil.rmtree(CHAT_IMAGES_DIR, ignore_errors=True)
     os.makedirs(CHAT_IMAGES_DIR, exist_ok=True)
-    # Clear image_path references in DB
-    db.query(models.ChatMessage).filter(models.ChatMessage.image_path != None).update({"image_path": None})
+    # The folder also held private, team and public chat images: their upload folders must exist again
+    for sub in ("players", "public"):
+        os.makedirs(os.path.join(CHAT_IMAGES_DIR, sub), exist_ok=True)
+    # Clear image_path references in DB (AI, private, team and public messages)
+    for model in (models.ChatMessage, models.PrivateMessage, models.GroupMessage, models.PublicChatMessage):
+        db.query(model).filter(model.image_path != None).update({"image_path": None}, synchronize_session=False)
     db.commit()
     return {"status": "ok", "message": "Toutes les images ont été supprimées."}
 

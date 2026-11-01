@@ -217,6 +217,11 @@
 			
 			if (unsub) unsub();
 			unsub = wsMessageStore.subscribe(msg => {
+				// An admin wiped the server: start again from a fresh page (a deleted account lands on the login page)
+				if (msg && msg.type === 'server_reset') {
+					window.location.href = '/dashboard';
+					return;
+				}
 				if (msg && msg.type) {
 					const criticalTypes = [
 						'config_updated', 'users_updated', 

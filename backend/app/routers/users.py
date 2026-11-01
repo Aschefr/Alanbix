@@ -70,22 +70,32 @@ async def delete_my_account(db: Session = Depends(database.get_db), current_user
         raise HTTPException(status_code=400, detail="Cannot delete an admin account")
     data_dir = os.path.dirname(os.getenv("DATABASE_PATH", "/app/data/alanbix.db"))
     files, folders = _user_owned_files(db, current_user, data_dir)
-    # Closed tournaments keep a snapshot of the final standings: drop the username from it
-    from sqlalchemy.orm.attributes import flag_modified
-    for t in db.query(models.Tournament).filter(models.Tournament.results.isnot(None)):
-        entries = t.results if isinstance(t.results, list) else []
-        changed = False
-        for entry in entries:
-            if isinstance(entry, dict) and entry.get("entity_id") == current_user.id and entry.get("name") != f"#{current_user.id}":
-                entry["name"] = f"#{current_user.id}"
-                changed = True
-        if changed:
-            flag_modified(t, "results")
+    _anonymise_closed_results(db, {current_user.id})
     db.query(models.TournamentParticipant).filter(models.TournamentParticipant.user_id == current_user.id).delete()
     # Messages, AI conversations, notifications, devices... go with the user (ON DELETE CASCADE)
     db.delete(current_user)
     db.commit()
     # Files only once the database rows are gone
+    _remove_files(files, folders)
+    await ws_manager.broadcast({"type": "users_updated"})
+    return {"status": "deleted", "id": current_user.id}
+
+
+def _anonymise_closed_results(db: Session, user_ids: set):
+    """Closed tournaments keep a snapshot of the final standings: replace these players' names by #id."""
+    from sqlalchemy.orm.attributes import flag_modified
+    for t in db.query(models.Tournament).filter(models.Tournament.results.isnot(None)):
+        changed = False
+        for entry in (t.results if isinstance(t.results, list) else []):
+            uid = entry.get("entity_id") if isinstance(entry, dict) else None
+            if uid in user_ids and entry.get("name") != f"#{uid}":
+                entry["name"] = f"#{uid}"
+                changed = True
+        if changed:
+            flag_modified(t, "results")
+
+
+def _remove_files(files, folders):
     import shutil
     for path in files:
         try:
@@ -95,8 +105,6 @@ async def delete_my_account(db: Session = Depends(database.get_db), current_user
             pass
     for folder in folders:
         shutil.rmtree(folder, ignore_errors=True)
-    await ws_manager.broadcast({"type": "users_updated"})
-    return {"status": "deleted", "id": current_user.id}
 
 
 # Where each kind of uploaded image lives, as stored in the database
@@ -531,18 +539,15 @@ async def admin_nuke_players(db: Session = Depends(database.get_db), admin: mode
     non_admins = db.query(models.User).filter(models.User.is_admin == False).all()
     count = len(non_admins)
     non_admin_ids = [u.id for u in non_admins]
+    files, folders = [], []
     if non_admin_ids:
-        # Clean up avatar files from disk
-        DATA_DIR = os.path.dirname(os.getenv("DATABASE_PATH", "/app/data/alanbix.db"))
-        avatars_dir = os.path.join(DATA_DIR, "avatars")
+        # Same cleanup as a player deleting their own account: uploaded images, names in closed standings
+        data_dir = os.path.dirname(os.getenv("DATABASE_PATH", "/app/data/alanbix.db"))
         for u in non_admins:
-            if u.avatar_url:
-                avatar_path = os.path.join(avatars_dir, os.path.basename(u.avatar_url.split("?")[0]))
-                if os.path.exists(avatar_path):
-                    try:
-                        os.remove(avatar_path)
-                    except Exception:
-                        pass
+            f, d = _user_owned_files(db, u, data_dir)
+            files += f
+            folders += d
+        _anonymise_closed_results(db, set(non_admin_ids))
         # Clean up participations, team memberships, conversations, chat messages
         db.query(models.TournamentTeamMember).filter(models.TournamentTeamMember.user_id.in_(non_admin_ids)).delete(synchronize_session=False)
         db.query(models.TournamentParticipant).filter(models.TournamentParticipant.user_id.in_(non_admin_ids)).delete(synchronize_session=False)
@@ -556,8 +561,10 @@ async def admin_nuke_players(db: Session = Depends(database.get_db), admin: mode
         db.query(models.PrivateMessage).filter(
             or_(models.PrivateMessage.sender_id.in_(non_admin_ids), models.PrivateMessage.receiver_id.in_(non_admin_ids))
         ).delete(synchronize_session=False)
+        # Notifications, devices, awards, group and public chat messages, admin calls go with the user (ON DELETE CASCADE)
         db.query(models.User).filter(models.User.id.in_(non_admin_ids)).delete(synchronize_session=False)
     db.commit()
+    _remove_files(files, folders)
     await ws_manager.broadcast({"type": "users_updated"})
     return {"status": "nuked", "deleted_players": count}
 
@@ -565,6 +572,12 @@ async def admin_nuke_players(db: Session = Depends(database.get_db), admin: mode
 def admin_nuke_games(db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
     """Delete ALL games (cascades to tournaments via FK)."""
     count = db.query(models.Game).count()
+    data_dir = os.path.dirname(os.getenv("DATABASE_PATH", "/app/data/alanbix.db"))
+    covers = [os.path.basename(g.image_url) for g in db.query(models.Game) if (g.image_url or "").startswith("/data/game_images/")]
+    # Knowledge base entries written for a specific game have no game left to belong to
+    for doc in db.query(models.KnowledgeBase).all():
+        if isinstance(doc.metadata_json, dict) and doc.metadata_json.get("game_id"):
+            db.delete(doc)
     # Must delete tournaments first due to FK constraints
     db.query(models.MatchReport).delete()
     db.query(models.Conflict).delete()
@@ -576,7 +589,75 @@ def admin_nuke_games(db: Session = Depends(database.get_db), admin: models.User 
     # Reset points
     db.query(models.User).update({models.User.points: 0})
     db.commit()
+    files = []
+    thumbs_root = os.path.join(data_dir, "thumbs")
+    for name in covers:
+        if name and not name.startswith("."):
+            files.append(os.path.join(data_dir, "game_images", name))
+            if os.path.isdir(thumbs_root):
+                for width in os.listdir(thumbs_root):
+                    files.append(os.path.join(thumbs_root, width, "game_images", os.path.splitext(name)[0] + ".webp"))
+    _remove_files(files, [])
     return {"status": "nuked", "deleted_games": count}
+
+from pydantic import BaseModel as _BaseModel
+
+
+class FullResetRequest(_BaseModel):
+    keep_admins: bool = True
+    confirm: str = ""
+
+
+@router.post("/admin/reset-all")
+async def admin_reset_all(body: FullResetRequest, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
+    """Factory reset: empty every table and every uploaded file, as on a new installation.
+    Admin accounts can be kept (their LAN data is cleared, login, password and avatar stay).
+    The session signing key is kept, so a kept admin stays logged in."""
+    if body.confirm.strip().upper() != "RESET":
+        raise HTTPException(status_code=400, detail="Type RESET to confirm")
+    import shutil
+    from ..database import Base
+    data_dir = os.path.dirname(os.getenv("DATABASE_PATH", "/app/data/alanbix.db"))
+    kept = db.query(models.User).filter(models.User.is_admin == True).all() if body.keep_admins else []
+    kept_avatars = {os.path.basename(u.avatar_url.split("?")[0]) for u in kept if u.avatar_url}
+
+    # Children first, so foreign keys never block a delete
+    for table in reversed(Base.metadata.sorted_tables):
+        if table.name == "users" and body.keep_admins:
+            db.execute(table.delete().where(table.c.is_admin == False))
+        else:
+            db.execute(table.delete())
+    if body.keep_admins:
+        db.query(models.User).update({
+            models.User.points: 0, models.User.seat_id: None, models.User.team_name: None,
+            models.User.ia_blocked: False, models.User.public_chat_muted_until: None,
+        }, synchronize_session=False)
+    db.commit()
+
+    # Uploaded files and generated copies; customised translations go too (factory texts come back)
+    for sub in ("chat_images", "game_images", "thumbs", "info_files", "i18n"):
+        shutil.rmtree(os.path.join(data_dir, sub), ignore_errors=True)
+    avatars_dir = os.path.join(data_dir, "avatars")
+    if os.path.isdir(avatars_dir):
+        for name in os.listdir(avatars_dir):
+            if name not in kept_avatars:
+                try:
+                    os.remove(os.path.join(avatars_dir, name))
+                except OSError:
+                    pass
+    for sub in ("chat_images/players", "chat_images/public", "game_images", "info_files", "i18n", "avatars"):
+        os.makedirs(os.path.join(data_dir, sub), exist_ok=True)
+    try:
+        from .i18n import _I18N_CACHE
+        _I18N_CACHE.clear()
+    except Exception:
+        pass
+    from ..database import ACTIVE_USERS
+    ACTIVE_USERS.clear()
+
+    await ws_manager.broadcast({"type": "server_reset", "kept_admins": body.keep_admins})
+    return {"status": "reset", "kept_admins": len(kept)}
+
 
 @router.delete("/admin/nuke/notifications")
 def admin_nuke_notifications(db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):

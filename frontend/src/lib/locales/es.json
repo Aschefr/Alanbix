@@ -1726,5 +1726,12 @@
   "notifs_archive_empty": "Ninguna notificación archivada",
   "notifs_archive_empty_desc": "Las notificaciones que archivas llegan aquí. Puedes devolverlas o eliminarlas definitivamente.",
   "notifs_archive_tooltip": "Archivar",
-  "notifs_unarchive_tooltip": "Devolver a las notificaciones"
+  "notifs_unarchive_tooltip": "Devolver a las notificaciones",
+  "admin_reset_all_title": "Restablecimiento completo",
+  "admin_reset_all_desc": "Borra todo el servidor como una instalación nueva: jugadores, torneos, juegos, mensajes, conversaciones IA, notificaciones, plano de sala, página de información y archivos, base de conocimientos, ajustes (IA, prompts, idioma, nombre de la LAN) y traducciones personalizadas.",
+  "admin_reset_all_keep_admins": "Conservar las cuentas de administrador (nombre, contraseña, avatar)",
+  "admin_reset_all_no_admin_warn": "No quedará ninguna cuenta, incluida la suya: la próxima cuenta creada será la administradora.",
+  "admin_reset_all_type": "Escriba <strong>RESET</strong> para confirmar:",
+  "admin_reset_all_btn": "Restablecer todo…",
+  "admin_reset_all_btn_confirm": "Borrar todo definitivamente"
 }
