@@ -763,7 +763,7 @@
 		{/each}
 	</nav>
 	<div class="stab-content">
-		<h2 class="settings-section" id="gs-event" data-gsection>
+		<h2 class="admin-section-title" id="gs-event" data-gsection>
 			<span class="ss-icon"><Icon name="stadium" size={16} /></span>
 			<span class="ss-title">{$t('admin_settings_section_event')}</span>
 			{#if eventName}<span class="ss-sum">{eventName}</span>{/if}
@@ -822,7 +822,7 @@
 			</div>
 		</div>
 
-		<h2 class="settings-section" id="gs-tournaments" data-gsection>
+		<h2 class="admin-section-title" id="gs-tournaments" data-gsection>
 			<span class="ss-icon"><Icon name="trophy" size={16} /></span>
 			<span class="ss-title">{$t('admin_settings_section_tournaments')}</span>
 			<span class="ss-sum">{defaultPts.pts_winner} · {defaultPts.pts_second} · {defaultPts.pts_third}</span>
@@ -846,7 +846,7 @@
 			</div>
 		</div>
 
-		<h2 class="settings-section" id="gs-chat" data-gsection>
+		<h2 class="admin-section-title" id="gs-chat" data-gsection>
 			<span class="ss-icon"><Icon name="chat" size={16} /></span>
 			<span class="ss-title">{$t('admin_settings_section_chat')}</span>
 			<span class="ss-dot" class:on={publicChatConfig.enabled} title={$t('admin_public_chat_enable')}></span>
@@ -986,7 +986,7 @@
 			</div>
 		</div>
 
-		<h2 class="settings-section" id="gs-services" data-gsection>
+		<h2 class="admin-section-title" id="gs-services" data-gsection>
 			<span class="ss-icon"><Icon name="server" size={16} /></span>
 			<span class="ss-title">{$t('admin_settings_section_services')}</span>
 			{#if searxngUrl}<span class="ss-sum">{hostOf(searxngUrl)}</span>{/if}
@@ -1231,7 +1231,7 @@
 			{/each}
 		</nav>
 		<div class="stab-content">
-		<h2 class="settings-section" id="gi-servers" data-gsection>
+		<h2 class="admin-section-title" id="gi-servers" data-gsection>
 			<span class="ss-icon"><Icon name="server" size={16} /></span>
 			<span class="ss-title">{$t('admin_ai_sec_servers')}</span>
 			<span class="ss-sum">{instanceStatuses.filter(x => x.online).length}/{iaConfig.ollama_instances.length} · {iaQueueData.queue_size}</span>
@@ -1342,7 +1342,7 @@
 			</div>
 		</div>
 
-		<h2 class="settings-section" id="gi-model" data-gsection>
+		<h2 class="admin-section-title" id="gi-model" data-gsection>
 			<span class="ss-icon"><Icon name="settings" size={16} /></span>
 			<span class="ss-title">{$t('admin_settings_ai_model_cfg')}</span>
 			<span class="ss-sum">{iaConfig.temperature} · {iaConfig.context_window}</span>
@@ -1431,7 +1431,7 @@
 			</div>
 		</div>
 
-		<h2 class="settings-section" id="gi-behaviour" data-gsection>
+		<h2 class="admin-section-title" id="gi-behaviour" data-gsection>
 			<span class="ss-icon"><Icon name="shield-check" size={16} /></span>
 			<span class="ss-title">{$t('admin_ai_sec_behaviour')}</span>
 		</h2>
@@ -1507,7 +1507,7 @@
 			</div>
 		</div>
 
-		<h2 class="settings-section" id="gi-prompts" data-gsection>
+		<h2 class="admin-section-title" id="gi-prompts" data-gsection>
 			<span class="ss-icon"><Icon name="pencil" size={16} /></span>
 			<span class="ss-title">{$t('admin_settings_ai_prompts')}</span>
 		</h2>
@@ -1557,7 +1557,7 @@
 			</div>
 		</div>
 
-		<h2 class="settings-section" id="gi-knowledge" data-gsection>
+		<h2 class="admin-section-title" id="gi-knowledge" data-gsection>
 			<span class="ss-icon"><Icon name="book-open" size={16} /></span>
 			<span class="ss-title">{$t('admin_settings_ai_rag')}</span>
 			<span class="ss-sum">{knowledgeDocs.length}</span>
@@ -2149,15 +2149,15 @@
 	.gnav-chip.active { color: var(--accent); background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
 	.gnav-chip.danger { margin-left: auto; }
 	.gnav-chip.danger.active { color: var(--danger); background: color-mix(in srgb, var(--danger) 10%, transparent); border-color: color-mix(in srgb, var(--danger) 40%, transparent); }
-	.settings-section { grid-column: 1 / -1; display: flex; align-items: center; gap: 0.6rem; scroll-margin-top: 4.5rem; font-family: var(--font-title); font-size: 1.1rem; font-weight: 700; color: var(--text-main); margin: 1rem 0 -0.25rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--glass-border); }
-	.settings-section:first-child { margin-top: 0; }
+	.admin-section-title { grid-column: 1 / -1; display: flex; align-items: center; gap: 0.6rem; scroll-margin-top: 4.5rem; font-family: var(--font-title); font-size: 1.1rem; font-weight: 700; color: var(--text-main); margin: 1rem 0 -0.25rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--glass-border); }
+	.admin-section-title:first-child { margin-top: 0; }
 	.ss-icon { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 8px; background: var(--accent-soft); color: var(--accent); flex-shrink: 0; }
-	.settings-section { padding-right: 0.35rem; }
+	.admin-section-title { padding-right: 0.35rem; }
 	.ss-sum { margin-left: auto; max-width: 50%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-main); font-size: 0.78rem; font-weight: 600; color: var(--text-dim); }
 	.ss-dot { margin-left: auto; width: 10px; height: 10px; border-radius: 50%; background: var(--text-dim); opacity: 0.6; }
 	.ss-dot.on { background: var(--success); opacity: 1; box-shadow: 0 0 6px color-mix(in srgb, var(--success) 60%, transparent); }
 	#gs-danger { scroll-margin-top: 4.5rem; }
-	@media (max-width: 900px) { .settings-section, #gs-danger { scroll-margin-top: 7.2rem; } }
+	@media (max-width: 900px) { .admin-section-title, #gs-danger { scroll-margin-top: 7.2rem; } }
 
 	/* the two team-scoring options sit side by side as compact choices */
 	.scoring-toggle .score-opt { display: grid; grid-template-columns: auto 1fr; column-gap: 0.7rem; row-gap: 0; align-items: center; text-align: left; padding: 0.55rem 0.9rem; }
