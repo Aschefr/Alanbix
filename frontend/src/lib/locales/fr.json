@@ -655,7 +655,7 @@
   "map_delete_confirm_prompt": "Sûr ?",
   "map_delete_table_message": "Êtes-vous sûr de vouloir supprimer la table {id} ? Cela supprimera également tous les sièges qui y sont rattachés.",
   "map_delete_table_title": "Supprimer la Table",
-  "map_edit_instructions": "Mode Édition • Glissez les éléments pour les déplacer. Étirez les coins pour redimensionner. Double-cliquez pour supprimer.",
+  "map_edit_instructions": "Mode édition · Cliquez sur une table ou un élément pour le sélectionner, glissez-le pour le déplacer, tirez ses coins pour le redimensionner.",
   "map_edit_mode_lock_toggle_locked": "Verrouiller",
   "map_edit_mode_lock_toggle_unlocked": "Débloquer",
   "map_furniture_bar": "Bar",
@@ -1908,5 +1908,13 @@
   "setup_sim_team_sum_detail": "Total des membres : avantage aux équipes nombreuses",
   "map_auto_seats": "Sièges auto",
   "map_auto_seats_hint": "Ajoute ou retire les sièges automatiquement quand la table est redimensionnée. Un siège occupé n'est jamais retiré.",
-  "map_auto_seats_locked": "Sièges auto activés sur cette table : redimensionnez-la pour changer le nombre de sièges, ou décochez « Sièges auto »."
+  "map_auto_seats_locked": "Sièges auto activés sur cette table : redimensionnez-la pour changer le nombre de sièges, ou décochez « Sièges auto ».",
+  "map_panel_title": "Élément sélectionné",
+  "map_panel_name": "Nom",
+  "map_panel_seats": "{n} place(s)",
+  "map_panel_add_seat": "Ajouter une place",
+  "map_panel_rotate": "Pivoter de 90°",
+  "map_panel_duplicate": "Dupliquer (Ctrl+D)",
+  "map_panel_delete": "Supprimer (Suppr)",
+  "map_panel_hint": "Flèches : déplacer (Maj : plus loin) · Suppr : supprimer · Ctrl+D : dupliquer · Échap : désélectionner"
 }

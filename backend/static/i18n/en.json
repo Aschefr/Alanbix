@@ -655,7 +655,7 @@
   "map_delete_confirm_prompt": "Sure?",
   "map_delete_table_message": "Are you sure you want to delete table {id}? This will also delete all associated seats.",
   "map_delete_table_title": "Delete Table",
-  "map_edit_instructions": "Edit Mode • Drag items to move. Stretch corners to resize. Double-click to delete.",
+  "map_edit_instructions": "Edit mode · Click a table or an element to select it, drag it to move it, pull its corners to resize it.",
   "map_edit_mode_lock_toggle_locked": "Lock",
   "map_edit_mode_lock_toggle_unlocked": "Unlock",
   "map_furniture_bar": "Bar",
@@ -1897,5 +1897,13 @@
   "setup_sim_team_sum_detail": "Members' total: favours larger teams",
   "map_auto_seats": "Auto seats",
   "map_auto_seats_hint": "Adds or removes seats automatically when the table is resized. An occupied seat is never removed.",
-  "map_auto_seats_locked": "Auto seats are on for this table: resize it to change the number of seats, or untick “Auto seats”."
+  "map_auto_seats_locked": "Auto seats are on for this table: resize it to change the number of seats, or untick “Auto seats”.",
+  "map_panel_title": "Selected item",
+  "map_panel_name": "Name",
+  "map_panel_seats": "{n} seat(s)",
+  "map_panel_add_seat": "Add a seat",
+  "map_panel_rotate": "Rotate 90°",
+  "map_panel_duplicate": "Duplicate (Ctrl+D)",
+  "map_panel_delete": "Delete (Del)",
+  "map_panel_hint": "Arrows: move (Shift: further) · Del: delete · Ctrl+D: duplicate · Esc: deselect"
 }

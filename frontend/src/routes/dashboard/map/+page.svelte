@@ -433,6 +433,96 @@
 		layout = layout;
 	}
 
+	// --- Selection (a table or an element) and the inspector's actions ---
+	let selectedFurnId = '';
+	$: selectedFurn = layout.furniture.find(f => f.id === selectedFurnId);
+	$: selectedItem = targetTable || selectedFurn;
+	const seatsOf = (tableId) => layout.seats.filter(s => s.id.startsWith(tableId + '_'));
+
+	function clearSelection() {
+		targetTableId = '';
+		selectedFurnId = '';
+	}
+
+	function moveSelection(dx, dy) {
+		const item = selectedItem;
+		if (!item) return;
+		item.x += dx;
+		item.y += dy;
+		if (targetTable) for (const s of seatsOf(item.id)) { s.x += dx; s.y += dy; }
+		layout = layout;
+	}
+
+	// Quarter turn clockwise around the centre; a table takes its seats along
+	function rotateSelection90() {
+		const item = selectedItem;
+		if (!item) return;
+		const cx = item.x + item.w / 2, cy = item.y + item.h / 2, half = SEAT_SIZE / 2;
+		item.rotation = ((item.rotation || 0) + 90) % 360;
+		if (targetTable) {
+			for (const s of seatsOf(item.id)) {
+				const dx = s.x + half - cx, dy = s.y + half - cy;
+				s.x = cx - dy - half;
+				s.y = cy + dx - half;
+				s.rotation = ((s.rotation || 0) + 90) % 360;
+			}
+		}
+		layout = layout;
+	}
+
+	// Copy of the selection (a table with its seats) on the first free spot below it
+	function duplicateSelection() {
+		const src = selectedItem;
+		if (!src) return;
+		if (targetTable) {
+			const n = nextTableNum();
+			const id = 'T' + n;
+			let dy = src.h + 2 * SEAT_RING + GRID_SIZE;
+			for (let i = 0; i < 80 && hasCollision({ id }, src.x, src.y + dy - SEAT_RING, src.w, src.h + 2 * SEAT_RING); i++) dy += GRID_SIZE;
+			const { delete_pending, ...rest } = src;
+			layout.tables = [...layout.tables, { ...rest, id, label: 'Table ' + n, y: src.y + dy }];
+			layout.seats = [...layout.seats, ...seatsOf(src.id).map(s => ({ ...s, id: id + s.id.slice(src.id.length), y: s.y + dy }))];
+			targetTableId = id;
+		} else {
+			const n = nextFurnitureNum();
+			const id = 'F' + n;
+			let d = 2 * GRID_SIZE;
+			for (let i = 0; i < 80 && hasCollision({ id }, src.x + d, src.y + d, src.w, src.h); i++) d += GRID_SIZE;
+			layout.furniture = [...layout.furniture, { ...src, id, x: src.x + d, y: src.y + d }];
+			selectedFurnId = id;
+		}
+		layout = layout;
+	}
+
+	function deleteSelection() {
+		if (targetTable) removeItem('table', targetTable.id);
+		else if (selectedFurn) { removeItem('furniture', selectedFurn.id); selectedFurnId = ''; }
+	}
+
+	// Editor shortcuts: arrows move (Shift: 5 cells), Del deletes, Ctrl+D duplicates, Esc deselects
+	function onEditorKeydown(e) {
+		if (!editMode) return;
+		const tag = (e.target?.tagName || '').toLowerCase();
+		if (['input', 'select', 'textarea'].includes(tag) || e.target?.isContentEditable) return;
+		const mod = e.ctrlKey || e.metaKey;
+		if (mod && e.key.toLowerCase() === 'd') {
+			if (selectedItem) { e.preventDefault(); duplicateSelection(); }
+			return;
+		}
+		if (!selectedItem) return;
+		if (e.key === 'Escape') {
+			if (targetTable?.delete_pending) targetTable.delete_pending = false;
+			else clearSelection();
+			layout = layout;
+			return;
+		}
+		if (e.key === 'Enter' && targetTable?.delete_pending) { e.preventDefault(); confirmDeleteTable(targetTable.id); return; }
+		if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); deleteSelection(); return; }
+		const step = e.shiftKey ? GRID_SIZE * 5 : GRID_SIZE;
+		const delta = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key];
+		if (delta) { e.preventDefault(); moveSelection(delta[0], delta[1]); }
+	}
+
 	function getNextSeatPos(table) {
 		const slot = findFirstFreeSlot(table);
 		if (!slot) return null;
@@ -456,7 +546,9 @@
 		dragType = type;
 		dragStart = { x: p.x, y: p.y };
 		dragOriginal = { x: table.x, y: table.y, w: table.w, h: table.h, rotation: table.rotation || 0 };
-		if (layout.tables.includes(table)) targetTableId = table.id; // clicking a table selects it in the toolbar
+		// Clicking a table or an element selects it (inspector in the corner of the map)
+		if (layout.tables.includes(table)) { targetTableId = table.id; selectedFurnId = ''; }
+		else { selectedFurnId = table.id; targetTableId = ''; }
 		// Capture child seats' original positions for coordinated move or rotation
 		if (type === 'move' || type === 'rotate') {
 			dragChildSeats = layout.seats
@@ -576,7 +668,10 @@
 	function onPanStart(e) {
 		// Edit mode: middle/right click only (left is for dragging items)
 		// View mode: any button can pan
-		if (editMode && e.button !== 1 && e.button !== 2) return;
+		if (editMode && e.button !== 1 && e.button !== 2) {
+			if (e.button === 0) clearSelection();
+			return;
+		}
 		if (!editMode && e.button === 0) {
 			// Left click in view mode — start pan but track for click detection
 			isPanning = true;
@@ -826,6 +921,8 @@
 	$: unassignedUsers = allUsers.filter(u => !u.seat_id);
 </script>
 
+<svelte:window on:keydown={onEditorKeydown} />
+
 <div class="map-page">
 	<header class="flex-row justify-between items-center mb-4">
 		<div>
@@ -848,18 +945,6 @@
 				{/if}
 				{#if editMode}
 					<button class="btn-secondary" on:click={addTable}>{$t('map_add_table')}</button>
-					<select class="table-select" bind:value={targetTableId}>
-						{#each layout.tables as t}
-							<option value={t.id}>{t.id} — {t.label}</option>
-						{/each}
-					</select>
-					<button class="btn-secondary" on:click={addSeat} disabled={!!targetTable?.auto_seats} title={targetTable?.auto_seats ? $t('map_auto_seats_locked') : ''}>{$t("map_btn_add_seat")}</button>
-					{#if targetTable}
-						<label class="auto-seats" title={$t('map_auto_seats_hint')}>
-							<input type="checkbox" checked={!!targetTable.auto_seats} on:change={(e) => toggleAutoSeats(targetTable, e.currentTarget.checked)} />
-							<span>{$t('map_auto_seats')}</span>
-						</label>
-					{/if}
 					<span class="toolbar-sep">|</span>
 					<select class="table-select" bind:value={selectedFurnitureType}>
 						{#each FURNITURE_TYPES as ft}
@@ -909,6 +994,32 @@
 	</div>
 
 	<div class="canvas-wrapper glass" on:contextmenu|preventDefault>
+		{#if editMode && selectedItem}
+			<div class="inspector" role="region" aria-label={$t('map_panel_title')}>
+				<div class="insp-head">
+					<span class="insp-icon"><Icon name={targetTable ? 'table' : furnitureIcon(selectedItem)} size={16} /></span>
+					<input class="insp-name" value={selectedItem.label} on:input={(e) => { selectedItem.label = e.currentTarget.value; layout = layout; }} aria-label={$t('map_panel_name')} maxlength="40" />
+				</div>
+				{#if targetTable}
+					<div class="insp-row">
+						<span class="insp-count">{$t('map_panel_seats', { n: seatsOf(targetTable.id).length })}</span>
+						<label class="auto-seats" title={$t('map_auto_seats_hint')}>
+							<input type="checkbox" checked={!!targetTable.auto_seats} on:change={(e) => toggleAutoSeats(targetTable, e.currentTarget.checked)} />
+							<span>{$t('map_auto_seats')}</span>
+						</label>
+					</div>
+					{#if !targetTable.auto_seats}
+						<button class="insp-wide" on:click={addSeat}><Icon name="plus" size={14} /> {$t('map_panel_add_seat')}</button>
+					{/if}
+				{/if}
+				<div class="insp-actions">
+					<button class="insp-btn" on:click={rotateSelection90} title={$t('map_panel_rotate')} aria-label={$t('map_panel_rotate')}><Icon name="rotate-cw" size={16} /></button>
+					<button class="insp-btn" on:click={duplicateSelection} title={$t('map_panel_duplicate')} aria-label={$t('map_panel_duplicate')}><Icon name="copy" size={16} /></button>
+					<button class="insp-btn danger" on:click={deleteSelection} title={$t('map_panel_delete')} aria-label={$t('map_panel_delete')}><Icon name="trash" size={16} /></button>
+				</div>
+				<p class="insp-hint">{$t('map_panel_hint')}</p>
+			</div>
+		{/if}
 		{#if !editMode && layout.tables.length === 0 && layout.seats.length === 0}
 			<div class="map-empty">
 				<p class="map-empty-title">{$t('map_empty_title')}</p>
@@ -1534,4 +1645,28 @@
 	.furn-icon { display: inline-flex; color: #f59e0b; }
 	.table-rect.selected { stroke: var(--accent); stroke-width: 2.5; }
 	.mobile-my-seat, .map-top-btn, .sheet-seat-badge, .sheet-team, .sheet-actions .btn { display: inline-flex; align-items: center; gap: 0.3rem; }
+	/* Toolbar: one line per button */
+	.map-page header button { white-space: nowrap; gap: 0.35rem; }
+
+	/* Inspector of the selected table or element */
+	.inspector {
+		position: absolute; top: 1rem; right: 1rem; z-index: 5; width: 232px;
+		display: flex; flex-direction: column; gap: 0.6rem; padding: 0.75rem;
+		background: var(--surface-raised); border: 1px solid var(--glass-border); border-radius: 12px;
+		box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22);
+	}
+	.insp-head { display: flex; align-items: center; gap: 0.5rem; }
+	.insp-icon { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 8px; background: var(--accent-soft); color: var(--accent); flex-shrink: 0; }
+	.insp-name { flex: 1; min-width: 0; padding: 0.35rem 0.5rem; font-size: 0.88rem; font-weight: 700; border-radius: 8px; }
+	.insp-row { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+	.insp-count { font-size: 0.82rem; font-weight: 600; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+	.inspector .auto-seats { padding: 0; font-size: 0.8rem; }
+	.insp-wide { display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem; padding: 0.45rem; border-radius: 8px; border: 1px dashed var(--glass-border); background: transparent; color: var(--text-main); font: inherit; font-size: 0.8rem; font-weight: 600; cursor: pointer; }
+	.insp-wide:hover { border-color: var(--accent); color: var(--accent); }
+	.insp-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.4rem; }
+	.insp-btn { display: inline-flex; align-items: center; justify-content: center; height: 34px; border-radius: 8px; border: 1px solid var(--glass-border); background: var(--surface-sunken); color: var(--text-main); cursor: pointer; transition: border-color 0.15s, color 0.15s; }
+	.insp-btn:hover { border-color: var(--accent); color: var(--accent); }
+	.insp-btn.danger:hover { border-color: var(--danger); color: var(--danger); }
+	.insp-btn:focus-visible, .insp-wide:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+	.insp-hint { margin: 0; font-size: 0.7rem; line-height: 1.45; color: var(--text-muted); }
 </style>

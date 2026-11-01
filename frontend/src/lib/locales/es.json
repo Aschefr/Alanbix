@@ -655,7 +655,7 @@
   "map_delete_confirm_prompt": "¿Seguro?",
   "map_delete_table_message": "¿Está seguro de que desea eliminar la mesa {id}? Esto también eliminará todos los asientos asociados.",
   "map_delete_table_title": "Eliminar la Mesa",
-  "map_edit_instructions": "Modo Edición • Arrastra los elementos para moverlos. Estira las esquinas para cambiar el tamaño. Haz doble clic para eliminar.",
+  "map_edit_instructions": "Modo edición · Haga clic en una mesa o un elemento para seleccionarlo, arrástrelo para moverlo, tire de sus esquinas para redimensionarlo.",
   "map_edit_mode_lock_toggle_locked": "Bloquear",
   "map_edit_mode_lock_toggle_unlocked": "Desbloquear",
   "map_furniture_bar": "Bar",
@@ -1908,5 +1908,13 @@
   "setup_sim_team_sum_detail": "Total de los miembros: favorece a los equipos grandes",
   "map_auto_seats": "Sitios automáticos",
   "map_auto_seats_hint": "Añade o quita sitios automáticamente al redimensionar la mesa. Un sitio ocupado nunca se quita.",
-  "map_auto_seats_locked": "Sitios automáticos activados en esta mesa: redimensiónela para cambiar el número de sitios, o desmarque «Sitios automáticos»."
+  "map_auto_seats_locked": "Sitios automáticos activados en esta mesa: redimensiónela para cambiar el número de sitios, o desmarque «Sitios automáticos».",
+  "map_panel_title": "Elemento seleccionado",
+  "map_panel_name": "Nombre",
+  "map_panel_seats": "{n} sitio(s)",
+  "map_panel_add_seat": "Añadir un sitio",
+  "map_panel_rotate": "Girar 90°",
+  "map_panel_duplicate": "Duplicar (Ctrl+D)",
+  "map_panel_delete": "Eliminar (Supr)",
+  "map_panel_hint": "Flechas: mover (Mayús: más lejos) · Supr: eliminar · Ctrl+D: duplicar · Esc: deseleccionar"
 }
