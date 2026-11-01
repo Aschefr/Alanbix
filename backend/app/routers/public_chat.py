@@ -412,33 +412,36 @@ async def send_message(
                 "is_bot": True,
                 "is_typing": True
             })
-            background_tasks.add_task(_process_alanbix_public_reply, db_msg.id, content, user.username)
+            background_tasks.add_task(_process_alanbix_public_reply, db_msg.id, content, user.id)
 
     return serialized
 
 
-async def _process_alanbix_public_reply(trigger_msg_id: int, user_prompt: str, author_username: str):
-    """Background task to generate Alanbix's reply in public chat via Ollama/IA queue."""
+async def _process_alanbix_public_reply(trigger_msg_id: int, user_prompt: str, author_id: int):
+    """Background task to generate Alanbix's reply in public chat via the IA queue."""
     from ..ia_queue import queue_manager, QueueEntry
     from ..database import SessionLocal
-    from .ia import get_instances, get_effective_config
+    from ..ia_public_chat import build_public_system_prompt
+    from .ia import pick_instance, get_effective_config
 
     try:
         await asyncio.sleep(0.3)
 
         with SessionLocal() as db:
             ia_cfg = get_effective_config(db)
-
-            # Check active Ollama instances
-            instances = [i for i in get_instances(db) if i.get("enabled", True)]
-            if not instances:
-                print("[Public Chat AI] No active Ollama instances configured")
+            author = db.query(models.User).filter(models.User.id == author_id).first()
+            if not author:
                 return
 
-            instance = instances[0]
+            # Same instance choice as the private assistant (priority, round-robin, health check)
+            instance = await pick_instance(db, model=ia_cfg.get("model") or None)
+            if not instance:
+                print("[Public Chat AI] No active AI instance configured")
+                return
+
             ollama_host = instance.get("url") or instance.get("host") or "http://localhost:11434"
-            model_to_use = instance.get("model") or "llama3"
-            context_window = ia_cfg.get("context_window", 4096)
+            model_to_use = instance.get("model") or ia_cfg.get("model") or "llama3"
+            context_window = ia_cfg.get("context_window", 16384)
             temperature = ia_cfg.get("temperature", 0.7)
 
             # Fetch sliding window (last 6 messages)
@@ -458,13 +461,8 @@ async def _process_alanbix_public_reply(trigger_msg_id: int, user_prompt: str, a
                 context_lines.append(f"{sender}: {m.content}")
             chat_context = "\n".join(context_lines)
 
-            system_prompt = (
-                "Tu es Alanbix, l'IA mascotte et arbitre joviale de la LAN Party. "
-                "Tu interviens directement dans le chat public de la salle. "
-                "Réponds de manière concise (1 à 3 phrases maximum), avec humour, dynamisme, esprit gamer et bienveillance. "
-                "Termine toujours ta réponse de façon complète sans t'interrompre. "
-                "N'utilise pas de formalisme inutile. Ne préfixe jamais ta réponse par 'Alanbix:'."
-            )
+            system_prompt, _ = build_public_system_prompt(db, models, author)
+            author_username = author.username
 
             full_prompt = (
                 f"Voici les derniers échanges dans le chat public de la LAN :\n"

@@ -25,6 +25,10 @@ def is_openai_host(url: str) -> bool:
     return clean.endswith("/v1") or "/v1/" in clean or "openai" in clean.lower()
 
 
+# Answer length cap for @Alanbix in the public chat (thinking included)
+PUBLIC_CHAT_MAX_ANSWER_TOKENS = 4096
+
+
 # ---------------------------------------------------------------------------
 # Queue Entry
 # ---------------------------------------------------------------------------
@@ -844,6 +848,9 @@ class IAQueueManager:
         messages = payload["messages"]
         context_window = payload.get("context_window", 4096)
         temperature = payload.get("temperature", 0.7)
+        # A chat line needs little, but thinking models spend tokens before answering;
+        # never ask for more than the context (some online services reject it)
+        max_answer = min(context_window, PUBLIC_CHAT_MAX_ANSWER_TOKENS)
 
         try:
             is_openai = is_openai_host(ollama_host)
@@ -854,7 +861,7 @@ class IAQueueManager:
                     "messages": messages,
                     "stream": False,
                     "temperature": temperature,
-                    "max_tokens": context_window
+                    "max_tokens": max_answer
                 }
             else:
                 url = f"{ollama_host.rstrip('/')}/api/chat"
@@ -862,7 +869,7 @@ class IAQueueManager:
                     "model": model,
                     "messages": messages,
                     "stream": False,
-                    "options": {"temperature": temperature, "num_predict": context_window, "num_ctx": context_window}
+                    "options": {"temperature": temperature, "num_predict": max_answer, "num_ctx": context_window}
                 }
 
             async with ia_client() as client:
