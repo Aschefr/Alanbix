@@ -19,6 +19,7 @@ You can Drag & Drop the following elements onto the canvas:
 
 ### Actions on Canvas Elements
 * **Selection and Movement**: Click a table or an element to select it (blue outline): a panel opens in the corner of the map with its name, seat count, "Auto seats", "Add a seat", **Rotate 90°**, **Duplicate** (a table with its seats, placed on the first free spot below) and **Delete**. Hold the click to move it: **alignment guides** appear when its edges or centre line up with another object, and a stack of tables snaps to an equal gap (pink markers). Clicking the empty map deselects.
+* **Clear everything**: empties the map in the editor after a confirmation; Ctrl+Z brings it back until it is saved. On save, players sitting on a seat that no longer exists are freed (true for any deleted seat). The administration's danger zone also has "Room map" to delete it directly.
 * **Keyboard**: arrows move the selection (Shift: 5 cells), Del deletes (Enter confirms a table), Ctrl+D duplicates, Esc deselects, Ctrl+Z / Ctrl+Y undo / redo (100 steps), Ctrl+S saves.
 * **Unsaved changes**: a "Not saved" mark shows next to the Save button; closing the editor or leaving the page then offers to stay, discard the changes or save.
 * **Readability**: seats show their number (`7` rather than `T1_S7`), only the selected table shows its `+` button, and elements (door, kitchen, bar, toilets, rack, screen) use the app's line icons.

@@ -80,6 +80,7 @@ To facilitate database cleaning between two events or after intensive testing ph
 * **Images**: deletes every uploaded image (AI assistant, private and team messages, public chat) and removes their references from the messages.
 * **Notifications**: deletes every player's notifications.
 * **Awards**: deletes awarded prizes and customised texts, then recomputes the default awards.
+* **Room map**: deletes every table, seat and element of the map, and frees every player's seat.
 * **Full reset**: empties the whole server like a new installation (all data, all uploaded files, settings and customised translations). Admin accounts can be kept (username, password, avatar). Typing `RESET` confirms it; other connected people are reloaded automatically.
 
 ### Security Ergonomics (No window.confirm)

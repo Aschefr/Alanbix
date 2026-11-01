@@ -98,3 +98,15 @@ def test_public_chat_purge_deletes_messages(client, db_session):
     assert client.post("/public-chat/clear").status_code == 200
     db_session.expire_all()
     assert db_session.query(models.PublicChatMessage).count() == 0
+
+
+def test_purge_room_map_frees_every_seat(client, db_session):
+    u = _users(db_session)
+    db_session.add(models.RoomMap(layout={"tables": [{"id": "T1"}], "seats": [{"id": "T1_S1"}, {"id": "T1_S2"}], "furniture": []}))
+    u["Player1"].seat_id = "T1_S1"
+    db_session.commit()
+    res = client.delete("/admin/nuke/room")
+    assert res.status_code == 200 and res.json()["deleted_seats"] == 2
+    db_session.expire_all()
+    assert db_session.query(models.RoomMap).count() == 0
+    assert db_session.query(models.User).filter(models.User.seat_id.isnot(None)).count() == 0

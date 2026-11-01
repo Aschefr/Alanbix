@@ -1924,5 +1924,14 @@
   "map_unsaved_desc": "Le plan de salle a été modifié depuis le dernier enregistrement.",
   "map_unsaved_stay": "Rester",
   "map_unsaved_discard": "Abandonner les modifications",
-  "map_unsaved_save": "Enregistrer"
+  "map_unsaved_save": "Enregistrer",
+  "admin_settings_purge_room": "Plan de salle",
+  "admin_settings_purge_room_sub": "Supprime toutes les tables, places et éléments du plan, et libère la place de chaque joueur.",
+  "admin_settings_delete_confirm_room": "Supprimer tout le plan de salle ?",
+  "admin_nuke_room_done": "Plan de salle supprimé : {seats} place(s), {players} joueur(s) libéré(s).",
+  "map_clear": "Tout effacer",
+  "map_clear_confirm": "Effacer tout le plan ?",
+  "map_clear_yes": "Effacer",
+  "map_clear_done": "Plan vidé. Enregistrez pour confirmer, ou Ctrl+Z pour annuler.",
+  "admin_settings_purge_room_btn": "Supprimer le plan"
 }

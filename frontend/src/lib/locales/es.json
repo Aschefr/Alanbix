@@ -1924,5 +1924,14 @@
   "map_unsaved_desc": "El plano de la sala ha cambiado desde el último guardado.",
   "map_unsaved_stay": "Quedarse",
   "map_unsaved_discard": "Descartar los cambios",
-  "map_unsaved_save": "Guardar"
+  "map_unsaved_save": "Guardar",
+  "admin_settings_purge_room": "Plano de la sala",
+  "admin_settings_purge_room_sub": "Elimina todas las mesas, sitios y elementos del plano, y libera el sitio de cada jugador.",
+  "admin_settings_delete_confirm_room": "¿Eliminar todo el plano de la sala?",
+  "admin_nuke_room_done": "Plano eliminado: {seats} sitio(s), {players} jugador(es) liberado(s).",
+  "map_clear": "Borrar todo",
+  "map_clear_confirm": "¿Borrar todo el plano?",
+  "map_clear_yes": "Borrar",
+  "map_clear_done": "Plano vaciado. Guarde para confirmar, o Ctrl+Z para deshacer.",
+  "admin_settings_purge_room_btn": "Eliminar el plano"
 }

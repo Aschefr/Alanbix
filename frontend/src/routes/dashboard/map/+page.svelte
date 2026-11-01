@@ -624,6 +624,15 @@
 		layout = layout;
 	}
 
+	// "Clear everything" empties the map locally: Ctrl+Z brings it back until it is saved
+	let confirmClear = false;
+	function clearMap() {
+		confirmClear = false;
+		clearSelection();
+		layout = { ...layout, tables: [], seats: [], furniture: [] };
+		toast($t('map_clear_done'), 'info');
+	}
+
 	function deleteSelection() {
 		if (targetTable) removeItem('table', targetTable.id);
 		else if (selectedFurn) { removeItem('furniture', selectedFurn.id); selectedFurnId = ''; }
@@ -664,6 +673,13 @@
 	}
 
 	async function saveLayout() {
+		// Players sitting on a seat that no longer exists are freed
+		const kept = new Set(layout.seats.map(s => s.id));
+		const lost = allUsers.filter(u => u.seat_id && !kept.has(u.seat_id));
+		for (const u of lost) {
+			try { await api.post('/room/admin-unassign-seat', { seat_id: u.seat_id }); } catch {}
+		}
+		if (lost.length) await loadUsers();
 		const { tables, seats, furniture } = layout;
 		await api.post('/room/layout', { ...layout, tables: tables.map(({ delete_pending, ...tb }) => tb), seats, furniture });
 		savedSnap = lastSnap = snapOf(layout);
@@ -1090,6 +1106,15 @@
 						{/each}
 					</select>
 					<button class="btn-secondary" on:click={addFurniture}>{$t("map_btn_add_element")}</button>
+					{#if confirmClear}
+						<span class="free-all-confirm">
+							<span>{$t('map_clear_confirm')}</span>
+							<button class="btn-danger" on:click={clearMap}>{$t('map_clear_yes')}</button>
+							<button class="btn-secondary" on:click={() => confirmClear = false}>{$t('common_cancel')}</button>
+						</span>
+					{:else}
+						<button class="btn-outline-danger" on:click={() => confirmClear = true} disabled={!layout.tables.length && !layout.seats.length && !layout.furniture.length}><Icon name="trash" size={14} /> {$t('map_clear')}</button>
+					{/if}
 					<span class="toolbar-sep">|</span>
 					<button class="btn-secondary icon-only" on:click={undo} disabled={!history.length} title={$t('map_undo')} aria-label={$t('map_undo')}><Icon name="undo" size={16} /></button>
 					<button class="btn-secondary icon-only" on:click={redo} disabled={!future.length} title={$t('map_redo')} aria-label={$t('map_redo')}><Icon name="redo" size={16} /></button>
@@ -1577,7 +1602,7 @@
 	.map-empty { position: absolute; inset: 0; z-index: 2; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.6rem; text-align: center; padding: 1.5rem; pointer-events: none; }
 	.map-empty > * { pointer-events: auto; margin: 0; max-width: 46ch; }
 	.map-empty-title { font-family: var(--font-title); font-size: var(--fs-section); font-weight: 700; color: var(--text-main); }
-	.free-all-confirm { display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.88rem; color: var(--text-main); }
+	.free-all-confirm { display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.88rem; color: var(--text-main); white-space: nowrap; }
 	.room-canvas { width: 100%; height: 100%; background: var(--map-canvas-bg); border-radius: 12px; user-select: none; }
 	.room-canvas.edit-mode { outline: 2px dashed rgba(59, 130, 246, 0.3); outline-offset: -2px; }
 

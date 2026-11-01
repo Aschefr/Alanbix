@@ -667,6 +667,20 @@ def admin_nuke_notifications(db: Session = Depends(database.get_db), admin: mode
     db.commit()
     return {"status": "nuked", "deleted_notifications": count}
 
+
+@router.delete("/admin/nuke/room")
+async def admin_nuke_room(db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
+    """Delete the room map (tables, seats, elements) and free every player's seat."""
+    seats = 0
+    for room in db.query(models.RoomMap).all():
+        seats += len((room.layout or {}).get("seats") or [])
+        db.delete(room)
+    freed = db.query(models.User).filter(models.User.seat_id.isnot(None)).update({models.User.seat_id: None}, synchronize_session=False)
+    db.commit()
+    await ws_manager.broadcast({"type": "room_updated"})
+    await ws_manager.broadcast({"type": "users_updated"})
+    return {"status": "nuked", "deleted_seats": seats, "freed_players": freed}
+
 # --- ADMIN: Awards & Prizes (Prix loufoques & classiques) ---
 from pydantic import BaseModel
 import json

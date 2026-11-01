@@ -133,8 +133,8 @@
 	let iaQueueInterval = null;
 
 	// Nuke State
-	let nukeConfirm = { tournaments: false, players: false, games: false, images: false, notifications: false, awards: false };
-	let nuking = { tournaments: false, players: false, games: false, images: false, notifications: false, awards: false };
+	let nukeConfirm = { tournaments: false, players: false, games: false, images: false, notifications: false, awards: false, room: false };
+	let nuking = { tournaments: false, players: false, games: false, images: false, notifications: false, awards: false, room: false };
 
 	// Jump bar of the General tab: one entry per section, the visible one is highlighted
 	let activeSection = 'gs-event';
@@ -640,6 +640,16 @@
 	}
 
 	// Danger Zone Nukes
+	async function nukeRoom() {
+		nuking.room = true;
+		try {
+			const res = await api.delete('/admin/nuke/room');
+			toast(get(t)('admin_nuke_room_done', { seats: res.deleted_seats, players: res.freed_players }), 'success');
+		} catch (e) { toast(e.message, 'error'); }
+		nuking.room = false;
+		nukeConfirm.room = false;
+	}
+
 	async function nukeAwards() {
 		nuking.awards = true;
 		try {
@@ -1029,7 +1039,7 @@
 					<h3 style="color: var(--danger)">{$t("admin_settings_danger_zone")}</h3>
 					<p class="sc-sub">{$t("admin_settings_danger_zone_sub")}</p>
 				</div>
-				<span class="dz-count">8</span>
+				<span class="dz-count">9</span>
 				<span class="dz-chevron"><Icon name="chevron-down" size={16} /></span>
 			</summary>
 			<div class="sc-body">
@@ -1182,6 +1192,28 @@
 							</div>
 						{:else}
 							<button class="btn-outline-danger" on:click={() => nukeConfirm.awards = true}>{$t('admin_settings_purge_awards')}</button>
+						{/if}
+					</div>
+
+					<!-- Nuke Room map -->
+					<div class="nuke-card">
+						<div class="nuke-info">
+							<span class="nuke-icon"><Icon name="map" size={18} /></span>
+							<div>
+								<strong>{$t("admin_settings_purge_room")}</strong>
+								<p>{$t("admin_settings_purge_room_sub")}</p>
+							</div>
+						</div>
+						{#if nukeConfirm.room}
+							<div class="nuke-confirm">
+								<span class="text-danger text-xs font-bold">{$t("admin_settings_delete_confirm_room")}</span>
+								<button class="btn-danger-sm" on:click={nukeRoom} disabled={nuking.room}>
+									{nuking.room ? '...' : $t("admin_settings_del_games_btn_confirm")}
+								</button>
+								<button class="btn-secondary btn-xs" on:click={() => nukeConfirm.room = false}>{$t('admin_settings_cancel')}</button>
+							</div>
+						{:else}
+							<button class="btn-outline-danger" on:click={() => nukeConfirm.room = true}>{$t('admin_settings_purge_room_btn')}</button>
 						{/if}
 					</div>
 				</div>

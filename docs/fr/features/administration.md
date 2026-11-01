@@ -81,6 +81,7 @@ Pour faciliter le nettoyage de la base de données entre deux événements ou ap
 * **Images** : supprime toutes les images envoyées (assistant IA, messages privés et d'équipe, chat public) et retire leurs références dans les messages.
 * **Notifications** : supprime les notifications de tous les joueurs.
 * **Distinctions** : supprime les distinctions attribuées et les textes personnalisés, puis recalcule les distinctions par défaut.
+* **Plan de salle** : supprime toutes les tables, places et éléments du plan, et libère la place de chaque joueur.
 * **Réinitialisation complète** : vide tout le serveur comme une nouvelle installation (toutes les données, tous les fichiers téléversés, les réglages et les traductions personnalisées). Les comptes administrateurs peuvent être conservés (pseudo, mot de passe, avatar). Il faut taper `RESET` pour confirmer ; les autres personnes connectées sont rechargées automatiquement.
 
 ### Ergonomie de Sécurité (Pas de window.confirm)

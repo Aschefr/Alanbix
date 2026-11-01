@@ -1913,5 +1913,14 @@
   "map_unsaved_desc": "The room map has changed since it was last saved.",
   "map_unsaved_stay": "Stay",
   "map_unsaved_discard": "Discard the changes",
-  "map_unsaved_save": "Save"
+  "map_unsaved_save": "Save",
+  "admin_settings_purge_room": "Room map",
+  "admin_settings_purge_room_sub": "Deletes every table, seat and element of the map, and frees every player's seat.",
+  "admin_settings_delete_confirm_room": "Delete the whole room map?",
+  "admin_nuke_room_done": "Room map deleted: {seats} seat(s), {players} player(s) freed.",
+  "map_clear": "Clear everything",
+  "map_clear_confirm": "Clear the whole map?",
+  "map_clear_yes": "Clear",
+  "map_clear_done": "Map cleared. Save to confirm, or Ctrl+Z to undo.",
+  "admin_settings_purge_room_btn": "Delete the map"
 }
