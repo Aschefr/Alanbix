@@ -45,7 +45,7 @@ sequenceDiagram
 | `scan_local_network` | Scanner le réseau local (table ARP) | — |
 | `block_user_from_ia` | Bloquer un joueur abusif (auto-modération) | `reason` |
 
-> **Outils futurs suggérés** : voir [`docs/ia_improvements.md`](docs/ia_improvements.md) pour la liste complète des 14 améliorations proposées.
+> **Outils futurs suggérés** : voir [`docs/archive/ia_improvements.md`](docs/archive/ia_improvements.md) (historique) pour la liste complète des 14 améliorations proposées.
 
 ## Proposed Changes
 
