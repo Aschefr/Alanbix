@@ -392,6 +392,50 @@
     <rect width="18" height="18" x="3" y="3" rx="2" />
     <path d="M3 9h18" />
     <path d="M3 15h18" />
+  {:else if name === 'door'}
+    <path d="M13 4h3a2 2 0 0 1 2 2v14" />
+    <path d="M2 20h3" />
+    <path d="M13 20h9" />
+    <path d="M10 12v.01" />
+    <path d="M13 4.562v16.157a1 1 0 0 1-1.242.97L5 20V5.562a2 2 0 0 1 1.515-1.94l4-1A2 2 0 0 1 13 4.561Z" />
+  {:else if name === 'utensils'}
+    <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" />
+    <path d="M7 2v20" />
+    <path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7" />
+  {:else if name === 'beer'}
+    <path d="M17 11h1a3 3 0 0 1 0 6h-1" />
+    <path d="M9 12v6" />
+    <path d="M13 12v6" />
+    <path d="M14 7.5c-1 0-1.44.5-3 .5s-2-.5-3-.5-1.72.5-2.5.5a2.5 2.5 0 0 1 0-5c.78 0 1.57.5 2.5.5S9.44 2 11 2s2 1.5 3 1.5 1.72-.5 2.5-.5a2.5 2.5 0 0 1 0 5c-.78 0-1.5-.5-2.5-.5Z" />
+    <path d="M5 8v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V8" />
+  {:else if name === 'restroom'}
+    <circle cx="6.5" cy="4.5" r="1.8" />
+    <path d="M4.5 9h4v6h-1v6h-2v-6h-1z" />
+    <circle cx="17.5" cy="4.5" r="1.8" />
+    <path d="M16 9h3l2 7h-2v5h-3v-5h-2z" />
+    <path d="M12 3v18" />
+  {:else if name === 'package'}
+    <path d="m7.5 4.27 9 5.15" />
+    <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
+    <path d="m3.3 7 8.7 5 8.7-5" />
+    <path d="M12 22V12" />
+  {:else if name === 'armchair'}
+    <path d="M19 9V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v3" />
+    <path d="M3 16a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5a2 2 0 0 0-4 0v1.5a.5.5 0 0 1-.5.5h-9a.5.5 0 0 1-.5-.5V11a2 2 0 0 0-4 0z" />
+    <path d="M5 18v2" />
+    <path d="M19 18v2" />
+  {:else if name === 'copy'}
+    <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+    <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+  {:else if name === 'undo'}
+    <path d="M9 14 4 9l5-5" />
+    <path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11" />
+  {:else if name === 'redo'}
+    <path d="m15 14 5-5-5-5" />
+    <path d="M20 9H9.5A5.5 5.5 0 0 0 4 14.5A5.5 5.5 0 0 0 9.5 20H13" />
+  {:else if name === 'rotate-cw'}
+    <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
+    <path d="M21 3v5h-5" />
   {:else}
     <!-- Default circle / dot -->
     <circle cx="12" cy="12" r="3" />

@@ -12,14 +12,18 @@
 
 	// AXE-09: Furniture type presets
 	const FURNITURE_TYPES = [
-		{ type: 'door', icon: '🚪', label: get(t)('map_furniture_door'), w: 80, h: 40 },
-		{ type: 'kitchen', icon: '🍳', label: get(t)('map_furniture_kitchen'), w: 160, h: 100 },
-		{ type: 'bar', icon: '🍺', label: get(t)('map_furniture_bar'), w: 200, h: 60 },
-		{ type: 'wc', icon: '🚻', label: get(t)('map_furniture_wc'), w: 80, h: 80 },
-		{ type: 'rack', icon: '🖥️', label: get(t)('map_furniture_rack'), w: 60, h: 80 },
-		{ type: 'screen', icon: '📺', label: get(t)('map_furniture_screen'), w: 160, h: 40 },
-		{ type: 'generic', icon: '📦', label: get(t)('map_furniture_generic'), w: 100, h: 80 },
+		{ type: 'door', icon: 'door', label: get(t)('map_furniture_door'), w: 80, h: 40 },
+		{ type: 'kitchen', icon: 'utensils', label: get(t)('map_furniture_kitchen'), w: 160, h: 100 },
+		{ type: 'bar', icon: 'beer', label: get(t)('map_furniture_bar'), w: 200, h: 60 },
+		{ type: 'wc', icon: 'restroom', label: get(t)('map_furniture_wc'), w: 80, h: 80 },
+		{ type: 'rack', icon: 'server', label: get(t)('map_furniture_rack'), w: 60, h: 80 },
+		{ type: 'screen', icon: 'monitor', label: get(t)('map_furniture_screen'), w: 160, h: 40 },
+		{ type: 'generic', icon: 'package', label: get(t)('map_furniture_generic'), w: 100, h: 80 },
 	];
+	// Line icon of an element (older maps stored an emoji in furn.icon: the type decides)
+	const furnitureIcon = (furn) => (FURNITURE_TYPES.find(ft => ft.type === furn.type) || FURNITURE_TYPES[FURNITURE_TYPES.length - 1]).icon;
+	// "T3_S7" is shown as "7": the table's name already says where it is
+	const seatNumber = (id) => (id.match(/_S(\d+(?:_\d+)?)$/) || [])[1] || id;
 	let selectedFurnitureType = 'door';
 	let user = null;
 	let allUsers = [];
@@ -209,11 +213,14 @@
 			}
 		}
 		
-		// A seat may sit on or next to its own table, never on another one
+		// A seat may sit on or next to its own table, never on another table or on an element
 		if (isSeat && layout.tables) {
 			const own = item.id.split('_S')[0];
 			for (const t of layout.tables) {
 				if (t.id !== own && intersects(r1, { x: t.x, y: t.y, w: t.w, h: t.h })) return true;
+			}
+			for (const f of layout.furniture || []) {
+				if (intersects(r1, { x: f.x, y: f.y, w: f.w, h: f.h })) return true;
 			}
 		}
 
@@ -837,7 +844,7 @@
 		{#if user?.is_admin}
 			<div class="flex-row gap-2 flex-wrap">
 				{#if !editMode}
-					<button class="btn-secondary" on:click={() => { editMode = true; assigningSeatId = null; }}>✏️ {$t("map_btn_edit")}</button>
+					<button class="btn-secondary" on:click={() => { editMode = true; assigningSeatId = null; }}><Icon name="pencil" size={15} /> {$t("map_btn_edit")}</button>
 				{/if}
 				{#if editMode}
 					<button class="btn-secondary" on:click={addTable}>{$t('map_add_table')}</button>
@@ -856,7 +863,7 @@
 					<span class="toolbar-sep">|</span>
 					<select class="table-select" bind:value={selectedFurnitureType}>
 						{#each FURNITURE_TYPES as ft}
-							<option value={ft.type}>{ft.icon} {ft.label}</option>
+							<option value={ft.type}>{ft.label}</option>
 						{/each}
 					</select>
 					<button class="btn-secondary" on:click={addFurniture}>{$t("map_btn_add_element")}</button>
@@ -887,16 +894,16 @@
 		<!-- svelte-ignore a11y-click-events-have-key-events -->
 		<!-- svelte-ignore a11y-no-static-element-interactions -->
 		<span class="mobile-my-seat" class:none={!selectedSeat} on:click={centerOnMySeat} title={$t('map_btn_center_title')}>
-			🪑 {selectedSeat ? $t('map_sheet_seat_prefix', { id: selectedSeat }) : $t('map_mobile_no_seat')}
+			<Icon name="armchair" size={14} /> {selectedSeat ? $t('map_sheet_seat_prefix', { id: selectedSeat }) : $t('map_mobile_no_seat')}
 		</span>
 		<div class="map-mobile-btns">
 			{#if selectedSeat}
 			<button class="map-top-btn" on:click={centerOnMySeat} title={$t('map_btn_center_title')}>
-				🎯 {$t('map_btn_center')}
+				<Icon name="target" size={14} /> {$t('map_btn_center')}
 			</button>
 			{/if}
 			<button class="map-top-btn" on:click={resetView} title={$t('map_btn_global_title')}>
-				🔍 {$t('map_btn_global_title')}
+				<Icon name="search" size={14} /> {$t('map_btn_global_title')}
 			</button>
 		</div>
 	</div>
@@ -941,7 +948,7 @@
 					<!-- svelte-ignore a11y-no-static-element-interactions -->
 					<rect 
 						x={table.x} y={table.y} width={table.w} height={table.h} rx="8"
-						class="table-rect {table.delete_pending ? 'delete-pending' : ''}"
+						class="table-rect {table.delete_pending ? 'delete-pending' : ''} {editMode && table.id === targetTableId ? 'selected' : ''}"
 						style="cursor: {editMode ? 'grab' : 'default'}"
 						on:mousedown={(e) => startDragTable(e, table, 'move')}
 					/>
@@ -973,7 +980,7 @@
 					{:else}
 						<text x={cx} y={cy + 5} text-anchor="middle" class="table-label">{table.label}</text>
 						{#if editMode}
-							{@const nextPos = table.auto_seats ? null : getNextSeatPos(table)}
+							{@const nextPos = table.auto_seats || table.id !== targetTableId ? null : getNextSeatPos(table)}
 							{#if nextPos}
 								<!-- Add seat button "+" at the next free seat position -->
 								<!-- svelte-ignore a11y-no-static-element-interactions -->
@@ -1041,7 +1048,7 @@
 					/>
 					<foreignObject x={furn.x} y={furn.y} width={furn.w} height={furn.h} style="pointer-events:none">
 						<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;height:100%;line-height:1.1;">
-							<span style="font-size: {furn.h <= 40 ? '18px' : '26px'};">{furn.icon}</span>
+							<span class="furn-icon"><Icon name={furnitureIcon(furn)} size={furn.h <= 40 ? 16 : 24} /></span>
 							<span style="font-size: {furn.h <= 40 ? '10px' : '12px'};font-weight:700;color:#f59e0b;margin-top:2px;text-align:center;word-break:break-all;padding:0 4px;">{furn.label}</span>
 						</div>
 					</foreignObject>
@@ -1072,7 +1079,7 @@
 							class="rotate-handle furniture-rotate"
 							on:mousedown={(e) => startDragTable(e, furn, 'rotate')}
 						/>
-						<text x={fcx} y={furn.y - 27} text-anchor="middle" fill="white" font-size="8" font-weight="bold" style="pointer-events:none">↻</text>
+						<text x={fcx} y={furn.y - 27} text-anchor="middle" fill="white" font-size="8" font-weight="bold" class="rotate-glyph" style="pointer-events:none">↻</text>
 
 						<!-- Remove -->
 						<!-- svelte-ignore a11y-no-static-element-interactions -->
@@ -1113,7 +1120,7 @@
 					</clipPath>
 					<rect x={seat.x} y={seat.y} width={SEAT_SIZE} height={SEAT_SIZE} rx="8" class="seat-rect"/>
 					<g clip-path="url(#clip-{seat.id})">
-						<text x={scx} y={seat.y + 13} text-anchor="middle" class="seat-label">{seat.id}</text>
+						<text x={scx} y={seat.y + 13} text-anchor="middle" class="seat-label">{seatNumber(seat.id)}</text>
 						{#if occupant}
 							<text x={scx} y={seat.y + 28} text-anchor="middle" class="seat-player"
 								textLength={occupant.username.length > 7 ? SEAT_SIZE - 6 : null}
@@ -1165,7 +1172,7 @@
 		<div class="seat-info-bottom-sheet glass animate-in">
 			<div class="sheet-header">
 				<div class="sheet-title-row">
-					<span class="sheet-seat-badge">🪑 {$t('map_sheet_seat_prefix', { id: activeSeatCard.seat.id })}</span>
+					<span class="sheet-seat-badge"><Icon name="armchair" size={16} /> {$t('map_sheet_seat_prefix', { id: activeSeatCard.seat.id })}</span>
 					{#if activeSeatCard.isMine}
 						<span class="sheet-status-tag mine">{$t('map_sheet_mine')}</span>
 					{:else if activeSeatCard.isOccupied}
@@ -1174,24 +1181,24 @@
 						<span class="sheet-status-tag free">{$t('map_sheet_free')}</span>
 					{/if}
 				</div>
-				<button class="sheet-close-btn" on:click={() => activeSeatCard = null}>✕</button>
+				<button class="sheet-close-btn" on:click={() => activeSeatCard = null} aria-label={$t('common_close')}><Icon name="x" size={18} /></button>
 			</div>
 
 			<div class="sheet-body">
 				{#if activeSeatCard.isOccupied && activeSeatCard.occupant}
 					<div class="sheet-player-info">
-						<span class="sheet-avatar">👤</span>
+						<span class="sheet-avatar"><Icon name="user" size={20} /></span>
 						<div class="sheet-player-names">
 							<strong class="sheet-username">{activeSeatCard.occupant.username}</strong>
 							{#if activeSeatCard.occupant.team_name}
-								<span class="sheet-team">👥 {activeSeatCard.occupant.team_name}</span>
+								<span class="sheet-team"><Icon name="users" size={12} /> {activeSeatCard.occupant.team_name}</span>
 							{/if}
 						</div>
 					</div>
 					<div class="sheet-actions">
 						{#if !activeSeatCard.isMine}
 							<a href="/dashboard/players?chat={activeSeatCard.occupant.id}" class="btn btn-sm btn-primary">
-								💬 {$t('map_sheet_send_msg')}
+								<Icon name="message" size={15} /> {$t('map_sheet_send_msg')}
 							</a>
 						{/if}
 						{#if activeSeatCard.isMine}
@@ -1204,7 +1211,7 @@
 					<p class="sheet-free-text">{$t('map_sheet_free_desc')}</p>
 					<div class="sheet-actions">
 						<button class="btn btn-sm btn-primary" on:click={() => { claimSeat(activeSeatCard.seat.id); activeSeatCard = null; }} disabled={seatingLocked && !user?.is_admin}>
-							🪑 {$t('map_sheet_claim_btn')}
+							<Icon name="armchair" size={15} /> {$t('map_sheet_claim_btn')}
 						</button>
 					</div>
 				{/if}
@@ -1217,7 +1224,7 @@
 		<div class="assign-panel glass">
 			<div class="flex-row justify-between items-center mb-2">
 				<h3 class="text-accent">{$t("map_assign_title", { seat: assigningSeatId })}</h3>
-				<button class="btn-link text-dim" on:click={() => assigningSeatId = null}>✕</button>
+				<button class="btn-link text-dim" on:click={() => assigningSeatId = null} aria-label={$t('common_close')}><Icon name="x" size={16} /></button>
 			</div>
 			{#if getOccupant(assigningSeatId)}
 				<p class="text-sm mb-2">{@html $t("map_assign_occupied_by", { user: getOccupant(assigningSeatId).username })}</p>
@@ -1228,7 +1235,7 @@
 			<div class="user-list">
 				{#each unassignedUsers as u}
 					<button class="user-option" on:click={() => adminAssign(assigningSeatId, u.id)}>
-						{u.username} {u.is_admin ? '👑' : ''}
+						{u.username} {#if u.is_admin}<Icon name="crown" size={12} />{/if}
 					</button>
 				{/each}
 				{#if unassignedUsers.length === 0}
@@ -1266,7 +1273,7 @@
 			{/each}
 			{#if draggingUserId}
 				<!-- svelte-ignore a11y-no-static-element-interactions -->
-				<button class="badge-cancel" on:click={() => draggingUserId = null}>✕ {$t("info_btn_cancel")}</button>
+				<button class="badge-cancel" on:click={() => draggingUserId = null}><Icon name="x" size={12} /> {$t("info_btn_cancel")}</button>
 			{/if}
 			{#if unassignedUsers.length === 0}
 				<span class="text-xs text-dim">{$t("map_assign_all_occupied")}</span>
@@ -1279,7 +1286,7 @@
 <div class="toast-container" use:portal>
 	{#each toasts as t (t.id)}
 		<div class="toast {t.type} {t.leaving ? 'toast-leave' : 'toast-enter'}">
-			<span>{#if t.type === 'success'}✅{:else if t.type === 'error'}❌{:else}ℹ️{/if}</span>
+			<Icon name={t.type === 'success' ? 'check-circle' : t.type === 'error' ? 'x-circle' : 'info'} size={18} />
 			<span>{t.message}</span>
 		</div>
 	{/each}
@@ -1524,4 +1531,7 @@
 
 	.auto-seats { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0 0.4rem; font-size: 0.85rem; font-weight: 600; color: var(--text-main); cursor: pointer; white-space: nowrap; }
 	.auto-seats input { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+	.furn-icon { display: inline-flex; color: #f59e0b; }
+	.table-rect.selected { stroke: var(--accent); stroke-width: 2.5; }
+	.mobile-my-seat, .map-top-btn, .sheet-seat-badge, .sheet-team, .sheet-actions .btn { display: inline-flex; align-items: center; gap: 0.3rem; }
 </style>
