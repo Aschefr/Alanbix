@@ -17,6 +17,7 @@ from collections import deque
 from .websockets import manager as ws_manager
 from .ia_title_utils import _build_title_prompt, _clean_title, _is_default_title
 from .ia_utils import ia_client
+from .ia_tool_loop import run_tool_rounds
 
 
 def is_openai_host(url: str) -> bool:
@@ -419,7 +420,6 @@ class IAQueueManager:
             
             # Phase 1: Legacy Double Call mode (if requested)
             if tools and tool_calling_mode == "legacy_double":
-                from .ia_tools import execute_tool
                 has_moderation = any(t.get("function", {}).get("name") == "block_user_from_ia" for t in tools)
                 moderation_instruction = ""
                 if has_moderation:
@@ -447,97 +447,18 @@ class IAQueueManager:
                 non_system = [m for m in tool_messages if m.get("role") != "system"]
                 tool_detect_msgs = system_msgs + [tool_instruction] + non_system
 
-                while tool_round < max_tool_rounds:
-                    tool_round += 1
-                    try:
-                        is_openai = is_openai_host(ollama_host)
-                        if is_openai:
-                            url = f"{ollama_host.rstrip('/')}/chat/completions"
-                            openai_req = {
-                                "model": req_data.get("model"),
-                                "messages": tool_detect_msgs,
-                                "stream": False,
-                                "temperature": req_data.get("options", {}).get("temperature", 0.2),
-                                "max_tokens": req_data.get("options", {}).get("num_predict", 4096),
-                            }
-                            if "tools" in req_data:
-                                openai_req["tools"] = req_data["tools"]
-                        else:
-                            url = f"{ollama_host.rstrip('/')}/api/chat"
-                            openai_req = {**req_data, "messages": tool_detect_msgs, "stream": False}
+                async def notify(name):
+                    await entry.result_stream.put({"status": "tool_call", "tool_name": name})
 
-                        tool_res = await client.post(
-                            url,
-                            json=openai_req,
-                            timeout=httpx.Timeout(connect=10.0, read=120.0, write=10.0, pool=10.0)
-                        )
-                        tool_data = tool_res.json()
-                    except Exception as e:
-                        print(f"[ToolCall] Non-streaming call failed: {e}", flush=True)
-                        break
-
-                    if is_openai:
-                        choices = tool_data.get("choices", [{}])
-                        msg = choices[0].get("message", {})
-                        tool_calls = msg.get("tool_calls")
-                        direct_content = msg.get("content", "")
-                        thinking_content = msg.get("thinking", "")
-                    else:
-                        msg = tool_data.get("message", {})
-                        tool_calls = msg.get("tool_calls")
-                        direct_content = msg.get("content", "")
-                        thinking_content = msg.get("thinking", "")
-
-                    is_xml_fallback = False
-                    if not tool_calls:
-                        text_to_search = direct_content + "\n" + (thinking_content or "")
-                        found_calls = []
-                        import re
-                        for match in re.finditer(r'<tool_call name="([^"]+)">\s*(.*?)\s*</tool_call>', text_to_search, re.DOTALL):
-                            name = match.group(1)
-                            args_str = match.group(2)
-                            try:
-                                args = json.loads(args_str)
-                            except Exception:
-                                try:
-                                    args = json.loads(args_str.replace("'", '"'))
-                                except Exception:
-                                    args = {}
-                            found_calls.append({"function": {"name": name, "arguments": args}})
-                        if found_calls:
-                            tool_calls = found_calls
-                            is_xml_fallback = True
-
-                    if not tool_calls:
-                        break
-
-                    if is_xml_fallback:
-                        tool_messages.append({"role": "assistant", "content": direct_content})
-                        tool_detect_msgs.append({"role": "assistant", "content": direct_content})
-                    else:
-                        tool_messages.append({"role": "assistant", "tool_calls": tool_calls})
-                        tool_detect_msgs.append({"role": "assistant", "tool_calls": tool_calls})
-
-                    for tc in tool_calls:
-                        fn = tc.get("function", {})
-                        fn_name = fn.get("name", "")
-                        fn_args = fn.get("arguments", {})
-                        await entry.result_stream.put({"status": "tool_call", "tool_name": fn_name})
-                        if fn_name not in used_tools:
-                            used_tools.append(fn_name)
-                        t_tool_start = time.time()
-                        try:
-                            result = await execute_tool(fn_name, fn_args, user_id=entry.user_id, conversation_id=entry.conversation_id or 0)
-                        except Exception as e:
-                            result = json.dumps({"error": str(e)})
-                        tool_time += (time.time() - t_tool_start)
-
-                        if is_xml_fallback:
-                            tool_messages.append({"role": "user", "content": f"Résultat de l'outil {fn_name}: {result}"})
-                            tool_detect_msgs.append({"role": "user", "content": f"Résultat de l'outil {fn_name}: {result}"})
-                        else:
-                            tool_messages.append({"role": "tool", "content": result})
-                            tool_detect_msgs.append({"role": "tool", "content": result})
+                outcome = await run_tool_rounds(
+                    client, ollama_host, req_data, tool_detect_msgs,
+                    user_id=entry.user_id, conversation_id=entry.conversation_id or 0,
+                    max_rounds=max_tool_rounds, on_tool_call=notify,
+                )
+                tool_messages.extend(outcome["added"])
+                used_tools.extend(outcome["used_tools"])
+                tool_time += outcome["tool_time"]
+                tool_round = outcome["rounds"]
 
             # Send initial thinking status (waiting for first token / prompt processing)
             await entry.result_stream.put({"status": "thinking"})
