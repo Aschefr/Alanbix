@@ -251,8 +251,10 @@
 			x += GRID_SIZE;
 			y += GRID_SIZE;
 		}
-		const newTable = { id: 'T' + n, x, y, w, h, label: 'Table ' + n, rotation: 0 };
+		// Auto seats on by default: the table comes with its seats, untick the box to place them by hand
+		const newTable = { id: 'T' + n, x, y, w, h, label: 'Table ' + n, rotation: 0, auto_seats: true };
 		layout.tables = [...layout.tables, newTable];
+		applyAutoSeats(newTable);
 		targetTableId = newTable.id; // auto-select new table
 	}
 
@@ -952,21 +954,21 @@
 							style="pointer-events: none;"
 						/>
 						
-						<!-- Confirmation controls just above the table top-right -->
-						<text x={table.x + table.w - 65} y={table.y - 10} text-anchor="end" fill="var(--danger)" font-weight="bold" font-size="12">{$t('map_delete_confirm_prompt')}</text>
+						<!-- Confirmation controls in the middle of the table, where its name was (the seats line its edges) -->
+						<text x={cx - 8} y={cy + 5} text-anchor="end" fill="var(--danger)" font-weight="bold" font-size="13">{$t('map_delete_confirm_prompt')}</text>
 						
 						<!-- Confirm button (check mark) -->
 						<!-- svelte-ignore a11y-no-static-element-interactions -->
 						<g class="confirm-delete-btn" on:click|stopPropagation={() => confirmDeleteTable(table.id)} style="cursor: pointer;">
-							<circle cx={table.x + table.w - 45} cy={table.y - 14} r="10" fill="var(--success)" stroke="white" stroke-width="1"/>
-							<text x={table.x + table.w - 45} y={table.y - 10} text-anchor="middle" fill="white" font-size="12" font-weight="bold">✓</text>
+							<circle cx={cx + 16} cy={cy} r="12" fill="var(--success)" stroke="white" stroke-width="1"/>
+							<text x={cx + 16} y={cy + 4.5} text-anchor="middle" fill="white" font-size="13" font-weight="bold">✓</text>
 						</g>
 						
 						<!-- Cancel button (cross mark) -->
 						<!-- svelte-ignore a11y-no-static-element-interactions -->
 						<g class="cancel-delete-btn" on:click|stopPropagation={() => { table.delete_pending = false; layout = layout; }} style="cursor: pointer;">
-							<circle cx={table.x + table.w - 20} cy={table.y - 14} r="10" fill="var(--text-muted)" stroke="white" stroke-width="1"/>
-							<text x={table.x + table.w - 20} y={table.y - 10} text-anchor="middle" fill="white" font-size="12" font-weight="bold">✕</text>
+							<circle cx={cx + 46} cy={cy} r="12" fill="var(--text-muted)" stroke="white" stroke-width="1"/>
+							<text x={cx + 46} y={cy + 4.5} text-anchor="middle" fill="white" font-size="13" font-weight="bold">✕</text>
 						</g>
 					{:else}
 						<text x={cx} y={cy + 5} text-anchor="middle" class="table-label">{table.label}</text>
