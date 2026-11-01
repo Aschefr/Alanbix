@@ -11,6 +11,11 @@
         ],
         "createdAt": "2026-10-31T10:53:13.421Z",
         "reason": "user confirmed 2026-10-31: the gradient app title is the app's signature style"
+      },
+      {
+        "rule": "design-system-font",
+        "value": "sfmono-regular",
+        "createdAt": "2026-11-01T14:43:48.234Z"
       }
     ]
   }
