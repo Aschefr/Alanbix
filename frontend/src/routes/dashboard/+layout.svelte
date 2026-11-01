@@ -757,7 +757,6 @@
 
 <!-- Tutorial Overlay -->
 <TutorialOverlay />
-<ServerConfigModal bind:isOpen={showServerModal} on:close={() => { connectionError = ''; initApp(); }} />
 
 {#if showChangelog}
 	<!-- svelte-ignore a11y-click-events-have-key-events -->
@@ -817,6 +816,9 @@
 	{/each}
 </div>
 {/if}
+
+<!-- Outside the loading branch: the offline screen needs it to change the server address -->
+<ServerConfigModal bind:isOpen={showServerModal} on:close={() => { connectionError = ''; initApp(); }} />
 
 
 <style>

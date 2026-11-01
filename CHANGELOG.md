@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.35.3] - Unreleased
+
+### 🐛 Fixes
+- **"Configure the server" button on the offline screen**: when the server could not be reached, the button did nothing because its window only existed once the app had finished loading. It now opens, so the server address can be changed from that screen.
+
 ## [1.35.2] - 2026-11-01
 
 ### 🐛 Fixes
