@@ -12,7 +12,8 @@
 		{ id: 'groq', label: 'Groq', url: 'https://api.groq.com/openai/v1' },
 		{ id: 'other', label: '', url: '' },
 	];
-	const CONTEXTS = [4096, 8192, 16384, 32768];
+	// Same presets as Settings > Artificial Intelligence > Model
+	const CONTEXTS = [2048, 4096, 8192, 16384, 32768, 65536, 131072];
 
 	let iaConfig = null;
 	let existing = [];
@@ -39,7 +40,7 @@
 		try {
 			iaConfig = await api.get('/ia/config');
 			existing = iaConfig.ollama_instances || [];
-			contextWindow = Math.max(iaConfig.context_window || 4096, 4096);
+			contextWindow = iaConfig.context_window || 8192;
 			if (iaConfig.ollama_host && !existing.length) localUrl = iaConfig.ollama_host;
 		} catch {}
 		mode = existing.length ? 'keep' : 'local';
@@ -168,7 +169,7 @@
 	<section class="block">
 		<h3><Icon name="layers" size={16} /> {$t('setup_ai_context_title')}</h3>
 		<p class="help">{$t('setup_ai_context_help')}</p>
-		<div class="seg">
+		<div class="seg ctx">
 			{#each CONTEXTS as c}
 				<button class:active={contextWindow === c} on:click={() => contextWindow = c}>{c / 1024}K</button>
 			{/each}
@@ -193,7 +194,10 @@
 	.md :global(a) { color: var(--accent); }
 
 	.choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.6rem; }
-	@media (max-width: 600px) { .choices { grid-template-columns: 1fr; } }
+	@media (max-width: 600px) {
+		.choices { grid-template-columns: 1fr; }
+		.seg.ctx { display: grid; grid-template-columns: repeat(4, 1fr); align-self: stretch; }
+	}
 	.choice { position: relative; display: flex; flex-direction: column; gap: 0.25rem; padding: 0.8rem 0.9rem; border: 1px solid var(--glass-border); border-radius: var(--radius-md); cursor: pointer; transition: border-color 0.15s, background 0.15s; }
 	.choice:hover { border-color: var(--text-muted); }
 	.choice.active { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 6%, transparent); }
