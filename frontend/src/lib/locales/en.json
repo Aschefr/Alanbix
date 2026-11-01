@@ -1839,7 +1839,7 @@
   "admin_ai_api_key_saved": "•••• key saved",
   "admin_ai_api_key_remove": "Remove the API key",
   "setup_ai_what_title": "What the assistant does",
-  "setup_ai_what_md": "The Alanbix assistant is a chat players open from the app:\n\n- it answers questions about the LAN from the **info page** (schedule, Wi-Fi, food…);\n- it knows the **tournaments**, the next matches and the leaderboard;\n- it helps with **technical problems** (ping, ports, a game that will not connect);\n- it can **call an organiser** when it does not know the answer;\n- it **moderates the public chat** and writes the end-of-tournament summary.\n\nIt is optional: everything else in Alanbix works without it.",
+  "setup_ai_what_md": "The Alanbix assistant is a chat players open from the app:\n\n- it answers questions about the LAN from the **info page** (schedule, Wi-Fi, food…);\n- it knows the **tournaments**, the next matches and the leaderboard;\n- it helps with **technical problems** (ping, ports, a game that will not connect);\n- it can **call an organiser** when it does not know the answer;\n- it answers in the **public chat** when someone calls it with @Alanbix;\n- it sends each player a **personal message at the end of a tournament**.\n\nIt is optional: everything else in Alanbix works without it.",
   "setup_ai_choice_title": "Which AI model?",
   "setup_ai_keep": "Keep the current setup",
   "setup_ai_none": "No assistant",

@@ -1828,7 +1828,7 @@
   "admin_ai_api_key_saved": "•••• clave guardada",
   "admin_ai_api_key_remove": "Eliminar la clave de API",
   "setup_ai_what_title": "Para qué sirve el asistente",
-  "setup_ai_what_md": "El asistente Alanbix es un chat que los jugadores abren desde la aplicación:\n\n- responde a las preguntas sobre la LAN a partir de la **página de información** (horarios, wifi, comidas…);\n- conoce los **torneos**, los próximos partidos y la clasificación;\n- ayuda con los **problemas técnicos** (ping, puertos, un juego que no conecta);\n- puede **llamar a un organizador** cuando no sabe responder;\n- **modera el chat público** y redacta el resumen de fin de torneo.\n\nEs opcional: todo lo demás de Alanbix funciona sin él.",
+  "setup_ai_what_md": "El asistente Alanbix es un chat que los jugadores abren desde la aplicación:\n\n- responde a las preguntas sobre la LAN a partir de la **página de información** (horarios, wifi, comidas…);\n- conoce los **torneos**, los próximos partidos y la clasificación;\n- ayuda con los **problemas técnicos** (ping, puertos, un juego que no conecta);\n- puede **llamar a un organizador** cuando no sabe responder;\n- responde en el **chat público** cuando lo llaman con @Alanbix;\n- envía a cada jugador un **mensaje personalizado al final de un torneo**.\n\nEs opcional: todo lo demás de Alanbix funciona sin él.",
   "setup_ai_choice_title": "¿Qué modelo de IA?",
   "setup_ai_keep": "Mantener la configuración actual",
   "setup_ai_none": "Sin asistente",
