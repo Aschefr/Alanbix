@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.35.2] - Unreleased
+## [1.35.2] - 2026-11-01
 
 ### 🐛 Fixes
 - **Memory slowly filling the swap (Raspberry Pi)**: every websocket connection kept a ~37 KB compression context, and connections cut abruptly (phones going to sleep, network drops) left it in memory. Per-message compression is now off (Alanbix messages are small JSON): in a test with 1,800 abruptly cut connections, memory stays flat instead of growing by about 75 MB.
