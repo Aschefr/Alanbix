@@ -341,6 +341,7 @@ async def send_message(
 
     # 8b. Reply-To Validation
     reply_to_id = None
+    replies_to_alanbix = False
     if payload.reply_to_id:
         parent_msg = db.query(models.PublicChatMessage).filter(
             models.PublicChatMessage.id == payload.reply_to_id,
@@ -348,6 +349,7 @@ async def send_message(
         ).first()
         if parent_msg:
             reply_to_id = parent_msg.id
+            replies_to_alanbix = bool(parent_msg.is_bot)
 
     # 9. Create and Save Message
     db_msg = models.PublicChatMessage(
@@ -399,8 +401,8 @@ async def send_message(
         "is_typing": False
     })
 
-    # 11. Trigger AI Reply if @Alanbix mentioned
-    if has_alanbix and config.get("ai_mention_enabled", True):
+    # 11. Trigger AI Reply if @Alanbix mentioned, or when a player answers one of Alanbix's messages
+    if (has_alanbix or replies_to_alanbix) and config.get("ai_mention_enabled", True):
         ai_cd = config.get("ai_cooldown_seconds", 15)
         if (now - _last_ai_reply_time) >= ai_cd:
             _last_ai_reply_time = now
@@ -412,16 +414,16 @@ async def send_message(
                 "is_bot": True,
                 "is_typing": True
             })
-            background_tasks.add_task(_process_alanbix_public_reply, db_msg.id, content, user.id)
+            background_tasks.add_task(_process_alanbix_public_reply, db_msg.id, user.id)
 
     return serialized
 
 
-async def _process_alanbix_public_reply(trigger_msg_id: int, user_prompt: str, author_id: int):
+async def _process_alanbix_public_reply(trigger_msg_id: int, author_id: int):
     """Background task to generate Alanbix's reply in public chat via the IA queue."""
     from ..ia_queue import queue_manager, QueueEntry
     from ..database import SessionLocal
-    from ..ia_public_chat import build_public_system_prompt
+    from ..ia_public_chat import build_public_system_prompt, build_thread_message
     from .ia import pick_instance, get_effective_config
 
     try:
@@ -444,36 +446,14 @@ async def _process_alanbix_public_reply(trigger_msg_id: int, user_prompt: str, a
             context_window = ia_cfg.get("context_window", 16384)
             temperature = ia_cfg.get("temperature", 0.7)
 
-            # Fetch sliding window (last 6 messages)
-            recent_msgs = (
-                db.query(models.PublicChatMessage)
-                .filter(models.PublicChatMessage.is_deleted == False)
-                .order_by(models.PublicChatMessage.id.desc())
-                .limit(6)
-                .all()
-            )
-            recent_msgs.reverse()
+            trigger = db.query(models.PublicChatMessage).filter(models.PublicChatMessage.id == trigger_msg_id).first()
+            if not trigger or trigger.is_deleted:
+                return
 
-            # Build conversation context string
-            context_lines = []
-            for m in recent_msgs:
-                sender = m.user.username if m.user else (m.sender_name or "Alanbix")
-                context_lines.append(f"{sender}: {m.content}")
-            chat_context = "\n".join(context_lines)
-
-            system_prompt, _ = build_public_system_prompt(db, models, author)
-            author_username = author.username
-
-            full_prompt = (
-                f"Voici les derniers échanges dans le chat public de la LAN :\n"
-                f"{chat_context}\n\n"
-                f"{author_username} s'est adressé à toi avec : \"{user_prompt}\"\n"
-                f"Réponds-lui directement dans le chat :"
-            )
-
+            system_prompt, lan_lang = build_public_system_prompt(db, models, author)
             messages = [
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": full_prompt}
+                {"role": "user", "content": build_thread_message(db, models, trigger, lan_lang)}
             ]
 
             entry = QueueEntry(
@@ -510,6 +490,8 @@ async def _process_alanbix_public_reply(trigger_msg_id: int, user_prompt: str, a
                         sender_name="Alanbix",
                         is_bot=True,
                         content=clean_response,
+                        # Shown as an answer to the player's message, so everyone sees whom Alanbix answers
+                        reply_to_id=trigger.id,
                         is_deleted=False,
                         created_at=datetime.datetime.utcnow()
                     )

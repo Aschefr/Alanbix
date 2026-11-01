@@ -16,6 +16,7 @@ PUBLIC_RULES = {
         "- Ne cite jamais les noms internes de tes outils ou fonctions, ni des chemins d'API.\n"
         "- Ici, tu ne peux ni prévenir un administrateur, ni envoyer de notification, ni faire d'annonce. Pour un problème technique ou une contestation, invite le joueur à écrire à l'Assistant IA (menu de l'application), qui peut alerter un organisateur.\n"
         "- Ne révèle rien de privé sur un joueur (notifications, conversations privées).\n"
+        "- Plusieurs joueurs écrivent dans ce chat. Le fil fourni indique qui parle et à qui il répond : sers-t'en pour suivre la conversation, et adresse-toi au joueur qui t'a sollicité. Tes réponses précédentes y sont marquées « Alanbix (toi) » : ne te répète pas.\n"
         "- Ne préfixe jamais ta réponse par ton nom."
     ),
     "en": (
@@ -25,6 +26,7 @@ PUBLIC_RULES = {
         "- Never mention the internal names of your tools or functions, nor API paths.\n"
         "- Here you cannot alert an administrator, send a notification or make an announcement. For a technical problem or a dispute, invite the player to write to the AI Assistant (app menu), which can alert an organiser.\n"
         "- Never reveal anything private about a player (notifications, private conversations).\n"
+        "- Several players write in this chat. The thread you get shows who speaks and whom they reply to: use it to follow the conversation, and address the player who called you. Your previous answers are marked \"Alanbix (you)\": do not repeat yourself.\n"
         "- Never prefix your answer with your name."
     ),
     "es": (
@@ -34,6 +36,7 @@ PUBLIC_RULES = {
         "- Nunca menciones los nombres internos de tus herramientas o funciones, ni rutas de API.\n"
         "- Aquí no puedes avisar a un administrador, enviar notificaciones ni hacer anuncios. Para un problema técnico o una disputa, invita al jugador a escribir al Asistente IA (menú de la aplicación), que puede alertar a un organizador.\n"
         "- Nunca reveles nada privado de un jugador (notificaciones, conversaciones privadas).\n"
+        "- Varios jugadores escriben en este chat. El hilo que recibes indica quién habla y a quién responde: úsalo para seguir la conversación y dirígete al jugador que te llamó. Tus respuestas anteriores aparecen como «Alanbix (tú)»: no te repitas.\n"
         "- Nunca empieces tu respuesta con tu nombre."
     ),
 }
@@ -66,6 +69,91 @@ def asker_matches_block(db, models, user, lang: str) -> str:
         opponent = f"{L['vs']} {opponent}" if opponent and "BYE" not in opponent else L["tbd"]
         lines.append(f"  - {m.get('tournament')}, {m.get('round')}, {opponent}")
     return "\n".join(lines)
+
+
+THREAD = {
+    "fr": {"intro": "Fil récent du chat public, du plus ancien au plus récent :", "empty": "(aucun message récent)",
+           "you": "Alanbix (toi)", "reply": "en réponse à", "image": "[image]",
+           "answer": "Message auquel tu réponds, de {name} :"},
+    "en": {"intro": "Recent public chat thread, oldest first:", "empty": "(no recent message)",
+           "you": "Alanbix (you)", "reply": "replying to", "image": "[image]",
+           "answer": "Message you answer, from {name}:"},
+    "es": {"intro": "Hilo reciente del chat público, del más antiguo al más reciente:", "empty": "(ningún mensaje reciente)",
+           "you": "Alanbix (tú)", "reply": "en respuesta a", "image": "[imagen]",
+           "answer": "Mensaje al que respondes, de {name}:"},
+}
+
+# Enough to follow a discussion without drowning the question in old chatter
+HISTORY_LIMIT = 20
+HISTORY_MINUTES = 30
+# Older messages the asked one replies to, followed up the reply chain
+REPLY_CHAIN_DEPTH = 4
+EXCERPT_CHARS = 60
+
+
+def _speaker(m, L) -> str:
+    if m.is_bot:
+        return L["you"]
+    return m.user.username if m.user else (m.sender_name or "?")
+
+
+def _text(m, L) -> str:
+    text = " ".join((m.content or "").split())
+    if m.image_path:
+        text = f"{L['image']} {text}".strip()
+    return text
+
+
+def _clock(m) -> str:
+    import datetime as dt
+    import zoneinfo
+    if not m.created_at:
+        return "--:--"
+    stamp = m.created_at.replace(tzinfo=dt.timezone.utc).astimezone(zoneinfo.ZoneInfo("Europe/Paris"))
+    return stamp.strftime("%H:%M")
+
+
+def _line(m, L) -> str:
+    who = _speaker(m, L)
+    parent = m.reply_to
+    if parent is not None and not parent.is_deleted:
+        excerpt = _text(parent, L)
+        if len(excerpt) > EXCERPT_CHARS:
+            excerpt = excerpt[:EXCERPT_CHARS].rstrip() + "…"
+        who = f"{who} ({L['reply']} {_speaker(parent, L)} « {excerpt} »)"
+    return f"[{_clock(m)}] {who}: {_text(m, L)}"
+
+
+def build_thread_message(db, models, trigger, lang: str) -> str:
+    """The recent public chat as a thread (speakers, replies, Alanbix's own answers), then the message to answer."""
+    import datetime as dt
+    L = THREAD[_lang(lang)]
+    Msg = models.PublicChatMessage
+    since = (trigger.created_at or dt.datetime.utcnow()) - dt.timedelta(minutes=HISTORY_MINUTES)
+    recent = (
+        db.query(Msg)
+        .filter(Msg.is_deleted == False, Msg.id < trigger.id, Msg.created_at >= since)
+        .order_by(Msg.id.desc())
+        .limit(HISTORY_LIMIT)
+        .all()
+    )
+    by_id = {m.id: m for m in recent}
+    # The conversation the asked message belongs to, even when it started before the window
+    parent, depth = trigger.reply_to, 0
+    while parent is not None and depth < REPLY_CHAIN_DEPTH:
+        if not parent.is_deleted:
+            by_id.setdefault(parent.id, parent)
+        parent, depth = parent.reply_to, depth + 1
+
+    lines = [_line(m, L) for m in sorted(by_id.values(), key=lambda m: m.id)]
+    asker = trigger.user.username if trigger.user else "?"
+    return "\n".join([
+        L["intro"],
+        *(lines or [L["empty"]]),
+        "",
+        L["answer"].format(name=asker),
+        _line(trigger, L),
+    ])
 
 
 def build_public_system_prompt(db, models, asker) -> tuple[str, str]:
