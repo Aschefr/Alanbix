@@ -1905,5 +1905,8 @@
   "setup_sim_team_a": "The Foxes",
   "setup_sim_team_b": "The Owls",
   "setup_sim_team_avg_detail": "{sum} pts ÷ {n} members: fair between teams of different sizes",
-  "setup_sim_team_sum_detail": "Members' total: favours larger teams"
+  "setup_sim_team_sum_detail": "Members' total: favours larger teams",
+  "map_auto_seats": "Auto seats",
+  "map_auto_seats_hint": "Adds or removes seats automatically when the table is resized. An occupied seat is never removed.",
+  "map_auto_seats_locked": "Auto seats are on for this table: resize it to change the number of seats, or untick “Auto seats”."
 }

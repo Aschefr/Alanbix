@@ -1905,5 +1905,8 @@
   "setup_sim_team_a": "Les Renards",
   "setup_sim_team_b": "Les Hiboux",
   "setup_sim_team_avg_detail": "{sum} pts ÷ {n} membres : juste entre équipes de tailles différentes",
-  "setup_sim_team_sum_detail": "Total des membres : avantage aux équipes nombreuses"
+  "setup_sim_team_sum_detail": "Total des membres : avantage aux équipes nombreuses",
+  "map_auto_seats": "Sièges auto",
+  "map_auto_seats_hint": "Ajoute ou retire les sièges automatiquement quand la table est redimensionnée. Un siège occupé n'est jamais retiré.",
+  "map_auto_seats_locked": "Sièges auto activés sur cette table : redimensionnez-la pour changer le nombre de sièges, ou décochez « Sièges auto »."
 }

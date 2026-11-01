@@ -6,7 +6,7 @@
 	import { api } from '$lib/api';
 	import { page } from '$app/stores';
 	import { wsMessageStore } from '$lib/ws';
-	import { SEAT_SIZE, SEAT_RING, TABLE_DEPTH, firstFreeSlot } from '$lib/roomLayout';
+	import { SEAT_SIZE, SEAT_RING, TABLE_DEPTH, firstFreeSlot, autoSeatLayout } from '$lib/roomLayout';
 
 	let layout = { seats: [], tables: [], furniture: [] };
 
@@ -299,11 +299,13 @@
 		// Use selected table, fallback to first table
 		const tId = targetTableId || (layout.tables.length > 0 ? layout.tables[0].id : 'T1');
 		const table = layout.tables.find(t => t.id === tId);
+		if (table?.auto_seats) { toast($t('map_auto_seats_locked'), 'info'); return; }
 		let sx = 200, sy = 200;
 		const sn = nextSeatNum(tId);
 		
 		if (table) {
-			const slot = findFirstFreeSlot(table);
+			// Both sides full: keep going on rows just above and below the table
+			const slot = findFirstFreeSlot(table) || findFirstFreeSlot(table, 12);
 			if (slot) {
 				const half = SEAT_SIZE / 2;
 				const snappedCx = slot.x;
@@ -401,11 +403,25 @@
 		addSeat();
 	}
 	// Next free place around the table (top row, then bottom row), centre in the table's unrotated frame
-	function findFirstFreeSlot(table) {
+	// extraRows > 0 continues on rows further out once both sides are full (the "+ Seat" button)
+	function findFirstFreeSlot(table, extraRows = 0) {
 		const half = SEAT_SIZE / 2;
 		// Skip a slot covered by another table or seat (checked on unrotated tables only)
 		const blocked = (slot) => !(table.rotation % 360) && hasCollision({ id: table.id + '_S?' }, slot.x - half, slot.y - half, SEAT_SIZE, SEAT_SIZE);
-		return firstFreeSlot(table, layout.seats.filter(s => s.id.startsWith(table.id + '_')), blocked);
+		return firstFreeSlot(table, layout.seats.filter(s => s.id.startsWith(table.id + '_')), blocked, extraRows);
+	}
+
+	// "Auto seats": the table holds as many seats as its length allows, recomputed when it is resized
+	$: targetTable = layout.tables.find(t => t.id === targetTableId);
+	function applyAutoSeats(table) {
+		const mine = layout.seats.filter(s => s.id.startsWith(table.id + '_'));
+		const others = layout.seats.filter(s => !s.id.startsWith(table.id + '_'));
+		layout.seats = [...others, ...autoSeatLayout(table, mine, id => !!getOccupant(id))];
+	}
+	function toggleAutoSeats(table, on) {
+		table.auto_seats = on;
+		if (on) applyAutoSeats(table);
+		layout = layout;
 	}
 
 	function getNextSeatPos(table) {
@@ -431,6 +447,7 @@
 		dragType = type;
 		dragStart = { x: p.x, y: p.y };
 		dragOriginal = { x: table.x, y: table.y, w: table.w, h: table.h, rotation: table.rotation || 0 };
+		if (layout.tables.includes(table)) targetTableId = table.id; // clicking a table selects it in the toolbar
 		// Capture child seats' original positions for coordinated move or rotation
 		if (type === 'move' || type === 'rotate') {
 			dragChildSeats = layout.seats
@@ -494,6 +511,7 @@
 				dragging.w = Math.max(minW, snapToGrid(dragOriginal.w - dx));
 				dragging.h = Math.max(minH, snapToGrid(dragOriginal.h - dy));
 			}
+			if (dragging.auto_seats) applyAutoSeats(dragging);
 		} else if (dragType === 'rotate') {
 			const cx = dragOriginal.x + dragOriginal.w / 2;
 			const cy = dragOriginal.y + dragOriginal.h / 2;
@@ -826,7 +844,13 @@
 							<option value={t.id}>{t.id} — {t.label}</option>
 						{/each}
 					</select>
-					<button class="btn-secondary" on:click={addSeat}>{$t("map_btn_add_seat")}</button>
+					<button class="btn-secondary" on:click={addSeat} disabled={!!targetTable?.auto_seats} title={targetTable?.auto_seats ? $t('map_auto_seats_locked') : ''}>{$t("map_btn_add_seat")}</button>
+					{#if targetTable}
+						<label class="auto-seats" title={$t('map_auto_seats_hint')}>
+							<input type="checkbox" checked={!!targetTable.auto_seats} on:change={(e) => toggleAutoSeats(targetTable, e.currentTarget.checked)} />
+							<span>{$t('map_auto_seats')}</span>
+						</label>
+					{/if}
 					<span class="toolbar-sep">|</span>
 					<select class="table-select" bind:value={selectedFurnitureType}>
 						{#each FURNITURE_TYPES as ft}
@@ -947,7 +971,7 @@
 					{:else}
 						<text x={cx} y={cy + 5} text-anchor="middle" class="table-label">{table.label}</text>
 						{#if editMode}
-							{@const nextPos = getNextSeatPos(table)}
+							{@const nextPos = table.auto_seats ? null : getNextSeatPos(table)}
 							{#if nextPos}
 								<!-- Add seat button "+" at the next free seat position -->
 								<!-- svelte-ignore a11y-no-static-element-interactions -->
@@ -1496,4 +1520,6 @@
 		.sheet-actions .btn { text-decoration: none; display: inline-flex; align-items: center; }
 	}
 
+	.auto-seats { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0 0.4rem; font-size: 0.85rem; font-weight: 600; color: var(--text-main); cursor: pointer; white-space: nowrap; }
+	.auto-seats input { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
 </style>

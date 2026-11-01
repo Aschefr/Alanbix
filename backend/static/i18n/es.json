@@ -1894,5 +1894,8 @@
   "setup_sim_team_a": "Los Zorros",
   "setup_sim_team_b": "Los Búhos",
   "setup_sim_team_avg_detail": "{sum} pts ÷ {n} miembros: justo entre equipos de distinto tamaño",
-  "setup_sim_team_sum_detail": "Total de los miembros: favorece a los equipos grandes"
+  "setup_sim_team_sum_detail": "Total de los miembros: favorece a los equipos grandes",
+  "map_auto_seats": "Sitios automáticos",
+  "map_auto_seats_hint": "Añade o quita sitios automáticamente al redimensionar la mesa. Un sitio ocupado nunca se quita.",
+  "map_auto_seats_locked": "Sitios automáticos activados en esta mesa: redimensiónela para cambiar el número de sitios, o desmarque «Sitios automáticos»."
 }
