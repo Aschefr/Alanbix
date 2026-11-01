@@ -16,6 +16,24 @@
         "rule": "design-system-font",
         "value": "sfmono-regular",
         "createdAt": "2026-11-01T14:43:48.234Z"
+      },
+      {
+        "rule": "gradient-text",
+        "value": "*",
+        "files": [
+          "frontend/src/routes/spectator/+page.svelte"
+        ],
+        "createdAt": "2026-11-01T15:40:26.010Z",
+        "reason": "user confirmed: projector screen kept as is (2026-11-01)"
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "frontend/src/routes/spectator/+page.svelte"
+        ],
+        "createdAt": "2026-11-01T15:40:26.237Z",
+        "reason": "user confirmed: projector screen kept as is (2026-11-01)"
       }
     ]
   }
