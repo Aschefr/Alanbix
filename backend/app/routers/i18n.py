@@ -9,6 +9,7 @@ from typing import Dict, Any, List
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from .. import models, database, auth
+from ..ia_utils import ia_client
 from .ia import get_effective_config, get_instances, _check_instance_health, pick_instance
 
 router = APIRouter(prefix="/api/i18n", tags=["i18n"])
@@ -341,7 +342,7 @@ async def bulk_translate(
                         "options": {"temperature": 0.1}
                     }
 
-                async with httpx.AsyncClient() as client:
+                async with ia_client() as client:
                     res = await client.post(request_url, json=payload, timeout=httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=10.0))
 
                 if res.status_code != 200:

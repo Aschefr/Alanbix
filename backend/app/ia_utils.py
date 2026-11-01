@@ -78,6 +78,41 @@ def is_openai_host(url: str) -> bool:
     clean = url.rstrip("/")
     return clean.endswith("/v1") or "/v1/" in clean or "openai" in clean.lower()
 
+
+# API keys of the AI instances (online OpenAI-compatible services), by base URL.
+# Refreshed every time the instance list is read; never sent back to the browser.
+_API_KEYS: dict = {}
+
+
+def register_instance_keys(instances) -> None:
+    global _API_KEYS
+    _API_KEYS = {
+        inst["url"].rstrip("/"): inst["api_key"].strip()
+        for inst in (instances or [])
+        if inst.get("url") and (inst.get("api_key") or "").strip()
+    }
+
+
+def api_key_for(url: str) -> str:
+    """Key of the instance whose base URL starts the given request URL (longest match)."""
+    best, key = "", ""
+    for base, k in _API_KEYS.items():
+        if url.startswith(base) and len(base) > len(best):
+            best, key = base, k
+    return key
+
+
+async def _add_api_key(request: httpx.Request) -> None:
+    if "authorization" not in request.headers:
+        key = api_key_for(str(request.url))
+        if key:
+            request.headers["Authorization"] = f"Bearer {key}"
+
+
+def ia_client(**kwargs) -> httpx.AsyncClient:
+    """httpx client for AI backends: adds the instance's API key when it has one."""
+    return httpx.AsyncClient(event_hooks={"request": [_add_api_key]}, **kwargs)
+
 async def get_embedding(text: str, ollama_host: str = None, timeout: float = 60.0):
     """Get embedding vector from Ollama or OpenAI for a single text."""
     host = ollama_host or OLLAMA_HOST
@@ -97,7 +132,7 @@ async def get_embedding(text: str, ollama_host: str = None, timeout: float = 60.
                 "prompt": text
             }
 
-        async with httpx.AsyncClient() as client:
+        async with ia_client() as client:
             response = await client.post(
                 url,
                 json=payload,
