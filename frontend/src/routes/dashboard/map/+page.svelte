@@ -164,25 +164,70 @@
 		return Math.round(angle / SNAP_ANGLE) * SNAP_ANGLE;
 	}
 
-	function snapTableEdges(table) {
-		const others = layout.tables.filter(t => t.id !== table.id);
-		let sx = table.x, sy = table.y;
+	// Alignment guides while dragging: edges and centres line up with the other tables and
+	// elements (dashed line), and a stack of tables snaps to an equal gap (pink markers)
+	let guides = [];
+	let gapMarks = [];
+	function snapTableEdges(item) {
+		const others = [...layout.tables, ...layout.furniture].filter(o => o !== item);
+		const xs = (r) => [r.x, r.x + r.w / 2, r.x + r.w];
+		const ys = (r) => [r.y, r.y + r.h / 2, r.y + r.h];
+		let bestX = null, bestY = null;
 		for (const o of others) {
-			// Right edge → Left edge
-			if (Math.abs((table.x + table.w) - o.x) < SNAP_DIST) sx = o.x - table.w;
-			// Left edge → Right edge
-			if (Math.abs(table.x - (o.x + o.w)) < SNAP_DIST) sx = o.x + o.w;
-			// Bottom edge → Top edge
-			if (Math.abs((table.y + table.h) - o.y) < SNAP_DIST) sy = o.y - table.h;
-			// Top edge → Bottom edge
-			if (Math.abs(table.y - (o.y + o.h)) < SNAP_DIST) sy = o.y + o.h;
-			// Left align
-			if (Math.abs(table.x - o.x) < SNAP_DIST) sx = o.x;
-			// Top align
-			if (Math.abs(table.y - o.y) < SNAP_DIST) sy = o.y;
+			for (const a of xs(item)) for (const b of xs(o)) {
+				const d = b - a;
+				if (Math.abs(d) < SNAP_DIST && (!bestX || Math.abs(d) < Math.abs(bestX.d))) bestX = { d, at: b, o };
+			}
+			for (const a of ys(item)) for (const b of ys(o)) {
+				const d = b - a;
+				if (Math.abs(d) < SNAP_DIST && (!bestY || Math.abs(d) < Math.abs(bestY.d))) bestY = { d, at: b, o };
+			}
 		}
-		table.x = sx;
-		table.y = sy;
+		if (bestX) item.x += bestX.d;
+		if (bestY) item.y += bestY.d;
+
+		// Equal gap with the two nearest tables in the same column (vertical) or row (horizontal)
+		gapMarks = [];
+		const tables = layout.tables.filter(o => o !== item);
+		const overlapX = (o) => o.x < item.x + item.w && o.x + o.w > item.x;
+		const overlapY = (o) => o.y < item.y + item.h && o.y + o.h > item.y;
+		const above = tables.filter(o => overlapX(o) && o.y + o.h <= item.y).sort((a, b) => (b.y + b.h) - (a.y + a.h));
+		if (above.length >= 2 && overlapX(above[1])) {
+			const ref = above[0].y - (above[1].y + above[1].h);
+			const gap = item.y - (above[0].y + above[0].h);
+			if (Math.abs(gap - ref) < SNAP_DIST) {
+				item.y += ref - gap;
+				const mx = item.x + item.w / 2;
+				gapMarks = [
+					{ x1: mx, y1: above[1].y + above[1].h, x2: mx, y2: above[0].y },
+					{ x1: mx, y1: above[0].y + above[0].h, x2: mx, y2: item.y },
+				];
+			}
+		}
+		const left = tables.filter(o => overlapY(o) && o.x + o.w <= item.x).sort((a, b) => (b.x + b.w) - (a.x + a.w));
+		if (!gapMarks.length && left.length >= 2 && overlapY(left[1])) {
+			const ref = left[0].x - (left[1].x + left[1].w);
+			const gap = item.x - (left[0].x + left[0].w);
+			if (Math.abs(gap - ref) < SNAP_DIST) {
+				item.x += ref - gap;
+				const my = item.y + item.h / 2;
+				gapMarks = [
+					{ x1: left[1].x + left[1].w, y1: my, x2: left[0].x, y2: my },
+					{ x1: left[0].x + left[0].w, y1: my, x2: item.x, y2: my },
+				];
+			}
+		}
+
+		// Guide lines across both shapes (after the final position)
+		guides = [];
+		if (bestX) {
+			const o = bestX.o, x = bestX.at;
+			guides.push({ x1: x, y1: Math.min(item.y, o.y) - 20, x2: x, y2: Math.max(item.y + item.h, o.y + o.h) + 20 });
+		}
+		if (bestY) {
+			const o = bestY.o, y = bestY.at;
+			guides.push({ x1: Math.min(item.x, o.x) - 20, y1: y, x2: Math.max(item.x + item.w, o.x + o.w) + 20, y2: y });
+		}
 	}
 
 	function intersects(r1, r2) {
@@ -734,6 +779,8 @@
 	}
 
 	function onMouseUp(e) {
+		guides = [];
+		gapMarks = [];
 		if (isPanning) { isPanning = false; return; }
 		dragging = null;
 	}
@@ -1371,6 +1418,17 @@
 					{/if}
 				</g>
 			{/each}
+
+			{#if editMode && dragging}
+				{#each guides as g}
+					<line x1={g.x1} y1={g.y1} x2={g.x2} y2={g.y2} class="guide-line" />
+				{/each}
+				{#each gapMarks as g}
+					<line x1={g.x1} y1={g.y1} x2={g.x2} y2={g.y2} class="gap-line" />
+					<circle cx={g.x1} cy={g.y1} r="3" class="gap-end" />
+					<circle cx={g.x2} cy={g.y2} r="3" class="gap-end" />
+				{/each}
+			{/if}
 		</svg>
 	</div>
 
@@ -1790,4 +1848,8 @@
 	.unsaved-dialog h2 :global(svg) { color: var(--warning); }
 	.unsaved-dialog p { margin: 0 0 1.1rem; font-size: 0.9rem; line-height: 1.5; color: var(--text-dim); }
 	.unsaved-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.5rem; }
+	/* Alignment guides while dragging */
+	.guide-line { stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 5 4; pointer-events: none; }
+	.gap-line { stroke: #ec4899; stroke-width: 2; pointer-events: none; }
+	.gap-end { fill: #ec4899; pointer-events: none; }
 </style>
