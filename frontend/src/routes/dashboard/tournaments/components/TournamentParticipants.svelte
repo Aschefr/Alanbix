@@ -114,16 +114,16 @@
 	.section-title { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
 	.section-title h3 { font-size: var(--fs-sub); font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-dim); margin: 0; }
 	.btn-xs { padding: 0.3rem 0.6rem; font-size: 0.7rem; }
-	.part-count { font-size: 0.6rem; background: var(--accent-soft); color: var(--accent); padding: 0.1rem 0.4rem; border-radius: 10px; font-weight: 800; border: 1px solid rgba(59,130,246,0.15); margin-left: 0.3rem; }
+	.part-count { font-size: 0.7rem; background: var(--accent-soft); color: var(--accent); padding: 0.1rem 0.4rem; border-radius: 10px; font-weight: 800; border: 1px solid rgba(59,130,246,0.15); margin-left: 0.3rem; }
 	.part-bulk-actions { display: flex; gap: 0.4rem; align-items: center; }
 	.part-cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.75rem; }
 	.part-card { padding: 0.75rem; border-radius: 10px; }
 	.part-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; padding-bottom: 0.4rem; border-bottom: 1px solid var(--glass-border); }
 	.part-card-name { font-weight: 800; font-size: 0.85rem; color: var(--accent); }
-	.part-card-count { font-size: 0.6rem; background: rgba(255,255,255,0.06); padding: 0.1rem 0.4rem; border-radius: 8px; color: var(--text-muted); font-weight: 700; }
+	.part-card-count { font-size: 0.7rem; background: rgba(255,255,255,0.06); padding: 0.1rem 0.4rem; border-radius: 8px; color: var(--text-muted); font-weight: 700; }
 	.part-card-members { display: flex; flex-direction: column; gap: 0.3rem; }
 	.part-member-row { display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; padding: 0.25rem 0.4rem; background: rgba(59,130,246,0.08); border-radius: 6px; font-weight: 600; color: var(--text-main); }
-	.part-member-remove { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.65rem; opacity: 0.4; transition: all 0.15s; }
+	.part-member-remove { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.7rem; opacity: 0.4; transition: all 0.15s; }
 	.part-member-remove:hover { opacity: 1; color: var(--danger, #ef4444); }
 
 	.pool-badge[draggable="true"] { cursor: grab; transition: opacity 0.2s, transform 0.2s; }
@@ -138,7 +138,7 @@
 	.admin-btn.stop { border-color: rgba(239,68,68,0.3); color: var(--danger); }
 	.admin-btn.stop:hover { background: rgba(239,68,68,0.15); }
 	.inline-confirm { display: inline-flex; align-items: center; gap: 0.4rem; animation: fadeIn 0.15s ease-out; }
-	.inline-confirm-label { font-size: 0.65rem; font-weight: 700; color: var(--text-main); white-space: nowrap; }
+	.inline-confirm-label { font-size: 0.7rem; font-weight: 700; color: var(--text-main); white-space: nowrap; }
 	.admin-btn.confirm-yes { border-color: rgba(34,197,94,0.4); color: var(--success); font-weight: 800; }
 	.admin-btn.confirm-yes:hover { background: rgba(34,197,94,0.2); }
 	.admin-btn.confirm-no { border-color: rgba(239,68,68,0.3); color: var(--danger); padding: 0.2rem 0.5rem; min-width: unset; }
@@ -147,12 +147,12 @@
 
 	/* Unreg Section */
 	.unreg-section { padding: 1rem; border-radius: 14px; }
-	.unreg-hint { font-size: 0.6rem; color: var(--text-muted); font-style: italic; }
+	.unreg-hint { font-size: 0.7rem; color: var(--text-muted); font-style: italic; }
 	.unreg-badges { display: flex; flex-wrap: wrap; gap: 0.35rem; }
 	.unreg-badge { display: flex; align-items: center; gap: 0.3rem; padding: 0.3rem 0.6rem; border-radius: 20px; font-size: 0.72rem; font-weight: 600; background: var(--surface-raised); border: 1px solid var(--glass-border); color: var(--text-dim); cursor: pointer; transition: all 0.2s; }
 	.unreg-badge:hover { background: var(--map-user-option-hover); border-color: var(--accent); color: var(--accent); }
 	.unreg-name { color: inherit; }
-	.unreg-team { color: var(--text-muted); font-size: 0.6rem; }
+	.unreg-team { color: var(--text-muted); font-size: 0.7rem; }
 	.unreg-badge:hover .unreg-team { color: var(--text-dim); }
 	.unreg-plus { color: var(--accent); font-weight: 800; font-size: 0.8rem; opacity: 0; transition: opacity 0.15s; }
 	.unreg-badge:hover .unreg-plus { opacity: 1; }
@@ -200,7 +200,7 @@
 		.unreg-badge {
 			border-radius: 3px !important;
 			padding: 0.2rem 0.45rem;
-			font-size: 0.68rem;
+			font-size: 0.7rem;
 		}
 	}
 </style>

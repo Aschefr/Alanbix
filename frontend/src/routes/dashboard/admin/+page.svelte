@@ -1,5 +1,5 @@
 <script>
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount, onDestroy, tick } from 'svelte';
 	import { api } from '$lib/api';
 	import { wsMessageStore } from '$lib/ws';
 	import { t, customPageTitle } from '$lib/i18nStore';
@@ -11,6 +11,22 @@
 	import AdminAwardsTab from './components/AdminAwardsTab.svelte';
 	import AdminRegieTab from './components/AdminRegieTab.svelte';
 	let regiePending = 0;
+
+	// Phone: the tab strip scrolls; fade the edges that hide more tabs and keep the active one in view
+	let tabsEl;
+	let fadeStart = false;
+	let fadeEnd = false;
+	function updateFade() {
+		if (!tabsEl) return;
+		fadeStart = tabsEl.scrollLeft > 4;
+		fadeEnd = tabsEl.scrollLeft + tabsEl.clientWidth < tabsEl.scrollWidth - 4;
+	}
+	async function centerActiveTab() {
+		await tick();
+		tabsEl?.querySelector('button.active')?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+		updateFade();
+	}
+	$: if (tabsEl && activeTab) centerActiveTab();
 
 	let authorized = false;
 	let wsUnsub = null;
@@ -143,7 +159,7 @@
 <div class="admin-view">
 	<header class="flex-row justify-between items-center">
 		<h1 class="title-premium">{$t('admin_title')}</h1>
-		<div class="tabs glass">
+		<div class="tabs glass" class:fade-start={fadeStart} class:fade-end={fadeEnd} bind:this={tabsEl} on:scroll={updateFade}>
 			<button class={activeTab === 'regie' ? 'active' : ''} on:click={() => activeTab = 'regie'}>
 				{$t('admin_tab_regie')}
 				{#if regiePending > 0}<span class="regie-badge">{regiePending}</span>{/if}
@@ -158,13 +174,13 @@
 				{/if}
 			</button>
 			<button class={activeTab === 'awards' ? 'active' : ''} on:click={() => { activeTab = 'awards'; if (awardsTabRef) awardsTabRef.loadAwardsTab(); }}><Icon name="trophy" size={15} /> {$t('admin_tab_awards')}</button>
-			<button on:click={() => window.location.href = '/dashboard/admin/languages'}><Icon name="globe" size={15} /> {$t('admin_tab_languages')}</button>
+			<button class="desktop-only" on:click={() => window.location.href = '/dashboard/admin/languages'}><Icon name="globe" size={15} /> {$t('admin_tab_languages')}</button>
 		</div>
 	</header>
 
 	<div class="tab-content animate-in">
 		{#if activeTab === 'regie'}
-			<AdminRegieTab {tournaments} onReload={loadGamesAndTournaments} onOpenConversation={(id) => { selectedConvId = id; activeTab = 'conversations'; }} onOpenPlayer={(name) => { playersInitialQuery = name; activeTab = 'players'; }} bind:pendingCount={regiePending} {toast} />
+			<AdminRegieTab {games} {tournaments} onReload={loadGamesAndTournaments} onOpenConversation={(id) => { selectedConvId = id; activeTab = 'conversations'; }} onOpenPlayer={(name) => { playersInitialQuery = name; activeTab = 'players'; }} bind:pendingCount={regiePending} {toast} />
 		{:else if activeTab === 'tournaments'}
 			<AdminTournamentsTab {games} {tournaments} onReload={loadGamesAndTournaments} {toast} />
 		{:else if activeTab === 'players'}
@@ -197,7 +213,7 @@
 	.tabs { display: flex; padding: 0.3rem; border-radius: 12px; background: var(--surface-sunken); border: 1px solid var(--glass-border); flex-wrap: wrap; gap: 0.25rem; }
 	.tabs button { display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; padding: 0.6rem 1.1rem; border: none; background: transparent; color: var(--text-dim); cursor: pointer; font-weight: 600; border-radius: 8px; transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1); font-size: var(--fs-sub); font-family: var(--font-main); }
 	.tabs button:hover:not(.active) { color: var(--text-main); background: var(--hover-tint); }
-	.tabs button.active { background: var(--accent); color: white; box-shadow: 0 4px 14px var(--accent-glow); font-weight: 700; }
+	.tabs button.active { background: var(--accent-solid); color: white; box-shadow: 0 4px 14px var(--accent-glow); font-weight: 700; }
 
 	/* Toast System */
 	.toast-container { position: fixed; top: 1.5rem; right: 1.5rem; z-index: 10000; display: flex; flex-direction: column; gap: 0.75rem; pointer-events: none; }
@@ -222,9 +238,37 @@
 	.regie-badge { background: var(--danger); color: #fff; padding: 0.05rem 0.45rem; border-radius: 999px; font-size: 0.72rem; font-weight: 700; margin-left: 0.4rem; }
 	/* Phone: title above, tabs as one horizontally scrollable strip */
 	@media (max-width: 900px) {
-		.admin-view > header { flex-direction: column; align-items: stretch; gap: 0.6rem; }
-		.tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+		.admin-view { gap: 0.75rem; }
+		.admin-view > header { flex-direction: column; align-items: stretch; gap: 0.5rem; }
+		.admin-view h1 { font-size: 1.35rem; margin: 0; }
+		.tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding: 0.2rem; }
 		.tabs::-webkit-scrollbar { display: none; }
-		.tabs button { flex-shrink: 0; white-space: nowrap; }
+		.tabs button { flex-shrink: 0; white-space: nowrap; padding: 0.5rem 0.85rem; }
+		/* the translation editor is for computers only */
+		.tabs button.desktop-only { display: none; }
+		/* the edges that hide other tabs fade out */
+		.tabs.fade-end { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent); }
+		.tabs.fade-start { -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 36px), transparent); mask-image: linear-gradient(to left, #000 calc(100% - 36px), transparent); }
+		.tabs.fade-start.fade-end { -webkit-mask-image: linear-gradient(to right, transparent, #000 36px, #000 calc(100% - 36px), transparent); mask-image: linear-gradient(to right, transparent, #000 36px, #000 calc(100% - 36px), transparent); }
+
+		/* Flat sections: the content gets the full width instead of a card inside a card, and the page scrolls once */
+		.tab-content :global(section.glass),
+		.tab-content :global(.players-view.glass) {
+			background: transparent; border: none; box-shadow: none; backdrop-filter: none; border-radius: 0;
+			padding: 0.25rem 0 !important;
+			max-height: none !important; overflow: visible !important;
+		}
+		.tab-content :global(section.glass + section.glass),
+		.tab-content :global(section.glass + .players-view.glass) {
+			border-top: 1px solid var(--glass-border); padding-top: 1rem !important;
+		}
+		.tab-content :global(.rg-list) { max-height: none; overflow: visible; }
+		/* Exception: the AI conversations list stays in its own scrolling frame so the admin calls below stay close */
+		.tab-content :global(section.glass.conv-list) {
+			max-height: min(55vh, 460px) !important; overflow-y: auto !important; overscroll-behavior: contain;
+			border: 1px solid var(--glass-border); border-radius: 12px; padding: 0.5rem 0.6rem !important;
+			background: var(--surface-sunken);
+		}
 	}
+	@media (max-width: 1100px) { :global(html.conv-chat-open) .admin-view > header { display: none; } }
 </style>

@@ -3,7 +3,7 @@
 	import { t, currentLang } from '$lib/i18nStore';
 	import { get } from 'svelte/store';
 	import { api } from '$lib/api';
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount, onDestroy, tick } from 'svelte';
 	import { wsMessageStore } from '$lib/ws';
 	import { page } from '$app/stores';
 	import { authStore } from '$lib/auth';
@@ -512,8 +512,9 @@
 	function myIdentity() {
 		if (!selected || !currentUser) return null;
 		const teamMap = selected.config?._team_map || {};
-		const myTeam = (participants.find(p => p.user_id === currentUser.id)?.team_name || '').toLowerCase();
-		const isMe = (pid) => pid === currentUser.id || (pid < 0 && myTeam && (teamMap[String(pid)] || '').toLowerCase() === myTeam);
+		// tournament teams (id -team.id) can mix global teams: match on real membership
+		const myTeamPid = myTeam ? -myTeam.id : null;
+		const isMe = (pid) => pid === currentUser.id || (pid < 0 && pid === myTeamPid);
 		const nameOf = (pid) => pid < 0
 			? (teamMap[String(pid)] || `#${Math.abs(pid)}`)
 			: (participants.find(p => p.user_id === pid)?.username || allUsers.find(u => u.id === pid)?.username || `#${pid}`);
@@ -543,13 +544,31 @@
 			}
 			if (pl.length !== 2 || pl.includes(0)) continue;
 			const done = sc[0] != null && sc[1] != null && (sc[0] !== 0 || sc[1] !== 0);
-			if (done) continue;
+			if (done && matchKeyOf(m) !== reopenedKey) continue;
 			const mySlot = who.isMe(pl[0]) ? 0 : who.isMe(pl[1]) ? 1 : -1;
 			if (mySlot === -1) continue;
 			return { match: m, mySlot, oppName: who.nameOf(pl[1 - mySlot]), round: roundLabelOf(m), key: matchKeyOf(m), ffa: false };
 		}
 		return ffaPick;
 	})();
+
+	// A finished match the player unlocked to correct: it becomes "my next match" again, prefilled
+	let reopenedKey = null;
+	async function correctLastResult() {
+		const r = myLastResult;
+		if (!r) return;
+		const [, s, rr, mm] = r.key.split('_');
+		try {
+			const res = await api.get(`/tournaments/${selected.id}/matches/${s}/${rr}/${mm}/can-correct`);
+			if (!res?.can_correct) { toast($t('result_correct_locked'), 'info'); return; }
+			reopenedKey = r.key;
+			await tick();
+			myScoreInput = String(r.mine ?? '');
+			oppScoreInput = String(r.opp ?? '');
+		} catch (err) {
+			toast(err.detail || err.message || $t('dash_score_submit_error'), 'error');
+		}
+	}
 
 	// the last score the player entered stays on screen until they hide it
 	$: myLastResult = (() => {
@@ -575,7 +594,7 @@
 			const better = cfg.lower_score_is_better ? mine < opp : mine > opp;
 			last = { key: matchKeyOf(m), round: roundLabelOf(m), ffa: false, mine, opp, oppName: who.nameOf(pl[1 - slot]), outcome: mine === opp ? 'draw' : (better ? 'win' : 'loss'), order: m.id.r };
 		}
-		return last && !hiddenResults.includes(last.key) ? last : null;
+		return last && last.key !== reopenedKey && !hiddenResults.includes(last.key) ? last : null;
 	})();
 
 	let myScoreInput = '';
@@ -617,6 +636,7 @@
 				match_s: match.id.s, match_r: match.id.r, match_m: match.id.m, score
 			});
 			toast($t('mobile_score_saved'), 'success');
+			reopenedKey = null;
 			tournaments = await api.get('/tournaments');
 		} catch (e) { toast(e.message || $t('tourneys_score_error'), 'error'); }
 	}
@@ -1087,6 +1107,9 @@
 								· {myLastResult.round} · {$t('mobile_score_my_score')} <b>{myLastResult.mine} – {myLastResult.opp}</b> {myLastResult.oppName}
 							{/if}
 						</span>
+						{#if !myLastResult.ffa && selected?.status === 'RUNNING'}
+							<button class="mr-hide" on:click={correctLastResult} title={$t('result_correct')} aria-label={$t('result_correct')}><Icon name="pencil" size={14} /></button>
+						{/if}
 						<button class="mr-hide" on:click={() => hideResult(myLastResult.key)} title={$t('result_hide')} aria-label={$t('result_hide')}><Icon name="x" size={14} /></button>
 					</div>
 				{/if}

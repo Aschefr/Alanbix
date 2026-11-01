@@ -6,6 +6,8 @@
 	import { API_URL } from '$lib/config';
 	import { t } from '$lib/i18nStore';
 	import { wsMessageStore } from '$lib/ws';
+	import Icon from '$lib/components/Icon.svelte';
+	import { fitPane } from '$lib/mobileViewport';
 
 	marked.setOptions({ breaks: true, gfm: true });
 	function parseMd(text) { return text ? marked.parse(text) : ''; }
@@ -18,9 +20,12 @@
 
 	// --- Admin Conversation Monitoring ---
 	let adminConversations = [];
+	// Phone: player groups start folded so the list stays short and the admin calls below remain reachable
+	const startFolded = typeof window !== 'undefined' && window.matchMedia('(max-width: 1100px)').matches;
 	let collapsedPlayers = {};
+	const isFolded = (state, username) => state[username] ?? startFolded;
 	function togglePlayerCollapse(username) {
-		collapsedPlayers[username] = !collapsedPlayers[username];
+		collapsedPlayers[username] = !isFolded(collapsedPlayers, username);
 	}
 
 	$: groupedConversations = (() => {
@@ -54,6 +59,38 @@
 	$: unreadCount = adminUnreadConvsCount;
 
 	let adminActiveConvId = null;
+	// Phone: an open conversation fills the screen like a messaging app; the back arrow returns to the list
+	$: mobileChat = adminActiveConvId !== null && adminConvInfo !== null;
+	$: if (typeof document !== 'undefined') document.documentElement.classList.toggle('conv-chat-open', mobileChat);
+	function closeAdminConv() {
+		adminActiveConvId = null;
+		adminConvInfo = null;
+		adminConvMessages = [];
+		adminInterveneText = '';
+	}
+
+	// Keep the messages at the same distance from the input when the area above it shrinks (on-screen keyboard)
+	let convObserver = null;
+	let convObservedEl = null;
+	let convLastH = 0;
+	let convDist = 0;
+	let convResizeAt = 0;
+	function watchConvSize(el) {
+		if (el === convObservedEl) return;
+		convObserver?.disconnect();
+		convObservedEl = el;
+		if (!el || typeof ResizeObserver === 'undefined') return;
+		convLastH = el.clientHeight;
+		convObserver = new ResizeObserver(() => {
+			const h = el.clientHeight;
+			if (h === convLastH) return;
+			convLastH = h;
+			convResizeAt = performance.now();
+			el.scrollTop = Math.max(0, el.scrollHeight - h - convDist);
+		});
+		convObserver.observe(el);
+	}
+	$: watchConvSize(adminChatContainer);
 	let adminConvMessages = [];
 	let adminConvInfo = null;
 	let adminInterveneText = '';
@@ -140,6 +177,8 @@
 
 	onDestroy(() => {
 		if (wsUnsub) wsUnsub();
+		convObserver?.disconnect();
+		if (typeof document !== 'undefined') document.documentElement.classList.remove('conv-chat-open');
 	});
 
 	function handleAdminFileSelect(e) {
@@ -172,11 +211,12 @@
 
 	async function adminScrollToBottom() {
 		await tick();
-		if (adminChatContainer) adminChatContainer.scrollTop = adminChatContainer.scrollHeight;
+		if (adminChatContainer) { adminChatContainer.scrollTop = adminChatContainer.scrollHeight; convDist = 0; }
 	}
 
 	function handleAdminChatScroll() {
 		if (!adminChatContainer) return;
+		if (performance.now() - convResizeAt > 200) convDist = Math.max(0, adminChatContainer.scrollHeight - adminChatContainer.scrollTop - adminChatContainer.clientHeight);
 		adminShowScrollToBottom = adminChatContainer.scrollTop + adminChatContainer.clientHeight < adminChatContainer.scrollHeight - 300;
 	}
 
@@ -285,9 +325,9 @@
 	}
 </script>
 
-<div class="admin-grid">
+<div class="admin-grid" class:chat-open={mobileChat} use:fitPane={mobileChat}>
 	<!-- Conversation list -->
-	<section class="list glass" style="max-height:80vh;overflow-y:auto">
+	<section class="list glass conv-list" style="max-height:80vh;overflow-y:auto">
 		<div class="list-header">
 			<div class="flex-row items-center gap-3">
 				<div class="list-icon">💬</div>
@@ -313,10 +353,10 @@
 					</div>
 					<div class="flex-row items-center gap-2">
 						<span class="badge-count-inline" style="background:rgba(255,255,255,0.05); padding:0.15rem 0.4rem; border-radius:10px; font-size:0.75rem; color:var(--text-dim);">{group.conversations.length}</span>
-						<span class="toggle-arrow" style="font-size:0.7rem; color:var(--text-dim); transition: transform 0.2s; transform: {collapsedPlayers[group.username] ? 'rotate(0deg)' : 'rotate(90deg)'}">▶</span>
+						<span class="toggle-arrow" style="font-size:0.7rem; color:var(--text-dim); transition: transform 0.2s; transform: {isFolded(collapsedPlayers, group.username) ? 'rotate(0deg)' : 'rotate(90deg)'}">▶</span>
 					</div>
 				</div>
-				{#if !collapsedPlayers[group.username]}
+				{#if !isFolded(collapsedPlayers, group.username)}
 					<div class="user-group-items" style="display:flex; flex-direction:column; gap:0.4rem; padding-left:0.5rem; border-left:1px dashed rgba(255,255,255,0.08); margin-left:0.5rem; margin-bottom:0.3rem;">
 						{#each group.conversations as c}
 							<div class="admin-item-card glass-hover {adminActiveConvId === c.id ? 'editing-expanded' : ''}" style="cursor:pointer;flex-direction:column;align-items:stretch;border-left: 4px solid {c.has_new_messages ? '#22c55e' : (c.admin_override ? '#a855f7' : 'rgba(255,255,255,0.05)')}; padding:0.5rem 0.7rem;" on:click={() => selectAdminConv(c.id)}>
@@ -353,12 +393,13 @@
 	</section>
 
 	<!-- Conversation detail -->
-	<section class="list glass" style="max-height:80vh;display:flex;flex-direction:column;position:relative">
+	<section class="list glass conv-detail" class:conv-empty={!adminConvInfo} style="max-height:80vh;display:flex;flex-direction:column;position:relative">
 		{#if adminActiveConvId && adminConvInfo}
 			<div class="list-header">
-				<div class="flex-row items-center gap-3">
-					<div class="list-icon">🔍</div>
-					<div>
+				<div class="flex-row items-center gap-3 conv-head-main">
+					<button type="button" class="conv-back" on:click={closeAdminConv} aria-label={$t('common_back')} title={$t('common_back')}><Icon name="arrow-left" size={18} /></button>
+					<div class="list-icon conv-head-icon">🔍</div>
+					<div class="conv-head-text">
 						<h2 style="margin:0">{adminConvInfo.title}</h2>
 						<span class="text-xs text-dim">{$t("admin_chats_player")} {adminConvInfo.username}</span>
 					</div>
@@ -402,7 +443,7 @@
 										<span title={$t('admin_conv_model_tooltip')} style="background:rgba(255,255,255,0.05);padding:1px 4px;border-radius:4px;border:1px solid var(--glass-border)">🤖 {m.meta.model_info.model || $t('admin_conv_model_fallback')} ({m.meta.model_info.instance || $t('admin_conv_instance_default')})</span>
 									{/if}
 									{#if m.meta.duration}
-										<span title={$t('admin_conv_response_time')} style="background:rgba(255,255,255,0.05);padding:1px 4px;border-radius:4px;border:1px solid var(--glass-border)">⏱️ {m.meta.duration.toFixed(1)}s</span>
+										<span title={$t('admin_conv_response_time')} style="background:rgba(255,255,255,0.05);padding:1px 4px;border-radius:4px;border:1px solid var(--glass-border);display:inline-flex;align-items:center;gap:0.25rem"><Icon name="clock" size={11} /> {m.meta.duration.toFixed(1)}s</span>
 									{/if}
 									{#if m.meta.used_tools && m.meta.used_tools.length > 0}
 										<span title={$t('admin_conv_tools_used', { tools: m.meta.used_tools.join(', ') })} style="background:rgba(59,130,246,0.1);color:var(--accent);padding:1px 4px;border-radius:4px;border:1px solid rgba(59,130,246,0.2)">🛠️ {m.meta.used_tools.join(', ')}</span>
@@ -452,7 +493,7 @@
 </div>
 
 <!-- Appels Admin & Suggestions RAG -->
-<div style="display:flex;gap:1.5rem;flex-wrap:wrap;padding:1rem 0">
+<div class="conv-extra" class:chat-open={mobileChat} style="display:flex;gap:1.5rem;flex-wrap:wrap;padding:1rem 0">
 	<!-- Appels Admin IA -->
 	<section class="list glass" style="flex:1;min-width:300px">
 		<div class="list-header">
@@ -560,6 +601,21 @@
 	.btn-icon-sm:hover { background: var(--accent-soft); border-color: var(--accent); }
 	.edit-textarea { background: var(--input-bg); border: 1px solid var(--glass-border); border-radius: 8px; padding: 0.6rem 0.8rem; color: var(--input-color); font-family: var(--font-main); font-size: 0.85rem; transition: all 0.2s; }
 	.edit-textarea:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+	.conv-back { display: none; }
+	@media (max-width: 1100px) {
+		.conv-back { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--glass-border); background: var(--accent-soft); color: var(--accent); cursor: pointer; }
+		.admin-grid.chat-open { margin: -0.5rem -0.5rem calc(-1 * var(--pane-bleed, 0px)); height: calc(var(--pane-h, 75vh) + var(--pane-bleed, 0px)); overflow: hidden; gap: 0; }
+		.admin-grid.chat-open .conv-list { display: none; }
+		.conv-detail.conv-empty { display: none !important; }
+		.admin-grid.chat-open .conv-detail { max-height: none !important; height: 100%; border-radius: 0; border: none; padding: 0; min-height: 0; }
+		.conv-detail .list-header { padding: 0.5rem 0.75rem; margin-bottom: 0; gap: 0.5rem; }
+		.conv-head-main { min-width: 0; flex: 1; gap: 0.6rem !important; }
+		.conv-head-icon { display: none; }
+		.conv-head-text { min-width: 0; }
+		.conv-head-text h2 { font-size: 1rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+		.conv-head-text span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+		.conv-extra.chat-open { display: none !important; }
+	}
 	.admin-conv-md :global(p) { margin: 0.3em 0; }
 	.admin-conv-md :global(p:first-child) { margin-top: 0; }
 	.admin-conv-md :global(p:last-child) { margin-bottom: 0; }

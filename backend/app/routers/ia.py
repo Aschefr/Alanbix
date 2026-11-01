@@ -51,6 +51,8 @@ def get_effective_config(db: Session):
         # rag suggestion settings
         if "rag_suggestion_enabled" not in val:
             val["rag_suggestion_enabled"] = True
+        if "rag_min_score" not in val:
+            val["rag_min_score"] = 0.65
         return val
     return {
         "ollama_host": os.getenv("OLLAMA_HOST", "http://host.docker.internal:11434"),
@@ -65,6 +67,7 @@ def get_effective_config(db: Session):
         "call_admin_daily_limit": 3,
         "call_admin_global_hourly_limit": 15,
         "rag_suggestion_enabled": True,
+        "rag_min_score": 0.65,
     }
 
 def get_instances(db: Session):
@@ -331,122 +334,36 @@ def get_active_closing_prompt(db: Session) -> str:
         return "You are an enthusiastic video game tournament (LAN) commentator. You can use sarcasm and gently tease players. Use humor as much as possible."
     return "Tu est un commentateur enthousiaste de tournois de jeux vidéo (LAN). Tu peut faire du sarcasme et gentiment taquiner les joueurs. Fait de l'humour autant que possible."
 
-class TranslatePromptsRequest(BaseModel):
-    source_lang: str
-    target_lang: str
+def build_base_prompt_parts(db: Session, user, player_lang: Optional[str]):
+    """Layered prompt: editable personality, fixed operating rules, app guide, live context (who, when, where).
+    Shared by the chat and the admin preview so the preview shows exactly what the model gets."""
+    from ..ia_prompt import rules_block, app_guide_block, live_context_block
+    from .i18n import list_all_languages
+    lang_cfg = db.query(models.SystemConfig).filter(models.SystemConfig.key == "lan_default_language").first()
+    lan_lang = lang_cfg.value if lang_cfg and lang_cfg.value else "fr"
+    # Rules, guide and live context follow the player's interface so button names match what they see;
+    # the personality stays the admin's text in the LAN language
+    prompt_lang = (player_lang or lan_lang).lower()[:2]
+    if prompt_lang not in list_all_languages():
+        prompt_lang = lan_lang
+    parts = [get_active_system_prompt(db), rules_block(prompt_lang)]
+    app_guide = app_guide_block(prompt_lang)
+    if app_guide:
+        parts.append(app_guide)
+    parts.append(live_context_block(db, models, user, prompt_lang))
+    return parts, prompt_lang, lan_lang
 
-@router.post("/translate-prompts")
-async def translate_prompts(req: TranslatePromptsRequest, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
-    src_sp = None
-    sp_cfg = db.query(models.SystemConfig).filter(models.SystemConfig.key == f"system_prompt_{req.source_lang}").first()
-    if sp_cfg and sp_cfg.value:
-        src_sp = sp_cfg.value
-    elif req.source_lang == "fr":
-        legacy = db.query(models.SystemConfig).filter(models.SystemConfig.key == "system_prompt").first()
-        if legacy and legacy.value:
-            src_sp = legacy.value
-            
-    if not src_sp:
-        try:
-            from .i18n import load_i18n_merged
-            src_sp = load_i18n_merged(req.source_lang).get("system_prompt", "")
-        except:
-            pass
-            
-    if not src_sp:
-        src_sp = "Tu es Alanbix, l'IA qui assiste les joueurs lors du tournois de jeux vidéo (communément appelé 'LAN') en cours. Tu peux parler de tout et de rien avec les joueurs, les aider à monter des stratégies, de faire preuve d'humour et de participer à la bonne ambiance. Tu peux taquiner les joueurs.\nRéponds directement, sans fioritures ni de mise en contexte. Si tu ne sais pas, dis que tu ne sais pas, n'invente pas. Réponds à tout type de question même hors du scope initiale. En cas d'abus envers toi, tu peut bloquer un joueur pour l'empêcher de continuer à être abusif et te protéger."
 
-    src_cp = None
-    cp_cfg = db.query(models.SystemConfig).filter(models.SystemConfig.key == f"tournament_closing_prompt_{req.source_lang}").first()
-    if cp_cfg and cp_cfg.value:
-        src_cp = cp_cfg.value
-    elif req.source_lang == "fr":
-        legacy = db.query(models.SystemConfig).filter(models.SystemConfig.key == "tournament_closing_prompt").first()
-        if legacy and legacy.value:
-            src_cp = legacy.value
-            
-    if not src_cp:
-        src_cp = "Tu es le commentateur sportif surexcité d'une LAN party."
+@router.get("/admin/prompt-preview")
+def admin_prompt_preview(lang: Optional[str] = None, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
+    """The base system prompt as the model receives it, built for the requesting admin.
+    Per-request parts (knowledge base excerpts, admin-call limits, compressed history) are added on top."""
+    from ..ia_prompt import language_block
+    parts, prompt_lang, _ = build_base_prompt_parts(db, admin, lang)
+    parts.append(language_block(prompt_lang))
+    text = "\n\n".join(parts)
+    return {"prompt": text, "lang": prompt_lang, "chars": len(text), "estimated_tokens": int(len(text) / 3.5)}
 
-    ia_cfg = get_effective_config(db)
-    model = ia_cfg.get('model', '')
-    instance = await pick_instance(db, model=model)
-    if not instance:
-        raise HTTPException(503, "Aucune instance IA configurée par l'administrateur")
-    ollama_host = instance["url"]
-    if instance.get("model"):
-        model = instance["model"]
-
-    translation_prompt = (
-        f"Translate the following two AI prompt texts into '{req.target_lang}' (language code).\n"
-        "CRITICAL RULES:\n"
-        "1. KEEP ALL placeholders inside braces exactly as they are without translating them (e.g. {context_summary}, {rag_context}, {history_str}, {prompt}). Do not change spelling, spacing or formatting of variables.\n"
-        "2. Respond ONLY with a valid JSON object containing keys 'system_prompt' and 'closing_prompt'. Do not include markdown, backticks or explanations. Just JSON.\n\n"
-        f"=== Text 1 (System Prompt) ===\n{src_sp}\n\n"
-        f"=== Text 2 (Closing Prompt) ===\n{src_cp}\n"
-    )
-
-    try:
-        async with httpx.AsyncClient() as client:
-            is_openai = is_openai_host(ollama_host)
-            if is_openai:
-                url = f"{ollama_host.rstrip('/')}/chat/completions"
-                payload = {
-                    "model": model,
-                    "messages": [{"role": "user", "content": translation_prompt}],
-                    "stream": False,
-                    "temperature": 0.2
-                }
-            else:
-                url = f"{ollama_host.rstrip('/')}/api/chat"
-                payload = {
-                    "model": model,
-                    "messages": [{"role": "user", "content": translation_prompt}],
-                    "stream": False,
-                    "options": {"temperature": 0.2}
-                }
-
-            res = await client.post(url, json=payload, timeout=45.0)
-            
-            if res.status_code != 200:
-                raise HTTPException(500, f"AI service error (Status {res.status_code})")
-                
-            data = res.json()
-            if is_openai:
-                raw = data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
-            else:
-                raw = data.get("message", {}).get("content", "").strip()
-            if raw.startswith("```"):
-                raw = raw.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
-            
-            translated_data = json.loads(raw)
-            trans_sp = translated_data.get("system_prompt", "").strip()
-            trans_cp = translated_data.get("closing_prompt", "").strip()
-            
-            if not trans_sp or not trans_cp:
-                raise ValueError("Translation returned empty fields.")
-                
-            target_sp_key = f"system_prompt_{req.target_lang}"
-            target_cp_key = f"tournament_closing_prompt_{req.target_lang}"
-            
-            sp_cfg_target = db.query(models.SystemConfig).filter(models.SystemConfig.key == target_sp_key).first()
-            if sp_cfg_target:
-                sp_cfg_target.value = trans_sp
-            else:
-                db.add(models.SystemConfig(key=target_sp_key, value=trans_sp))
-                
-            cp_cfg_target = db.query(models.SystemConfig).filter(models.SystemConfig.key == target_cp_key).first()
-            if cp_cfg_target:
-                cp_cfg_target.value = trans_cp
-            else:
-                db.add(models.SystemConfig(key=target_cp_key, value=trans_cp))
-                
-            db.commit()
-            await ws_manager.broadcast({"type": "ia_config_updated"})
-            return {"status": "ok", "system_prompt": trans_sp, "closing_prompt": trans_cp}
-            
-    except Exception as e:
-        raise HTTPException(500, f"AI Translation failed: {str(e)}")
 
 @router.get("/conversations")
 def list_conversations(db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
@@ -807,6 +724,7 @@ class QueryRequest(BaseModel):
     game_id: Optional[int] = None
     image_path: Optional[str] = None
     skip_save_user: Optional[bool] = False
+    lang: Optional[str] = None  # player's interface language
 
 @router.post("/stream")
 async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
@@ -849,14 +767,25 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
         model_to_use = instance["model"]
     
     # 1. RAG (numpy cosine similarity in memory)
-    query_embedding = await get_embedding(request.prompt, ollama_host=ollama_host)
+    # The previous player message joins the query so a follow-up ("and how do I do that?") still finds its topic
     rag_context = ""
-    if query_embedding:
-        all_docs = db.query(models.KnowledgeBase).all()
-        if request.game_id is not None:
-            all_docs = [d for d in all_docs if d.metadata_json and d.metadata_json.get('game_id') == request.game_id]
-        results = search_similar(query_embedding, all_docs, top_k=3)
-        rag_context = "\n".join([doc.content for doc, score in results])
+    if ia_cfg.get("rag_enabled", True):
+        prev_user = db.query(models.ChatMessage).filter(
+            models.ChatMessage.conversation_id == request.conversation_id,
+            models.ChatMessage.role == "user"
+        ).order_by(models.ChatMessage.timestamp.desc()).first()
+        query_text = request.prompt
+        if prev_user and not request.skip_save_user and prev_user.content != request.prompt:
+            query_text = f"{prev_user.content[:300]}\n{request.prompt}"
+        query_embedding = await get_embedding(query_text, ollama_host=ollama_host)
+        if query_embedding:
+            all_docs = db.query(models.KnowledgeBase).all()
+            if request.game_id is not None:
+                # General entries (no game) stay available next to the selected game's entries
+                all_docs = [d for d in all_docs if not (d.metadata_json or {}).get('game_id') or d.metadata_json.get('game_id') == request.game_id]
+            min_score = float(ia_cfg.get("rag_min_score", 0.65))
+            results = [(doc, score) for doc, score in search_similar(query_embedding, all_docs, top_k=3) if score >= min_score]
+            rag_context = "\n".join([doc.content for doc, score in results])
         
     # 2. History
     history_query = db.query(models.ChatMessage).filter(models.ChatMessage.conversation_id == request.conversation_id)
@@ -874,18 +803,7 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
         await ws_manager.broadcast({"type": "chat_updated", "conversation_id": request.conversation_id, "user_id": conv.user_id, "role": "user"})
     
     # Build system prompt — read from SystemConfig, fallback to i18n JSON, then default
-    system_prompt = get_active_system_prompt(db)
-    
-    # Inject user identity so the model knows who is asking
-    user_context = f"L'utilisateur qui te parle s'appelle \"{user.username}\""
-    if user.team_name:
-        user_context += f", il fait partie de l'équipe \"{user.team_name}\""
-    if user.is_admin:
-        user_context += ", c'est un administrateur de la LAN"
-    user_context += "."
-    
-    # Consolidate all system messages into a single system prompt to prevent template/parsing issues in local models
-    system_parts = [system_prompt, user_context]
+    system_parts, prompt_lang, lan_lang = build_base_prompt_parts(db, user, request.lang)
 
     # Inject call_admin restriction status if currently limited / on cooldown
     try:
@@ -934,8 +852,9 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
                 "The `call_admin` tool is CURRENTLY BLOCKED for this user due to the following spam/limit rule:\n"
                 f"{reasons_str}\n\n"
                 "Do NOT invoke the `call_admin` tool. Directly and politely explain to the player (in their language, e.g. French) "
-                "that you cannot contact the administrators right now due to anti-spam/frequency limits, "
-                "and ask them to wait."
+                "that you cannot contact the administrators right now due to anti-spam/frequency limits. "
+                "Never promise to send the alert later by yourself: you can only act while answering. "
+                "Tell them to send their request again once the wait is over, or, if it is urgent, to go and see an organiser in person."
             )
             system_parts.append(tool_restrictions)
     except Exception as e:
@@ -945,6 +864,8 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
     if rag_context:
         system_parts.append(f"=== Base de Connaissances ===\n{rag_context}")
         
+    from ..ia_prompt import language_block, LANG_NAMES
+    system_parts.append(language_block(prompt_lang))
     ollama_messages = [{"role": "system", "content": "\n\n".join(system_parts)}]
     
     # Inject conversation history (include images as base64 for vision models)
@@ -959,6 +880,10 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
     
     # Current user message (with image if attached)
     current_msg = {"role": "user", "content": request.prompt}
+    # Small models drift back to the language of the personality text: remind them on the turn itself
+    # (sent to the model only, the stored message stays as typed)
+    if prompt_lang != lan_lang and prompt_lang in LANG_NAMES:
+        current_msg["content"] += f"\n\n(Reply in {LANG_NAMES[prompt_lang]}.)"
     if request.image_path:
         img_full = os.path.join(os.path.dirname(CHAT_IMAGES_DIR), request.image_path)
         if os.path.isfile(img_full):

@@ -1,5 +1,6 @@
 <script>
 	import { onMount, onDestroy, tick, createEventDispatcher } from 'svelte';
+	import { isTouchKeyboard } from '$lib/mobileViewport';
 	import { api } from '$lib/api';
 	import { wsMessageStore } from '$lib/ws';
 	import { t } from '$lib/i18nStore';
@@ -590,8 +591,8 @@
 			return;
 		}
 
-		// Send on Enter (without Shift)
-		if (e.key === 'Enter' && !e.shiftKey) {
+		// Send on Enter (without Shift); on a touch keyboard Enter adds a line and the send button sends
+		if (e.key === 'Enter' && !e.shiftKey && !isTouchKeyboard()) {
 			e.preventDefault();
 			handleSend();
 		}
@@ -1529,6 +1530,7 @@
 		<!-- Send Button -->
 		<button
 			class="btn-send-chat {slowmodeRemaining > 0 ? 'slowmode-locked' : ''}"
+			on:mousedown|preventDefault
 			on:click={handleSend}
 			disabled={isSending || isUploading || isOverLimit || (!textInput.trim() && !pendingImage) || (!chatConfig.enabled && !user?.is_admin)}
 		>

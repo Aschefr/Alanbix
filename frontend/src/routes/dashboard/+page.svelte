@@ -10,6 +10,7 @@
 	import { t } from '$lib/i18nStore';
 
 	import PublicChat from '$lib/components/PublicChat.svelte';
+	import { fitPane } from '$lib/mobileViewport';
 
 	import Icon from '$lib/components/Icon.svelte';
 	import { goto } from '$app/navigation';
@@ -40,8 +41,21 @@
 	function hideResult(key) { hiddenResults = [...hiddenResults.filter(k => k !== key), key]; saveHidden(); }
 	function hideAllResults() { hiddenResults = [...new Set([...hiddenResults, ...myMatchesAll.filter(m => m.completed).map(m => m.match_key)])]; saveHidden(); }
 	function showHiddenResults() { hiddenResults = []; saveHidden(); }
-	$: myActiveMatches = myMatchesAll.filter(m => !m.completed);
-	$: myResults = myMatchesAll.filter(m => m.completed && !hiddenResults.includes(m.match_key)).slice(-2).reverse();
+	// Finished matches the player unlocked to correct: they go back to the active list with the form open
+	let reopenedKeys = [];
+	$: myActiveMatches = myMatchesAll.filter(m => !m.completed || reopenedKeys.includes(m.match_key));
+	$: myResults = myMatchesAll.filter(m => m.completed && !reopenedKeys.includes(m.match_key) && !hiddenResults.includes(m.match_key)).slice(-2).reverse();
+	async function correctResult(r) {
+		try {
+			const res = await api.get(`/tournaments/${r.tournament_id}/matches/${r.match_id.s}/${r.match_id.r}/${r.match_id.m}/can-correct`);
+			if (!res?.can_correct) { toast($t('result_correct_locked'), 'info'); return; }
+			reopenedKeys = [...reopenedKeys.filter(k => k !== r.match_key), r.match_key];
+			activeScoreMatchKey = null;
+			toggleScoreEntry(r);
+		} catch (err) {
+			toast(err.detail || err.message || $t('dash_score_submit_error'), 'error');
+		}
+	}
 	$: hiddenResultsCount = myMatchesAll.filter(m => m.completed && hiddenResults.includes(m.match_key)).length;
 	$: myMatchesSorted = [...myActiveMatches].sort((x, y) => Number(y.is_ready) - Number(x.is_ready));
 	let dashTab = 'tournaments';
@@ -149,6 +163,7 @@
 			});
 
 			toast($t('mobile_score_saved'), 'success');
+			reopenedKeys = reopenedKeys.filter(k => k !== m.match_key);
 			activeScoreMatchKey = null;
 			scheduleRefreshAll();
 		} catch (err) {
@@ -394,6 +409,7 @@
 			stats = statsRes;
 
 			tournaments = tournamentsRes;
+			loadMyTeamSlots(tournamentsRes, userRes);
 
 			const res = layoutRes || { layout: { seats: [], tables: [], furniture: [] } };
 
@@ -515,6 +531,22 @@
 
 
 
+	// Team tournaments use their own teams (id -team.id), which can mix players from different global teams:
+	// find the player's slot from the real membership, not from the global team name
+	let myTeamSlots = {};
+	async function loadMyTeamSlots(list, me) {
+		if (!me) return;
+		const teamTourneys = (list || []).filter(tr => tr.config?.use_teams && (tr.status === 'RUNNING' || tr.status === 'OPEN'));
+		const entries = await Promise.all(teamTourneys.map(async tr => {
+			try {
+				const teams = await api.get(`/tournaments/${tr.id}/teams`);
+				const mine = (teams || []).find(tm => (tm.members || []).some(mb => mb.user_id === me.id));
+				return [tr.id, mine ? -mine.id : null];
+			} catch { return [tr.id, undefined]; }
+		}));
+		myTeamSlots = Object.fromEntries(entries);
+	}
+
 	$: myMatchesAll = (() => {
 
 		const tFunc = $t;
@@ -567,6 +599,10 @@
 
 					if (pid === myUid) { mySlot = i; break; }
 
+					if (useTeams && pid < 0 && myTeamSlots[tourney.id] !== undefined) {
+						if (pid === myTeamSlots[tourney.id]) { mySlot = i; break; }
+						continue;
+					}
 					if (useTeams && myTeamName && pid < 0) {
 
 						const tName = (teamMap[String(pid)] || '').toLowerCase();
@@ -721,7 +757,7 @@
 
 
 
-<div class="hq-dashboard">
+<div class="hq-dashboard" class:chat-fill={mobileActiveTab === 'chat'}>
 
 	<!-- MOBILE-ONLY HEADER TABS (<= 900px) -->
 
@@ -958,6 +994,7 @@
 								{#if !r.is_ffa}{r.opponent_name}{/if}
 								<span class="rr-meta">· {r.game_name} · {r.round_label}</span>
 							</span>
+							<button class="rr-hide" on:click={() => correctResult(r)} title={$t('result_correct')} aria-label={$t('result_correct')}><Icon name="pencil" size={14} /></button>
 							<button class="rr-hide" on:click={() => hideResult(r.match_key)} title={$t('result_hide')} aria-label={$t('result_hide')}><Icon name="x" size={14} /></button>
 						</div>
 					{/each}
@@ -1038,7 +1075,7 @@
 
 	<!-- MOBILE VIEW: PUBLIC CHAT TAB -->
 
-	<div class="mobile-tab-content mobile-chat-panel mobile-only" class:hidden-on-mobile={mobileActiveTab !== 'chat'}>
+	<div class="mobile-tab-content mobile-chat-panel mobile-only" class:hidden-on-mobile={mobileActiveTab !== 'chat'} use:fitPane={mobileActiveTab === 'chat'}>
 
 		<PublicChat
 
@@ -1207,6 +1244,7 @@
 								{#if !r.is_ffa}{r.opponent_name}{/if}
 								<span class="rr-meta">· {r.game_name} · {r.round_label}</span>
 							</span>
+							<button class="rr-hide" on:click={() => correctResult(r)} title={$t('result_correct')} aria-label={$t('result_correct')}><Icon name="pencil" size={14} /></button>
 							<button class="rr-hide" on:click={() => hideResult(r.match_key)} title={$t('result_hide')} aria-label={$t('result_hide')}><Icon name="x" size={14} /></button>
 						</div>
 					{/each}
@@ -1515,6 +1553,8 @@
 
 		}
 
+		.hq-dashboard.chat-fill { min-height: 0; }
+
 
 
 		/* Glued under the mobile top bar, full width and same surface, so the
@@ -1641,7 +1681,10 @@
 
 		.mobile-chat-panel {
 
-			height: calc(100vh - 170px);
+			/* fills the space down to the tab bar (measured), nothing left blank under the input */
+			height: var(--pane-h, calc(100vh - 170px));
+			padding-bottom: 0;
+
 
 			border-radius: 14px;
 
@@ -2396,10 +2439,15 @@
 	/* === Desktop layout: Mes matchs + tabs on the left, chat on the right === */
 	.dash-grid {
 		display: grid;
-		grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
+		/* the chat column grows with a wide screen (about 28 %), never below 380px nor above 520px */
+		grid-template-columns: minmax(0, 1fr) clamp(380px, 28%, 520px);
 		gap: 1.2rem;
 		flex: 1;
 		min-height: 0;
+	}
+	/* narrower desktops keep the original, more flexible chat column */
+	@media (max-width: 1200px) {
+		.dash-grid { grid-template-columns: minmax(0, 1fr) minmax(300px, 380px); }
 	}
 	.dash-left { display: flex; flex-direction: column; gap: 1rem; min-height: 0; min-width: 0; }
 	.dash-right { min-height: 0; display: flex; flex-direction: column; }

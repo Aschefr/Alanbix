@@ -7,8 +7,10 @@
 	import { wsMessageStore } from '$lib/ws';
 	import { t } from '$lib/i18nStore';
 	import Icon from '$lib/components/Icon.svelte';
+	import { mediaThumb } from '$lib/config';
 
 	export let tournaments = [];
+	export let games = [];
 	export let onReload = () => {};
 	export let onOpenConversation = (convId) => {};
 	export let onOpenPlayer = (username) => {};
@@ -66,10 +68,23 @@
 		return $t('tourneys_round_n', { n: m.id?.r || 1 });
 	}
 
+	// Game artwork (the same thumbnail as "My matches" on the dashboard)
+	function gameThumb(tr) {
+		const g = (games || []).find(x => x.id === tr.game_id);
+		return g?.image_url ? mediaThumb(g.image_url, 96) : '';
+	}
+
 	$: running = (tournaments || []).filter(tr => tr.status === 'RUNNING' && Array.isArray(tr.bracket));
 
 	// For each running tournament: the 1v1 matches of its current round that still need a score
+	// Free-for-all matches (3+ players) are scored on the tournament page: listed here with a shortcut
+	const isFfaDone = (m) => (m.score || []).length === m.p.length && m.score.every(s => s !== null && s !== undefined);
 	$: toScore = running.flatMap(tr => {
+		const ffa = tr.bracket.filter(m => (m.p || []).length > 2 && !m.p.includes(0) && !isFfaDone(m));
+		if (ffa.length) {
+			const current = roundOf(ffa[0]);
+			return ffa.filter(m => roundOf(m) === current).map(m => ({ tr, m, ffa: true, key: `${tr.id}_${m.id?.s}_${m.id?.r}_${m.id?.m}` }));
+		}
 		const playable = tr.bracket.filter(m => (m.p || []).length === 2 && !m.p.includes(0));
 		const pending = playable.filter(m => !isDone(m, tr.config));
 		if (!pending.length) return [];
@@ -79,8 +94,9 @@
 
 	$: progress = running.map(tr => {
 		const playable = tr.bracket.filter(m => (m.p || []).length >= 2 && !m.p.includes(0));
-		const done = playable.filter(m => isDone(m, tr.config)).length;
-		const firstPending = playable.find(m => !isDone(m, tr.config));
+		const doneOf = (m) => m.p.length > 2 ? isFfaDone(m) : isDone(m, tr.config);
+		const done = playable.filter(doneOf).length;
+		const firstPending = playable.find(m => !doneOf(m));
 		return { tr, done, total: playable.length, current: firstPending ? roundLabel(firstPending, tr) : $t('regie_round_finished') };
 	});
 
@@ -169,10 +185,24 @@
 			<ul class="rg-list">
 				{#each toScore as item (item.key)}
 					<li class="rg-item rg-score-item">
+						{#if gameThumb(item.tr)}
+							<span class="rg-thumb" style={`background-image: url(${gameThumb(item.tr)})`} aria-hidden="true"></span>
+						{:else}
+							<span class="rg-thumb empty" aria-hidden="true"><Icon name="trophy" size={16} /></span>
+						{/if}
 						<div class="rg-item-main">
 							<span class="rg-meta">{item.tr.name} · {roundLabel(item.m, item.tr)}</span>
-							<span class="rg-versus">{nameOf(item.m.p[0], item.tr, users)} <span class="rg-vs">vs</span> {nameOf(item.m.p[1], item.tr, users)}</span>
+							{#if item.ffa}
+								<span class="rg-versus">{$t('regie_ffa_players', { n: item.m.p.length })}</span>
+							{:else}
+								<span class="rg-versus">{nameOf(item.m.p[0], item.tr, users)} <span class="rg-vs">vs</span> {nameOf(item.m.p[1], item.tr, users)}</span>
+							{/if}
 						</div>
+						{#if item.ffa}
+							<div class="rg-score">
+								<button class="btn-primary rg-btn" type="button" on:click={() => goto(`/dashboard/tournaments?select=${item.tr.id}`)}>{$t('regie_ffa_enter')}</button>
+							</div>
+						{:else}
 						<form class="rg-score" on:submit|preventDefault={() => submitScore(item)}>
 							<input type="number" min="0" inputmode="numeric" bind:value={scoreDraft[item.key].a} aria-label={nameOf(item.m.p[0], item.tr, users)} />
 							<span>–</span>
@@ -180,6 +210,7 @@
 							<button class="btn-primary rg-btn" type="submit" disabled={savingKey === item.key || scoreDraft[item.key].a === '' || scoreDraft[item.key].b === '' || scoreDraft[item.key].a == null || scoreDraft[item.key].b == null}>{$t('regie_validate')}</button>
 							<button class="btn-secondary rg-btn" type="button" title={$t('regie_view_match_tooltip')} on:click={() => goto(`/dashboard/tournaments?select=${item.tr.id}`)}>{$t('regie_view')}</button>
 						</form>
+						{/if}
 					</li>
 				{/each}
 			</ul>
@@ -256,6 +287,7 @@
 	.rg-empty { margin: 0; color: var(--text-dim); font-size: 0.9rem; }
 	.rg-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; max-height: 420px; overflow-y: auto; }
 	.rg-item { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; padding: 0.55rem 0.75rem; border-radius: var(--radius-md); background: var(--surface-sunken); border: 1px solid var(--glass-border); }
+	.rg-thumb { flex: 0 0 auto; width: 56px; height: 40px; border-radius: var(--radius-sm); background: var(--surface-sunken) center / cover no-repeat; border: 1px solid var(--glass-border); display: inline-flex; align-items: center; justify-content: center; color: var(--text-muted); }
 	.rg-item-main { min-width: 0; flex: 1 1 200px; display: flex; flex-direction: column; gap: 0.15rem; }
 	.rg-time, .rg-meta { color: var(--text-muted); font-size: 0.82rem; }
 	.rg-question { margin: 0.2rem 0 0; font-size: 0.9rem; color: var(--text-main); line-height: 1.4; }

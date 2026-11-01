@@ -1,5 +1,12 @@
+<script context="module">
+	// where the reader left each conversation (distance from the bottom) and which one was open, kept while the app is open
+	const scrollMemory = new Map();
+	let lastActiveConversation = null;
+</script>
+
 <script>
-	import { t } from '$lib/i18nStore';
+	import { t, currentLang } from '$lib/i18nStore';
+	import { isTouchKeyboard, fitPane } from '$lib/mobileViewport';
 	import { get } from 'svelte/store';
 	import { api } from '$lib/api';
 	import { onMount, onDestroy, tick } from 'svelte';
@@ -131,7 +138,55 @@
 		}
 	}
 
+	// When the area above the input shrinks (on-screen keyboard) or grows back, keep the messages at the same
+	// distance from the input. The distance is remembered while the reader scrolls; the browser clamps the
+	// position by itself when the area grows, so it cannot be re-read then.
+	let sizeObserver = null;
+	let observedEl = null;
+	let lastClientH = 0;
+	let distFromBottom = 0;
+	let lastResizeAt = 0;
+	let userMoved = false;
+	function watchScrollSize(el) {
+		if (el === observedEl) return;
+		sizeObserver?.disconnect();
+		observedEl = el;
+		if (!el || typeof ResizeObserver === 'undefined') return;
+		lastClientH = el.clientHeight;
+		sizeObserver = new ResizeObserver(() => {
+			const h = el.clientHeight;
+			if (h === lastClientH) return;
+			lastClientH = h;
+			lastResizeAt = performance.now();
+			el.scrollTop = Math.max(0, el.scrollHeight - h - distFromBottom);
+		});
+		sizeObserver.observe(el);
+	}
+	$: watchScrollSize(chatContainer);
+
+	// Reopening a conversation puts it back where it was left; false when it was read to the end
+	function restoreScroll(id) {
+		const dist = scrollMemory.get(id) ?? 0;
+		if (!chatContainer || dist <= 0) return false;
+		userMoved = false;
+		const apply = () => {
+			if (!chatContainer || userMoved || activeId !== id) return;
+			distFromBottom = dist;
+			lastResizeAt = performance.now();
+			chatContainer.scrollTop = Math.max(0, chatContainer.scrollHeight - chatContainer.clientHeight - dist);
+		};
+		apply();
+		requestAnimationFrame(apply);
+		setTimeout(apply, 150);
+		setTimeout(apply, 450);
+		return true;
+	}
+
 	function handleScroll() {
+		if (chatContainer && activeId && performance.now() - lastResizeAt > 200) {
+			distFromBottom = Math.max(0, Math.round(chatContainer.scrollHeight - chatContainer.scrollTop - chatContainer.clientHeight));
+			scrollMemory.set(activeId, distFromBottom);
+		}
 		if (isAutoScrolling || !chatContainer) return;
 		const threshold = 50;
 		const isAtBottom = chatContainer.scrollHeight - chatContainer.scrollTop - chatContainer.clientHeight < threshold;
@@ -369,6 +424,7 @@
 		if (chatContainer) {
 			isAutoScrolling = true;
 			chatContainer.scrollTop = chatContainer.scrollHeight;
+			distFromBottom = 0;
 			setTimeout(() => {
 				isAutoScrolling = false;
 			}, 50);
@@ -485,6 +541,7 @@
 
 	onDestroy(() => {
 		isMounted = false;
+		sizeObserver?.disconnect();
 		if (unsub) unsub();
 		if (progressInterval) clearInterval(progressInterval);
 		if (activeChatPingInterval) clearInterval(activeChatPingInterval);
@@ -495,13 +552,16 @@
 	async function loadConversations() {
 		conversations = await api.get('/ia/conversations');
 		if (conversations.length > 0 && !activeId) {
-			selectConversation(conversations[0].id);
+			// back on the page: reopen the conversation that was open
+			const remembered = conversations.find(c => c.id === lastActiveConversation);
+			selectConversation((remembered || conversations[0]).id);
 		}
 	}
 
 	async function selectConversation(id, forceScroll = false) {
 		const isNew = id !== activeId;
 		activeId = id;
+		lastActiveConversation = id;
 		// Send immediate ping on active conversation change
 		try { api.post(`/ia/active-chat/${id}`, {}); } catch(e) {}
 		const res = await api.get(`/ia/conversations/${id}/messages`);
@@ -516,7 +576,12 @@
 		if (isNew || forceScroll) {
 			autoScrollEnabled = true;
 		}
-		scrollToBottom();
+		await tick();
+		if (isNew && !forceScroll && restoreScroll(id)) {
+			autoScrollEnabled = false;
+		} else {
+			scrollToBottom();
+		}
 
 		// Check if user has an active/queued AI request FOR THIS conversation
 		busyOtherConv = false;
@@ -890,6 +955,13 @@
 		}
 	}
 
+	const starters = [
+		{ key: 'ai_starter_tour', icon: 'map' },
+		{ key: 'ai_starter_match', icon: 'trophy' },
+		{ key: 'ai_starter_network', icon: 'wifi' },
+		{ key: 'ai_starter_fun', icon: 'sparkles' }
+	];
+
 	async function send(skipSaveUser = false) {
 		if ((!query && !pendingImage) || loading || !activeId) return;
 		currentUserMsgId = null;
@@ -964,7 +1036,8 @@
 					prompt: userMsg,
 					conversation_id: activeId,
 					image_path: imagePath,
-					skip_save_user: skipSaveUser
+					skip_save_user: skipSaveUser,
+					lang: $currentLang
 				})
 			});
 
@@ -1101,7 +1174,8 @@
 	}
 
 	function handleInputKeydown(e) {
-		if (e.key === 'Enter' && !e.shiftKey) {
+		// touch keyboard: Enter adds a line, the send button sends
+		if (e.key === 'Enter' && !e.shiftKey && !isTouchKeyboard()) {
 			e.preventDefault();
 			send();
 		}
@@ -1119,7 +1193,7 @@
 
 <div class="ai-wrap">
 <header class="ai-header"><h1 class="title-premium">{$t('nav_ai_assistant')}</h1></header>
-<div class="ai-page flex-row">
+<div class="ai-page flex-row" use:fitPane>
 	<!-- Admin Notification Banner -->
 	{#if adminNotification}
 		<div class="admin-notif" on:click={goToNotifiedConv}>
@@ -1148,7 +1222,7 @@
 						<span class="icon">💬</span>
 						<span class="title" title={conv.title}>{conv.title}</span>
 						{#if conv.has_new_messages}
-							<span class="unread-badge">{$t("changelog_fallback_name")}</span>
+							<span class="unread-badge">{$t("dash_stat_new")}</span>
 						{/if}
 					</button>
 					<button class="btn-icon rename-btn" on:click|stopPropagation={() => openRename(conv)} title={$t('ai_tooltip_rename')}>✏️</button>
@@ -1282,7 +1356,7 @@
 				</div>
 			{/if}
 
-			<div class="messages-container" bind:this={chatContainer} on:scroll={handleScroll}>
+			<div class="messages-container" bind:this={chatContainer} on:scroll={handleScroll} on:touchstart={() => userMoved = true} on:wheel={() => userMoved = true}>
 				{#if autoCompressNotif}
 					<div class="auto-compress-notif">
 						<span>🗜️</span>
@@ -1432,6 +1506,19 @@
 						{/if}
 					</div>
 				{/each}
+				{#if messages.length === 0 && !loading}
+					<!-- Starter questions on an empty conversation: a way in for players discovering the assistant -->
+					<div class="starters">
+						<p class="starters-title">{$t('ai_starters_title')}</p>
+						<div class="starters-grid">
+							{#each starters as s (s.key)}
+								<button type="button" class="starter" disabled={iaBlocked || busyOtherConv} on:click={() => { query = $t(s.key); send(); }}>
+									<Icon name={s.icon} size={16} /><span>{$t(s.key)}</span>
+								</button>
+							{/each}
+						</div>
+					</div>
+				{/if}
 				{#if compressionInsertIdx >= messages.length && compression.mode}
 					<div class="msg-wrapper system">
 						<div class="msg-row system">
@@ -1544,7 +1631,7 @@
 						{#if !userObj?.is_admin && !iaBlocked && iaConfig.call_admin_button_enabled !== false && messages.some(m => m.role === 'assistant' || m.role === 'bot')}
 							<button type="button" class="btn-call-admin" title={$t('ai_call_admin_button')} on:click={checkAndOpenCallAdmin}>📣</button>
 						{/if}
-						<button class="btn-primary" type="submit" disabled={iaBlocked}>{$t("ai_btn_send")}</button>
+						<button class="btn-primary" type="submit" on:mousedown|preventDefault disabled={iaBlocked}>{$t("ai_btn_send")}</button>
 					{/if}
 				</div>
 			</form>
@@ -1583,7 +1670,7 @@
 								<span class="icon">💬</span>
 								<span class="title" title={conv.title}>{conv.title}</span>
 								{#if conv.has_new_messages}
-									<span class="unread-badge">{$t("changelog_fallback_name")}</span>
+									<span class="unread-badge">{$t("dash_stat_new")}</span>
 								{/if}
 							</button>
 							<button class="btn-icon rename-btn" on:click|stopPropagation={() => openRename(conv)} title={$t('ai_tooltip_rename')}>✏️</button>
@@ -1661,7 +1748,7 @@
 		display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem; 
 		background: none; border: none; color: inherit; cursor: pointer; flex: 1; min-width: 0; text-align: left; overflow: hidden;
 	}
-	.conv-btn .title { font-size: 0.82rem; white-space: normal; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.3; }
+	.conv-btn .title { flex: 1; min-width: 0; font-size: 0.82rem; white-space: normal; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.3; }
 	
 	.unread-badge {
 		background: var(--success);
@@ -1849,6 +1936,8 @@
 		letter-spacing: 0.2px;
 		user-select: none;
 	}
+	/* the time under an admin message sits on a pale purple bubble: not white */
+	.admin-msg .msg-time.user-time, .admin-msg .msg-time { color: var(--text-dim); opacity: 1; }
 	.msg-time.user-time {
 		display: block;
 		text-align: right;
@@ -2024,6 +2113,7 @@
 	}
 	.takeover-icon { font-size: 1.3rem; }
 	.takeover-text { font-size: 0.85rem; color: #c4b5fd; font-weight: 500; }
+	:global([data-theme="light"]) .takeover-text { color: #6b21a8; font-weight: 600; }
 	@keyframes takeover-pulse {
 		0%, 100% { background: rgba(168, 85, 247, 0.08); }
 		50% { background: rgba(168, 85, 247, 0.15); }
@@ -2038,6 +2128,7 @@
 		border-bottom: 2px solid rgba(239, 68, 68, 0.5);
 	}
 	.blocked-text { font-size: 0.85rem; color: #fca5a5; font-weight: 500; }
+	:global([data-theme="light"]) .blocked-text { color: #b91c1c; font-weight: 600; }
 	/* Pending message preview in modal */
 	.pending-msg-preview {
 		display: flex; flex-direction: column; gap: 0.2rem;
@@ -2182,14 +2273,18 @@
 
 	@media (max-width: 900px) {
 		.ai-header { display: none; }
-		.ai-page { flex-direction: column; height: calc(100vh - 96px); gap: 0.35rem; }
+		/* the conversation fills the screen edge to edge, between the top bar and the tab bar */
+		.ai-wrap { height: auto; }
+		.ai-page { flex: 0 0 auto; flex-direction: column; margin: -0.5rem -0.5rem calc(-1 * var(--pane-bleed, 0px)); height: calc(var(--pane-h, calc(100vh - 96px)) + var(--pane-bleed, 0px)); gap: 0.35rem; }
 		.chat-sidebar { display: none !important; }
 		.chat-main {
 			width: 100% !important;
 			flex: 1;
 			min-height: 0;
 			padding: 0.35rem !important;
-			border-radius: var(--radius-md) !important;
+			border-radius: 0 !important;
+			border: none !important;
+			box-shadow: none !important;
 		}
 		.ai-mobile-top-bar {
 			display: flex;
@@ -2309,4 +2404,13 @@
 		}
 	}
 
+	.starters { margin: auto 0 0; padding: 1rem 0.25rem 0.5rem; display: flex; flex-direction: column; gap: 0.6rem; }
+	.starters-title { margin: 0; font-size: 0.85rem; font-weight: 700; color: var(--text-dim); }
+	.starters-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; }
+	.starter { display: flex; align-items: center; gap: 0.6rem; min-width: 0; padding: 0.7rem 0.85rem; border-radius: 12px; border: 1px solid var(--glass-border); background: var(--hover-tint); color: var(--text-main); font: inherit; font-size: 0.88rem; text-align: left; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+	.starter :global(svg) { flex-shrink: 0; color: var(--accent); }
+	.starter span { min-width: 0; }
+	.starter:hover:not(:disabled) { border-color: var(--accent); background: var(--accent-soft); }
+	.starter:disabled { opacity: 0.5; cursor: not-allowed; }
+	@media (max-width: 420px) { .starters-grid { grid-template-columns: minmax(0, 1fr); } }
 </style>

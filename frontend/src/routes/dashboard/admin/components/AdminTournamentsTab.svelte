@@ -3,6 +3,14 @@
 	import { api } from '$lib/api';
 	import { API_URL, resolveMediaUrl, mediaThumb } from '$lib/config';
 	import { t } from '$lib/i18nStore';
+	let menuOpenId = null;
+	let menuUp = false;
+	// open the "more" menu upwards when there is no room below it (the phone tab bar covers the bottom)
+	function toggleMenu(id, btn) {
+		if (menuOpenId === id) { menuOpenId = null; return; }
+		menuUp = window.innerHeight - btn.getBoundingClientRect().bottom < 290;
+		menuOpenId = id;
+	}
 	import CreateTournamentWizard from '$lib/components/CreateTournamentWizard.svelte';
 	import EditTournamentModal from '$lib/components/EditTournamentModal.svelte';
 	import AddGameModal from '$lib/components/AddGameModal.svelte';
@@ -182,6 +190,9 @@
 	}
 
 	// Live state of a running tournament for the admin list (replaces the coefficient string)
+	// On a phone the creation card is folded to a single header line above the list of tournaments
+	let wizardOpen = typeof window === 'undefined' || window.innerWidth > 1100;
+
 	function liveState(tr) {
 		const cfg = tr.config || {};
 		const played = (m) => {
@@ -202,11 +213,11 @@
 	}
 </script>
 
-<svelte:window on:keydown={handleKeydown} />
+<svelte:window on:keydown={(e) => { if (e.key === 'Escape') menuOpenId = null; handleKeydown(e); }} on:click={() => menuOpenId = null} />
 
 <div class="admin-grid">
-	<section class="wizard glass">
-		<div class="list-header">
+	<section class="wizard glass" class:folded={!wizardOpen}>
+		<button type="button" class="list-header wizard-toggle" aria-expanded={wizardOpen} on:click={() => wizardOpen = !wizardOpen}>
 			<div class="flex-row items-center gap-3">
 				<div class="list-icon"><Icon name="sparkles" size={20} /></div>
 				<div>
@@ -214,7 +225,9 @@
 					<span class="list-sub">{$t("admin_tourneys_wizard_subtitle")}</span>
 				</div>
 			</div>
-		</div>
+			<span class="wizard-chevron"><Icon name={wizardOpen ? 'chevron-up' : 'chevron-down'} size={18} /></span>
+		</button>
+		<div class="wizard-body">
 		<CreateTournamentWizard 
 			{games} 
 			onSuccess={() => {
@@ -226,6 +239,7 @@
 			}}
 			on:toast={(e) => toast(e.detail.message, e.detail.type)}
 		/>
+		</div>
 	</section>
 
 	<div class="flex-col gap-6" style="display:flex; flex-direction:column; gap:1.5rem;">
@@ -262,6 +276,29 @@
 										{@const st = liveState(tourney)}
 										· {st.round} · {$t('admin_tourneys_live_progress', { done: st.done, total: st.total })}
 										{#if st.waiting > 0}<span class="live-waiting">{$t('admin_tourneys_live_waiting', { n: st.waiting })}</span>{/if}
+									{/if}
+								</div>
+							</div>
+							<div class="item-actions-mobile">
+								<button class="btn-icon-edit" on:click={() => openEditTournament(tourney)} title="{$t('admin_tourneys_tooltip_edit')}" aria-label="{$t('admin_tourneys_tooltip_edit')}">
+									<Icon name="pencil" size={16} />
+								</button>
+								<div class="more-wrap">
+									<button class="btn-icon-edit" class:is-open={menuOpenId === tourney.id} aria-haspopup="menu" aria-expanded={menuOpenId === tourney.id} aria-label={$t('admin_more_actions')} on:click|stopPropagation={(e) => toggleMenu(tourney.id, e.currentTarget)}>
+										<Icon name="more-vertical" size={16} />
+									</button>
+									{#if menuOpenId === tourney.id}
+										<div class="more-menu" class:up={menuUp} role="menu" on:click|stopPropagation>
+											{#if tourney.status === 'CLOSED'}
+												<button role="menuitem" on:click={() => { menuOpenId = null; previewAiPrompt(tourney.id); }}><Icon name="eye" size={16} /> {$t('admin_tourneys_view_ai_prompt')}</button>
+												<button role="menuitem" on:click={() => { menuOpenId = null; retryNotifications(tourney.id); }}><Icon name="refresh" size={16} /> {$t('admin_tourneys_regen_ai_msgs')}</button>
+											{/if}
+											<button role="menuitem" on:click={() => { menuOpenId = null; toggleHidden(tourney); }}>
+												<Icon name={tourney.is_hidden ? 'eye' : 'eye-off'} size={16} /> {$t(tourney.is_hidden ? 'tourneys_btn_show' : 'tourneys_btn_hide')}
+											</button>
+											<div class="more-sep"></div>
+											<button role="menuitem" class="danger" on:click={() => { menuOpenId = null; tournamentToDelete = tourney; }}><Icon name="trash" size={16} /> {$t('admin_tourneys_tooltip_delete')}</button>
+										</div>
 									{/if}
 								</div>
 							</div>
@@ -469,7 +506,15 @@
 
 <style>
 	.admin-grid { display: grid; grid-template-columns: minmax(380px, 1fr) 2fr; gap: 2rem; }
-	@media (max-width: 1100px) { .admin-grid { grid-template-columns: minmax(0, 1fr); gap: 1rem; } }
+	@media (max-width: 1100px) {
+		.admin-grid { grid-template-columns: minmax(0, 1fr); gap: 1rem; }
+		.wizard.folded .wizard-body { display: none; }
+		.wizard.folded .list-header { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
+	}
+	.wizard-toggle { width: 100%; background: none; border-left: none; border-right: none; border-top: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+	.wizard-chevron { display: none; color: var(--text-dim); }
+	@media (max-width: 1100px) { .wizard-chevron { display: inline-flex; } }
+	@media (min-width: 1101px) { .wizard-toggle { cursor: default; pointer-events: none; } }
 	@media (max-width: 640px) {
 		.wizard, .list { padding: 1rem; }
 		.card-top-row { flex-wrap: wrap; gap: 0.6rem 0.8rem; }
@@ -491,6 +536,10 @@
 	.game-mini-thumb { width: 50px; height: 50px; border-radius: 8px; background-size: cover; background-position: center; border: 1px solid var(--glass-border); flex-shrink: 0; }
 	.thumb-placeholder { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; color: var(--text-dim); background: var(--surface-sunken); border-radius: 8px; }
 	.item-info { flex-grow: 1; min-width: 0; }
+	/* name and badges wrap onto several lines instead of running under the action buttons */
+	.item-info > .flex-row { flex-wrap: wrap; row-gap: 0.3rem; }
+	.item-info .status-pill-sm { white-space: nowrap; }
+	.item-info .status-pill-sm.hidden-pill { white-space: normal; max-width: 100%; line-height: 1.2; }
 	.item-name { font-weight: 700; font-size: 0.9375rem; }
 	.item-meta { font-size: 0.8125rem; color: var(--text-dim); margin-top: 0.2rem; }
 	.item-actions { display: flex; flex-direction: row; gap: 0.4rem; align-items: center; flex-shrink: 0; }
@@ -502,6 +551,25 @@
 	.btn-icon-edit { background: rgba(255, 255, 255, 0.05); border: 1px solid var(--glass-border); color: var(--text-muted); cursor: pointer; padding: 0.6rem; border-radius: 8px; transition: all 0.2s; display: flex; align-items: center; justify-content: center; }
 	.hidden-pill { display: inline-flex; align-items: center; gap: 0.25rem; background: color-mix(in srgb, var(--warning) 14%, transparent); color: var(--warning); border: 1px solid color-mix(in srgb, var(--warning) 40%, transparent); }
 	.btn-icon-edit.is-on { color: var(--warning); border-color: var(--warning); }
+	/* Phone: one visible action (edit) and a "more" menu; delete is set apart at the bottom of the menu */
+	.item-actions-mobile { display: none; }
+	.more-wrap { position: relative; }
+	.more-menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 30; min-width: 230px; display: flex; flex-direction: column; padding: 0.3rem; border-radius: var(--radius-md); background: var(--bg-secondary); border: 1px solid var(--glass-border-highlight, var(--glass-border)); box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35); }
+	.more-menu.up { top: auto; bottom: calc(100% + 6px); }
+	.more-menu button { display: flex; align-items: center; gap: 0.6rem; width: 100%; padding: 0.7rem 0.75rem; border: none; border-radius: 8px; background: transparent; color: var(--text-main); font: inherit; font-size: 0.875rem; text-align: left; cursor: pointer; }
+	.more-menu button:hover { background: var(--hover-tint); }
+	.more-menu button.danger { color: var(--danger); }
+	.more-menu button.danger:hover { background: color-mix(in srgb, var(--danger) 14%, transparent); }
+	.more-sep { height: 1px; margin: 0.3rem 0.4rem; background: var(--glass-border); }
+	.btn-icon-edit.is-open { background: var(--hover-tint); color: var(--text-main); }
+	@media (max-width: 900px) {
+		.item-actions { display: none; }
+		.item-actions-mobile { display: flex; align-items: center; gap: 0.4rem; flex-shrink: 0; }
+		.card-top-row { flex-wrap: nowrap; gap: 0.7rem; }
+		.admin-item-card { padding: 0.7rem 0.75rem; margin-bottom: 0.5rem; }
+		.game-mini-thumb { width: 44px; height: 44px; }
+		.item-name { font-size: 0.9rem; }
+	}
 	.btn-icon-edit:hover { background: rgba(59, 130, 246, 0.2); color: var(--accent); border-color: var(--accent); }
 	.btn-icon-danger { background: rgba(255, 255, 255, 0.05); border: 1px solid var(--glass-border); color: var(--text-muted); cursor: pointer; padding: 0.6rem; border-radius: 8px; transition: all 0.2s; display: flex; align-items: center; justify-content: center; }
 	.btn-icon-danger:hover { background: rgba(239, 68, 68, 0.2); color: var(--danger); border-color: var(--danger); }
@@ -527,7 +595,7 @@
 	.prompt-preview-panel { margin-top: 0.75rem; border: 1px solid rgba(139,92,246,0.25); border-radius: 12px; background: rgba(139,92,246,0.04); overflow: hidden; }
 	.prompt-preview-header { display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 0.8rem; background: rgba(139,92,246,0.08); border-bottom: 1px solid rgba(139,92,246,0.15); font-size: 0.75rem; font-weight: 700; color: #a78bfa; }
 	.prompt-token-badge { font-size: 0.75rem; font-weight: 800; background: rgba(139,92,246,0.15); color: #a78bfa; padding: 0.15rem 0.5rem; border-radius: 6px; border: 1px solid rgba(139,92,246,0.25); }
-	.prompt-preview-textarea { width: 100%; min-height: 200px; max-height: 400px; background: var(--surface-sunken); border: none; padding: 0.8rem; color: var(--text-main); font-size: 0.75rem; font-family: 'Courier New', monospace; line-height: 1.5; resize: vertical; }
+	.prompt-preview-textarea { width: 100%; min-height: 200px; max-height: 400px; background: var(--surface-sunken); border: none; padding: 0.8rem; color: var(--text-main); font-size: 0.75rem; font-family: monospace; line-height: 1.5; resize: vertical; }
 	.prompt-preview-textarea:focus { outline: none; }
 	.danger-warning-box { background: color-mix(in srgb, var(--danger) 8%, transparent); border: 1px solid color-mix(in srgb, var(--danger) 30%, transparent); border-radius: 12px; padding: 1rem 1.1rem; }
 	.danger-warning-box strong.warn-title { color: var(--danger); font-size: 0.9375rem; display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.5rem; }

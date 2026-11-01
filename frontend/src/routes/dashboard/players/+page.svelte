@@ -8,6 +8,7 @@
 	import { formatPoints } from '$lib/utils';
 	import { resolveMediaUrl } from '$lib/config';
 	import PlayerChat from '$lib/components/PlayerChat.svelte';
+	import { fitPane } from '$lib/mobileViewport';
 	import Icon from '$lib/components/Icon.svelte';
 
 	let players = [];
@@ -111,6 +112,7 @@
 	}
 
 	onMount(async () => {
+		window.addEventListener('alanbix:messages-tab', onMessagesTab);
 		try { currentUser = await api.get('/me'); } catch {}
 		await loadPlayers();
 		await loadUnreadMap();
@@ -125,10 +127,10 @@
 		const savedWidth = localStorage.getItem('alanbix_chat_width_v2');
 		chatWidth = savedWidth ? parseInt(savedWidth) : Math.round(window.innerWidth * 0.45);
 
-		// Restore last selected chat from localStorage (desktop only; on mobile, start on conversation list unless deep-linked)
-		const isMobileViewport = typeof window !== 'undefined' && window.innerWidth <= 900;
-		const savedPeer = isMobileViewport ? null : localStorage.getItem('alanbix_players_chat');
-		const savedGroup = isMobileViewport ? null : localStorage.getItem('alanbix_players_group_chat');
+		// Reopen the last active conversation, on a phone too: like a messaging app, the conversation is the
+		// default view and the contact list is one step "back" (a deep link from a notification still wins)
+		const savedPeer = localStorage.getItem('alanbix_players_chat');
+		const savedGroup = localStorage.getItem('alanbix_players_group_chat');
 		// Check URL params for auto-open from notification click
 		const urlPeer = $page.url.searchParams.get('chat');
 		const urlGroup = $page.url.searchParams.get('group');
@@ -177,7 +179,7 @@
 				if (chatMode === 'p2p' && chatPeerId === msg.sender_id) {
 					unreadMap[msg.sender_id] = 0;
 					unreadMap = { ...unreadMap };
-					api.get(`/players/messages/${msg.sender_id}`).catch(() => {});
+					api.get(`/players/messages/${msg.sender_id}`).catch(() => {}).then(() => loadUnreadMap());
 				} else {
 					loadUnreadMap();
 				}
@@ -189,7 +191,8 @@
 	});
 
 	onDestroy(() => {
-		clearTimeout(retryTimer); 
+		clearTimeout(retryTimer);
+		if (typeof window !== 'undefined') window.removeEventListener('alanbix:messages-tab', onMessagesTab);
 		if (wsUnsub) wsUnsub(); 
 		if (typeof window !== 'undefined') {
 			window.removeEventListener('focus', onWindowFocus);
@@ -324,6 +327,7 @@
 	// --- P2P Chat ---
 	async function openChat(peerId) {
 		if (peerId === currentUser?.id) return;
+		rememberListScroll();
 		chatMode = 'p2p';
 		chatPeerId = peerId;
 		const found = players.find(p => p.id === peerId);
@@ -355,6 +359,7 @@
 	}
 
 	async function openGroupChat(channelKey) {
+		rememberListScroll();
 		chatMode = 'group';
 		chatChannelKey = channelKey;
 		chatPeerId = null;
@@ -368,15 +373,47 @@
 		await loadGroupUnreadMap();
 	}
 
+	// Phone: the contact list keeps its scroll position while a conversation is open
+	let listScrollY = 0;
+	function rememberListScroll() {
+		if (chatMode === null && typeof window !== 'undefined') listScrollY = window.scrollY;
+	}
+
+	// Phone: the conversation left through the back arrow, offered again from the contact list
+	let resumable = null; // { kind: 'p2p', peerId, label } | { kind: 'group', key, label }
+
+	function resumeChat() {
+		if (!resumable) return;
+		const r = resumable;
+		if (r.kind === 'p2p') openChat(r.peerId); else openGroupChat(r.key);
+	}
+
+	// Tapping the Messages tab again, while on the contact list, goes back to the last conversation
+	function onMessagesTab() {
+		if (chatMode === null) resumeChat();
+	}
+
 	function closeChat() {
+		const restoreY = listScrollY;
+		tick().then(() => tick()).then(() => window.scrollTo(0, restoreY));
+		if (chatMode === 'p2p' && chatPeerId) {
+			resumable = { kind: 'p2p', peerId: chatPeerId, label: chatPeer?.username || '' };
+		} else if (chatMode === 'group' && chatChannelKey) {
+			const info = chatChannelInfo;
+			resumable = { kind: 'group', key: chatChannelKey, label: (info?.team_names || []).join(' · ') };
+		}
 		chatMode = null;
 		chatPeerId = null;
 		chatPeer = null;
 		chatChannelKey = null;
 		chatChannelInfo = null;
 		chatChannelMembers = [];
-		localStorage.removeItem('alanbix_players_chat');
-		localStorage.removeItem('alanbix_players_group_chat');
+		// On a phone "back" only returns to the contact list: the last conversation is kept so the Messages
+		// tab reopens it next time. On a computer closing the chat forgets it.
+		if (!(typeof window !== 'undefined' && window.innerWidth <= 900)) {
+			localStorage.removeItem('alanbix_players_chat');
+			localStorage.removeItem('alanbix_players_group_chat');
+		}
 		if (typeof window !== 'undefined' && window.history && ($page.url.searchParams.has('chat') || $page.url.searchParams.has('group'))) {
 			const cleanUrl = window.location.pathname;
 			window.history.replaceState({}, '', cleanUrl);
@@ -430,7 +467,7 @@
 
 </script>
 
-<div class="players-page animate-in" class:chat-active-mobile={chatMode !== null}>
+<div class="players-page animate-in" class:chat-active-mobile={chatMode !== null} use:fitPane={chatMode !== null}>
 	<header class="players-header">
 		<h1 class="title-premium page-title-icon"><Icon name="users" size={22} /> {$t('players_title')}</h1>
 		<span class="player-count">{$t('players_subtitle', { count: players.length, plural: players.length > 1 ? 's' : '' })}</span>
@@ -439,6 +476,15 @@
 	<div class="players-layout" style="grid-template-columns: minmax(0, 1fr) 8px {chatWidth}px;">
 		<!-- LEFT: Player directory -->
 		<div class="directory-col" class:mobile-hidden={chatMode !== null}>
+			<div class="float-stack">
+			{#if resumable && chatMode === null}
+				<button type="button" class="resume-chat-bar glass" on:click={resumeChat}>
+					<Icon name="chat" size={15} />
+					<span class="resume-chat-text">{$t('players_resume_chat', { name: resumable.label })}</span>
+					<Icon name="chevron-right" size={15} />
+				</button>
+			{/if}
+
 			{#if totalUnreadChats > 0}
 				<div class="unread-shortlist-bar glass">
 					<div class="unread-shortlist-header">
@@ -493,6 +539,7 @@
 					</div>
 				</div>
 			{/if}
+			</div>
 
 			{#if currentUser?.team_name}
 				<button type="button" class="my-team-quick-bar glass" on:click={(e) => openTeamChat(e, currentUser.team_name)}>
@@ -724,7 +771,7 @@
 					allUsers={players}
 					on:close={closeChat}
 					on:messageSent={() => { loadUnreadMap(); loadGroupUnreadMap(); }}
-					on:messageRead={(e) => { if (e.detail?.peerId) { unreadMap[e.detail.peerId] = 0; unreadMap = { ...unreadMap }; } }}
+					on:messageRead={(e) => { if (e.detail?.peerId) { unreadMap[e.detail.peerId] = 0; unreadMap = { ...unreadMap }; } loadUnreadMap(); loadGroupUnreadMap(); }}
 				/>
 			{/if}
 		</div>
@@ -735,6 +782,16 @@
 	.players-page { display: flex; flex-direction: column; gap: 1rem; height: 100%; }
 	.players-header { display: flex; align-items: center; justify-content: space-between; padding: 0.25rem 0.25rem 0.5rem; flex-shrink: 0; background: none; border: none; box-shadow: none; backdrop-filter: none; }
 	.players-header h1 { margin: 0; font-size: var(--fs-page); }
+	.float-stack { display: contents; }
+	.resume-chat-bar { display: none; }
+	@media (max-width: 900px) {
+		.resume-chat-bar { display: flex; align-items: center; gap: 0.6rem; width: 100%; padding: 0.7rem 0.9rem; margin-bottom: 0.6rem; border-radius: var(--radius-md); border: 1px solid var(--accent); color: var(--accent); font-weight: 700; font-size: 0.85rem; cursor: pointer; text-align: left; }
+		/* the resume bar and the unread chips float at the top of the list while it scrolls */
+		.players-page:not(.chat-active-mobile) .players-layout, .players-page:not(.chat-active-mobile) .directory-col { overflow: visible; }
+		.float-stack { display: block; position: sticky; top: calc(var(--mobile-top-h, 42px) + 6px); z-index: 20; }
+		.float-stack .resume-chat-bar, .float-stack .unread-shortlist-bar { background: var(--bg-secondary) !important; border: 1px solid color-mix(in srgb, var(--accent) 60%, transparent) !important; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18); }
+		.resume-chat-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	}
 	.player-count { font-size: 0.75rem; font-weight: 700; padding: 0.25rem 0.8rem; border-radius: 20px; background: rgba(59,130,246,0.1); color: var(--accent); border: 1px solid rgba(59,130,246,0.25); }
 
 	/* Layout — fill remaining height, both columns scroll independently */
@@ -984,8 +1041,11 @@
 			height: auto;
 			min-height: calc(100vh - 120px);
 		}
+		/* Open conversation: fills the measured space above the tab bar, so the message box is never hidden */
+		/* the conversation fills the screen edge to edge, between the top bar and the tab bar */
 		.players-page.chat-active-mobile {
-			height: calc(100vh - 110px);
+			margin: -0.5rem -0.5rem calc(-1 * var(--pane-bleed, 0px));
+			height: calc(var(--pane-h, calc(100vh - 110px)) + var(--pane-bleed, 0px));
 			min-height: 0;
 			overflow: hidden;
 			gap: 0;

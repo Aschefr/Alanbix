@@ -65,7 +65,8 @@
 		call_admin_cooldown_minutes: 30,
 		call_admin_daily_limit: 3,
 		call_admin_global_hourly_limit: 15,
-		rag_suggestion_enabled: true
+		rag_suggestion_enabled: true,
+		rag_min_score: 0.65
 	};
 	let availableModels = [];
 	let instanceStatuses = [];
@@ -75,6 +76,20 @@
 	let defaultLang = 'fr';
 	let systemPrompt = '';
 	let closingPrompt = '';
+	let appGuide = '';
+	let promptPreview = null;
+	let promptPreviewLoading = false;
+	async function loadPromptPreview() {
+		promptPreviewLoading = true;
+		try {
+			promptPreview = await api.get(`/ia/admin/prompt-preview?lang=${defaultLang}`);
+		} catch (err) {
+			console.error('Failed to load prompt preview:', err);
+			toast(get(t)('admin_error_unknown'), 'error');
+		} finally {
+			promptPreviewLoading = false;
+		}
+	}
 
 	// System Prompt Editor Modal
 	let showPromptModal = false;
@@ -120,6 +135,81 @@
 	// Nuke State
 	let nukeConfirm = { tournaments: false, players: false, games: false, images: false, notifications: false, awards: false };
 	let nuking = { tournaments: false, players: false, games: false, images: false, notifications: false, awards: false };
+
+	// Jump bar of the General tab: one entry per section, the visible one is highlighted
+	let activeSection = 'gs-event';
+	let holdUntil = 0; // after a click on the bar, the clicked section stays highlighted while the page glides there
+	$: gSections = [
+		{ id: 'gs-event', icon: 'stadium', label: $t('admin_settings_section_event') },
+		{ id: 'gs-tournaments', icon: 'trophy', label: $t('admin_settings_section_tournaments') },
+		{ id: 'gs-chat', icon: 'chat', label: $t('admin_settings_section_chat') },
+		{ id: 'gs-services', icon: 'server', label: $t('admin_settings_section_services') },
+		{ id: 'gs-danger', icon: 'alert-triangle', label: $t('admin_settings_danger_zone') }
+	];
+	$: iSections = [
+		{ id: 'gi-servers', icon: 'server', label: $t('admin_ai_nav_servers') },
+		{ id: 'gi-model', icon: 'settings', label: $t('admin_ai_nav_model') },
+		{ id: 'gi-behaviour', icon: 'shield-check', label: $t('admin_ai_nav_behaviour') },
+		{ id: 'gi-prompts', icon: 'pencil', label: $t('admin_ai_nav_prompts') },
+		{ id: 'gi-knowledge', icon: 'book-open', label: $t('admin_ai_nav_knowledge') }
+	];
+	// keep the highlighted chip fully visible in the jump bar (the bar scrolls sideways on a phone)
+	function centerChip(id) {
+		if (typeof document === 'undefined') return;
+		setTimeout(() => {
+			const bar = document.querySelector('.settings-view .gnav');
+			const chip = bar && bar.querySelector('.gnav-chip.active');
+			if (!bar || !chip || bar.scrollWidth <= bar.clientWidth) return;
+			bar.scrollTo({ left: chip.offsetLeft - (bar.clientWidth - chip.offsetWidth) / 2, behavior: 'smooth' });
+		}, 0);
+	}
+	$: centerChip(activeSection);
+
+	function jumpTo(id) {
+		const el = document.getElementById(id);
+		if (!el) return;
+		if (el.tagName === 'DETAILS') el.open = true;
+		activeSection = id;
+		holdUntil = performance.now() + 900;
+		el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+	}
+	// The active section is the last one whose top has passed under the jump bar; at the very bottom of the page,
+	// the last one (the folded danger zone), since it can never reach the top.
+	function spySections(node) {
+		let raf = 0;
+		// the element that actually scrolls: the content area on a computer, the page on a phone
+		function scroller() {
+			let el = node.parentElement;
+			while (el && el !== document.body) {
+				const oy = getComputedStyle(el).overflowY;
+				if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight) return el;
+				el = el.parentElement;
+			}
+			return document.scrollingElement || document.documentElement;
+		}
+		function update() {
+			if (raf) return;
+			raf = requestAnimationFrame(() => {
+				raf = 0;
+				if (performance.now() < holdUntil) return;
+				const els = [...document.querySelectorAll('.settings-view [data-gsection]')];
+				if (!els.length) return;
+				const line = node.getBoundingClientRect().bottom + 24;
+				let current = els[0].id;
+				for (const el of els) if (el.getBoundingClientRect().top <= line) current = el.id;
+				const sc = scroller();
+				if (sc.scrollHeight > sc.clientHeight + 8 && sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 6) current = els[els.length - 1].id;
+				activeSection = current;
+			});
+		}
+		document.addEventListener('scroll', update, true);
+		window.addEventListener('resize', update);
+		update();
+		return { destroy() { document.removeEventListener('scroll', update, true); window.removeEventListener('resize', update); if (raf) cancelAnimationFrame(raf); } };
+	}
+	function hostOf(url) {
+		try { return new URL(url).host; } catch (e) { return (url || '').replace(/^https?:[/][/]/, '').split('/')[0]; }
+	}
 
 	onMount(async () => {
 		await loadData();
@@ -218,6 +308,7 @@
 			const translations = await api.get(`/api/i18n/${defaultLang}`);
 			systemPrompt = translations.system_prompt || "Tu es Alanbix, l'IA de gestion de LAN.";
 			closingPrompt = translations.tournament_closing_prompt || "";
+			appGuide = translations.ai_app_guide || "";
 		} catch (err) {
 			console.error('Failed to load prompts from default language:', err);
 		}
@@ -287,6 +378,30 @@
 			toast(get(t)('admin_toast_system_prompt_saved'), 'success');
 		} catch (err) {
 			console.error('Failed to save system prompt:', err);
+			toast(get(t)('admin_error_save'), 'error');
+		}
+	}
+
+	async function saveAppGuide() {
+		try {
+			const translations = await api.get(`/api/i18n/${defaultLang}`);
+			translations.ai_app_guide = appGuide;
+			await api.put(`/api/i18n/${defaultLang}`, translations);
+			toast(get(t)('admin_toast_app_guide_saved'), 'success');
+		} catch (err) {
+			console.error('Failed to save app guide:', err);
+			toast(get(t)('admin_error_save'), 'error');
+		}
+	}
+
+	// Saving the shipped text drops the customisation, so later app updates of the guide apply again
+	async function restoreAppGuide() {
+		try {
+			const shipped = await api.get(`/api/i18n/${defaultLang}/static`);
+			appGuide = shipped.ai_app_guide || '';
+			await saveAppGuide();
+		} catch (err) {
+			console.error('Failed to restore app guide:', err);
 			toast(get(t)('admin_error_save'), 'error');
 		}
 	}
@@ -592,8 +707,19 @@
 	<!-- GENERAL TAB -->
 	{#if !settingsSubTab || settingsSubTab === 'general'}
 	<p class="autosave-note">{$t('admin_settings_autosave_note')}</p>
+	<nav class="gnav" aria-label={$t('admin_settings_tab_general')} use:spySections>
+		{#each gSections as sec (sec.id)}
+			<button type="button" class="gnav-chip" class:active={activeSection === sec.id} class:danger={sec.id === 'gs-danger'} on:click={() => jumpTo(sec.id)}>
+				<Icon name={sec.icon} size={14} /><span>{sec.label}</span>
+			</button>
+		{/each}
+	</nav>
 	<div class="stab-content">
-		<h2 class="settings-section">{$t('admin_settings_section_event')}</h2>
+		<h2 class="settings-section" id="gs-event" data-gsection>
+			<span class="ss-icon"><Icon name="stadium" size={16} /></span>
+			<span class="ss-title">{$t('admin_settings_section_event')}</span>
+			{#if eventName}<span class="ss-sum">{eventName}</span>{/if}
+		</h2>
 		<div class="sc glass">
 			<div class="sc-head">
 				<div class="sc-icon"><Icon name="tag" size={16} /></div>
@@ -624,7 +750,7 @@
 			</div>
 		</div>
 
-		<div class="sc glass">
+		<div class="sc glass sc-full">
 			<div class="sc-head">
 				<div class="sc-icon"><Icon name="bar-chart" size={16} /></div>
 				<div>
@@ -635,12 +761,12 @@
 			<div class="sc-body">
 				<div class="scoring-toggle">
 					<button class="score-opt {teamScoringMode === 'weighted' ? 'active' : ''}" on:click={() => { teamScoringMode = 'weighted'; saveTeamScoringMode(); }}>
-						<span class="score-opt-icon"><Icon name="bar-chart" size={18} /></span>
+						<span class="score-opt-icon"><Icon name="scale" size={18} /></span>
 						<span class="score-opt-label">{$t("admin_settings_scoring_weighted_label")}</span>
 						<span class="score-opt-desc">{$t("admin_settings_scoring_weighted_desc")}</span>
 					</button>
 					<button class="score-opt {teamScoringMode === 'raw' ? 'active' : ''}" on:click={() => { teamScoringMode = 'raw'; saveTeamScoringMode(); }}>
-						<span class="score-opt-icon"><Icon name="bar-chart" size={18} /></span>
+						<span class="score-opt-icon"><Icon name="layers" size={18} /></span>
 						<span class="score-opt-label">{$t("admin_settings_scoring_raw_label")}</span>
 						<span class="score-opt-desc">{$t("admin_settings_scoring_raw_desc")}</span>
 					</button>
@@ -648,7 +774,11 @@
 			</div>
 		</div>
 
-		<h2 class="settings-section">{$t('admin_settings_section_tournaments')}</h2>
+		<h2 class="settings-section" id="gs-tournaments" data-gsection>
+			<span class="ss-icon"><Icon name="trophy" size={16} /></span>
+			<span class="ss-title">{$t('admin_settings_section_tournaments')}</span>
+			<span class="ss-sum">{defaultPts.pts_winner} · {defaultPts.pts_second} · {defaultPts.pts_third}</span>
+		</h2>
 		<div class="sc glass sc-full">
 			<div class="sc-head">
 				<div class="sc-icon"><Icon name="trophy" size={16} /></div>
@@ -668,9 +798,13 @@
 			</div>
 		</div>
 
-		<h2 class="settings-section">{$t('admin_settings_section_chat')}</h2>
+		<h2 class="settings-section" id="gs-chat" data-gsection>
+			<span class="ss-icon"><Icon name="chat" size={16} /></span>
+			<span class="ss-title">{$t('admin_settings_section_chat')}</span>
+			<span class="ss-dot" class:on={publicChatConfig.enabled} title={$t('admin_public_chat_enable')}></span>
+		</h2>
 		<!-- Public Chat & Anti-Spam Settings -->
-		<div class="sc glass sc-full">
+		<div class="sc glass sc-full sc-bare">
 			<div class="sc-head">
 				<div class="sc-icon"><Icon name="chat" size={16} /></div>
 				<div>
@@ -746,10 +880,11 @@
 						</button>
 					</div>
 
+					<div class="pca-sections">
 					<!-- Limits & Delays Section -->
 					<div class="pca-section">
 						<div class="pca-section-header">
-							<span class="pca-section-icon">⏱️</span>
+							<span class="pca-section-icon"><Icon name="clock" size={16} /></span>
 							<span class="compact-label">{$t("admin_public_chat_section_limits")}</span>
 						</div>
 
@@ -797,13 +932,17 @@
 						</div>
 					</div>
 
+					</div>
 					<!-- Action Buttons -->
 				</div>
 			</div>
 		</div>
 
-		<!-- Danger Zone -->
-		<h2 class="settings-section">{$t('admin_settings_section_services')}</h2>
+		<h2 class="settings-section" id="gs-services" data-gsection>
+			<span class="ss-icon"><Icon name="server" size={16} /></span>
+			<span class="ss-title">{$t('admin_settings_section_services')}</span>
+			{#if searxngUrl}<span class="ss-sum">{hostOf(searxngUrl)}</span>{/if}
+		</h2>
 		<div class="sc glass sc-full">
 			<div class="sc-head">
 				<div class="sc-icon"><Icon name="search" size={16} /></div>
@@ -814,7 +953,7 @@
 			</div>
 			<div class="sc-body">
 				<div class="flex-column gap-2" style="width: 100%;">
-					<div class="flex-row gap-2" style="width: 100%;">
+					<div class="flex-row gap-2 searx-row" style="width: 100%;">
 						<input type="text" aria-label={$t("admin_settings_searxng_title")} bind:value={searxngUrl} on:input={() => debounceSave('searxngUrl', saveSearxngUrl)} placeholder="{$t('admin_settings_searxng_placeholder')}" style="flex:1" />
 						<button class="btn-primary" on:click={testSearxng} disabled={searxngTesting}>
 							{#if searxngTesting}
@@ -835,20 +974,22 @@
 			</div>
 		</div>
 
-		<div class="sc danger-zone sc-full">
-			<div class="sc-head">
+		<details class="sc danger-zone sc-full" id="gs-danger" data-gsection>
+			<summary class="sc-head">
 				<div class="sc-icon"><Icon name="alert-triangle" size={16} /></div>
-				<div>
+				<div class="dz-text">
 					<h3 style="color: var(--danger)">{$t("admin_settings_danger_zone")}</h3>
 					<p class="sc-sub">{$t("admin_settings_danger_zone_sub")}</p>
 				</div>
-			</div>
+				<span class="dz-count">7</span>
+				<span class="dz-chevron"><Icon name="chevron-down" size={16} /></span>
+			</summary>
 			<div class="sc-body">
 				<div class="nuke-grid">
 					<!-- Purge public chat -->
 					<div class="nuke-card">
 						<div class="nuke-info">
-							<span class="nuke-icon"><Icon name="chat" size={24} /></span>
+							<span class="nuke-icon"><Icon name="chat" size={18} /></span>
 							<div>
 								<strong>{$t("admin_public_chat_purge_btn")}</strong>
 								<p>{$t("admin_public_chat_purge_desc")}</p>
@@ -867,7 +1008,7 @@
 					<!-- Nuke Tournaments -->
 					<div class="nuke-card">
 						<div class="nuke-info">
-							<span class="nuke-icon"><Icon name="trophy" size={24} /></span>
+							<span class="nuke-icon"><Icon name="trophy" size={18} /></span>
 							<div>
 								<strong>{$t("admin_settings_del_tourneys")}</strong>
 								<p>{$t("admin_settings_del_tourneys_sub")}</p>
@@ -889,7 +1030,7 @@
 					<!-- Nuke Players -->
 					<div class="nuke-card">
 						<div class="nuke-info">
-							<span class="nuke-icon"><Icon name="users" size={24} /></span>
+							<span class="nuke-icon"><Icon name="users" size={18} /></span>
 							<div>
 								<strong>{$t("admin_settings_del_players")}</strong>
 								<p>{$t("admin_settings_del_players_sub")}</p>
@@ -911,7 +1052,7 @@
 					<!-- Nuke Games -->
 					<div class="nuke-card">
 						<div class="nuke-info">
-							<span class="nuke-icon"><Icon name="gamepad" size={24} /></span>
+							<span class="nuke-icon"><Icon name="gamepad" size={18} /></span>
 							<div>
 								<strong>{$t("admin_settings_del_games")}</strong>
 								<p>{$t("admin_settings_del_games_sub")}</p>
@@ -933,7 +1074,7 @@
 					<!-- Nuke Images -->
 					<div class="nuke-card">
 						<div class="nuke-info">
-							<span class="nuke-icon"><Icon name="trash" size={24} /></span>
+							<span class="nuke-icon"><Icon name="trash" size={18} /></span>
 							<div>
 								<strong>{$t("admin_settings_purge_chat")}</strong>
 								<p>{$t("admin_settings_purge_chat_sub")}</p>
@@ -955,7 +1096,7 @@
 					<!-- Nuke Notifications -->
 					<div class="nuke-card">
 						<div class="nuke-info">
-							<span class="nuke-icon"><Icon name="bell" size={24} /></span>
+							<span class="nuke-icon"><Icon name="bell" size={18} /></span>
 							<div>
 								<strong>{$t("admin_settings_purge_notifs")}</strong>
 								<p>{$t("admin_settings_purge_notifs_sub")}</p>
@@ -977,7 +1118,7 @@
 					<!-- Nuke Awards -->
 					<div class="nuke-card">
 						<div class="nuke-info">
-							<span class="nuke-icon"><Icon name="trophy" size={24} /></span>
+							<span class="nuke-icon"><Icon name="trophy" size={18} /></span>
 							<div>
 								<strong>{$t("admin_settings_purge_awards") || $t("admin_settings_purge_notifs")}</strong>
 								<p>{$t("admin_settings_purge_awards_sub")}</p>
@@ -997,12 +1138,24 @@
 					</div>
 				</div>
 			</div>
-		</div>
+		</details>
 	</div>
 
 	<!-- IA TAB -->
 	{:else if settingsSubTab === 'ia'}
-	<div class="stab-content">
+			<nav class="gnav" aria-label={$t("admin_settings_tab_ai")} use:spySections>
+			{#each iSections as sec (sec.id)}
+				<button type="button" class="gnav-chip" class:active={activeSection === sec.id} on:click={() => jumpTo(sec.id)}>
+					<Icon name={sec.icon} size={14} /><span>{sec.label}</span>
+				</button>
+			{/each}
+		</nav>
+		<div class="stab-content">
+		<h2 class="settings-section" id="gi-servers" data-gsection>
+			<span class="ss-icon"><Icon name="server" size={16} /></span>
+			<span class="ss-title">{$t('admin_ai_sec_servers')}</span>
+			<span class="ss-sum">{instanceStatuses.filter(x => x.online).length}/{iaConfig.ollama_instances.length} · {iaQueueData.queue_size}</span>
+		</h2>
 		<!-- AI Queue Panel -->
 		<div class="sc glass">
 			<div class="sc-head">
@@ -1014,7 +1167,7 @@
 				<div class="queue-stats-badges">
 					<span class="queue-stat-badge pending" title="{$t('admin_settings_queue_pending')}"><Icon name="hourglass" size={13} /> {iaQueueData.queue_size}</span>
 					<span class="queue-stat-badge active" title="{$t('admin_settings_queue_processing')}"><Icon name="zap" size={13} /> {iaQueueData.active_count}</span>
-					<span class="queue-stat-badge avg" title="{$t('admin_settings_queue_avg_duration')}">⏱️ {iaQueueData.avg_duration}s</span>
+					<span class="queue-stat-badge avg" title="{$t('admin_settings_queue_avg_duration')}"><Icon name="clock" size={13} /> {iaQueueData.avg_duration}s</span>
 				</div>
 			</div>
 			<div class="sc-body">
@@ -1083,7 +1236,7 @@
 									<span class="inst-ping">{status.latency_ms}ms</span>
 								{/if}
 								{#if status?.avg_duration !== undefined && status?.avg_duration !== null}
-									<span class="inst-ping" style="background: rgba(139, 92, 246, 0.15); color: #c084fc; border-color: rgba(139, 92, 246, 0.35);">⏱️ {status.avg_duration}s</span>
+									<span class="inst-ping" style="background: rgba(139, 92, 246, 0.15); color: #c084fc; border-color: rgba(139, 92, 246, 0.35);"><Icon name="clock" size={11} /> {status.avg_duration}s</span>
 								{/if}
 							</div>
 						</div>
@@ -1102,8 +1255,13 @@
 			</div>
 		</div>
 
+		<h2 class="settings-section" id="gi-model" data-gsection>
+			<span class="ss-icon"><Icon name="settings" size={16} /></span>
+			<span class="ss-title">{$t('admin_settings_ai_model_cfg')}</span>
+			<span class="ss-sum">{iaConfig.temperature} · {iaConfig.context_window}</span>
+		</h2>
 		<!-- Configuration du Modèle -->
-		<div class="sc glass">
+		<div class="sc glass sc-full sc-bare">
 			<div class="sc-head compact">
 				<div class="sc-icon sm"><Icon name="settings" size={13} /></div>
 				<div style="flex:1">
@@ -1111,7 +1269,7 @@
 					<p class="sc-sub">{$t('admin_settings_ai_model_cfg_sub')}</p>
 				</div>
 			</div>
-			<div class="sc-body" style="gap: 0.8rem;">
+			<div class="sc-body ai-model-body">
 				<!-- Temperature -->
 				<div>
 					<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem;">
@@ -1136,8 +1294,8 @@
 							style="width: 80px; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 6px; padding: 0.15rem 0.4rem; color: var(--text-main); font-size: 0.72rem; font-weight: 700; text-align: right;" 
 						/>
 					</div>
-					<div class="ctx-presets-grid" style="display: flex; gap: 0.25rem;">
-						{#each [2048, 4096, 8192, 16384, 32768] as size}
+					<div class="ctx-presets-grid" style="display: flex; flex-wrap: wrap; gap: 0.25rem;">
+						{#each [2048, 4096, 8192, 16384, 32768, 65536, 131072] as size}
 							<button 
 								type="button" 
 								class="ctx-preset-mini-btn" 
@@ -1164,6 +1322,15 @@
 					</select>
 				</div>
 
+				<!-- Knowledge base relevance threshold -->
+				<div>
+					<label class="compact-label" for="rag-min-score" style="margin-bottom: 0.2rem; display: block;">{$t('admin_settings_ai_rag_min_score')} : {Number(iaConfig.rag_min_score ?? 0.65).toFixed(2)}</label>
+					<input id="rag-min-score" type="range" bind:value={iaConfig.rag_min_score} on:change={saveIAConfig} min="0.4" max="0.9" step="0.01" class="range-accent" style="width: 100%;" />
+					<span class="range-hint text-xs" style="color: var(--text-muted); font-size: 0.75rem; display: block; margin-top: 0.25rem; line-height: 1.2;">
+						{$t('admin_settings_ai_rag_min_score_hint')}
+					</span>
+				</div>
+
 				<!-- Tool Calling Mode -->
 				<div>
 					<label class="compact-label" style="margin-bottom: 0.2rem; display: block;">{$t('admin_settings_ai_tool_mode')}</label>
@@ -1174,9 +1341,19 @@
 					</select>
 				</div>
 
-				<!-- Network Tools -->
+			</div>
+		</div>
+
+		<h2 class="settings-section" id="gi-behaviour" data-gsection>
+			<span class="ss-icon"><Icon name="shield-check" size={16} /></span>
+			<span class="ss-title">{$t('admin_ai_sec_behaviour')}</span>
+		</h2>
+		<div class="sc glass sc-full sc-bare">
+			<div class="sc-body">
+				<div class="ai-opts">
+<!-- Network Tools -->
 				<div style="display: flex; align-items: center; justify-content: space-between; padding-top: 0.4rem; border-top: 1px solid var(--glass-border);">
-					<span class="compact-label" style="font-weight: 600;">{$t('admin_settings_ai_tools')}</span>
+					<span class="compact-label ai-opt-label" style="font-weight: 600;"><Icon name="globe" size={15} /> {$t('admin_settings_ai_tools')}</span>
 					<label class="toggle-switch-mini">
 						<input type="checkbox" bind:checked={iaConfig.network_tools_enabled} on:change={saveIAConfig} />
 						<span class="toggle-slider"></span>
@@ -1185,7 +1362,7 @@
 
 				<!-- Auto-moderation -->
 				<div style="display: flex; align-items: center; justify-content: space-between; padding-top: 0.4rem; border-top: 1px solid var(--glass-border);">
-					<span class="compact-label" style="font-weight: 600;">{$t('admin_settings_ai_moderation')}</span>
+					<span class="compact-label ai-opt-label" style="font-weight: 600;"><Icon name="shield" size={15} /> {$t('admin_settings_ai_moderation')}</span>
 					<label class="toggle-switch-mini">
 						<input type="checkbox" bind:checked={iaConfig.auto_moderation_enabled} on:change={saveIAConfig} />
 						<span class="toggle-slider"></span>
@@ -1194,7 +1371,7 @@
 
 				<!-- Appel Admin Outil -->
 				<div style="display: flex; align-items: center; justify-content: space-between; padding-top: 0.4rem; border-top: 1px solid var(--glass-border);">
-					<span class="compact-label" style="font-weight: 600;">{$t('ai_setting_call_admin_tool_enabled')}</span>
+					<span class="compact-label ai-opt-label" style="font-weight: 600;"><Icon name="megaphone" size={15} /> {$t('ai_setting_call_admin_tool_enabled')}</span>
 					<label class="toggle-switch-mini">
 						<input type="checkbox" bind:checked={iaConfig.call_admin_enabled} on:change={saveIAConfig} />
 						<span class="toggle-slider"></span>
@@ -1203,14 +1380,14 @@
 
 				<!-- Appel Admin Bouton Manuel -->
 				<div style="display: flex; align-items: center; justify-content: space-between; padding-top: 0.4rem; border-top: 1px solid var(--glass-border);">
-					<span class="compact-label" style="font-weight: 600;">{$t('ai_setting_call_admin_btn_enabled')}</span>
+					<span class="compact-label ai-opt-label" style="font-weight: 600;"><Icon name="bell" size={15} /> {$t('ai_setting_call_admin_btn_enabled')}</span>
 					<label class="toggle-switch-mini">
 						<input type="checkbox" bind:checked={iaConfig.call_admin_button_enabled} on:change={saveIAConfig} />
 						<span class="toggle-slider"></span>
 					</label>
 				</div>
 				{#if iaConfig.call_admin_enabled || iaConfig.call_admin_button_enabled}
-				<div style="padding: 0.6rem; margin-top: 0.4rem; background: rgba(255, 255, 255, 0.03); border: 1px dashed var(--glass-border); border-radius: 4px; display: flex; flex-direction: column; gap: 0.5rem;">
+				<div class="ai-antispam" style="padding: 0.6rem; margin-top: 0.4rem; background: rgba(255, 255, 255, 0.03); border: 1px dashed var(--glass-border); border-radius: 4px; display: flex; flex-direction: column; gap: 0.5rem;">
 					<span class="compact-label" style="font-weight: 600; font-size: 0.85rem; letter-spacing: 0.05em; color: var(--text-muted);">
 						{$t('ai_setting_call_admin_antispam_section_title')}
 					</span>
@@ -1233,17 +1410,22 @@
 
 				<!-- Suggestions RAG -->
 				<div style="display: flex; align-items: center; justify-content: space-between; padding-top: 0.4rem; border-top: 1px solid var(--glass-border);">
-					<span class="compact-label" style="font-weight: 600;">{$t('ai_setting_rag_suggestion_enabled')}</span>
+					<span class="compact-label ai-opt-label" style="font-weight: 600;"><Icon name="lightbulb" size={15} /> {$t('ai_setting_rag_suggestion_enabled')}</span>
 					<label class="toggle-switch-mini">
 						<input type="checkbox" bind:checked={iaConfig.rag_suggestion_enabled} on:change={saveIAConfig} />
 						<span class="toggle-slider"></span>
 					</label>
 				</div>
+				</div>
 			</div>
 		</div>
 
+		<h2 class="settings-section" id="gi-prompts" data-gsection>
+			<span class="ss-icon"><Icon name="pencil" size={16} /></span>
+			<span class="ss-title">{$t('admin_settings_ai_prompts')}</span>
+		</h2>
 		<!-- Prompts de l'IA -->
-		<div class="sc glass">
+		<div class="sc glass sc-full sc-bare">
 			<div class="sc-head compact">
 				<div class="sc-icon sm"><Icon name="chat" size={13} /></div>
 				<div style="flex:1">
@@ -1265,11 +1447,36 @@
 						<textarea class="prompt-textarea-compact" bind:value={closingPrompt} on:input={() => debounceSave('closingPrompt', saveClosingPrompt)} placeholder="{$t('admin_settings_ai_prompt_close_placeholder')}" rows="6" style="flex: 1; height: 100%; resize: none;"></textarea>
 					</div>
 				</div>
+				<div class="app-guide-field">
+					<div class="app-guide-head">
+						<label class="compact-label" for="ai-app-guide">{$t('admin_settings_ai_app_guide')}</label>
+						<button type="button" class="btn-prompt-edit" on:click={restoreAppGuide}><Icon name="refresh" size={14} /> {$t('admin_settings_ai_restore_default')}</button>
+					</div>
+					<p class="sc-sub">{$t('admin_settings_ai_app_guide_hint')}</p>
+					<textarea id="ai-app-guide" class="prompt-textarea-compact" bind:value={appGuide} on:input={() => debounceSave('appGuide', saveAppGuide)} rows="10" style="resize: vertical;"></textarea>
+				</div>
+				<details class="prompt-preview" on:toggle={(e) => { if (e.currentTarget.open && !promptPreview) loadPromptPreview(); }}>
+					<summary><Icon name="eye" size={14} /> {$t('admin_settings_ai_preview')}
+						{#if promptPreview}<span class="pp-size">{$t('admin_settings_ai_preview_size', { count: promptPreview.estimated_tokens })}</span>{/if}
+					</summary>
+					<div class="pp-body">
+						<div class="app-guide-head">
+							<p class="sc-sub">{$t('admin_settings_ai_preview_hint')}</p>
+							<button type="button" class="btn-prompt-edit" on:click={loadPromptPreview} disabled={promptPreviewLoading}><Icon name="refresh" size={14} /> {$t('admin_settings_ai_preview_refresh')}</button>
+						</div>
+						{#if promptPreview}<pre class="pp-text">{promptPreview.prompt}</pre>{/if}
+					</div>
+				</details>
 			</div>
 		</div>
 
+		<h2 class="settings-section" id="gi-knowledge" data-gsection>
+			<span class="ss-icon"><Icon name="book-open" size={16} /></span>
+			<span class="ss-title">{$t('admin_settings_ai_rag')}</span>
+			<span class="ss-sum">{knowledgeDocs.length}</span>
+		</h2>
 		<!-- RAG -->
-		<div class="sc glass sc-full">
+		<div class="sc glass sc-full sc-bare">
 			<div class="sc-head">
 				<div class="sc-icon"><Icon name="book-open" size={16} /></div>
 				<div style="flex:1">
@@ -1422,12 +1629,16 @@
 {/if}
 
 <style>
-	.settings-view { display: flex; flex-direction: column; gap: 0; }
+	.settings-view { display: flex; flex-direction: column; gap: 0; padding-bottom: 3rem; }
 	.settings-tabs { display: flex; gap: 0.35rem; padding: 0.35rem; background: var(--surface-sunken); border-radius: 12px; margin-bottom: 1.5rem; border: 1px solid var(--glass-border); }
 	.stab { flex: 1; padding: 0.7rem 1rem; background: none; border: none; color: var(--text-dim); font-size: 0.85rem; font-weight: 600; font-family: var(--font-main); cursor: pointer; border-radius: 8px; transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1); display: flex; align-items: center; justify-content: center; gap: 0.5rem; }
 	.stab:hover { color: var(--text-main); background: var(--hover-tint); }
-	.stab.active { background: var(--accent); color: white; box-shadow: 0 4px 14px var(--accent-glow); font-weight: 700; }
+	.stab.active { background: var(--accent-solid); color: white; box-shadow: 0 4px 14px var(--accent-glow); font-weight: 700; }
 	.stab-icon { display: inline-flex; }
+	@media (max-width: 480px) {
+		.stab { padding: 0.6rem 0.4rem; font-size: 0.8125rem; white-space: nowrap; }
+		.stab-icon { display: none; }
+	}
 	.stab-content {
 		display: grid;
 		grid-template-columns: minmax(0, 1fr);
@@ -1503,7 +1714,10 @@
 	.inst-main { flex: 1; min-width: 0; }
 	.inst-name-input { width: 100%; background: transparent; border: none; border-bottom: 1px solid var(--glass-border); color: var(--text-main); font-size: 0.8rem; font-weight: 700; padding: 0.1rem 0; }
 	.inst-name-input:focus { border-color: var(--accent); outline: none; }
-	.inst-meta { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.3rem; }
+	.inst-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.3rem; }
+	.searx-row { flex-wrap: wrap; }
+	.searx-row input { flex: 1 1 180px !important; min-width: 0; }
+	.searx-row button { flex: 0 1 auto; }
 	.inst-url-input { flex: 1; min-width: 80px; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 6px; padding: 0.2rem 0.4rem; color: var(--text-dim); font-size: 0.75rem; font-family: monospace; }
 	.inst-model-select { background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 6px; padding: 0.2rem 0.4rem; color: var(--text-main); font-size: 0.75rem; max-width: 120px; min-width: 80px; }
 	.inst-model-select option { background: var(--bg-secondary); color: var(--text-main); }
@@ -1527,6 +1741,7 @@
 
 	/* Queue */
 	.queue-stats-badges { display: flex; gap: 0.4rem; }
+	.queue-stat-badge, .inst-ping { display: inline-flex; align-items: center; gap: 0.25rem; }
 	.queue-stat-badge { font-size: 0.75rem; font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 6px; font-family: monospace; }
 	.queue-stat-badge.pending { background: rgba(245,158,11,0.12); color: #f59e0b; border: 1px solid rgba(245,158,11,0.3); }
 	.queue-stat-badge.active { background: rgba(16,185,129,0.12); color: #10b981; border: 1px solid rgba(16,185,129,0.3); }
@@ -1560,7 +1775,11 @@
 	.rag-item-editing { border-color: rgba(59,130,246,0.3); background: rgba(59,130,246,0.05); }
 	.rag-edit-textarea { width: 100%; min-height: 120px; resize: vertical; border-radius: 6px; border: 1px solid var(--glass-border); background: var(--bg-secondary); color: var(--text-main); padding: 0.5rem; font-size: 0.75rem; font-family: inherit; line-height: 1.5; margin-top: 0.3rem; }
 	.rag-edit-textarea:focus { outline: none; border-color: var(--accent); }
-	.rag-edit-actions { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.4rem; justify-content: flex-end; }
+	.rag-edit-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.4rem; justify-content: flex-end; }
+	.rag-edit-actions button { max-width: 100%; white-space: normal; }
+	/* editing a document: the list grows instead of scrolling inside itself; on a phone it never scrolls inside itself */
+	.rag-list:has(.rag-item-editing) { max-height: none; }
+	@media (max-width: 900px) { .rag-list { max-height: none; } }
 	.rag-edit-chars { font-size: 0.75rem; color: var(--text-muted); margin-right: auto; }
 	.rag-edit-loading { font-size: 0.75rem; color: var(--text-muted); padding: 0.5rem 0; }
 	.rag-vectorize-anim { position: relative; margin-top: 0.5rem; padding: 0.6rem 0.8rem; border-radius: 8px; overflow: hidden; background: rgba(99,102,241,0.06); border: 1px solid rgba(99,102,241,0.15); }
@@ -1795,9 +2014,20 @@
 	.prompt-modal-close:hover { background: rgba(239,68,68,0.1); border-color: var(--danger); color: var(--danger); }
 	.prompt-modal-body { display: grid; grid-template-columns: 1fr 340px; flex: 1; min-height: 0; overflow: hidden; }
 	@media (max-width: 800px) { .prompt-modal-body { grid-template-columns: 1fr; } }
+	/* Phone: one column that scrolls as a whole (the editor and the guide used to overlap), a near full-screen sheet */
+	@media (max-width: 800px) {
+		.prompt-modal-overlay { padding: 0.5rem; align-items: stretch; }
+		.prompt-modal { max-height: none; height: 100%; width: 100%; border-radius: 16px; }
+		.prompt-modal-header { padding: 0.8rem 1rem; }
+		.prompt-modal-body { display: flex; flex-direction: column; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+		.prompt-modal-editor { flex: none; border-right: none; border-bottom: 1px solid var(--glass-border); padding: 0.75rem; }
+		.prompt-modal-textarea { min-height: 280px; font-size: 0.85rem; }
+		.prompt-modal-guide { flex: none; overflow: visible; padding: 0.75rem; }
+		.prompt-modal-footer { padding: 0.7rem 1rem calc(0.7rem + var(--safe-bottom, 0px)); }
+	}
 	.prompt-modal-editor { display: flex; flex-direction: column; padding: 1rem; border-right: 1px solid var(--glass-border); min-height: 0; }
 	.prompt-modal-char-count { font-size: 0.75rem; color: var(--text-muted); font-variant-numeric: tabular-nums; margin-bottom: 0.4rem; text-align: right; font-weight: 600; }
-	.prompt-modal-textarea { flex: 1; width: 100%; min-height: 400px; max-height: 100%; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 10px; padding: 0.8rem; color: var(--text-main); font-size: 0.8rem; font-family: 'Courier New', 'Consolas', monospace; line-height: 1.6; resize: none; transition: border-color 0.2s; }
+	.prompt-modal-textarea { flex: 1; width: 100%; min-height: 400px; max-height: 100%; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 10px; padding: 0.8rem; color: var(--text-main); font-size: 0.8rem; font-family: monospace; line-height: 1.6; resize: none; transition: border-color 0.2s; }
 	.prompt-modal-textarea:focus { outline: none; border-color: rgba(139,92,246,0.5); box-shadow: 0 0 0 3px rgba(139,92,246,0.08); }
 	.prompt-modal-guide { overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: 0.8rem; background: rgba(139,92,246,0.02); }
 	.pmg-section { background: var(--hover-tint); border: 1px solid var(--glass-border); border-radius: 12px; padding: 0.8rem 0.9rem; }
@@ -1819,8 +2049,78 @@
 	.prompt-modal-footer { display: flex; justify-content: flex-end; gap: 0.6rem; padding: 0.8rem 1.2rem; border-top: 1px solid var(--glass-border); background: var(--hover-tint); flex-shrink: 0; }
 
 	.autosave-note { margin: 0 0 0.75rem; font-size: 0.85rem; color: var(--text-dim); }
-	.settings-section { grid-column: 1 / -1; font-size: 0.95rem; font-weight: 700; color: var(--text-main); margin: 0.75rem 0 -0.25rem; padding-bottom: 0.35rem; border-bottom: 1px solid var(--glass-border); }
+	/* General tab: jump bar, section headers, compact groups */
+	.gnav { position: sticky; top: -1rem; z-index: 30; box-shadow: 0 6px 14px rgba(0, 0, 0, 0.18); display: flex; gap: 0.4rem; margin: 0 0 1rem; padding: 0.45rem 0.5rem; border-radius: 12px; background: var(--bg-secondary); border: 1px solid var(--glass-border); overflow-x: auto; scrollbar-width: none; }
+	.gnav::-webkit-scrollbar { display: none; }
+	.gnav-chip { display: inline-flex; align-items: center; gap: 0.4rem; flex-shrink: 0; padding: 0.4rem 0.8rem; border-radius: 8px; border: 1px solid transparent; background: none; color: var(--text-dim); font-family: var(--font-main); font-size: 0.8rem; font-weight: 600; cursor: pointer; white-space: nowrap; transition: all 0.15s; }
+	.gnav-chip:hover { color: var(--text-main); background: var(--hover-tint); }
+	.gnav-chip.active { color: var(--accent); background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
+	.gnav-chip.danger { margin-left: auto; }
+	.gnav-chip.danger.active { color: var(--danger); background: color-mix(in srgb, var(--danger) 10%, transparent); border-color: color-mix(in srgb, var(--danger) 40%, transparent); }
+	.settings-section { grid-column: 1 / -1; display: flex; align-items: center; gap: 0.6rem; scroll-margin-top: 4.5rem; font-family: var(--font-title); font-size: 1.1rem; font-weight: 700; color: var(--text-main); margin: 1rem 0 -0.25rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--glass-border); }
 	.settings-section:first-child { margin-top: 0; }
+	.ss-icon { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 8px; background: var(--accent-soft); color: var(--accent); flex-shrink: 0; }
+	.settings-section { padding-right: 0.35rem; }
+	.ss-sum { margin-left: auto; max-width: 50%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-main); font-size: 0.78rem; font-weight: 600; color: var(--text-dim); }
+	.ss-dot { margin-left: auto; width: 10px; height: 10px; border-radius: 50%; background: var(--text-dim); opacity: 0.6; }
+	.ss-dot.on { background: var(--success); opacity: 1; box-shadow: 0 0 6px color-mix(in srgb, var(--success) 60%, transparent); }
+	#gs-danger { scroll-margin-top: 4.5rem; }
+	@media (max-width: 900px) { .settings-section, #gs-danger { scroll-margin-top: 7.2rem; } }
+
+	/* the two team-scoring options sit side by side as compact choices */
+	.scoring-toggle .score-opt { display: grid; grid-template-columns: auto 1fr; column-gap: 0.7rem; row-gap: 0; align-items: center; text-align: left; padding: 0.55rem 0.9rem; }
+	.scoring-toggle .score-opt-icon { grid-row: 1 / 3; }
+	.scoring-toggle .score-opt-label, .scoring-toggle .score-opt-desc { grid-column: 2; }
+	.default-pts-grid { grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); gap: 0.6rem; align-items: end; }
+	.dpt-field { justify-content: flex-end; }
+	.dpt-field label { display: flex; align-items: flex-end; justify-content: center; min-height: 2.4em; line-height: 1.2; }
+
+	/* chat: compact toggle rows, limits and filters side by side */
+	.sc-bare > .sc-head { display: none; }
+	.pca-container { gap: 0.85rem; }
+	.pca-toggles-grid { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 0.6rem; }
+	.pca-toggle-card { flex-direction: row; align-items: center; gap: 0.8rem; min-height: 0; padding: 0.65rem 0.9rem; }
+	.pca-toggle-card:hover { transform: none; box-shadow: none; }
+	.pca-toggle-top { width: auto; order: 2; margin-left: auto; flex-shrink: 0; }
+	.pca-toggle-top .pca-card-icon { display: none; }
+	.pca-toggle-info { order: 1; flex: 1; min-width: 0; }
+	.pca-sections { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 0.85rem; align-items: stretch; }
+	.pca-section { padding: 0.8rem 1rem; gap: 0.65rem; }
+	.pca-section-icon { display: inline-flex; color: var(--accent); }
+	@media (max-width: 900px) { .pca-sections { grid-template-columns: minmax(0, 1fr); } }
+
+	/* danger zone: folded by default */
+	.danger-zone > summary { list-style: none; cursor: pointer; border-bottom: none; }
+	.danger-zone > summary::-webkit-details-marker { display: none; }
+	.danger-zone[open] > summary { border-bottom: 1px solid var(--glass-border); }
+	.dz-text { flex: 1; min-width: 0; }
+	.dz-count { font-size: 0.72rem; font-weight: 800; padding: 0.1rem 0.5rem; border-radius: 999px; color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); }
+	.dz-chevron { display: inline-flex; color: var(--text-dim); transition: transform 0.2s; }
+	.danger-zone[open] .dz-chevron { transform: rotate(180deg); }
+	.nuke-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; }
+	.nuke-card { padding: 0.55rem 0.8rem; flex-wrap: wrap; }
+	@media (max-width: 900px) { .nuke-grid { grid-template-columns: minmax(0, 1fr); } .gnav { top: var(--mobile-top-h, 42px); } }
 	.status-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--danger); }
 	.status-dot.on { background: var(--success); box-shadow: 0 0 6px color-mix(in srgb, var(--success) 60%, transparent); }
+	/* AI tab: model fields in two columns, behaviour options as compact rows */
+	.ai-model-body { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.9rem 1.5rem; }
+	.ai-opts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.6rem; }
+	.ai-opts > div { border-top: none !important; padding-top: 0 !important; }
+	.ai-opts > div:not(.ai-antispam) { padding: 0.65rem 0.9rem !important; border-radius: 10px; background: var(--hover-tint); border: 1px solid var(--glass-border) !important; }
+	.ai-opts > .ai-antispam { grid-column: 1 / -1; margin-top: 0 !important; }
+	.ai-antispam > div { display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem 1.5rem !important; }
+	@media (max-width: 900px) { .ai-antispam > div { grid-template-columns: minmax(0, 1fr); } }
+	.ai-opt-label { display: inline-flex; align-items: center; gap: 0.5rem; }
+	.ai-opt-label :global(svg) { color: var(--accent); flex-shrink: 0; }
+	@media (max-width: 900px) { .ai-model-body, .ai-opts { grid-template-columns: minmax(0, 1fr); } }
+	.app-guide-field { display: flex; flex-direction: column; gap: 0.35rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--glass-border); }
+	.app-guide-head { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; }
+	.app-guide-field .sc-sub { margin: 0; }
+	.prompt-preview { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--glass-border); }
+	.prompt-preview summary { display: flex; align-items: center; gap: 0.45rem; cursor: pointer; font-weight: 600; font-size: 0.85rem; color: var(--text-dim); }
+	.prompt-preview[open] summary { color: var(--text-main); }
+	.pp-size { margin-left: auto; font-size: 0.75rem; font-weight: 700; color: var(--accent); }
+	.pp-body { display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.6rem; }
+	.pp-body .sc-sub { margin: 0; flex: 1; min-width: 0; }
+	.pp-text { margin: 0; max-height: 420px; overflow: auto; white-space: pre-wrap; word-break: break-word; font-size: 0.78rem; line-height: 1.45; padding: 0.75rem; border-radius: var(--radius-md); background: var(--surface-sunken); border: 1px solid var(--glass-border); color: var(--text-main); }
 </style>

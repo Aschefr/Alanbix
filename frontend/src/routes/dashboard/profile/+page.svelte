@@ -613,11 +613,9 @@
 						<span style="font-weight: 700; font-size: 0.85rem; display: block;">🛡️ {$t("profanity_filter_label")}</span>
 						<span class="text-dim" style="font-size: 0.75rem;">{$t("profanity_filter_desc")}</span>
 					</div>
-					<label style="position:relative; display:inline-block; width:44px; height:24px; margin:0; cursor:pointer;">
-						<input type="checkbox" checked={$profanityFilterEnabled} on:change={() => toggleProfanityFilter()} style="opacity:0; width:0; height:0;" />
-						<span style="position:absolute; inset:0; background: {$profanityFilterEnabled ? 'var(--accent)' : 'rgba(255,255,255,0.15)'}; border-radius:24px; transition:0.2s;">
-							<span style="position:absolute; height:18px; width:18px; left:{$profanityFilterEnabled ? '23px' : '3px'}; bottom:3px; background:white; border-radius:50%; transition:0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.3);"></span>
-						</span>
+					<label class="switch">
+						<input type="checkbox" checked={$profanityFilterEnabled} on:change={() => toggleProfanityFilter()} />
+						<span class="switch-track"><span class="switch-thumb"></span></span>
 					</label>
 				</div>
 			</div>
@@ -829,9 +827,16 @@
 		gap: 1.5rem;
 		max-width: 420px;
 		width: 90%;
+		max-height: calc(100dvh - 1.5rem);
+		overflow-y: auto;
+		box-sizing: border-box;
 		background: var(--surface-raised, rgba(17, 24, 39, 0.95));
 		border: 1px solid var(--glass-border);
 		box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+	}
+	@media (max-width: 600px) {
+		.crop-modal-content { padding: 1rem; gap: 0.9rem; width: calc(100% - 1rem); }
+		.canvas-wrapper canvas { max-width: 100%; height: auto; }
 	}
 	.crop-modal-title {
 		font-size: 1.25rem;
@@ -1014,8 +1019,17 @@
 	.awards-empty p { font-size: 0.82rem; margin: 0; max-width: 360px; margin: 0 auto; }
 
 	/* Mobile history cards */
+	/* Toggle switch: the thumb is drawn from the track so it cannot leave it in any browser */
+	.switch { position: relative; display: inline-block; flex-shrink: 0; width: 44px; height: 24px; margin: 0; cursor: pointer; }
+	.switch input { position: absolute; opacity: 0; inset: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+	.switch-track { position: absolute; inset: 0; box-sizing: border-box; border-radius: 24px; background: color-mix(in srgb, var(--text-dim) 35%, transparent); transition: background 0.2s; }
+	.switch-thumb { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.3); transition: transform 0.2s; }
+	.switch input:checked + .switch-track { background: var(--accent); }
+	.switch input:checked + .switch-track .switch-thumb { transform: translateX(20px); }
+	.switch input:focus-visible + .switch-track { outline: 2px solid var(--accent); outline-offset: 2px; }
+
 	.history-cards-mobile { display: none; }
-	.hcard { padding: 0.9rem 1rem; border-radius: 12px; display: flex; flex-direction: column; gap: 0.6rem; }
+	.hcard { padding: 0.9rem 1rem; border-radius: 12px; display: flex; flex-direction: column; gap: 0.6rem; background: var(--surface-sunken); border: 1px solid color-mix(in srgb, var(--text-dim) 40%, transparent); box-shadow: none; }
 	.hcard-top { display: flex; align-items: center; gap: 0.7rem; }
 	.hcard-rank { font-size: 1.3rem; flex-shrink: 0; }
 	.hcard-title-col { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.15rem; }

@@ -13,6 +13,8 @@
 	import { resolveMediaUrl, isCapacitorNative, getCustomServerUrl, setCustomServerUrl } from '$lib/config';
 	import ServerConfigModal from '$lib/components/ServerConfigModal.svelte';
 	import Icon from '$lib/components/Icon.svelte';
+	import { themeStore, toggleTheme } from '$lib/theme';
+	import { initMobileViewport } from '$lib/mobileViewport';
 
 	let user = { username: '...', is_admin: false };
 	let loading = true;
@@ -333,9 +335,9 @@
 			// Fetch SemVer version
 			try {
 				const res = await api.get('/health');
-				version = res.version || '1.34.0';
+				version = res.version || '1.35.1';
 			} catch {
-				version = '1.34.0';
+				version = '1.35.1';
 			}
 
 			// Admin: poll IA status
@@ -369,14 +371,19 @@
 		}
 	}
 
+	// A second tap on the Messages tab, while already on the messages page, reopens the last conversation
+	function onMessagesTab() {
+		if ($page.url.pathname.startsWith('/dashboard/players')) window.dispatchEvent(new CustomEvent('alanbix:messages-tab'));
+	}
+
 	onMount(async () => {
+		initMobileViewport();
 		// No session: go straight to the login screen, without asking the
 		// server first and without reloading the whole page
 		if (!get(authStore)) {
 			goto('/', { replaceState: true });
 			return;
 		}
-		isDark = (localStorage.getItem('alanbix_theme') || 'dark') === 'dark';
 		await initI18n();
 		if ('Notification' in window) {
 			browserNotifSupport = true;
@@ -478,13 +485,7 @@
 		}
 	}
 
-	function toggleTheme() {
-		isDark = !isDark;
-		const theme = isDark ? 'dark' : 'light';
-		localStorage.setItem('alanbix_theme', theme);
-		document.documentElement.setAttribute('data-theme', theme);
-		document.documentElement.style.background = theme === 'light' ? '#f1f5f9' : '#0f172a';
-	}
+	$: isDark = $themeStore.theme === 'dark';
 
 	async function logout() {
 		await stopNativePushService();
@@ -523,7 +524,7 @@
 		</div>
 	</div>
 {:else}
-<div class="dashboard-layout">
+<div class="dashboard-layout" class:section-admin={$page.url.pathname.startsWith('/dashboard/admin')}>
 	<!-- Mobile Top Bar (<= 900px) -->
 	<header class="mobile-top-bar glass">
 		<a href="/dashboard" class="mobile-brand">
@@ -553,6 +554,9 @@
 					<Icon name="shield" size={16} />
 				</a>
 			{/if}
+			<button type="button" class="top-action-btn" on:click={() => toggleTheme($themeStore.theme)} title={isDark ? $t('tooltip_light_mode') : $t('tooltip_dark_mode')} aria-label={isDark ? $t('tooltip_light_mode') : $t('tooltip_dark_mode')}>
+				<Icon name={isDark ? 'sun' : 'moon'} size={16} />
+			</button>
 			<a href="/dashboard/settings" class="top-action-btn" class:active={$page.url.pathname.startsWith('/dashboard/settings')} title={$t('mobile_top_settings_title')}>
 				<Icon name="gear" size={16} />
 			</a>
@@ -682,8 +686,8 @@
 						<span class="theme-icon">🔔</span>
 					</button>
 				{/if}
-				<button class="theme-toggle" on:click={toggleTheme} title={isDark ? $t('tooltip_light_mode') : $t('tooltip_dark_mode')}>
-					<span class="theme-icon" class:spin={true}>{isDark ? '☀️' : '🌙'}</span>
+				<button class="theme-toggle" on:click={() => toggleTheme($themeStore.theme)} title={isDark ? $t('tooltip_light_mode') : $t('tooltip_dark_mode')} aria-label={isDark ? $t('tooltip_light_mode') : $t('tooltip_dark_mode')}>
+					<span class="theme-icon"><Icon name={isDark ? 'sun' : 'moon'} size={18} /></span>
 				</button>
 				<a href="/dashboard/settings" class="theme-toggle" class:active-setting={$page.url.pathname.startsWith('/dashboard/settings')} title={$t('settings_page_title')} aria-label={$t('settings_page_title')}>
 					<span class="theme-icon"><Icon name="gear" size={18} /></span>
@@ -697,11 +701,11 @@
 
 	<main class="content-area">
 		{#if !dismissNotifBanner && notifPrefs?.enabled !== false && !$page.url.pathname.startsWith('/dashboard/settings') && !$page.url.pathname.startsWith('/dashboard/welcome') && ((isCapacitorNative() && !nativeNotifOperational) || (!isCapacitorNative() && browserNotifSupport && browserNotifStatus !== 'granted'))}
-			<div class="notif-warning-banner glass" style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;padding:0.6rem 1rem;margin-bottom:0.85rem;border-radius:10px;border:1px solid rgba(245,158,11,0.35);background:rgba(245,158,11,0.1);font-size:0.8rem;">
-				<span style="display:inline-flex;align-items:center;gap:0.4rem;"><Icon name="bell" size={14} /> {$t('settings_notifs_banner_warn')}</span>
-				<div style="display:flex;align-items:center;gap:0.5rem;flex-shrink:0;">
-					<a href="/dashboard/settings" style="color:var(--accent);font-weight:700;text-decoration:underline;">{$t('settings_notifs_banner_btn')}</a>
-					<button type="button" on:click={dismissBanner} style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:0.9rem;padding:0 0.2rem;">✕</button>
+			<div class="notif-warning-banner glass">
+				<span class="nb-text"><Icon name="bell" size={14} /> {$t('settings_notifs_banner_warn')}</span>
+				<div class="nb-actions">
+					<a href="/dashboard/settings">{$t('settings_notifs_banner_btn')}</a>
+					<button type="button" on:click={dismissBanner} aria-label={$t('common_close')}><Icon name="x" size={14} /></button>
 				</div>
 			</div>
 		{/if}
@@ -720,7 +724,7 @@
 			<span class="tab-icon"><Icon name="trophy" size={17} /></span>
 			<span class="tab-label">{$t('mobile_tab_tournaments')}</span>
 		</a>
-		<a href="/dashboard/players{$totalMsgUnread > 0 && lastPmSender ? '?chat=' + lastPmSender : ''}" class="bottom-tab" class:active={$page.url.pathname.startsWith('/dashboard/players')}>
+		<a href="/dashboard/players{$totalMsgUnread > 0 && lastPmSender ? '?chat=' + lastPmSender : ''}" class="bottom-tab" class:active={$page.url.pathname.startsWith('/dashboard/players')} on:click={onMessagesTab}>
 			<span class="tab-icon tab-badge-wrap">
 				<Icon name="chat" size={17} />
 				{#if $totalMsgUnread > 0}
@@ -820,7 +824,6 @@
 		display: grid;
 		grid-template-columns: 220px 1fr;
 		min-height: 100vh;
-		background: var(--bg-primary);
 	}
 
 	.side-nav {
@@ -1049,6 +1052,15 @@
 		align-items: center;
 	}
 
+	.notif-warning-banner { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.6rem 1rem; margin-bottom: 0.85rem; border-radius: 10px; border: 1px solid rgba(245,158,11,0.35); background: rgba(245,158,11,0.1); font-size: 0.8rem; }
+	.nb-text { display: inline-flex; align-items: center; gap: 0.4rem; min-width: 0; }
+	.nb-actions { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
+	.nb-actions a { color: var(--accent); font-weight: 700; text-decoration: underline; }
+	.nb-actions button { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; background: none; border: none; border-radius: 6px; color: var(--text-dim); cursor: pointer; }
+	.nb-actions button:hover { background: var(--hover-tint); color: var(--text-main); }
+	@media (max-width: 900px) {
+		.notif-warning-banner { padding: 0.3rem 0.4rem 0.3rem 0.7rem; margin-bottom: 0.5rem; font-size: 0.75rem; gap: 0.5rem; }
+	}
 	.theme-toggle {
 		width: 38px;
 		height: 38px;
@@ -1440,7 +1452,6 @@
 			flex-direction: column;
 			min-height: 100vh;
 			grid-template-columns: none;
-			background: var(--bg-primary);
 		}
 
 		.side-nav {
@@ -1464,6 +1475,8 @@
 		}
 
 		.mobile-brand {
+			min-width: 0;
+			flex: 1 1 auto;
 			display: flex;
 			align-items: center;
 			gap: 0.6rem;
@@ -1477,6 +1490,7 @@
 		}
 
 		.mobile-brand-info {
+			min-width: 0;
 			display: flex;
 			flex-direction: column;
 			line-height: 1.15;
@@ -1500,6 +1514,7 @@
 		}
 
 		.mobile-top-actions {
+			flex-shrink: 0;
 			display: flex;
 			align-items: center;
 			gap: 0.4rem;
@@ -1527,6 +1542,14 @@
 			color: var(--accent);
 		}
 
+		/* very small phones: tighter bar so every button stays on screen */
+		@media (max-width: 380px) {
+			.mobile-top-bar { padding-left: 0.5rem; padding-right: 0.5rem; }
+			.mobile-top-actions { gap: 0.25rem; }
+			.top-action-btn { width: 30px; height: 30px; }
+			.mobile-brand { gap: 0.4rem; }
+		}
+
 		.badge-dot {
 			position: absolute;
 			top: 2px;
@@ -1544,11 +1567,30 @@
 			box-shadow: 0 0 6px rgba(239, 68, 68, 0.6);
 		}
 
+		/* the page grows with its content so the bottom padding (above the tab bar) really ends the page */
+		.content-area > .container {
+			flex: 1 0 auto;
+			min-height: auto;
+			height: auto;
+		}
+
 		.content-area {
 			padding: 0.5rem 0.5rem calc(3.4rem + var(--safe-bottom, 0px));
 			height: auto;
 			min-height: calc(100vh - 42px);
 			overflow-y: visible;
+		}
+
+		/* On-screen keyboard open: the tab bar steps aside so the field sits right on the keyboard */
+		:global(html.kb-open) .mobile-bottom-nav {
+			display: none;
+		}
+		:global(html.kb-open) .content-area {
+			padding-bottom: 0;
+		}
+		:global(html.kb-open.pane-fit),
+		:global(html.kb-open.pane-fit) :global(body) {
+			overflow: hidden;
 		}
 
 		.mobile-bottom-nav {

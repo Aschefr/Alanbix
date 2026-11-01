@@ -120,6 +120,11 @@
 	}
 
 	onMount(async () => {
+		// Translations are edited on a computer: a phone goes back to the administration
+		if (window.matchMedia('(max-width: 900px)').matches) {
+			goto('/dashboard/admin', { replaceState: true });
+			return;
+		}
 		try {
 			const me = await api.get('/me');
 			if (!me.is_admin) {
@@ -799,16 +804,16 @@
 {#if showAutoTranslateModal}
 	<div class="modal-overlay" use:portal on:click|self={() => showAutoTranslateModal = false}>
 		<div class="modal-content glass">
-			<h2 class="title-premium" style="margin-top: 0; margin-bottom: 1rem; font-size: 1.5rem;"><span class="title-icon">🪄</span> {$t('admin_languages_modal_autotranslate_title')}</h2>
+			<h2 class="title-premium" style="margin-top: 0; margin-bottom: 1rem; font-size: 1.5rem;"><span class="title-icon"><Icon name="sparkles" size={22} /></span> {$t('admin_languages_modal_autotranslate_title')}</h2>
 			<p class="text-sm text-dim mb-4" style="line-height: 1.5;">
 				{$t('admin_languages_modal_autotranslate_desc')}
 			</p>
 			<div style="display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1.5rem;">
-				<button class="btn-primary w-full" style="text-align: left; padding: 0.8rem 1rem;" on:click={() => runBulkTranslation(true)}>
-					📥 {$t('admin_languages_modal_autotranslate_btn_empty')}
+				<button class="btn-primary w-full at-btn" on:click={() => runBulkTranslation(true)}>
+					<Icon name="inbox" size={16} /> <span>{$t('admin_languages_modal_autotranslate_btn_empty')}</span>
 				</button>
-				<button class="btn-secondary w-full" style="text-align: left; padding: 0.8rem 1rem;" on:click={() => runBulkTranslation(false)}>
-					🔄 {$t('admin_languages_modal_autotranslate_btn_all')}
+				<button class="btn-secondary w-full at-btn" on:click={() => runBulkTranslation(false)}>
+					<Icon name="refresh" size={16} /> <span>{$t('admin_languages_modal_autotranslate_btn_all')}</span>
 				</button>
 			</div>
 			<div style="display: flex; justify-content: flex-end;">
@@ -1043,9 +1048,9 @@
 	}
 	.toolbar-btn:disabled { opacity: 0.5; cursor: wait; }
 	.toolbar-btn.primary {
-		background: var(--accent);
+		background: var(--accent-solid);
 		color: #fff;
-		border-color: var(--accent);
+		border-color: var(--accent-solid);
 	}
 	.toolbar-btn.primary:hover:not(:disabled) {
 		filter: brightness(1.15);
@@ -1442,9 +1447,15 @@
 		justify-content: center;
 		z-index: 1000;
 	}
+	/* the two choices wrap on a phone instead of running out of the box */
+	.at-btn { display: flex; align-items: flex-start; gap: 0.6rem; text-align: left; padding: 0.8rem 1rem; white-space: normal; line-height: 1.35; height: auto; }
+	.at-btn :global(svg) { flex-shrink: 0; margin-top: 0.15rem; }
+	.title-icon { display: inline-flex; vertical-align: middle; }
 	.modal-content {
 		max-width: 480px;
 		width: 90%;
+		max-height: calc(100dvh - 2rem);
+		overflow-y: auto;
 		padding: 1.8rem;
 		border-radius: 14px;
 		background: var(--surface-raised);

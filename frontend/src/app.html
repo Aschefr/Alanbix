@@ -4,12 +4,21 @@
 		<meta charset="utf-8" />
 		<link rel="icon" href="%sveltekit.assets%/favicon.svg" type="image/svg+xml" />
 		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+		<meta name="theme-color" content="#0f172a" />
 		<script>
 			(function() {
-				var t = localStorage.getItem('alanbix_theme') || 'dark';
+				// Saved choice, or the device preference when none ("system" is the default)
+				var t = null;
+				try { t = localStorage.getItem('alanbix_theme'); } catch (e) {}
+				if (t !== 'dark' && t !== 'light') {
+					t = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+				}
 				document.documentElement.setAttribute('data-theme', t);
 				// Paint the theme background at once: no white/black flash while the app loads
-				document.documentElement.style.background = t === 'light' ? '#f1f5f9' : '#0f172a';
+				var bg = t === 'light' ? '#f1f5f9' : '#0f172a';
+				document.documentElement.style.background = bg;
+				var m = document.querySelector('meta[name="theme-color"]');
+				if (m) m.setAttribute('content', bg);
 			})();
 		</script>
 		%sveltekit.head%

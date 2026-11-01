@@ -1,5 +1,11 @@
+<script context="module">
+	// where the reader left each conversation (distance from the bottom), kept while the app is open
+	const scrollMemory = new Map();
+</script>
+
 <script>
 	import { onMount, onDestroy, tick, createEventDispatcher } from 'svelte';
+	import { isTouchKeyboard } from '$lib/mobileViewport';
 	import { api } from '$lib/api';
 	import { wsMessageStore } from '$lib/ws';
 	import { t } from '$lib/i18nStore';
@@ -147,8 +153,8 @@
 						await loadMessages(true);
 					}
 					if (msg.sender_id === peer?.id) {
-						api.get(`/players/messages/${peer.id}`).catch(() => {});
-						dispatch('messageRead', { peerId: peer.id });
+						// reading the thread marks it read on the server: tell the page once that is done so the badges clear
+						api.get(`/players/messages/${peer.id}`).catch(() => {}).then(() => dispatch('messageRead', { peerId: peer.id }));
 					}
 				}
 			}
@@ -172,6 +178,9 @@
 						}
 					} else {
 						await loadMessages(true);
+					}
+					if (msg.sender_id !== currentUser?.id) {
+						api.get(`/players/group/channel/${encodeURIComponent(channelInfo.channel_key)}`).catch(() => {}).then(() => dispatch('messageRead', {}));
 					}
 				}
 			}
@@ -208,6 +217,7 @@
 
 	onDestroy(() => {
 		if (wsUnsub) wsUnsub();
+		sizeObserver?.disconnect();
 		if (pruneTypersInterval) clearInterval(pruneTypersInterval);
 		if (highlightTimer) clearTimeout(highlightTimer);
 		if (typingDebounceTimer) clearTimeout(typingDebounceTimer);
@@ -239,7 +249,10 @@
 					: -1;
 			}
 			await tick();
-			scrollToBottom(silent ? 'smooth' : 'auto');
+			if (silent) scrollToBottom('smooth');
+			else restoreScroll();
+			// opening the thread marks it read: let the page refresh its unread badges right away
+			dispatch('messageRead', { peerId: peer?.id });
 		} catch (e) {
 			console.error("Error loading chat messages:", e);
 		} finally {
@@ -264,18 +277,72 @@
 		}
 	}
 
+	// When the area above the input shrinks (on-screen keyboard, growing text field) or grows back, keep the messages
+	// at the same distance from the input, as in a messaging app. The distance is remembered while the reader
+	// scrolls; the browser clamps the position by itself when the area grows, so it cannot be re-read then.
+	let sizeObserver = null;
+	let observedEl = null;
+	let lastClientH = 0;
+	let distFromBottom = 0;
+	let lastResizeAt = 0;
+	function watchScrollSize(el) {
+		if (el === observedEl) return;
+		sizeObserver?.disconnect();
+		observedEl = el;
+		if (!el || typeof ResizeObserver === 'undefined') return;
+		lastClientH = el.clientHeight;
+		sizeObserver = new ResizeObserver(() => {
+			const h = el.clientHeight;
+			if (h === lastClientH) return;
+			lastClientH = h;
+			lastResizeAt = performance.now();
+			if (!loading) {
+				el.scrollTop = Math.max(0, el.scrollHeight - h - distFromBottom);
+			}
+		});
+		sizeObserver.observe(el);
+	}
+	$: watchScrollSize(chatScrollEl);
+
 	function handleScroll() {
 		if (!chatScrollEl) return;
 		const distanceToBottom = chatScrollEl.scrollHeight - chatScrollEl.scrollTop - chatScrollEl.clientHeight;
+		// scrolls caused by the area resizing are not the reader's: keep the distance they left
+		if (performance.now() - lastResizeAt > 200) distFromBottom = distanceToBottom;
+		if (performance.now() - lastResizeAt > 200) scrollMemory.set(convKey(), Math.max(0, Math.round(distanceToBottom)));
 		showScrollToBottom = distanceToBottom > 150;
 		if (!showScrollToBottom) {
 			unreadCountSinceScroll = 0;
 		}
 	}
 
+	function convKey() {
+		return mode === 'p2p' ? `p2p:${peer?.id}` : `group:${channelInfo?.channel_key}`;
+	}
+
+	// Reopening a conversation puts it back where it was left (the bottom when it was read to the end)
+	let userMoved = false;
+	function restoreScroll() {
+		if (!chatScrollEl) return;
+		userMoved = false;
+		const dist = scrollMemory.get(convKey()) ?? 0;
+		const apply = () => {
+			if (!chatScrollEl || userMoved) return;
+			distFromBottom = dist;
+			lastResizeAt = performance.now();
+			chatScrollEl.scrollTop = Math.max(0, chatScrollEl.scrollHeight - chatScrollEl.clientHeight - dist);
+		};
+		apply();
+		// images and the pane height settle a moment later
+		requestAnimationFrame(apply);
+		setTimeout(apply, 150);
+		setTimeout(apply, 450);
+	}
+
 	function scrollToBottom(behavior = 'smooth') {
 		if (!chatScrollEl) return;
 		chatScrollEl.scrollTo({ top: chatScrollEl.scrollHeight, behavior });
+		distFromBottom = 0;
 		showScrollToBottom = false;
 		unreadCountSinceScroll = 0;
 	}
@@ -408,7 +475,8 @@
 			}
 		}
 
-		if (e.key === 'Enter' && !e.shiftKey) {
+		// touch keyboard: Enter adds a line, the send button sends
+		if (e.key === 'Enter' && !e.shiftKey && !isTouchKeyboard()) {
 			e.preventDefault();
 			sendMessage();
 		}
@@ -733,7 +801,7 @@
 	</div>
 
 	<!-- Messages Scroll Area -->
-	<div class="messages-scroll" bind:this={chatScrollEl} on:scroll={handleScroll}>
+	<div class="messages-scroll" bind:this={chatScrollEl} on:scroll={handleScroll} on:touchstart={() => userMoved = true} on:wheel={() => userMoved = true}>
 		{#if loading}
 			<div class="empty-state"><span>⏳</span> {$t('loading')}</div>
 		{:else if messages.length === 0}
@@ -991,6 +1059,7 @@
 			<!-- Send Button -->
 			<button
 				class="send-btn"
+				on:mousedown|preventDefault
 				on:click={sendMessage}
 				disabled={(!textInput.trim() && !pendingImage) || isSending || isOverLimit}
 			>
@@ -1082,8 +1151,16 @@
 		opacity: 0.5;
 	}
 	@media (max-width: 900px) {
+		/* messaging-app style: just the arrow, so the contact's name keeps its room */
 		.mobile-back-btn {
 			display: flex;
+			justify-content: center;
+			width: 36px;
+			height: 36px;
+			padding: 0;
+		}
+		.mobile-back-label {
+			display: none;
 		}
 		.desktop-only {
 			display: none !important;
@@ -1682,6 +1759,8 @@
 		padding: 0.5rem 0.75rem;
 		flex-shrink: 0;
 	}
+	/* on-screen keyboard open: the field sits right on the keyboard */
+	:global(html.kb-open) .input-container { padding-bottom: 0.2rem; }
 	.input-actions-row {
 		display: flex;
 		align-items: flex-end;

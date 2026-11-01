@@ -23,7 +23,7 @@ export default defineConfig({
 				ws: true,
 				changeOrigin: true
 			},
-			'^/(check-username|token|register|me|users|tournaments|notifications|players|games|ia|i18n|dashboard/(stats|team-leaderboard|info)|system|health|api|static|data|devices|room|public-chat)': {
+			'^/(check-username|token|register|me|users|tournaments|notifications|players|games|ia|i18n|dashboard/(stats|team-leaderboard|info)|system|health|api|static|data|devices|room|public-chat|admin|changelog)': {
 				target: PROXY_TARGET,
 				changeOrigin: true
 			}

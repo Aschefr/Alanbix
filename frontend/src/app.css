@@ -1,38 +1,17 @@
-/* Offline Resilience: Local font bundles for G-17 */
+/* Offline Resilience: Local font bundles for G-17 (variable fonts, one file each) */
 @font-face {
-  font-family: 'Inter';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url('/fonts/inter-latin-400.woff2') format('woff2');
-}
-@font-face {
-  font-family: 'Inter';
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url('/fonts/inter-latin-600.woff2') format('woff2');
-}
-@font-face {
-  font-family: 'Inter';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url('/fonts/inter-latin-700.woff2') format('woff2');
-}
-@font-face {
-  font-family: 'Inter';
-  font-style: normal;
-  font-weight: 800;
-  font-display: swap;
-  src: url('/fonts/inter-latin-800.woff2') format('woff2');
-}
-@font-face {
-  font-family: 'Outfit';
+  font-family: 'Onest';
   font-style: normal;
   font-weight: 100 900;
   font-display: swap;
-  src: url('/fonts/outfit-latin-var.woff2') format('woff2');
+  src: url('/fonts/onest-latin-var.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Bricolage Grotesque';
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: swap;
+  src: url('/fonts/bricolage-latin-var.woff2') format('woff2');
 }
 
 :root {
@@ -61,8 +40,8 @@
   --glass-border-highlight: rgba(255, 255, 255, 0.15);
   --glass-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.5);
   
-  --font-main: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-title: 'Outfit', 'Segoe UI', system-ui, sans-serif;
+  --font-main: 'Onest', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-title: 'Bricolage Grotesque', 'Segoe UI', system-ui, sans-serif;
 
   --radius-sm: 4px;
   --radius-md: 8px;
@@ -183,15 +162,48 @@
   --map-badge-hover: rgba(29, 78, 216, 0.18);
 }
 
+/* Administration pages: amber accent, the same colour as the administration icon, so the area is told apart */
+.section-admin {
+  --accent: #fbbf24;
+  --accent-solid: #b45309; /* filled buttons: white text needs >=4.5:1 */
+  --accent-glow: rgba(251, 191, 36, 0.45);
+  --accent-soft: rgba(251, 191, 36, 0.12);
+}
+
+[data-theme="light"] .section-admin {
+  --accent: #b45309;
+  --accent-solid: #b45309;
+  --accent-glow: rgba(180, 83, 9, 0.25);
+  --accent-soft: rgba(180, 83, 9, 0.08);
+}
+/* the brand mark and name stay blue everywhere */
+.section-admin .logo-alambic, .section-admin .mobile-app-title {
+  --accent: #3b82f6;
+  --accent-glow: rgba(59, 130, 246, 0.5);
+  color: #3b82f6;
+}
+[data-theme="light"] .section-admin .logo-alambic, [data-theme="light"] .section-admin .mobile-app-title {
+  --accent: #2563eb;
+  color: #2563eb;
+}
+
+
+
 * {
   box-sizing: border-box;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* The page colour lives on <html> (the theme script paints it at once); the body stays transparent so the
+   fixed mesh gradient below shows everywhere, not only past the first screen. */
+html {
+  background-color: var(--bg-primary);
+}
+
 body {
   margin: 0;
-  background-color: var(--bg-primary);
+  background-color: transparent;
   color: var(--text-main);
   font-family: var(--font-main);
   min-height: 100vh;
@@ -213,9 +225,9 @@ body::before {
 
 [data-theme="light"] body::before {
   background: 
-    radial-gradient(circle at 15% 50%, rgba(37, 99, 235, 0.12) 0%, transparent 40%),
-    radial-gradient(circle at 85% 30%, rgba(96, 165, 250, 0.12) 0%, transparent 40%),
-    radial-gradient(circle at 50% 90%, rgba(147, 197, 253, 0.15) 0%, transparent 50%);
+    radial-gradient(circle at 15% 50%, rgba(37, 99, 235, 0.06) 0%, transparent 40%),
+    radial-gradient(circle at 85% 30%, rgba(96, 165, 250, 0.06) 0%, transparent 40%),
+    radial-gradient(circle at 50% 90%, rgba(147, 197, 253, 0.08) 0%, transparent 50%);
 }
 
 ::placeholder {
@@ -997,6 +1009,11 @@ button, a, [role="button"] {
     border-radius: 3px !important;
     white-space: nowrap !important;
   }
+  /* a full-width button may wrap its label instead of running out of its box */
+  button.btn-primary.w-full, button.btn-secondary.w-full, button.btn-success.w-full {
+    white-space: normal !important;
+    line-height: 1.35;
+  }
 
   /* Square compact inputs on mobile */
   input, select, textarea {
@@ -1193,3 +1210,20 @@ a.theme-toggle,
 .chat-toggle:hover { color: var(--text-main); border-color: var(--text-muted); }
 .chat-toggle.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 .chat-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Phone, on-screen keyboard open: pop-ups are laid out in the visible area only, so their fields and buttons stay above the keyboard */
+@media (max-width: 900px) {
+  html.kb-open :is(.modal-overlay-global, .modal-overlay, .call-admin-overlay, .crop-modal-overlay, .prompt-modal-overlay) {
+    top: var(--vv-top, 0px) !important;
+    bottom: auto !important;
+    height: var(--vvh, 100dvh) !important;
+    align-items: flex-start !important;
+    padding-top: 0.75rem !important;
+    overflow-y: auto;
+  }
+  html.kb-open :is(.modal-overlay-global, .modal-overlay, .call-admin-overlay, .crop-modal-overlay, .prompt-modal-overlay) > * {
+    max-height: calc(var(--vvh, 100dvh) - 1.5rem);
+    overflow-y: auto;
+  }
+}
+

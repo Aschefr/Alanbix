@@ -18,6 +18,18 @@ Afin d'éviter l'infrastructure complexe d'une base de données vectorielle déd
 1. **Indexation** : Les documents téléchargés par les administrateurs sont découpés et leurs embeddings (représentations vectorielles) sont calculés via Ollama puis stockés en format JSON dans la base SQLite.
 2. **Recherche Vectorielle** : À chaque question posée par un utilisateur, le backend charge les embeddings de la base SQLite et effectue un calcul de **Similarité Cosinus (Cosine Similarity)** en mémoire vive via NumPy.
 3. **Isolation de contexte** : L'IA bascule intelligemment entre le contexte général de la LAN (planning, WiFi, règlements) et le contexte d'un jeu spécifique pour optimiser la qualité des réponses.
+4. **Seuil de pertinence** : une fiche n'est transmise à l'IA que si sa similarité dépasse un seuil réglable (0,65 par défaut, dans la configuration du modèle). La recherche combine la question avec le message précédent du joueur, pour qu'une relance (« et comment je fais ? ») retrouve son sujet.
+
+### Construction du prompt système (en couches)
+Chaque requête envoie au modèle un seul message système, assemblé dans cet ordre :
+1. **Personnalité** : le texte « Consignes principales » modifiable par l'admin (identité, ton, style).
+2. **Règles de fonctionnement** : fixes et traduites, impossibles à effacer depuis l'admin (ne rien inventer, ne jamais citer les outils internes, méthode de diagnostic, quand et comment prévenir un admin, modération).
+3. **Guide de l'application** : la carte des pages du site, pour guider les joueurs. Modifiable par l'admin, avec un bouton « Rétablir le texte par défaut ».
+4. **Contexte en direct** : date et heure, événement, pseudo, équipe, place et rôle du joueur.
+5. **Limites d'appel aux admins, contexte compressé et connaissances pertinentes**, selon la conversation.
+6. **Langue** : l'assistant répond dans la langue de l'interface du joueur ; règles, guide et contexte suivent cette langue.
+
+L'onglet IA de l'administration propose un **aperçu du prompt final** (avec sa taille estimée en tokens) pour voir exactement ce que reçoit le modèle.
 
 ---
 
