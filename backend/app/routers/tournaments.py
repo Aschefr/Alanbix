@@ -1385,27 +1385,9 @@ def _clear_player(match, player_id):
             match["score"] = [None] * len(match["score"])
 
 
-def _rollback_advancement(bracket, match, bracket_type, lower_is_better=False):
-    """Recursively undo all downstream effects of a previously scored match."""
-    old_score = match.get("score", [0, 0])
-    if any(s is None for s in old_score):
-        return  # Partial score, no advancement happened
-    if old_score[0] == 0 and old_score[1] == 0:
-        return  # Never scored, nothing to rollback
-    if old_score[0] == old_score[1]:
-        return  # Tie, no advancement happened
-    # If not a bye and both scores are 0, no advancement happened
-    is_bye = (match["p"][0] == 0 or match["p"][1] == 0)
-    if not is_bye and old_score[0] == 0 and old_score[1] == 0:
-        return
-
+def _downstream_slots(bracket, match, bracket_type, old_winner, old_loser):
+    """Matches a scored elimination match sent its players to: list of (downstream_match, player_id)."""
     mid = match["id"]
-    p0, p1 = match["p"][0], match["p"][1]
-    old_winner_idx = (0 if old_score[0] < old_score[1] else 1) if lower_is_better else (0 if old_score[0] > old_score[1] else 1)
-    old_loser_idx = 1 - old_winner_idx
-    old_winner = match["p"][old_winner_idx]
-    old_loser = match["p"][old_loser_idx]
-
     max_wb = _get_max_round(bracket, section=1)
     wb_final_r = max_wb - 1 if bracket_type == "double_elim" else max_wb
 
@@ -1458,6 +1440,49 @@ def _rollback_advancement(bracket, match, bracket_type, lower_is_better=False):
             if gf:
                 downstream.append((gf, old_winner))
 
+    return downstream
+
+
+def _player_can_correct(bracket, match, bracket_type) -> bool:
+    """A player may correct a finished match while the bracket has not moved on from it: in every match
+    its players were sent to, the opponent is not known yet and nothing is scored.
+    Round robin and group matches have no downstream match; FFA rounds lock once a later round exists."""
+    if bracket_type == "ffa":
+        r = match["id"].get("r", 1)
+        return not any(m["id"].get("s") == match["id"].get("s") and m["id"].get("r", 1) > r for m in bracket)
+    if bracket_type == "round_robin" or _is_group_match(match):
+        return True
+    p = match.get("p") or []
+    if len(p) != 2 or 0 in p:
+        return False
+    for nm, pid in _downstream_slots(bracket, match, bracket_type, p[0], p[1]) + _downstream_slots(bracket, match, bracket_type, p[1], p[0]):
+        if pid not in (nm.get("p") or []):
+            continue
+        others = [x for x in nm["p"] if x != pid]
+        if any(x != 0 for x in others) or _match_is_scored(nm):
+            return False
+    return True
+
+
+def _rollback_advancement(bracket, match, bracket_type, lower_is_better=False):
+    """Recursively undo all downstream effects of a previously scored match."""
+    old_score = match.get("score", [0, 0])
+    if any(s is None for s in old_score):
+        return  # Partial score, no advancement happened
+    if old_score[0] == 0 and old_score[1] == 0:
+        return  # Never scored, nothing to rollback
+    if old_score[0] == old_score[1]:
+        return  # Tie, no advancement happened
+    # If not a bye and both scores are 0, no advancement happened
+    is_bye = (match["p"][0] == 0 or match["p"][1] == 0)
+    if not is_bye and old_score[0] == 0 and old_score[1] == 0:
+        return
+
+    old_winner_idx = (0 if old_score[0] < old_score[1] else 1) if lower_is_better else (0 if old_score[0] > old_score[1] else 1)
+    old_winner = match["p"][old_winner_idx]
+    old_loser = match["p"][1 - old_winner_idx]
+    downstream = _downstream_slots(bracket, match, bracket_type, old_winner, old_loser)
+
     # Recursively rollback each downstream match, then clear the player
     for nm, player_id in downstream:
         if player_id and player_id != 0 and player_id in nm["p"]:
@@ -1466,6 +1491,23 @@ def _rollback_advancement(bracket, match, bracket_type, lower_is_better=False):
             # Then clear the player and reset the match score
             _clear_player(nm, player_id)
             nm["score"] = [None] * len(nm["score"])
+
+@router.get("/{tournament_id}/matches/{s}/{r}/{m}/can-correct")
+def can_correct_match(tournament_id: int, s: int, r: int, m: int, db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
+    """Whether the player may still unlock and correct this finished match (asked before opening the form)."""
+    tournament = db.query(models.Tournament).filter(models.Tournament.id == tournament_id).first()
+    if not tournament or not tournament.bracket:
+        raise HTTPException(status_code=404, detail="Tournament or bracket not found")
+    match = _find_match(tournament.bracket, s, r, m)
+    if not match:
+        raise HTTPException(status_code=404, detail="Match not found")
+    config = tournament.config or {}
+    if user.is_admin:
+        return {"can_correct": True}
+    if tournament.status != "RUNNING" or (_is_group_match(match) and config.get("stage") == "knockout"):
+        return {"can_correct": False}
+    return {"can_correct": _player_can_correct(tournament.bracket, match, config.get("bracket_type", "single_elim"))}
+
 
 @router.put("/{tournament_id}/score")
 async def update_match_score(
@@ -1516,21 +1558,15 @@ async def update_match_score(
         # Block score entry if the match has a TBD opponent (player ID 0)
         if any(pid == 0 for pid in scored_match["p"]):
             raise HTTPException(status_code=403, detail="Ce match n'est pas encore prêt (adversaire TBD). Vous ne pouvez pas saisir de score.")
-        # AXE-15: Non-admin cannot edit a finalized match
+        # AXE-15: a player may correct a finished match (theirs and their direct opponent's) while the bracket
+        # has not moved on from it; past that point only an admin can change it
         existing_scores = scored_match.get("score", [])
         if bracket_type in ("single_elim", "double_elim", "round_robin"):
-            if len(existing_scores) >= 2:
-                es0, es1 = existing_scores[0], existing_scores[1]
-                is_locked = (es0 is not None and es1 is not None) and (
-                    (es0 != es1 and (es0 != 0 or es1 != 0)) or (
-                        es0 == es1 and es0 != 0 and bracket_type == "round_robin" and config.get("allow_draws")
-                    )
-                )
-                if is_locked:
-                    raise HTTPException(status_code=403, detail="Ce match est terminé. Seul un admin peut modifier le score.")
+            if _match_is_scored(scored_match) and not _player_can_correct(bracket, scored_match, bracket_type):
+                raise HTTPException(status_code=403, detail="Le tournoi a déjà avancé après ce match (l'adversaire suivant est connu). Seul un admin peut modifier le score.")
         elif bracket_type == "ffa":
-            if existing_scores and all(s is not None and s > 0 for s in existing_scores):
-                raise HTTPException(status_code=403, detail="Cette manche est terminée. Seul un admin peut modifier les classements.")
+            if existing_scores and all(s is not None for s in existing_scores) and not _player_can_correct(bracket, scored_match, bracket_type):
+                raise HTTPException(status_code=403, detail="La manche suivante a déjà commencé. Seul un admin peut modifier les classements.")
             # Enforce that non-admins can only change their own slot in FFA
             if not user.is_admin:
                 for i, new_val in enumerate(body.score):

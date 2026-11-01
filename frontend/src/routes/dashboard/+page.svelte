@@ -41,8 +41,21 @@
 	function hideResult(key) { hiddenResults = [...hiddenResults.filter(k => k !== key), key]; saveHidden(); }
 	function hideAllResults() { hiddenResults = [...new Set([...hiddenResults, ...myMatchesAll.filter(m => m.completed).map(m => m.match_key)])]; saveHidden(); }
 	function showHiddenResults() { hiddenResults = []; saveHidden(); }
-	$: myActiveMatches = myMatchesAll.filter(m => !m.completed);
-	$: myResults = myMatchesAll.filter(m => m.completed && !hiddenResults.includes(m.match_key)).slice(-2).reverse();
+	// Finished matches the player unlocked to correct: they go back to the active list with the form open
+	let reopenedKeys = [];
+	$: myActiveMatches = myMatchesAll.filter(m => !m.completed || reopenedKeys.includes(m.match_key));
+	$: myResults = myMatchesAll.filter(m => m.completed && !reopenedKeys.includes(m.match_key) && !hiddenResults.includes(m.match_key)).slice(-2).reverse();
+	async function correctResult(r) {
+		try {
+			const res = await api.get(`/tournaments/${r.tournament_id}/matches/${r.match_id.s}/${r.match_id.r}/${r.match_id.m}/can-correct`);
+			if (!res?.can_correct) { toast($t('result_correct_locked'), 'info'); return; }
+			reopenedKeys = [...reopenedKeys.filter(k => k !== r.match_key), r.match_key];
+			activeScoreMatchKey = null;
+			toggleScoreEntry(r);
+		} catch (err) {
+			toast(err.detail || err.message || $t('dash_score_submit_error'), 'error');
+		}
+	}
 	$: hiddenResultsCount = myMatchesAll.filter(m => m.completed && hiddenResults.includes(m.match_key)).length;
 	$: myMatchesSorted = [...myActiveMatches].sort((x, y) => Number(y.is_ready) - Number(x.is_ready));
 	let dashTab = 'tournaments';
@@ -150,6 +163,7 @@
 			});
 
 			toast($t('mobile_score_saved'), 'success');
+			reopenedKeys = reopenedKeys.filter(k => k !== m.match_key);
 			activeScoreMatchKey = null;
 			scheduleRefreshAll();
 		} catch (err) {
@@ -980,6 +994,7 @@
 								{#if !r.is_ffa}{r.opponent_name}{/if}
 								<span class="rr-meta">· {r.game_name} · {r.round_label}</span>
 							</span>
+							<button class="rr-hide" on:click={() => correctResult(r)} title={$t('result_correct')} aria-label={$t('result_correct')}><Icon name="pencil" size={14} /></button>
 							<button class="rr-hide" on:click={() => hideResult(r.match_key)} title={$t('result_hide')} aria-label={$t('result_hide')}><Icon name="x" size={14} /></button>
 						</div>
 					{/each}
@@ -1229,6 +1244,7 @@
 								{#if !r.is_ffa}{r.opponent_name}{/if}
 								<span class="rr-meta">· {r.game_name} · {r.round_label}</span>
 							</span>
+							<button class="rr-hide" on:click={() => correctResult(r)} title={$t('result_correct')} aria-label={$t('result_correct')}><Icon name="pencil" size={14} /></button>
 							<button class="rr-hide" on:click={() => hideResult(r.match_key)} title={$t('result_hide')} aria-label={$t('result_hide')}><Icon name="x" size={14} /></button>
 						</div>
 					{/each}
