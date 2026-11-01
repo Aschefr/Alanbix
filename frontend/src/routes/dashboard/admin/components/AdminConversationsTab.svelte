@@ -20,9 +20,12 @@
 
 	// --- Admin Conversation Monitoring ---
 	let adminConversations = [];
+	// Phone: player groups start folded so the list stays short and the admin calls below remain reachable
+	const startFolded = typeof window !== 'undefined' && window.matchMedia('(max-width: 1100px)').matches;
 	let collapsedPlayers = {};
+	const isFolded = (state, username) => state[username] ?? startFolded;
 	function togglePlayerCollapse(username) {
-		collapsedPlayers[username] = !collapsedPlayers[username];
+		collapsedPlayers[username] = !isFolded(collapsedPlayers, username);
 	}
 
 	$: groupedConversations = (() => {
@@ -350,10 +353,10 @@
 					</div>
 					<div class="flex-row items-center gap-2">
 						<span class="badge-count-inline" style="background:rgba(255,255,255,0.05); padding:0.15rem 0.4rem; border-radius:10px; font-size:0.75rem; color:var(--text-dim);">{group.conversations.length}</span>
-						<span class="toggle-arrow" style="font-size:0.7rem; color:var(--text-dim); transition: transform 0.2s; transform: {collapsedPlayers[group.username] ? 'rotate(0deg)' : 'rotate(90deg)'}">▶</span>
+						<span class="toggle-arrow" style="font-size:0.7rem; color:var(--text-dim); transition: transform 0.2s; transform: {isFolded(collapsedPlayers, group.username) ? 'rotate(0deg)' : 'rotate(90deg)'}">▶</span>
 					</div>
 				</div>
-				{#if !collapsedPlayers[group.username]}
+				{#if !isFolded(collapsedPlayers, group.username)}
 					<div class="user-group-items" style="display:flex; flex-direction:column; gap:0.4rem; padding-left:0.5rem; border-left:1px dashed rgba(255,255,255,0.08); margin-left:0.5rem; margin-bottom:0.3rem;">
 						{#each group.conversations as c}
 							<div class="admin-item-card glass-hover {adminActiveConvId === c.id ? 'editing-expanded' : ''}" style="cursor:pointer;flex-direction:column;align-items:stretch;border-left: 4px solid {c.has_new_messages ? '#22c55e' : (c.admin_override ? '#a855f7' : 'rgba(255,255,255,0.05)')}; padding:0.5rem 0.7rem;" on:click={() => selectAdminConv(c.id)}>
@@ -390,7 +393,7 @@
 	</section>
 
 	<!-- Conversation detail -->
-	<section class="list glass conv-detail" style="max-height:80vh;display:flex;flex-direction:column;position:relative">
+	<section class="list glass conv-detail" class:conv-empty={!adminConvInfo} style="max-height:80vh;display:flex;flex-direction:column;position:relative">
 		{#if adminActiveConvId && adminConvInfo}
 			<div class="list-header">
 				<div class="flex-row items-center gap-3 conv-head-main">
@@ -603,6 +606,7 @@
 		.conv-back { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--glass-border); background: var(--accent-soft); color: var(--accent); cursor: pointer; }
 		.admin-grid.chat-open { margin: -0.5rem -0.5rem calc(-1 * var(--pane-bleed, 0px)); height: calc(var(--pane-h, 75vh) + var(--pane-bleed, 0px)); overflow: hidden; gap: 0; }
 		.admin-grid.chat-open .conv-list { display: none; }
+		.conv-detail.conv-empty { display: none !important; }
 		.admin-grid.chat-open .conv-detail { max-height: none !important; height: 100%; border-radius: 0; border: none; padding: 0; min-height: 0; }
 		.conv-detail .list-header { padding: 0.5rem 0.75rem; margin-bottom: 0; gap: 0.5rem; }
 		.conv-head-main { min-width: 0; flex: 1; gap: 0.6rem !important; }

@@ -263,6 +263,12 @@
 			border-top: 1px solid var(--glass-border); padding-top: 1rem !important;
 		}
 		.tab-content :global(.rg-list) { max-height: none; overflow: visible; }
+		/* Exception: the AI conversations list stays in its own scrolling frame so the admin calls below stay close */
+		.tab-content :global(section.glass.conv-list) {
+			max-height: min(55vh, 460px) !important; overflow-y: auto !important; overscroll-behavior: contain;
+			border: 1px solid var(--glass-border); border-radius: 12px; padding: 0.5rem 0.6rem !important;
+			background: var(--surface-sunken);
+		}
 	}
 	@media (max-width: 1100px) { :global(html.conv-chat-open) .admin-view > header { display: none; } }
 </style>
