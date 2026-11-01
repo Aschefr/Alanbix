@@ -301,22 +301,29 @@
 		}, delay);
 	}
 
+	function measureScroll() {
+		const frame = document.querySelector('.spec-content .spec-bracket-viewport, .spec-content .spec-scroll-viewport');
+		const content = frame?.querySelector(':scope > .spec-bracket-content, :scope > .spec-scroll-content');
+		return { frame: frame ? frame.clientHeight : 0, content: content ? content.clientHeight : 0 };
+	}
+
 	function handleAutoScroll() {
 		clearTimeout(bracketScrollTimeout);
 		clearTimeout(slideTimeout);
 
 		if (!SCROLL_VIEWS.includes(currentView)) return;
 
-		console.log('[AutoScroll] contentHeight:', contentHeight, 'viewportHeight:', viewportHeight);
-
-		// Wait a small delay for Svelte to bind clientHeights after DOM rendering
+		// Wait a small delay for the DOM to render, then measure the frame and its content directly:
+		// the bound heights can be stale (the bracket frame is the same element from one tournament to the next)
 		bracketScrollTimeout = setTimeout(() => {
-			if (contentHeight > viewportHeight + 10) {
+			const { frame, content } = measureScroll();
+			console.log('[AutoScroll] content:', content, 'frame:', frame);
+			if (frame > 0 && content > frame + 10) {
 				if (hasStartedScrollForCurrent) return;
 				hasStartedScrollForCurrent = true;
-				decidedHeight = contentHeight;
+				decidedHeight = content;
 
-				const overflowY = contentHeight - viewportHeight;
+				const overflowY = content - frame;
 				// Scroll at 35px per second for incredibly smooth reading speed
 				scrollDuration = Math.max(3, overflowY / 35);
 				console.log('[AutoScroll] Starting scroll, duration:', scrollDuration, 'overflowY:', overflowY);
@@ -335,7 +342,7 @@
 			} else {
 				if (hasStartedScrollForCurrent) return;
 				hasStartedScrollForCurrent = true;
-				decidedHeight = contentHeight;
+				decidedHeight = content;
 				console.log('[AutoScroll] Content fits. Scheduling normal slide transition.');
 				// If it fits, just schedule the normal slide duration (12 seconds)
 				startSlideshow(12000);
@@ -355,8 +362,6 @@
 					translateY = 0;
 					isAnimating = false;
 					scrollDuration = 0;
-					viewportHeight = 0;
-					contentHeight = 0;
 					decidedHeight = -1;
 					clearTimeout(bracketScrollTimeout);
 					clearTimeout(slideTimeout);
