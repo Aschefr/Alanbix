@@ -1759,6 +1759,27 @@
 		background: rgba(255, 255, 255, 0.03);
 	}
 
+	/* Own messages on the right, in a bubble, like private messages and messaging apps */
+	.chat-msg-row.is-mine { flex-direction: row-reverse; }
+	.chat-msg-row.is-mine .msg-avatar,
+	.chat-msg-row.is-mine .msg-author,
+	.chat-msg-row.is-mine .team-tag,
+	.chat-msg-row.is-mine .seat-tag { display: none; }
+	.chat-msg-row.is-mine .msg-content-wrapper { align-items: flex-end; }
+	.chat-msg-row.is-mine .msg-header { flex-direction: row-reverse; }
+	.chat-msg-row.is-mine .msg-text {
+		max-width: 85%;
+		padding: 0.45rem 0.7rem;
+		border-radius: 12px;
+		border-bottom-right-radius: 3px;
+		background: linear-gradient(135deg, rgba(59, 130, 246, 0.9), rgba(37, 99, 235, 0.95));
+		color: #ffffff;
+	}
+	.chat-msg-row.is-mine .msg-text :global(.mention-chip) { background: rgba(255, 255, 255, 0.22); color: #ffffff; }
+	.chat-msg-row.is-mine .msg-text :global(a) { color: #ffffff; text-decoration: underline; }
+	.chat-msg-row.is-mine .msg-action-bar { right: auto; left: 0.5rem; }
+	.chat-msg-row.is-mine .msg-reactions-container { justify-content: flex-end; }
+
 	.chat-msg-row.is-bot {
 		background: rgba(168, 85, 247, 0.06);
 		border-left: 2px solid #a855f7;

@@ -1704,5 +1704,6 @@
   "md_sample_link": "texte du lien",
   "md_sample_image": "description de l'image",
   "md_table_column": "Colonne",
-  "md_preview_empty": "Rien à afficher pour l'instant."
+  "md_preview_empty": "Rien à afficher pour l'instant.",
+  "dash_chat_resize": "Redimensionner le chat (double-clic : largeur par défaut)"
 }

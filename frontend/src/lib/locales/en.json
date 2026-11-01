@@ -1715,5 +1715,6 @@
   "md_sample_link": "link text",
   "md_sample_image": "image description",
   "md_table_column": "Column",
-  "md_preview_empty": "Nothing to show yet."
+  "md_preview_empty": "Nothing to show yet.",
+  "dash_chat_resize": "Resize the chat (double-click: default width)"
 }

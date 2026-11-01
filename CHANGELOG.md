@@ -3,6 +3,8 @@
 ## [1.35.3] - Unreleased
 
 ### 🐛 Fixes
+- **Public chat like a messaging app**: your own messages are on the right in a blue bubble (no avatar or name repeated), like private messages.
+- **Resizable home chat (desktop)**: a grip between the panels resizes the public chat column; the width is remembered per browser, double-click (or Enter on the focused grip) restores the default width, and the arrow keys resize it from the keyboard.
 - **"Messages" on desktop too**: the desktop menu entry "Players" is renamed "Messages" with a chat icon, like the phone tab bar; the browser tab title follows.
 - **Projector: long lists scroll by themselves**: the general leaderboard, the team leaderboard and the info text now scroll slowly when they are taller than the screen (3 s pause at the top, 35 px per second, 3 s at the bottom, then the next view), like the brackets already did, with soft fading edges. Short content stays centred. The scroll decision is also taken again when the list finishes loading after the first measure.
 - **New built-in Markdown editor**: the info page, the projector text, game rules and tournament rules now share one lightweight editor (plain text field that works well with phone keyboards, toolbar with the app's line icons, Ctrl+B / Ctrl+I, Write / Preview tabs showing exactly what players will see). It replaces EasyMDE: about 330 KB less JavaScript, and no more Font Awesome icons downloaded from a CDN when an organiser opens the editor.
