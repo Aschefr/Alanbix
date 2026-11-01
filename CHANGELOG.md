@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.35.2] - Unreleased
+
+### 🐛 Fixes
+- **Sidebar profile with a long team name**: the avatar keeps its round shape and the username and team name are cut with "…" instead of squeezing it.
+
 ## [1.35.1] - 2026-11-01
 
 ### 📱 Players

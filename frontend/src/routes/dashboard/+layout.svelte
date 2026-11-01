@@ -954,6 +954,7 @@
 	.avatar {
 		width: 40px;
 		height: 40px;
+		flex-shrink: 0;
 		background: var(--bg-tertiary);
 		border-radius: 50%;
 		display: flex;
@@ -971,9 +972,13 @@
 		border-radius: 50%;
 	}
 
+	.user-profile .info { min-width: 0; }
 	.username {
 		font-weight: 600;
 		font-size: 0.9rem;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
 	}
 
 	.role {
@@ -988,7 +993,6 @@
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
-		max-width: 130px;
 	}
 
 	.logout-btn {
