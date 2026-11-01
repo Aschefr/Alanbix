@@ -5,6 +5,12 @@
 	import { t, flagMap, refreshEventName, customPageTitle } from '$lib/i18nStore';
 	import Icon from '$lib/components/Icon.svelte';
 	import { SETUP_STEPS, loadSetup, saveSetup } from '$lib/adminSetup';
+	import StepInfo from './StepInfo.svelte';
+	import StepGames from './StepGames.svelte';
+
+	// Steps with their own component expose save(); errors from their actions show under the step
+	let stepRef = null;
+	const stepToast = (msg, type) => { if (type === 'error') error = msg; };
 
 	let ready = false;
 	let setup = { status: 'in_progress', current: 'event', steps: {} };
@@ -63,6 +69,8 @@
 			const list = wifiSsids.split(',').map(s => s.trim()).filter(Boolean);
 			await api.put('/admin/config/lan_wifi_ssids', { value: list });
 			await api.put('/admin/config/player_url', { value: playerUrl.trim().replace(/\/+$/, '') });
+		} else if (stepRef?.save) {
+			return await stepRef.save();
 		}
 		return true;
 	}
@@ -190,6 +198,12 @@
 						{/each}
 					</ul>
 					<p class="field-help">{$t('setup_recap_later')}</p>
+
+				{:else if step.id === 'info'}
+					<StepInfo bind:this={stepRef} {eventName} {wifiSsids} {playerUrl} />
+
+				{:else if step.id === 'games'}
+					<StepGames bind:this={stepRef} toast={stepToast} />
 
 				{:else if step.id === 'invite'}
 					<div class="address">
