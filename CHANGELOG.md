@@ -3,6 +3,7 @@
 ## [1.35.3] - Unreleased
 
 ### 🐛 Fixes
+- **Projector: long lists scroll by themselves**: the general leaderboard, the team leaderboard and the info text now scroll slowly when they are taller than the screen (3 s pause at the top, 35 px per second, 3 s at the bottom, then the next view), like the brackets already did, with soft fading edges. Short content stays centred. The scroll decision is also taken again when the list finishes loading after the first measure.
 - **New built-in Markdown editor**: the info page, the projector text, game rules and tournament rules now share one lightweight editor (plain text field that works well with phone keyboards, toolbar with the app's line icons, Ctrl+B / Ctrl+I, Write / Preview tabs showing exactly what players will see). It replaces EasyMDE: about 330 KB less JavaScript, and no more Font Awesome icons downloaded from a CDN when an organiser opens the editor.
 - **Rules and projector text rendered as Markdown**: game rules, tournament rules and the projector info text were shown as raw text (players saw `**` and `#`); they are now formatted like the info page.
 - **Privacy policy**: a public privacy policy in French and English (`docs/privacy/`, published to GitHub Pages by a workflow) explains that the app sends nothing to its publisher and that each LAN organiser holds their players' data. Settings > About links to it.
