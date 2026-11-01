@@ -1,7 +1,8 @@
 <script>
 	import { api } from '$lib/api';
-	import { onMount, onDestroy, tick } from 'svelte';
-	import { marked } from 'marked';
+	import { onMount } from 'svelte';
+	import { renderMarkdown } from '$lib/markdown';
+	import MarkdownEditor from '$lib/components/MarkdownEditor.svelte';
 	import { t } from '$lib/i18nStore';
 	import { get } from 'svelte/store';
 
@@ -20,12 +21,6 @@
 	let nukeConfirm = false;
 	let fileInput;
 
-	// EasyMDE instances
-	let editorMain = null;
-	let editorSpectator = null;
-	let mainTextarea;
-	let spectatorTextarea;
-	let EasyMDE = null;
 
 	onMount(async () => {
 		try {
@@ -34,13 +29,6 @@
 		} catch {}
 		await loadInfo();
 		await loadFiles();
-		// Dynamically import EasyMDE (avoid SSR issues)
-		const mod = await import('easymde');
-		EasyMDE = mod.default;
-	});
-
-	onDestroy(() => {
-		destroyEditors();
 	});
 
 	async function loadInfo() {
@@ -51,61 +39,16 @@
 		} catch {}
 	}
 
-	function destroyEditors() {
-		if (editorMain) { editorMain.toTextArea(); editorMain = null; }
-		if (editorSpectator) { editorSpectator.toTextArea(); editorSpectator = null; }
-	}
-
-	function createEditor(textarea, value) {
-		return new EasyMDE({
-			element: textarea,
-			initialValue: value,
-			spellChecker: false,
-			autofocus: false,
-			status: false,
-			minHeight: '350px',
-			placeholder: get(t)('info_markdown_placeholder'),
-			toolbar: [
-				'bold', 'italic', 'heading', '|',
-				'quote', 'unordered-list', 'ordered-list', '|',
-				'link', 'image', 'table', 'horizontal-rule', '|',
-				'preview', 'side-by-side', 'fullscreen', '|',
-				'guide'
-			],
-			sideBySideFullscreen: false,
-		});
-	}
-
-	async function startEdit() {
+	function startEdit() {
 		editing = true;
 		activeTab = 'main';
-		await tick();
-		initEditorForTab('main');
 	}
 
-	async function switchTab(tab) {
-		// Save current editor content before switching
-		if (activeTab === 'main' && editorMain) {
-			content = editorMain.value();
-		} else if (activeTab === 'spectator' && editorSpectator) {
-			spectatorContent = editorSpectator.value();
-		}
-		destroyEditors();
+	function switchTab(tab) {
 		activeTab = tab;
-		await tick();
-		initEditorForTab(tab);
-	}
-
-	function initEditorForTab(tab) {
-		if (tab === 'main' && mainTextarea && !editorMain) {
-			editorMain = createEditor(mainTextarea, content);
-		} else if (tab === 'spectator' && spectatorTextarea && !editorSpectator) {
-			editorSpectator = createEditor(spectatorTextarea, spectatorContent);
-		}
 	}
 
 	function cancelEdit() {
-		destroyEditors();
 		editing = false;
 		saveMsg = '';
 		loadInfo(); // reload original content
@@ -114,19 +57,14 @@
 	async function save() {
 		saving = true;
 		saveMsg = '';
-		// Get latest values from editors
-		const mainContent = editorMain ? editorMain.value() : content;
-		const specContent = editorSpectator ? editorSpectator.value() : spectatorContent;
-		// If we're on main tab, spec content might still be the old value
-		const finalMain = activeTab === 'main' && editorMain ? editorMain.value() : content;
-		const finalSpec = activeTab === 'spectator' && editorSpectator ? editorSpectator.value() : spectatorContent;
+		const finalMain = content;
+		const finalSpec = spectatorContent;
 		
 		try {
 			await api.put('/admin/config/info_page_content', { value: finalMain });
 			await api.put('/admin/config/info_spectator_content', { value: finalSpec });
 			content = finalMain;
 			spectatorContent = finalSpec;
-			destroyEditors();
 			editing = false;
 			saveMsg = '✓ ' + get(t)('info_saved');
 			setTimeout(() => saveMsg = '', 3000);
@@ -216,7 +154,7 @@
 			/([A-Za-z]:\\[\w.\-\s]+(?:\\[\w.\-\s]+)*\\?)/g,
 			(match) => `<span class="net-path" data-path="${match}" title="${tooltip}">${match}</span>`
 		);
-		return marked.parse(text, { breaks: true });
+		return renderMarkdown(text);
 	}
 
 	function handleContentClick(e) {
@@ -231,9 +169,6 @@
 	}
 </script>
 
-<svelte:head>
-	<link rel="stylesheet" href="https://unpkg.com/easymde/dist/easymde.min.css" />
-</svelte:head>
 
 <div class="info-page">
 	<div class="info-header">
@@ -257,13 +192,13 @@
 				</button>
 			</div>
 
-			<div class="editor-container">
-				{#if activeTab === 'main'}
-					<textarea bind:this={mainTextarea}></textarea>
-				{:else}
-					<textarea bind:this={spectatorTextarea}></textarea>
-				{/if}
-			</div>
+			{#if activeTab === 'main'}
+				<MarkdownEditor bind:value={content} render={parseMd} rows={16} label={$t('info_tab_main')} placeholder={$t('info_markdown_placeholder')}>
+					<div slot="preview" let:html class="markdown-body">{@html html}</div>
+				</MarkdownEditor>
+			{:else}
+				<MarkdownEditor bind:value={spectatorContent} rows={10} label={$t('info_tab_projector')} placeholder={$t('info_markdown_placeholder')} />
+			{/if}
 
 			<div class="editor-actions">
 				<button class="btn-save" on:click={save} disabled={saving}>
@@ -383,49 +318,6 @@
 	}
 	.tab.active { background: var(--accent-soft); color: var(--accent); }
 	.tab:hover:not(.active) { background: var(--hover-tint); }
-
-	.editor-container {
-		border: 1px solid var(--glass-border); border-radius: var(--radius-md);
-		overflow: hidden; background: var(--input-bg);
-	}
-
-	/* EasyMDE theme overrides for dark & light mode */
-	.editor-container :global(.EasyMDEContainer) { background: transparent; }
-	.editor-container :global(.EasyMDEContainer .CodeMirror) {
-		background: var(--input-bg);
-		color: var(--input-color);
-		border: none;
-		border-radius: 0;
-		font-size: 0.9rem;
-		font-family: 'JetBrains Mono', monospace;
-	}
-	.editor-container :global(.editor-toolbar) {
-		background: var(--hover-tint);
-		border: none;
-		border-bottom: 1px solid var(--glass-border);
-		opacity: 1;
-	}
-	.editor-container :global(.editor-toolbar button) {
-		color: var(--text-muted) !important;
-		border: none !important;
-	}
-	.editor-container :global(.editor-toolbar button:hover),
-	.editor-container :global(.editor-toolbar button.active) {
-		background: var(--accent-soft) !important;
-		color: var(--accent) !important;
-		border-radius: 4px;
-	}
-	.editor-container :global(.editor-toolbar i.separator) {
-		border-left-color: var(--glass-border) !important;
-	}
-	.editor-container :global(.CodeMirror-cursor) { border-left-color: var(--accent); }
-	.editor-container :global(.CodeMirror-selected) { background: var(--accent-soft) !important; }
-	.editor-container :global(.editor-preview),
-	.editor-container :global(.editor-preview-side) {
-		background: var(--input-bg);
-		color: var(--input-color);
-		border-left: 1px solid var(--glass-border);
-	}
 
 	.editor-actions { display: flex; gap: 0.75rem; justify-content: flex-end; }
 	.btn-save {

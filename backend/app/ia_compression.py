@@ -1,5 +1,6 @@
 import re
 import httpx
+from .ia_utils import ia_client
 from datetime import datetime
 
 def run_truncation(messages: list, max_tokens: int, chars_per_token: float = 3.5) -> tuple[list, list]:
@@ -93,7 +94,7 @@ async def run_compaction(text: str, url: str, model: str, num_ctx: int = 4096) -
             "options": {"temperature": 0.1, "num_ctx": num_ctx}
         }
 
-    async with httpx.AsyncClient() as client:
+    async with ia_client() as client:
         response = await client.post(request_url, json=payload, timeout=180.0)
         data = response.json()
         if is_openai:
@@ -122,7 +123,7 @@ async def run_summary(text: str, url: str, model: str, num_ctx: int = 4096) -> s
             "options": {"temperature": 0.1, "num_ctx": num_ctx}
         }
 
-    async with httpx.AsyncClient() as client:
+    async with ia_client() as client:
         response = await client.post(request_url, json=payload, timeout=180.0)
         data = response.json()
         if is_openai:

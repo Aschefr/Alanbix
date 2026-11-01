@@ -1,5 +1,6 @@
 import os
 import json
+import re
 import httpx
 import numpy as np
 
@@ -78,6 +79,72 @@ def is_openai_host(url: str) -> bool:
     clean = url.rstrip("/")
     return clean.endswith("/v1") or "/v1/" in clean or "openai" in clean.lower()
 
+
+# API keys of the AI instances (online OpenAI-compatible services), by base URL.
+# Refreshed every time the instance list is read; never sent back to the browser.
+_API_KEYS: dict = {}
+
+
+def register_instance_keys(instances) -> None:
+    global _API_KEYS
+    _API_KEYS = {
+        inst["url"].rstrip("/"): inst["api_key"].strip()
+        for inst in (instances or [])
+        if inst.get("url") and (inst.get("api_key") or "").strip()
+    }
+
+
+def api_key_for(url: str) -> str:
+    """Key of the instance whose base URL starts the given request URL (longest match)."""
+    best, key = "", ""
+    for base, k in _API_KEYS.items():
+        if url.startswith(base) and len(base) > len(best):
+            best, key = base, k
+    return key
+
+
+async def _add_api_key(request: httpx.Request) -> None:
+    if "authorization" not in request.headers:
+        key = api_key_for(str(request.url))
+        if key:
+            request.headers["Authorization"] = f"Bearer {key}"
+
+
+# OpenAI reasoning models (o1, o3, o4-mini, gpt-5…) reject max_tokens and a custom temperature.
+# Other OpenAI-compatible services translate these parameters themselves, so only OpenAI is adapted.
+_REASONING_MODEL = re.compile(r"^(?:[\w.-]+/)?(?:o\d|gpt-5)", re.IGNORECASE)
+_REASONING_MIN_TOKENS = 4096  # the hidden reasoning counts in the limit: a 30-token title would come back empty
+
+
+def adapt_openai_payload(url: str, payload: dict) -> dict:
+    host = httpx.URL(url).host or ""
+    model = str(payload.get("model") or "")
+    if not (host.endswith("openai.com") or host.endswith("openai.azure.com")) or not _REASONING_MODEL.match(model):
+        return payload
+    out = {k: v for k, v in payload.items() if k not in ("temperature", "top_p", "max_tokens")}
+    limit = payload.get("max_tokens") or payload.get("max_completion_tokens") or _REASONING_MIN_TOKENS
+    out["max_completion_tokens"] = max(int(limit), _REASONING_MIN_TOKENS)
+    if "chat" not in model.lower():
+        out.setdefault("reasoning_effort", "low")  # quick answers for a LAN help chat
+    return out
+
+
+def ia_client(**kwargs) -> httpx.AsyncClient:
+    """httpx client for AI backends: adds the instance's API key when it has one and
+    adapts requests for OpenAI reasoning models (post() and stream() both go through build_request)."""
+    client = httpx.AsyncClient(event_hooks={"request": [_add_api_key]}, **kwargs)
+    build = getattr(client, "build_request", None)
+    if build is None:  # test doubles
+        return client
+
+    def build_request(method, url, **kw):
+        if isinstance(kw.get("json"), dict) and str(url).rstrip("/").endswith("/chat/completions"):
+            kw["json"] = adapt_openai_payload(str(url), kw["json"])
+        return build(method, url, **kw)
+
+    client.build_request = build_request
+    return client
+
 async def get_embedding(text: str, ollama_host: str = None, timeout: float = 60.0):
     """Get embedding vector from Ollama or OpenAI for a single text."""
     host = ollama_host or OLLAMA_HOST
@@ -97,7 +164,7 @@ async def get_embedding(text: str, ollama_host: str = None, timeout: float = 60.
                 "prompt": text
             }
 
-        async with httpx.AsyncClient() as client:
+        async with ia_client() as client:
             response = await client.post(
                 url,
                 json=payload,

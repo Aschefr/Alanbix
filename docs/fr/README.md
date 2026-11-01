@@ -32,7 +32,7 @@ Cette documentation est organisée de manière modulaire pour vous guider pas à
   * Conversations privées P2P rapides et channels d'équipes privés déterministes.
   * Centre de notifications unifié et commentaires de match générés par l'IA.
 * 📋 **[Page d'Informations (Markdown)](features/info-page.md)** :
-  * Éditeur WYSIWYG (EasyMDE), double vue (Joueur vs Projecteur) et détection des chemins de fichiers Windows (`\\serveur\partage`).
+  * Éditeur Markdown intégré avec aperçu, double vue (Joueur vs Projecteur) et détection des chemins de fichiers Windows (`\\serveur\partage`).
 * 🌐 **[Gestion des Langues (i18n)](features/languages.md)** :
   * Fonctionnement double couche (usine/utilisateur) et store réactif.
   * Éditeur bicolonne comparative et filtrage par catégorie.

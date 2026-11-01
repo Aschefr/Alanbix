@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy Policy — Alanbix</title>
+<meta name="description" content="Privacy policy of the Alanbix app, a self-hosted LAN party manager.">
+<style>
+  :root { --bg: #ffffff; --text: #1f2933; --dim: #52606d; --line: #e4e7eb; --accent: #2563eb; --card: #f5f7fa; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0f172a; --text: #e5e7eb; --dim: #9aa5b1; --line: #1f2a44; --accent: #60a5fa; --card: #16213a; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.65 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 1.9rem; line-height: 1.25; margin: 0 0 4px; }
+  h2 { font-size: 1.2rem; margin: 36px 0 8px; padding-top: 16px; border-top: 1px solid var(--line); }
+  .meta { color: var(--dim); font-size: 0.92rem; margin: 0 0 20px; }
+  .lang { float: right; font-size: 0.92rem; }
+  a { color: var(--accent); }
+  .key { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin: 20px 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.95rem; margin: 8px 0; }
+  th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  th { color: var(--dim); font-weight: 600; }
+  ul { padding-left: 1.2em; }
+  li { margin: 4px 0; }
+  @media (max-width: 560px) { table, thead, tbody, tr, th, td { display: block; } thead { display: none; } td { border: none; padding: 2px 0; } tr { border-bottom: 1px solid var(--line); padding: 8px 0; } td:first-child { font-weight: 600; } }
+</style>
+</head>
+<body>
+<main>
+<p class="lang"><a href="./" hreflang="fr">Version française</a></p>
+<h1>Privacy Policy</h1>
+<p class="meta">Alanbix app — last updated: 1 November 2026</p>
+
+<div class="key">
+  <strong>In short.</strong> Alanbix is free and open source. The app has no ads, no analytics and no trackers, and sends no data to its publisher. Your data is stored only on the Alanbix server of the organiser of the LAN party you connect to.
+</div>
+
+<h2>1. Who publishes the app</h2>
+<p>The Alanbix app is published by <strong>Amify Studio</strong>, a sole proprietorship established in France. Contact: <a href="mailto:contact@amify-studio.fr">contact@amify-studio.fr</a>.</p>
+<p>The source code is public: <a href="https://github.com/Aschefr/Alanbix">github.com/Aschefr/Alanbix</a>. Anyone can check what the app does.</p>
+
+<h2>2. How Alanbix works: who holds your data</h2>
+<p>Alanbix is <strong>self-hosted</strong> software: each LAN organiser installs their own Alanbix server. The app (website or mobile app) connects to the server you choose, and to nothing else.</p>
+<ul>
+  <li><strong>The LAN organiser</strong> hosts the server and holds their players' data. They are the data controller: for any request about your data (access, correction, deletion), contact them.</li>
+  <li><strong>Amify Studio</strong>, the app's publisher, does not receive, store or view any player data.</li>
+</ul>
+
+<h2>3. The data processed and why</h2>
+<p>Alanbix does not ask for an email address, a real name or a phone number, and does not access your location.</p>
+<table>
+  <thead><tr><th>Data</th><th>Purpose</th></tr></thead>
+  <tbody>
+    <tr><td>Username, password, team, seat in the room, avatar</td><td>Creating and using your account. The password is stored with irreversible encryption (bcrypt): nobody can read it.</td></tr>
+    <tr><td>Registrations, scores, results, points, awards</td><td>Running tournaments and the leaderboard.</td></tr>
+    <tr><td>Private messages, team messages, public chat, images you send</td><td>Messaging between players.</td></tr>
+    <tr><td>Conversations with the AI assistant and attached images</td><td>Running the assistant (see section 5).</td></tr>
+    <tr><td>Notifications, registered device (device type and a technical identifier)</td><td>Telling you about your matches, messages and announcements.</td></tr>
+    <tr><td>Time of last activity</td><td>Showing whether you are online.</td></tr>
+  </tbody>
+</table>
+<p>On your device, the app also keeps your preferences (theme, language, notification settings) and your session. This information stays on the device. Alanbix does not use cookies.</p>
+
+<h2>4. Who can see your data</h2>
+<ul>
+  <li><strong>Other players</strong> see your username, avatar, team, seat on the room map, results, online status and the messages you post in the public or team chat. A private message is only visible to its recipient.</li>
+  <li><strong>Organisers</strong> (server administrators) manage accounts, tournaments and moderation. They <strong>can read your conversations with the AI assistant</strong> and step in, to help players and handle support requests. The interface does not let them read private messages, but as the people hosting the server, they technically have access to its database.</li>
+</ul>
+
+<h2>5. The AI assistant</h2>
+<p>Your messages to the assistant are sent to the artificial intelligence server chosen by the organiser. This is usually a model installed locally on their network, but the organiser may also use a compatible external service. Ask them if this matters to you.</p>
+
+<h2>6. Sharing with third parties</h2>
+<ul>
+  <li>Your data is <strong>never sold</strong> and is not used for any advertising.</li>
+  <li>When a link is posted in a chat, the organiser's server fetches the page to show a preview: the visited site sees the server's address, not yours.</li>
+  <li>Notifications go directly through a connection between the app and the organiser's server, without Google's or Apple's notification services.</li>
+</ul>
+
+<h2>7. How long data is kept</h2>
+<p>Your data is kept on the organiser's server as long as your account exists, or until the organiser deletes it (for example at the end of the event).</p>
+
+<h2>8. Deleting your account and your rights</h2>
+<ul>
+  <li>You can <strong>delete your account yourself</strong> in the app (Profile). This permanently erases your profile, your messages, your conversations with the assistant, your notifications, your registered devices and the images you sent. Results of matches already played stay in the tournament history, without your username. Notifications already received by other players or by organisers (for example a support request) may still mention your username until they delete them.</li>
+  <li>Under the GDPR, you have the right of access, rectification, erasure, restriction and objection. For the data of a LAN, exercise them with its organiser. For any question about the app itself: <a href="mailto:contact@amify-studio.fr">contact@amify-studio.fr</a>.</li>
+  <li>You can also lodge a complaint with your data protection authority (in France, the CNIL: <a href="https://www.cnil.fr">cnil.fr</a>).</li>
+</ul>
+
+<h2>9. Permissions requested by the mobile app</h2>
+<ul>
+  <li><strong>Notifications</strong>: telling you about your matches, messages and announcements.</li>
+  <li><strong>Background service and start with the phone</strong> (Android): receiving notifications when the app is closed. You can turn this service off in the app settings.</li>
+  <li><strong>Wi-Fi state and local network</strong>: recognising the LAN network and finding the server. The name of your Wi-Fi is not sent to the server.</li>
+  <li><strong>Camera and photos</strong> (iOS): choosing an avatar or sending an image, only when you decide to.</li>
+</ul>
+
+<h2>10. Security</h2>
+<p>Passwords are stored with irreversible encryption and each server uses its own randomly generated session key. On a local network, exchanges with the server are not necessarily encrypted: the organiser decides how their server is set up (for example HTTPS access if it is open to the internet).</p>
+
+<h2>11. Minors</h2>
+<p>Alanbix is not specifically aimed at children. In France, a player under 15 may only create an account with a parent's consent; it is up to the LAN organiser to check this.</p>
+
+<h2>12. Changes</h2>
+<p>This policy may change with the app. The update date is shown at the top of the page, and the full history of changes is public in the project repository.</p>
+</main>
+</body>
+</html>

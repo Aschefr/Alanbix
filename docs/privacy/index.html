@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Politique de confidentialité — Alanbix</title>
+<meta name="description" content="Politique de confidentialité de l'application Alanbix, gestionnaire de LAN party auto-hébergé.">
+<style>
+  :root { --bg: #ffffff; --text: #1f2933; --dim: #52606d; --line: #e4e7eb; --accent: #2563eb; --card: #f5f7fa; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0f172a; --text: #e5e7eb; --dim: #9aa5b1; --line: #1f2a44; --accent: #60a5fa; --card: #16213a; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.65 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 1.9rem; line-height: 1.25; margin: 0 0 4px; }
+  h2 { font-size: 1.2rem; margin: 36px 0 8px; padding-top: 16px; border-top: 1px solid var(--line); }
+  .meta { color: var(--dim); font-size: 0.92rem; margin: 0 0 20px; }
+  .lang { float: right; font-size: 0.92rem; }
+  a { color: var(--accent); }
+  .key { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin: 20px 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.95rem; margin: 8px 0; }
+  th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  th { color: var(--dim); font-weight: 600; }
+  ul { padding-left: 1.2em; }
+  li { margin: 4px 0; }
+  @media (max-width: 560px) { table, thead, tbody, tr, th, td { display: block; } thead { display: none; } td { border: none; padding: 2px 0; } tr { border-bottom: 1px solid var(--line); padding: 8px 0; } td:first-child { font-weight: 600; } }
+</style>
+</head>
+<body>
+<main>
+<p class="lang"><a href="en.html" hreflang="en">English version</a></p>
+<h1>Politique de confidentialité</h1>
+<p class="meta">Application Alanbix — dernière mise à jour : 1<sup>er</sup> novembre 2026</p>
+
+<div class="key">
+  <strong>En résumé.</strong> Alanbix est gratuit et open source. L'application ne contient ni publicité, ni outil de statistiques, ni traceur, et n'envoie aucune donnée à son éditeur. Vos données sont stockées uniquement sur le serveur Alanbix de l'organisateur de la LAN à laquelle vous vous connectez.
+</div>
+
+<h2>1. Qui publie l'application</h2>
+<p>L'application Alanbix est publiée par <strong>Amify Studio</strong>, entreprise individuelle établie en France. Contact : <a href="mailto:contact@amify-studio.fr">contact@amify-studio.fr</a>.</p>
+<p>Le code source est public : <a href="https://github.com/Aschefr/Alanbix">github.com/Aschefr/Alanbix</a>. Chacun peut vérifier ce que fait l'application.</p>
+
+<h2>2. Comment fonctionne Alanbix : qui détient vos données</h2>
+<p>Alanbix est un logiciel <strong>auto-hébergé</strong> : chaque organisateur de LAN installe son propre serveur Alanbix. L'application (site web ou application mobile) se connecte au serveur que vous choisissez, et à rien d'autre.</p>
+<ul>
+  <li><strong>L'organisateur de la LAN</strong> héberge le serveur et détient les données de ses joueurs. C'est lui le responsable de leur traitement : pour toute demande concernant vos données (accès, correction, suppression), adressez-vous à lui.</li>
+  <li><strong>Amify Studio</strong>, éditeur de l'application, ne reçoit, ne stocke et ne consulte aucune donnée des joueurs.</li>
+</ul>
+
+<h2>3. Les données traitées et pourquoi</h2>
+<p>Alanbix ne demande ni adresse e-mail, ni nom réel, ni numéro de téléphone, et n'accède pas à votre localisation.</p>
+<table>
+  <thead><tr><th>Données</th><th>Utilisation</th></tr></thead>
+  <tbody>
+    <tr><td>Pseudo, mot de passe, équipe, place dans la salle, avatar</td><td>Créer et utiliser votre compte. Le mot de passe est stocké sous forme chiffrée irréversible (bcrypt) : personne ne peut le lire.</td></tr>
+    <tr><td>Inscriptions, scores, résultats, points, distinctions</td><td>Organiser les tournois et le classement.</td></tr>
+    <tr><td>Messages privés, messages d'équipe, chat public, images envoyées</td><td>Messagerie entre joueurs.</td></tr>
+    <tr><td>Conversations avec l'assistant IA et images jointes</td><td>Faire fonctionner l'assistant (voir section 5).</td></tr>
+    <tr><td>Notifications, appareil enregistré (type d'appareil et un identifiant technique)</td><td>Vous prévenir de vos matchs, messages et annonces.</td></tr>
+    <tr><td>Heure de dernière activité</td><td>Afficher si vous êtes en ligne.</td></tr>
+  </tbody>
+</table>
+<p>Sur votre appareil, l'application garde aussi vos préférences (thème, langue, réglages de notifications) et votre session. Ces informations restent sur l'appareil. Alanbix n'utilise pas de cookies.</p>
+
+<h2>4. Qui peut voir vos données</h2>
+<ul>
+  <li><strong>Les autres joueurs</strong> voient votre pseudo, votre avatar, votre équipe, votre place sur le plan de salle, vos résultats, votre statut en ligne et les messages que vous publiez dans le chat public ou d'équipe. Un message privé n'est visible que par son destinataire.</li>
+  <li><strong>Les organisateurs</strong> (administrateurs du serveur) gèrent les comptes, les tournois et la modération. Ils <strong>peuvent lire vos conversations avec l'assistant IA</strong> et y intervenir, pour aider les joueurs et traiter les demandes d'assistance. L'interface ne leur permet pas de lire les messages privés, mais, en tant qu'hébergeurs du serveur, ils ont techniquement accès à sa base de données.</li>
+</ul>
+
+<h2>5. L'assistant IA</h2>
+<p>Vos messages à l'assistant sont envoyés au serveur d'intelligence artificielle choisi par l'organisateur. Il s'agit en général d'un modèle installé localement sur son réseau, mais l'organisateur peut aussi utiliser un service externe compatible. Renseignez-vous auprès de lui si cela compte pour vous.</p>
+
+<h2>6. Partage avec des tiers</h2>
+<ul>
+  <li>Vos données ne sont <strong>jamais vendues</strong> et ne servent à aucune publicité.</li>
+  <li>Quand un lien est publié dans un chat, le serveur de l'organisateur consulte la page pour en afficher un aperçu : le site visité voit l'adresse du serveur, pas la vôtre.</li>
+  <li>Les notifications passent directement par une connexion entre l'application et le serveur de l'organisateur, sans service de notification de Google ou d'Apple.</li>
+</ul>
+
+<h2>7. Durée de conservation</h2>
+<p>Vos données sont conservées sur le serveur de l'organisateur tant que votre compte existe, ou jusqu'à ce que l'organisateur les supprime (par exemple à la fin de l'événement).</p>
+
+<h2>8. Supprimer votre compte et vos droits</h2>
+<ul>
+  <li>Vous pouvez <strong>supprimer votre compte vous-même</strong> depuis l'application (Profil). Cela efface définitivement votre profil, vos messages, vos conversations avec l'assistant, vos notifications, vos appareils enregistrés et les images que vous avez envoyées. Les résultats des matchs déjà joués restent dans l'historique des tournois, sans votre pseudo. Les notifications déjà reçues par d'autres joueurs ou par les organisateurs (par exemple une demande d'assistance) peuvent encore mentionner votre pseudo, jusqu'à ce qu'ils les suppriment.</li>
+  <li>Conformément au RGPD, vous disposez d'un droit d'accès, de rectification, d'effacement, de limitation et d'opposition. Pour les données d'une LAN, exercez-les auprès de son organisateur. Pour toute question sur l'application elle-même : <a href="mailto:contact@amify-studio.fr">contact@amify-studio.fr</a>.</li>
+  <li>Vous pouvez aussi adresser une réclamation à la CNIL (<a href="https://www.cnil.fr">cnil.fr</a>).</li>
+</ul>
+
+<h2>9. Autorisations demandées par l'application mobile</h2>
+<ul>
+  <li><strong>Notifications</strong> : vous prévenir de vos matchs, messages et annonces.</li>
+  <li><strong>Service en arrière-plan et démarrage avec le téléphone</strong> (Android) : recevoir les notifications quand l'application est fermée. Vous pouvez désactiver ce service dans les paramètres de l'application.</li>
+  <li><strong>État du Wi-Fi et réseau local</strong> : reconnaître le réseau de la LAN et trouver le serveur. Le nom de votre Wi-Fi n'est pas envoyé au serveur.</li>
+  <li><strong>Appareil photo et photos</strong> (iOS) : choisir un avatar ou envoyer une image, uniquement quand vous le décidez.</li>
+</ul>
+
+<h2>10. Sécurité</h2>
+<p>Les mots de passe sont chiffrés de façon irréversible et chaque serveur utilise sa propre clé de session, générée au hasard. Sur un réseau local, les échanges avec le serveur ne sont pas forcément chiffrés : c'est l'organisateur qui décide de la configuration de son serveur (par exemple un accès en HTTPS s'il est ouvert sur Internet).</p>
+
+<h2>11. Mineurs</h2>
+<p>Alanbix ne s'adresse pas spécialement aux enfants. En France, un joueur de moins de 15 ans ne peut créer de compte qu'avec l'accord d'un parent ; il revient à l'organisateur de la LAN de le vérifier.</p>
+
+<h2>12. Modifications</h2>
+<p>Cette politique peut évoluer avec l'application. La date de mise à jour figure en haut de la page, et l'historique complet des modifications est public dans le dépôt du projet.</p>
+</main>
+</body>
+</html>

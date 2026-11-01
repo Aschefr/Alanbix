@@ -15,6 +15,7 @@ from pydantic import BaseModel
 from ..websockets import manager as ws_manager
 from .. import models, schemas, auth, database
 from ..ia_utils import get_embedding, get_embedding_chunked, search_similar
+from ..ia_utils import ia_client, register_instance_keys
 from starlette.requests import Request as StarletteRequest
 from ..ia_compression import run_truncation, run_compaction, run_summary
 from ..ia_title_utils import _is_default_title, _build_title_prompt, _clean_title
@@ -25,6 +26,9 @@ router = APIRouter(prefix="/ia", tags=["IA"])
 
 _round_robin_idx = 0
 _active_requests = {}  # url -> int (active generation count)
+
+MIN_CONTEXT_WINDOW = 16384
+
 
 def get_effective_config(db: Session):
     db_config = db.query(models.SystemConfig).filter(models.SystemConfig.key == "ia_settings").first()
@@ -53,6 +57,11 @@ def get_effective_config(db: Session):
             val["rag_suggestion_enabled"] = True
         if "rag_min_score" not in val:
             val["rag_min_score"] = 0.65
+        # The instructions and tool definitions alone take ~6,000 tokens: below 16K little is left
+        try:
+            val["context_window"] = max(int(val.get("context_window") or MIN_CONTEXT_WINDOW), MIN_CONTEXT_WINDOW)
+        except (TypeError, ValueError):
+            val["context_window"] = MIN_CONTEXT_WINDOW
         return val
     return {
         "ollama_host": os.getenv("OLLAMA_HOST", "http://host.docker.internal:11434"),
@@ -68,6 +77,7 @@ def get_effective_config(db: Session):
         "call_admin_global_hourly_limit": 15,
         "rag_suggestion_enabled": True,
         "rag_min_score": 0.65,
+        "context_window": MIN_CONTEXT_WINDOW,
     }
 
 def get_instances(db: Session):
@@ -75,6 +85,7 @@ def get_instances(db: Session):
     cfg = get_effective_config(db)
     instances = cfg.get("ollama_instances")
     if instances and len(instances) > 0:
+        register_instance_keys(instances)
         return instances
     # Legacy single-host fallback (only if ollama_host is explicitly set)
     host = cfg.get("ollama_host", os.getenv("OLLAMA_HOST", ""))
@@ -89,11 +100,12 @@ def is_openai_host(url: str) -> bool:
 
 _health_cache = {}  # url -> (timestamp, ok, latency, models)
 
-async def _check_instance_health(url: str, timeout: float = 3.0):
-    """Ping an Ollama or OpenAI instance, return (ok, latency_ms, models). Uses cache to prevent high latency."""
+async def _check_instance_health(url: str, timeout: float = 3.0, api_key: str = ""):
+    """Ping an Ollama or OpenAI instance, return (ok, latency_ms, models). Uses cache to prevent high latency.
+    api_key tests a key that is not saved yet (the saved ones are added by ia_client)."""
     import time
     now = time.time()
-    if url in _health_cache:
+    if url in _health_cache and not api_key:
         cached_time, ok, latency, models = _health_cache[url]
         if now - cached_time < 10.0:
             return ok, latency, models
@@ -102,7 +114,7 @@ async def _check_instance_health(url: str, timeout: float = 3.0):
     is_openai = is_openai_host(clean_url)
 
     try:
-        async with httpx.AsyncClient() as client:
+        async with ia_client(headers={"Authorization": f"Bearer {api_key}"} if api_key else None) as client:
             t0 = time.time()
             if is_openai:
                 res = await client.get(f"{clean_url}/models", timeout=timeout)
@@ -174,7 +186,7 @@ async def list_models(db: Session = Depends(database.get_db), admin: models.User
         url = inst["url"].rstrip("/")
         is_openai = is_openai_host(url)
         try:
-            async with httpx.AsyncClient() as client:
+            async with ia_client() as client:
                 if is_openai:
                     res = await client.get(f"{url}/models", timeout=5.0)
                     if res.status_code == 200:
@@ -213,7 +225,8 @@ async def list_models(db: Session = Depends(database.get_db), admin: models.User
 @router.post("/test-connection")
 async def test_connection(config: dict, admin: models.User = Depends(auth.get_current_admin)):
     url = config.get("url") or config.get("ollama_host", "")
-    ok, latency, model_names = await _check_instance_health(url, timeout=5.0)
+    api_key = (config.get("api_key") or "").strip()
+    ok, latency, model_names = await _check_instance_health(url, timeout=5.0, api_key=api_key)
     if ok:
         return {"status": "ok", "latency_ms": latency, "models": model_names}
     return {"status": "error", "detail": "Connection failed"}
@@ -255,9 +268,34 @@ async def instances_status(db: Session = Depends(database.get_db), admin: models
         })
     return results
 
+def _public_instance(inst: dict) -> dict:
+    """An instance as sent to the browser: the API key never leaves the server."""
+    out = {k: v for k, v in inst.items() if k != "api_key"}
+    out["has_api_key"] = bool((inst.get("api_key") or "").strip())
+    return out
+
+
+def _keep_saved_keys(new_instances: list, old_instances: list) -> None:
+    """The browser never has the saved keys: an instance sent back without a key keeps
+    the saved one, unless clear_api_key asks to remove it."""
+    old_keys = {(i.get("url") or "").rstrip("/"): i.get("api_key") for i in old_instances or [] if i.get("api_key")}
+    for inst in new_instances or []:
+        typed = (inst.get("api_key") or "").strip()
+        if typed:
+            inst["api_key"] = typed
+        elif not inst.get("clear_api_key") and old_keys.get((inst.get("url") or "").rstrip("/")):
+            inst["api_key"] = old_keys[(inst.get("url") or "").rstrip("/")]
+        else:
+            inst.pop("api_key", None)
+        inst.pop("has_api_key", None)
+        inst.pop("clear_api_key", None)
+
+
 @router.get("/config")
 def get_ia_config(db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
-    cfg = get_effective_config(db)
+    cfg = dict(get_effective_config(db))
+    if cfg.get("ollama_instances"):
+        cfg["ollama_instances"] = [_public_instance(i) for i in cfg["ollama_instances"]]
     # Include system_prompt from SystemConfig
     sp = db.query(models.SystemConfig).filter(models.SystemConfig.key == "system_prompt").first()
     cfg["system_prompt"] = sp.value if sp else ""
@@ -266,6 +304,8 @@ def get_ia_config(db: Session = Depends(database.get_db), user: models.User = De
 @router.post("/config")
 async def update_ia_config(config_data: dict, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
     config = db.query(models.SystemConfig).filter(models.SystemConfig.key == "ia_settings").first()
+    _keep_saved_keys(config_data.get("ollama_instances"), (config.value or {}).get("ollama_instances") if config else [])
+    register_instance_keys(config_data.get("ollama_instances"))
     if not config:
         config = models.SystemConfig(key="ia_settings", value=config_data)
         db.add(config)
@@ -1362,8 +1402,12 @@ async def admin_nuke_images(db: Session = Depends(database.get_db), admin: model
     if os.path.isdir(CHAT_IMAGES_DIR):
         shutil.rmtree(CHAT_IMAGES_DIR, ignore_errors=True)
     os.makedirs(CHAT_IMAGES_DIR, exist_ok=True)
-    # Clear image_path references in DB
-    db.query(models.ChatMessage).filter(models.ChatMessage.image_path != None).update({"image_path": None})
+    # The folder also held private, team and public chat images: their upload folders must exist again
+    for sub in ("players", "public"):
+        os.makedirs(os.path.join(CHAT_IMAGES_DIR, sub), exist_ok=True)
+    # Clear image_path references in DB (AI, private, team and public messages)
+    for model in (models.ChatMessage, models.PrivateMessage, models.GroupMessage, models.PublicChatMessage):
+        db.query(model).filter(model.image_path != None).update({"image_path": None}, synchronize_session=False)
     db.commit()
     return {"status": "ok", "message": "Toutes les images ont été supprimées."}
 

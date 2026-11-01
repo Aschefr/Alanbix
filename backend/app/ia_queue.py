@@ -16,6 +16,7 @@ from collections import deque
 
 from .websockets import manager as ws_manager
 from .ia_title_utils import _build_title_prompt, _clean_title, _is_default_title
+from .ia_utils import ia_client
 
 
 def is_openai_host(url: str) -> bool:
@@ -404,7 +405,7 @@ class IAQueueManager:
         raw_request = payload.get("raw_request")
         tool_calling_mode = payload.get("tool_calling_mode", "stream_intercept")
 
-        client = httpx.AsyncClient()
+        client = ia_client()
         used_tools = []
         tool_time = 0.0
         response_time = 0.0
@@ -901,7 +902,7 @@ class IAQueueManager:
                     "options": {"temperature": 0.8, "num_predict": context_window}
                 }
 
-            async with httpx.AsyncClient() as client:
+            async with ia_client() as client:
                 res = await client.post(url, json=req_json, timeout=120.0)
 
             if res.status_code != 200:
@@ -943,7 +944,7 @@ class IAQueueManager:
                     "options": {"temperature": temperature, "num_predict": context_window, "num_ctx": context_window}
                 }
 
-            async with httpx.AsyncClient() as client:
+            async with ia_client() as client:
                 res = await client.post(url, json=req_json, timeout=90.0)
 
             if res.status_code != 200:
@@ -991,7 +992,7 @@ class IAQueueManager:
                     "options": {"temperature": 0.1}
                 }
 
-            async with httpx.AsyncClient() as client:
+            async with ia_client() as client:
                 res = await client.post(url, json=req_json, timeout=45.0)
 
             if res.status_code != 200:
@@ -1034,7 +1035,7 @@ class IAQueueManager:
                 }
 
             timeout = httpx.Timeout(connect=10.0, read=120.0, write=10.0, pool=5.0)
-            async with httpx.AsyncClient(timeout=timeout) as client:
+            async with ia_client(timeout=timeout) as client:
                 res = await client.post(url, json=req_json)
 
             if res.status_code == 200:
@@ -1097,7 +1098,7 @@ class IAQueueManager:
                 }
 
             timeout = httpx.Timeout(connect=10.0, read=120.0, write=10.0, pool=5.0)
-            async with httpx.AsyncClient(timeout=timeout) as client:
+            async with ia_client(timeout=timeout) as client:
                 res = await client.post(url, json=req_json)
 
             if res.status_code == 200:

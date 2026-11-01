@@ -59,6 +59,56 @@
 	$: hiddenResultsCount = myMatchesAll.filter(m => m.completed && hiddenResults.includes(m.match_key)).length;
 	$: myMatchesSorted = [...myActiveMatches].sort((x, y) => Number(y.is_ready) - Number(x.is_ready));
 	let dashTab = 'tournaments';
+
+	// Desktop: the public chat column can be resized with a handle; the width is kept per browser.
+	// No saved width = the default responsive column (about 28 % of the screen, 380 to 520 px).
+	const CHAT_WIDTH_KEY = 'alanbix_chat_width';
+	const CHAT_MIN = 320, LEFT_MIN = 520;
+	let chatWidth = null;
+	let dashGridEl;
+	let resizingChat = false;
+	try { const w = parseInt(localStorage.getItem(CHAT_WIDTH_KEY) || '', 10); if (w > 0) chatWidth = w; } catch {}
+	function clampChat(w) {
+		const max = dashGridEl ? dashGridEl.getBoundingClientRect().width - LEFT_MIN : 900;
+		return Math.round(Math.max(CHAT_MIN, Math.min(max, w)));
+	}
+	function saveChatWidth() {
+		try { chatWidth ? localStorage.setItem(CHAT_WIDTH_KEY, String(chatWidth)) : localStorage.removeItem(CHAT_WIDTH_KEY); } catch {}
+	}
+	function startChatResize(e) {
+		if (!dashGridEl) return;
+		e.preventDefault();
+		const handle = e.currentTarget;
+		handle.setPointerCapture(e.pointerId);
+		resizingChat = true;
+		const right = dashGridEl.getBoundingClientRect().right;
+		const move = (ev) => { chatWidth = clampChat(right - ev.clientX - 10); };
+		const end = () => {
+			resizingChat = false;
+			handle.removeEventListener('pointermove', move);
+			handle.removeEventListener('pointerup', end);
+			handle.removeEventListener('pointercancel', end);
+			saveChatWidth();
+		};
+		handle.addEventListener('pointermove', move);
+		handle.addEventListener('pointerup', end);
+		handle.addEventListener('pointercancel', end);
+	}
+	function chatResizeKey(e) {
+		const current = chatWidth || dashGridEl?.querySelector('.dash-right')?.getBoundingClientRect().width || 420;
+		if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+			e.preventDefault();
+			chatWidth = clampChat(current + (e.key === 'ArrowLeft' ? 20 : -20));
+			saveChatWidth();
+		} else if (e.key === 'Enter' || e.key === 'Home') {
+			e.preventDefault();
+			resetChatWidth();
+		}
+	}
+	function resetChatWidth() {
+		chatWidth = null;
+		saveChatWidth();
+	}
 	try { dashTab = localStorage.getItem('alanbix_dash_tab') || 'tournaments'; } catch (e) {}
 	function setDashTab(tab) {
 		dashTab = tab;
@@ -1162,7 +1212,7 @@
 
 
 	<!-- Desktop: "Mes matchs" first, secondary views in tabs, chat on the right -->
-	<div class="dash-grid desktop-only">
+	<div class="dash-grid desktop-only" class:resizing={resizingChat} bind:this={dashGridEl} style={chatWidth ? `--chat-col: ${chatWidth}px` : undefined}>
 		<div class="dash-left">
 			<section class="my-matches glass">
 				<header class="mym-header">
@@ -1307,6 +1357,9 @@
 		</div>
 
 		<div class="dash-right">
+			<!-- svelte-ignore a11y-no-noninteractive-tabindex -->
+			<div class="chat-resizer" role="separator" aria-orientation="vertical" aria-label={$t('dash_chat_resize')} title={$t('dash_chat_resize')}
+				tabindex="0" on:pointerdown={startChatResize} on:dblclick={resetChatWidth} on:keydown={chatResizeKey}></div>
 			<PublicChat
 				{user}
 				{allUsers}
@@ -2437,7 +2490,7 @@
 	.dash-grid {
 		display: grid;
 		/* the chat column grows with a wide screen (about 28 %), never below 380px nor above 520px */
-		grid-template-columns: minmax(0, 1fr) clamp(380px, 28%, 520px);
+		grid-template-columns: minmax(0, 1fr) var(--chat-col, clamp(380px, 28%, 520px));
 		gap: 1.2rem;
 		flex: 1;
 		min-height: 0;
@@ -2447,8 +2500,14 @@
 		.dash-grid { grid-template-columns: minmax(0, 1fr) minmax(300px, 380px); }
 	}
 	.dash-left { display: flex; flex-direction: column; gap: 1rem; min-height: 0; min-width: 0; }
-	.dash-right { min-height: 0; display: flex; flex-direction: column; }
-	.dash-right > :global(*) { flex: 1; min-height: 0; }
+	.dash-right { min-height: 0; display: flex; flex-direction: column; position: relative; }
+	.dash-right > :global(*:not(.chat-resizer)) { flex: 1; min-height: 0; }
+	/* Grip in the gap between the panels: drag to resize the chat, double-click for the default width */
+	.chat-resizer { position: absolute; top: 0; bottom: 0; left: calc(-0.6rem - 7px); width: 14px; cursor: col-resize; touch-action: none; z-index: 5; border-radius: 7px; }
+	.chat-resizer::before { content: ''; position: absolute; top: 50%; left: 50%; width: 4px; height: 44px; transform: translate(-50%, -50%); border-radius: 4px; background: var(--glass-border); transition: background 0.15s, height 0.15s; }
+	.chat-resizer:hover::before, .chat-resizer:focus-visible::before, .resizing .chat-resizer::before { background: var(--accent); height: 72px; }
+	.chat-resizer:focus-visible { outline: none; }
+	.dash-grid.resizing { cursor: col-resize; user-select: none; }
 
 	.my-matches { padding: 0.9rem 1.1rem; display: flex; flex-direction: column; gap: 0.6rem; flex-shrink: 0; max-height: 45%; min-height: 0; }
 	.mym-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
@@ -2503,6 +2562,7 @@
 	@media (min-width: 901px) and (max-width: 1279px) {
 		.hq-dashboard { height: auto; }
 		.dash-grid { grid-template-columns: 1fr; }
+		.chat-resizer { display: none; }
 		.my-matches { max-height: 420px; }
 		.dash-tab-body { min-height: 480px; }
 		.dash-right { height: 560px; }

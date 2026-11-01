@@ -9,7 +9,7 @@ Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-s
 **Don't assume. Don't hide confusion. Surface tradeoffs.**
 
 Before implementing:
-- Always read the global rules (`global_rules`) in `cahier_des_charges.yaml` before planning or writing code.
+- Always read the project rules (section 9 below) before planning or writing code.
 - State your assumptions explicitly. If uncertain, ask.
 - If multiple interpretations exist, present them - don't pick silently.
 - If a simpler approach exists, say so. Push back when warranted.
@@ -97,6 +97,27 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 - Lancer `python scripts/verify_i18n.py` et `python scripts/verify_production_bundle.py` avant la construction.
 - Si la version a déjà été montée à la main, ne pas relancer `publish_release.ps1` (il la monterait une seconde fois) : exécuter ses étapes manuellement.
 - Après l'envoi, vérifier avec `docker buildx imagetools inspect aschefr/alanbix:latest` que les deux architectures sont présentes, puis créer la release GitHub sur `master`.
+
+---
+
+## 9. Règles du projet & choix d'architecture
+
+**Reprises de l'ancien `cahier_des_charges.yaml` (archivé dans `docs/archive/`), mises à jour.**
+
+Règles de développement :
+- **Confirmations** : jamais de `window.confirm`. La confirmation s'intègre sous l'élément cliqué (inline) ou dans une modale « glass » personnalisée.
+- **Icônes** : composant `Icon` (icônes en traits) plutôt que des emojis dans l'interface. Exceptions voulues : les distinctions (awards) et les pastilles colorées de l'onglet « Conversations IA » de l'administration.
+- **Mobile** : tout changement d'interface se contrôle sur téléphone (de 320 à 430 px de large), pas seulement sur ordinateur.
+- **Temps réel** : l'interface se met à jour sans F5, par WebSocket ou appels API.
+- **Base de données** : toute nouvelle colonne passe par une migration manuelle `ALTER TABLE` dans `init_db()` (`backend/app/database.py`).
+- **Colonnes JSON SQLAlchemy** (`bracket`, `config`, `results`) : appeler `flag_modified(objet, 'colonne')` avant le commit, sinon la modification (surtout une mise à `None`) n'est pas enregistrée.
+- **Assistant IA** : son prompt est construit en couches dans `backend/app/ia_prompt.py` (personnalité modifiable par l'admin, règles fixes, guide de l'application, contexte en direct). Ne pas remettre de règles ni de noms d'outils dans le texte modifiable.
+
+Choix d'architecture à respecter :
+- **SQLite** : un seul fichier, pas de conteneur de base dédié. Attention aux verrous (« database is locked ») sur des requêtes concurrentes.
+- **File d'attente IA** : en mémoire Python (`asyncio`), pas de Redis. Elle est perdue au redémarrage, ce qui est acceptable pour une LAN.
+- **Recherche de connaissances (RAG)** : similarité cosinus NumPy en mémoire, pas de base vectorielle. Adapté à quelques centaines de documents.
+- **Production** : une seule image (API FastAPI + interface statique, port 41481), sans Node.js, qui doit rester légère en mémoire.
 
 ---
 

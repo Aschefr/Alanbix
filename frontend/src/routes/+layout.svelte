@@ -51,7 +51,7 @@
 		if (path.startsWith('/dashboard/tournaments/')) {
 			return $t('nav_tournaments');
 		}
-		if (path === '/dashboard/players') return $t('nav_players');
+		if (path === '/dashboard/players') return $t('mobile_tab_messages');
 		if (path === '/dashboard/notifications') return $t('nav_notifications');
 		if (path === '/dashboard/ai') return $t('nav_ai_assistant');
 		if (path === '/dashboard/map') return $t('nav_map');

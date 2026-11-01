@@ -57,7 +57,7 @@
 	let iaConfig = { 
 		ollama_host: '', model: '', rag_enabled: true, network_tools_enabled: true,
 		auto_moderation_enabled: true,
-		temperature: 0.7, context_window: 4096,
+		temperature: 0.7, context_window: 16384,
 		ollama_instances: [], embedding_model: '',
 		tool_calling_mode: 'stream_intercept',
 		call_admin_enabled: true,
@@ -133,8 +133,8 @@
 	let iaQueueInterval = null;
 
 	// Nuke State
-	let nukeConfirm = { tournaments: false, players: false, games: false, images: false, notifications: false, awards: false };
-	let nuking = { tournaments: false, players: false, games: false, images: false, notifications: false, awards: false };
+	let nukeConfirm = { tournaments: false, players: false, games: false, images: false, notifications: false, awards: false, room: false };
+	let nuking = { tournaments: false, players: false, games: false, images: false, notifications: false, awards: false, room: false };
 
 	// Jump bar of the General tab: one entry per section, the visible one is highlighted
 	let activeSection = 'gs-event';
@@ -506,7 +506,7 @@
 	async function testInstance(idx) {
 		const inst = iaConfig.ollama_instances[idx];
 		if (!inst) return;
-		const res = await api.post('/ia/test-connection', { url: inst.url });
+		const res = await api.post('/ia/test-connection', { url: inst.url, api_key: inst.api_key || '' });
 		if (res.status === 'ok') {
 			toast(get(t)('admin_instance_test_ok', { name: inst.label || inst.url, ms: res.latency_ms }), 'success');
 			loadInstanceStatuses();
@@ -514,6 +514,27 @@
 		} else {
 			toast(get(t)('admin_instance_test_failed', { name: inst.label || inst.url }), 'error');
 		}
+	}
+
+	// API keys are write-only: the server keeps them and only says whether one is saved
+	async function saveInstanceKey(idx) {
+		const inst = iaConfig.ollama_instances[idx];
+		if (!inst?.api_key?.trim()) return;
+		await saveIAConfig();
+		inst.has_api_key = true;
+		inst.api_key = '';
+		iaConfig = iaConfig;
+		loadInstanceStatuses();
+		fetchModels();
+	}
+
+	async function clearInstanceKey(idx) {
+		const inst = iaConfig.ollama_instances[idx];
+		inst.clear_api_key = true;
+		await saveIAConfig();
+		delete inst.clear_api_key;
+		inst.has_api_key = false;
+		iaConfig = iaConfig;
 	}
 
 	async function addInstance() {
@@ -619,6 +640,16 @@
 	}
 
 	// Danger Zone Nukes
+	async function nukeRoom() {
+		nuking.room = true;
+		try {
+			const res = await api.delete('/admin/nuke/room');
+			toast(get(t)('admin_nuke_room_done', { seats: res.deleted_seats, players: res.freed_players }), 'success');
+		} catch (e) { toast(e.message, 'error'); }
+		nuking.room = false;
+		nukeConfirm.room = false;
+	}
+
 	async function nukeAwards() {
 		nuking.awards = true;
 		try {
@@ -673,6 +704,30 @@
 		nukeConfirm.images = false;
 	}
 
+	// Full reset: everything on the server, as on a new installation (admin accounts optionally kept)
+	let resetOpen = false;
+	let resetKeepAdmins = true;
+	let resetWord = '';
+	let resetting = false;
+	$: resetReady = resetWord.trim().toUpperCase() === 'RESET';
+	async function fullReset() {
+		if (!resetReady) return;
+		resetting = true;
+		try {
+			await api.post('/admin/reset-all', { keep_admins: resetKeepAdmins, confirm: resetWord.trim() });
+			// Everything changed: start again from a fresh page (the login page if no account is left)
+			if (!resetKeepAdmins) {
+				try { localStorage.removeItem('alanbix_token'); } catch {}
+				window.location.href = '/';
+			} else {
+				window.location.href = '/dashboard';
+			}
+		} catch (e) {
+			toast(e.message || get(t)('admin_error_unknown'), 'error');
+			resetting = false;
+		}
+	}
+
 	async function nukeNotifications() {
 		nuking.notifications = true;
 		try {
@@ -706,7 +761,10 @@
 
 	<!-- GENERAL TAB -->
 	{#if !settingsSubTab || settingsSubTab === 'general'}
-	<p class="autosave-note">{$t('admin_settings_autosave_note')}</p>
+	<div class="general-top">
+		<p class="autosave-note">{$t('admin_settings_autosave_note')}</p>
+		<a class="setup-link" href="/dashboard/setup"><Icon name="play" size={14} /> {$t('setup_relaunch')}</a>
+	</div>
 	<nav class="gnav" aria-label={$t('admin_settings_tab_general')} use:spySections>
 		{#each gSections as sec (sec.id)}
 			<button type="button" class="gnav-chip" class:active={activeSection === sec.id} class:danger={sec.id === 'gs-danger'} on:click={() => jumpTo(sec.id)}>
@@ -715,7 +773,7 @@
 		{/each}
 	</nav>
 	<div class="stab-content">
-		<h2 class="settings-section" id="gs-event" data-gsection>
+		<h2 class="admin-section-title" id="gs-event" data-gsection>
 			<span class="ss-icon"><Icon name="stadium" size={16} /></span>
 			<span class="ss-title">{$t('admin_settings_section_event')}</span>
 			{#if eventName}<span class="ss-sum">{eventName}</span>{/if}
@@ -774,7 +832,7 @@
 			</div>
 		</div>
 
-		<h2 class="settings-section" id="gs-tournaments" data-gsection>
+		<h2 class="admin-section-title" id="gs-tournaments" data-gsection>
 			<span class="ss-icon"><Icon name="trophy" size={16} /></span>
 			<span class="ss-title">{$t('admin_settings_section_tournaments')}</span>
 			<span class="ss-sum">{defaultPts.pts_winner} · {defaultPts.pts_second} · {defaultPts.pts_third}</span>
@@ -798,7 +856,7 @@
 			</div>
 		</div>
 
-		<h2 class="settings-section" id="gs-chat" data-gsection>
+		<h2 class="admin-section-title" id="gs-chat" data-gsection>
 			<span class="ss-icon"><Icon name="chat" size={16} /></span>
 			<span class="ss-title">{$t('admin_settings_section_chat')}</span>
 			<span class="ss-dot" class:on={publicChatConfig.enabled} title={$t('admin_public_chat_enable')}></span>
@@ -938,7 +996,7 @@
 			</div>
 		</div>
 
-		<h2 class="settings-section" id="gs-services" data-gsection>
+		<h2 class="admin-section-title" id="gs-services" data-gsection>
 			<span class="ss-icon"><Icon name="server" size={16} /></span>
 			<span class="ss-title">{$t('admin_settings_section_services')}</span>
 			{#if searxngUrl}<span class="ss-sum">{hostOf(searxngUrl)}</span>{/if}
@@ -981,7 +1039,7 @@
 					<h3 style="color: var(--danger)">{$t("admin_settings_danger_zone")}</h3>
 					<p class="sc-sub">{$t("admin_settings_danger_zone_sub")}</p>
 				</div>
-				<span class="dz-count">7</span>
+				<span class="dz-count">9</span>
 				<span class="dz-chevron"><Icon name="chevron-down" size={16} /></span>
 			</summary>
 			<div class="sc-body">
@@ -1136,6 +1194,60 @@
 							<button class="btn-outline-danger" on:click={() => nukeConfirm.awards = true}>{$t('admin_settings_purge_awards')}</button>
 						{/if}
 					</div>
+
+					<!-- Nuke Room map -->
+					<div class="nuke-card">
+						<div class="nuke-info">
+							<span class="nuke-icon"><Icon name="map" size={18} /></span>
+							<div>
+								<strong>{$t("admin_settings_purge_room")}</strong>
+								<p>{$t("admin_settings_purge_room_sub")}</p>
+							</div>
+						</div>
+						{#if nukeConfirm.room}
+							<div class="nuke-confirm">
+								<span class="text-danger text-xs font-bold">{$t("admin_settings_delete_confirm_room")}</span>
+								<button class="btn-danger-sm" on:click={nukeRoom} disabled={nuking.room}>
+									{nuking.room ? '...' : $t("admin_settings_del_games_btn_confirm")}
+								</button>
+								<button class="btn-secondary btn-xs" on:click={() => nukeConfirm.room = false}>{$t('admin_settings_cancel')}</button>
+							</div>
+						{:else}
+							<button class="btn-outline-danger" on:click={() => nukeConfirm.room = true}>{$t('admin_settings_purge_room_btn')}</button>
+						{/if}
+					</div>
+				</div>
+
+				<!-- Full reset: everything at once, with a typed confirmation -->
+				<div class="nuke-card reset-card">
+					<div class="nuke-info">
+						<span class="nuke-icon"><Icon name="alert-triangle" size={18} /></span>
+						<div>
+							<strong>{$t('admin_reset_all_title')}</strong>
+							<p>{$t('admin_reset_all_desc')}</p>
+						</div>
+					</div>
+					{#if resetOpen}
+						<div class="reset-form">
+							<label class="reset-keep">
+								<input type="checkbox" bind:checked={resetKeepAdmins} />
+								<span>{$t('admin_reset_all_keep_admins')}</span>
+							</label>
+							{#if !resetKeepAdmins}
+								<p class="reset-warn">{$t('admin_reset_all_no_admin_warn')}</p>
+							{/if}
+							<label class="reset-type" for="reset-word">{@html $t('admin_reset_all_type')}</label>
+							<div class="reset-actions">
+								<input id="reset-word" type="text" bind:value={resetWord} autocomplete="off" spellcheck="false" placeholder="RESET" /><!-- i18n-ignore: confirmation keyword, the same in every language -->
+								<button class="btn-danger-sm" on:click={fullReset} disabled={!resetReady || resetting}>
+									{resetting ? '...' : $t('admin_reset_all_btn_confirm')}
+								</button>
+								<button class="btn-secondary btn-xs" on:click={() => { resetOpen = false; resetWord = ''; }}>{$t('admin_settings_cancel')}</button>
+							</div>
+						</div>
+					{:else}
+						<button class="btn-outline-danger" on:click={() => resetOpen = true}>{$t('admin_reset_all_btn')}</button>
+					{/if}
 				</div>
 			</div>
 		</details>
@@ -1151,7 +1263,7 @@
 			{/each}
 		</nav>
 		<div class="stab-content">
-		<h2 class="settings-section" id="gi-servers" data-gsection>
+		<h2 class="admin-section-title" id="gi-servers" data-gsection>
 			<span class="ss-icon"><Icon name="server" size={16} /></span>
 			<span class="ss-title">{$t('admin_ai_sec_servers')}</span>
 			<span class="ss-sum">{instanceStatuses.filter(x => x.online).length}/{iaConfig.ollama_instances.length} · {iaQueueData.queue_size}</span>
@@ -1232,6 +1344,13 @@
 										<option value={mName}>{mName}</option>
 									{/each}
 								</select>
+								<span class="inst-key">
+									<input type="password" class="inst-key-input" bind:value={inst.api_key} on:change={() => saveInstanceKey(idx)} autocomplete="off" spellcheck="false"
+										placeholder={inst.has_api_key ? $t('admin_ai_api_key_saved') : $t('admin_ai_api_key_ph')} aria-label={$t('admin_ai_api_key')} />
+									{#if inst.has_api_key && !inst.api_key}
+										<button class="inst-btn-mini" on:click={() => clearInstanceKey(idx)} title={$t('admin_ai_api_key_remove')} aria-label={$t('admin_ai_api_key_remove')}><Icon name="trash" size={13} /></button>
+									{/if}
+								</span>
 								{#if status?.online}
 									<span class="inst-ping">{status.latency_ms}ms</span>
 								{/if}
@@ -1255,7 +1374,7 @@
 			</div>
 		</div>
 
-		<h2 class="settings-section" id="gi-model" data-gsection>
+		<h2 class="admin-section-title" id="gi-model" data-gsection>
 			<span class="ss-icon"><Icon name="settings" size={16} /></span>
 			<span class="ss-title">{$t('admin_settings_ai_model_cfg')}</span>
 			<span class="ss-sum">{iaConfig.temperature} · {iaConfig.context_window}</span>
@@ -1289,13 +1408,13 @@
 							type="number" 
 							bind:value={iaConfig.context_window} 
 							on:change={saveIAConfig} 
-							min="512" 
+							min="16384" 
 							step="256"
 							style="width: 80px; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 6px; padding: 0.15rem 0.4rem; color: var(--text-main); font-size: 0.72rem; font-weight: 700; text-align: right;" 
 						/>
 					</div>
 					<div class="ctx-presets-grid" style="display: flex; flex-wrap: wrap; gap: 0.25rem;">
-						{#each [2048, 4096, 8192, 16384, 32768, 65536, 131072] as size}
+						{#each [16384, 32768, 65536, 131072] as size}
 							<button 
 								type="button" 
 								class="ctx-preset-mini-btn" 
@@ -1344,7 +1463,7 @@
 			</div>
 		</div>
 
-		<h2 class="settings-section" id="gi-behaviour" data-gsection>
+		<h2 class="admin-section-title" id="gi-behaviour" data-gsection>
 			<span class="ss-icon"><Icon name="shield-check" size={16} /></span>
 			<span class="ss-title">{$t('admin_ai_sec_behaviour')}</span>
 		</h2>
@@ -1420,7 +1539,7 @@
 			</div>
 		</div>
 
-		<h2 class="settings-section" id="gi-prompts" data-gsection>
+		<h2 class="admin-section-title" id="gi-prompts" data-gsection>
 			<span class="ss-icon"><Icon name="pencil" size={16} /></span>
 			<span class="ss-title">{$t('admin_settings_ai_prompts')}</span>
 		</h2>
@@ -1470,7 +1589,7 @@
 			</div>
 		</div>
 
-		<h2 class="settings-section" id="gi-knowledge" data-gsection>
+		<h2 class="admin-section-title" id="gi-knowledge" data-gsection>
 			<span class="ss-icon"><Icon name="book-open" size={16} /></span>
 			<span class="ss-title">{$t('admin_settings_ai_rag')}</span>
 			<span class="ss-sum">{knowledgeDocs.length}</span>
@@ -1718,6 +1837,8 @@
 	.searx-row { flex-wrap: wrap; }
 	.searx-row input { flex: 1 1 180px !important; min-width: 0; }
 	.searx-row button { flex: 0 1 auto; }
+	.inst-key { display: inline-flex; align-items: center; gap: 0.25rem; flex: 0 1 190px; min-width: 120px; }
+	.inst-key-input { flex: 1; min-width: 0; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 6px; padding: 0.2rem 0.4rem; color: var(--text-dim); font-size: 0.75rem; }
 	.inst-url-input { flex: 1; min-width: 80px; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 6px; padding: 0.2rem 0.4rem; color: var(--text-dim); font-size: 0.75rem; font-family: monospace; }
 	.inst-model-select { background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 6px; padding: 0.2rem 0.4rem; color: var(--text-main); font-size: 0.75rem; max-width: 120px; min-width: 80px; }
 	.inst-model-select option { background: var(--bg-secondary); color: var(--text-main); }
@@ -2048,7 +2169,10 @@
 	.pmg-tip-list li { font-size: 0.75rem; color: var(--text-dim); line-height: 1.4; }
 	.prompt-modal-footer { display: flex; justify-content: flex-end; gap: 0.6rem; padding: 0.8rem 1.2rem; border-top: 1px solid var(--glass-border); background: var(--hover-tint); flex-shrink: 0; }
 
-	.autosave-note { margin: 0 0 0.75rem; font-size: 0.85rem; color: var(--text-dim); }
+	.autosave-note { margin: 0; font-size: 0.85rem; color: var(--text-dim); }
+	.general-top { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem 1rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+	.setup-link { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.85rem; font-weight: 600; color: var(--accent); text-decoration: none; }
+	.setup-link:hover { text-decoration: underline; text-underline-offset: 3px; }
 	/* General tab: jump bar, section headers, compact groups */
 	.gnav { position: sticky; top: -1rem; z-index: 30; box-shadow: 0 6px 14px rgba(0, 0, 0, 0.18); display: flex; gap: 0.4rem; margin: 0 0 1rem; padding: 0.45rem 0.5rem; border-radius: 12px; background: var(--bg-secondary); border: 1px solid var(--glass-border); overflow-x: auto; scrollbar-width: none; }
 	.gnav::-webkit-scrollbar { display: none; }
@@ -2057,15 +2181,15 @@
 	.gnav-chip.active { color: var(--accent); background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
 	.gnav-chip.danger { margin-left: auto; }
 	.gnav-chip.danger.active { color: var(--danger); background: color-mix(in srgb, var(--danger) 10%, transparent); border-color: color-mix(in srgb, var(--danger) 40%, transparent); }
-	.settings-section { grid-column: 1 / -1; display: flex; align-items: center; gap: 0.6rem; scroll-margin-top: 4.5rem; font-family: var(--font-title); font-size: 1.1rem; font-weight: 700; color: var(--text-main); margin: 1rem 0 -0.25rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--glass-border); }
-	.settings-section:first-child { margin-top: 0; }
+	.admin-section-title { grid-column: 1 / -1; display: flex; align-items: center; gap: 0.6rem; scroll-margin-top: 4.5rem; font-family: var(--font-title); font-size: 1.1rem; font-weight: 700; color: var(--text-main); margin: 1rem 0 -0.25rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--glass-border); }
+	.admin-section-title:first-child { margin-top: 0; }
 	.ss-icon { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 8px; background: var(--accent-soft); color: var(--accent); flex-shrink: 0; }
-	.settings-section { padding-right: 0.35rem; }
+	.admin-section-title { padding-right: 0.35rem; }
 	.ss-sum { margin-left: auto; max-width: 50%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-main); font-size: 0.78rem; font-weight: 600; color: var(--text-dim); }
 	.ss-dot { margin-left: auto; width: 10px; height: 10px; border-radius: 50%; background: var(--text-dim); opacity: 0.6; }
 	.ss-dot.on { background: var(--success); opacity: 1; box-shadow: 0 0 6px color-mix(in srgb, var(--success) 60%, transparent); }
 	#gs-danger { scroll-margin-top: 4.5rem; }
-	@media (max-width: 900px) { .settings-section, #gs-danger { scroll-margin-top: 7.2rem; } }
+	@media (max-width: 900px) { .admin-section-title, #gs-danger { scroll-margin-top: 7.2rem; } }
 
 	/* the two team-scoring options sit side by side as compact choices */
 	.scoring-toggle .score-opt { display: grid; grid-template-columns: auto 1fr; column-gap: 0.7rem; row-gap: 0; align-items: center; text-align: left; padding: 0.55rem 0.9rem; }
@@ -2123,4 +2247,11 @@
 	.pp-body { display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.6rem; }
 	.pp-body .sc-sub { margin: 0; flex: 1; min-width: 0; }
 	.pp-text { margin: 0; max-height: 420px; overflow: auto; white-space: pre-wrap; word-break: break-word; font-size: 0.78rem; line-height: 1.45; padding: 0.75rem; border-radius: var(--radius-md); background: var(--surface-sunken); border: 1px solid var(--glass-border); color: var(--text-main); }
+	.reset-card { flex-wrap: wrap; border-color: color-mix(in srgb, var(--danger, #dc2626) 45%, var(--glass-border)); margin-top: 0.8rem; }
+	.reset-form { display: flex; flex-direction: column; gap: 0.5rem; flex: 1 1 320px; }
+	.reset-keep { display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
+	.reset-warn { margin: 0; font-size: 0.8rem; font-weight: 600; color: var(--danger, #dc2626); }
+	.reset-type { font-size: 0.8rem; color: var(--text-dim); }
+	.reset-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+	.reset-actions input { width: 9rem; font-family: ui-monospace, monospace; letter-spacing: 0.08em; }
 </style>

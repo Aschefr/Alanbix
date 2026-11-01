@@ -5,20 +5,26 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { api } from '$lib/api';
 	import { page } from '$app/stores';
+	import { beforeNavigate, goto } from '$app/navigation';
 	import { wsMessageStore } from '$lib/ws';
+	import { SEAT_SIZE, SEAT_RING, TABLE_DEPTH, firstFreeSlot, autoSeatLayout } from '$lib/roomLayout';
 
 	let layout = { seats: [], tables: [], furniture: [] };
 
 	// AXE-09: Furniture type presets
 	const FURNITURE_TYPES = [
-		{ type: 'door', icon: '🚪', label: get(t)('map_furniture_door'), w: 80, h: 40 },
-		{ type: 'kitchen', icon: '🍳', label: get(t)('map_furniture_kitchen'), w: 160, h: 100 },
-		{ type: 'bar', icon: '🍺', label: get(t)('map_furniture_bar'), w: 200, h: 60 },
-		{ type: 'wc', icon: '🚻', label: get(t)('map_furniture_wc'), w: 80, h: 80 },
-		{ type: 'rack', icon: '🖥️', label: get(t)('map_furniture_rack'), w: 60, h: 80 },
-		{ type: 'screen', icon: '📺', label: get(t)('map_furniture_screen'), w: 160, h: 40 },
-		{ type: 'generic', icon: '📦', label: get(t)('map_furniture_generic'), w: 100, h: 80 },
+		{ type: 'door', icon: 'door', label: get(t)('map_furniture_door'), w: 80, h: 40 },
+		{ type: 'kitchen', icon: 'utensils', label: get(t)('map_furniture_kitchen'), w: 160, h: 100 },
+		{ type: 'bar', icon: 'beer', label: get(t)('map_furniture_bar'), w: 200, h: 60 },
+		{ type: 'wc', icon: 'restroom', label: get(t)('map_furniture_wc'), w: 80, h: 80 },
+		{ type: 'rack', icon: 'server', label: get(t)('map_furniture_rack'), w: 60, h: 80 },
+		{ type: 'screen', icon: 'monitor', label: get(t)('map_furniture_screen'), w: 160, h: 40 },
+		{ type: 'generic', icon: 'package', label: get(t)('map_furniture_generic'), w: 100, h: 80 },
 	];
+	// Line icon of an element (older maps stored an emoji in furn.icon: the type decides)
+	const furnitureIcon = (furn) => (FURNITURE_TYPES.find(ft => ft.type === furn.type) || FURNITURE_TYPES[FURNITURE_TYPES.length - 1]).icon;
+	// "T3_S7" is shown as "7": the table's name already says where it is
+	const seatNumber = (id) => (id.match(/_S(\d+(?:_\d+)?)$/) || [])[1] || id;
 	let selectedFurnitureType = 'door';
 	let user = null;
 	let allUsers = [];
@@ -129,6 +135,8 @@
 					layout.tables.forEach(t => { if (t.rotation === undefined) t.rotation = 0; });
 					layout.seats.forEach(s => { if (s.rotation === undefined) s.rotation = 0; });
 					layout.furniture.forEach(f => { if (f.rotation === undefined) f.rotation = 0; });
+					// A layout pushed by the server (our own save included) is the new saved state
+					if (!dirty) resetHistory();
 				}).catch(() => {});
 			}
 		});
@@ -156,25 +164,70 @@
 		return Math.round(angle / SNAP_ANGLE) * SNAP_ANGLE;
 	}
 
-	function snapTableEdges(table) {
-		const others = layout.tables.filter(t => t.id !== table.id);
-		let sx = table.x, sy = table.y;
+	// Alignment guides while dragging: edges and centres line up with the other tables and
+	// elements (dashed line), and a stack of tables snaps to an equal gap (pink markers)
+	let guides = [];
+	let gapMarks = [];
+	function snapTableEdges(item) {
+		const others = [...layout.tables, ...layout.furniture].filter(o => o !== item);
+		const xs = (r) => [r.x, r.x + r.w / 2, r.x + r.w];
+		const ys = (r) => [r.y, r.y + r.h / 2, r.y + r.h];
+		let bestX = null, bestY = null;
 		for (const o of others) {
-			// Right edge → Left edge
-			if (Math.abs((table.x + table.w) - o.x) < SNAP_DIST) sx = o.x - table.w;
-			// Left edge → Right edge
-			if (Math.abs(table.x - (o.x + o.w)) < SNAP_DIST) sx = o.x + o.w;
-			// Bottom edge → Top edge
-			if (Math.abs((table.y + table.h) - o.y) < SNAP_DIST) sy = o.y - table.h;
-			// Top edge → Bottom edge
-			if (Math.abs(table.y - (o.y + o.h)) < SNAP_DIST) sy = o.y + o.h;
-			// Left align
-			if (Math.abs(table.x - o.x) < SNAP_DIST) sx = o.x;
-			// Top align
-			if (Math.abs(table.y - o.y) < SNAP_DIST) sy = o.y;
+			for (const a of xs(item)) for (const b of xs(o)) {
+				const d = b - a;
+				if (Math.abs(d) < SNAP_DIST && (!bestX || Math.abs(d) < Math.abs(bestX.d))) bestX = { d, at: b, o };
+			}
+			for (const a of ys(item)) for (const b of ys(o)) {
+				const d = b - a;
+				if (Math.abs(d) < SNAP_DIST && (!bestY || Math.abs(d) < Math.abs(bestY.d))) bestY = { d, at: b, o };
+			}
 		}
-		table.x = sx;
-		table.y = sy;
+		if (bestX) item.x += bestX.d;
+		if (bestY) item.y += bestY.d;
+
+		// Equal gap with the two nearest tables in the same column (vertical) or row (horizontal)
+		gapMarks = [];
+		const tables = layout.tables.filter(o => o !== item);
+		const overlapX = (o) => o.x < item.x + item.w && o.x + o.w > item.x;
+		const overlapY = (o) => o.y < item.y + item.h && o.y + o.h > item.y;
+		const above = tables.filter(o => overlapX(o) && o.y + o.h <= item.y).sort((a, b) => (b.y + b.h) - (a.y + a.h));
+		if (above.length >= 2 && overlapX(above[1])) {
+			const ref = above[0].y - (above[1].y + above[1].h);
+			const gap = item.y - (above[0].y + above[0].h);
+			if (Math.abs(gap - ref) < SNAP_DIST) {
+				item.y += ref - gap;
+				const mx = item.x + item.w / 2;
+				gapMarks = [
+					{ x1: mx, y1: above[1].y + above[1].h, x2: mx, y2: above[0].y },
+					{ x1: mx, y1: above[0].y + above[0].h, x2: mx, y2: item.y },
+				];
+			}
+		}
+		const left = tables.filter(o => overlapY(o) && o.x + o.w <= item.x).sort((a, b) => (b.x + b.w) - (a.x + a.w));
+		if (!gapMarks.length && left.length >= 2 && overlapY(left[1])) {
+			const ref = left[0].x - (left[1].x + left[1].w);
+			const gap = item.x - (left[0].x + left[0].w);
+			if (Math.abs(gap - ref) < SNAP_DIST) {
+				item.x += ref - gap;
+				const my = item.y + item.h / 2;
+				gapMarks = [
+					{ x1: left[1].x + left[1].w, y1: my, x2: left[0].x, y2: my },
+					{ x1: left[0].x + left[0].w, y1: my, x2: item.x, y2: my },
+				];
+			}
+		}
+
+		// Guide lines across both shapes (after the final position)
+		guides = [];
+		if (bestX) {
+			const o = bestX.o, x = bestX.at;
+			guides.push({ x1: x, y1: Math.min(item.y, o.y) - 20, x2: x, y2: Math.max(item.y + item.h, o.y + o.h) + 20 });
+		}
+		if (bestY) {
+			const o = bestY.o, y = bestY.at;
+			guides.push({ x1: Math.min(item.x, o.x) - 20, y1: y, x2: Math.max(item.x + item.w, o.x + o.w) + 20, y2: y });
+		}
 	}
 
 	function intersects(r1, r2) {
@@ -208,6 +261,17 @@
 			}
 		}
 		
+		// A seat may sit on or next to its own table, never on another table or on an element
+		if (isSeat && layout.tables) {
+			const own = item.id.split('_S')[0];
+			for (const t of layout.tables) {
+				if (t.id !== own && intersects(r1, { x: t.x, y: t.y, w: t.w, h: t.h })) return true;
+			}
+			for (const f of layout.furniture || []) {
+				if (intersects(r1, { x: f.x, y: f.y, w: f.w, h: f.h })) return true;
+			}
+		}
+
 		// Check seats
 		if (layout.seats) {
 			for (const s of layout.seats) {
@@ -220,7 +284,6 @@
 		return false;
 	}
 
-	const SEAT_SIZE = 50; // visual seat size
 	let targetTableId = ''; // admin selects which table to fill
 
 	// --- Admin Actions ---
@@ -236,14 +299,17 @@
 		let x = 120;
 		let y = 120;
 		const w = 300;
-		const h = 140;
+		const h = TABLE_DEPTH; // the seats go around it, not on it
 		const tempTable = { id: 'T' + n };
-		while (hasCollision(tempTable, x, y, w, h)) {
+		const ring = SEAT_RING; // keep room for the seats above and below it
+		while (hasCollision(tempTable, x, y - ring, w, h + 2 * ring)) {
 			x += GRID_SIZE;
 			y += GRID_SIZE;
 		}
-		const newTable = { id: 'T' + n, x, y, w, h, label: 'Table ' + n, rotation: 0 };
+		// Auto seats on by default: the table comes with its seats, untick the box to place them by hand
+		const newTable = { id: 'T' + n, x, y, w, h, label: 'Table ' + n, rotation: 0, auto_seats: true };
 		layout.tables = [...layout.tables, newTable];
+		applyAutoSeats(newTable);
 		targetTableId = newTable.id; // auto-select new table
 	}
 
@@ -290,11 +356,13 @@
 		// Use selected table, fallback to first table
 		const tId = targetTableId || (layout.tables.length > 0 ? layout.tables[0].id : 'T1');
 		const table = layout.tables.find(t => t.id === tId);
+		if (table?.auto_seats) { toast($t('map_auto_seats_locked'), 'info'); return; }
 		let sx = 200, sy = 200;
 		const sn = nextSeatNum(tId);
 		
 		if (table) {
-			const slot = findFirstFreeSlot(table);
+			// Both sides full: keep going on rows just above and below the table
+			const slot = findFirstFreeSlot(table) || findFirstFreeSlot(table, 12);
 			if (slot) {
 				const half = SEAT_SIZE / 2;
 				const snappedCx = slot.x;
@@ -391,43 +459,211 @@
 		targetTableId = tableId;
 		addSeat();
 	}
-	function findFirstFreeSlot(table) {
-		const PAD = 10;
+	// Next free place around the table (top row, then bottom row), centre in the table's unrotated frame
+	// extraRows > 0 continues on rows further out once both sides are full (the "+ Seat" button)
+	function findFirstFreeSlot(table, extraRows = 0) {
 		const half = SEAT_SIZE / 2;
-		const step = GRID_SIZE * Math.ceil(SEAT_SIZE / GRID_SIZE);
-		const cols = Math.max(1, Math.floor((table.w - PAD * 2) / step));
-		const existingOnTable = layout.seats.filter(s => s.id.startsWith(table.id + '_'));
-		
-		let slotIdx = 0;
-		while (true) {
-			const col = slotIdx % cols;
-			const row = Math.floor(slotIdx / cols);
-			
-			const localCx = PAD + half + col * step;
-			const localCy = PAD + half + row * step;
-			
-			// If it overflows the table footprint height, it is full
-			if (localCy + half > table.h - PAD) {
-				return null;
-			}
-			
-			const snappedCx = snapToGrid(table.x + localCx);
-			const snappedCy = snapToGrid(table.y + localCy);
-			
-			// Check if any existing seat occupies this position
-			const targetX = snappedCx - half;
-			const targetY = snappedCy - half;
-			const occupied = existingOnTable.some(s => {
-				return Math.abs(s.x - targetX) < 5 && Math.abs(s.y - targetY) < 5;
-			});
-			
-			if (!occupied) {
-				return { slotIdx, x: snappedCx, y: snappedCy };
-			}
-			
-			slotIdx++;
-			if (slotIdx > 200) return null;
+		// Skip a slot covered by another table or seat (checked on unrotated tables only)
+		const blocked = (slot) => !(table.rotation % 360) && hasCollision({ id: table.id + '_S?' }, slot.x - half, slot.y - half, SEAT_SIZE, SEAT_SIZE);
+		return firstFreeSlot(table, layout.seats.filter(s => s.id.startsWith(table.id + '_')), blocked, extraRows);
+	}
+
+	// "Auto seats": the table holds as many seats as its length allows, recomputed when it is resized
+	$: targetTable = layout.tables.find(t => t.id === targetTableId);
+	function applyAutoSeats(table) {
+		const mine = layout.seats.filter(s => s.id.startsWith(table.id + '_'));
+		const others = layout.seats.filter(s => !s.id.startsWith(table.id + '_'));
+		layout.seats = [...others, ...autoSeatLayout(table, mine, id => !!getOccupant(id))];
+	}
+	function toggleAutoSeats(table, on) {
+		table.auto_seats = on;
+		if (on) applyAutoSeats(table);
+		layout = layout;
+	}
+
+	// --- Undo / redo and unsaved changes (edit mode) ---
+	// The layout is compared with the last recorded state after every change (once a drag ends)
+	const HISTORY_MAX = 100;
+	let history = [], future = [];
+	let lastSnap = '', savedSnap = '';
+	const snapOf = (l) => JSON.stringify({
+		tables: (l.tables || []).map(({ delete_pending, ...tb }) => tb),
+		seats: l.seats || [],
+		furniture: l.furniture || [],
+	});
+	function resetHistory() {
+		history = [];
+		future = [];
+		lastSnap = savedSnap = snapOf(layout);
+	}
+	$: if (editMode && !dragging) trackHistory(layout);
+	function trackHistory(l) {
+		const now = snapOf(l);
+		if (!lastSnap) { lastSnap = savedSnap = now; return; }
+		if (now === lastSnap) return;
+		history = [...history.slice(1 - HISTORY_MAX), lastSnap];
+		future = [];
+		lastSnap = now;
+	}
+	function restoreSnap(snapStr) {
+		const d = JSON.parse(snapStr);
+		lastSnap = snapStr; // not a new change
+		layout = { ...layout, tables: d.tables, seats: d.seats, furniture: d.furniture };
+		if (targetTableId && !layout.tables.some(tb => tb.id === targetTableId)) targetTableId = '';
+		if (selectedFurnId && !layout.furniture.some(f => f.id === selectedFurnId)) selectedFurnId = '';
+	}
+	function undo() {
+		if (!history.length) return;
+		future = [lastSnap, ...future];
+		const prev = history[history.length - 1];
+		history = history.slice(0, -1);
+		restoreSnap(prev);
+	}
+	function redo() {
+		if (!future.length) return;
+		history = [...history, lastSnap];
+		const next = future[0];
+		future = future.slice(1);
+		restoreSnap(next);
+	}
+	$: dirty = editMode && !!lastSnap && lastSnap !== savedSnap;
+
+	let wasEditing = false;
+	$: if (editMode !== wasEditing) { wasEditing = editMode; if (editMode) resetHistory(); }
+
+	// Leaving the editor or the page with unsaved changes asks first
+	let unsavedPrompt = null; // { kind: 'close' } | { kind: 'nav', url }
+	function closeEditor() {
+		if (dirty) { unsavedPrompt = { kind: 'close' }; return; }
+		editMode = false;
+		assigningSeatId = null;
+		clearSelection();
+	}
+	async function reloadLayout() {
+		const res = await api.get('/room/layout');
+		const l = res.layout || { seats: [], tables: [], furniture: [] };
+		l.tables = l.tables || []; l.seats = l.seats || []; l.furniture = l.furniture || [];
+		layout = l;
+		resetHistory();
+	}
+	async function resolveUnsaved(choice) {
+		const pending = unsavedPrompt;
+		unsavedPrompt = null;
+		if (choice === 'stay' || !pending) return;
+		if (choice === 'save') await saveLayout();
+		else await reloadLayout();
+		savedSnap = lastSnap = snapOf(layout);
+		if (pending.kind === 'close') { editMode = false; assigningSeatId = null; clearSelection(); }
+		else goto(pending.url);
+	}
+	beforeNavigate((navigation) => {
+		if (dirty && !unsavedPrompt && navigation.type !== 'leave') {
+			navigation.cancel();
+			unsavedPrompt = { kind: 'nav', url: navigation.to?.url?.pathname || '/dashboard' };
 		}
+	});
+
+	// --- Selection (a table or an element) and the inspector's actions ---
+	let selectedFurnId = '';
+	$: selectedFurn = layout.furniture.find(f => f.id === selectedFurnId);
+	$: selectedItem = targetTable || selectedFurn;
+	const seatsOf = (tableId) => layout.seats.filter(s => s.id.startsWith(tableId + '_'));
+
+	function clearSelection() {
+		targetTableId = '';
+		selectedFurnId = '';
+	}
+
+	function moveSelection(dx, dy) {
+		const item = selectedItem;
+		if (!item) return;
+		item.x += dx;
+		item.y += dy;
+		if (targetTable) for (const s of seatsOf(item.id)) { s.x += dx; s.y += dy; }
+		layout = layout;
+	}
+
+	// Quarter turn clockwise around the centre; a table takes its seats along
+	function rotateSelection90() {
+		const item = selectedItem;
+		if (!item) return;
+		const cx = item.x + item.w / 2, cy = item.y + item.h / 2, half = SEAT_SIZE / 2;
+		item.rotation = ((item.rotation || 0) + 90) % 360;
+		if (targetTable) {
+			for (const s of seatsOf(item.id)) {
+				const dx = s.x + half - cx, dy = s.y + half - cy;
+				s.x = cx - dy - half;
+				s.y = cy + dx - half;
+				s.rotation = ((s.rotation || 0) + 90) % 360;
+			}
+		}
+		layout = layout;
+	}
+
+	// Copy of the selection (a table with its seats) on the first free spot below it
+	function duplicateSelection() {
+		const src = selectedItem;
+		if (!src) return;
+		if (targetTable) {
+			const n = nextTableNum();
+			const id = 'T' + n;
+			let dy = src.h + 2 * SEAT_RING + GRID_SIZE;
+			for (let i = 0; i < 80 && hasCollision({ id }, src.x, src.y + dy - SEAT_RING, src.w, src.h + 2 * SEAT_RING); i++) dy += GRID_SIZE;
+			const { delete_pending, ...rest } = src;
+			layout.tables = [...layout.tables, { ...rest, id, label: 'Table ' + n, y: src.y + dy }];
+			layout.seats = [...layout.seats, ...seatsOf(src.id).map(s => ({ ...s, id: id + s.id.slice(src.id.length), y: s.y + dy }))];
+			targetTableId = id;
+		} else {
+			const n = nextFurnitureNum();
+			const id = 'F' + n;
+			let d = 2 * GRID_SIZE;
+			for (let i = 0; i < 80 && hasCollision({ id }, src.x + d, src.y + d, src.w, src.h); i++) d += GRID_SIZE;
+			layout.furniture = [...layout.furniture, { ...src, id, x: src.x + d, y: src.y + d }];
+			selectedFurnId = id;
+		}
+		layout = layout;
+	}
+
+	// "Clear everything" empties the map locally: Ctrl+Z brings it back until it is saved
+	let confirmClear = false;
+	function clearMap() {
+		confirmClear = false;
+		clearSelection();
+		layout = { ...layout, tables: [], seats: [], furniture: [] };
+		toast($t('map_clear_done'), 'info');
+	}
+
+	function deleteSelection() {
+		if (targetTable) removeItem('table', targetTable.id);
+		else if (selectedFurn) { removeItem('furniture', selectedFurn.id); selectedFurnId = ''; }
+	}
+
+	// Editor shortcuts: arrows move (Shift: 5 cells), Del deletes, Ctrl+D duplicates, Esc deselects
+	function onEditorKeydown(e) {
+		if (!editMode) return;
+		const tag = (e.target?.tagName || '').toLowerCase();
+		if (['input', 'select', 'textarea'].includes(tag) || e.target?.isContentEditable) return;
+		const mod = e.ctrlKey || e.metaKey;
+		const key = e.key.toLowerCase();
+		if (mod && key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); return; }
+		if (mod && (key === 'y' || (key === 'z' && e.shiftKey))) { e.preventDefault(); redo(); return; }
+		if (mod && key === 's') { e.preventDefault(); saveLayout(); return; }
+		if (mod && key === 'd') {
+			if (selectedItem) { e.preventDefault(); duplicateSelection(); }
+			return;
+		}
+		if (!selectedItem) return;
+		if (e.key === 'Escape') {
+			if (targetTable?.delete_pending) targetTable.delete_pending = false;
+			else clearSelection();
+			layout = layout;
+			return;
+		}
+		if (e.key === 'Enter' && targetTable?.delete_pending) { e.preventDefault(); confirmDeleteTable(targetTable.id); return; }
+		if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); deleteSelection(); return; }
+		const step = e.shiftKey ? GRID_SIZE * 5 : GRID_SIZE;
+		const delta = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key];
+		if (delta) { e.preventDefault(); moveSelection(delta[0], delta[1]); }
 	}
 
 	function getNextSeatPos(table) {
@@ -437,7 +673,16 @@
 	}
 
 	async function saveLayout() {
-		await api.post('/room/layout', layout);
+		// Players sitting on a seat that no longer exists are freed
+		const kept = new Set(layout.seats.map(s => s.id));
+		const lost = allUsers.filter(u => u.seat_id && !kept.has(u.seat_id));
+		for (const u of lost) {
+			try { await api.post('/room/admin-unassign-seat', { seat_id: u.seat_id }); } catch {}
+		}
+		if (lost.length) await loadUsers();
+		const { tables, seats, furniture } = layout;
+		await api.post('/room/layout', { ...layout, tables: tables.map(({ delete_pending, ...tb }) => tb), seats, furniture });
+		savedSnap = lastSnap = snapOf(layout);
 		toast($t('map_save_success'), 'success');
 	}
 
@@ -453,6 +698,9 @@
 		dragType = type;
 		dragStart = { x: p.x, y: p.y };
 		dragOriginal = { x: table.x, y: table.y, w: table.w, h: table.h, rotation: table.rotation || 0 };
+		// Clicking a table or an element selects it (inspector in the corner of the map)
+		if (layout.tables.includes(table)) { targetTableId = table.id; selectedFurnId = ''; }
+		else { selectedFurnId = table.id; targetTableId = ''; }
 		// Capture child seats' original positions for coordinated move or rotation
 		if (type === 'move' || type === 'rotate') {
 			dragChildSeats = layout.seats
@@ -516,11 +764,13 @@
 				dragging.w = Math.max(minW, snapToGrid(dragOriginal.w - dx));
 				dragging.h = Math.max(minH, snapToGrid(dragOriginal.h - dy));
 			}
+			if (dragging.auto_seats) applyAutoSeats(dragging);
 		} else if (dragType === 'rotate') {
 			const cx = dragOriginal.x + dragOriginal.w / 2;
 			const cy = dragOriginal.y + dragOriginal.h / 2;
 			const angle = Math.atan2(p.y - cy, p.x - cx) * (180 / Math.PI);
-			dragging.rotation = snapAngle(angle + 90);
+			// Tables carry their handle at the right end (0°); furniture keeps it above (-90°)
+			dragging.rotation = snapAngle(layout.tables.includes(dragging) ? angle : angle + 90);
 
 			// Rotate child seats around the table center
 			const deltaRot = dragging.rotation - dragOriginal.rotation;
@@ -545,6 +795,8 @@
 	}
 
 	function onMouseUp(e) {
+		guides = [];
+		gapMarks = [];
 		if (isPanning) { isPanning = false; return; }
 		dragging = null;
 	}
@@ -570,7 +822,10 @@
 	function onPanStart(e) {
 		// Edit mode: middle/right click only (left is for dragging items)
 		// View mode: any button can pan
-		if (editMode && e.button !== 1 && e.button !== 2) return;
+		if (editMode && e.button !== 1 && e.button !== 2) {
+			if (e.button === 0) clearSelection();
+			return;
+		}
 		if (!editMode && e.button === 0) {
 			// Left click in view mode — start pan but track for click detection
 			isPanning = true;
@@ -820,6 +1075,8 @@
 	$: unassignedUsers = allUsers.filter(u => !u.seat_id);
 </script>
 
+<svelte:window on:keydown={onEditorKeydown} on:beforeunload={(e) => { if (dirty) { e.preventDefault(); e.returnValue = ''; } }} />
+
 <div class="map-page">
 	<header class="flex-row justify-between items-center mb-4">
 		<div>
@@ -838,25 +1095,32 @@
 		{#if user?.is_admin}
 			<div class="flex-row gap-2 flex-wrap">
 				{#if !editMode}
-					<button class="btn-secondary" on:click={() => { editMode = true; assigningSeatId = null; }}>✏️ {$t("map_btn_edit")}</button>
+					<button class="btn-secondary" on:click={() => { editMode = true; assigningSeatId = null; }}><Icon name="pencil" size={15} /> {$t("map_btn_edit")}</button>
 				{/if}
 				{#if editMode}
 					<button class="btn-secondary" on:click={addTable}>{$t('map_add_table')}</button>
-					<select class="table-select" bind:value={targetTableId}>
-						{#each layout.tables as t}
-							<option value={t.id}>{t.id} — {t.label}</option>
-						{/each}
-					</select>
-					<button class="btn-secondary" on:click={addSeat}>{$t("map_btn_add_seat")}</button>
 					<span class="toolbar-sep">|</span>
 					<select class="table-select" bind:value={selectedFurnitureType}>
 						{#each FURNITURE_TYPES as ft}
-							<option value={ft.type}>{ft.icon} {ft.label}</option>
+							<option value={ft.type}>{ft.label}</option>
 						{/each}
 					</select>
 					<button class="btn-secondary" on:click={addFurniture}>{$t("map_btn_add_element")}</button>
-					<button class="btn-primary" on:click={saveLayout}>{$t("map_btn_save")}</button>
-					<button class="btn-secondary" on:click={() => { editMode = false; assigningSeatId = null; }}>{$t("map_btn_close_editor")}</button>
+					{#if confirmClear}
+						<span class="free-all-confirm">
+							<span>{$t('map_clear_confirm')}</span>
+							<button class="btn-danger" on:click={clearMap}>{$t('map_clear_yes')}</button>
+							<button class="btn-secondary" on:click={() => confirmClear = false}>{$t('common_cancel')}</button>
+						</span>
+					{:else}
+						<button class="btn-outline-danger" on:click={() => confirmClear = true} disabled={!layout.tables.length && !layout.seats.length && !layout.furniture.length}><Icon name="trash" size={14} /> {$t('map_clear')}</button>
+					{/if}
+					<span class="toolbar-sep">|</span>
+					<button class="btn-secondary icon-only" on:click={undo} disabled={!history.length} title={$t('map_undo')} aria-label={$t('map_undo')}><Icon name="undo" size={16} /></button>
+					<button class="btn-secondary icon-only" on:click={redo} disabled={!future.length} title={$t('map_redo')} aria-label={$t('map_redo')}><Icon name="redo" size={16} /></button>
+					{#if dirty}<span class="unsaved-badge" role="status"><span class="unsaved-dot"></span>{$t('map_unsaved')}</span>{/if}
+					<button class="btn-primary" on:click={saveLayout} title="Ctrl+S">{$t("map_btn_save")}</button><!-- i18n-ignore -->
+					<button class="btn-secondary" on:click={closeEditor}>{$t("map_btn_close_editor")}</button>
 				{/if}
 				{#if !editMode}
 					<button class="btn-secondary" on:click={toggleSeatingLock}>{seatingLocked ? $t('map_edit_mode_lock_toggle_unlocked') : $t('map_edit_mode_lock_toggle_locked')}</button>
@@ -882,21 +1146,47 @@
 		<!-- svelte-ignore a11y-click-events-have-key-events -->
 		<!-- svelte-ignore a11y-no-static-element-interactions -->
 		<span class="mobile-my-seat" class:none={!selectedSeat} on:click={centerOnMySeat} title={$t('map_btn_center_title')}>
-			🪑 {selectedSeat ? $t('map_sheet_seat_prefix', { id: selectedSeat }) : $t('map_mobile_no_seat')}
+			<Icon name="armchair" size={14} /> {selectedSeat ? $t('map_sheet_seat_prefix', { id: selectedSeat }) : $t('map_mobile_no_seat')}
 		</span>
 		<div class="map-mobile-btns">
 			{#if selectedSeat}
 			<button class="map-top-btn" on:click={centerOnMySeat} title={$t('map_btn_center_title')}>
-				🎯 {$t('map_btn_center')}
+				<Icon name="target" size={14} /> {$t('map_btn_center')}
 			</button>
 			{/if}
 			<button class="map-top-btn" on:click={resetView} title={$t('map_btn_global_title')}>
-				🔍 {$t('map_btn_global_title')}
+				<Icon name="search" size={14} /> {$t('map_btn_global_title')}
 			</button>
 		</div>
 	</div>
 
 	<div class="canvas-wrapper glass" on:contextmenu|preventDefault>
+		{#if editMode && selectedItem}
+			<div class="inspector" role="region" aria-label={$t('map_panel_title')}>
+				<div class="insp-head">
+					<span class="insp-icon"><Icon name={targetTable ? 'table' : furnitureIcon(selectedItem)} size={16} /></span>
+					<input class="insp-name" value={selectedItem.label} on:input={(e) => { selectedItem.label = e.currentTarget.value; layout = layout; }} aria-label={$t('map_panel_name')} maxlength="40" />
+				</div>
+				{#if targetTable}
+					<div class="insp-row">
+						<span class="insp-count">{$t('map_panel_seats', { n: seatsOf(targetTable.id).length })}</span>
+						<label class="auto-seats" title={$t('map_auto_seats_hint')}>
+							<input type="checkbox" checked={!!targetTable.auto_seats} on:change={(e) => toggleAutoSeats(targetTable, e.currentTarget.checked)} />
+							<span>{$t('map_auto_seats')}</span>
+						</label>
+					</div>
+					{#if !targetTable.auto_seats}
+						<button class="insp-wide" on:click={addSeat}><Icon name="plus" size={14} /> {$t('map_panel_add_seat')}</button>
+					{/if}
+				{/if}
+				<div class="insp-actions">
+					<button class="insp-btn" on:click={rotateSelection90} title={$t('map_panel_rotate')} aria-label={$t('map_panel_rotate')}><Icon name="rotate-cw" size={16} /></button>
+					<button class="insp-btn" on:click={duplicateSelection} title={$t('map_panel_duplicate')} aria-label={$t('map_panel_duplicate')}><Icon name="copy" size={16} /></button>
+					<button class="insp-btn danger" on:click={deleteSelection} title={$t('map_panel_delete')} aria-label={$t('map_panel_delete')}><Icon name="trash" size={16} /></button>
+				</div>
+				<p class="insp-hint">{$t('map_panel_hint')}</p>
+			</div>
+		{/if}
 		{#if !editMode && layout.tables.length === 0 && layout.seats.length === 0}
 			<div class="map-empty">
 				<p class="map-empty-title">{$t('map_empty_title')}</p>
@@ -936,7 +1226,7 @@
 					<!-- svelte-ignore a11y-no-static-element-interactions -->
 					<rect 
 						x={table.x} y={table.y} width={table.w} height={table.h} rx="8"
-						class="table-rect {table.delete_pending ? 'delete-pending' : ''}"
+						class="table-rect {table.delete_pending ? 'delete-pending' : ''} {editMode && table.id === targetTableId ? 'selected' : ''}"
 						style="cursor: {editMode ? 'grab' : 'default'}"
 						on:mousedown={(e) => startDragTable(e, table, 'move')}
 					/>
@@ -949,26 +1239,26 @@
 							style="pointer-events: none;"
 						/>
 						
-						<!-- Confirmation controls just above the table top-right -->
-						<text x={table.x + table.w - 65} y={table.y - 10} text-anchor="end" fill="var(--danger)" font-weight="bold" font-size="12">{$t('map_delete_confirm_prompt')}</text>
+						<!-- Confirmation controls in the middle of the table, where its name was (the seats line its edges) -->
+						<text x={cx - 8} y={cy + 5} text-anchor="end" fill="var(--danger)" font-weight="bold" font-size="13">{$t('map_delete_confirm_prompt')}</text>
 						
 						<!-- Confirm button (check mark) -->
 						<!-- svelte-ignore a11y-no-static-element-interactions -->
 						<g class="confirm-delete-btn" on:click|stopPropagation={() => confirmDeleteTable(table.id)} style="cursor: pointer;">
-							<circle cx={table.x + table.w - 45} cy={table.y - 14} r="10" fill="var(--success)" stroke="white" stroke-width="1"/>
-							<text x={table.x + table.w - 45} y={table.y - 10} text-anchor="middle" fill="white" font-size="12" font-weight="bold">✓</text>
+							<circle cx={cx + 16} cy={cy} r="12" fill="var(--success)" stroke="white" stroke-width="1"/>
+							<text x={cx + 16} y={cy + 4.5} text-anchor="middle" fill="white" font-size="13" font-weight="bold">✓</text>
 						</g>
 						
 						<!-- Cancel button (cross mark) -->
 						<!-- svelte-ignore a11y-no-static-element-interactions -->
 						<g class="cancel-delete-btn" on:click|stopPropagation={() => { table.delete_pending = false; layout = layout; }} style="cursor: pointer;">
-							<circle cx={table.x + table.w - 20} cy={table.y - 14} r="10" fill="var(--text-muted)" stroke="white" stroke-width="1"/>
-							<text x={table.x + table.w - 20} y={table.y - 10} text-anchor="middle" fill="white" font-size="12" font-weight="bold">✕</text>
+							<circle cx={cx + 46} cy={cy} r="12" fill="var(--text-muted)" stroke="white" stroke-width="1"/>
+							<text x={cx + 46} y={cy + 4.5} text-anchor="middle" fill="white" font-size="13" font-weight="bold">✕</text>
 						</g>
 					{:else}
 						<text x={cx} y={cy + 5} text-anchor="middle" class="table-label">{table.label}</text>
 						{#if editMode}
-							{@const nextPos = getNextSeatPos(table)}
+							{@const nextPos = table.auto_seats || table.id !== targetTableId ? null : getNextSeatPos(table)}
 							{#if nextPos}
 								<!-- Add seat button "+" at the next free seat position -->
 								<!-- svelte-ignore a11y-no-static-element-interactions -->
@@ -1000,16 +1290,16 @@
 								/>
 							{/each}
 
-							<!-- Rotation handle -->
+							<!-- Rotation handle: at the right end, which stays free (the seats line the long sides) -->
 							<!-- svelte-ignore a11y-no-static-element-interactions -->
-							<line x1={cx} y1={table.y} x2={cx} y2={table.y - 25} stroke="var(--accent)" stroke-width="2" stroke-dasharray="3 2"/>
+							<line x1={table.x + table.w} y1={cy} x2={table.x + table.w + 25} y2={cy} stroke="var(--accent)" stroke-width="2" stroke-dasharray="3 2"/>
 							<!-- svelte-ignore a11y-no-static-element-interactions -->
 							<circle 
-								cx={cx} cy={table.y - 30} r="7"
+								cx={table.x + table.w + 30} cy={cy} r="7"
 								class="rotate-handle"
 								on:mousedown={(e) => startDragTable(e, table, 'rotate')}
 							/>
-							<text x={cx} y={table.y - 27} text-anchor="middle" fill="white" font-size="8" font-weight="bold" style="pointer-events:none">↻</text>
+							<text x={table.x + table.w + 30} y={cy + 3} text-anchor="middle" fill="white" font-size="8" font-weight="bold" class="rotate-glyph" style="pointer-events:none">↻</text>
 
 							<!-- Remove -->
 							<!-- svelte-ignore a11y-no-static-element-interactions -->
@@ -1036,7 +1326,7 @@
 					/>
 					<foreignObject x={furn.x} y={furn.y} width={furn.w} height={furn.h} style="pointer-events:none">
 						<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;height:100%;line-height:1.1;">
-							<span style="font-size: {furn.h <= 40 ? '18px' : '26px'};">{furn.icon}</span>
+							<span class="furn-icon"><Icon name={furnitureIcon(furn)} size={furn.h <= 40 ? 16 : 24} /></span>
 							<span style="font-size: {furn.h <= 40 ? '10px' : '12px'};font-weight:700;color:#f59e0b;margin-top:2px;text-align:center;word-break:break-all;padding:0 4px;">{furn.label}</span>
 						</div>
 					</foreignObject>
@@ -1067,7 +1357,7 @@
 							class="rotate-handle furniture-rotate"
 							on:mousedown={(e) => startDragTable(e, furn, 'rotate')}
 						/>
-						<text x={fcx} y={furn.y - 27} text-anchor="middle" fill="white" font-size="8" font-weight="bold" style="pointer-events:none">↻</text>
+						<text x={fcx} y={furn.y - 27} text-anchor="middle" fill="white" font-size="8" font-weight="bold" class="rotate-glyph" style="pointer-events:none">↻</text>
 
 						<!-- Remove -->
 						<!-- svelte-ignore a11y-no-static-element-interactions -->
@@ -1108,7 +1398,7 @@
 					</clipPath>
 					<rect x={seat.x} y={seat.y} width={SEAT_SIZE} height={SEAT_SIZE} rx="8" class="seat-rect"/>
 					<g clip-path="url(#clip-{seat.id})">
-						<text x={scx} y={seat.y + 13} text-anchor="middle" class="seat-label">{seat.id}</text>
+						<text x={scx} y={seat.y + 13} text-anchor="middle" class="seat-label">{seatNumber(seat.id)}</text>
 						{#if occupant}
 							<text x={scx} y={seat.y + 28} text-anchor="middle" class="seat-player"
 								textLength={occupant.username.length > 7 ? SEAT_SIZE - 6 : null}
@@ -1133,7 +1423,7 @@
 						<circle cx={scx} cy={seat.y - 20} r="5" class="rotate-handle"
 							on:mousedown|stopPropagation={(e) => startDragSeat(e, seat, 'rotate-seat')}
 						/>
-						<text x={scx} y={seat.y - 17} text-anchor="middle" fill="white" font-size="6" font-weight="bold" style="pointer-events:none">↻</text>
+						<text x={scx} y={seat.y - 17} text-anchor="middle" fill="white" font-size="6" font-weight="bold" class="rotate-glyph" style="pointer-events:none">↻</text>
 						<!-- Remove -->
 						<!-- svelte-ignore a11y-no-static-element-interactions -->
 						<g class="remove-btn" on:click|stopPropagation={() => removeItem('seat', seat.id)}>
@@ -1153,6 +1443,17 @@
 					{/if}
 				</g>
 			{/each}
+
+			{#if editMode && dragging}
+				{#each guides as g}
+					<line x1={g.x1} y1={g.y1} x2={g.x2} y2={g.y2} class="guide-line" />
+				{/each}
+				{#each gapMarks as g}
+					<line x1={g.x1} y1={g.y1} x2={g.x2} y2={g.y2} class="gap-line" />
+					<circle cx={g.x1} cy={g.y1} r="3" class="gap-end" />
+					<circle cx={g.x2} cy={g.y2} r="3" class="gap-end" />
+				{/each}
+			{/if}
 		</svg>
 	</div>
 
@@ -1160,7 +1461,7 @@
 		<div class="seat-info-bottom-sheet glass animate-in">
 			<div class="sheet-header">
 				<div class="sheet-title-row">
-					<span class="sheet-seat-badge">🪑 {$t('map_sheet_seat_prefix', { id: activeSeatCard.seat.id })}</span>
+					<span class="sheet-seat-badge"><Icon name="armchair" size={16} /> {$t('map_sheet_seat_prefix', { id: activeSeatCard.seat.id })}</span>
 					{#if activeSeatCard.isMine}
 						<span class="sheet-status-tag mine">{$t('map_sheet_mine')}</span>
 					{:else if activeSeatCard.isOccupied}
@@ -1169,24 +1470,24 @@
 						<span class="sheet-status-tag free">{$t('map_sheet_free')}</span>
 					{/if}
 				</div>
-				<button class="sheet-close-btn" on:click={() => activeSeatCard = null}>✕</button>
+				<button class="sheet-close-btn" on:click={() => activeSeatCard = null} aria-label={$t('common_close')}><Icon name="x" size={18} /></button>
 			</div>
 
 			<div class="sheet-body">
 				{#if activeSeatCard.isOccupied && activeSeatCard.occupant}
 					<div class="sheet-player-info">
-						<span class="sheet-avatar">👤</span>
+						<span class="sheet-avatar"><Icon name="user" size={20} /></span>
 						<div class="sheet-player-names">
 							<strong class="sheet-username">{activeSeatCard.occupant.username}</strong>
 							{#if activeSeatCard.occupant.team_name}
-								<span class="sheet-team">👥 {activeSeatCard.occupant.team_name}</span>
+								<span class="sheet-team"><Icon name="users" size={12} /> {activeSeatCard.occupant.team_name}</span>
 							{/if}
 						</div>
 					</div>
 					<div class="sheet-actions">
 						{#if !activeSeatCard.isMine}
 							<a href="/dashboard/players?chat={activeSeatCard.occupant.id}" class="btn btn-sm btn-primary">
-								💬 {$t('map_sheet_send_msg')}
+								<Icon name="message" size={15} /> {$t('map_sheet_send_msg')}
 							</a>
 						{/if}
 						{#if activeSeatCard.isMine}
@@ -1199,7 +1500,7 @@
 					<p class="sheet-free-text">{$t('map_sheet_free_desc')}</p>
 					<div class="sheet-actions">
 						<button class="btn btn-sm btn-primary" on:click={() => { claimSeat(activeSeatCard.seat.id); activeSeatCard = null; }} disabled={seatingLocked && !user?.is_admin}>
-							🪑 {$t('map_sheet_claim_btn')}
+							<Icon name="armchair" size={15} /> {$t('map_sheet_claim_btn')}
 						</button>
 					</div>
 				{/if}
@@ -1212,7 +1513,7 @@
 		<div class="assign-panel glass">
 			<div class="flex-row justify-between items-center mb-2">
 				<h3 class="text-accent">{$t("map_assign_title", { seat: assigningSeatId })}</h3>
-				<button class="btn-link text-dim" on:click={() => assigningSeatId = null}>✕</button>
+				<button class="btn-link text-dim" on:click={() => assigningSeatId = null} aria-label={$t('common_close')}><Icon name="x" size={16} /></button>
 			</div>
 			{#if getOccupant(assigningSeatId)}
 				<p class="text-sm mb-2">{@html $t("map_assign_occupied_by", { user: getOccupant(assigningSeatId).username })}</p>
@@ -1223,7 +1524,7 @@
 			<div class="user-list">
 				{#each unassignedUsers as u}
 					<button class="user-option" on:click={() => adminAssign(assigningSeatId, u.id)}>
-						{u.username} {u.is_admin ? '👑' : ''}
+						{u.username} {#if u.is_admin}<Icon name="crown" size={12} />{/if}
 					</button>
 				{/each}
 				{#if unassignedUsers.length === 0}
@@ -1261,7 +1562,7 @@
 			{/each}
 			{#if draggingUserId}
 				<!-- svelte-ignore a11y-no-static-element-interactions -->
-				<button class="badge-cancel" on:click={() => draggingUserId = null}>✕ {$t("info_btn_cancel")}</button>
+				<button class="badge-cancel" on:click={() => draggingUserId = null}><Icon name="x" size={12} /> {$t("info_btn_cancel")}</button>
 			{/if}
 			{#if unassignedUsers.length === 0}
 				<span class="text-xs text-dim">{$t("map_assign_all_occupied")}</span>
@@ -1270,11 +1571,26 @@
 	{/if}
 </div>
 
+{#if unsavedPrompt}
+	<!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
+	<div class="unsaved-overlay" use:portal on:click|self={() => resolveUnsaved('stay')}>
+		<div class="unsaved-dialog" role="dialog" aria-modal="true" aria-labelledby="unsaved-title">
+			<h2 id="unsaved-title"><Icon name="alert-triangle" size={18} /> {$t('map_unsaved_title')}</h2>
+			<p>{$t('map_unsaved_desc')}</p>
+			<div class="unsaved-actions">
+				<button class="btn-secondary" on:click={() => resolveUnsaved('stay')}>{$t('map_unsaved_stay')}</button>
+				<button class="btn-outline-danger" on:click={() => resolveUnsaved('discard')}>{$t('map_unsaved_discard')}</button>
+				<button class="btn-primary" on:click={() => resolveUnsaved('save')}>{$t('map_unsaved_save')}</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
 <!-- Toasts -->
 <div class="toast-container" use:portal>
 	{#each toasts as t (t.id)}
 		<div class="toast {t.type} {t.leaving ? 'toast-leave' : 'toast-enter'}">
-			<span>{#if t.type === 'success'}✅{:else if t.type === 'error'}❌{:else}ℹ️{/if}</span>
+			<Icon name={t.type === 'success' ? 'check-circle' : t.type === 'error' ? 'x-circle' : 'info'} size={18} />
 			<span>{t.message}</span>
 		</div>
 	{/each}
@@ -1286,7 +1602,7 @@
 	.map-empty { position: absolute; inset: 0; z-index: 2; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.6rem; text-align: center; padding: 1.5rem; pointer-events: none; }
 	.map-empty > * { pointer-events: auto; margin: 0; max-width: 46ch; }
 	.map-empty-title { font-family: var(--font-title); font-size: var(--fs-section); font-weight: 700; color: var(--text-main); }
-	.free-all-confirm { display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.88rem; color: var(--text-main); }
+	.free-all-confirm { display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.88rem; color: var(--text-main); white-space: nowrap; }
 	.room-canvas { width: 100%; height: 100%; background: var(--map-canvas-bg); border-radius: 12px; user-select: none; }
 	.room-canvas.edit-mode { outline: 2px dashed rgba(59, 130, 246, 0.3); outline-offset: -2px; }
 
@@ -1366,8 +1682,8 @@
 
 	/* Rotate handle */
 	.rotate-handle { fill: var(--accent); stroke: white; stroke-width: 1.5; cursor: grab; opacity: 0; transition: opacity 0.15s; }
-	.seat-rotate-line { opacity: 0; transition: opacity 0.15s; }
-	g:hover > line, g:hover > .rotate-handle, g:hover > .seat-rotate-line { opacity: 1; }
+	.seat-rotate-line, .rotate-glyph { opacity: 0; transition: opacity 0.15s; }
+	g:hover > line, g:hover > .rotate-handle, g:hover > .seat-rotate-line, g:hover > .rotate-glyph { opacity: 1; }
 
 	/* Seats */
 	.seat-rect {
@@ -1517,4 +1833,48 @@
 		.sheet-actions .btn { text-decoration: none; display: inline-flex; align-items: center; }
 	}
 
+	.auto-seats { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0 0.4rem; font-size: 0.85rem; font-weight: 600; color: var(--text-main); cursor: pointer; white-space: nowrap; }
+	.auto-seats input { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+	.furn-icon { display: inline-flex; color: #f59e0b; }
+	.table-rect.selected { stroke: var(--accent); stroke-width: 2.5; }
+	.mobile-my-seat, .map-top-btn, .sheet-seat-badge, .sheet-team, .sheet-actions .btn { display: inline-flex; align-items: center; gap: 0.3rem; }
+	/* Toolbar: one line per button */
+	.map-page header button { white-space: nowrap; gap: 0.35rem; }
+
+	/* Inspector of the selected table or element */
+	.inspector {
+		position: absolute; top: 1rem; right: 1rem; z-index: 5; width: 232px;
+		display: flex; flex-direction: column; gap: 0.6rem; padding: 0.75rem;
+		background: var(--surface-raised); border: 1px solid var(--glass-border); border-radius: 12px;
+		box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22);
+	}
+	.insp-head { display: flex; align-items: center; gap: 0.5rem; }
+	.insp-icon { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 8px; background: var(--accent-soft); color: var(--accent); flex-shrink: 0; }
+	.insp-name { flex: 1; min-width: 0; padding: 0.35rem 0.5rem; font-size: 0.88rem; font-weight: 700; border-radius: 8px; }
+	.insp-row { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+	.insp-count { font-size: 0.82rem; font-weight: 600; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+	.inspector .auto-seats { padding: 0; font-size: 0.8rem; }
+	.insp-wide { display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem; padding: 0.45rem; border-radius: 8px; border: 1px dashed var(--glass-border); background: transparent; color: var(--text-main); font: inherit; font-size: 0.8rem; font-weight: 600; cursor: pointer; }
+	.insp-wide:hover { border-color: var(--accent); color: var(--accent); }
+	.insp-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.4rem; }
+	.insp-btn { display: inline-flex; align-items: center; justify-content: center; height: 34px; border-radius: 8px; border: 1px solid var(--glass-border); background: var(--surface-sunken); color: var(--text-main); cursor: pointer; transition: border-color 0.15s, color 0.15s; }
+	.insp-btn:hover { border-color: var(--accent); color: var(--accent); }
+	.insp-btn.danger:hover { border-color: var(--danger); color: var(--danger); }
+	.insp-btn:focus-visible, .insp-wide:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+	.insp-hint { margin: 0; font-size: 0.7rem; line-height: 1.45; color: var(--text-muted); }
+	/* Undo / redo and unsaved state */
+	.map-page header button.icon-only { padding: 0 0.7rem; }
+	.map-page header button:disabled { opacity: 0.45; cursor: default; transform: none; }
+	.unsaved-badge { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.75rem; font-weight: 700; color: var(--text-dim); white-space: nowrap; align-self: center; }
+	.unsaved-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--warning); }
+	.unsaved-overlay { position: fixed; inset: 0; z-index: 10001; display: flex; align-items: center; justify-content: center; padding: 1rem; background: rgba(2, 6, 23, 0.45); }
+	.unsaved-dialog { width: 100%; max-width: 540px; padding: 1.25rem 1.4rem; border-radius: 14px; background: var(--surface-raised); border: 1px solid var(--glass-border); box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35); }
+	.unsaved-dialog h2 { display: flex; align-items: center; gap: 0.5rem; margin: 0 0 0.5rem; font-size: 1.1rem; }
+	.unsaved-dialog h2 :global(svg) { color: var(--warning); }
+	.unsaved-dialog p { margin: 0 0 1.1rem; font-size: 0.9rem; line-height: 1.5; color: var(--text-dim); }
+	.unsaved-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.5rem; }
+	/* Alignment guides while dragging */
+	.guide-line { stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 5 4; pointer-events: none; }
+	.gap-line { stroke: #ec4899; stroke-width: 2; pointer-events: none; }
+	.gap-end { fill: #ec4899; pointer-events: none; }
 </style>

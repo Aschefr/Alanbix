@@ -212,6 +212,7 @@ async def upload_player_image(
         raise HTTPException(status_code=400, detail="Image trop volumineuse (max 8 Mo).")
 
     filename = f"{uuid.uuid4().hex}{ext}"
+    os.makedirs(PLAYER_CHAT_IMAGES_DIR, exist_ok=True)
     file_path = os.path.join(PLAYER_CHAT_IMAGES_DIR, filename)
 
     with open(file_path, "wb") as f:

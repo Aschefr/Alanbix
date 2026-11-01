@@ -342,6 +342,100 @@
     <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
     <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />
     <line x1="2" x2="22" y1="2" y2="22" />
+  {:else if name === 'archive'}
+    <rect width="20" height="5" x="2" y="3" rx="1" />
+    <path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8" />
+    <path d="M10 12h4" />
+  {:else if name === 'archive-restore'}
+    <rect width="20" height="5" x="2" y="3" rx="1" />
+    <path d="M4 8v11a2 2 0 0 0 2 2h2" />
+    <path d="M20 8v11a2 2 0 0 1-2 2h-2" />
+    <path d="m9 15 3-3 3 3" />
+    <path d="M12 12v9" />
+  <!-- Markdown editor toolbar -->
+  {:else if name === 'bold'}
+    <path d="M14 12a4 4 0 0 0 0-8H6v8" />
+    <path d="M15 20a4 4 0 0 0 0-8H6v8Z" />
+  {:else if name === 'italic'}
+    <line x1="19" x2="10" y1="4" y2="4" />
+    <line x1="14" x2="5" y1="20" y2="20" />
+    <line x1="15" x2="9" y1="4" y2="20" />
+  {:else if name === 'heading'}
+    <path d="M6 12h12" />
+    <path d="M6 20V4" />
+    <path d="M18 20V4" />
+  {:else if name === 'text-quote'}
+    <path d="M17 6H3" />
+    <path d="M21 12H8" />
+    <path d="M21 18H8" />
+    <path d="M3 12v6" />
+  {:else if name === 'list'}
+    <line x1="8" x2="21" y1="6" y2="6" />
+    <line x1="8" x2="21" y1="12" y2="12" />
+    <line x1="8" x2="21" y1="18" y2="18" />
+    <line x1="3" x2="3.01" y1="6" y2="6" />
+    <line x1="3" x2="3.01" y1="12" y2="12" />
+    <line x1="3" x2="3.01" y1="18" y2="18" />
+  {:else if name === 'list-ordered'}
+    <line x1="10" x2="21" y1="6" y2="6" />
+    <line x1="10" x2="21" y1="12" y2="12" />
+    <line x1="10" x2="21" y1="18" y2="18" />
+    <path d="M4 6h1v4" />
+    <path d="M4 10h2" />
+    <path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1" />
+  {:else if name === 'image'}
+    <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+    <circle cx="9" cy="9" r="2" />
+    <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+  {:else if name === 'table'}
+    <path d="M12 3v18" />
+    <rect width="18" height="18" x="3" y="3" rx="2" />
+    <path d="M3 9h18" />
+    <path d="M3 15h18" />
+  {:else if name === 'door'}
+    <path d="M13 4h3a2 2 0 0 1 2 2v14" />
+    <path d="M2 20h3" />
+    <path d="M13 20h9" />
+    <path d="M10 12v.01" />
+    <path d="M13 4.562v16.157a1 1 0 0 1-1.242.97L5 20V5.562a2 2 0 0 1 1.515-1.94l4-1A2 2 0 0 1 13 4.561Z" />
+  {:else if name === 'utensils'}
+    <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" />
+    <path d="M7 2v20" />
+    <path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7" />
+  {:else if name === 'beer'}
+    <path d="M17 11h1a3 3 0 0 1 0 6h-1" />
+    <path d="M9 12v6" />
+    <path d="M13 12v6" />
+    <path d="M14 7.5c-1 0-1.44.5-3 .5s-2-.5-3-.5-1.72.5-2.5.5a2.5 2.5 0 0 1 0-5c.78 0 1.57.5 2.5.5S9.44 2 11 2s2 1.5 3 1.5 1.72-.5 2.5-.5a2.5 2.5 0 0 1 0 5c-.78 0-1.5-.5-2.5-.5Z" />
+    <path d="M5 8v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V8" />
+  {:else if name === 'restroom'}
+    <circle cx="6.5" cy="4.5" r="1.8" />
+    <path d="M4.5 9h4v6h-1v6h-2v-6h-1z" />
+    <circle cx="17.5" cy="4.5" r="1.8" />
+    <path d="M16 9h3l2 7h-2v5h-3v-5h-2z" />
+    <path d="M12 3v18" />
+  {:else if name === 'package'}
+    <path d="m7.5 4.27 9 5.15" />
+    <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
+    <path d="m3.3 7 8.7 5 8.7-5" />
+    <path d="M12 22V12" />
+  {:else if name === 'armchair'}
+    <path d="M19 9V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v3" />
+    <path d="M3 16a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5a2 2 0 0 0-4 0v1.5a.5.5 0 0 1-.5.5h-9a.5.5 0 0 1-.5-.5V11a2 2 0 0 0-4 0z" />
+    <path d="M5 18v2" />
+    <path d="M19 18v2" />
+  {:else if name === 'copy'}
+    <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+    <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+  {:else if name === 'undo'}
+    <path d="M9 14 4 9l5-5" />
+    <path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11" />
+  {:else if name === 'redo'}
+    <path d="m15 14 5-5-5-5" />
+    <path d="M20 9H9.5A5.5 5.5 0 0 0 4 14.5A5.5 5.5 0 0 0 9.5 20H13" />
+  {:else if name === 'rotate-cw'}
+    <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
+    <path d="M21 3v5h-5" />
   {:else}
     <!-- Default circle / dot -->
     <circle cx="12" cy="12" r="3" />

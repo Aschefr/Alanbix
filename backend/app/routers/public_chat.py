@@ -560,6 +560,7 @@ async def upload_image(
         raise HTTPException(status_code=400, detail="Image trop volumineuse (max 8 Mo).")
 
     filename = f"{uuid.uuid4().hex}{ext}"
+    os.makedirs(PUBLIC_CHAT_IMAGES_DIR, exist_ok=True)
     file_path = os.path.join(PUBLIC_CHAT_IMAGES_DIR, filename)
 
     with open(file_path, "wb") as f:
@@ -721,9 +722,19 @@ async def clear_chat(
     db: Session = Depends(database.get_db),
     admin: models.User = Depends(auth.get_current_admin)
 ):
-    """Clear all public chat messages (Admin only)."""
-    db.query(models.PublicChatMessage).update({"is_deleted": True})
+    """Purge the public chat for good (Admin only): messages and their images are deleted, not just hidden."""
+    images = [m.image_path for m in db.query(models.PublicChatMessage).filter(models.PublicChatMessage.image_path != None)]
+    db.query(models.PublicChatMessage).delete(synchronize_session=False)
     db.commit()
+    prefix = "/data/chat_images/public/"
+    for path in images:
+        name = os.path.basename(path or "")
+        # only bare file names inside the public chat image folder (stored paths come from the client)
+        if path == prefix + name and name and not name.startswith("."):
+            try:
+                os.remove(os.path.join(PUBLIC_CHAT_IMAGES_DIR, name))
+            except OSError:
+                pass
 
     pin_cfg = db.query(models.SystemConfig).filter(models.SystemConfig.key == "public_chat_pinned").first()
     if pin_cfg and pin_cfg.value:

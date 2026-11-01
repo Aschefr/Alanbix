@@ -4,6 +4,23 @@ The administration panel of Alanbix (accessible only to users with `is_admin = t
 
 ---
 
+## 🧭 Guided server setup
+
+The first account created on a new server (the admin) lands on **Server setup** (`/dashboard/setup`) instead of the player welcome. Eight steps, each of which can be skipped:
+
+1. **The event**: LAN name and default language.
+2. **The network**: LAN Wi-Fi names (recognised by the mobile app) and the address to give the players (warning when it is a `localhost` address).
+3. **The info page**: a pre-filled template (schedule, Wi-Fi, food, general rules) to complete in the Markdown editor.
+4. **Games and tournaments**: SearXNG check (with help to install it), adding games with their cover, the four formats explained with an example of rules, the points scale explained, and a first tournament created on the spot.
+5. **The Alanbix assistant** (optional): no assistant, a local model (Ollama) or an online service with an API key; connection test, model choice and context size.
+6. **The room map** (optional): table generator (number of tables, seats per table, tables per row) with a preview.
+7. **Invite the players**: address, QR code and a printable poster.
+8. **Summary**: "Finish" or "I'm playing too" (continues with the player welcome).
+
+Progress is saved on the server (`admin_setup`). The administration shows a banner until the setup is finished or hidden, and **Settings › General › Guided setup** runs it again. After a full reset, it comes back.
+
+---
+
 ## 🎚️ Control Room (default tab)
 
 The Control Room gathers what needs the organiser's attention during the LAN:
@@ -56,11 +73,15 @@ To associate an image and rules with tournaments, administrators manage a local 
 
 To facilitate database cleaning between two events or after intensive testing phases, the administration settings tab offers massive purge buttons (called **NUKE Buttons**):
 
-* **Nuke Tournaments**: Deletes all tournaments, brackets, match history, and associated teams.
-* **Nuke Players**: Deletes all player accounts (except the currently connected administrator).
-* **Nuke Games**: Empties the game library and deletes associated cover image files from disk.
-* **Nuke Files**: Deletes all physical files uploaded by the file manager in bulk.
-* **Nuke Notifications & Messages**: Erases the entire history of private chats, team channels, and generated notifications.
+* **Purge the public chat**: permanently deletes every public chat message and its images, and removes the pinned message.
+* **Tournaments**: deletes all tournaments, brackets, scores and tournament teams, and resets every player's points to zero.
+* **Players**: deletes every non-admin account with its messages, AI conversations, notifications, devices and uploaded images; their username is removed from the standings of closed tournaments.
+* **Games**: deletes every game (and therefore every tournament), their uploaded covers and thumbnails, and the knowledge base entries written for a game.
+* **Images**: deletes every uploaded image (AI assistant, private and team messages, public chat) and removes their references from the messages.
+* **Notifications**: deletes every player's notifications.
+* **Awards**: deletes awarded prizes and customised texts, then recomputes the default awards.
+* **Room map**: deletes every table, seat and element of the map, and frees every player's seat.
+* **Full reset**: empties the whole server like a new installation (all data, all uploaded files, settings and customised translations). Admin accounts can be kept (username, password, avatar). Typing `RESET` confirms it; other connected people are reloaded automatically.
 
 ### Security Ergonomics (No window.confirm)
 To avoid accidental deletions while keeping a clean UI:

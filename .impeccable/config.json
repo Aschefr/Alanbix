@@ -1,0 +1,58 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "gradient-text",
+        "value": "*",
+        "files": [
+          "frontend/src/app.css"
+        ],
+        "createdAt": "2026-10-31T10:53:13.421Z",
+        "reason": "user confirmed 2026-10-31: the gradient app title is the app's signature style"
+      },
+      {
+        "rule": "design-system-font",
+        "value": "sfmono-regular",
+        "createdAt": "2026-11-01T14:43:48.234Z"
+      },
+      {
+        "rule": "gradient-text",
+        "value": "*",
+        "files": [
+          "frontend/src/routes/spectator/+page.svelte"
+        ],
+        "createdAt": "2026-11-01T15:40:26.010Z",
+        "reason": "user confirmed: projector screen kept as is (2026-11-01)"
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "frontend/src/routes/spectator/+page.svelte"
+        ],
+        "createdAt": "2026-11-01T15:40:26.237Z",
+        "reason": "user confirmed: projector screen kept as is (2026-11-01)"
+      },
+      {
+        "rule": "gradient-text",
+        "value": "*",
+        "files": [
+          "**/routes/spectator/+page.svelte"
+        ],
+        "createdAt": "2026-11-01T16:10:57.013Z",
+        "reason": "user confirmed: projector screen kept as is (2026-11-01)"
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "**/routes/spectator/+page.svelte"
+        ],
+        "createdAt": "2026-11-01T16:10:57.346Z",
+        "reason": "user confirmed: projector screen kept as is (2026-11-01)"
+      }
+    ]
+  }
+}

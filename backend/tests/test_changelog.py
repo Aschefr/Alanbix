@@ -15,7 +15,7 @@ def test_get_changelog(client):
     assert first["tag_name"].startswith("v")
     # Verify that the latest version from VERSION is parsed correctly
     import os
-    version = "1.35.2"
+    version = "1.36.0"
     for path in ["VERSION", "../VERSION"]:
         if os.path.exists(path):
             with open(path, "r", encoding="utf-8-sig") as f:

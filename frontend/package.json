@@ -1,6 +1,6 @@
 {
   "name": "alanbix-frontend",
-  "version": "1.35.2",
+  "version": "1.36.0",
   "private": true,
   "scripts": {
     "dev": "vite dev --host",
@@ -28,7 +28,7 @@
     "@capacitor/android": "^8.5.3",
     "@capacitor/core": "^8.5.3",
     "@capacitor/ios": "^8.5.3",
-    "easymde": "^2.21.0",
-    "marked": "^18.0.3"
+    "marked": "^18.0.3",
+    "qrcode-generator": "^2.0.4"
   }
 }

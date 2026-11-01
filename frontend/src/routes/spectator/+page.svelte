@@ -7,8 +7,12 @@
 	import { connectWS } from '$lib/ws';
 	import { API_URL, resolveMediaUrl } from '$lib/config';
 	import { formatPoints } from '$lib/utils';
+	import { renderMarkdown } from '$lib/markdown';
 
 	const VIEWS = ['leaderboard', 'teams', 'map', 'bracket', 'info'];
+	// Views whose content can be taller than the screen: it scrolls slowly, then the next view comes
+	const SCROLL_VIEWS = ['leaderboard', 'teams', 'bracket', 'info'];
+	const FIT_VIEWS = ['leaderboard', 'teams', 'info'];
 	let currentIdx = 0;
 	let paused = false;
 	let data = { leaderboard: [], event_name: 'Alanbix LAN' };
@@ -23,11 +27,13 @@
 	let slideTimeout;
 	let bracketScrollTimeout;
 	let viewportHeight = 0;
-	let roundsHeight = 0;
+	let contentHeight = 0;
 	let translateY = 0;
 	let isAnimating = false;
 	let scrollDuration = 0;
 	let hasStartedScrollForCurrent = false;
+	// Content height the scroll decision was based on: data that arrives later changes it
+	let decidedHeight = -1;
 	let lastView = '';
 	let lastTourneyIdx = -1;
 	let transClass = 'slide-in';
@@ -295,21 +301,29 @@
 		}, delay);
 	}
 
-	function handleBracketAutoScroll() {
+	function measureScroll() {
+		const frame = document.querySelector('.spec-content .spec-bracket-viewport, .spec-content .spec-scroll-viewport');
+		const content = frame?.querySelector(':scope > .spec-bracket-content, :scope > .spec-scroll-content');
+		return { frame: frame ? frame.clientHeight : 0, content: content ? content.clientHeight : 0 };
+	}
+
+	function handleAutoScroll() {
 		clearTimeout(bracketScrollTimeout);
 		clearTimeout(slideTimeout);
 
-		if (currentView !== 'bracket') return;
+		if (!SCROLL_VIEWS.includes(currentView)) return;
 
-		console.log('[AutoScroll] roundsHeight:', roundsHeight, 'viewportHeight:', viewportHeight);
-
-		// Wait a small delay for Svelte to bind clientHeights after DOM rendering
+		// Wait a small delay for the DOM to render, then measure the frame and its content directly:
+		// the bound heights can be stale (the bracket frame is the same element from one tournament to the next)
 		bracketScrollTimeout = setTimeout(() => {
-			if (roundsHeight > viewportHeight + 10) {
+			const { frame, content } = measureScroll();
+			console.log('[AutoScroll] content:', content, 'frame:', frame);
+			if (frame > 0 && content > frame + 10) {
 				if (hasStartedScrollForCurrent) return;
 				hasStartedScrollForCurrent = true;
+				decidedHeight = content;
 
-				const overflowY = roundsHeight - viewportHeight;
+				const overflowY = content - frame;
 				// Scroll at 35px per second for incredibly smooth reading speed
 				scrollDuration = Math.max(3, overflowY / 35);
 				console.log('[AutoScroll] Starting scroll, duration:', scrollDuration, 'overflowY:', overflowY);
@@ -328,31 +342,39 @@
 			} else {
 				if (hasStartedScrollForCurrent) return;
 				hasStartedScrollForCurrent = true;
-				console.log('[AutoScroll] Bracket fits perfectly. Scheduling normal slide transition.');
+				decidedHeight = content;
+				console.log('[AutoScroll] Content fits. Scheduling normal slide transition.');
 				// If it fits, just schedule the normal slide duration (12 seconds)
 				startSlideshow(12000);
 			}
 		}, 450);
 	}
 
+	$: scrollStyle = `transform: translateY(${translateY}px) translateZ(0); transition: ${isAnimating ? 'transform ' + scrollDuration + 's linear' : 'none'};`;
+
 	// Reactive slideshow scheduler
-	$: if (currentView !== undefined || bracketTourneyIdx !== undefined || paused !== undefined || roundsHeight !== undefined || viewportHeight !== undefined) {
+	$: if (currentView !== undefined || bracketTourneyIdx !== undefined || paused !== undefined || contentHeight !== undefined || viewportHeight !== undefined) {
 		if (!paused) {
-			if (currentView === 'bracket') {
+			if (SCROLL_VIEWS.includes(currentView)) {
 				if (currentView !== lastView || bracketTourneyIdx !== lastTourneyIdx) {
-					// Reset scroll state on tournament or view change
+					// Reset scroll state on tournament or view change; the new view measures itself again
 					hasStartedScrollForCurrent = false;
 					translateY = 0;
 					isAnimating = false;
 					scrollDuration = 0;
+					decidedHeight = -1;
 					clearTimeout(bracketScrollTimeout);
 					clearTimeout(slideTimeout);
 					lastView = currentView;
 					lastTourneyIdx = bracketTourneyIdx;
-					console.log('[AutoScroll] View/tournament changed to bracket, resetting scroll state.');
+					console.log('[AutoScroll] View/tournament changed, resetting scroll state.');
+				}
+				// The list may load after the first measure: decide again while the scroll has not started
+				if (hasStartedScrollForCurrent && !isAnimating && Math.abs(contentHeight - decidedHeight) > 10) {
+					hasStartedScrollForCurrent = false;
 				}
 				if (!hasStartedScrollForCurrent) {
-					handleBracketAutoScroll();
+					handleAutoScroll();
 				}
 			} else {
 				hasStartedScrollForCurrent = false;
@@ -391,10 +413,12 @@
 		{/if}
 	</div>
 
-	<div class="spec-content {transClass}">
+	<div class="spec-content {transClass}" class:fit-view={FIT_VIEWS.includes(currentView)}>
 		{#if currentView === 'leaderboard'}
-			<div class="spec-view">
+			<div class="spec-view spec-view-fit">
 				<h1 class="spec-title">{$t("spec_tab_general")}</h1>
+				<div class="spec-scroll-viewport" bind:clientHeight={viewportHeight}>
+				<div class="spec-scroll-content" bind:clientHeight={contentHeight} style={scrollStyle}>
 				<div class="spec-lb">
 					{#each data.leaderboard as entry, i}
 						<div class="spec-row {entry.rank && entry.rank <= 3 ? 'spec-top' : ''}">
@@ -412,11 +436,15 @@
 						<p class="spec-empty">{$t("spec_empty_leaderboard")}</p>
 					{/each}
 				</div>
+				</div>
+				</div>
 			</div>
 
 		{:else if currentView === 'teams'}
-			<div class="spec-view">
+			<div class="spec-view spec-view-fit">
 				<h1 class="spec-title">{$t("spec_tab_teams")}</h1>
+				<div class="spec-scroll-viewport" bind:clientHeight={viewportHeight}>
+				<div class="spec-scroll-content" bind:clientHeight={contentHeight} style={scrollStyle}>
 				<div class="spec-lb">
 					{#each teamLeaderboard as team, i}
 						<div class="spec-row {team.rank && team.rank <= 3 ? 'spec-top' : ''}">
@@ -428,6 +456,8 @@
 					{:else}
 						<p class="spec-empty">{$t("spec_empty_teams")}</p>
 					{/each}
+				</div>
+				</div>
 				</div>
 			</div>
 
@@ -545,7 +575,7 @@
 				</div>
 				{#if bracketRounds.length > 0}
 					<div class="spec-bracket-viewport" bind:clientHeight={viewportHeight}>
-						<div class="spec-bracket-content" bind:clientHeight={roundsHeight} style="transform: translateY({translateY}px) translateZ(0); transition: {isAnimating ? 'transform ' + scrollDuration + 's linear' : 'none'};">
+						<div class="spec-bracket-content" bind:clientHeight={contentHeight} style={scrollStyle}>
 							{#if bracketType === 'ffa'}
 								<!-- FFA View (Block Layout) -->
 								<div class="spec-ffa-area">
@@ -690,10 +720,14 @@
 			</div>
 
 		{:else if currentView === 'info'}
-			<div class="spec-view">
+			<div class="spec-view spec-view-fit">
 				<h1 class="spec-title"><span style="-webkit-text-fill-color:initial;background:none">📋</span> {$t("info_title")}</h1>
-				<div class="spec-info-content">
-					{@html spectatorInfo.replace(/\n/g, '<br>')}
+				<div class="spec-scroll-viewport" bind:clientHeight={viewportHeight}>
+					<div class="spec-scroll-content" bind:clientHeight={contentHeight} style={scrollStyle}>
+						<div class="spec-info-content">
+							{@html renderMarkdown(spectatorInfo)}
+						</div>
+					</div>
 				</div>
 			</div>
 		{/if}
@@ -738,6 +772,15 @@
 
 	.spec-view { width: 100%; max-width: 1100px; margin-top: auto; margin-bottom: auto; }
 	.spec-view-wide { max-width: 100%; display: flex; flex-direction: column; height: 100%; min-height: 0; }
+	/* Lists and info text: the view takes the screen height, its content scrolls inside (see handleAutoScroll) */
+	.spec-content.fit-view { height: 0; overflow: hidden; }
+	.spec-view-fit { display: flex; flex-direction: column; height: 100%; min-height: 0; margin: 0 auto; }
+	.spec-scroll-viewport { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column;
+		/* soft edges: rows fade in and out instead of being cut under the title */
+		-webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 22px, #000 calc(100% - 22px), transparent 100%);
+		mask-image: linear-gradient(to bottom, transparent 0, #000 22px, #000 calc(100% - 22px), transparent 100%); }
+	/* auto margins centre the content when it fits and fall to 0 when it is taller */
+	.spec-scroll-content { margin: auto 0; padding: 22px 0; }
 
 	.spec-bracket-viewport { width: 100%; flex-grow: 1; overflow: hidden; position: relative; display: flex; flex-direction: column; min-height: 0; }
 	.spec-bracket-content { width: 100%; display: flex; flex-direction: column; transform-origin: top center; }
@@ -848,6 +891,17 @@
 		text-align: center; padding: 0 2rem;
 		font-family: var(--font-main);
 	}
+	/* Projector text is Markdown: big, readable from the back of the room */
+	.spec-info-content :global(p) { margin: 0 0 0.6em; }
+	.spec-info-content :global(h1), .spec-info-content :global(h2), .spec-info-content :global(h3) { margin: 0.4em 0 0.3em; line-height: 1.25; }
+	.spec-info-content :global(h1) { font-size: 1.6em; }
+	.spec-info-content :global(h2) { font-size: 1.3em; }
+	.spec-info-content :global(h3) { font-size: 1.1em; }
+	.spec-info-content :global(ul), .spec-info-content :global(ol) { display: inline-block; text-align: left; margin: 0.2em 0 0.6em; }
+	.spec-info-content :global(img) { max-width: 100%; border-radius: 12px; }
+	.spec-info-content :global(table) { margin: 0.4em auto; border-collapse: collapse; }
+	.spec-info-content :global(th), .spec-info-content :global(td) { border: 1px solid var(--glass-border, rgba(255,255,255,0.2)); padding: 0.2em 0.6em; }
+	.spec-info-content :global(a) { color: var(--accent, #60a5fa); }
 	.spec-avatar {
 		width: 48px;
 		height: 48px;

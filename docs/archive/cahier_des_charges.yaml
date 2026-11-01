@@ -1,0 +1,1521 @@
+# DOCUMENT HISTORIQUE - ne fait plus foi.
+# Cahier des charges des débuts du projet (jusqu'à la v1.34.0). Il n'est plus tenu à jour :
+# l'historique des versions est dans CHANGELOG.md, la documentation dans docs/, et les règles de
+# travail encore valables ont été reprises, mises à jour, dans la section 9 de CLAUDE.md.
+# Plusieurs règles globales ci-dessous sont dépassées (ex. emojis codés en dur, ressources 100% locales).
+
+project:
+  name: Alanbix (A-LAN-bix)
+  role: Organisateur & Responsable IT
+  default_port_webui: 8080
+  description: >
+    Système de gestion de LAN de nouvelle génération avec support technique IA local. 
+    Clin d'œil à Alambix (personnage du Bouclier Arverne) et à l'alambic : une machinerie complexe qui distille la base de connaissances (RAG) aux joueurs via un pipeline technique ultra-léger et optimisé.
+
+architecture_decisions:
+  database:
+    choice: "SQLite avec mode WAL"
+    justification: "Le volume de données d'une LAN est faible. SQLite supprime le besoin d'un conteneur dédié, offrant une portabilité totale (un simple fichier database.db)."
+    pitfalls: 
+      - "Verrouillage de base de données (Database is locked) lors de requêtes asynchrones multiples. Solution : Activer le mode WAL (Write-Ahead Logging) et forcer la sérialisation des écritures si nécessaire via SQLAlchemy."
+  
+  ai_queue:
+    choice: "asyncio.Queue (Mémoire Python native)"
+    justification: "Remplacer Redis par la mémoire Python réduit l'infrastructure. FastAPI gérant nativement l'asynchrone, un Worker en tâche de fond consommant la queue est suffisant pour protéger le GPU local."
+    pitfalls:
+      - "Perte de la file d'attente en cas de crash du backend (acceptable pour une LAN, mais nécessite un message UX clair 'Erreur réseau, veuillez ré-essayer' côté frontend)."
+  
+  vector_search:
+    choice: "Calcul Numpy In-Memory (Cosine Similarity)"
+    justification: "pgvector nécessite PostgreSQL. Pour une petite base de connaissances (quelques centaines de documents max), un calcul matriciel direct via Numpy est largement plus rapide et plus léger."
+    pitfalls:
+      - "Synchronisation : Il faut charger les vecteurs en mémoire au démarrage de l'app ou lors de l'ajout d'un nouveau document via le panel d'admin."
+
+core_features_deep_dive:
+  tournaments_management:
+    - mechanism: "Wizard de Création (State Machine)"
+      details: "Processus en 3 étapes (Général, Format, Bracket). Le frontend stocke le state temporaire avant soumission."
+      pitfalls: "Ne pas valider les champs trop tôt. Permettre le retour en arrière sans perte de données saisies (Bind des variables Svelte)."
+    - mechanism: "Moteur de Bracket Multi-Mode (Implémenté)"
+      details: >
+        3 modes de tournoi supportés via tournament_engine.py :
+        - single_elim : Duel simple élimination (arbre binaire classique).
+        - double_elim : Duel double élimination (Winners Bracket + Losers Bracket). Les perdants du WB tombent dans le LB.
+        - round_robin : Championnat (tous contre tous). Algorithme de rotation (circle method) pour le planning des journées.
+        - ffa : Free For All — tous les joueurs dans un seul match par manche. Score = classement (placement).
+          L'admin saisit les placements, puis choisit combien de joueurs avancent à la manche suivante.
+          Idéal pour les jeux type Trackmania, Mario Kart, etc.
+        Le champ config.bracket_type détermine le mode. Le bracket est stocké en JSON dans la colonne `bracket` (séparée de `config`).
+      pitfalls: "Le seeding en round_robin utilise des indices 1-N puis les remplace par les vrais IDs. Attention à ne pas mélanger seeds et IDs."
+    - mechanism: "Avancement Automatique du Bracket (Implémenté)"
+      details: >
+        Quand un score est saisi (PUT /tournaments/{id}/score), le backend :
+        1. Détermine le gagnant (score le plus élevé).
+        2. Propage le gagnant au match suivant (round+1, match=ceil(m/2), slot=(m-1)%2).
+        3. En double_elim, le perdant est envoyé dans le Losers Bracket.
+        4. Auto-détecte la fin du tournoi (finale scorée) et passe le status à DONE.
+        Les byes (joueur sans adversaire en R1) sont auto-avancés au lancement.
+      pitfalls: "Les scores à égalité ne provoquent pas d'avancement — l'admin doit re-saisir."
+    - mechanism: "Gestion des Équipes — Self-Service & Ownership (Implémenté)"
+      details: >
+        Quand config.use_teams = true :
+        - Tout joueur inscrit peut créer une équipe (POST /tournaments/{id}/teams).
+        - La colonne created_by trace l'ownership (migration safe ALTER TABLE).
+        - Le joueur peut rejoindre une équipe existante (bouton '⭐ Rejoindre') s'il est inscrit ET pas déjà dans une équipe.
+        - Seul le créateur ou un admin peut supprimer une équipe.
+        - Le bouton 'Rejoindre' n'apparaît que si isParticipant && !myTeam.
+        - L'admin conserve le '🎲 Répartir' et le dropdown d'ajout de joueurs.
+        - Au lancement, les équipes (pas les joueurs) deviennent les unités du bracket.
+        - Les IDs d'équipes sont négatifs (-team_id) pour les distinguer des user IDs.
+        - Un _team_map est stocké dans config pour la résolution nom ↔ ID côté frontend.
+          Fallback triple couche : 1) config._team_map (set au start), 2) live teams API (survit aux pertes de config), 3) fallback générique "Équipe #N".
+          Le close endpoint reconstruit _team_map s'il est absent (résilience reopen/re-close).
+        - Les modifications d'équipes émettent un WebSocket teams_updated pour sync temps réel.
+        Tables : tournament_teams (id, tournament_id, name, created_by), tournament_team_members (id, team_id, user_id).
+      pitfalls: "config.team_size est contraint côté backend (HTTP 400 si dépassé). Un joueur non-inscrit au tournoi ne peut pas rejoindre une équipe (guard backend + frontend)."
+    - mechanism: "Bracket Pan & Zoom (Viewport 2D, Cursor-Centered)"
+      details: "Surface HTML interactive avec zoom centré sur la position du curseur. Pas de librairie externe. Gestion des événements onPointerDown/Move."
+      pitfalls: "Les événements tactiles (mobile) peuvent interférer avec le scroll natif. Nécessite 'touch-action: none' sur le conteneur."
+    - mechanism: "Suppressions Inline & Sécurité"
+      details: "Pas de window.confirm. État 'delete_pending' local sur l'objet de la liste pour transformer le bouton en 'Êtes-vous sûr ?'."
+    - mechanism: "Clôture de Tournoi & Distribution de Points (Implémenté)"
+      details: >
+        POST /tournaments/{id}/close calcule les standings puis distribue les points :
+        - pts_winner (1er, défaut 1.5), pts_second (2ème, défaut 1.3), pts_third (3ème, défaut 1.0)
+        - pts_participation (par match joué, défaut 1.0), pts_per_match (bonus score normalisé, défaut 0.5)
+        - Les points sont cumulés dans User.points (Float) et les résultats stockés dans tournament.results (JSON).
+        - En mode équipes, chaque membre reçoit le total des points de l'équipe (pas de division).
+      pitfalls: "La clôture est réversible via POST /tournaments/{id}/reopen (AXE-01). Attention : le _team_map peut être perdu lors d'éditions config intermédiaires, le close endpoint le reconstruit automatiquement."
+    - mechanism: "Édition Inline des Tournois (Implémenté)"
+      details: >
+        L'édition d'un tournoi se fait directement dans la carte admin (pas de modale).
+        Le panneau dépliable inclut : nom, statut, pts/victoire, format bracket,
+        et une grille détaillée de répartition des points (1er/2ème/3ème/participation/score).
+        Les valeurs sont persistées dans config JSON du tournoi.
+      pitfalls: "Un seul tournoi peut être en mode édition à la fois (inlineEditId singleton)."
+    - mechanism: "Classement Live (Frontend-only, Implémenté)"
+      details: >
+        Pendant un tournoi RUNNING, computeLiveStandings() projette un classement provisoire
+        basé sur les données du bracket (wins × points_per_win + score_bonus normalisé).
+        Ce calcul est purement frontend — aucune mutation de User.points en DB.
+        Affiché comme mini-leaderboard avec badge LIVE sous le bracket.
+      pitfalls: "Le classement live ne tient pas compte des placements (1er/2ème/3ème) qui ne sont calculés qu'à la clôture."
+
+  leaderboard_system:
+    - mechanism: "Leaderboard Global Joueurs — Indicateurs de Progression (Implémenté)"
+      details: >
+        GET /dashboard/stats retourne le top 10 joueurs par User.points (accumulés via clôtures).
+        Chaque entrée inclut username, points, team_name et nombre de participations.
+        Indicateurs de mouvement ↑↓ : à chaque refresh, la position N est comparée au snapshot N-1
+        (previousLeaderboard). Affiche ↑2 (vert), ↓1 (rouge), ou NEW (orange) si nouveau dans le classement.
+    - mechanism: "Leaderboard Équipes — Détail Expandable (Implémenté)"
+      details: >
+        GET /dashboard/team-leaderboard groupe les User par team_name (champ sur User, pas lié aux tournament_teams).
+        Deux modes de scoring sélectionnables par l'admin via SystemConfig(key='team_scoring_mode') :
+        - 'weighted' : score = somme des points / nombre de membres (équité taille d'équipe)
+        - 'raw' : score = somme brute des points de tous les membres
+        Le toggle est dans l'onglet Settings de l'admin.
+        Clic sur une équipe déploie un panneau expandable avec la liste des membres triés par points
+        et leur contribution individuelle (username + points). L'API retourne déjà members[] dans chaque team.
+      pitfalls: "Les team_name vides ou null sont ignorés. Le groupement est case-sensitive."
+    - mechanism: "Dashboard Joueurs/Équipes (Implémenté)"
+      details: >
+        Le panel Leaderboard du dashboard principal possède un toggle Joueurs | Équipes.
+        Les deux vues partagent le même design (lb-row) avec adaptation couleur (violet pour équipes).
+    - mechanism: "Modale de Statistiques des Joueurs (Implémenté)"
+      details: >
+        Clic sur un joueur dans le leaderboard (ou dans la liste des membres d'une équipe) ouvre une modale opaque (var(--bg-secondary))
+        affichant ses statistiques détaillées :
+        - Un résumé de ses statistiques clés (points totaux, participations, trophées).
+        - La liste de ses tournois et inscriptions avec leur état (badge d'état: INSCRIT, EN COURS, TERMINE), son classement, son total de points et le détail du calcul (placement, participation, score).
+        - La liste de ses trophées et distinctions (awards) remportés.
+    - mechanism: "Système de Prix & Distinctions (Implémenté)"
+      details: >
+        Les distinctions de fin de LAN sont calculées et assignées de manière entièrement automatique à partir des statistiques réelles de jeu.
+        - Stockage : Table `awards` (id, user_id, title, description, award_key, created_at).
+        - Catégories de Statistiques :
+          Le moteur calcule automatiquement 12 distinctions basées sur les données de tous les brackets :
+          1. Premier de la LAN (1er dans les standings cumulés).
+          2. Équipe première de la LAN (1ère équipe dans le classement).
+          3. Le Bourreau (joueur ayant infligé le plus de défaites aux autres).
+          4. Le Roi du Coop (joueur ayant le plus de victoires en mode équipes).
+          5. Loup Solitaire (joueur ayant le plus de victoires en mode individuel 1v1).
+          6. Le Marathonien (joueur ayant disputé le plus de matchs dans toute la LAN).
+          7. Gâchette Facile (joueur ayant le score cumulé le plus élevé).
+          8. La Passoire (joueur ayant le score cumulé le plus bas).
+          9. Chouchou des BYE (joueur ayant bénéficié du plus grand nombre de BYE dans les tournois).
+          10. Le Suisse (joueur ayant fait le plus de matchs nuls / draws).
+          11. Survivant du Losers Bracket (joueur ayant joué le plus de matchs dans le LB).
+          12. L'Important c'est de participer (joueur ayant le moins de victoires parmi ceux ayant joué au moins 2 matchs).
+        - Pipeline de Synchronisation :
+          Les attributions de prix sont automatiquement synchronisées à chaque clôture (close) ou réouverture (reopen) de tournoi.
+        - Personnalisation & Overrides :
+          Depuis l'onglet d'administration, les admins peuvent modifier en temps réel le titre et la description par défaut de chaque distinction (sauvegardé en configuration). Les descriptions supportent l'interpolation dynamique de variables (ex: {points}, {wins}, {matches_played}, {team_name}).
+        - Notifications :
+          À chaque changement de récipiendaire d'une distinction, une notification de type "award" (icône 🎁) est automatiquement envoyée en temps réel via WebSockets au joueur concerné.
+        - Profils Joueurs :
+          Les distinctions reçues par un joueur sont affichées dans l'historique des points de sa fiche de profil avec un effet de survol dynamique.
+
+
+  spectator_mode:
+    - mechanism: "Vue Projecteur 4 Slides — Skip Vues Vides (Implémenté)"
+      details: >
+        Route /spectator — affichage plein écran pour vidéoprojecteur avec cycle automatique de 4 vues :
+        1. 🏆 Classement Personnel (podium coloré, team badges)
+        2. 👥 Classement Équipes (score pondéré/brut selon config)
+        3. 🗺️ Plan de Salle (SVG interactif avec statut d'occupation)
+        4. 📊 Bracket en cours (matches avec scores, winner highlight, empilement vertical WB/LB en Double Élimination pour éviter la compression horizontale)
+        Cycle auto 12s par slide. Navigation clavier : ← → (slide), Espace (pause/resume).
+        Dots de navigation cliquables. WebSocket auto-refresh sur événements score/tournament.
+        Animation CSS slide-in (cubic-bezier) entre transitions.
+        viewHasData() vérifie si une slide a du contenu (leaderboard vide, pas d'équipes, pas de sièges,
+        pas de tournoi RUNNING) et skip automatiquement les vues sans données. Boucle max VIEWS.length
+        pour éviter boucle infinie si toutes les vues sont vides.
+        Lisibilité améliorée : Round Robin avec fonds contrastés semi-transparents et textes à fort contraste ; FFA avec mise en page flexible (flex-wrap/fit-content) supprimant les grands espaces vides inutiles.
+      pitfalls: "Pas d'authentification sur /spectator (public endpoint)."
+
+
+  ai_chat_pipeline:
+    - mechanism: "Streaming SSE (Server-Sent Events)"
+      details: >
+        Le backend Python envoie les chunks de réponse d'Ollama au fur et à mesure (yield). Le SvelteKit lit le flux via un TextDecoder.
+        Le payload SSE 'done' inclut : estimated_tokens, auto_compressed (si compression auto), et title (si auto-titre généré).
+        Auto-titre (G-50) : généré inline dans le SSE stream après le bot response, envoyé dans data.title du payload done.
+        Le frontend lit data.title et met à jour le sidebar sans appel HTTP séparé.
+      pitfalls: "Les proxies (Nginx/Docker) peuvent bufferiser le SSE et casser l'effet 'temps réel'. Il faut forcer les headers 'Cache-Control: no-cache' et 'X-Accel-Buffering: no'."
+    - mechanism: "Compression de Contexte (Mémoire LLM)"
+      details: >
+        Le token limit (ex: 4096) est vital. 3 stratégies implémentées :
+        1. Truncate : Coupe bêtement les X premiers messages de l'array. Rapide mais perte d'informations.
+        2. Compact : Fusionne les messages 'user' consécutifs, retire les salutations. Gain modéré.
+        3. Summary : Lance un mini-prompt LLM en tâche de fond pour écraser tout l'historique en un paragraphe de 3 phrases. Gain massif (70%).
+      pitfalls: "La méthode 'Summary' consomme le GPU. Il faut l'insérer dans la même file d'attente asyncio que les requêtes classiques pour ne pas bloquer le système."
+    - mechanism: "Multi-Instance Ollama (Implémenté)"
+      details: >
+        Support de multiples serveurs Ollama (différentes machines/GPU pendant la LAN) :
+        - Config ia_settings.ollama_instances : liste [{url, label, model, enabled}].
+        - Rétro-compatible : si absent, fallback vers le champ legacy ollama_host.
+        - pick_instance(db, model) : round-robin parmi les instances enabled avec health check.
+        - Affinité modèle : chaque instance peut être dédiée à un modèle spécifique.
+        - Failover silencieux : si une instance est down, elle est skip sans erreur visible.
+        - GET /ia/instances/status : statut live de chaque instance (online, latency, modèles).
+        - GET /ia/models : fusionne les modèles de toutes les instances (dédupliqué par nom).
+        - UI Admin : liste dynamique d'instances avec URL, label, modèle, toggle ON/OFF, pastille 🟢/🔴,
+          bouton Tester individuel, bouton + Ajouter / ✕ Supprimer.
+      pitfalls: "Le health check ajoute ~2s de latence au premier appel si l'instance est down. Le round-robin est en mémoire (reset au restart du backend)."
+    - mechanism: "Chat IA — Édition & Retry Inline (Implémenté)"
+      details: >
+        Les messages utilisateur sont éditables inline (bouton ✏️ au hover) :
+        - PUT /ia/message/{id} met à jour le contenu en DB.
+        - Le mode édition affiche un textarea + 3 actions : Sauvegarder, Réenvoyer (↻), Annuler.
+        - '↻ Réenvoyer' : sauvegarde l'édition, supprime tous les messages suivants,
+          puis re-soumet le message modifié (même flux que send()).
+        - Bouton Retry (🔄) sur les messages user pour re-envoyer le même prompt.
+        - Bouton Retry (🔄) sur le dernier message bot pour régénérer la réponse.
+      pitfalls: "Le retry supprime tous les messages après le point d'édition, y compris les réponses bot ultérieures."
+    - mechanism: "Contexte Compressé — Affichage & Édition Inline (Implémenté)"
+      details: >
+        Le contexte compressé (conv.compressed_context) apparaît en tête de la conversation
+        dans un bloc dédié avec icône 🗄️ et label 'Contexte Compressé (mode)'.
+        Le texte est éditable inline via un bouton ✏️ qui ouvre un textarea.
+        PUT /ia/compress/{conv_id}/edit persiste la modification.
+      pitfalls: "L'édition du contexte compressé n'affecte pas les messages existants, seulement le prompt système injecté dans les futures requêtes."
+    - mechanism: "Prompt Système Configurable (Implémenté)"
+      details: >
+        Le prompt système injecté dans chaque conversation est configurable par l'admin
+        dans Administration > Settings > Prompt Système IA. Stocké dans SystemConfig(key='system_prompt').
+        Le backend lit d'abord SystemConfig, puis fallback vers fr.json system_prompt, puis défaut hardcodé.
+        Textarea dédié dans l'admin avec bouton 'Sauvegarder le prompt'.
+      pitfalls: "Le changement de prompt n'affecte que les nouvelles requêtes, pas les conversations déjà en cours."
+
+development_phases_detailed:
+  phase_1_infrastructure:
+    name: "Phase 1 - Fondations Ultra-Légères"
+    sub_tasks:
+      1. "Configuration de SQLAlchemy avec SQLite (Mode WAL, Timeout 10s)."
+      2. "Création du script init_db.py pour gérer les migrations basiques manuellement."
+      3. "Mise en place de FastAPI avec CORS ouvert pour SvelteKit."
+      4. "Implémentation du design system (app.css) avec tokens Premium (Glassmorphism, Mesh Gradients, Custom Scrollbars)."
+    critical_pitfall: "Oublier l'encodage utf-8-sig pour les fichiers i18n JSON, ce qui causera des crashs de parsing sous Windows/PowerShell."
+
+  phase_2_core:
+    name: "Phase 2 - Moteur de Tournoi & UI"
+    sub_tasks:
+      1. "Création des schémas Pydantic (Attention: utiliser typing.Any pour le champ 'config' des brackets pour éviter des erreurs de validation récursives)."
+      2. "Intégration du Wizard de création de tournoi en Svelte avec graphiques SVG."
+      3. "Développement du moteur de Bracket Pan/Zoom (Variables CSS translate/scale dynamiques, zoom cursor-centered)."
+      4. "Système de Websocket unifié : Un seul canal pour envoyer les triggers de rechargement ('INVALIDATE_TOURNAMENTS', etc.) afin de faire de l'auto-refresh sans F5."
+      5. "Vue tournois avec sidebar persistante (localStorage) + détail avec bracket intégré, score inline admin, badges winner/loser."
+      6. "Dashboard : onglets pour naviguer entre les tournois RUNNING, avec vrai bracket (pas placeholder SVG)."
+      7. "Moteur Double-Élimination (DE) : WB-to-LB dropdown mapping corrigé (WB R1 losers → LB R1, WB R(k≥2) losers → LB R(2*(k-1)))."
+      8. "Résolution BYE intelligente : fonction récursive _is_match_dead() et _is_genuine_bye() qui distingue vrais BYEs de slots TBD en attente d'un match réel."
+      9. "Cascade BYE post-score : boucle multi-pass après chaque saisie de score pour auto-avancer les matchs devenus BYE suite à une progression."
+      10. "Grand Final (GF) : _get_feeder() redirige le slot 1 du GF vers le LB Final au lieu d'un match WB inexistant."
+      11. "Persistance JSON SQLAlchemy : flag_modified obligatoire sur les colonnes JSON (bracket, config, results) pour garantir les UPDATE en base, notamment lors du reset (null)."
+      12. "Reset tournoi : le endpoint PUT force bracket=None et results=None avec flag_modified quand status repasse à OPEN."
+      13. "Highlight joueur au survol : hover sur un nom illumine tous les matchs du joueur (WB+LB) avec bordure cyan animée."
+      14. "Masquage des rounds LB vides : les rounds sans match visible (full BYE/auto-win) sont cachés, avec renommage du dernier round visible en 'LB Finale'."
+      15. "Espacement FINALE : la colonne GF a un margin-left supplémentaire et un en-tête doré pour la distinguer du bracket."
+    critical_pitfall: "Cascade Delete dans la BDD. Si un tournoi est supprimé, il FAUT que SQLAlchemy supprime les participants, les équipes et les matchs associés pour éviter des Foreign Key constraints errors."
+
+  phase_3_ia:
+    name: "Phase 3 - Moteur IA & File d'attente Asynchrone"
+    sub_tasks:
+      1. "Création d'un Background Task Worker dans FastAPI qui écoute la asyncio.Queue."
+      2. "Panel Admin pour ping Ollama via son endpoint /api/tags et peupler la liste déroulante des modèles."
+      3. "Implémentation de l'interface Svelte de Chat : Bulles asymétriques, jauge de tokens calculée approximativement (1 mot = ~1.3 tokens)."
+      4. "Création de la Modale de Compression de contexte et appel aux endpoints correspondants."
+    critical_pitfall: "Gérer l'annulation d'une requête IA si l'utilisateur quitte la page. Implémenter un signal (Request.is_disconnected()) dans FastAPI pour stopper le générateur d'Ollama."
+
+  phase_4_rag_et_salle:
+    name: "Phase 4 - Plan de salle & Finitions RAG"
+    sub_tasks:
+      1. "Module ia_utils.py avec cosine_similarity numpy — charge tous les embeddings depuis SQLite au moment de la recherche."
+      2. "Création d'un module d'upload Admin pour injecter de nouveaux documents. L'embedding est sérialisé en JSON dans la colonne embedding_json."
+      3. "Création d'un Canvas 2D en Svelte pour placer les postes physiques (Drag & Drop admin)."
+      4. "Assignation (Seat Mapping) : Lier un ID utilisateur à une coordonnée (X,Y) sur la carte."
+    critical_pitfall: "L'upload de documents volumineux peut bloquer l'Event Loop de Python. Le parsing et l'embedding des documents doivent absolument se faire de manière asynchrone."
+
+  phase_5_scoring_spectator:
+    name: "Phase 5 - Système de Points Avancé & Vue Projecteur"
+    sub_tasks:
+      1. "Endpoint POST /tournaments/{id}/close avec calcul des standings et distribution des points (placement + score)."
+      2. "Grille de répartition des points configurable par tournoi (pts_winner, pts_second, pts_third, pts_participation, pts_per_match) dans config JSON."
+      3. "Édition inline des tournois dans l'admin (panneau dépliable, remplacement du modal)."
+      4. "Classement live frontend-only pendant les phases RUNNING (computeLiveStandings)."
+      5. "Endpoint GET /dashboard/team-leaderboard avec groupement par User.team_name et double mode scoring (weighted/raw)."
+      6. "Endpoint PUT /admin/config/{key} pour persister les préférences système dans SystemConfig."
+      7. "Toggle Joueurs/Équipes dans le leaderboard du dashboard principal."
+      8. "Refonte complète de la vue Spectateur (/spectator) : 4 slides, cycle auto, clavier, WebSocket."
+    critical_pitfall: "Le classement équipes est basé sur User.team_name (profil utilisateur) et non sur les TournamentTeam (équipes par tournoi). Les deux concepts coexistent mais ne sont pas liés."
+
+global_rules:
+  - id: G-01
+    rule: Système i18n
+    description: Utiliser static/i18n/*.json. Vérifier les doublons avant ajout.
+  - id: G-02
+    rule: Icônes & Emojis
+    description: Emojis hardcodés pour le décoratif. Texte uniquement dans les JSON.
+  - id: G-03
+    rule: Debug System
+    description: Intégration avec le système de logs frontend/backend.
+  - id: G-04
+    rule: Logs de Debug
+    description: Console de débug accessible via un bouton dédié dans la configuration.
+  - id: G-05
+    rule: Esthétisme et Cohérence UI (Cockpit Sombre)
+    description: "Le design dicte l'expérience. Utiliser le 'Mesh Gradient' pour la profondeur. Pas de scrollbar système, et uniformiser toutes les durées de transitions CSS à 0.2s."
+  - id: G-06
+    rule: Auto-refresh
+    description: Mise à jour DOM sans F5 via API calls ou WebSockets.
+  - id: G-07
+    rule: Sécurité JSON
+    description: Modif via Python (utf-8-sig) UNIQUEMENT. Pas de PowerShell.
+  - id: G-08
+    rule: Modales Non-Intrusives
+    description: "Les modales de type 'Êtes-vous sûr ?' doivent s'intégrer directement sous l'élément cliqué (Inline) ou via une modale 'Glass' personnalisée centrée, jamais de window.confirm."
+  - id: G-09
+    rule: Migrations DB
+    description: ALTER TABLE manuel dans init_db() pour toute nouvelle colonne.
+  - id: G-10
+    rule: Emojis
+    description: Un champs de saisie d'emoji doit être auto-complété avec les emojis pertinents.
+  - id: G-11
+    rule: Prompts Système LLM
+    description: Les prompts système pour Ollama doivent être définissables par l'utilisateur via l'UI/fichiers de config.
+  - id: G-12
+    rule: Ollama configuration
+    description: Récupérer la liste des modèles disponibles via l'API pour l'afficher dans une liste déroulante.
+  - id: G-13
+    rule: Authentification Joueurs
+    description: Création de compte simplifiée depuis l'accueil. Username/Password sans contraintes de complexité.
+  - id: G-14
+    rule: Isolation du Contexte RAG
+    description: Le RAG doit basculer entre contexte spécifique (jeux) et général pour optimiser la pertinence.
+  - id: G-15
+    rule: Gestion des Jeux (Héritage oozturn) — Implémenté
+    description: >
+      Un tournoi hérite des règles (markdown) et de l'image d'un 'Jeu' sélectionné.
+      3 sources d'images : recherche RAWG API (proxy backend), URL externe, upload local (static/uploads/games/).
+      Les jeux sont éditables (nom, règles, image) via le panel admin.
+  - id: G-16
+    rule: Leaderboard Global
+    description: Implémenter un système de points global (inspiré de oozturn) où chaque tournoi rapporte des points au classement général.
+  - id: G-17
+    rule: Résilience Offline (Self-hosted)
+    description: Aucune dépendance externe. Toutes les ressources (polices, icônes, scripts) sont servies localement.
+  - id: G-18
+    rule: Plan de salle interactif
+    description: L'Admin peut placer des postes sur un plan chargé en image de fond.
+  - id: G-19
+    rule: Schéma DB — Séparation config/bracket
+    description: >
+      La table tournaments sépare `config` (paramètres : bracket_type, use_teams, team_size)
+      et `bracket` (données de match : [{id:{s,r,m}, p:[id1,id2], score:[s1,s2]}]).
+      Colonne `bracket` ajoutée via migration safe ALTER TABLE dans init_db().
+  - id: G-20
+    rule: Zoom centré sur le curseur
+    description: Toutes les vues zoomables (carte de salle, bracket dashboard, bracket tournoi) orientent le zoom sur la position du pointeur de la souris.
+  - id: G-21
+    rule: Moteur BYE — Résolution récursive
+    description: >
+      Un match [joueur, 0] n'est un vrai BYE que si le slot vide ne sera JAMAIS rempli.
+      La fonction _is_match_dead() remonte récursivement l'arbre des feeders jusqu'au R1.
+      Cas spécial LB even-round slot 1 (WB dropout) : vérifie si le match WB produira un VRAI perdant
+      (les deux joueurs sont réels) vs un BYE [joueur, 0] dont le perdant est 0.
+      Le GF slot 1 pointe vers le LB Final via _get_feeder(), pas vers un match WB inexistant.
+  - id: G-22
+    rule: Persistance SQLAlchemy JSON
+    description: >
+      Toute mutation d'une colonne JSON (bracket, config, results) nécessite un appel explicite
+      à flag_modified(tournament, 'column') avant le commit. Sans cela, SQLAlchemy ne détecte pas
+      les changements (surtout la mise à None) et ne génère pas de UPDATE.
+  - id: G-23
+    rule: Bracket UI — Filtrage visuel
+    description: >
+      Les matchs double-BYE [0,0] et auto-win [joueur,0 scoré] sont masqués du rendu.
+      Les rounds LB entièrement vides sont retirés de l'affichage.
+      Le dernier round LB visible est labellé 'LB Finale'.
+      Le round GF est labellé '🏆 FINALE' avec espacement et style doré distinct.
+  - id: G-24
+    rule: Édition Inline Admin
+    description: >
+      Les formulaires d'édition d'entités (tournois) s'affichent directement dans la carte
+      de l'élément (panneau dépliable), pas dans une modale overlay. Un seul élément éditable
+      à la fois (singleton inlineEditId). Animation slideDown 0.2s à l'ouverture.
+  - id: G-25
+    rule: SystemConfig — Paramètres Globaux
+    description: >
+      Les préférences système (team_scoring_mode, event_name, etc.) sont stockées dans la
+      table system_config (key/value). Endpoint générique PUT /admin/config/{key} pour l'écriture.
+      Les valeurs sont lues dans les endpoints publics (GET /dashboard/stats) pour le frontend.
+  - id: G-26
+    rule: Classement Temps Réel — Frontend Only
+    description: >
+      Le classement live pendant un tournoi RUNNING est une projection frontend calculée
+      à partir des données bracket. Aucune mutation de User.points en DB tant que le tournoi
+      n'est pas clôturé (POST /close). Cela garantit l'intégrité du leaderboard global.
+  - id: G-27
+    rule: Vue Spectateur — Design Projecteur
+    description: >
+      La route /spectator est conçue pour affichage sur vidéoprojecteur :
+      texte large (1.5-3rem), fond radial gradient sombre, pas de scrollbar,
+      animations fluides (slide-in 0.6s cubic-bezier). Contrôle clavier uniquement
+      (← → Espace). Pas d'authentification requise (endpoint public).
+  - id: G-28
+    rule: Dual Team Concept
+    description: >
+      Deux notions d'équipe coexistent et ne doivent pas être confondues :
+      1. TournamentTeam (tournament_teams) : équipes créées PAR tournoi pour le bracket.
+      2. User.team_name : affiliation globale du joueur (pour le leaderboard équipes).
+      Le leaderboard équipes utilise User.team_name. Le bracket utilise TournamentTeam.
+  - id: G-29
+    rule: Points Distribution — Configuration Granulaire
+    description: >
+      Chaque tournoi peut configurer sa propre grille de points dans config JSON :
+      pts_winner (1er), pts_second (2ème), pts_third (3ème), pts_participation (par match joué),
+      pts_per_match (bonus score normalisé). Defaults : 1.5/1.3/1.0/1.0/0.5.
+      Les rangs sont attribués à tous les joueurs en élimination (pas seulement top 3).
+      Les points de placement ne sont distribués qu'au top 3.
+      Le wizard de création et l'édition inline exposent tous ces champs.
+
+  - id: G-30
+    rule: WebSocket Push — Score Events Détaillés (Implémenté)
+    description: >
+      Les messages WebSocket score_updated incluent les données de match (r, m, p1, p2, s1, s2)
+      pour permettre une mise à jour locale sans re-fetch complet. Les événements teams_updated
+      transportent le tournament_id pour cibler le refresh.
+  - id: G-31
+    rule: Team Self-Service — Ownership & Guards
+    description: >
+      Tout joueur inscrit peut créer une équipe (created_by tracé). Un joueur non-inscrit
+      au tournoi ne voit pas le bouton 'Rejoindre' (guard isParticipant + backend HTTP 400).
+      Un joueur déjà dans une équipe ne voit pas le bouton (guard myTeam).
+      Le hero 'Rejoindre' affiche '✅ Inscrit' si le joueur est déjà participant.
+  - id: G-32
+    rule: Multi-Instance Ollama — Load Balancing avec Priorité
+    description: >
+      La config ia_settings.ollama_instances stocke N URLs de serveurs Ollama.
+      Chaque instance possède un champ 'priority' (0 = max, défaut 10).
+      pick_instance() trie par priorité puis effectue un round-robin avec affinité modèle
+      et failover silencieux. Les instances haute priorité sont tentées en premier.
+      L'UI Admin affiche des boutons ▲/▼ pour réordonner et un badge de priorité.
+      La suppression re-numérote automatiquement les priorités.
+  - id: G-33
+    rule: Contrainte team_size Backend
+    description: >
+      L'endpoint add_team_member vérifie le nombre de membres actuel vs config.team_size
+      avant l'ajout. Retourne HTTP 400 si l'équipe est pleine.
+  - id: G-34
+    rule: Plan de salle — Bulk Unassign & Navigation
+    description: >
+      Bouton 'Libérer tout' (admin) pour désassigner toutes les places d'un coup
+      (POST /room/admin-unassign-all). En mode visualisation, le clic gauche permet
+      le pan (drag-threshold guard pour distinguer clic de drag).
+  - id: G-35
+    rule: Renommage de la LAN
+    description: >
+      Le champ 'Nom de la LAN' dans Administration > Settings sauvegarde via
+      PUT /admin/config/event_name. Le nom apparaît dans le Dashboard et la vue Projecteur.
+  - id: G-36
+    rule: Chat IA — Édition & Retry Messages
+    description: >
+      Les messages utilisateur sont éditables inline (PUT /ia/message/{id}).
+      Le retry (user ou bot) supprime les messages suivants et re-soumet.
+      Le mode édition offre 3 actions : Sauvegarder seul, Réenvoyer après édition, Annuler.
+  - id: G-37
+    rule: Contexte Compressé — Visible & Éditable
+    description: >
+      Le contexte compressé (conv.compressed_context) apparaît dans la conversation
+      comme un bloc système éditable. PUT /ia/compress/{conv_id}/edit pour modifier le texte.
+  - id: G-38
+    rule: Prompt Système — Configuration Admin
+    description: >
+      Le prompt système est stocké dans SystemConfig(key='system_prompt').
+      L'admin le configure dans Settings > Prompt Système IA.
+      Chaîne de lecture : SystemConfig → fr.json → défaut hardcodé.
+  - id: G-39
+    rule: Chat IA — Auto-Titre par l'IA
+    description: >
+      Lors du premier échange d'une conversation (titre = 'Nouvelle discussion'),
+      le backend génère automatiquement un titre court (max 5 mots) via Ollama
+      après la réponse du bot. Le titre est envoyé via SSE (data.title) et mis à jour
+      en temps réel dans la sidebar sans rechargement.
+  - id: G-40
+    rule: Chat IA — Auto-Compression du Contexte
+    description: >
+      Avant chaque envoi à Ollama, si les tokens estimés dépassent 90% de context_window,
+      le backend exécute automatiquement un truncate sur 50% de la fenêtre.
+      Les messages tronqués sont ajoutés au compressed_context avec le tag [Auto-compressé].
+      Le contexte compressé apparaît en tête de la conversation et est éditable.
+
+  - id: G-41
+    rule: Versioning — Fichier VERSION
+    description: >
+      Le fichier VERSION à la racine du projet contient le numéro de version SemVer (MAJOR.MINOR.PATCH).
+      Il doit être mis à jour MANUELLEMENT à chaque release significative.
+      Rappel : mettre à jour VERSION avant chaque push GitHub.
+      Mettre à jours le fichier changelog.md également
+  - id: G-42
+    rule: Premier Utilisateur = Admin
+    description: >
+      Le premier compte enregistré via /register obtient automatiquement is_admin=true.
+      Les suivants sont des utilisateurs standards. Un admin peut promouvoir/révoquer
+      d'autres admins via Administration > Gestion Joueurs.
+  - id: G-43
+    rule: Compression de Contexte IA — Flow Utilisateur
+    description: >
+      Quand le contexte atteint 85%, le prochain message déclenche un modal de choix
+      de compression (tronquer/compacter/résumer). Un indicateur visuel "Compression en
+      cours" est affiché. Le bloc compressé apparaît inline dans la conversation à sa
+      position chronologique. Le compteur de tokens ne comptabilise que les messages
+      post-compression + le contexte compressé.
+  - id: G-44
+    rule: Page d'Informations Générale (AXE-02)
+    description: >
+      Page /dashboard/info accessible depuis la sidebar (📋 Infos). Contenu Markdown
+      éditable par les admins via un éditeur WYSIWYG (EasyMDE) avec deux onglets :
+      Contenu Principal (joueurs) et Contenu Projecteur. Le contenu est stocké dans
+      SystemConfig (clés info_page_content et info_spectator_content). La page Projecteur
+      affiche le contenu spectateur dans sa rotation automatique. Endpoint public GET /dashboard/info.
+  - id: G-45
+    rule: Détection Automatique des Chemins Windows
+    description: >
+      Les chemins Windows (UNC \\serveur\partage et locaux C:\dossier) sont automatiquement
+      détectés dans le contenu Markdown de la page Infos. Ils sont affichés avec une icône 📂
+      et un clic copie le chemin dans le presse-papier avec notification visuelle.
+  - id: G-46
+    rule: Gestion des Comptes Joueurs — Création Admin & Pool de Test (Implémenté)
+    description: >
+      L'admin peut créer manuellement un compte joueur (pseudo, mot de passe, équipe)
+      via POST /admin/users/create. Un bouton "Générer 20 joueurs test" (POST /admin/users/generate-test-pool)
+      crée un pool de joueurs répartis dans 4 équipes (Alpha Wolves, Neon Vipers, Shadow Foxes, Iron Bears)
+      avec des pseudos gamer et des points aléatoires. Idempotent : les pseudos existants sont ignorés.
+  - id: G-47
+    rule: Inscriptions Tournoi — Contrôle Admin Complet (Implémenté)
+    description: >
+      L'admin peut forcer la désinscription d'un joueur individuel (DELETE /tournaments/{id}/participants/{uid}).
+      Deux actions bulk sont disponibles en status OPEN uniquement :
+      - POST /tournaments/{id}/join-all : inscrit TOUS les utilisateurs d'un coup.
+      - POST /tournaments/{id}/leave-all : désinscrit TOUS les participants et retire les membres d'équipe.
+      Les actions bulk utilisent une confirmation inline (pas de window.confirm) conformément à G-08.
+  - id: G-48
+    rule: Affichage des Participants Groupés par Équipe (Implémenté)
+    description: >
+      La liste des participants d'un tournoi est groupée par User.team_name (équipe globale du profil).
+      Chaque groupe affiche un header avec le nom de l'équipe et le nombre de membres.
+      Les joueurs sans équipe apparaissent dans un groupe "Sans équipe" en fin de liste.
+      La section "Joueurs disponibles" (inscription admin) n'apparaît qu'en status OPEN.
+  - id: G-49
+    rule: Performance GPU — Animations CSS Compositable
+    description: >
+      Les animations CSS infinies sur éléments visibles en permanence (body::before, sidebar dots,
+      badges) doivent utiliser uniquement des propriétés compositables (opacity, transform)
+      sans changer de géométrie (pas de scale sur fullscreen). Interdit : animer box-shadow,
+      ou transform: scale() sur des éléments couvrant le viewport entier.
+      backdrop-filter: blur() est INTERDIT sur les éléments permanents (.glass, bulles chat,
+      cards) — Firefox crée une couche de compositing GPU par élément qui re-sample et blur
+      tout le contenu derrière à chaque frame. Utiliser --glass-bg (semi-transparent) seul.
+      backdrop-filter reste acceptable sur les overlays/modales temporaires uniquement.
+      Pas d'animation infinie sur body::before (gradient statique).
+  - id: G-50
+    rule: Auto-Titre Conversation IA — Inline SSE (Implémenté)
+    description: >
+      Le titre de conversation IA est généré inline dans le flux SSE, après la réponse bot,
+      pas via un appel HTTP séparé. Cela évite la race condition avec Ollama (GPU single-threaded)
+      qui causait des timeouts silencieux sur l'ancien endpoint POST /ia/auto-title/{id}.
+      Le backend vérifie si conv.title == "Nouvelle discussion", appelle Ollama pour un titre
+      court (max 5 mots), et inclut le titre dans le payload SSE done {title: "..."}.
+      Le frontend lit data.title et met à jour le sidebar sans requête supplémentaire.
+  - id: G-51
+    rule: Résolution Noms d'Équipes Bracket — Fallback Triple Couche (Implémenté)
+    description: >
+      Les noms d'équipes dans le bracket sont résolus via 3 sources (par priorité) :
+      1) config._team_map (généré au start_tournament, clé "-teamId" → nom)
+      2) API live /tournaments/{id}/teams (survit à la perte de _team_map)
+      3) Fallback générique "Équipe #N"
+      Le _team_map peut être perdu lors d'éditions de config (spread JS sans _team_map).
+      Le backend close endpoint reconstruit automatiquement _team_map s'il est absent.
+      Fix appliqué sur : tournaments page, dashboard, spectator.
+
+  - id: G-52
+    rule: File d'attente IA serveur — asyncio.Queue avec priorité (Implémenté)
+    description: >
+      Toutes les requêtes GPU (chat, compression, notifications de tournoi) passent par
+      une asyncio.PriorityQueue centralisée (ia_queue.py). Priorité : admin=0, joueur=10,
+      compression=15, background=20. Limite 1 par joueur (anti-spam). N workers = N instances
+      Ollama activées. Feedback SSE temps réel (position, estimation d'attente) côté joueur.
+      Widget sidebar admin avec compteur file + panneau détaillé dans Administration > IA.
+      Estimation rolling average sur 20 dernières requêtes. Annulation possible (joueur: soi,
+      admin: tous). WebSocket broadcasts ia_queue_update et ia_queue_position.
+
+  - id: G-53
+    rule: Messagerie de Groupe — Canaux Déterministes (AXE-12, Implémenté)
+    description: >
+      Le système de messagerie de groupe utilise des channel_keys déterministes :
+      - Chat d'équipe privé : "team:NomEquipe" (tous les User.team_name identiques).
+      - Chat inter-équipes : "inter:EquipeA|EquipeB" (noms triés alphabétiquement).
+      Modèles : GroupChannel (channel_key unique, team_names JSON), GroupMessage
+      (sender_id + content), GroupMessageRead (last_read_message_id par user/channel).
+      Guards : un joueur n'accède qu'aux canaux dont son User.team_name fait partie.
+      Les admins accèdent à tous les canaux. WebSocket event: group_message_new.
+      Le badge sidebar combine P2P (pmUnreadCount) + Groupe (groupUnreadCount).
+
+future_axes:
+  - id: AXE-01
+    title: "Rollback Points (Annulation de Clôture)"
+    status: DONE
+    description: >
+      Permettre de ré-ouvrir un tournoi CLOSED en soustrayant les points distribués.
+      Complexe car nécessite de stocker les deltas de points par utilisateur dans results.
+    priority: low
+
+  - id: AXE-02
+    title: "Page d'informations générale"
+    status: DONE
+    description: >
+      Afficher une page d'informations générales sur la LAN. Editeur markdown visible pour Administrateurs.
+      Une section dédié est aussi présente spécialement pour la page "Projecteur".
+    priority: low
+
+  - id: AXE-03
+    title: "Fix de l'utilisation des ressources GPU très élevé quand le naviguateur affiche le dashboard"
+    status: DONE
+    description: >
+      Sur firefox, pas tellement sur chrome, l'utilisation du GPU monte en fleche quand on navigue sur le dashboard.
+      L'utilisation du GPU redescend quand le dashboard n'est plus affiché.
+      Cause principale : backdrop-filter: blur() sur .glass (8+ éléments permanents sur le dashboard),
+      chacun créant une couche GPU de compositing qui re-sample et blur tout le contenu derrière.
+      Fix : suppression complète de backdrop-filter sur .glass et éléments permanents,
+      suppression de l'animation bgPulse sur body::before (gradient statique),
+      animations infinies converties en opacity-only, will-change:opacity ajouté.
+    priority: high
+
+  - id: AXE-04
+    title: "Fix Auto-Titre Conversations IA (Race Condition Ollama)"
+    status: DONE
+    description: >
+      L'auto-titre des conversations IA ne fonctionnait pas car l'ancien mécanisme
+      utilisait un appel HTTP séparé (POST /ia/auto-title) après le stream SSE.
+      Ollama étant single-threaded GPU, la requête de titre arrivait pendant que le GPU
+      était encore occupé/en cleanup du chat principal, causant un timeout silencieux (catch {} vide).
+      Fix : génération du titre inline dans l'event_generator() SSE, juste après la sauvegarde
+      du message bot. Le titre est inclus dans le payload done et lu directement par le frontend.
+    priority: medium
+
+  - id: AXE-05
+    title: "Fix Noms d'Équipes Disparus dans le Bracket après Reopen/Re-close"
+    status: DONE
+    description: >
+      Après un cycle reopen + re-close d'un tournoi en mode équipes, les noms d'équipes
+      dans le bracket affichaient "Équipe #1" au lieu des vrais noms (LDF, Warrior, etc.).
+      Cause : le _team_map dans config était perdu (probablement lors d'une édition inline
+      qui spread selected.config sans _team_map présent à ce moment).
+      Fix triple : 1) Frontend fallback via API teams live (3 pages corrigées),
+      2) Backend reconstruit _team_map dans close_tournament si absent,
+      3) Le nameMap Svelte consulte teams[] en plus de config._team_map.
+    priority: high
+
+  - id: AXE-06
+    title: "Badge Siège Cliquable dans le Bracket → Navigation Plan de Salle"
+    status: DONE
+    description: >
+      Afficher le numéro de poste (seat_id) de chaque joueur dans le bracket sous forme
+      d'un petit badge cliquable (📍 T1_S3). Au clic, navigation vers /dashboard/map
+      avec paramètre ?highlight=SEAT_ID. La page Plan de Salle lit ce paramètre et
+      met en surbrillance le siège correspondant pendant 5 secondes (animation pulsante).
+      Nécessite : 1) Charger les seat_id des participants dans la page tournois,
+      2) Afficher un badge compact à côté du nom dans le bracket (duel + FFA + round_robin),
+      3) Ajouter la gestion du query param ?highlight sur la page map avec auto-pan vers le siège.
+    priority: medium
+
+  - id: AXE-07
+    title: "Page Joueurs & Messagerie Privée"
+    status: DONE
+    description: >
+      Créer une nouvelle page "Joueurs" (entre Tournois et Notifications).
+      Fonctionnalités : 1) Liste de tous les joueurs groupés par équipe. Affiche un chat à droite. 
+      2) Clic sur joueur -> Affichage du détail des points (historique des tournois).
+      3) Bouton "Voir siège" -> Navigation vers /map avec highlight.
+      4) Système de messagerie privée (P2P ou Admin-to-User).
+      5) Colonne de chat à droite pour la conversation active.
+      6) Badge de notifications (bulle rouge) sur le bouton "Joueurs" de la sidebar pour les messages non lus.
+    priority: high
+
+  - id: AXE-08
+    title: "Vérification et Extraction i18n"
+    status: DONE
+    description: >
+      Parcourir l'ensemble des composants Svelte et extraire tous les textes statiques
+      vers le fichier de traduction backend/static/i18n/fr.json. Laisser les icones en hard-codé, seulement les textes a écrire dans le fichier .json.
+      S'assurer qu'aucun texte n'est hardcodé en HTML/JS pour garantir un support multi-langue
+      complet (Anglais notamment) dans les futures versions.
+    done:
+      - "Extraction et centralisation de toutes les clés de traduction."
+      - "Localisation complète de l'assistant IA (titre par défaut et phrases gauloises de chargement)."
+    priority: medium
+
+  - id: AXE-09
+    title: "Plan de Salle : Éléments Logistiques et Fonctionnels"
+    status: DONE
+    description: >
+      Permettre l'ajout d'éléments logistiques dans l'éditeur du plan de salle (similaires
+      aux tables, avec gestion de la rotation et du drag & drop). Les éléments prévus incluent :
+      Porte d'entrée, Cuisine, Bar, WC, Rack technique, Écran de projection, et des
+      éléments génériques avec noms personnalisables.
+    priority: low
+
+  - id: AXE-10
+    title: "Affichage explicite du siège sur la page Joueurs"
+    status: TODO
+    description: >
+      Sur la page 'Joueurs', le bouton permettant de localiser un joueur sur le plan
+      de salle doit inclure le texte exact de sa place assignée (ex: '📍 T1_S3'). 
+      Cela permet aux administrateurs et joueurs de connaître la place d'un coup d'œil 
+      sans nécessairement avoir à ouvrir et charger le plan de salle interactif.
+    priority: medium
+
+  - id: AXE-11
+    title: "Lien rapide Bracket → Profil Joueur"
+    status: TODO
+    description: >
+      Dans les vues 'Bracket' (Arbre de tournoi), un badge permettant de localiser
+      le siège est déjà présent. L'objectif est d'ajouter un second bouton/badge 'Profil'
+      immédiatement à côté. Au clic, l'utilisateur est redirigé vers l'annuaire
+      (/dashboard/players) avec le panneau de messagerie/profil de ce joueur spécifique
+      automatiquement ouvert et sélectionné.
+    priority: medium
+
+  - id: AXE-12
+    title: "Messagerie de Groupe & Inter-Équipes"
+    status: DONE
+    description: >
+      Étendre le système de messagerie P2P existant pour supporter les groupes.
+      1. Chat privé d'équipe : En cliquant sur le nom de sa propre équipe dans la page
+      Joueurs, un salon de discussion réservé aux membres s'ouvre.
+      2. Chat Inter-Équipes : En cliquant sur le nom d'une équipe adverse, un salon
+      s'ouvre incluant l'équipe de l'utilisateur ET l'équipe ciblée (parfait pour le trash-talk
+      ou la coordination de match).
+      Le système de badges de notifications WebSocket doit être mis à jour pour supporter
+      ces canaux de groupe.
+    priority: high
+
+  - id: AXE-13
+    title: "Page Informations : Gestionnaire de fichiers utiles"
+    status: DONE
+    description: >
+      Ajouter un système d'upload et de gestion de fichiers dédié à la page 'Informations'
+      pour les administrateurs (ajout/suppression).
+      Cela permettra aux admins de rendre disponibles des fichiers utiles pour la LAN
+      (ex: fichiers .torrent pour le partage de jeux locaux, patchs, etc.) et de les lier
+      directement dans le contenu Markdown afin que les joueurs puissent les télécharger
+      facilement.
+    priority: medium
+
+  - id: AXE-14
+    title: "File d'attente IA côté serveur (Queue System)"
+    status: DONE
+    description: >
+      Implémentation d'un système de file d'attente serveur pour toutes les requêtes IA
+      (chat, compression, notifications de tournoi) via asyncio.PriorityQueue.
+      Priorité : admin (0) > joueur (10) > compression (15) > background/notifications (20).
+      Limite : 1 requête max par joueur. Workers : 1 par instance Ollama activée.
+      Feedback temps réel via SSE (position, temps estimé) côté joueur.
+      Widget sidebar admin avec compteur file + panneau détaillé dans Administration > IA.
+      Annulation possible par le joueur (sa propre requête) ou l'admin (toute requête).
+      Estimation du temps d'attente basée sur rolling average des 20 dernières requêtes.
+    priority: high
+
+  - id: AXE-15
+    title: "Limiter l'éditions de ses score en tant que joueur dans le bracket"
+    status: DONE
+    description: >
+      En tant que joueur, il est actuellement possible de modifier ses scores précédents 
+      dans le bracket. Le joueur doit pouvoir rentrer ou modifier son score de la rencontre en cours, 
+      mais une fois la rencontre terminée et le score validé par les deux joueurs et/ou un admin, 
+      il ne doit plus être possible de modifier le score. Seul les admins peuvent modifier les scores.
+    priority: medium
+
+  - id: AXE-16
+    title: "Auto log-in après la création d'un compte"
+    status: DONE
+    description: >
+      Permettre une connexion automatique (auto log-in) immédiate de l'utilisateur
+      après la soumission réussie du formulaire de création de compte (/register).
+    priority: medium
+
+  - id: AXE-17
+    title: "Pas de points initiaux pour les joueurs de test"
+    status: DONE
+    description: >
+      Les joueurs générés en pool de test (via le bouton +20 joueurs de l'admin) ne doivent
+      pas avoir de points de tournoi lors de leur insertion en base de données (points=0).
+    priority: low
+
+  - id: AXE-18
+    title: "Fix bug onglet Gestion Joueurs non rafraîchi dans l'Administration"
+    status: DONE
+    description: >
+      Correction du bug d'affichage de la liste des joueurs dans l'onglet 'Gestion Joueurs'
+      lorsqu'on navigue vers une autre page puis revient sur 'Administration'. Un mécanisme
+      réactif (Svelte reactive statement) recharge automatiquement les données correspondantes
+      lors de l'activation des onglets 'Gestion Joueurs' et 'Conversations IA'.
+    priority: high
+
+  - id: AXE-19
+    title: "Liste déroulante d'autocomplétion des équipes existantes dans le Profil"
+    status: DONE
+    description: >
+      Intégration d'une liste déroulante d'autocomplétion via datalist dans le profil joueur
+      permettant de sélectionner rapidement une équipe déjà existante (récupérée dynamiquement
+      depuis un nouvel endpoint FastAPI /players/teams), tout en préservant la possibilité de
+      saisir un tout nouveau nom d'équipe.
+    priority: low
+
+  - id: AXE-20
+    title: "Correction de l'index séquentiel dans la liste d'administration des joueurs"
+    status: DONE
+    description: >
+      Correction de la colonne d'index (#) dans la table de gestion des joueurs en administration.
+      Remplacement de l'utilisation de l'ID brut de la base de données (p.id) par un index
+      séquentiel dynamique (i + 1) lié au parcours de la liste Svelte. Ainsi, les numéros de ligne
+      sont contigus et se mettent à jour automatiquement sans trous en cas de suppression de joueurs.
+    priority: medium
+
+  - id: AXE-21
+    title: "Enrichissement de la vue d'édition et autocomplétion des équipes en Administration"
+    status: DONE
+    description: >
+      Intégration d'un menu d'autocomplétion des équipes existantes dans le formulaire d'ajout
+      et le modal d'édition des joueurs dans l'onglet Administration. De plus, enrichissement
+      de l'interface d'édition pour permettre aux administrateurs de modifier la place attribuée
+      (seat_id), les points cumulés, le rôle administrateur (is_admin) et le statut d'accès à l'IA
+      (ia_blocked) directement au même endroit avec synchronisation en base de données.
+    priority: high
+
+  - id: AXE-22
+    title: "Correction de la fermeture intempestive des modaux lors du glisser-relâcher"
+    status: DONE
+    description: >
+      Correction de l'événement de fermeture 'clic en dehors' des modaux d'administration.
+      L'ancien comportement fermait le modal si un utilisateur sélectionnait du texte (ex: nom d'équipe)
+      et relâchait le clic en dehors du modal. Le nouveau comportement enregistre le point de mousedown
+      et ne ferme le modal que si le mousedown et le mouseup ont tous deux eu lieu directement sur l'overlay.
+    priority: medium
+
+  - id: AXE-23
+    title: "Confirmations en ligne pour la promotion et rétrogradation d'administration"
+    status: DONE
+    description: >
+      Sécurisation des actions administratives de promotion (👑) et de rétrogradation (🛡️) des joueurs
+      via un mécanisme de confirmation en ligne identique à celui de la suppression. Les boutons initiaux
+      se transforment en "Promouvoir ?" ou "Rétrograder ?" avec une option d'annulation (❌) afin d'éviter
+      les mauvaises manipulations accidentelles pendant l'événement.
+    priority: medium
+
+  - id: AXE-24
+    title: "Auto-enregistrement des paramètres et configurations IA"
+    status: DONE
+    description: >
+      Implémentation d'un système d'auto-enregistrement (sauvegarde automatique) pour l'ensemble
+      des éléments de l'onglet "IA & Paramètres". Toute modification sur le nom de la LAN, les points
+      par défaut, les instances Ollama (ajout, modification du label/url/modèle/état, suppression, réordonnancement),
+      les paramètres de température et de fenêtre de contexte, les prompts système et de clôture, ou la base de
+      connaissances RAG déclenche une sauvegarde immédiate et transparente en base de données, permettant
+      de supprimer définitivement les boutons de sauvegarde manuelle superflus.
+    priority: high
+
+  - id: AXE-25
+    title: "Correction des couleurs de dropdown en mode clair"
+    status: DONE
+    description: >
+      Résolution du bug de lisibilité des menus déroulants (select/option) en mode clair, notamment
+      pour le choix des modèles Ollama. Remplacement de la règle CSS spécifique qui forçait un texte blanc/gris
+      très clair (#e2e8f0) par une règle dynamique et adaptative utilisant les variables de thème globales
+      var(--bg-secondary) et var(--text-main). Cette approche garantit une excellente lisibilité
+      dans les deux modes (clair et sombre) et sur tous les navigateurs majeurs (Chrome, Firefox, Safari).
+    priority: high
+
+  - id: AXE-26
+    title: "Correction de la visibilité des notifications (Toasts) lors du scroll"
+    status: DONE
+    description: >
+      Résolution du bug de clipping/invisibilité des notifications (Toasts) lorsque la page
+      est défilée verticalement. Le problème venait du fait que le conteneur des toasts (toast-container)
+      était rendu à l'intérieur d'un conteneur parent (.container.animate-in) doté d'une animation
+      transform (translateY). En CSS, un ancêtre avec transform crée un nouveau bloc de confinement
+      pour les éléments position: fixed, transformant leur comportement en position: absolute.
+      La solution utilise une action Svelte personnalisée ('use:portal') pour détacher dynamiquement le
+      toast-container de son emplacement initial dès qu'il est instancié/rendu (indépendamment des
+      chargements paresseux et blocs conditionnels Svelte #if) et l'insérer directement dans le document.body,
+      assurant un ancrage constant au viewport et un défilement propre.
+    priority: high
+
+  - id: AXE-27
+    title: "Wizard d'accueil et tutoriel après inscription"
+    status: DONE
+    description: >
+      Afficher un court wizard (assistant d'accueil) juste après la création du compte d'un joueur.
+      Étape 1 : Demander le nom de son équipe (en réutilisant la logique d'autocomplétion existante de la page profil).
+      Étape 2 : Demander son siège dans le plan de la salle.
+      Étape 3 : Mini-tutoriel expliquant le fonctionnement de l'application (où trouver les conversations avec son équipe, les autres équipes, les tournois, et comment utiliser l'assistant IA).
+    priority: medium
+
+  - id: AXE-28
+    title: "Refonte du flux Login / Register — Détection automatique de pseudo"
+    status: DONE
+    description: >
+      Rendre le processus de connexion/inscription plus intuitif en fusionnant les deux écrans.
+      1. Afficher uniquement le champ pseudo au départ.
+      2. Si le pseudo saisi existe déjà en base → demander le mot de passe (mode connexion classique).
+      3. Si le pseudo n'existe pas → changer la couleur de fond et le texte de l'interface pour
+         signaler visuellement qu'on est en mode création de compte, afficher le champ de création
+         de mot de passe, puis à la validation enchaîner : auto-login + wizard d'accueil (AXE-27).
+      Le changement visuel (fond + texte) doit être suffisamment marqué pour que l'utilisateur
+      comprenne immédiatement qu'il est en train de créer un nouveau compte.
+    priority: high
+
+  - id: AXE-29
+    title: "Améliorations UX de la vue Arbre de Tournois (Bracket)"
+    status: DONE
+    description: >
+      Série d'améliorations ergonomiques sur la vue bracket (arbre de tournoi) :
+      1. Augmenter la taille du texte dans les matchs pour une meilleure lisibilité.
+      2. Ajuster dynamiquement la largeur et la hauteur du bracket jusqu'à un certain
+         seuil pour mieux occuper l'espace disponible.
+      2.5. Afficher une flèche directionnelle pointant vers la partie du tableau qui n'est
+           pas visible à l'écran, incitant l'utilisateur à le déplacer dans cette direction.
+      3. Bloquer le déplacement (pan) du bracket pour empêcher de le sortir complètement
+         de la zone visible (clamping aux bords).
+      4. Bloquer le zoom et le dé-zoom avec des valeurs limites (min/max) pour éviter
+         de rendre le bracket illisible ou trop petit.
+    priority: medium
+
+  - id: AXE-30
+    title: "Liste des participants inscrits & composition des équipes (Tournois)"
+    status: DONE
+    description: >
+      Améliorer le flux de composition des équipes dans la vue détail d'un tournoi :
+      1. Afficher la liste complète des participants inscrits AVANT la section de composition
+         des équipes. Cette liste sert de « pool » de joueurs disponibles.
+      2. Au fur et à mesure que les joueurs se placent (ou sont placés) dans une équipe composée,
+         ils disparaissent de la liste des inscrits (effet de « vidange »).
+      3. Pour les administrateurs, permettre le glisser-déposer (drag & drop) des noms depuis
+         la liste des inscrits directement dans les équipes composées.
+      4. Une fois le match lancé (status RUNNING), masquer la liste des participants inscrits
+         restants (ceux qui ne se sont pas placés dans une équipe) pour ne pas polluer l'affichage
+         pendant le déroulement du tournoi. et gagner en visibilité verticale.
+    priority: high
+
+  - id: AXE-31
+    title: "Correction de la validation des scores (autoriser 1-0)"
+    status: DONE
+    description: >
+      Actuellement, la condition de validation d'un score de match exige que les deux
+      scores soient strictement supérieurs à 0 (s0 > 0 && s1 > 0). Cela empêche de saisir
+      un résultat légitime comme 1-0 ou 3-0.
+      La condition doit être corrigée pour valider un match dès que les deux champs sont
+      renseignés (non vides) et que les scores sont différents, y compris si l'un vaut 0.
+      Impacte : la fonction isMatchFinalized() côté frontend, et potentiellement la logique
+      backend de détermination du vainqueur.
+    priority: high
+
+  - id: AXE-32
+    title: "Mode booléen pour les tournois (Vainqueur / Perdant / Égalité)"
+    status: DONE
+    description: >
+      Ajouter un mode de saisie alternatif « booléen » pour les matchs de tournoi.
+      Quand ce mode est activé dans la configuration du tournoi :
+      1. Les champs de saisie de score numérique sont remplacés par des boutons
+         « Vainqueur », « Perdant » et « Égalité » pour chaque joueur/équipe.
+      2. Un clic sur « Vainqueur » pour le joueur A attribue automatiquement le score 1-0
+         (et inversement pour le joueur B). « Égalité » attribue 1-1 ou un score neutre.
+      3. Le mode booléen est un paramètre de configuration du tournoi (boolean_mode: true),
+         configurable lors de la création ou de l'édition du tournoi. Modifications à effectuer partout où le tournois est configurable.
+      4. L'affichage des résultats passés montre des badges « ✅ Victoire / ❌ Défaite / 🤝 Égalité »
+         au lieu des scores numériques.
+    done:
+      - "Configuration boolean_mode dans le wizard de création et le modal d'édition."
+      - "Boutons V/D/É dans les brackets WB, LB et Round Robin."
+      - "Affichage des badges dans les vues dashboard et spectateur."
+      - "Fonctions setBoolScore() et setBoolDraw() côté frontend."
+      - "Résolution du problème de l'égalité : réservée uniquement au mode Championnat (Round Robin) via l'option 'allow_draws'."
+      - "Retrait des boutons Égalité des brackets WB/LB pour forcer un vainqueur unique."
+    priority: medium
+
+  - id: AXE-33
+    title: "Défilement vertical automatique pour brackets géants (Vue Projecteur)"
+    status: DONE
+    description: >
+      Permettre une lecture intégrale des arbres de tournois (Duel, FFA, Championnat)
+      qui dépassent en hauteur sur l'écran du projecteur.
+      1. Si le bracket est plus grand que le viewport vertical de l'écran :
+         a. Suspendre le défilement automatique du diaporama.
+         b. Attendre 3 secondes tout en haut du bracket.
+         c. Effectuer une transition de translation verticale fluide vers le bas (GPU-accelerated CSS translateY) à une vitesse de 35px/s.
+         d. Attendre 3 secondes tout en bas du bracket.
+         e. Passer à la slide suivante et réactiver le diaporama.
+      2. Le défilement ne doit pas boucler ou se bloquer indéfiniment.
+    done:
+      - "Détection automatique du débordement en hauteur (roundsHeight > viewportHeight)."
+      - "Verrouillage anti-boucle (hasStartedScrollForCurrent) pour éviter les boucles infinies lors de la liaison de hauteur de Svelte."
+      - "Transition de translate fluide CSS 3D (Z-axis force pour GPU) à vitesse contrôlée."
+      - "Synchronisation robuste des timeouts Svelte (attente haut + défilement + attente bas + transition)."
+    priority: high
+
+  - id: AXE-34
+    title: "Système de versioning et patch notes GitHub"
+    status: DONE
+    description: >
+      Ajouter un badge de version SemVer dans l'interface et un modal cliquable
+      qui récupère l'historique des patch notes depuis l'API GitHub.
+      1. Endpoint backend `/health` dynamique lisant le fichier VERSION.
+      2. Montage du fichier VERSION dans le conteneur backend.
+      3. Badge de version cliquable `v{version}` dans le menu latéral.
+      4. Modal en glassmorphisme avec effet de flou pour lister les releases GitHub.
+    done:
+      - "Endpoint backend dynamique /health configuré."
+      - "Fichier VERSION monté via docker-compose."
+      - "Badge cliquable dans la barre latérale."
+      - "Modal glassmorphic avec requêtage dynamique de l'API GitHub des releases."
+    priority: medium
+
+  - id: AXE-35
+    title: "Amélioration de la réactivité (Responsiveness) et gestion du débordement vertical"
+    status: DONE
+    description: >
+      Résoudre le problème de débordement du menu latéral gauche sur les écrans à hauteur de viewport limitée.
+      1. Empêcher tout débordement en dehors du conteneur en verre (.side-nav.glass).
+      2. Ajouter un défilement vertical fluide sur le conteneur de la barre latérale.
+      3. Créer une scrollbar premium minimaliste translucide de 4px d'épaisseur.
+    done:
+      - "Ajout de l'overflow-y: auto et overflow-x: hidden sur le conteneur de la barre latérale."
+      - "Mise en place d'une barre de défilement personnalisée ultra-fine et transparente (W3C/Webkit)."
+      - "Validation du comportement de défilement sous viewport restreint sans débordement de la boîte en verre."
+    priority: high
+
+  - id: AXE-36
+    title: "Génération de l'historique des Releases GitHub & Rappel de versioning"
+    status: DONE
+    description: >
+      1. Générer toutes les releases historiques (de v1.0.0 à v1.7.0) via GitHub CLI basées sur les commits originaux.
+      2. Mettre à jour la version courante (backend/VERSION) à v1.7.0.
+      3. Créer un hook Git pre-push pour rappeler à l'administrateur de créer une release et de mettre à jour le changelog après de nouvelles fonctionnalités.
+    done:
+      - "Les 8 releases historiques ont été publiées sur GitHub via 'gh release create'."
+      - "backend/VERSION et main.py ont été incrémentés à v1.7.0."
+      - "Le hook .git/hooks/pre-push a été configuré pour relancer un rappel élégant à chaque 'git push'."
+    priority: medium
+
+  - id: AXE-37
+    title: "Défilement automatique intelligent du Chat IA (Smart Scroll)"
+    status: DONE
+    description: >
+      Lorsqu'une réponse de l'assistant IA est en cours de streaming, le chat doit défiler
+      automatiquement vers le bas. Cependant, si l'utilisateur remonte manuellement
+      l'ascenseur (scroll) de la conversation, l'auto-défilement doit être désactivé
+      pour lui permettre de lire à son rythme. Dès que l'utilisateur ramène l'ascenseur
+      tout en bas de la conversation, le défilement automatique doit reprendre.
+    done:
+      - "Détection du scroll manuel via un gestionnaire d'événement on:scroll sur le conteneur."
+      - "Contrôle dynamique du défilement automatique via un indicateur réactif autoScrollEnabled."
+      - "Mécanisme de verrouillage temporaire (isAutoScrolling) pour isoler les défilements programmés des actions de l'utilisateur."
+    priority: medium
+
+  - id: AXE-38
+    title: "Indicateur d'État et Pensée du LLM (Thinking/Tool/Generating)"
+    status: DONE
+    description: >
+      Permettre de différencier clairement les états du modèle d'IA : modèle/instance interrogé,
+      réception des données/exécution d'outils, réflexion de fond (blocs <think>), et début de
+      la génération de réponse finale.
+    done:
+      - "Emission immédiate des métadonnées model_info (modèle et instance sélectionnés) au début du flux SSE."
+      - "Implémentation d'un relai de paquets de statut (status: tool_call, thinking, generating) depuis le worker vers le routeur et le client."
+      - "Détection et extraction en temps réel des blocs de réflexion <think>...</think> pour les diffuser en chunks dédiés vers le client."
+      - "Affichage frontend dynamique avec des badges premium (.bot-meta) et un bloc de raisonnement collapsible (.think-details) synchronisé en direct."
+    priority: high
+
+  - id: AXE-39
+    title: "Outils de Diagnostic LAN/Système et Accès Règles/Notes pour l'IA"
+    status: DONE
+    description: >
+      Doter l'assistant IA de vraies capacités de diagnostic réseau (ping, traceroute, dns,
+      état de santé du serveur, scan de la table ARP) et d'un accès complet aux règles et
+      notes de jeux de la LAN (non tronquées). Ajouter un paramètre administrateur pour
+      rendre optionnel l'usage de ces outils réseau par l'IA.
+    done:
+      - "Installation des paquets système (ping, traceroute, nslookup, arp) dans le Dockerfile backend."
+      - "Définition et implémentation sécurisée (avec sanitization anti-injection) des outils IA (ping_host, traceroute_host, dns_lookup, check_server_health, scan_local_network, get_game_rules)."
+      - "Ajout d'un toggle d'activation 'Outils Réseau & Diagnostics' dans les paramètres IA de l'Administration."
+      - "Filtrage dynamique des déclarations d'outils et blocage de l'exécution côté backend si désactivés."
+    priority: high
+
+  - id: AXE-40
+    title: "FFA: Autoriser la progression de tous les joueurs"
+    status: DONE
+    description: >
+      En mode FFA, autoriser de garder TOUS les joueurs pour la manche suivante.
+      Actuellement il est nécessaire d'éliminer au moins 1 personne.
+    done:
+      - "Backend: condition `keep_count >= len(players)` changée en `keep_count > len(players)` dans ffa_advance_round."
+      - "Frontend: max de l'input keepCount passé de `match.p.length - 1` à `match.p.length`."
+    priority: medium
+
+  - id: AXE-41
+    title: "Indicateur discret de progression et durée moyenne par instance"
+    status: DONE
+    description: >
+      Barre de progression intégrée discrètement au fond des bulles du chat IA, pulsation quand la durée dépasse la moyenne,
+      affichage permanent de la durée totale en haut à gauche, exclusion du temps d'exécution des outils, calcul de la durée
+      basé sur le Time to First Token (TTFT), stockage de l'historique (limité aux 10 derniers) et affichage de la moyenne par instance sur la page Administration.
+    done:
+      - "Intégration CSS/Svelte de la barre de progression en fond de bulle de chat."
+      - "Calcul des moyennes de temps de réponse par instance d'Ollama avec persistance en base de données."
+      - "Exclusion du temps de calcul/exécution des outils tiers et pulsation lors du dépassement ou de l'appel d'outils."
+      - "Affichage du badge temps réel et de la moyenne dans l'Administration par instance."
+    priority: high
+
+  - id: AXE-42
+    title: "Modération IA, XML Fallback & Autofocus du Chat"
+    status: DONE
+    description: >
+      Outil d'auto-modération ('block_user_from_ia') pour bloquer temporairement l'accès à l'IA d'un joueur abusif.
+      Mise en place d'un analyseur de secours (fallback) basé sur des balises XML de format <tool_call> pour les modèles comme DeepSeek-R1.
+      Toggle admin optionnel pour l'auto-modération. Autofocus automatique du champ de saisie utilisateur après génération et au changement de salon.
+    done:
+      - "Création de l'outil 'block_user_from_ia' protégeant les admins et ciblant uniquement l'utilisateur courant."
+      - "Développement d'un parser XML de secours pour l'extraction et l'exécution d'outils avec modèles textuels/raisonnement."
+      - "Toggle optionnel 'Auto-modération (Anti-abus)' dans l'onglet des paramètres IA."
+      - "Réactivation automatique (autofocus) du champ de saisie du chat dès la fin de la génération."
+    priority: high
+
+  - id: AXE-43
+    title: "Moteur de Prix Automatisés & Notifications Différées"
+    status: DONE
+    description: >
+      Transitionner le système d'attribution de prix vers un calcul automatique basé sur les statistiques réelles des tournois (12 catégories).
+      Permettre aux administrateurs de personnaliser les titres et les descriptions de chaque distinction (avec variables dynamiques).
+      Empêcher l'envoi immédiat de notifications aux joueurs, et ajouter un bouton de diffusion manuelle des prix en fin de LAN.
+    done:
+      - "Implémentation d'un moteur de suggestions basé sur 12 catégories statistiques (marathonien, passoire, chouchou, etc.)."
+      - "Support des variables dynamiques ({points}, {wins}, etc.) avec sauvegarde des templates dans SystemConfig."
+      - "Création d'un endpoint POST /admin/awards/notify pour déclencher l'envoi groupé des notifications avec détection des doublons."
+      - "Refonte de l'interface d'administration avec une grille de personnalisation des prix et un bouton explicite de diffusion."
+    priority: high
+
+  - id: AXE-44
+    title: "Amélioration de l'onglet Conversations IA (Monitoring Admin)"
+    status: DONE
+    description: >
+      Permettre à l'administrateur d'identifier rapidement les conversations récentes, d'avoir des indicateurs
+      sur les nouveaux messages, de voir l'aperçu du dernier échange, d'obtenir le temps de réponse précis de l'IA,
+      ainsi que le détail des outils utilisés pour chaque réponse du bot.
+    done:
+      - "Backend: enrichissement de l'endpoint d'administration des conversations avec la date/heure de dernière activité, aperçu du message et indicateur has_new_messages."
+      - "Frontend: tri des conversations par dernière activité, ajout de bordures de statuts colorées (vert pour nouveau message, violet pour admin override) et badges Nouveau."
+      - "Frontend: intégration des métadonnées du modèle IA (nom, instance GPU, outils exécutés, temps de réponse) sous chaque message bot."
+      - "Frontend: affichage de l'horodatage complet pour tous les messages du chat."
+      - "Frontend: application d'un fond opaque sur la modale de compression de contexte (.modal-content) pour garantir la lisibilité du texte par-dessus la discussion."
+    priority: high
+
+  - id: AXE-45
+    title: "Éditeur d'Avatar Joueur, Formes de Masques & Arrière-plans"
+    status: DONE
+    description: >
+      Ajouter un mini éditeur visuel d'avatar lors de l'importation de l'image (zoom, recadrage, choix du masque).
+      Remplir le fond transparent des images PNG par une couleur choisie.
+      Propager la forme de l'avatar sélectionnée (cercle, carré arrondi, carré) partout sur le site.
+      Optimiser la performance en enlevant le backdrop-filter des modales au profit d'un assombrissement complet de la page.
+      Adapter le plan de salle 2D pour conserver le nom des équipes sous les avatars.
+    done:
+      - "Développement du mini éditeur visuel d'avatar avec zoom (0.5x à 4x) et positionnement par drag-and-drop."
+      - "Intégration d'un sélecteur de forme d'avatar (cercle, carré, carré arrondi) enregistré dans la base de données."
+      - "Ajout du choix de couleur d'arrière-plan pour remplir les transparences des PNG."
+      - "Propagation globale du masque d'avatar sur toutes les vues (sidebar, leaderboard, chat, projecteur, brackets)."
+      - "Correction ergonomique empêchant la sélection de texte lors du glissement dans l'éditeur."
+      - "Ajustement du plan de salle SVG avec clipPath dynamique et réduction des avatars à 18px pour conserver le nom de l'équipe."
+      - "Optimisation de l'overlay de modale avec un fond sombre opaque au lieu d'un floutage de fond."
+
+  - id: AXE-46
+    title: "Mutualisation de la Modale d'Édition de Tournois"
+    status: DONE
+    description: >
+      Afin d'éviter la duplication de code et faciliter la maintenance, extraire la modale d'édition de tournois premium
+      présente sur la page d'administration et sur la page tournois joueur dans un composant Svelte unique et réutilisable.
+    done:
+      - "Création du composant réutilisable EditTournamentModal.svelte."
+      - "Intégration sur la page tournois joueur."
+      - "Intégration sur la page administration en conservant les options de statut spécifiques."
+      - "Nettoyage des styles CSS dupliqués."
+    priority: medium
+
+  - id: AXE-47
+    title: "Correction de l'Affichage des Instructions du Plan de Salle"
+    status: DONE
+    description: >
+      Corriger le bug d'affichage sur la page Plan de Salle où les instructions de navigation
+      s'affichaient sous forme de code ternaire JavaScript brut (seatingLocked && !user?.is_admin ...)
+      quand le joueur n'avait pas de siège assigné, et modifier le message d'aide à la navigation.
+    done:
+      - "Enveloppement de la condition de traduction dans des accolades Svelte {} pour exécution réactive."
+      - "Remplacement de 'Molette ou clic droit pour naviguer.' par 'Clic pour naviguer.' dans les fichiers i18n."
+    priority: high
+
+  - id: AXE-48
+    title: "Redimensionnement dynamique et cohérent des textes de la Sidebar"
+    status: DONE
+    description: >
+      Afin de garantir une interface esthétique et sans retour à la ligne inesthétique dans toutes les langues,
+      implémenter une fonction Svelte réactive qui détecte si un libellé de menu de la barre latérale déborde.
+      Si un débordement est détecté, réduire la taille de police uniformément sur tous les éléments.
+    done:
+      - "Détection du wrapping vertical par comparaison de hauteur (offsetHeight > 25px)."
+      - "Calcul itératif avec réduction uniforme via variable CSS --nav-font-size."
+      - "Retrait de la transition CSS font-size pour éliminer tout lag de rendu lors de la mesure."
+      - "Validation réactive lors du chargement des traductions ($t)."
+    priority: medium
+
+  - id: AXE-49
+    title: "Persistance des Illustrations de Jeux (Docker)"
+    status: DONE
+    description: >
+      Les images de couverture des jeux étaient stockées dans un dossier éphémère du conteneur Docker
+      (/app/static/uploads/games/) et disparaissaient après chaque redémarrage ou mise à jour.
+      Déplacer le stockage vers le volume persistant /app/data/game_images/ avec migration automatique
+      des fichiers existants et mise à jour des chemins en base de données au démarrage.
+    done:
+      - "Création d'une fonction helper _get_game_images_dir() utilisant le volume persistant."
+      - "Migration de _localize_image_url() et upload_game_image() vers /data/game_images/."
+      - "Migration automatique au startup : déplacement des fichiers physiques et mise à jour des URL en BDD."
+      - "Audit complet du stockage persistant : tous les éléments utilisateur sont dans /app/data."
+      - "Nettoyage du .gitignore : retrait des fichiers .bak du dépôt et ajout de test_api.py aux exclusions."
+    priority: high
+
+  - id: AXE-50
+    title: "Fusion de l'administration des tournois & bibliothèque de jeux avec ajout inline"
+    status: DONE
+    description: >
+      Regrouper sous un onglet unique 'Tournois & Jeux' les listes de tournois et la bibliothèque des jeux.
+      Permettre l'ajout direct d'un jeu depuis le wizard de création de tournoi via un bouton additionnel '+',
+      avec sélection automatique du nouveau jeu sans perturber le formulaire.
+    done:
+      - "Création du composant réutilisable AddGameModal.svelte pour l'ajout complet de jeux."
+      - "Retrait de l'onglet séparé 'Bibliothèque Jeux' et empilement des deux listes dans la vue d'administration."
+      - "Intégration du bouton '+' dans CreateTournamentWizard.svelte et liaison avec la modale."
+      - "Synchronisation i18n des onglets en français, anglais et espagnol."
+    priority: high
+
+  - id: AXE-51
+    title: "Éditeur WYSIWYG (EasyMDE) pour les règles des jeux"
+    status: DONE
+    description: >
+      Remplacer les champs textarea bruts de règles par l'éditeur Markdown EasyMDE.
+      Intégrer l'éditeur à la fois dans la modale d'ajout de jeux et dans la modale d'édition de jeux.
+    done:
+      - "Chargement asynchrone et dynamique d'EasyMDE pour éviter les erreurs de rendu SSR."
+      - "Utilisation de directives Svelte actions avec synchronisation bidirectionnelle automatique."
+      - "Application du thème sombre personnalisé pour EasyMDE conforme au design du projet."
+    priority: medium
+
+  - id: AXE-52
+    title: "Harmonisation esthétique de l'attribution des points"
+    status: DONE
+    description: >
+      Ajuster l'affichage des attributions de points de tournois dans l'édition et la création.
+      Passer à une grille homogène à 5 colonnes et aligner horizontalement les icônes et étiquettes.
+    done:
+      - "Passage à une grille à 5 colonnes dans EditTournamentModal.svelte."
+      - "Alignement horizontal en flexbox avec white-space: nowrap pour les étiquettes de points."
+      - "Mise à jour des valeurs par défaut distribuées avec l'application (1er: 1.5, 2e: 1.3, 3e: 1.0, Part.: 1.0, Bonus: 0.5)."
+    priority: low
+
+  - id: AXE-53
+    title: "Diagnostics réseau déportés côté client"
+    status: DONE
+    description: >
+      Permettre au navigateur client d'exécuter localement les requêtes de diagnostic réseau
+      (ping, traceroute, DNS) émises par le LLM pour surmonter l'isolation imposée par Docker.
+    done:
+      - "Transformation de execute_tool en fonction asynchrone (async def)."
+      - "Création de la route POST /client-tool-response/{call_id} pour recevoir les retours."
+      - "Implémentation de runClientTool en Svelte pour tester la latence HTTP/HTTPS et DNS Cloudflare."
+      - "Tests unitaires complets écrits et validés avec pytest."
+    priority: high
+
+  - id: AXE-54
+    title: "Optimisation des performances IA & correction des titres"
+    status: DONE
+    description: >
+      Résoudre les réponses tronquées sur Gemma en passant à l'API /api/generate pour les titres.
+      Garantir le support multilingue pour les titres de conversation par défaut.
+      Ajouter les modes de performance IA (A - Intercept, C - Pas d'outils, D - Double appel) et supprimer l'Option B non fiable.
+      Mettre à disposition le sélecteur dans le panneau d'administration.
+    done:
+      - "Passage à l'API /api/generate d'Ollama pour la génération textuelle de titres robustes."
+      - "Détection multilingue dynamique des titres par défaut depuis les JSON i18n."
+      - "Implémentation des modes IA stream_intercept, legacy_double et disabled avec sélecteur d'administration."
+      - "Retrait complet de l'Option B (filtrage hybride)."
+    priority: high
+
+  - id: AXE-55
+    title: "Suivi en temps réel de la présence des joueurs"
+    status: DONE
+    description: >
+      Ajouter le suivi et l'affichage en temps réel (point vert) de la présence des joueurs en ligne.
+      La solution doit être performante et ne pas surcharger la base de données SQLite.
+    done:
+      - "Création d'un tracker de présence 100% en mémoire ACTIVE_USERS (zéro écriture SQLite)."
+      - "Propagation de is_online dans les API /players, /admin/users, /admin/conversations et /messages/{peer_id}."
+      - "Ajout de l'indicateur visuel point vert (online-indicator) sur les avatars dans l'annuaire des joueurs, l'en-tête de chat et l'administration."
+      - "Création d'un wrapper avatar pour empêcher le rognage de l'indicateur par overflow:hidden."
+      - "Optimisation du polling Svelte et du WebSocket (limitation de invalidateAll)."
+    priority: high
+
+  - id: AXE-56
+    title: "Intégration de la génération des titres dans la file d'attente IA"
+    status: DONE
+    description: >
+      Gérer la génération en arrière-plan des titres de conversations via la file d'attente IA globale.
+      Afficher l'état de ces tâches système dans le dashboard d'administration et la file d'attente.
+      Résoudre le bug de regression UnboundLocalError sur le streaming de chat.
+    done:
+      - "Intégration d'auto_title en tant que tâche système de priorité 20 dans IAQueueManager."
+      - "Suppression de l'endpoint direct bloquant /ia/auto-title/{conv_id}."
+      - "Résolution de l'import local problématique de queue_manager provoquant l'UnboundLocalError."
+      - "Vérification de sécurité anti-écrasement si l'utilisateur renomme manuellement sa conversation pendant l'attente."
+      - "Création de 4 tests unitaires (limite de concurrence, protection contre les doublons, gestion des conflits de titres, routage)."
+    priority: high
+
+  - id: AXE-57
+    title: "Headers de Cache-Control pour le frontend de production"
+    status: DONE
+    description: >
+      Éliminer le besoin d'exécuter un rafraîchissement forcé (CTRL+F5) après chaque mise à jour sur le serveur.
+      Ajouter des en-têtes HTTP Cache-Control appropriés selon le type d'asset servi par le serveur standalone.
+    done:
+      - "Index.html configuré en no-cache, no-store, must-revalidate (revalidation systématique)."
+      - "Fichiers statiques hashés (_app/immutable/*) configurés avec un cache à vie (1 an, public, immutable)."
+      - "Application globale sur l'endpoint de routage SPA dans main.py."
+    priority: medium
+
+  - id: AXE-58
+    title: "Restauration visuelle de réflexion IA et UX Notifications cliquables"
+    status: DONE
+    description: >
+      Conserver l'indicateur visuel de réflexion et le timer de l'IA quand l'utilisateur quitte et revient sur le chat.
+      Ajouter l'expansion des notifications au clic uniquement si le texte est long (> 140 caractères).
+      Limiter les notifications de l'IA à 250 caractères max en multilangue.
+    done:
+      - "Restauration des timers et messages de réflexion de l'IA lors du chargement initial/navigation (+page.svelte)."
+      - "Clamping et expansion sélective des notifications uniquement si content.length > 140."
+      - "Opacité des cartes de notifications lues adoucie à 0.85 pour une meilleure lisibilité."
+      - "Schémas d'outils ia_tools adaptés avec des instructions de longueur et de langue explicites."
+    priority: high
+
+  - id: AXE-59
+    title: "Correction clé de traduction dash_stat_new dans l'administration"
+    status: DONE
+    description: >
+      Ajouter la clé de traduction manquante dash_stat_new pour l'administration des conversations.
+    done:
+      - "Clé dash_stat_new ajoutée et synchronisée en UTF-8-sig dans fr.json, en.json, es.json."
+    priority: low
+
+  - id: AXE-60
+    title: "Mise à jour réactive des jeux et auto-sélection après création dans l'assistant de tournois"
+    status: DONE
+    description: >
+      Assurer que le nouveau jeu créé s'affiche immédiatement dans la liste de sélection des tournois.
+      Sélectionner automatiquement ce nouveau jeu dans le formulaire.
+    done:
+      - "Ajout de onGameCreated dans la vue Tournois pour rafraîchir dynamiquement la liste."
+      - "Mise à jour locale instantanée de la variable reactive 'games' et liaison auto-select active de config.game_id dans CreateTournamentWizard.svelte."
+    priority: medium
+
+  - id: AXE-61
+    title: "Généralisation du masquage des détails de tournoi à tous les joueurs"
+    status: DONE
+    description: >
+      Étendre le comportement de masquage de détails (et persistance LocalStorage) à tous les joueurs connectés.
+    done:
+      - "Retrait de currentUser des conditions d'initialisation réactives de showDetails pour autoriser son évaluation immédiate."
+    priority: low
+
+  - id: AXE-62
+    title: "Affichage des membres d'équipe dépliables dans les classements"
+    status: DONE
+    description: >
+      Pouvoir déplier une équipe dans les classements (Live et Final) pour lister ses membres et afficher le détail de leurs points individuels.
+    done:
+      - "Mise en place de l'état réactif expandedTeams dans la vue des tournois."
+      - "Ajout de la liste des joueurs dépliables sous les lignes d'équipe avec héritage des points de l'équipe parente."
+    priority: medium
+
+  - id: AXE-63
+    title: "Améliorations esthétiques du plan de salle et du dashboard"
+    status: DONE
+    description: >
+      Améliorer la stabilité visuelle et l'information contextuelle de l'interface (correction du défilement/disparition des onglets de tournois, correction de la compression des avatars de joueurs par les pseudos longs, ajout des noms d'équipes dans le plan de salle du wizard d'accueil, coloration distinctive en ambre des coéquipiers d'une même équipe).
+    done:
+      - "Empêcher la disparition verticale des onglets actifs de tournois (.running-tabs) dans le dashboard via flex-shrink: 0 et min-height."
+      - "Empêcher la compression visuelle des avatars (.lb-avatar, .lb-rank) par les pseudos longs dans le leaderboard du dashboard via flex-shrink: 0."
+      - "Ajouter l'affichage dynamique et compressé (textLength) des noms d'équipes sur les sièges occupés du plan de salle du wizard d'accueil."
+      - "Colorer distinctement en orange/ambre (--map-seat-teammate-fill/stroke) les sièges occupés par des coéquipiers dans toutes les vues de plan de salle."
+      - "Mettre à jour les légendes de plans de salle pour inclure la couleur des coéquipiers si l'utilisateur possède une équipe."
+  - id: AXE-64
+    title: "Indicateur de saisie en temps réel pour le chat public (joueurs & assistant IA)"
+    status: DONE
+    description: >
+      Permettre l'affichage en temps réel de qui est en train de rédiger un message dans le chat public,
+      y compris l'assistant IA Alanbix lorsqu'il prépare sa réponse. Phrase humoristique contextuelle unifiée.
+    done:
+      - "Endpoint POST /public-chat/typing pour la diffusion en temps réel de l'état de saisie avec broadcast WebSocket public_chat_typing."
+      - "Émission automatique de l'état de frappe pour la mascotte @Alanbix durant la génération asynchrone via la file d'attente IA."
+      - "Composant visuel chat-typing-bar dans PublicChat.svelte regroupant les rédacteurs au format 'Untel, untel, Alanbix … [phrase humoristique]' avec dots animés."
+      - "Synchronisation et internationalisation complète des phrases humoristiques (singulier/pluriel) dans fr.json, en.json et es.json validée par verify_i18n.py."
+    priority: medium
+
+  - id: AXE-65
+    title: "Modernisation du chat public (Réactions émojis, Réponses/Citations, Messages épinglés, Notifications sonores de mention)"
+    status: DONE
+    description: >
+      Enrichir le chat public de la LAN avec les fonctionnalités modernes attendues : réactions émojis interactives,
+      réponses avec citations cliquables et navigation vers le message source, bannière de messages épinglés pour les annonces
+      administrateur, et synthèse audio locale par l'API Web Audio pour notifier les mentions de pseudo en 100% offline.
+    done:
+      - "Migrations safe ALTER TABLE dans init_db() pour les colonnes reactions (JSON) et reply_to_id (ForeignKey) sur public_chat_messages."
+      - "Gestion du toggle des réactions émojis avec persistance flag_modified (G-22) et broadcast WebSocket public_chat_reaction_updated."
+      - "Endpoints d'épinglage POST /public-chat/pin et GET /public-chat/pinned adossés à SystemConfig (G-25) avec désépinglage automatique lors de la suppression du message."
+      - "Composant bannière d'annonce épinglée rétractable en tête de chat avec saut et surbrillance temporaire du message d'origine."
+      - "Barre de prévisualisation de réponse au-dessus du champ de texte avec annulation (✕/Échap) et bloc de citation cliquable dans les messages."
+      - "Module de carillon bicolore via l'API Web Audio sans dépendance externe (G-17) avec bouton toggle sonore persistant (🔔/🔕) dans le header."
+      - "Barre de réaction rapide avec 4 émojis récents persistés dans le localStorage et bouton ➕ sans rallonger la barre d'action au survol."
+      - "Sélecteur d'émojis standard exhaustif catégorisé (Récents, Tous, Gaming, Tags Gamer, Smileys, Gestes, Symboles) avec recherche instantanée et tags gamer (GG, EZ, WP, GLHF, RIP, MVP, CLUTCH)."
+      - "Synchronisation et vérification des traductions fr, en et es validée avec verify_i18n.py."
+    priority: medium
+
+  - id: AXE-66
+    title: "Optimisation performances LAN, harmonisation visuelle & refactorisation modulaire (v1.32.0)"
+    status: DONE
+    description: >
+      Sécurisation des performances sous forte charge (anti-thundering herd, indexation SQLite, requêtes groupées),
+      modularisation des grands composants frontend (Admin, Tournois, Dashboard), harmonisation des contrastes et thèmes
+      sur l'ensemble des pages et correction de la précision flottante des points.
+    done:
+      - "Protection anti-thundering herd et lissage aléatoire (jitter) sur les écouteurs d'événements WebSocket."
+      - "Indexation automatique et idempotente des clés étrangères et colonnes de filtrage SQLite dans database.py et models.py."
+      - "Modularisation de la vue administration (admin/+page.svelte) et de la vue tournois en sous-composants dédiés."
+      - "Harmonisation globale des contrastes, styles de modales et de la typographie (Outfit / Inter) sur l'ensemble des pages."
+      - "Correction de l'imprécision des nombres flottants dans les calculs et l'affichage des points joueurs et équipes."
+      - "Validation complète i18n et passage de la suite de tests unitaires."
+    priority: high
+
+  - id: AXE-67
+    title: "Filtre anti-propos insultants (côté client, opt-in multilingue)"
+    status: DONE
+    description: >
+      Permettre aux utilisateurs de masquer les propos grossiers dans les messages de chat (public, direct et équipe),
+      avec masquage intelligent préservant le début et la fin du mot (ex: putain -> p****n) et listes simples par langue.
+    done:
+      - "Module profanity.ts réactif avec store Svelte profanityFilterEnabled et persistance localStorage."
+      - "Listes de mots séparés par des points-virgules dans les traductions (fr.json, en.json, es.json) sous profanity_words_list."
+      - "Bouton bouclier interactif (🛡️/👁️) dans l'en-tête des chats et sélecteur de préférence dans le profil utilisateur."
+      - "Traductions complètes et vérification verify_i18n.py."
+    priority: medium
+
+  - id: AXE-68
+    title: "Édition des tournois, Changement de jeu en cours (Game Swap) et Suppression sécurisée de jeux"
+    status: DONE
+    description: >
+      Permettre d'éditer le nom, les règles spécifiques et le jeu lié d'un tournoi déjà créé ou en cours sans perte d'historique,
+      et fiabiliser la suppression d'un jeu sans conflit de contrainte de clé étrangère SQLite.
+    done:
+      - "Modale EditTournamentModal.svelte permettant l'édition complète des informations d'un tournoi."
+      - "Endpoint PUT /tournaments/{id} acceptant le changement de game_id en conservant l'arbre, les matchs et les scores."
+      - "Endpoint DELETE /games/{id} sécurisé avec option de dissociation propre (cascade=false) ou suppression intégrale."
+      - "Purge automatique au démarrage des orphelins sans casser les tables existantes."
+    priority: high
+
+  - id: AXE-69
+    title: "Gestion des équipes avancée : Accordéons repliables, Verrouillage d'équipe et Référent/Capitaine"
+    status: DONE
+    description: >
+      Améliorer l'ergonomie des tournois à forte participation d'équipes et sécuriser la composition des équipes.
+    done:
+      - "Boutons 'Tout replier' et 'Tout déplier' dans la liste des équipes pour faciliter la navigation."
+      - "3 modes de verrouillage par tournoi : Ouvert (open), Contrôle Capitaine (captain_only), Contrôle Admin (admin_only)."
+      - "Système de référent/capitaine d'équipe (👑) avec possibilité de verrouiller/déverrouiller son équipe."
+      - "Possibilité de quitter une équipe verrouillée sans bloquer les départs, avec bypass admin complet."
+      - "Affichage permanent du nom de l'équipe du joueur connecté dans la barre latérale, le cockpit et le tournoi."
+    priority: high
+
+  - id: AXE-70
+    title: "Modernisation du chat direct (MP) et de groupes (Salons d'équipes) — Exclusion stricte de l'IA"
+    status: DONE
+    description: >
+      Aligner l'expérience du chat direct joueur/joueur et des salons d'équipes sur le Chat Public tout en excluant rigoureusement l'IA.
+    done:
+      - "Composant réutilisable PlayerChat.svelte avec support du mode P2P et groupe (team / inter)."
+      - "Réactions émojis en direct avec barre rapide au survol, sélecteur catégorisé et pastilles de compteurs."
+      - "Réponses et citations contextuelles (↩) avec défilement et surbrillance instantanée."
+      - "Pièces jointes et images (PNG, JPG, WebP, GIF jusqu'à 8 Mo) par glisser-déposer, collage presse-papiers ou bouton trombone, avec lightbox plein écran."
+      - "Cartes de prévisualisation de liens OpenGraph automatiques."
+      - "Indicateurs de frappe en direct (Typing Indicator) avec points animés via WebSockets."
+      - "Notifications sonores douces par synthèse Web Audio locale sur les mentions directes @pseudo."
+      - "Exclusion totale de l'assistant @Alanbix des MP et des salons d'équipes (aucun bot, aucun déclenchement)."
+    priority: high
+
+  - id: AXE-71
+    title: "Refonte de l'interface « Le Labo de l'Alambic » (v1.34.0)"
+    status: DONE
+    description: >
+      Revue écran par écran de toute l'application (joueur, admin, projecteur) : hiérarchie, densité, contrastes, mobile et i18n.
+    done:
+      - "Accueil : liste « Mes matchs » avec saisie rapide, onglets et chat public à droite."
+      - "Échelle typographique unique et repère de page active dans le menu."
+      - "Onglet Régie : appels à l'aide, matchs à saisir, modération rapide complète, progression des tournois."
+      - "Round robin retravaillé ; glissement des arbres libre et maintenu hors du cadre."
+      - "Projecteur : contrastes adaptés à la projection, cartes opaques dans les deux thèmes, mode clair complet, barre de progression."
+      - "Tous les textes passent par des clés i18n, contrôle automatique en CI."
+    priority: high

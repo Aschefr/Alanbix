@@ -217,6 +217,11 @@
 			
 			if (unsub) unsub();
 			unsub = wsMessageStore.subscribe(msg => {
+				// An admin wiped the server: start again from a fresh page (a deleted account lands on the login page)
+				if (msg && msg.type === 'server_reset') {
+					window.location.href = '/dashboard';
+					return;
+				}
 				if (msg && msg.type) {
 					const criticalTypes = [
 						'config_updated', 'users_updated', 
@@ -335,9 +340,9 @@
 			// Fetch SemVer version
 			try {
 				const res = await api.get('/health');
-				version = res.version || '1.35.2';
+				version = res.version || '1.36.0';
 			} catch {
-				version = '1.35.2';
+				version = '1.36.0';
 			}
 
 			// Admin: poll IA status
@@ -524,7 +529,7 @@
 		</div>
 	</div>
 {:else}
-<div class="dashboard-layout" class:section-admin={$page.url.pathname.startsWith('/dashboard/admin')}>
+<div class="dashboard-layout" class:section-admin={$page.url.pathname.startsWith('/dashboard/admin') || $page.url.pathname.startsWith('/dashboard/setup')}>
 	<!-- Mobile Top Bar (<= 900px) -->
 	<header class="mobile-top-bar glass">
 		<a href="/dashboard" class="mobile-brand">
@@ -590,8 +595,8 @@
 				<span class="label">{$t('nav_tournaments')}</span>
 			</a>
 			<a href="/dashboard/players{$totalMsgUnread > 0 && lastPmSender ? '?chat=' + lastPmSender : ''}" class="nav-item pm-nav" class:active={$page.url.pathname.startsWith('/dashboard/players')}>
-				<span class="icon">👥</span>
-				<span class="label">{$t('nav_players')}</span>
+				<span class="icon">💬</span>
+				<span class="label">{$t('mobile_tab_messages')}</span>
 				{#if $totalMsgUnread > 0}
 					<span class="pm-count-badge" class:bounce={pmBounce}>{$totalMsgUnread}</span>
 				{/if}
@@ -757,7 +762,6 @@
 
 <!-- Tutorial Overlay -->
 <TutorialOverlay />
-<ServerConfigModal bind:isOpen={showServerModal} on:close={() => { connectionError = ''; initApp(); }} />
 
 {#if showChangelog}
 	<!-- svelte-ignore a11y-click-events-have-key-events -->
@@ -817,6 +821,9 @@
 	{/each}
 </div>
 {/if}
+
+<!-- Outside the loading branch: the offline screen needs it to change the server address -->
+<ServerConfigModal bind:isOpen={showServerModal} on:close={() => { connectionError = ''; initApp(); }} />
 
 
 <style>
