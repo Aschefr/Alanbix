@@ -1805,16 +1805,13 @@
 			display: flex;
 			flex-direction: column;
 			gap: 0.35rem;
-			border-left: 3px solid #f59e0b;
 
 		}
 
 
 
 		.match-card.match-ready {
-
-			border-left: 3px solid #10b981;
-
+			border-color: color-mix(in srgb, #10b981 50%, var(--glass-border));
 		}
 
 

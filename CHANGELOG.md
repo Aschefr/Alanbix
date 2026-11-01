@@ -5,6 +5,7 @@
 ### 🐛 Fixes
 - **Memory slowly filling the swap (Raspberry Pi)**: every websocket connection kept a ~37 KB compression context, and connections cut abruptly (phones going to sleep, network drops) left it in memory. Per-message compression is now off (Alanbix messages are small JSON): in a test with 1,800 abruptly cut connections, memory stays flat instead of growing by about 75 MB.
 - **Memory diagnostics for admins**: `GET /admin/diagnostics/memory` returns the process memory and the size of every long-lived registry (connections, online users, AI queue, caches); `?top=30` lists the most numerous object types and `?trace=start` then `?trace=diff` shows which code lines keep memory.
+- **Quieter cards and notifications**: match cards and pop-up notifications lose their thick coloured side bar; a thin outline in the same colour keeps the meaning (ready match, info, private message).
 - **Sidebar profile with a long team name**: the avatar keeps its round shape and the username and team name are cut with "…" instead of squeezing it.
 
 ## [1.35.1] - 2026-11-01

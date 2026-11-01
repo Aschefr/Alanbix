@@ -1248,10 +1248,10 @@
 		box-shadow: 0 6px 20px rgba(0,0,0,0.4);
 	}
 	.global-toast.info {
-		border-left: 4px solid var(--accent);
+		border-color: color-mix(in srgb, var(--accent) 55%, var(--glass-border));
 	}
 	.global-toast.pm {
-		border-left: 4px solid #8b5cf6;
+		border-color: color-mix(in srgb, #8b5cf6 55%, var(--glass-border));
 	}
 	.global-toast.toast-enter {
 		animation: slide-in-right 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
