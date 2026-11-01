@@ -10,9 +10,9 @@ export type SetupState = {
 export const SETUP_STEPS = [
 	{ id: 'event', icon: 'flag' },
 	{ id: 'network', icon: 'wifi' },
-	{ id: 'info', icon: 'book-open', screen: '/dashboard/info' },
-	{ id: 'games', icon: 'gamepad', screen: '/dashboard/admin?tab=tournaments' },
-	{ id: 'ai', icon: 'bot', optional: true, screen: '/dashboard/admin?tab=settings&subtab=ia' },
+	{ id: 'info', icon: 'book-open' },
+	{ id: 'games', icon: 'gamepad' },
+	{ id: 'ai', icon: 'bot', optional: true },
 	{ id: 'map', icon: 'map', optional: true, screen: '/dashboard/map' },
 	{ id: 'invite', icon: 'users' },
 	{ id: 'recap', icon: 'check-circle' },

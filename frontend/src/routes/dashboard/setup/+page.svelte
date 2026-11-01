@@ -7,6 +7,7 @@
 	import { SETUP_STEPS, loadSetup, saveSetup } from '$lib/adminSetup';
 	import StepInfo from './StepInfo.svelte';
 	import StepGames from './StepGames.svelte';
+	import StepAI from './StepAI.svelte';
 
 	// Steps with their own component expose save(); errors from their actions show under the step
 	let stepRef = null;
@@ -204,6 +205,9 @@
 
 				{:else if step.id === 'games'}
 					<StepGames bind:this={stepRef} toast={stepToast} />
+
+				{:else if step.id === 'ai'}
+					<StepAI bind:this={stepRef} />
 
 				{:else if step.id === 'invite'}
 					<div class="address">

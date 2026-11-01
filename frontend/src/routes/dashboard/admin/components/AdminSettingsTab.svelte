@@ -506,7 +506,7 @@
 	async function testInstance(idx) {
 		const inst = iaConfig.ollama_instances[idx];
 		if (!inst) return;
-		const res = await api.post('/ia/test-connection', { url: inst.url });
+		const res = await api.post('/ia/test-connection', { url: inst.url, api_key: inst.api_key || '' });
 		if (res.status === 'ok') {
 			toast(get(t)('admin_instance_test_ok', { name: inst.label || inst.url, ms: res.latency_ms }), 'success');
 			loadInstanceStatuses();
@@ -514,6 +514,27 @@
 		} else {
 			toast(get(t)('admin_instance_test_failed', { name: inst.label || inst.url }), 'error');
 		}
+	}
+
+	// API keys are write-only: the server keeps them and only says whether one is saved
+	async function saveInstanceKey(idx) {
+		const inst = iaConfig.ollama_instances[idx];
+		if (!inst?.api_key?.trim()) return;
+		await saveIAConfig();
+		inst.has_api_key = true;
+		inst.api_key = '';
+		iaConfig = iaConfig;
+		loadInstanceStatuses();
+		fetchModels();
+	}
+
+	async function clearInstanceKey(idx) {
+		const inst = iaConfig.ollama_instances[idx];
+		inst.clear_api_key = true;
+		await saveIAConfig();
+		delete inst.clear_api_key;
+		inst.has_api_key = false;
+		iaConfig = iaConfig;
 	}
 
 	async function addInstance() {
@@ -1291,6 +1312,13 @@
 										<option value={mName}>{mName}</option>
 									{/each}
 								</select>
+								<span class="inst-key">
+									<input type="password" class="inst-key-input" bind:value={inst.api_key} on:change={() => saveInstanceKey(idx)} autocomplete="off" spellcheck="false"
+										placeholder={inst.has_api_key ? $t('admin_ai_api_key_saved') : $t('admin_ai_api_key_ph')} aria-label={$t('admin_ai_api_key')} />
+									{#if inst.has_api_key && !inst.api_key}
+										<button class="inst-btn-mini" on:click={() => clearInstanceKey(idx)} title={$t('admin_ai_api_key_remove')} aria-label={$t('admin_ai_api_key_remove')}><Icon name="trash" size={13} /></button>
+									{/if}
+								</span>
 								{#if status?.online}
 									<span class="inst-ping">{status.latency_ms}ms</span>
 								{/if}
@@ -1777,6 +1805,8 @@
 	.searx-row { flex-wrap: wrap; }
 	.searx-row input { flex: 1 1 180px !important; min-width: 0; }
 	.searx-row button { flex: 0 1 auto; }
+	.inst-key { display: inline-flex; align-items: center; gap: 0.25rem; flex: 0 1 190px; min-width: 120px; }
+	.inst-key-input { flex: 1; min-width: 0; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 6px; padding: 0.2rem 0.4rem; color: var(--text-dim); font-size: 0.75rem; }
 	.inst-url-input { flex: 1; min-width: 80px; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 6px; padding: 0.2rem 0.4rem; color: var(--text-dim); font-size: 0.75rem; font-family: monospace; }
 	.inst-model-select { background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 6px; padding: 0.2rem 0.4rem; color: var(--text-main); font-size: 0.75rem; max-width: 120px; min-width: 80px; }
 	.inst-model-select option { background: var(--bg-secondary); color: var(--text-main); }
