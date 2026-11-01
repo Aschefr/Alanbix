@@ -5,6 +5,7 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { api } from '$lib/api';
 	import { page } from '$app/stores';
+	import { beforeNavigate, goto } from '$app/navigation';
 	import { wsMessageStore } from '$lib/ws';
 	import { SEAT_SIZE, SEAT_RING, TABLE_DEPTH, firstFreeSlot, autoSeatLayout } from '$lib/roomLayout';
 
@@ -134,6 +135,8 @@
 					layout.tables.forEach(t => { if (t.rotation === undefined) t.rotation = 0; });
 					layout.seats.forEach(s => { if (s.rotation === undefined) s.rotation = 0; });
 					layout.furniture.forEach(f => { if (f.rotation === undefined) f.rotation = 0; });
+					// A layout pushed by the server (our own save included) is the new saved state
+					if (!dirty) resetHistory();
 				}).catch(() => {});
 			}
 		});
@@ -433,6 +436,88 @@
 		layout = layout;
 	}
 
+	// --- Undo / redo and unsaved changes (edit mode) ---
+	// The layout is compared with the last recorded state after every change (once a drag ends)
+	const HISTORY_MAX = 100;
+	let history = [], future = [];
+	let lastSnap = '', savedSnap = '';
+	const snapOf = (l) => JSON.stringify({
+		tables: (l.tables || []).map(({ delete_pending, ...tb }) => tb),
+		seats: l.seats || [],
+		furniture: l.furniture || [],
+	});
+	function resetHistory() {
+		history = [];
+		future = [];
+		lastSnap = savedSnap = snapOf(layout);
+	}
+	$: if (editMode && !dragging) trackHistory(layout);
+	function trackHistory(l) {
+		const now = snapOf(l);
+		if (!lastSnap) { lastSnap = savedSnap = now; return; }
+		if (now === lastSnap) return;
+		history = [...history.slice(1 - HISTORY_MAX), lastSnap];
+		future = [];
+		lastSnap = now;
+	}
+	function restoreSnap(snapStr) {
+		const d = JSON.parse(snapStr);
+		lastSnap = snapStr; // not a new change
+		layout = { ...layout, tables: d.tables, seats: d.seats, furniture: d.furniture };
+		if (targetTableId && !layout.tables.some(tb => tb.id === targetTableId)) targetTableId = '';
+		if (selectedFurnId && !layout.furniture.some(f => f.id === selectedFurnId)) selectedFurnId = '';
+	}
+	function undo() {
+		if (!history.length) return;
+		future = [lastSnap, ...future];
+		const prev = history[history.length - 1];
+		history = history.slice(0, -1);
+		restoreSnap(prev);
+	}
+	function redo() {
+		if (!future.length) return;
+		history = [...history, lastSnap];
+		const next = future[0];
+		future = future.slice(1);
+		restoreSnap(next);
+	}
+	$: dirty = editMode && !!lastSnap && lastSnap !== savedSnap;
+
+	let wasEditing = false;
+	$: if (editMode !== wasEditing) { wasEditing = editMode; if (editMode) resetHistory(); }
+
+	// Leaving the editor or the page with unsaved changes asks first
+	let unsavedPrompt = null; // { kind: 'close' } | { kind: 'nav', url }
+	function closeEditor() {
+		if (dirty) { unsavedPrompt = { kind: 'close' }; return; }
+		editMode = false;
+		assigningSeatId = null;
+		clearSelection();
+	}
+	async function reloadLayout() {
+		const res = await api.get('/room/layout');
+		const l = res.layout || { seats: [], tables: [], furniture: [] };
+		l.tables = l.tables || []; l.seats = l.seats || []; l.furniture = l.furniture || [];
+		layout = l;
+		resetHistory();
+	}
+	async function resolveUnsaved(choice) {
+		const pending = unsavedPrompt;
+		unsavedPrompt = null;
+		if (choice === 'stay' || !pending) return;
+		if (choice === 'save') await saveLayout();
+		else await reloadLayout();
+		savedSnap = lastSnap = snapOf(layout);
+		if (pending.kind === 'close') { editMode = false; assigningSeatId = null; clearSelection(); }
+		else goto(pending.url);
+	}
+	beforeNavigate((navigation) => {
+		if (dirty && !unsavedPrompt && navigation.type !== 'leave') {
+			navigation.cancel();
+			unsavedPrompt = { kind: 'nav', url: navigation.to?.url?.pathname || '/dashboard' };
+		}
+	});
+
 	// --- Selection (a table or an element) and the inspector's actions ---
 	let selectedFurnId = '';
 	$: selectedFurn = layout.furniture.find(f => f.id === selectedFurnId);
@@ -505,7 +590,11 @@
 		const tag = (e.target?.tagName || '').toLowerCase();
 		if (['input', 'select', 'textarea'].includes(tag) || e.target?.isContentEditable) return;
 		const mod = e.ctrlKey || e.metaKey;
-		if (mod && e.key.toLowerCase() === 'd') {
+		const key = e.key.toLowerCase();
+		if (mod && key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); return; }
+		if (mod && (key === 'y' || (key === 'z' && e.shiftKey))) { e.preventDefault(); redo(); return; }
+		if (mod && key === 's') { e.preventDefault(); saveLayout(); return; }
+		if (mod && key === 'd') {
 			if (selectedItem) { e.preventDefault(); duplicateSelection(); }
 			return;
 		}
@@ -530,7 +619,9 @@
 	}
 
 	async function saveLayout() {
-		await api.post('/room/layout', layout);
+		const { tables, seats, furniture } = layout;
+		await api.post('/room/layout', { ...layout, tables: tables.map(({ delete_pending, ...tb }) => tb), seats, furniture });
+		savedSnap = lastSnap = snapOf(layout);
 		toast($t('map_save_success'), 'success');
 	}
 
@@ -921,7 +1012,7 @@
 	$: unassignedUsers = allUsers.filter(u => !u.seat_id);
 </script>
 
-<svelte:window on:keydown={onEditorKeydown} />
+<svelte:window on:keydown={onEditorKeydown} on:beforeunload={(e) => { if (dirty) { e.preventDefault(); e.returnValue = ''; } }} />
 
 <div class="map-page">
 	<header class="flex-row justify-between items-center mb-4">
@@ -952,8 +1043,12 @@
 						{/each}
 					</select>
 					<button class="btn-secondary" on:click={addFurniture}>{$t("map_btn_add_element")}</button>
-					<button class="btn-primary" on:click={saveLayout}>{$t("map_btn_save")}</button>
-					<button class="btn-secondary" on:click={() => { editMode = false; assigningSeatId = null; }}>{$t("map_btn_close_editor")}</button>
+					<span class="toolbar-sep">|</span>
+					<button class="btn-secondary icon-only" on:click={undo} disabled={!history.length} title={$t('map_undo')} aria-label={$t('map_undo')}><Icon name="undo" size={16} /></button>
+					<button class="btn-secondary icon-only" on:click={redo} disabled={!future.length} title={$t('map_redo')} aria-label={$t('map_redo')}><Icon name="redo" size={16} /></button>
+					{#if dirty}<span class="unsaved-badge" role="status"><span class="unsaved-dot"></span>{$t('map_unsaved')}</span>{/if}
+					<button class="btn-primary" on:click={saveLayout} title="Ctrl+S">{$t("map_btn_save")}</button><!-- i18n-ignore -->
+					<button class="btn-secondary" on:click={closeEditor}>{$t("map_btn_close_editor")}</button>
 				{/if}
 				{#if !editMode}
 					<button class="btn-secondary" on:click={toggleSeatingLock}>{seatingLocked ? $t('map_edit_mode_lock_toggle_unlocked') : $t('map_edit_mode_lock_toggle_locked')}</button>
@@ -1393,6 +1488,21 @@
 	{/if}
 </div>
 
+{#if unsavedPrompt}
+	<!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
+	<div class="unsaved-overlay" use:portal on:click|self={() => resolveUnsaved('stay')}>
+		<div class="unsaved-dialog" role="dialog" aria-modal="true" aria-labelledby="unsaved-title">
+			<h2 id="unsaved-title"><Icon name="alert-triangle" size={18} /> {$t('map_unsaved_title')}</h2>
+			<p>{$t('map_unsaved_desc')}</p>
+			<div class="unsaved-actions">
+				<button class="btn-secondary" on:click={() => resolveUnsaved('stay')}>{$t('map_unsaved_stay')}</button>
+				<button class="btn-outline-danger" on:click={() => resolveUnsaved('discard')}>{$t('map_unsaved_discard')}</button>
+				<button class="btn-primary" on:click={() => resolveUnsaved('save')}>{$t('map_unsaved_save')}</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
 <!-- Toasts -->
 <div class="toast-container" use:portal>
 	{#each toasts as t (t.id)}
@@ -1669,4 +1779,15 @@
 	.insp-btn.danger:hover { border-color: var(--danger); color: var(--danger); }
 	.insp-btn:focus-visible, .insp-wide:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 	.insp-hint { margin: 0; font-size: 0.7rem; line-height: 1.45; color: var(--text-muted); }
+	/* Undo / redo and unsaved state */
+	.map-page header button.icon-only { padding: 0 0.7rem; }
+	.map-page header button:disabled { opacity: 0.45; cursor: default; transform: none; }
+	.unsaved-badge { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.75rem; font-weight: 700; color: var(--text-dim); white-space: nowrap; align-self: center; }
+	.unsaved-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--warning); }
+	.unsaved-overlay { position: fixed; inset: 0; z-index: 10001; display: flex; align-items: center; justify-content: center; padding: 1rem; background: rgba(2, 6, 23, 0.45); }
+	.unsaved-dialog { width: 100%; max-width: 540px; padding: 1.25rem 1.4rem; border-radius: 14px; background: var(--surface-raised); border: 1px solid var(--glass-border); box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35); }
+	.unsaved-dialog h2 { display: flex; align-items: center; gap: 0.5rem; margin: 0 0 0.5rem; font-size: 1.1rem; }
+	.unsaved-dialog h2 :global(svg) { color: var(--warning); }
+	.unsaved-dialog p { margin: 0 0 1.1rem; font-size: 0.9rem; line-height: 1.5; color: var(--text-dim); }
+	.unsaved-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.5rem; }
 </style>

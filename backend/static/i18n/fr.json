@@ -1905,5 +1905,13 @@
   "map_panel_rotate": "Pivoter de 90°",
   "map_panel_duplicate": "Dupliquer (Ctrl+D)",
   "map_panel_delete": "Supprimer (Suppr)",
-  "map_panel_hint": "Flèches : déplacer (Maj : plus loin) · Suppr : supprimer · Ctrl+D : dupliquer · Échap : désélectionner"
+  "map_panel_hint": "Flèches : déplacer (Maj : plus loin) · Suppr : supprimer · Ctrl+D : dupliquer · Échap : désélectionner",
+  "map_undo": "Annuler (Ctrl+Z)",
+  "map_redo": "Rétablir (Ctrl+Y)",
+  "map_unsaved": "Non enregistré",
+  "map_unsaved_title": "Modifications non enregistrées",
+  "map_unsaved_desc": "Le plan de salle a été modifié depuis le dernier enregistrement.",
+  "map_unsaved_stay": "Rester",
+  "map_unsaved_discard": "Abandonner les modifications",
+  "map_unsaved_save": "Enregistrer"
 }

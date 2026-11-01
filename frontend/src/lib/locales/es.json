@@ -1916,5 +1916,13 @@
   "map_panel_rotate": "Girar 90°",
   "map_panel_duplicate": "Duplicar (Ctrl+D)",
   "map_panel_delete": "Eliminar (Supr)",
-  "map_panel_hint": "Flechas: mover (Mayús: más lejos) · Supr: eliminar · Ctrl+D: duplicar · Esc: deseleccionar"
+  "map_panel_hint": "Flechas: mover (Mayús: más lejos) · Supr: eliminar · Ctrl+D: duplicar · Esc: deseleccionar",
+  "map_undo": "Deshacer (Ctrl+Z)",
+  "map_redo": "Rehacer (Ctrl+Y)",
+  "map_unsaved": "Sin guardar",
+  "map_unsaved_title": "Cambios sin guardar",
+  "map_unsaved_desc": "El plano de la sala ha cambiado desde el último guardado.",
+  "map_unsaved_stay": "Quedarse",
+  "map_unsaved_discard": "Descartar los cambios",
+  "map_unsaved_save": "Guardar"
 }

@@ -1905,5 +1905,13 @@
   "map_panel_rotate": "Rotate 90°",
   "map_panel_duplicate": "Duplicate (Ctrl+D)",
   "map_panel_delete": "Delete (Del)",
-  "map_panel_hint": "Arrows: move (Shift: further) · Del: delete · Ctrl+D: duplicate · Esc: deselect"
+  "map_panel_hint": "Arrows: move (Shift: further) · Del: delete · Ctrl+D: duplicate · Esc: deselect",
+  "map_undo": "Undo (Ctrl+Z)",
+  "map_redo": "Redo (Ctrl+Y)",
+  "map_unsaved": "Not saved",
+  "map_unsaved_title": "Unsaved changes",
+  "map_unsaved_desc": "The room map has changed since it was last saved.",
+  "map_unsaved_stay": "Stay",
+  "map_unsaved_discard": "Discard the changes",
+  "map_unsaved_save": "Save"
 }
