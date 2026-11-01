@@ -1,7 +1,8 @@
 <script>
 	import { t } from '$lib/i18nStore';
 	import { api } from '$lib/api';
-	import { onMount, createEventDispatcher } from 'svelte';
+	import { onMount, onDestroy, createEventDispatcher } from 'svelte';
+	import { wsMessageStore } from '$lib/ws';
 	import AddGameModal from './AddGameModal.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 
@@ -42,26 +43,36 @@
 		allow_draws: false
 	};
 
-	onMount(async () => {
+	const PTS_KEYS = ['pts_winner', 'pts_second', 'pts_third', 'pts_participation', 'pts_per_match'];
+
+	// Applies the saved default points; a value the admin already changed in this form is kept
+	async function loadDefaultPts() {
 		try {
 			const dpCfg = await api.get('/admin/config/default_tournament_pts');
-			if (dpCfg?.value) {
-				const parsed = typeof dpCfg.value === 'string' ? JSON.parse(dpCfg.value) : dpCfg.value;
-				defaultPts = { ...defaultPts, ...parsed };
-				config = { 
-					...config, 
-					pts_winner: defaultPts.pts_winner, 
-					pts_second: defaultPts.pts_second, 
-					pts_third: defaultPts.pts_third, 
-					pts_participation: defaultPts.pts_participation, 
-					pts_per_match: defaultPts.pts_per_match 
-				};
+			if (!dpCfg?.value) return;
+			const parsed = typeof dpCfg.value === 'string' ? JSON.parse(dpCfg.value) : dpCfg.value;
+			const previous = defaultPts;
+			defaultPts = { ...defaultPts, ...parsed };
+			const next = { ...config };
+			for (const k of PTS_KEYS) {
+				if (Number(config[k]) === Number(previous[k])) next[k] = defaultPts[k];
 			}
+			config = next;
 		} catch {}
+	}
+
+	let wsUnsub = null;
+	onMount(async () => {
+		await loadDefaultPts();
 		if (games.length > 0 && !config.game_id) {
 			config.game_id = games[0].id;
 		}
+		// Defaults changed elsewhere (settings, guided setup) while this form is open
+		wsUnsub = wsMessageStore.subscribe(msg => {
+			if (msg?.type === 'config_updated') loadDefaultPts();
+		});
 	});
+	onDestroy(() => { if (wsUnsub) wsUnsub(); });
 
 	async function saveTournament() {
 		try {
