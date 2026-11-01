@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "gradient-text",
+        "value": "*",
+        "files": [
+          "frontend/src/app.css"
+        ],
+        "createdAt": "2026-10-31T10:53:13.421Z",
+        "reason": "user confirmed 2026-10-31: the gradient app title is the app's signature style"
+      }
+    ]
+  }
+}

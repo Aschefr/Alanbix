@@ -89,6 +89,14 @@ docker compose -f docker-compose.prod.yml up -d
 
 Pour mettre à jour une installation existante, relancer ces deux commandes : les données de `./data` sont conservées.
 
+**Installation dans un clone git (réglages locaux).** Si le serveur est un clone du dépôt, `docker-compose.yml` y est la pile de **développement**. Copier `docker-compose.override.yml.example` en `docker-compose.override.yml` (ignoré par git), y mettre son Ollama et son domaine, puis ne démarrer que les services de production :
+
+```bash
+docker compose down && git pull && docker compose pull alanbix searxng && docker compose up -d alanbix searxng
+```
+
+Ne jamais utiliser `docker compose up -d --build` sur un serveur de production : cela démarre aussi la pile de développement (qui prend le port 41481) et ne télécharge pas la nouvelle image.
+
 ---
 
 ## 🧩 3. Partage sur Unraid (Community Applications)

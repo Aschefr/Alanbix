@@ -59,7 +59,6 @@ backend/static/uploads/
 
 # === Gemini/AI agent workspace ===
 .gemini/
-Tool_calling_plan.md
 
 # === Scratch / Debug scripts (local dev only) ===
 insert_test.py
@@ -68,8 +67,6 @@ scratch_*.py
 scratch_*.js
 test_force.py
 test_api.py
-CLAUDE.md
-release_guide.md
 scratch/
 
 # === Backup files ===
@@ -79,7 +76,6 @@ scratch/
 /Dev/
 
 # === Local Publish Notice ===
-publish_notice.md
 
 # === Mobile / Capacitor (Android & iOS) ===
 frontend/android/.gradle/

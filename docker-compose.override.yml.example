@@ -1,0 +1,35 @@
+# Example of a local production setup (copy to docker-compose.override.yml, which git ignores).
+#
+# docker-compose.yml is the DEVELOPMENT stack (Vite + backend with auto-reload). This override adds
+# the published production image next to it, with your own settings. Start ONLY the production
+# services, otherwise the development stack starts too and takes port 41481:
+#
+#   docker compose down && git pull && docker compose pull alanbix searxng && docker compose up -d alanbix searxng
+#
+# Never use "docker compose up -d --build" on a production server: it starts the development stack
+# and does not download the new image.
+services:
+  alanbix:
+    image: aschefr/alanbix:latest
+    container_name: alanbix
+    restart: unless-stopped
+    ports:
+      - "41481:41481"
+    environment:
+      # Ollama server reachable from the container (IP of the machine running Ollama)
+      - OLLAMA_HOST=http://192.168.1.10:11434
+      # Public address(es) allowed to call the API, comma separated (e.g. a reverse proxy or tunnel domain)
+      - CORS_ORIGINS=https://alanbix.example.com
+    volumes:
+      - ./data:/app/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  searxng:
+    image: searxng/searxng:latest
+    container_name: alanbix_searxng
+    restart: always
+    volumes:
+      - ./searxng:/etc/searxng
+    ports:
+      - "127.0.0.1:8888:8080"
