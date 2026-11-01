@@ -590,8 +590,8 @@
 				<span class="label">{$t('nav_tournaments')}</span>
 			</a>
 			<a href="/dashboard/players{$totalMsgUnread > 0 && lastPmSender ? '?chat=' + lastPmSender : ''}" class="nav-item pm-nav" class:active={$page.url.pathname.startsWith('/dashboard/players')}>
-				<span class="icon">👥</span>
-				<span class="label">{$t('nav_players')}</span>
+				<span class="icon">💬</span>
+				<span class="label">{$t('mobile_tab_messages')}</span>
 				{#if $totalMsgUnread > 0}
 					<span class="pm-count-badge" class:bounce={pmBounce}>{$totalMsgUnread}</span>
 				{/if}
