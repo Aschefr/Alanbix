@@ -215,7 +215,7 @@ Alanbix dispose d'un template officiel pour Unraid :
 ### Premiers Pas
 
 1. **Inscrivez-vous** pour créer le premier compte — il devient automatiquement **administrateur** 👑
-2. Allez dans l'onglet **Administration** pour configurer le nom de votre LAN, créer des jeux et préparer les premiers tournois.
+2. La **configuration guidée** vous accompagne ensuite étape par étape : nom de la LAN, réseau, page Infos, jeux et premier tournoi, assistant IA, plan de salle et invitation des joueurs (QR code et affiche). Tout reste modifiable dans l'onglet **Administration**.
 3. Partagez l'URL aux joueurs pour qu'ils puissent s'inscrire et rejoindre l'événement.
 4. Ouvrez **/spectator** sur un projecteur pour l'affichage en direct de la salle.
 
@@ -223,7 +223,8 @@ Alanbix dispose d'un template officiel pour Unraid :
 
 Si vous possédez une instance Ollama ou un endpoint compatible OpenAI (LocalAI, LM Studio, etc.) :
 - **Ollama** : Doit être accessible sur son port par défaut (ex: `http://localhost:11434`).
-- **Compatibles OpenAI (LocalAI, etc.)** : Utilisez l'URL se terminant par `/v1` (ex: `http://192.168.1.100:8080/v1`).
+- **Compatibles OpenAI (LocalAI, LM Studio, vLLM, etc.)** : Utilisez l'URL se terminant par `/v1` (ex: `http://192.168.1.100:8080/v1`).
+- **Services en ligne compatibles OpenAI (OpenAI, Mistral, OpenRouter, Groq…)** : indiquez l'adresse `/v1` du service et sa **clé d'API** ; la clé reste sur le serveur.
 
 Configurez et gérez vos instances IA directement dans l'interface de l'application : **Administration > IA & Paramètres**.
 

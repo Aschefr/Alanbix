@@ -113,7 +113,8 @@ Alanbix automatically assigns global administration rights to the **first user c
 1. Go to `http://localhost:41481`.
 2. Click on **Register** (S'inscrire).
 3. Fill out the form (username and password).
-4. Once logged in, you will see the **Administration** tab (🛡️) appear in your left sidebar.
+4. You land on the **guided server setup**: LAN name and language, Wi-Fi and the players' address, info page (pre-filled template), games and a first tournament (with the points scale and its simulation), AI assistant (local or an online service with an API key), room map, then inviting players (address, QR code and printable poster). Every step can be skipped; the setup can be resumed from the administration (**Settings › General › Guided setup**).
+5. The **Administration** tab then appears in your left sidebar.
 
 ![Alanbix Dashboard](../../screenshots/alanbix_dashboard.png)
 

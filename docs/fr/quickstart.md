@@ -118,7 +118,8 @@ Alanbix attribue automatiquement les droits d'administration globale au **premie
 1. Rendez-vous sur `http://localhost:41481`.
 2. Cliquez sur **S'inscrire** (Register).
 3. Remplissez le formulaire (nom d'utilisateur et mot de passe).
-4. Une fois connecté, vous verrez apparaître l'onglet **Administration** (🛡️) dans votre menu latéral gauche.
+4. Vous arrivez sur la **configuration guidée du serveur** : nom de la LAN et langue, Wi-Fi et adresse des joueurs, page Infos (modèle prérempli), jeux et premier tournoi (avec le barème de points et sa simulation), assistant IA (local ou service en ligne avec clé d'API), plan de salle, puis invitation des joueurs (adresse, QR code et affiche à imprimer). Chaque étape peut être passée ; la configuration se reprend depuis l'administration (**Réglages › Général › Configuration guidée**).
+5. L'onglet **Administration** apparaît ensuite dans votre menu latéral gauche.
 
 ![Alanbix Dashboard](../../screenshots/alanbix_dashboard.png)
 
