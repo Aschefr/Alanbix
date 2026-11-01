@@ -34,6 +34,24 @@
         ],
         "createdAt": "2026-11-01T15:40:26.237Z",
         "reason": "user confirmed: projector screen kept as is (2026-11-01)"
+      },
+      {
+        "rule": "gradient-text",
+        "value": "*",
+        "files": [
+          "**/routes/spectator/+page.svelte"
+        ],
+        "createdAt": "2026-11-01T16:10:57.013Z",
+        "reason": "user confirmed: projector screen kept as is (2026-11-01)"
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "**/routes/spectator/+page.svelte"
+        ],
+        "createdAt": "2026-11-01T16:10:57.346Z",
+        "reason": "user confirmed: projector screen kept as is (2026-11-01)"
       }
     ]
   }
