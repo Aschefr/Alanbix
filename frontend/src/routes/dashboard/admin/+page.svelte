@@ -151,9 +151,6 @@
 	});
 </script>
 
-<svelte:head>
-	<link rel="stylesheet" href="https://unpkg.com/easymde/dist/easymde.min.css" />
-</svelte:head>
 
 {#if authorized}
 <div class="admin-view">

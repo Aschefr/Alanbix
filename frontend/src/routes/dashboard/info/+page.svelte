@@ -36,6 +36,7 @@
 		await loadFiles();
 		// Dynamically import EasyMDE (avoid SSR issues)
 		const mod = await import('easymde');
+		await import('easymde/dist/easymde.min.css');
 		EasyMDE = mod.default;
 	});
 
@@ -231,9 +232,6 @@
 	}
 </script>
 
-<svelte:head>
-	<link rel="stylesheet" href="https://unpkg.com/easymde/dist/easymde.min.css" />
-</svelte:head>
 
 <div class="info-page">
 	<div class="info-header">

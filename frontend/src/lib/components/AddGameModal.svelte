@@ -112,6 +112,7 @@
 	onMount(async () => {
 		try {
 			const mod = await import('easymde');
+			await import('easymde/dist/easymde.min.css');
 			EasyMDE = mod.default;
 		} catch (e) {
 			console.error("Failed to load EasyMDE", e);
@@ -165,9 +166,6 @@
 
 <svelte:window on:keydown={handleKeydown} />
 
-<svelte:head>
-	<link rel="stylesheet" href="https://unpkg.com/easymde/dist/easymde.min.css" />
-</svelte:head>
 
 {#if show}
 	<!-- svelte-ignore a11y-no-noninteractive-element-interactions -->

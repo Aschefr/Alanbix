@@ -68,19 +68,63 @@ async def delete_my_account(db: Session = Depends(database.get_db), current_user
     """Self-service account deletion (Apple App Store 5.1.1(v) & Google Play compliance)."""
     if current_user.is_admin:
         raise HTTPException(status_code=400, detail="Cannot delete an admin account")
-    if current_user.avatar_url:
-        DATA_DIR = os.path.dirname(os.getenv("DATABASE_PATH", "/app/data/alanbix.db"))
-        avatar_path = os.path.join(DATA_DIR, "avatars", os.path.basename(current_user.avatar_url.split("?")[0]))
-        if os.path.exists(avatar_path):
-            try:
-                os.remove(avatar_path)
-            except Exception:
-                pass
+    data_dir = os.path.dirname(os.getenv("DATABASE_PATH", "/app/data/alanbix.db"))
+    files, folders = _user_owned_files(db, current_user, data_dir)
     db.query(models.TournamentParticipant).filter(models.TournamentParticipant.user_id == current_user.id).delete()
+    # Messages, AI conversations, notifications, devices... go with the user (ON DELETE CASCADE)
     db.delete(current_user)
     db.commit()
+    # Files only once the database rows are gone
+    import shutil
+    for path in files:
+        try:
+            if os.path.isfile(path):
+                os.remove(path)
+        except OSError:
+            pass
+    for folder in folders:
+        shutil.rmtree(folder, ignore_errors=True)
     await ws_manager.broadcast({"type": "users_updated"})
     return {"status": "deleted", "id": current_user.id}
+
+
+# Where each kind of uploaded image lives, as stored in the database
+_CHAT_IMAGE_PREFIXES = {"/data/chat_images/players/": "players", "/data/chat_images/public/": "public"}
+
+
+def _user_owned_files(db: Session, user: models.User, data_dir: str):
+    """Images a player uploaded (avatar and its thumbnails, chat images, AI conversation images).
+    Stored paths partly come from the client, so only a bare file name inside the image folders
+    is ever trusted: a crafted path can never point at another file on the server."""
+    files, folders = [], []
+    if user.avatar_url:
+        name = os.path.basename(user.avatar_url.split("?")[0])
+        if name and not name.startswith("."):
+            files.append(os.path.join(data_dir, "avatars", name))
+            stem = os.path.splitext(name)[0]
+            thumbs_root = os.path.join(data_dir, "thumbs")
+            if os.path.isdir(thumbs_root):
+                for width in os.listdir(thumbs_root):
+                    files.append(os.path.join(thumbs_root, width, "avatars", stem + ".webp"))
+
+    stored = [m.image_path for m in db.query(models.PrivateMessage).filter(
+        (models.PrivateMessage.sender_id == user.id) | (models.PrivateMessage.receiver_id == user.id))]
+    stored += [m.image_path for m in db.query(models.GroupMessage).filter(models.GroupMessage.sender_id == user.id)]
+    stored += [m.image_path for m in db.query(models.PublicChatMessage).filter(models.PublicChatMessage.user_id == user.id)]
+    for path in stored:
+        if not path:
+            continue
+        for prefix, folder in _CHAT_IMAGE_PREFIXES.items():
+            if path.startswith(prefix):
+                name = os.path.basename(path)
+                if name and not name.startswith(".") and path == prefix + name:
+                    files.append(os.path.join(data_dir, "chat_images", folder, name))
+                break
+
+    # AI images live in one folder per conversation, named after its numeric id
+    for conv in db.query(models.Conversation).filter(models.Conversation.user_id == user.id):
+        folders.append(os.path.join(data_dir, "chat_images", str(int(conv.id))))
+    return files, folders
 
 @router.put("/me/profile")
 async def update_profile(data: dict, db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
