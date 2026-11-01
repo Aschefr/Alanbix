@@ -70,6 +70,17 @@ async def delete_my_account(db: Session = Depends(database.get_db), current_user
         raise HTTPException(status_code=400, detail="Cannot delete an admin account")
     data_dir = os.path.dirname(os.getenv("DATABASE_PATH", "/app/data/alanbix.db"))
     files, folders = _user_owned_files(db, current_user, data_dir)
+    # Closed tournaments keep a snapshot of the final standings: drop the username from it
+    from sqlalchemy.orm.attributes import flag_modified
+    for t in db.query(models.Tournament).filter(models.Tournament.results.isnot(None)):
+        entries = t.results if isinstance(t.results, list) else []
+        changed = False
+        for entry in entries:
+            if isinstance(entry, dict) and entry.get("entity_id") == current_user.id and entry.get("name") != f"#{current_user.id}":
+                entry["name"] = f"#{current_user.id}"
+                changed = True
+        if changed:
+            flag_modified(t, "results")
     db.query(models.TournamentParticipant).filter(models.TournamentParticipant.user_id == current_user.id).delete()
     # Messages, AI conversations, notifications, devices... go with the user (ON DELETE CASCADE)
     db.delete(current_user)

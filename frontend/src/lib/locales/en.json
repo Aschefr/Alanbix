@@ -1697,5 +1697,7 @@
   "regie_ffa_players": "Free-for-all · {n} players",
   "regie_ffa_enter": "Enter the scores",
   "result_correct": "Correct the score",
-  "result_correct_locked": "The tournament has already moved on after this match: only an admin can correct the score. Alert one through the AI assistant."
+  "result_correct_locked": "The tournament has already moved on after this match: only an admin can correct the score. Alert one through the AI assistant.",
+  "settings_privacy_label": "Privacy",
+  "settings_privacy_open": "View"
 }

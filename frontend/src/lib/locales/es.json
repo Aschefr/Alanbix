@@ -1697,5 +1697,7 @@
   "regie_ffa_players": "Todos contra todos · {n} jugadores",
   "regie_ffa_enter": "Introducir los resultados",
   "result_correct": "Corregir el resultado",
-  "result_correct_locked": "El torneo ya ha avanzado tras este partido: solo un admin puede corregir el resultado. Avísale desde el asistente IA."
+  "result_correct_locked": "El torneo ya ha avanzado tras este partido: solo un admin puede corregir el resultado. Avísale desde el asistente IA.",
+  "settings_privacy_label": "Privacidad",
+  "settings_privacy_open": "Ver"
 }

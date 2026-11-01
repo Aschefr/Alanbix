@@ -1697,5 +1697,7 @@
   "regie_ffa_players": "Mêlée générale · {n} joueurs",
   "regie_ffa_enter": "Saisir les scores",
   "result_correct": "Corriger le score",
-  "result_correct_locked": "Le tournoi a déjà avancé après ce match : seul un admin peut corriger le score. Prévenez-le via l'assistant IA."
+  "result_correct_locked": "Le tournoi a déjà avancé après ce match : seul un admin peut corriger le score. Prévenez-le via l'assistant IA.",
+  "settings_privacy_label": "Confidentialité",
+  "settings_privacy_open": "Consulter"
 }

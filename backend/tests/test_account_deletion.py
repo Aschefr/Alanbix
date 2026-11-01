@@ -51,3 +51,23 @@ def test_delete_account_removes_uploaded_images_only(client, db_session, tmp_pat
     assert os.path.exists(kept_image)
     assert os.path.exists(database)
     assert db_session.query(models.User).filter(models.User.username == "Player1").first() is None
+
+
+def test_delete_account_anonymises_closed_tournament_results(client, db_session, tmp_path, monkeypatch):
+    monkeypatch.setenv("DATABASE_PATH", str(tmp_path / "alanbix.db"))
+    player = db_session.query(models.User).filter(models.User.username == "Player1").first()
+    other = db_session.query(models.User).filter(models.User.username == "Player2").first()
+    t = models.Tournament(name="Cup", status="CLOSED", results=[
+        {"rank": 1, "entity_id": player.id, "name": "Player1", "total": 10},
+        {"rank": 2, "entity_id": other.id, "name": "Player2", "total": 5},
+    ])
+    db_session.add(t)
+    db_session.commit()
+    player_id = player.id
+
+    app.dependency_overrides[get_current_user] = lambda: player
+    assert client.delete("/me").status_code == 200
+
+    db_session.expire_all()
+    names = [e["name"] for e in db_session.query(models.Tournament).filter(models.Tournament.name == "Cup").first().results]
+    assert names == [f"#{player_id}", "Player2"]

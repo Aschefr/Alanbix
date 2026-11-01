@@ -258,6 +258,9 @@
 	];
 	// Labels are stored as "Label :"; rows show them without the colon
 	const lbl = (txt) => String(txt).replace(/\s*:\s*$/, '');
+
+	// Public privacy policy (GitHub Pages): French version for French, English for the other languages
+	$: privacyUrl = $currentLang === 'fr' ? 'https://aschefr.github.io/Alanbix/' : 'https://aschefr.github.io/Alanbix/en.html';
 </script>
 
 <svelte:head>
@@ -594,6 +597,12 @@
 					<div class="row static compact">
 						<span class="row-text"><span class="row-title">{lbl($t('settings_license_label'))}</span></span>
 						<span class="row-val">MIT · Open Source</span><!-- i18n-ignore: licence name -->
+					</div>
+					<div class="row static compact">
+						<span class="row-text"><span class="row-title">{lbl($t('settings_privacy_label'))}</span></span>
+						<a class="btn-secondary btn-compact btn-ic privacy-link" href={privacyUrl} target="_blank" rel="noopener noreferrer">
+							<Icon name="shield" size={15} /> {$t('settings_privacy_open')}
+						</a>
 					</div>
 					<div class="row static compact">
 						<span class="row-text"><span class="row-title">App ID</span></span><!-- i18n-ignore: technical identifier -->
@@ -937,4 +946,5 @@
 		.about-rows .row.static > .row-val { flex-basis: auto; margin-left: 0; text-align: right; }
 		.account-actions button { flex: 1 1 100%; justify-content: center; }
 	}
+	.privacy-link { text-decoration: none; white-space: nowrap; }
 </style>
