@@ -3,10 +3,9 @@
 	import { api } from '$lib/api';
 	import { t } from '$lib/i18nStore';
 	import Icon from '$lib/components/Icon.svelte';
+	import { SEAT_SIZE as SEAT, SEAT_GAP as GAP, TABLE_DEPTH, seatSlots, tableWidthFor } from '$lib/roomLayout';
 
-	const SEAT = 50;   // same seat size as the room map editor
-	const PITCH = 60;  // seat + gap
-	const GAP = 10;
+	const MAX_SEATS = 60; // tables put end to end form one long table on the map
 
 	let existing = null;
 	let mode = 'generate'; // keep | generate
@@ -16,34 +15,25 @@
 
 	const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, Math.round(Number(v) || lo)));
 
-	// Long tables with half of the seats on each long side, laid out in rows
+	// Long tables with half of the seats along each long side (same slots as the map editor), in rows
 	function generate(nTables, nSeats, nPerRow) {
-		const side = Math.ceil(nSeats / 2);
-		const w = side * PITCH + GAP;
-		const h = 90;
-		const cellW = w + 80;
-		const cellH = h + 2 * (SEAT + GAP) + 70;
+		const w = tableWidthFor(Math.ceil(nSeats / 2));
+		const h = TABLE_DEPTH;
+		const cellW = w + 60;
+		const cellH = h + 2 * (SEAT + GAP) + 40;
 		const out = { tables: [], seats: [], furniture: [] };
 		for (let i = 0; i < nTables; i++) {
 			const n = i + 1;
-			const x = 40 + (i % nPerRow) * cellW;
-			const y = 40 + SEAT + GAP + Math.floor(i / nPerRow) * cellH;
-			out.tables.push({ id: 'T' + n, x, y, w, h, label: 'Table ' + n, rotation: 0 });
-			for (let s = 0; s < nSeats; s++) {
-				const top = s < side;
-				const col = top ? s : s - side;
-				out.seats.push({
-					id: `T${n}_S${s + 1}`,
-					x: x + GAP + col * PITCH,
-					y: top ? y - SEAT - GAP : y + h + GAP,
-					rotation: 0,
-				});
-			}
+			const table = { id: 'T' + n, x: 40 + (i % nPerRow) * cellW, y: 40 + SEAT + GAP + Math.floor(i / nPerRow) * cellH, w, h, label: 'Table ' + n, rotation: 0 };
+			out.tables.push(table);
+			seatSlots(table).slice(0, nSeats).forEach((c, s) => {
+				out.seats.push({ id: `T${n}_S${s + 1}`, x: c.x - SEAT / 2, y: c.y - SEAT / 2, rotation: 0 });
+			});
 		}
 		return out;
 	}
 
-	$: preview = mode === 'keep' && existing ? existing : generate(clamp(tables, 1, 40), clamp(perTable, 1, 20), clamp(perRow, 1, 8));
+	$: preview = mode === 'keep' && existing ? existing : generate(clamp(tables, 1, 40), clamp(perTable, 1, MAX_SEATS), clamp(perRow, 1, 8));
 	$: bounds = (() => {
 		const items = [...preview.tables, ...preview.seats.map(s => ({ ...s, w: SEAT, h: SEAT })), ...(preview.furniture || [])];
 		if (!items.length) return { x: 0, y: 0, w: 400, h: 200 };
@@ -68,7 +58,7 @@
 		if (mode === 'keep') return true;
 		// The old seats disappear: free them so nobody keeps a seat that no longer exists
 		if (existing) { try { await api.post('/room/admin-unassign-all', {}); } catch {} }
-		await api.post('/room/layout', generate(clamp(tables, 1, 40), clamp(perTable, 1, 20), clamp(perRow, 1, 8)));
+		await api.post('/room/layout', generate(clamp(tables, 1, 40), clamp(perTable, 1, MAX_SEATS), clamp(perRow, 1, 8)));
 		return true;
 	}
 </script>
@@ -96,14 +86,14 @@
 		</label>
 		<label class="num">
 			<span>{$t('setup_map_seats')}</span>
-			<input type="number" min="1" max="20" bind:value={perTable} />
+			<input type="number" min="1" max={MAX_SEATS} bind:value={perTable} />
 		</label>
 		<label class="num">
 			<span>{$t('setup_map_per_row')}</span>
 			<input type="number" min="1" max="8" bind:value={perRow} />
 		</label>
 	</div>
-	<p class="total">{$t('setup_map_total', { n: clamp(tables, 1, 40) * clamp(perTable, 1, 20) })}</p>
+	<p class="total">{$t('setup_map_total', { n: clamp(tables, 1, 40) * clamp(perTable, 1, MAX_SEATS) })}</p>
 {/if}
 
 <div class="preview" aria-hidden="true">

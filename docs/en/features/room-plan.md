@@ -19,9 +19,9 @@ You can Drag & Drop the following elements onto the canvas:
 
 ### Actions on Canvas Elements
 * **Selection and Movement**: Click and hold an element to reposition it.
-* **Coordinated Rotation**: Clicking the rotation handle of a table and rotating it automatically moves and aligns all associated seats in a circular arc around the table's center.
+* **Coordinated Rotation**: Clicking the rotation handle of a table (at its right end) and rotating it automatically moves and aligns all associated seats in a circular arc around the table's center.
 * **Delete Confirmation (Table)**: Deleting a table displays a visual confirmation overlay (`✓` / `✕`) positioned at the top-right above the table to prevent accidental clicks, and automatically cascades deletion to all associated seats.
-* **Direct Seat Addition**: A green `+` button (ghost seat) appears at the next vacant physical grid slot of a table. Clicking it generates a seat with a unique sequential ID (e.g. `T5_S9` instead of conflicting IDs). The button automatically shifts or disappears depending on table resizing and its maximum capacity.
+* **Direct Seat Addition**: Seats go **around** the table, like chairs: one row along the top edge, then one along the bottom edge, centred on its length. A green `+` button (ghost seat) appears at the next free place; clicking it generates a seat with a unique sequential ID (e.g. `T5_S9`). The button skips places covered by another table or seat, and disappears when both rows are full: for more places, make the table longer (a 300-wide table holds 5 seats per side). A seat stays bound to its table by its ID, so it follows the table when it is moved or rotated. A new table is thin (80 deep) and is placed leaving room for its seats. Older maps, with the seats on the table, keep working.
 * **Tight Auto-Recentering**: The **Recenter** button (as well as the initial page load) dynamically calculates the bounding box of all elements (tables, seats, decorations) to adjust zoom and center the room plan with an optimized `15px` padding.
 * **Save**: Changes automatically sync in the background with the SQLite `room_items` table.
 

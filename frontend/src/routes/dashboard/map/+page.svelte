@@ -6,6 +6,7 @@
 	import { api } from '$lib/api';
 	import { page } from '$app/stores';
 	import { wsMessageStore } from '$lib/ws';
+	import { SEAT_SIZE, SEAT_GAP, TABLE_DEPTH, firstFreeSlot } from '$lib/roomLayout';
 
 	let layout = { seats: [], tables: [], furniture: [] };
 
@@ -208,6 +209,14 @@
 			}
 		}
 		
+		// A seat may sit on or next to its own table, never on another one
+		if (isSeat && layout.tables) {
+			const own = item.id.split('_S')[0];
+			for (const t of layout.tables) {
+				if (t.id !== own && intersects(r1, { x: t.x, y: t.y, w: t.w, h: t.h })) return true;
+			}
+		}
+
 		// Check seats
 		if (layout.seats) {
 			for (const s of layout.seats) {
@@ -220,7 +229,6 @@
 		return false;
 	}
 
-	const SEAT_SIZE = 50; // visual seat size
 	let targetTableId = ''; // admin selects which table to fill
 
 	// --- Admin Actions ---
@@ -236,9 +244,10 @@
 		let x = 120;
 		let y = 120;
 		const w = 300;
-		const h = 140;
+		const h = TABLE_DEPTH; // the seats go around it, not on it
 		const tempTable = { id: 'T' + n };
-		while (hasCollision(tempTable, x, y, w, h)) {
+		const ring = SEAT_SIZE + SEAT_GAP; // keep room for the seats above and below it
+		while (hasCollision(tempTable, x, y - ring, w, h + 2 * ring)) {
 			x += GRID_SIZE;
 			y += GRID_SIZE;
 		}
@@ -391,43 +400,12 @@
 		targetTableId = tableId;
 		addSeat();
 	}
+	// Next free place around the table (top row, then bottom row), centre in the table's unrotated frame
 	function findFirstFreeSlot(table) {
-		const PAD = 10;
 		const half = SEAT_SIZE / 2;
-		const step = GRID_SIZE * Math.ceil(SEAT_SIZE / GRID_SIZE);
-		const cols = Math.max(1, Math.floor((table.w - PAD * 2) / step));
-		const existingOnTable = layout.seats.filter(s => s.id.startsWith(table.id + '_'));
-		
-		let slotIdx = 0;
-		while (true) {
-			const col = slotIdx % cols;
-			const row = Math.floor(slotIdx / cols);
-			
-			const localCx = PAD + half + col * step;
-			const localCy = PAD + half + row * step;
-			
-			// If it overflows the table footprint height, it is full
-			if (localCy + half > table.h - PAD) {
-				return null;
-			}
-			
-			const snappedCx = snapToGrid(table.x + localCx);
-			const snappedCy = snapToGrid(table.y + localCy);
-			
-			// Check if any existing seat occupies this position
-			const targetX = snappedCx - half;
-			const targetY = snappedCy - half;
-			const occupied = existingOnTable.some(s => {
-				return Math.abs(s.x - targetX) < 5 && Math.abs(s.y - targetY) < 5;
-			});
-			
-			if (!occupied) {
-				return { slotIdx, x: snappedCx, y: snappedCy };
-			}
-			
-			slotIdx++;
-			if (slotIdx > 200) return null;
-		}
+		// Skip a slot covered by another table or seat (checked on unrotated tables only)
+		const blocked = (slot) => !(table.rotation % 360) && hasCollision({ id: table.id + '_S?' }, slot.x - half, slot.y - half, SEAT_SIZE, SEAT_SIZE);
+		return firstFreeSlot(table, layout.seats.filter(s => s.id.startsWith(table.id + '_')), blocked);
 	}
 
 	function getNextSeatPos(table) {
@@ -520,7 +498,8 @@
 			const cx = dragOriginal.x + dragOriginal.w / 2;
 			const cy = dragOriginal.y + dragOriginal.h / 2;
 			const angle = Math.atan2(p.y - cy, p.x - cx) * (180 / Math.PI);
-			dragging.rotation = snapAngle(angle + 90);
+			// Tables carry their handle at the right end (0°); furniture keeps it above (-90°)
+			dragging.rotation = snapAngle(layout.tables.includes(dragging) ? angle : angle + 90);
 
 			// Rotate child seats around the table center
 			const deltaRot = dragging.rotation - dragOriginal.rotation;
@@ -1000,16 +979,16 @@
 								/>
 							{/each}
 
-							<!-- Rotation handle -->
+							<!-- Rotation handle: at the right end, which stays free (the seats line the long sides) -->
 							<!-- svelte-ignore a11y-no-static-element-interactions -->
-							<line x1={cx} y1={table.y} x2={cx} y2={table.y - 25} stroke="var(--accent)" stroke-width="2" stroke-dasharray="3 2"/>
+							<line x1={table.x + table.w} y1={cy} x2={table.x + table.w + 25} y2={cy} stroke="var(--accent)" stroke-width="2" stroke-dasharray="3 2"/>
 							<!-- svelte-ignore a11y-no-static-element-interactions -->
 							<circle 
-								cx={cx} cy={table.y - 30} r="7"
+								cx={table.x + table.w + 30} cy={cy} r="7"
 								class="rotate-handle"
 								on:mousedown={(e) => startDragTable(e, table, 'rotate')}
 							/>
-							<text x={cx} y={table.y - 27} text-anchor="middle" fill="white" font-size="8" font-weight="bold" style="pointer-events:none">↻</text>
+							<text x={table.x + table.w + 30} y={cy + 3} text-anchor="middle" fill="white" font-size="8" font-weight="bold" style="pointer-events:none">↻</text>
 
 							<!-- Remove -->
 							<!-- svelte-ignore a11y-no-static-element-interactions -->
