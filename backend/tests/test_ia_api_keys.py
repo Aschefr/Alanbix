@@ -59,3 +59,12 @@ def test_client_adds_the_key_of_the_matching_instance():
     assert seen["https://api.example.com/other"] == "Bearer k-short"
     assert seen["http://ollama:11434/api/tags"] is None
     ia_utils.register_instance_keys([])
+
+
+def test_context_window_never_below_16k(client, db_session):
+    with patch("app.ia_queue.queue_manager.restart_workers", new_callable=AsyncMock):
+        client.post("/ia/config", json={"context_window": 4096})
+    assert client.get("/ia/config").json()["context_window"] == 16384
+    with patch("app.ia_queue.queue_manager.restart_workers", new_callable=AsyncMock):
+        client.post("/ia/config", json={"context_window": 65536})
+    assert client.get("/ia/config").json()["context_window"] == 65536

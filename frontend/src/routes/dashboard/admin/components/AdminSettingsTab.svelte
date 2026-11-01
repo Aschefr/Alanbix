@@ -57,7 +57,7 @@
 	let iaConfig = { 
 		ollama_host: '', model: '', rag_enabled: true, network_tools_enabled: true,
 		auto_moderation_enabled: true,
-		temperature: 0.7, context_window: 4096,
+		temperature: 0.7, context_window: 16384,
 		ollama_instances: [], embedding_model: '',
 		tool_calling_mode: 'stream_intercept',
 		call_admin_enabled: true,
@@ -1376,13 +1376,13 @@
 							type="number" 
 							bind:value={iaConfig.context_window} 
 							on:change={saveIAConfig} 
-							min="512" 
+							min="16384" 
 							step="256"
 							style="width: 80px; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 6px; padding: 0.15rem 0.4rem; color: var(--text-main); font-size: 0.72rem; font-weight: 700; text-align: right;" 
 						/>
 					</div>
 					<div class="ctx-presets-grid" style="display: flex; flex-wrap: wrap; gap: 0.25rem;">
-						{#each [2048, 4096, 8192, 16384, 32768, 65536, 131072] as size}
+						{#each [16384, 32768, 65536, 131072] as size}
 							<button 
 								type="button" 
 								class="ctx-preset-mini-btn" 

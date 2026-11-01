@@ -27,6 +27,9 @@ router = APIRouter(prefix="/ia", tags=["IA"])
 _round_robin_idx = 0
 _active_requests = {}  # url -> int (active generation count)
 
+MIN_CONTEXT_WINDOW = 16384
+
+
 def get_effective_config(db: Session):
     db_config = db.query(models.SystemConfig).filter(models.SystemConfig.key == "ia_settings").first()
     if db_config:
@@ -54,6 +57,11 @@ def get_effective_config(db: Session):
             val["rag_suggestion_enabled"] = True
         if "rag_min_score" not in val:
             val["rag_min_score"] = 0.65
+        # The instructions and tool definitions alone take ~6,000 tokens: below 16K little is left
+        try:
+            val["context_window"] = max(int(val.get("context_window") or MIN_CONTEXT_WINDOW), MIN_CONTEXT_WINDOW)
+        except (TypeError, ValueError):
+            val["context_window"] = MIN_CONTEXT_WINDOW
         return val
     return {
         "ollama_host": os.getenv("OLLAMA_HOST", "http://host.docker.internal:11434"),
@@ -69,6 +77,7 @@ def get_effective_config(db: Session):
         "call_admin_global_hourly_limit": 15,
         "rag_suggestion_enabled": True,
         "rag_min_score": 0.65,
+        "context_window": MIN_CONTEXT_WINDOW,
     }
 
 def get_instances(db: Session):

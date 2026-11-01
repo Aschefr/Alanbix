@@ -13,7 +13,7 @@
 		{ id: 'other', label: '', url: '' },
 	];
 	// Same presets as Settings > Artificial Intelligence > Model
-	const CONTEXTS = [2048, 4096, 8192, 16384, 32768, 65536, 131072];
+	const CONTEXTS = [16384, 32768, 65536, 131072];
 
 	let iaConfig = null;
 	let existing = [];
@@ -25,7 +25,7 @@
 	let testState = ''; // '' | testing | ok | fail
 	let models = [];
 	let model = '';
-	let contextWindow = 8192;
+	let contextWindow = 16384;
 
 	$: url = mode === 'online' ? onlineUrl : localUrl;
 	$: if (mode || url || apiKey) resetTest();
@@ -40,7 +40,7 @@
 		try {
 			iaConfig = await api.get('/ia/config');
 			existing = iaConfig.ollama_instances || [];
-			contextWindow = iaConfig.context_window || 8192;
+			contextWindow = Math.max(iaConfig.context_window || 16384, 16384);
 			if (iaConfig.ollama_host && !existing.length) localUrl = iaConfig.ollama_host;
 		} catch {}
 		mode = existing.length ? 'keep' : 'local';
@@ -196,7 +196,6 @@
 	.choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.6rem; }
 	@media (max-width: 600px) {
 		.choices { grid-template-columns: 1fr; }
-		.seg.ctx { display: grid; grid-template-columns: repeat(4, 1fr); align-self: stretch; }
 	}
 	.choice { position: relative; display: flex; flex-direction: column; gap: 0.25rem; padding: 0.8rem 0.9rem; border: 1px solid var(--glass-border); border-radius: var(--radius-md); cursor: pointer; transition: border-color 0.15s, background 0.15s; }
 	.choice:hover { border-color: var(--text-muted); }
