@@ -71,6 +71,44 @@ def asker_matches_block(db, models, user, lang: str) -> str:
     return "\n".join(lines)
 
 
+# Tools that only read data every player can already see in the app. Everything the answer
+# would leak or that acts (notifications, announcements, admin calls, blocking, network probes)
+# stays with the private assistant.
+PUBLIC_TOOL_NAMES = {
+    "get_tournaments", "get_tournament_standings", "get_leaderboard", "get_leaderboard_by_game",
+    "get_player_info", "get_my_matches", "get_player_match_history", "get_player_rank_progression",
+    "get_live_matches", "get_upcoming_matches", "get_bracket_detail", "get_tournament_bracket_path",
+    "get_team_roster", "get_player_seat", "get_games", "get_game_rules", "get_awards", "get_files",
+    "get_event_info", "get_current_datetime",
+}
+
+
+def public_tools(ia_cfg: dict) -> list:
+    """Tool definitions for the public chat, none when the admin turned tool calling off."""
+    if ia_cfg.get("tool_calling_mode", "stream_intercept") == "disabled":
+        return []
+    from .ia_tools import TOOL_DEFINITIONS
+    return [t for t in TOOL_DEFINITIONS if t["function"]["name"] in PUBLIC_TOOL_NAMES]
+
+
+async def knowledge_block(db, models, query: str, host: str, ia_cfg: dict) -> str:
+    """The admin's knowledge base entries closest to the question, as for the private assistant."""
+    if not ia_cfg.get("rag_enabled", True) or not (query or "").strip():
+        return ""
+    from .ia_utils import get_embedding, search_similar
+    try:
+        embedding = await get_embedding(query, ollama_host=host)
+    except Exception as e:
+        print(f"[Public Chat AI] Knowledge base lookup failed: {e}")
+        return ""
+    if not embedding:
+        return ""
+    min_score = float(ia_cfg.get("rag_min_score", 0.65))
+    docs = db.query(models.KnowledgeBase).all()
+    found = [doc.content for doc, score in search_similar(embedding, docs, top_k=3) if score >= min_score]
+    return "=== Base de Connaissances ===\n" + "\n".join(found) if found else ""
+
+
 THREAD = {
     "fr": {"intro": "Fil récent du chat public, du plus ancien au plus récent :", "empty": "(aucun message récent)",
            "you": "Alanbix (toi)", "reply": "en réponse à", "image": "[image]",

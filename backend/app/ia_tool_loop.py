@@ -56,7 +56,8 @@ async def run_tool_rounds(
     allowed_tools: names the model may run; any other call gets an error result instead.
     on_tool_call: optional async callback(name) called before each tool runs.
 
-    Returns {"added": [...messages to append...], "used_tools": [...], "tool_time": s, "rounds": n}.
+    Returns {"added": [...messages to append...], "used_tools": [...], "tool_time": s, "rounds": n,
+    "final": the answer text when the last round called no tool, else None}.
     """
     from .ia_tools import execute_tool
 
@@ -64,6 +65,7 @@ async def run_tool_rounds(
     used_tools = []
     tool_time = 0.0
     rounds = 0
+    final = None
     is_openai = is_openai_host(host)
     options = req_data.get("options", {})
 
@@ -99,6 +101,7 @@ async def run_tool_rounds(
             calls = parse_xml_tool_calls(content + "\n" + (msg.get("thinking") or ""))
             is_xml = bool(calls)
         if not calls:
+            final = content
             break
 
         if is_xml:
@@ -132,4 +135,4 @@ async def run_tool_rounds(
                     reply["tool_call_id"] = call["id"]
                 added.append(reply)
 
-    return {"added": added, "used_tools": used_tools, "tool_time": tool_time, "rounds": rounds}
+    return {"added": added, "used_tools": used_tools, "tool_time": tool_time, "rounds": rounds, "final": final}

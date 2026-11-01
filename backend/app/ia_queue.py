@@ -28,6 +28,16 @@ def is_openai_host(url: str) -> bool:
 # Answer length cap for @Alanbix in the public chat (thinking included)
 PUBLIC_CHAT_MAX_ANSWER_TOKENS = 4096
 
+PUBLIC_CHAT_TOOL_INSTRUCTION = {
+    "role": "system",
+    "content": (
+        "You can look up the LAN's live data with your tools (tournaments, matches, brackets, rankings, teams, "
+        "seats, games and rules, files, event info). Use them whenever the answer needs facts. "
+        "If your API has no native tool calling, write the call exactly like this in your answer:\n"
+        "<tool_call name=\"tool_name\">\n{\"parameter\": \"value\"}\n</tool_call>"
+    ),
+}
+
 
 # ---------------------------------------------------------------------------
 # Queue Entry
@@ -852,36 +862,53 @@ class IAQueueManager:
         # never ask for more than the context (some online services reject it)
         max_answer = min(context_window, PUBLIC_CHAT_MAX_ANSWER_TOKENS)
 
+        tools = payload.get("tools") or []
+
         try:
             is_openai = is_openai_host(ollama_host)
-            if is_openai:
-                url = f"{ollama_host.rstrip('/')}/chat/completions"
-                req_json = {
-                    "model": model,
-                    "messages": messages,
-                    "stream": False,
-                    "temperature": temperature,
-                    "max_tokens": max_answer
-                }
-            else:
-                url = f"{ollama_host.rstrip('/')}/api/chat"
-                req_json = {
-                    "model": model,
-                    "messages": messages,
-                    "stream": False,
-                    "options": {"temperature": temperature, "num_predict": max_answer, "num_ctx": context_window}
-                }
-
             async with ia_client() as client:
-                res = await client.post(url, json=req_json, timeout=90.0)
+                raw = None
+                if tools:
+                    # Read-only tools, run for the asking player; a round without tool call is the answer
+                    outcome = await run_tool_rounds(
+                        client, ollama_host,
+                        {"model": model, "tools": tools,
+                         "options": {"temperature": temperature, "num_predict": max_answer, "num_ctx": context_window}},
+                        [*messages[:1], PUBLIC_CHAT_TOOL_INSTRUCTION, *messages[1:]],
+                        user_id=payload.get("asker_id", 0),
+                        allowed_tools={t["function"]["name"] for t in tools},
+                    )
+                    messages = messages + outcome["added"]
+                    raw = outcome["final"] or None
 
-            if res.status_code != 200:
-                raise Exception(f"AI service returned HTTP {res.status_code}: {res.text[:200]}")
+                if raw is None:
+                    if is_openai:
+                        url = f"{ollama_host.rstrip('/')}/chat/completions"
+                        req_json = {
+                            "model": model,
+                            "messages": messages,
+                            "stream": False,
+                            "temperature": temperature,
+                            "max_tokens": max_answer
+                        }
+                    else:
+                        url = f"{ollama_host.rstrip('/')}/api/chat"
+                        req_json = {
+                            "model": model,
+                            "messages": messages,
+                            "stream": False,
+                            "options": {"temperature": temperature, "num_predict": max_answer, "num_ctx": context_window}
+                        }
+                    res = await client.post(url, json=req_json, timeout=90.0)
 
-            if is_openai:
-                raw = res.json().get("choices", [{}])[0].get("message", {}).get("content", "")
-            else:
-                raw = res.json().get("message", {}).get("content", "")
+                    if res.status_code != 200:
+                        raise Exception(f"AI service returned HTTP {res.status_code}: {res.text[:200]}")
+
+                    if is_openai:
+                        raw = res.json().get("choices", [{}])[0].get("message", {}).get("content", "")
+                    else:
+                        raw = res.json().get("message", {}).get("content", "")
+                raw = raw or ""
 
             import re
             # Strip reasoning tokens (e.g. DeepSeek-R1 / Qwen thinking tags)

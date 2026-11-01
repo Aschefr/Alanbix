@@ -108,3 +108,47 @@ def test_answering_an_alanbix_message_calls_alanbix(client, db_session):
     assert res.status_code == 200, res.text
     reply.assert_called_once()
     assert reply.call_args.args[0] == res.json()["id"]
+
+
+def test_public_tools_only_read_public_data():
+    from app.ia_public_chat import PUBLIC_TOOL_NAMES, public_tools
+    from app.ia_tools import TOOL_DEFINITIONS
+    names = {t["function"]["name"] for t in public_tools({})}
+    assert names == PUBLIC_TOOL_NAMES  # every allowed name exists
+    known = {t["function"]["name"] for t in TOOL_DEFINITIONS}
+    for private in ("get_notifications", "announce_to_all", "send_notification_to_player", "call_admin",
+                    "block_user_from_ia", "suggest_rag_entry", "ping_host", "scan_local_network"):
+        assert private in known and private not in names
+    assert public_tools({"tool_calling_mode": "disabled"}) == []
+
+
+@pytest.mark.asyncio
+async def test_public_answer_runs_a_tool_for_the_asker():
+    from app.ia_queue import IAQueueManager, QueueEntry
+    from app.ia_public_chat import public_tools
+
+    tools = public_tools({})
+    entry = QueueEntry(
+        priority=10, created_at=time.time(), user_id=0, username="Alanbix", task_type="public_chat",
+        payload={"ollama_host": "http://gpu1:11434", "model": "m", "context_window": 16384, "asker_id": 5,
+                 "tools": tools, "messages": [{"role": "system", "content": "S"}, {"role": "user", "content": "quel match ?"}]},
+    )
+    call = MagicMock(status_code=200)
+    call.json.return_value = {"message": {"content": "", "tool_calls": [{"function": {"name": "get_my_matches", "arguments": {}}}]}}
+    answer = MagicMock(status_code=200)
+    answer.json.return_value = {"message": {"content": "Tu joues contre Player2 en WB Round 1."}}
+    client = AsyncMock()
+    client.post = AsyncMock(side_effect=[call, answer])
+    client.__aenter__ = AsyncMock(return_value=client)
+    client.__aexit__ = AsyncMock(return_value=False)
+
+    with patch("httpx.AsyncClient", return_value=client), \
+         patch("app.ia_tools.execute_tool", AsyncMock(return_value='{"pending_matches": []}')) as run:
+        await IAQueueManager()._process_public_chat(entry, entry.payload)
+
+    run.assert_called_once_with("get_my_matches", {}, user_id=5, conversation_id=0)
+    assert client.post.call_count == 2  # the round without tool call is the answer, no extra request
+    first = client.post.call_args_list[0].kwargs["json"]
+    assert first["tools"] == tools and first["messages"][1]["content"].startswith("You can look up")
+    result = await entry.result_stream.get()
+    assert result["result"] == "Tu joues contre Player2 en WB Round 1."

@@ -423,7 +423,7 @@ async def _process_alanbix_public_reply(trigger_msg_id: int, author_id: int):
     """Background task to generate Alanbix's reply in public chat via the IA queue."""
     from ..ia_queue import queue_manager, QueueEntry
     from ..database import SessionLocal
-    from ..ia_public_chat import build_public_system_prompt, build_thread_message
+    from ..ia_public_chat import build_public_system_prompt, build_thread_message, knowledge_block, public_tools
     from .ia import pick_instance, get_effective_config
 
     try:
@@ -451,6 +451,9 @@ async def _process_alanbix_public_reply(trigger_msg_id: int, author_id: int):
                 return
 
             system_prompt, lan_lang = build_public_system_prompt(db, models, author)
+            knowledge = await knowledge_block(db, models, trigger.content, ollama_host, ia_cfg)
+            if knowledge:
+                system_prompt = f"{system_prompt}\n\n{knowledge}"
             messages = [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": build_thread_message(db, models, trigger, lan_lang)}
@@ -467,7 +470,9 @@ async def _process_alanbix_public_reply(trigger_msg_id: int, author_id: int):
                     "model": model_to_use,
                     "messages": messages,
                     "temperature": temperature,
-                    "context_window": context_window
+                    "context_window": context_window,
+                    "tools": public_tools(ia_cfg),
+                    "asker_id": author.id,
                 }
             )
 
