@@ -11,6 +11,7 @@
 	import EditTournamentModal from '$lib/components/EditTournamentModal.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import { formatPoints } from '$lib/utils';
+	import { renderMarkdown } from '$lib/markdown';
 
 	import TournamentParticipants from './components/TournamentParticipants.svelte';
 	import TournamentTeams from './components/TournamentTeams.svelte';
@@ -1043,7 +1044,7 @@
 				{#if selected.config?.custom_rules || selectedGame?.rules}
 					<div class="hero-rules">
 						<span class="hero-rules-label">{$t("tourneys_tab_rules")}</span>
-						<p class="hero-rules-text">{selected.config?.custom_rules || selectedGame?.rules}</p>
+						<div class="hero-rules-text">{@html renderMarkdown(selected.config?.custom_rules || selectedGame?.rules)}</div>
 					</div>
 				{/if}
 				{#if useTeams}
@@ -1320,7 +1321,7 @@
 			<div class="edit-modal-body">
 				<div class="m-modal-section">
 					<h4 style="font-size:0.8rem; font-weight:700; color:var(--accent); margin-bottom:0.4rem; text-transform:uppercase;">{$t("tourneys_tab_rules")}</h4>
-					<p class="hero-rules-text" style="font-size:0.85rem; line-height:1.4; color:var(--text-main); margin-bottom:1rem;">{selected.config?.custom_rules || selectedGame?.rules || $t('tourneys_no_custom_rules')}</p>
+					<div class="hero-rules-text" style="font-size:0.85rem; line-height:1.4; color:var(--text-main); margin-bottom:1rem;">{@html renderMarkdown(selected.config?.custom_rules || selectedGame?.rules || $t('tourneys_no_custom_rules'))}</div>
 				</div>
 				<div class="m-modal-cards-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem;">
 					<div class="info-card glass" style="padding:0.6rem; border-radius:8px;">
@@ -1623,7 +1624,17 @@
 		z-index: 3;
 	}
 	.hero-rules-label { font-size: 0.55rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #60a5fa; margin-bottom: 0.25rem; display: block; }
-	.hero-rules-text { font-size: 0.7rem; color: rgba(255,255,255,0.75); margin: 0; line-height: 1.45; white-space: pre-line; word-break: break-word; }
+	.hero-rules-text { font-size: 0.7rem; color: rgba(255,255,255,0.75); margin: 0; line-height: 1.45; word-break: break-word; }
+	/* Rules are Markdown written by organisers: keep the rendering compact */
+	.hero-rules-text :global(p) { margin: 0 0 0.35em; }
+	.hero-rules-text :global(p:last-child) { margin-bottom: 0; }
+	.hero-rules-text :global(h1), .hero-rules-text :global(h2), .hero-rules-text :global(h3), .hero-rules-text :global(h4) { font-size: 1.1em; margin: 0.45em 0 0.2em; line-height: 1.3; }
+	.hero-rules-text :global(ul), .hero-rules-text :global(ol) { margin: 0.2em 0 0.35em; padding-left: 1.2em; }
+	.hero-rules-text :global(blockquote) { margin: 0.3em 0; padding-left: 0.6em; border-left: 2px solid currentColor; opacity: 0.85; }
+	.hero-rules-text :global(a) { color: #60a5fa; }
+	.hero-rules-text :global(img) { max-width: 100%; }
+	.hero-rules-text :global(table) { border-collapse: collapse; }
+	.hero-rules-text :global(th), .hero-rules-text :global(td) { border: 1px solid rgba(255,255,255,0.2); padding: 0.15em 0.4em; }
 	.hero-rules::-webkit-scrollbar { width: 3px; }
 	.hero-rules::-webkit-scrollbar-thumb { background: rgba(96,165,250,0.3); border-radius: 3px; }
 	.hero-join { align-self: flex-end; }

@@ -6,12 +6,12 @@ Alanbix's information page (route `/dashboard/info`) centralizes announcements, 
 
 ---
 
-## ✏️ Page Editing (WYSIWYG Markdown)
+## ✏️ Page Editing (Markdown)
 
-System administrators have an integrated text editor based on **EasyMDE**.
+Administrators use the app's own Markdown editor (`MarkdownEditor.svelte`): a plain text field, a toolbar (bold, italic, heading, quote, lists, link, image, table, divider; Ctrl+B and Ctrl+I shortcuts) and a **Preview** tab showing exactly what players will see. It uses no third-party library and downloads nothing.
 * This editor features two separate input tabs:
   1. **Main Content (Players)**: Displays on the dashboard of connected participants (schedule, rules, WiFi codes).
-  2. **Projector Content**: Displays only during the automatic scrolling of **Spectator Mode** (e.g., key matches of the evening, meal times).
+  2. **Projector Content**: Displays only during the automatic scrolling of **Spectator Mode** (e.g., key matches of the evening, meal times), also rendered as Markdown.
 * Saving is done by writing to the `system_config` table under the respective keys `info_page_content` and `info_spectator_content`.
 
 ---

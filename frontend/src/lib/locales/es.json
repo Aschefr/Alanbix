@@ -1699,5 +1699,22 @@
   "result_correct": "Corregir el resultado",
   "result_correct_locked": "El torneo ya ha avanzado tras este partido: solo un admin puede corregir el resultado. Avísale desde el asistente IA.",
   "settings_privacy_label": "Privacidad",
-  "settings_privacy_open": "Ver"
+  "settings_privacy_open": "Ver",
+  "md_tab_write": "Escribir",
+  "md_tab_preview": "Vista previa",
+  "md_bold": "Negrita (Ctrl+B)",
+  "md_italic": "Cursiva (Ctrl+I)",
+  "md_heading": "Título",
+  "md_quote": "Cita",
+  "md_list": "Lista con viñetas",
+  "md_list_ordered": "Lista numerada",
+  "md_link": "Enlace",
+  "md_image": "Imagen",
+  "md_table": "Tabla",
+  "md_rule": "Separador",
+  "md_sample_text": "texto",
+  "md_sample_link": "texto del enlace",
+  "md_sample_image": "descripción de la imagen",
+  "md_table_column": "Columna",
+  "md_preview_empty": "Nada que mostrar por ahora."
 }

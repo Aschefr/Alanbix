@@ -1699,5 +1699,22 @@
   "result_correct": "Correct the score",
   "result_correct_locked": "The tournament has already moved on after this match: only an admin can correct the score. Alert one through the AI assistant.",
   "settings_privacy_label": "Privacy",
-  "settings_privacy_open": "View"
+  "settings_privacy_open": "View",
+  "md_tab_write": "Write",
+  "md_tab_preview": "Preview",
+  "md_bold": "Bold (Ctrl+B)",
+  "md_italic": "Italic (Ctrl+I)",
+  "md_heading": "Heading",
+  "md_quote": "Quote",
+  "md_list": "Bulleted list",
+  "md_list_ordered": "Numbered list",
+  "md_link": "Link",
+  "md_image": "Image",
+  "md_table": "Table",
+  "md_rule": "Divider",
+  "md_sample_text": "text",
+  "md_sample_link": "link text",
+  "md_sample_image": "image description",
+  "md_table_column": "Column",
+  "md_preview_empty": "Nothing to show yet."
 }

@@ -3,9 +3,10 @@
 	import { api } from '$lib/api';
 	import { API_URL } from '$lib/config';
 	import { get } from 'svelte/store';
-	import { createEventDispatcher, onMount } from 'svelte';
+	import { createEventDispatcher } from 'svelte';
 
 	import Icon from '$lib/components/Icon.svelte';
+	import MarkdownEditor from '$lib/components/MarkdownEditor.svelte';
 
 	export let show = false;
 	// edit mode when a game is given: same form, saved with PUT
@@ -106,57 +107,6 @@
 		};
 	}
 
-	let EasyMDE = null;
-	let editorInstance = null;
-
-	onMount(async () => {
-		try {
-			const mod = await import('easymde');
-			await import('easymde/dist/easymde.min.css');
-			EasyMDE = mod.default;
-		} catch (e) {
-			console.error("Failed to load EasyMDE", e);
-		}
-	});
-
-	function setupEditor(node, currentRules) {
-		if (!EasyMDE) return;
-		
-		editorInstance = new EasyMDE({
-			element: node,
-			initialValue: currentRules || '',
-			spellChecker: false,
-			autofocus: false,
-			status: false,
-			minHeight: '120px',
-			maxHeight: '250px',
-			toolbar: [
-				'bold', 'italic', 'heading', '|', 
-				'quote', 'unordered-list', 'ordered-list', '|', 
-				'preview', 'side-by-side', 'fullscreen', '|', 
-				'guide'
-			]
-		});
-		
-		editorInstance.codemirror.on('change', () => {
-			newGame.rules = editorInstance.value();
-		});
-
-		return {
-			update(newRules) {
-				if (editorInstance && editorInstance.value() !== newRules) {
-					editorInstance.value(newRules || '');
-				}
-			},
-			destroy() {
-				if (editorInstance) {
-					editorInstance.toTextArea();
-					editorInstance = null;
-				}
-			}
-		};
-	}
-
 	function handleKeydown(e) {
 		if (show && e.key === 'Escape') {
 			closeModal();
@@ -237,11 +187,7 @@
 
 				<div class="edit-field editor-container">
 					<span class="edit-label">{$t('admin_games_rules_lbl')}</span>
-					{#if EasyMDE}
-						<textarea use:setupEditor={newGame.rules}></textarea>
-					{:else}
-						<textarea bind:value={newGame.rules} rows="4" placeholder={$t('addgame_rules_placeholder')}></textarea>
-					{/if}
+					<MarkdownEditor bind:value={newGame.rules} rows={6} label={$t('admin_games_rules_lbl')} placeholder={$t('addgame_rules_placeholder')} />
 				</div>
 			</div>
 			<footer class="edit-modal-footer">
@@ -273,53 +219,4 @@
 	.img-preview { position: relative; width: 100%; max-height: 120px; border-radius: 8px; overflow: hidden; border: 1px solid var(--glass-border); }
 	.img-preview img { width: 100%; height: 100px; object-fit: cover; display: block; }
 	.preview-clear { position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; border-radius: 50%; background: rgba(239, 68, 68, 0.8); color: white; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-
-	/* EasyMDE theme overrides for dark and light modes */
-	.editor-container :global(.EasyMDEContainer) {
-		background: transparent;
-		border: 1px solid var(--glass-border);
-		border-radius: 8px;
-		overflow: hidden;
-	}
-	.editor-container :global(.EasyMDEContainer .CodeMirror) {
-		background: var(--input-bg);
-		color: var(--input-color);
-		border: none;
-		border-radius: 0;
-		font-size: 0.85rem;
-		font-family: var(--font-main);
-	}
-	.editor-container :global(.editor-toolbar) {
-		background: var(--hover-tint);
-		border: none;
-		border-bottom: 1px solid var(--glass-border);
-		opacity: 1;
-		padding: 4px;
-	}
-	.editor-container :global(.editor-toolbar button) {
-		color: var(--text-dim) !important;
-		border: none !important;
-		width: 26px !important;
-		height: 26px !important;
-	}
-	.editor-container :global(.editor-toolbar button:hover),
-	.editor-container :global(.editor-toolbar button.active) {
-		background: var(--accent-soft) !important;
-		color: var(--accent) !important;
-		border-radius: 4px;
-	}
-	.editor-container :global(.editor-toolbar i.separator) {
-		border-left-color: var(--glass-border) !important;
-	}
-	.editor-container :global(.CodeMirror-cursor) { border-left-color: var(--accent); }
-	.editor-container :global(.CodeMirror-selected) { background: var(--accent-soft) !important; }
-	.editor-container :global(.editor-preview) {
-		background: var(--input-bg);
-		color: var(--input-color);
-	}
-	.editor-container :global(.editor-preview-side) {
-		background: var(--input-bg);
-		color: var(--input-color);
-		border-left: 1px solid var(--glass-border);
-	}
 </style>

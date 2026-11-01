@@ -2,6 +2,7 @@
 	import { t } from '$lib/i18nStore';
 	import { createEventDispatcher } from 'svelte';
 	import Icon from '$lib/components/Icon.svelte';
+	import MarkdownEditor from '$lib/components/MarkdownEditor.svelte';
 
 	const dispatch = createEventDispatcher();
 
@@ -154,7 +155,7 @@
 
 						<div class="edit-field full-width">
 							<label for="edit-rules"><Icon name="book-open" size={14} /> {$t("tourneys_edit_rules_lbl")}</label>
-							<textarea id="edit-rules" bind:value={editConfig.custom_rules} placeholder={$t("tourneys_edit_rules_placeholder")} rows="3"></textarea>
+							<MarkdownEditor id="edit-rules" bind:value={editConfig.custom_rules} placeholder={$t("tourneys_edit_rules_placeholder")} rows={5} label={$t("tourneys_edit_rules_lbl")} />
 						</div>
 					</div>
 				</section>

@@ -6,12 +6,12 @@ La page d'informations d'Alanbix (route `/dashboard/info`) centralise les annonc
 
 ---
 
-## ✏️ Édition de la Page (WYSIWYG Markdown)
+## ✏️ Édition de la Page (Markdown)
 
-Les administrateurs système disposent d'un éditeur de texte intégré basé sur **EasyMDE**.
+Les administrateurs disposent de l'éditeur Markdown de l'application (`MarkdownEditor.svelte`) : une zone de texte simple, une barre d'outils (gras, italique, titre, citation, listes, lien, image, tableau, séparateur ; raccourcis Ctrl+B et Ctrl+I) et un onglet **Aperçu** qui affiche exactement le rendu vu par les joueurs. Il n'utilise aucune bibliothèque tierce et ne télécharge rien.
 * Cet éditeur comporte deux onglets de saisie distincts :
   1. **Contenu Principal (Joueurs)** : S'affiche sur le tableau de bord des participants connectés (planning, règlements, codes WiFi).
-  2. **Contenu Projecteur** : S'affiche uniquement lors du défilement automatique du **Mode Spectateur** (ex: les matchs clés de la soirée, les horaires des repas).
+  2. **Contenu Projecteur** : S'affiche uniquement lors du défilement automatique du **Mode Spectateur** (ex: les matchs clés de la soirée, les horaires des repas), lui aussi rendu en Markdown.
 * La sauvegarde s'effectue en écrivant dans la table `system_config` sous les clés respectives `info_page_content` et `info_spectator_content`.
 
 ---

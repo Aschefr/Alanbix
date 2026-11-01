@@ -3,10 +3,12 @@
 ## [1.35.3] - Unreleased
 
 ### 🐛 Fixes
+- **New built-in Markdown editor**: the info page, the projector text, game rules and tournament rules now share one lightweight editor (plain text field that works well with phone keyboards, toolbar with the app's line icons, Ctrl+B / Ctrl+I, Write / Preview tabs showing exactly what players will see). It replaces EasyMDE: about 330 KB less JavaScript, and no more Font Awesome icons downloaded from a CDN when an organiser opens the editor.
+- **Rules and projector text rendered as Markdown**: game rules, tournament rules and the projector info text were shown as raw text (players saw `**` and `#`); they are now formatted like the info page.
 - **Privacy policy**: a public privacy policy in French and English (`docs/privacy/`, published to GitHub Pages by a workflow) explains that the app sends nothing to its publisher and that each LAN organiser holds their players' data. Settings > About links to it.
 - **Deleted accounts leave no username in closed tournaments**: the final standings snapshot of a closed tournament now shows `#id` instead of the username of a player who deleted their account.
 - **Deleting an account also deletes the player's images**: avatar thumbnails, images sent in private, team and public chats, and images sent to the AI assistant are now removed from the server with the account (the database rows were already removed). Only files inside the image folders can be deleted this way.
-- **Info page without a third-party request**: the Markdown editor stylesheet is bundled with the app instead of being loaded from unpkg.com for every visitor.
+- **Info page without a third-party request**: no stylesheet is loaded from unpkg.com any more for every visitor.
 - **"Configure the server" button on the offline screen**: when the server could not be reached, the button did nothing because its window only existed once the app had finished loading. It now opens, so the server address can be changed from that screen.
 
 ## [1.35.2] - 2026-11-01

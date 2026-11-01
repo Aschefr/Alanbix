@@ -342,6 +342,46 @@
     <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
     <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />
     <line x1="2" x2="22" y1="2" y2="22" />
+  <!-- Markdown editor toolbar -->
+  {:else if name === 'bold'}
+    <path d="M14 12a4 4 0 0 0 0-8H6v8" />
+    <path d="M15 20a4 4 0 0 0 0-8H6v8Z" />
+  {:else if name === 'italic'}
+    <line x1="19" x2="10" y1="4" y2="4" />
+    <line x1="14" x2="5" y1="20" y2="20" />
+    <line x1="15" x2="9" y1="4" y2="20" />
+  {:else if name === 'heading'}
+    <path d="M6 12h12" />
+    <path d="M6 20V4" />
+    <path d="M18 20V4" />
+  {:else if name === 'text-quote'}
+    <path d="M17 6H3" />
+    <path d="M21 12H8" />
+    <path d="M21 18H8" />
+    <path d="M3 12v6" />
+  {:else if name === 'list'}
+    <line x1="8" x2="21" y1="6" y2="6" />
+    <line x1="8" x2="21" y1="12" y2="12" />
+    <line x1="8" x2="21" y1="18" y2="18" />
+    <line x1="3" x2="3.01" y1="6" y2="6" />
+    <line x1="3" x2="3.01" y1="12" y2="12" />
+    <line x1="3" x2="3.01" y1="18" y2="18" />
+  {:else if name === 'list-ordered'}
+    <line x1="10" x2="21" y1="6" y2="6" />
+    <line x1="10" x2="21" y1="12" y2="12" />
+    <line x1="10" x2="21" y1="18" y2="18" />
+    <path d="M4 6h1v4" />
+    <path d="M4 10h2" />
+    <path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1" />
+  {:else if name === 'image'}
+    <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+    <circle cx="9" cy="9" r="2" />
+    <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+  {:else if name === 'table'}
+    <path d="M12 3v18" />
+    <rect width="18" height="18" x="3" y="3" rx="2" />
+    <path d="M3 9h18" />
+    <path d="M3 15h18" />
   {:else}
     <!-- Default circle / dot -->
     <circle cx="12" cy="12" r="3" />

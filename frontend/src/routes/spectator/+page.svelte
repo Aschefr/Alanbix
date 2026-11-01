@@ -7,6 +7,7 @@
 	import { connectWS } from '$lib/ws';
 	import { API_URL, resolveMediaUrl } from '$lib/config';
 	import { formatPoints } from '$lib/utils';
+	import { renderMarkdown } from '$lib/markdown';
 
 	const VIEWS = ['leaderboard', 'teams', 'map', 'bracket', 'info'];
 	let currentIdx = 0;
@@ -693,7 +694,7 @@
 			<div class="spec-view">
 				<h1 class="spec-title"><span style="-webkit-text-fill-color:initial;background:none">📋</span> {$t("info_title")}</h1>
 				<div class="spec-info-content">
-					{@html spectatorInfo.replace(/\n/g, '<br>')}
+					{@html renderMarkdown(spectatorInfo)}
 				</div>
 			</div>
 		{/if}
@@ -848,6 +849,17 @@
 		text-align: center; padding: 0 2rem;
 		font-family: var(--font-main);
 	}
+	/* Projector text is Markdown: big, readable from the back of the room */
+	.spec-info-content :global(p) { margin: 0 0 0.6em; }
+	.spec-info-content :global(h1), .spec-info-content :global(h2), .spec-info-content :global(h3) { margin: 0.4em 0 0.3em; line-height: 1.25; }
+	.spec-info-content :global(h1) { font-size: 1.6em; }
+	.spec-info-content :global(h2) { font-size: 1.3em; }
+	.spec-info-content :global(h3) { font-size: 1.1em; }
+	.spec-info-content :global(ul), .spec-info-content :global(ol) { display: inline-block; text-align: left; margin: 0.2em 0 0.6em; }
+	.spec-info-content :global(img) { max-width: 100%; border-radius: 12px; }
+	.spec-info-content :global(table) { margin: 0.4em auto; border-collapse: collapse; }
+	.spec-info-content :global(th), .spec-info-content :global(td) { border: 1px solid var(--glass-border, rgba(255,255,255,0.2)); padding: 0.2em 0.6em; }
+	.spec-info-content :global(a) { color: var(--accent, #60a5fa); }
 	.spec-avatar {
 		width: 48px;
 		height: 48px;
