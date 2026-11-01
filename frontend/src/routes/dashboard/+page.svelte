@@ -395,6 +395,7 @@
 			stats = statsRes;
 
 			tournaments = tournamentsRes;
+			loadMyTeamSlots(tournamentsRes, userRes);
 
 			const res = layoutRes || { layout: { seats: [], tables: [], furniture: [] } };
 
@@ -516,6 +517,22 @@
 
 
 
+	// Team tournaments use their own teams (id -team.id), which can mix players from different global teams:
+	// find the player's slot from the real membership, not from the global team name
+	let myTeamSlots = {};
+	async function loadMyTeamSlots(list, me) {
+		if (!me) return;
+		const teamTourneys = (list || []).filter(tr => tr.config?.use_teams && (tr.status === 'RUNNING' || tr.status === 'OPEN'));
+		const entries = await Promise.all(teamTourneys.map(async tr => {
+			try {
+				const teams = await api.get(`/tournaments/${tr.id}/teams`);
+				const mine = (teams || []).find(tm => (tm.members || []).some(mb => mb.user_id === me.id));
+				return [tr.id, mine ? -mine.id : null];
+			} catch { return [tr.id, undefined]; }
+		}));
+		myTeamSlots = Object.fromEntries(entries);
+	}
+
 	$: myMatchesAll = (() => {
 
 		const tFunc = $t;
@@ -568,6 +585,10 @@
 
 					if (pid === myUid) { mySlot = i; break; }
 
+					if (useTeams && pid < 0 && myTeamSlots[tourney.id] !== undefined) {
+						if (pid === myTeamSlots[tourney.id]) { mySlot = i; break; }
+						continue;
+					}
 					if (useTeams && myTeamName && pid < 0) {
 
 						const tName = (teamMap[String(pid)] || '').toLowerCase();

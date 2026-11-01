@@ -1682,5 +1682,7 @@
   "ai_starter_tour": "Give me a tour of the app",
   "ai_starter_match": "What is my next match?",
   "ai_starter_network": "I have a connection problem",
-  "ai_starter_fun": "Tell me a LAN joke"
+  "ai_starter_fun": "Tell me a LAN joke",
+  "regie_ffa_players": "Free-for-all · {n} players",
+  "regie_ffa_enter": "Enter the scores"
 }

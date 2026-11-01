@@ -1693,5 +1693,7 @@
   "ai_starter_tour": "Fais-moi visiter l'application",
   "ai_starter_match": "Quel est mon prochain match ?",
   "ai_starter_network": "J'ai un souci de connexion",
-  "ai_starter_fun": "Raconte-moi une blague de LAN"
+  "ai_starter_fun": "Raconte-moi une blague de LAN",
+  "regie_ffa_players": "Mêlée générale · {n} joueurs",
+  "regie_ffa_enter": "Saisir les scores"
 }

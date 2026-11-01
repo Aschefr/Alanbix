@@ -77,7 +77,14 @@
 	$: running = (tournaments || []).filter(tr => tr.status === 'RUNNING' && Array.isArray(tr.bracket));
 
 	// For each running tournament: the 1v1 matches of its current round that still need a score
+	// Free-for-all matches (3+ players) are scored on the tournament page: listed here with a shortcut
+	const isFfaDone = (m) => (m.score || []).length === m.p.length && m.score.every(s => s !== null && s !== undefined);
 	$: toScore = running.flatMap(tr => {
+		const ffa = tr.bracket.filter(m => (m.p || []).length > 2 && !m.p.includes(0) && !isFfaDone(m));
+		if (ffa.length) {
+			const current = roundOf(ffa[0]);
+			return ffa.filter(m => roundOf(m) === current).map(m => ({ tr, m, ffa: true, key: `${tr.id}_${m.id?.s}_${m.id?.r}_${m.id?.m}` }));
+		}
 		const playable = tr.bracket.filter(m => (m.p || []).length === 2 && !m.p.includes(0));
 		const pending = playable.filter(m => !isDone(m, tr.config));
 		if (!pending.length) return [];
@@ -87,8 +94,9 @@
 
 	$: progress = running.map(tr => {
 		const playable = tr.bracket.filter(m => (m.p || []).length >= 2 && !m.p.includes(0));
-		const done = playable.filter(m => isDone(m, tr.config)).length;
-		const firstPending = playable.find(m => !isDone(m, tr.config));
+		const doneOf = (m) => m.p.length > 2 ? isFfaDone(m) : isDone(m, tr.config);
+		const done = playable.filter(doneOf).length;
+		const firstPending = playable.find(m => !doneOf(m));
 		return { tr, done, total: playable.length, current: firstPending ? roundLabel(firstPending, tr) : $t('regie_round_finished') };
 	});
 
@@ -184,8 +192,17 @@
 						{/if}
 						<div class="rg-item-main">
 							<span class="rg-meta">{item.tr.name} · {roundLabel(item.m, item.tr)}</span>
-							<span class="rg-versus">{nameOf(item.m.p[0], item.tr, users)} <span class="rg-vs">vs</span> {nameOf(item.m.p[1], item.tr, users)}</span>
+							{#if item.ffa}
+								<span class="rg-versus">{$t('regie_ffa_players', { n: item.m.p.length })}</span>
+							{:else}
+								<span class="rg-versus">{nameOf(item.m.p[0], item.tr, users)} <span class="rg-vs">vs</span> {nameOf(item.m.p[1], item.tr, users)}</span>
+							{/if}
 						</div>
+						{#if item.ffa}
+							<div class="rg-score">
+								<button class="btn-primary rg-btn" type="button" on:click={() => goto(`/dashboard/tournaments?select=${item.tr.id}`)}>{$t('regie_ffa_enter')}</button>
+							</div>
+						{:else}
 						<form class="rg-score" on:submit|preventDefault={() => submitScore(item)}>
 							<input type="number" min="0" inputmode="numeric" bind:value={scoreDraft[item.key].a} aria-label={nameOf(item.m.p[0], item.tr, users)} />
 							<span>–</span>
@@ -193,6 +210,7 @@
 							<button class="btn-primary rg-btn" type="submit" disabled={savingKey === item.key || scoreDraft[item.key].a === '' || scoreDraft[item.key].b === '' || scoreDraft[item.key].a == null || scoreDraft[item.key].b == null}>{$t('regie_validate')}</button>
 							<button class="btn-secondary rg-btn" type="button" title={$t('regie_view_match_tooltip')} on:click={() => goto(`/dashboard/tournaments?select=${item.tr.id}`)}>{$t('regie_view')}</button>
 						</form>
+						{/if}
 					</li>
 				{/each}
 			</ul>

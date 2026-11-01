@@ -1682,5 +1682,7 @@
   "ai_starter_tour": "Enséñame la aplicación",
   "ai_starter_match": "¿Cuál es mi próximo partido?",
   "ai_starter_network": "Tengo un problema de conexión",
-  "ai_starter_fun": "Cuéntame un chiste de LAN"
+  "ai_starter_fun": "Cuéntame un chiste de LAN",
+  "regie_ffa_players": "Todos contra todos · {n} jugadores",
+  "regie_ffa_enter": "Introducir los resultados"
 }
