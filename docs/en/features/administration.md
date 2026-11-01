@@ -77,3 +77,14 @@ To feed the memory of the local AI assistant (RAG):
 * **Document Input Area**: A large text field (TextArea) is present under **Administration > AI Assistant > Knowledge Base**.
 * **"Vectorize & Add" Button**: Splits the entered text, sends it to the active Ollama instance to extract semantic vectors (embeddings), and stores them in the `rag_documents` table so they are immediately usable in player chats.
 * **Document Management Buttons**: Allows listing and individually deleting indexed knowledge blocks.
+
+---
+
+## 🩺 Server Memory Diagnostics
+To watch a long-running server (a Raspberry Pi for example), the API exposes `GET /admin/diagnostics/memory`, restricted to administrators (same session as the app, same port).
+
+- **Default response**: process memory (`rss_mb`), WebSocket connections, online players, AI queue, caches and async tasks. A counter that keeps climbing and never comes back down points to a leak.
+- **`?top=30`**: lists the most numerous Python object types; compare two calls a while apart to see what accumulates.
+- **`?trace=start`** then **`?trace=diff`**: records allocations, then shows the code lines that hold the most memory. **`?trace=stop`** stops recording (it slows the server down: use it for an analysis only).
+
+> WebSocket connections no longer use per-message compression: each connection kept a ~37 KB context that was never freed when the network dropped abruptly (phone going to sleep). See changelog 1.35.2.

@@ -335,9 +335,9 @@
 			// Fetch SemVer version
 			try {
 				const res = await api.get('/health');
-				version = res.version || '1.35.1';
+				version = res.version || '1.35.2';
 			} catch {
-				version = '1.35.1';
+				version = '1.35.2';
 			}
 
 			// Admin: poll IA status
@@ -954,6 +954,7 @@
 	.avatar {
 		width: 40px;
 		height: 40px;
+		flex-shrink: 0;
 		background: var(--bg-tertiary);
 		border-radius: 50%;
 		display: flex;
@@ -971,9 +972,13 @@
 		border-radius: 50%;
 	}
 
+	.user-profile .info { min-width: 0; }
 	.username {
 		font-weight: 600;
 		font-size: 0.9rem;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
 	}
 
 	.role {
@@ -988,7 +993,6 @@
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
-		max-width: 130px;
 	}
 
 	.logout-btn {
@@ -1244,10 +1248,10 @@
 		box-shadow: 0 6px 20px rgba(0,0,0,0.4);
 	}
 	.global-toast.info {
-		border-left: 4px solid var(--accent);
+		border-color: color-mix(in srgb, var(--accent) 55%, var(--glass-border));
 	}
 	.global-toast.pm {
-		border-left: 4px solid #8b5cf6;
+		border-color: color-mix(in srgb, #8b5cf6 55%, var(--glass-border));
 	}
 	.global-toast.toast-enter {
 		animation: slide-in-right 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;

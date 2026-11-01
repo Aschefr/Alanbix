@@ -78,3 +78,14 @@ Pour alimenter la mémoire de l'assistant IA local (RAG) :
 * **Zone de Saisie de Document** : Un champ de texte volumineux (TextArea) est présent sous **Administration > Assistant IA > Base de connaissances**.
 * **Bouton `🚀 Vectoriser & Ajouter`** : Découpe le texte saisi, l'envoie à l'instance d'Ollama active pour en extraire des vecteurs sémantiques (embeddings) et les stocke dans la table `rag_documents` afin qu'ils soient immédiatement exploitables dans les discussions des joueurs.
 * **Boutons de Gestion des Documents** : Permet de lister et de supprimer unitairement des blocs de connaissances indexés.
+
+---
+
+## 🩺 Diagnostic mémoire du serveur
+Pour surveiller un serveur qui tourne depuis longtemps (par exemple un Raspberry Pi), l'API expose `GET /admin/diagnostics/memory`, réservé aux administrateurs (même session que l'application, même port).
+
+- **Réponse par défaut** : mémoire du processus (`rss_mb`), nombre de connexions WebSocket, joueurs en ligne, file d'attente IA, caches et tâches asynchrones. Si l'un de ces compteurs grimpe sans jamais redescendre, c'est le signe d'une fuite.
+- **`?top=30`** : liste les types d'objets Python les plus nombreux ; comparez deux appels espacés pour voir ce qui s'accumule.
+- **`?trace=start`** puis **`?trace=diff`** : enregistre les allocations, puis affiche les lignes de code qui retiennent le plus de mémoire. **`?trace=stop`** arrête l'enregistrement (il ralentit le serveur : à n'utiliser que pour une analyse).
+
+> Les connexions WebSocket n'utilisent plus la compression par message : chaque connexion en gardait un contexte de ~37 Ko, jamais libéré quand le réseau coupait brutalement (téléphone en veille). Voir le changelog 1.35.2.

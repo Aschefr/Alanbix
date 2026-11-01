@@ -42,4 +42,6 @@ EXPOSE 41481
 ENV FRONTEND_DIST_DIR=/app/frontend_dist
 
 # Lancer l'API
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "41481"]
+# No per-message compression on websockets: every connection otherwise keeps a ~37 KB zlib context,
+# and connections cut abruptly (phones going to sleep) left them in memory until the swap filled up
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "41481", "--ws-per-message-deflate", "false"]

@@ -89,6 +89,15 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 - Les définitions d'outils, descriptions, schémas de paramètres et messages de retour JSON des outils dans `ia_tools.py` doivent être rédigés en **anglais**.
 - L'IA doit toujours formuler sa réponse finale dans la langue de l'utilisateur (ex. français) et ne pas conserver la langue d'usage des outils ou de sa réflexion interne.
 
+## 8. Publication d'une version
+
+**Avant toute publication, lire en entier `BUILD_GUIDE.md` et `release_guide.md`, puis les suivre à la lettre.**
+
+- L'image Docker est multi-architecture : `docker buildx build --platform linux/amd64,linux/arm64 -f Dockerfile.standalone -t aschefr/alanbix:X.Y.Z -t aschefr/alanbix:latest --push .` (comme `publish_release.ps1`). Jamais de `docker build` simple : `latest` ne fonctionnerait plus sur arm64.
+- Lancer `python scripts/verify_i18n.py` et `python scripts/verify_production_bundle.py` avant la construction.
+- Si la version a déjà été montée à la main, ne pas relancer `publish_release.ps1` (il la monterait une seconde fois) : exécuter ses étapes manuellement.
+- Après l'envoi, vérifier avec `docker buildx imagetools inspect aschefr/alanbix:latest` que les deux architectures sont présentes, puis créer la release GitHub sur `master`.
+
 ---
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.

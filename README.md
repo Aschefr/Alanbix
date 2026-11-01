@@ -310,7 +310,7 @@ Si vous souhaitez exécuter Alanbix localement pour le développement (hors Dock
    ```
 4. Lancez le serveur de développement FastAPI :
    ```bash
-   uvicorn app.main:app --reload --port 8000
+   uvicorn app.main:app --reload --port 8000 --ws-per-message-deflate false
    ```
    Le backend sera disponible sur : 👉 **http://localhost:8000**
 

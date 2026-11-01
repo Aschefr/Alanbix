@@ -1295,3 +1295,59 @@ async def admin_delete_user_avatar(
         db.refresh(target)
         await ws_manager.broadcast({"type": "users_updated"})
     return {"status": "success"}
+
+
+_trace_base = None
+
+
+@router.get("/admin/diagnostics/memory")
+async def memory_diagnostics(top: int = 0, trace: str = "", admin: models.User = Depends(auth.get_current_admin)):
+    """Process memory and the size of every long-lived registry, to spot a leak on a running server."""
+    import gc
+    from ..websockets import manager
+    from ..database import ACTIVE_USERS
+    from ..ia_queue import queue_manager
+    from ..ia_tools import pending_client_calls
+    from .public_chat import _link_preview_cache
+    from .ia import _health_cache, active_chats
+    rss_kb = None
+    try:
+        with open("/proc/self/status") as f:
+            rss_kb = next((int(l.split()[1]) for l in f if l.startswith("VmRSS")), None)
+    except OSError:
+        pass
+    result = {}
+    # trace=start records allocations from now on; trace=diff lists the code lines that grew since
+    import tracemalloc
+    global _trace_base
+    if trace == "start":
+        tracemalloc.start(15)
+        _trace_base = tracemalloc.take_snapshot()
+    elif trace == "diff" and tracemalloc.is_tracing() and _trace_base:
+        stats = tracemalloc.take_snapshot().compare_to(_trace_base, "traceback")[:8]
+        result["trace_diff"] = [{"kb": round(st.size_diff / 1024, 1), "count": st.count_diff,
+                                 "where": [f"{fr.filename.split('site-packages/')[-1]}:{fr.lineno}" for fr in st.traceback[-6:]]} for st in stats]
+    elif trace == "stop" and tracemalloc.is_tracing():
+        tracemalloc.stop()
+        _trace_base = None
+    if top:
+        # Most numerous live Python object types: compare two calls to see what accumulates
+        from collections import Counter
+        counts = Counter(type(o).__name__ for o in gc.get_objects())
+        result["top_types"] = counts.most_common(min(top, 50))
+    return result | {
+        "rss_mb": round(rss_kb / 1024, 1) if rss_kb else None,
+        "ws_active_connections": len(manager.active_connections),
+        "ws_connection_users": len(manager.connection_users),
+        "ws_connection_clients": len(manager.connection_clients),
+        "ws_user_connections": sum(len(s) for s in manager.user_connections.values()),
+        "ws_objects_alive": sum(1 for o in gc.get_objects() if type(o).__name__ == "WebSocket"),
+        "active_users": len(ACTIVE_USERS),
+        "ia_queue_pending": len(queue_manager._pending),
+        "ia_queue_active": len(queue_manager._active),
+        "ia_pending_client_calls": len(pending_client_calls),
+        "ia_active_chats": len(active_chats),
+        "health_cache": len(_health_cache),
+        "link_preview_cache": len(_link_preview_cache),
+        "asyncio_tasks": len(__import__("asyncio").all_tasks()),
+    }
