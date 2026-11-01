@@ -1716,5 +1716,15 @@
   "md_sample_image": "image description",
   "md_table_column": "Column",
   "md_preview_empty": "Nothing to show yet.",
-  "dash_chat_resize": "Resize the chat (double-click: default width)"
+  "dash_chat_resize": "Resize the chat (double-click: default width)",
+  "notifs_archive_all": "Archive all",
+  "notifs_empty_archive": "Empty the archive",
+  "notifs_empty_archive_confirm": "Permanently delete every archived notification?",
+  "notifs_empty_archive_yes": "Delete",
+  "notifs_tab_inbox": "Inbox",
+  "notifs_tab_archive": "Archive",
+  "notifs_archive_empty": "No archived notification",
+  "notifs_archive_empty_desc": "Notifications you archive land here. You can move them back or delete them for good.",
+  "notifs_archive_tooltip": "Archive",
+  "notifs_unarchive_tooltip": "Move back to notifications"
 }

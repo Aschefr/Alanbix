@@ -1705,5 +1705,15 @@
   "md_sample_image": "description de l'image",
   "md_table_column": "Colonne",
   "md_preview_empty": "Rien à afficher pour l'instant.",
-  "dash_chat_resize": "Redimensionner le chat (double-clic : largeur par défaut)"
+  "dash_chat_resize": "Redimensionner le chat (double-clic : largeur par défaut)",
+  "notifs_archive_all": "Tout archiver",
+  "notifs_empty_archive": "Vider les archives",
+  "notifs_empty_archive_confirm": "Supprimer définitivement toutes les notifications archivées ?",
+  "notifs_empty_archive_yes": "Supprimer",
+  "notifs_tab_inbox": "Reçues",
+  "notifs_tab_archive": "Archives",
+  "notifs_archive_empty": "Aucune notification archivée",
+  "notifs_archive_empty_desc": "Les notifications que vous archivez arrivent ici. Vous pouvez les remettre dans vos notifications ou les supprimer définitivement.",
+  "notifs_archive_tooltip": "Archiver",
+  "notifs_unarchive_tooltip": "Remettre dans les notifications"
 }

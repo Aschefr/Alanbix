@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from .. import models, auth, database
 from ..websockets import manager as ws_manager
@@ -56,11 +57,17 @@ async def notify_user(
     return notif
 
 
+def _archived(flag: bool):
+    """Filter on the archive state; rows created before the column existed count as not archived."""
+    col = models.Notification.is_archived
+    return col == True if flag else or_(col == False, col.is_(None))
+
+
 @router.get("")
-def get_notifications(db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
-    """List all notifications for the current user (newest first)."""
+def get_notifications(archived: bool = False, db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
+    """List the current user's notifications (newest first): the inbox, or the archive with ?archived=true."""
     notifs = db.query(models.Notification).filter(
-        models.Notification.user_id == user.id
+        models.Notification.user_id == user.id, _archived(archived)
     ).order_by(models.Notification.created_at.desc()).all()
     return [{
         "id": n.id, "type": n.type, "category": n.category or n.type,
@@ -75,9 +82,16 @@ def get_unread_count(db: Session = Depends(database.get_db), user: models.User =
     """Return the number of unread notifications."""
     count = db.query(models.Notification).filter(
         models.Notification.user_id == user.id,
-        models.Notification.is_read == False
+        models.Notification.is_read == False,
+        _archived(False)
     ).count()
     return {"count": count}
+
+
+@router.get("/archived-count")
+def get_archived_count(db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
+    """Number of archived notifications (shown on the archive tab)."""
+    return {"count": db.query(models.Notification).filter(models.Notification.user_id == user.id, _archived(True)).count()}
 
 
 @router.get("/missed")
@@ -183,6 +197,50 @@ async def mark_all_read(db: Session = Depends(database.get_db), user: models.Use
     ).update({"is_read": True})
     db.commit()
     return {"status": "ok"}
+
+
+@router.put("/archive-all")
+async def archive_all(db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
+    """Move every notification of the inbox to the archive (they also count as read)."""
+    n = db.query(models.Notification).filter(
+        models.Notification.user_id == user.id, _archived(False)
+    ).update({"is_archived": True, "is_read": True}, synchronize_session=False)
+    db.commit()
+    return {"status": "ok", "archived": n}
+
+
+@router.put("/{notif_id}/archive")
+async def archive_notification(notif_id: int, db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
+    """Archive one notification (it also counts as read)."""
+    notif = db.query(models.Notification).filter(models.Notification.id == notif_id, models.Notification.user_id == user.id).first()
+    if not notif:
+        raise HTTPException(404, "Notification not found")
+    notif.is_archived = True
+    notif.is_read = True
+    db.commit()
+    return {"status": "ok"}
+
+
+@router.put("/{notif_id}/unarchive")
+async def unarchive_notification(notif_id: int, db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
+    """Move one notification back from the archive to the inbox."""
+    notif = db.query(models.Notification).filter(models.Notification.id == notif_id, models.Notification.user_id == user.id).first()
+    if not notif:
+        raise HTTPException(404, "Notification not found")
+    notif.is_archived = False
+    db.commit()
+    return {"status": "ok"}
+
+
+# Declared before /{notif_id}: "archived" is not a notification id
+@router.delete("/archived")
+async def delete_archived(db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
+    """Permanently delete every archived notification."""
+    n = db.query(models.Notification).filter(
+        models.Notification.user_id == user.id, _archived(True)
+    ).delete(synchronize_session=False)
+    db.commit()
+    return {"status": "ok", "deleted": n}
 
 
 @router.delete("/{notif_id}")

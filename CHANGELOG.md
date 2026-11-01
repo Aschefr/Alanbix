@@ -3,6 +3,7 @@
 ## [1.35.3] - Unreleased
 
 ### 🐛 Fixes
+- **Notification archive**: the notification page gets two tabs, Inbox and Archive. A notification (or all of them at once) can be archived to empty the page without deleting anything; archived notifications count as read, can be moved back, and are only deleted for good from the Archive tab (one by one, or "Empty the archive" after a confirmation).
 - **Public chat like a messaging app**: your own messages are on the right in a blue bubble (no avatar or name repeated), like private messages.
 - **Resizable home chat (desktop)**: a grip between the panels resizes the public chat column; the width is remembered per browser, double-click (or Enter on the focused grip) restores the default width, and the arrow keys resize it from the keyboard.
 - **"Messages" on desktop too**: the desktop menu entry "Players" is renamed "Messages" with a chat icon, like the phone tab bar; the browser tab title follows.

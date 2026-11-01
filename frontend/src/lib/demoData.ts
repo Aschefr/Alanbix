@@ -423,6 +423,14 @@ export function handleDemoRequest(rawPath: string, method: string = 'GET', body?
 		return [...demoPublicMessages];
 	}
 
+	if (cleanPath === '/notifications/archived-count') {
+		return { count: 0 };
+	}
+
+	if (cleanPath === '/notifications' && rawPath.includes('archived=true')) {
+		return [];
+	}
+
 	if (cleanPath === '/notifications') {
 		return [
 			{

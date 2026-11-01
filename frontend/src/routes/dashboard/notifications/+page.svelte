@@ -8,6 +8,10 @@
 
 	let notifications = [];
 	let loading = true;
+	// 'inbox' or 'archive': archiving empties the inbox without deleting; the archive can be emptied for good
+	let view = 'inbox';
+	let archivedCount = 0;
+	let confirmEmpty = false;
 
 	let userObj = null;
 
@@ -18,7 +22,7 @@
 
 	// WS: auto-refresh on new notifications
 	let wsUnsub = wsMessageStore.subscribe(msg => {
-		if (msg && msg.type === 'notification_new') {
+		if (msg && msg.type === 'notification_new' && view === 'inbox') {
 			loadNotifications();
 		}
 	});
@@ -27,9 +31,51 @@
 	async function loadNotifications() {
 		loading = true;
 		try {
-			notifications = await api.get('/notifications');
+			notifications = await api.get(view === 'archive' ? '/notifications?archived=true' : '/notifications');
 		} catch { notifications = []; }
+		try { archivedCount = (await api.get('/notifications/archived-count')).count || 0; } catch {}
 		loading = false;
+	}
+
+	function setView(v) {
+		if (view === v) return;
+		view = v;
+		confirmEmpty = false;
+		expandedNotifs = {};
+		loadNotifications();
+	}
+
+	async function archiveNotif(id) {
+		try {
+			await api.put(`/notifications/${id}/archive`, {});
+			notifications = notifications.filter(n => n.id !== id);
+			archivedCount += 1;
+		} catch {}
+	}
+
+	async function archiveAll() {
+		try {
+			const res = await api.put('/notifications/archive-all', {});
+			notifications = [];
+			archivedCount += res?.archived || 0;
+		} catch {}
+	}
+
+	async function unarchiveNotif(id) {
+		try {
+			await api.put(`/notifications/${id}/unarchive`, {});
+			notifications = notifications.filter(n => n.id !== id);
+			archivedCount = Math.max(0, archivedCount - 1);
+		} catch {}
+	}
+
+	async function emptyArchive() {
+		try {
+			await api.delete('/notifications/archived');
+			notifications = [];
+			archivedCount = 0;
+			confirmEmpty = false;
+		} catch {}
 	}
 
 	async function markRead(id) {
@@ -50,6 +96,7 @@
 		try {
 			await api.delete(`/notifications/${id}`);
 			notifications = notifications.filter(n => n.id !== id);
+			if (view === 'archive') archivedCount = Math.max(0, archivedCount - 1);
 		} catch {}
 	}
 
@@ -119,7 +166,8 @@
 	import { pmUnreadCount, groupUnreadCount, totalMsgUnread, notifUnreadCount } from '$lib/pmStore';
 
 	$: unreadCount = notifications.filter(n => !n.is_read).length;
-	$: $notifUnreadCount = unreadCount;
+	// the menu badge follows the inbox (archived notifications are read)
+	$: if (view === 'inbox') $notifUnreadCount = unreadCount;
 </script>
 
 <div class="notif-page animate-in">
@@ -130,13 +178,45 @@
 				<span class="unread-badge">{unreadCount} {$t('notif_unread', { plural: unreadCount > 1 ? 's' : '' })}</span>
 			{/if}
 		</div>
-		{#if unreadCount > 0}
-			<button class="btn-primary btn-sm mark-all-btn" on:click={markAllRead}>
-				<Icon name="check" size={14} />
-				<span>{$t('notifs_mark_all_read')}</span>
-			</button>
-		{/if}
+		<div class="header-actions">
+			{#if view === 'inbox'}
+				{#if unreadCount > 0}
+					<button class="btn-primary btn-sm mark-all-btn" on:click={markAllRead}>
+						<Icon name="check" size={14} />
+						<span>{$t('notifs_mark_all_read')}</span>
+					</button>
+				{/if}
+				{#if notifications.length > 0}
+					<button class="btn-secondary btn-sm mark-all-btn" on:click={archiveAll}>
+						<Icon name="archive" size={14} />
+						<span>{$t('notifs_archive_all')}</span>
+					</button>
+				{/if}
+			{:else if notifications.length > 0}
+				{#if confirmEmpty}
+					<span class="confirm-text">{$t('notifs_empty_archive_confirm')}</span>
+					<button class="btn-sm mark-all-btn btn-empty-danger" on:click={emptyArchive}>
+						<Icon name="trash" size={14} /><span>{$t('notifs_empty_archive_yes')}</span>
+					</button>
+					<button class="btn-secondary btn-sm mark-all-btn" on:click={() => confirmEmpty = false}>{$t('common_cancel')}</button>
+				{:else}
+					<button class="btn-secondary btn-sm mark-all-btn" on:click={() => confirmEmpty = true}>
+						<Icon name="trash" size={14} /><span>{$t('notifs_empty_archive')}</span>
+					</button>
+				{/if}
+			{/if}
+		</div>
 	</header>
+
+	<div class="notif-tabs" role="tablist">
+		<button role="tab" class="notif-tab" class:active={view === 'inbox'} aria-selected={view === 'inbox'} on:click={() => setView('inbox')}>
+			<Icon name="bell" size={14} /> {$t('notifs_tab_inbox')}
+		</button>
+		<button role="tab" class="notif-tab" class:active={view === 'archive'} aria-selected={view === 'archive'} on:click={() => setView('archive')}>
+			<Icon name="archive" size={14} /> {$t('notifs_tab_archive')}
+			{#if archivedCount > 0}<span class="tab-count">{archivedCount}</span>{/if}
+		</button>
+	</div>
 
 	{#if loading}
 		<div class="loading-state glass">
@@ -145,8 +225,13 @@
 	{:else if notifications.length === 0}
 		<div class="empty-state glass">
 			<span class="empty-icon"><Icon name="bell" size={40} /></span>
-			<p>{$t('notifs_empty')}</p>
-			<p class="text-dim text-sm">{$t('notifs_empty_desc')}</p>
+			{#if view === 'archive'}
+				<p>{$t('notifs_archive_empty')}</p>
+				<p class="text-dim text-sm">{$t('notifs_archive_empty_desc')}</p>
+			{:else}
+				<p>{$t('notifs_empty')}</p>
+				<p class="text-dim text-sm">{$t('notifs_empty_desc')}</p>
+			{/if}
 		</div>
 	{:else}
 		<div class="notif-list">
@@ -202,11 +287,14 @@
 							{/if}
 						</div>
 					</div>
-					<button
-						class="notif-delete"
-						on:click|stopPropagation={() => deleteNotif(n.id)}
-						title={$t('notif_delete_tooltip')}
-					><Icon name="trash" size={14} /></button>
+					<div class="notif-actions">
+						{#if view === 'inbox'}
+							<button class="notif-delete notif-neutral" on:click|stopPropagation={() => archiveNotif(n.id)} title={$t('notifs_archive_tooltip')} aria-label={$t('notifs_archive_tooltip')}><Icon name="archive" size={14} /></button>
+						{:else}
+							<button class="notif-delete notif-neutral" on:click|stopPropagation={() => unarchiveNotif(n.id)} title={$t('notifs_unarchive_tooltip')} aria-label={$t('notifs_unarchive_tooltip')}><Icon name="archive-restore" size={14} /></button>
+							<button class="notif-delete" on:click|stopPropagation={() => deleteNotif(n.id)} title={$t('notif_delete_tooltip')} aria-label={$t('notif_delete_tooltip')}><Icon name="trash" size={14} /></button>
+						{/if}
+					</div>
 				</div>
 			{/each}
 		</div>
@@ -359,4 +447,14 @@
 			padding: 2rem 1rem;
 		}
 	}
+	.header-actions { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; justify-content: flex-end; }
+	.confirm-text { font-size: 0.85rem; font-weight: 600; color: var(--text-dim); }
+	.notif-tabs { display: flex; gap: 0.4rem; }
+	.notif-tab { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.45rem 0.9rem; border-radius: 10px; border: 1px solid var(--glass-border); background: var(--hover-tint); color: var(--text-dim); font: inherit; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
+	.notif-tab.active { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+	.tab-count { font-size: 0.72rem; font-weight: 800; padding: 0.05rem 0.45rem; border-radius: 999px; background: var(--glass-border); color: var(--text-main); }
+	.notif-actions { display: flex; flex-direction: column; gap: 0.3rem; align-self: flex-start; }
+	.notif-neutral:hover { background: var(--accent-soft); color: var(--accent); }
+	.btn-empty-danger { display: inline-flex; align-items: center; gap: 0.35rem; border: none; border-radius: var(--radius-md); background: #dc2626; color: #fff; font-weight: 700; cursor: pointer; }
+	.btn-empty-danger:hover { background: #b91c1c; }
 </style>

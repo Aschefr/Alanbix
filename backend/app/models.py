@@ -175,6 +175,8 @@ class Notification(Base):
     content = Column(Text)
     link = Column(String, nullable=True)  # "/dashboard/tournaments/1", "/dashboard/players?chat=5", etc.
     is_read = Column(Boolean, default=False, index=True)
+    # Archived: hidden from the notification list without being deleted (deleted from the archive view)
+    is_archived = Column(Boolean, default=False, index=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow, index=True)
     metadata_json = Column(JSON, nullable=True)  # tournament_id, conversation_id, etc.
 

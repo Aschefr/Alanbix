@@ -74,6 +74,7 @@ def init_db():
         _safe_add_column(conn, "group_messages", "reply_to_id", "INTEGER")
         _safe_add_column(conn, "notifications", "category", "VARCHAR")
         _safe_add_column(conn, "notifications", "link", "VARCHAR")
+        _safe_add_column(conn, "notifications", "is_archived", "BOOLEAN DEFAULT 0")
 
         # Create critical performance indexes if they don't exist
         indexes = [
