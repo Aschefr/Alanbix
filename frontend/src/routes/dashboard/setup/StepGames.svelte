@@ -8,6 +8,7 @@
 	import AddGameModal from '$lib/components/AddGameModal.svelte';
 	import CreateTournamentWizard from '$lib/components/CreateTournamentWizard.svelte';
 	import MarkdownEditor from '$lib/components/MarkdownEditor.svelte';
+	import PointsSimulator from './PointsSimulator.svelte';
 
 	export let toast = (msg, type) => {};
 
@@ -66,19 +67,10 @@
 		savingRules = false;
 	}
 
-	// 5. Points scale
-	let pts = { pts_winner: 1.5, pts_second: 1.3, pts_third: 1.0, pts_participation: 1.0, pts_per_match: 0.5 };
-	const fmt = (n) => Number(n).toLocaleString(undefined, { maximumFractionDigits: 1 });
-	$: exampleTotal = Math.round((pts.pts_winner + 3 * pts.pts_participation + 2 * pts.pts_per_match) * 10) / 10;
-
 	onMount(async () => {
 		try { searxUrl = (await api.get('/admin/config/searxng_url'))?.value || searxUrl; } catch {}
 		testSearx();
 		loadGames();
-		try {
-			const v = (await api.get('/admin/config/default_tournament_pts'))?.value;
-			if (v) pts = { ...pts, ...(typeof v === 'string' ? JSON.parse(v) : v) };
-		} catch {}
 	});
 
 	export async function save() {
@@ -143,13 +135,7 @@
 <section class="block">
 	<h3><Icon name="trophy" size={16} /> {$t('setup_points_title')}</h3>
 	<p class="help">{$t('setup_points_intro')}</p>
-	<dl class="points">
-		<dt>{$t('setup_points_podium')}</dt><dd>{$t('setup_points_podium_val', { a: fmt(pts.pts_winner), b: fmt(pts.pts_second), c: fmt(pts.pts_third) })}</dd>
-		<dt>{$t('setup_points_participation')}</dt><dd>{$t('setup_points_participation_val', { n: fmt(pts.pts_participation) })}</dd>
-		<dt>{$t('setup_points_score')}</dt><dd>{$t('setup_points_score_val', { min: fmt(pts.pts_per_match), max: fmt(pts.pts_per_match * 2) })}</dd>
-	</dl>
-	<p class="help">{$t('setup_points_example', { total: fmt(exampleTotal), w: fmt(pts.pts_winner), p: fmt(3 * pts.pts_participation), s: fmt(2 * pts.pts_per_match) })}</p>
-	<p class="help">{$t('setup_points_change')}</p>
+	<PointsSimulator />
 </section>
 
 <!-- 5. First tournament -->
@@ -211,18 +197,12 @@
 	.example :global(ul), .example :global(ol) { margin: 0.3rem 0; padding-left: 1.2rem; }
 	.example :global(p) { margin: 0.3rem 0; }
 
-	.points { display: grid; grid-template-columns: max-content 1fr; gap: 0.4rem 1rem; margin: 0; font-size: 0.88rem; }
-	.points dt { font-weight: 700; }
-	.points dd { margin: 0; color: var(--text-dim); font-variant-numeric: tabular-nums; }
-
 	.field-label { font-weight: 600; font-size: 0.9rem; }
 	.saved { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.85rem; font-weight: 600; color: var(--success, #16a34a); }
 	.link-btn { background: none; border: none; padding: 0.4rem; color: var(--accent); font: inherit; font-weight: 600; cursor: pointer; }
 	.wizard-wrap { border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: 1rem; }
 
 	@media (max-width: 600px) {
-		.points { grid-template-columns: 1fr; gap: 0.1rem; }
-		.points dd { margin-bottom: 0.5rem; }
 		.wizard-wrap { padding: 0.6rem; }
 	}
 </style>
