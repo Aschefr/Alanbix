@@ -8,6 +8,8 @@
 	import StepInfo from './StepInfo.svelte';
 	import StepGames from './StepGames.svelte';
 	import StepAI from './StepAI.svelte';
+	import StepMap from './StepMap.svelte';
+	import StepInvite from './StepInvite.svelte';
 
 	// Steps with their own component expose save(); errors from their actions show under the step
 	let stepRef = null;
@@ -100,11 +102,6 @@
 		setup = { ...setup, status: 'skipped' };
 		await saveSetup(setup);
 		goto('/dashboard/admin');
-	}
-
-	let copied = false;
-	async function copyUrl() {
-		try { await navigator.clipboard.writeText(playerUrl); copied = true; setTimeout(() => copied = false, 2000); } catch {}
 	}
 
 	function stepState(id) {
@@ -209,18 +206,11 @@
 				{:else if step.id === 'ai'}
 					<StepAI bind:this={stepRef} />
 
-				{:else if step.id === 'invite'}
-					<div class="address">
-						<code>{playerUrl}</code>
-						<button class="btn-secondary" on:click={copyUrl}><Icon name={copied ? 'check' : 'clipboard'} size={16} /> {$t(copied ? 'setup_invite_copied' : 'setup_invite_copy')}</button>
-					</div>
-					<p class="field-help">{$t('setup_invite_help')}</p>
+				{:else if step.id === 'map'}
+					<StepMap bind:this={stepRef} />
 
-				{:else}
-					<!-- Steps not yet guided here: open the screen that holds the setting -->
-					<a class="open-screen" href={step.screen}>
-						<Icon name="external-link" size={16} /> {$t(`setup_${step.id}_open`)}
-					</a>
+				{:else if step.id === 'invite'}
+					<StepInvite {playerUrl} {eventName} {wifiSsids} />
 				{/if}
 
 				{#if error}<p class="field-error" role="alert">{error}</p>{/if}
@@ -283,12 +273,6 @@
 	.field-warn { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.82rem; font-weight: 600; color: color-mix(in srgb, var(--warning) 70%, var(--text-main)); }
 	.field-error { margin: 0; font-size: 0.85rem; font-weight: 600; color: var(--danger); }
 
-	.open-screen { align-self: flex-start; display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1rem; border: 1px solid var(--glass-border); border-radius: var(--radius-md); color: var(--text-main); text-decoration: none; font-weight: 600; }
-	.open-screen:hover { border-color: var(--accent); color: var(--accent); }
-
-	.address { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
-	.address code { padding: 0.6rem 0.9rem; border-radius: var(--radius-md); background: var(--surface-sunken); border: 1px solid var(--glass-border); font-size: 1rem; font-weight: 600; overflow-wrap: anywhere; }
-	.address .btn-secondary { display: inline-flex; align-items: center; gap: 0.4rem; color: var(--text-main); }
 
 	.recap { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; border: 1px solid var(--glass-border); border-radius: var(--radius-md); overflow: hidden; }
 	.recap li + li { border-top: 1px solid var(--glass-border); }

@@ -4,6 +4,23 @@ Le panneau d'administration d'Alanbix (accessible uniquement aux utilisateurs ay
 
 ---
 
+## 🧭 Configuration guidée du serveur
+
+Le premier compte créé sur un serveur neuf (l'administrateur) arrive sur **Configuration du serveur** (`/dashboard/setup`) au lieu de l'accueil joueur. Huit étapes, chacune pouvant être passée :
+
+1. **L'événement** : nom de la LAN et langue par défaut.
+2. **Le réseau** : noms du Wi-Fi de la LAN (reconnus par l'application mobile) et adresse à donner aux joueurs (avertissement si c'est une adresse `localhost`).
+3. **La page Infos** : modèle prérempli (horaires, Wi-Fi, repas, règles générales) à compléter dans l'éditeur Markdown.
+4. **Jeux et tournois** : vérification de SearXNG (avec l'aide pour l'installer), ajout de jeux avec leur jaquette, les quatre formats expliqués avec un exemple de règles, le barème de points expliqué, et un premier tournoi créé sur place.
+5. **L'assistant Alanbix** (facultatif) : pas d'assistant, un modèle local (Ollama) ou un service en ligne avec une clé d'API ; test de connexion, choix du modèle et taille de contexte.
+6. **Le plan de salle** (facultatif) : générateur de tables (nombre de tables, places par table, tables par rangée) avec aperçu.
+7. **Inviter les joueurs** : adresse, QR code et affiche imprimable.
+8. **Récapitulatif** : « Terminer » ou « Je participe aussi » (enchaîne sur l'accueil joueur).
+
+La progression est enregistrée sur le serveur (`admin_setup`). L'administration affiche un bandeau tant que la configuration n'est ni terminée ni masquée, et **Réglages › Général › Configuration guidée** la relance. Après une réinitialisation complète, elle réapparaît.
+
+---
+
 ## 🎚️ Régie (onglet par défaut)
 
 La Régie rassemble ce qui demande l'attention de l'organisateur pendant la LAN :

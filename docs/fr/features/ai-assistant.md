@@ -86,6 +86,12 @@ Pour faciliter le suivi des échanges sans forcer le rafraîchissement de la pag
 
 ---
 
+## 🔑 Services en ligne et clés d'API
+
+Une instance peut aussi être un service compatible OpenAI (adresse en `/v1`) : LM Studio ou llama.cpp en local, ou un service en ligne comme OpenAI, Mistral, OpenRouter ou Groq. Pour ces derniers, saisissez la **clé d'API** de l'instance dans **Réglages › Intelligence Artificielle › Serveurs** (ou à l'étape 5 de la configuration guidée). Elle est envoyée en `Authorization: Bearer` à chaque requête vers cette instance (conversation, outils, résumés, embeddings, traductions, liste des modèles).
+
+La clé reste sur le serveur : `/ia/config`, lisible par les joueurs, indique seulement si une clé est enregistrée. Enregistrer les réglages sans la retaper conserve la clé ; l'icône de corbeille à côté du champ la supprime. Avec un service en ligne, les questions des joueurs et les informations utiles à la réponse sont envoyées à ce fournisseur.
+
 ## 🔀 Multi-Instances Ollama & Load Balancing (G-32)
 
 Pour les événements de grande envergure, un seul PC serveur ne suffit pas pour faire tourner l'IA. Alanbix permet de chaîner plusieurs serveurs Ollama distants.

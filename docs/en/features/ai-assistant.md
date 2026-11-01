@@ -86,6 +86,12 @@ To make it easy to follow discussions without forcing a page refresh (zero F5):
 
 ---
 
+## 🔑 Online services and API keys
+
+An instance can also be an OpenAI-compatible service (address ending in `/v1`): LM Studio or llama.cpp locally, or an online service such as OpenAI, Mistral, OpenRouter or Groq. For the latter, enter the instance's **API key** in **Settings › Artificial Intelligence › Servers** (or at step 5 of the guided setup). It is sent as `Authorization: Bearer` with every request to that instance (chat, tools, summaries, embeddings, translations, model list).
+
+The key stays on the server: `/ia/config`, readable by the players, only says whether a key is saved. Saving the settings without retyping it keeps the key; the bin icon next to the field removes it. With an online service, the players' questions and the information needed to answer are sent to that provider.
+
 ## 🔀 Multi-Instance Ollama & Load Balancing (G-32)
 
 For large-scale events, a single server PC may not be enough to run the AI. Alanbix allows chaining multiple remote Ollama servers.
