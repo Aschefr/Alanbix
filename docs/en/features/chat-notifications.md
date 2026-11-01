@@ -34,6 +34,13 @@ Both direct and group chats enjoy the full modern feature set of the public chat
 * **Sound Alerts & Profanity Filter**: Gentle Web Audio chime on direct `@username` mention (with header mute toggle `🔊`/`🔇`) and client-side courtesy shield (`🛡️`/`👁️`) masking offensive words (`f**k`).
 * **Privacy & AI Exclusion**: The `@Alanbix` bot is strictly confined to the public chat and never participates in private or team chats.
 
+### `@Alanbix` in the public chat
+Mention `@Alanbix`, or reply (`↩`) to one of its messages, and the AI assistant joins the conversation with the personality set by the administrator. Its answer is shown as a reply to the player's message.
+* **It follows the conversation**: it reads the last 20 messages (last 30 minutes) with who speaks and whom each message replies to, plus the older messages the question replies to. Its own answers are marked so it does not repeat itself.
+* **It knows the player asking**: team, seat and upcoming matches, even with a small model without tools ("which match do I play?").
+* **It looks up live data**: tournaments, matches, brackets, rankings, teams, seats, games and rules, files and event info, with read-only tools. The tool calling mode of the AI settings applies (off = no tools). The knowledge base is used too.
+* **Nothing private, no action**: as the whole room reads the answer, it does not read a player's notifications, alert an administrator, send notifications or announcements, or block anyone. For that, it points to the private AI Assistant.
+
 ---
 
 ## 🔔 Notification Center (Real-Time)

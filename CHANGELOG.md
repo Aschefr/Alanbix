@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased]
+
+### 🤖 @Alanbix in the public chat
+- **Real answers instead of small talk**: asked "which match do I play?", `@Alanbix` used to answer with generic banter, as it only got the last 6 messages and no data. It now gets the same layers as the private assistant: the administrator's personality, rules written for a public room, the app guide, the asking player's team, seat and upcoming matches, the knowledge base excerpts close to the question, and the LAN language. It looks up live data with 20 read-only tools run for the asking player (tournaments, matches, brackets, rankings, teams, seats, games and rules, files, event info), following the tool calling mode of the AI settings; when no tool is needed, it answers in a single request. Notifications, announcements, admin calls, blocking and network probes stay with the private assistant and are refused if called from the public chat.
+- **It follows the conversation between players**: the last 20 messages (30 minutes) as a thread with time, speaker and whom each message replies to, plus the older messages the question replies to; its own answers are marked so it does not repeat itself. Replying to one of its messages calls it without writing `@Alanbix`, and its answer is shown as a reply to the player's message.
+- **Other fixes**: the public chat now picks its AI instance like the private assistant (priority, round-robin, health check) instead of always the first one, and caps the answer at 4,096 tokens instead of asking for the whole context, which some online services reject. With OpenAI-compatible services, the assistant's tool results in legacy tool mode now carry the `tool_call_id` and accept arguments sent as a JSON string.
+
 ## [1.36.0] - 2026-11-01
 
 ### 🧭 Admin onboarding
