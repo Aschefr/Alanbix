@@ -1782,12 +1782,12 @@
 
 	.chat-msg-row.is-bot {
 		background: rgba(168, 85, 247, 0.06);
-		border-left: 2px solid #a855f7;
+		box-shadow: inset 0 0 0 1px rgba(168, 85, 247, 0.28);
 	}
 
 	.chat-msg-row.is-mentioned {
 		background: rgba(59, 130, 246, 0.08);
-		border-left: 2px solid var(--accent);
+		box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent);
 	}
 
 	.msg-avatar {

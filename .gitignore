@@ -95,3 +95,7 @@ frontend/ios/capacitor-cordova-ios-plugins/
 *.p12
 *.p8
 *.mobileprovision
+
+# Impeccable design hook cache
+.impeccable/hook.cache.json
+**/.impeccable/hook.cache.json
