@@ -105,7 +105,7 @@ Pour qu'Unraid affiche correctement ton application avec la belle interface, nou
 
 Le modèle ne vit pas dans ce dépôt mais dans le dépôt dédié **[Aschefr/unraid-templates](https://github.com/Aschefr/unraid-templates)**, fichier **`alanbix.xml`** : c'est ce dépôt que le store Community Applications (CA) lit, avec `ca_profile.xml` pour le profil de l'auteur.
 
-- Il contient la configuration officielle : image `aschefr/alanbix`, icône servie depuis ce dépôt GitHub (`frontend/static/favicon.png` sur `master`), port WebUI `41481`, dossier `appdata` monté sur `/app/data`.
+- Il contient la configuration officielle : image `aschefr/alanbix`, icône servie depuis ce dépôt GitHub (`frontend/static/favicon.png` sur `master`), port WebUI `41481`, dossier `appdata` monté sur `/app/data`, et depuis la 1.37 `PUID=99` / `PGID=100` (le compte habituel d'Unraid ; l'image ne tourne plus en root).
 - Tant que l'icône reste présente sur `master`, Unraid l'affichera correctement.
 - À mettre à jour seulement si le port, les volumes, les variables d'environnement ou l'icône changent ; une nouvelle version de l'image ne demande aucune modification du modèle.
 - Pour un test local hors store, le XML s'importe dans `/boot/config/plugins/dockerMan/templates-user/`.

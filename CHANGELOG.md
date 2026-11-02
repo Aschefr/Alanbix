@@ -1,26 +1,34 @@
 # Changelog
 
-## [Unreleased]
+## [1.37.0] - 2026-11-02
 
 ### 🔒 Security
 - **Password guessing is slowed down**: after 5 wrong passwords for one account, or 20 for any accounts, from the same address within 15 minutes, that address waits 5 minutes before trying again (even with the right password, so a guesser cannot tell when it found it). A successful login clears the account's count. The login page now says "Too many attempts. Try again in N min." and shows "Wrong password." in the LAN language, instead of an untranslated "Identifiants invalides".
-
-### 🐳 Docker image
-- **Half the size, with a health check**: the image no longer ships compilers (every Python package installs prebuilt on amd64 and arm64), so it takes 315 MB once installed instead of 641 MB. Docker, Unraid and Portainer now show it as "healthy" while the app answers on `/health`.
-- **Ping and traceroute work again**: the private assistant's network diagnostic tools called `ping` and `traceroute`, which the image did not include, so they always failed. Both are now installed (2 MB) and work without root.
-- **Unraid install steps**: the install guide pointed to an `unraid-template.xml` that now lives in the `Aschefr/unraid-templates` repository (`alanbix.xml`, read by the Community Applications store). The guide now points to the store and to that file. A blank Ollama address (Unraid passes empty fields) no longer replaces the default address.
-- **No longer runs as root**: the app runs as an ordinary account, `1000:1000` by default, chosen with `PUID` and `PGID` (on Unraid, `99:100`). On start, the container hands the data folder to that account, so existing installs, whose files were written as root, keep working without any manual step.
 
 ### 🤖 @Alanbix in the public chat
 - **Real answers instead of small talk**: asked "which match do I play?", `@Alanbix` used to answer with generic banter, as it only got the last 6 messages and no data. It now gets the same layers as the private assistant: the administrator's personality, rules written for a public room, the app guide, the asking player's team, seat and upcoming matches, the knowledge base excerpts close to the question, and the LAN language. It looks up live data with 20 read-only tools run for the asking player (tournaments, matches, brackets, rankings, teams, seats, games and rules, files, event info), following the tool calling mode of the AI settings; when no tool is needed, it answers in a single request. Notifications, announcements, admin calls, blocking and network probes stay with the private assistant and are refused if called from the public chat.
 - **It follows the conversation between players**: the last 20 messages (30 minutes) as a thread with time, speaker and whom each message replies to, plus the older messages the question replies to; its own answers are marked so it does not repeat itself. Replying to one of its messages calls it without writing `@Alanbix`, and its answer is shown as a reply to the player's message.
 - **Team members and their seats**: the team roster tool (public chat and private assistant) now gives each member's seat, for tournament teams too (until now only their usernames), written as on the room map ("Table 3, place 7", with the table's name) instead of `T3_S7`, so "who is in team X and where do they sit?" is answered in a single lookup.
 - **No more silent mentions**: when `@Alanbix` will not answer, the player who called it is told why, in a line under the messages that only they see: it was called less than 15 seconds ago ("try again in N s"), its answers are turned off by the organizers, or the AI is unavailable (no instance, error, empty answer). Until now the mention was ignored without a word.
-- **"New messages" button**: it now stays at the bottom of the message list, instead of covering the "is typing" line and the bars under the messages.
+- **Other fixes**: the public chat now picks its AI instance like the private assistant (priority, round-robin, health check) instead of always the first one, and caps the answer at 4,096 tokens instead of asking for the whole context, which some online services reject. With OpenAI-compatible services, the assistant's tool results in legacy tool mode now carry the `tool_call_id` and accept arguments sent as a JSON string.
+
+### 💬 Public chat
 - **Bold and lists in the public chat**: `**bold**`, `*italic*`, `` `code` `` and lines starting with `*` or `-` (shown as bullets) are now formatted, for `@Alanbix`'s answers as for players, instead of showing their asterisks. The formatting applies to the escaped text only, so a message can never inject HTML.
 - **Reply quotes restyled**: the quoted message above a reply, and the "Replying to @…" bar above the message field, are now a light rounded box with a line reply icon, instead of a thick blue bar on the left and a ↩️ emoji (shown as a blue square on Windows). The cancel cross is a larger icon button, easier to hit on a phone.
+- **"New messages" button**: it now stays at the bottom of the message list, instead of covering the "is typing" line and the bars under the messages.
+
+### 🧠 Private AI assistant
 - **Private assistant tools with OpenAI-compatible services**: in the default streaming mode, these services send each tool call in pieces, which were never put back together, so every tool call failed. The pieces are now joined, the arguments read (JSON string or object) and the result sent back with the call's `tool_call_id`. Ollama was not affected.
-- **Other fixes**: the public chat now picks its AI instance like the private assistant (priority, round-robin, health check) instead of always the first one, and caps the answer at 4,096 tokens instead of asking for the whole context, which some online services reject. With OpenAI-compatible services, the assistant's tool results in legacy tool mode now carry the `tool_call_id` and accept arguments sent as a JSON string.
+
+### 🐳 Docker image
+- **Half the size, with a health check**: the image no longer ships compilers (every Python package installs prebuilt on amd64 and arm64), so it takes 315 MB once installed instead of 641 MB. Docker, Unraid and Portainer now show it as "healthy" while the app answers on `/health`.
+- **No longer runs as root**: the app runs as an ordinary account, `1000:1000` by default, chosen with `PUID` and `PGID` (on Unraid, `99:100`). On start, the container hands the data folder to that account, so existing installs, whose files were written as root, keep working without any manual step.
+- **Ping and traceroute work again**: the private assistant's network diagnostic tools called `ping` and `traceroute`, which the image did not include, so they always failed. Both are now installed (2 MB) and work without root.
+- **Unraid install steps**: the install guide pointed to an `unraid-template.xml` that now lives in the `Aschefr/unraid-templates` repository (`alanbix.xml`, read by the Community Applications store). The guide now points to the store and to that file. A blank Ollama address (Unraid passes empty fields) no longer replaces the default address.
+
+### 🛠️ Maintenance
+- **Tests run on GitHub**: the 253 backend tests now run on every push to `dev`, `master` and `main`. Their first run found that the shipped translations were looked up from the current folder, so outside Docker the awards had no texts and crashed; they are now found from the backend folder. A missing frontend build no longer crashes page navigation.
+- **Ready for newer Python**: `datetime.utcnow()`, deprecated since Python 3.12, is replaced in all 47 places by the same naive UTC value (`app/clock.py`), and the test suite runs without any warning (3,675 before).
 
 ## [1.36.0] - 2026-11-01
 

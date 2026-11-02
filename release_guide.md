@@ -97,13 +97,11 @@ Ce script :
 4. Push vers Docker Hub (`aschefr/alanbix:X.Y.Z` + `aschefr/alanbix:latest`).
 
 ### Option B : Publication manuelle
+Toujours avec `buildx` et les deux architectures : un simple `docker build` ne produirait que l'image du PC, et casserait `latest` pour les Raspberry Pi.
 ```powershell
-# 1. Build
-docker build -f Dockerfile.standalone -t aschefr/alanbix:X.Y.Z -t aschefr/alanbix:latest .
-
-# 2. Push
-docker push aschefr/alanbix:X.Y.Z
-docker push aschefr/alanbix:latest
+python scripts/verify_production_bundle.py
+docker buildx build --platform linux/amd64,linux/arm64 -f Dockerfile.standalone -t aschefr/alanbix:X.Y.Z -t aschefr/alanbix:latest --push .
+docker buildx imagetools inspect aschefr/alanbix:latest   # doit lister linux/amd64 et linux/arm64
 ```
 
 ---
