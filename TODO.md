@@ -45,7 +45,7 @@ Depuis la reprise du 29 octobre 2026 :
 
 ## Priorité 4 — Documentation
 
-- [ ] Le README et le guide d'installation renvoient vers `unraid-template.xml`, qui n'existe pas. Il faut créer ce fichier ou retirer le lien.
+- [x] `unraid-template.xml`, supprimé par erreur en juin, est restauré et mis à jour (PUID/PGID, adresse Ollama facultative). Les étapes Unraid de la doc sont remises dans le bon ordre.
 
 ## Plus tard — Entretien du code
 

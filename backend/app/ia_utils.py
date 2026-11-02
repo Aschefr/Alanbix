@@ -4,7 +4,8 @@ import re
 import httpx
 import numpy as np
 
-OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://host.docker.internal:11434")
+# Empty counts as unset (Unraid passes blank template fields as empty variables)
+OLLAMA_HOST = os.getenv("OLLAMA_HOST") or "http://host.docker.internal:11434"
 DEFAULT_EMBED_MODEL = "nomic-embed-text"
 
 # Chunking config

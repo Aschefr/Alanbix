@@ -8,6 +8,7 @@
 ### 🐳 Docker image
 - **Half the size, with a health check**: the image no longer ships compilers (every Python package installs prebuilt on amd64 and arm64), so it takes 315 MB once installed instead of 641 MB. Docker, Unraid and Portainer now show it as "healthy" while the app answers on `/health`.
 - **Ping and traceroute work again**: the private assistant's network diagnostic tools called `ping` and `traceroute`, which the image did not include, so they always failed. Both are now installed (2 MB) and work without root.
+- **Unraid template is back**: `unraid-template.xml`, which the install guide points to, had been deleted by mistake in June. It is restored with `PUID=99` / `PGID=100`, an optional Ollama address and an up-to-date description, and the guide's steps are in the right order (copy the file first). A blank Ollama address field no longer replaces the default address.
 - **No longer runs as root**: the app runs as an ordinary account, `1000:1000` by default, chosen with `PUID` and `PGID` (on Unraid, `99:100`). On start, the container hands the data folder to that account, so existing installs, whose files were written as root, keep working without any manual step.
 
 ### 🤖 @Alanbix in the public chat

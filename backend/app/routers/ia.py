@@ -64,7 +64,7 @@ def get_effective_config(db: Session):
             val["context_window"] = MIN_CONTEXT_WINDOW
         return val
     return {
-        "ollama_host": os.getenv("OLLAMA_HOST", "http://host.docker.internal:11434"),
+        "ollama_host": os.getenv("OLLAMA_HOST") or "http://host.docker.internal:11434",
         "model": "",
         "rag_enabled": True,
         "network_tools_enabled": True,

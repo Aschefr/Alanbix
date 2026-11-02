@@ -80,13 +80,12 @@ If you wish to modify the code or run the project locally with Hot Module Replac
 ---
 
 ### Option C: On Unraid (Community Applications / XML Template)
-Alanbix has an official Unraid template:
+Alanbix has an Unraid template:
 
-1. Open the **Docker** tab in your Unraid interface.
-2. Click on **Add Container**.
+1. Copy the [`unraid-template.xml`](../../unraid-template.xml) file from the root of the repository to `/boot/config/plugins/dockerMan/templates-user/my-alanbix.xml` on your Unraid USB flash drive.
+2. Open the **Docker** tab in your Unraid interface and click **Add Container**.
 3. In the **Template** dropdown, select **User Templates > Alanbix**.
-4. *(If the template does not appear)*: Copy the `unraid-template.xml` file located at the root of the Git repository into the `/boot/config/plugins/dockerMan/templates-user/alanbix.xml` directory of your Unraid USB flash drive.
-6. Click **Apply** to start the container!
+4. Click **Apply** to start the container! The template already sets `PUID=99` and `PGID=100`, Unraid's usual account.
 
 #### 🔍 (Optional) Setting up SearXNG on Unraid
 If you run Alanbix on Unraid and want game cover search:

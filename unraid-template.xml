@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>Alanbix</Name>
+  <Repository>aschefr/alanbix:latest</Repository>
+  <Registry>https://hub.docker.com/r/aschefr/alanbix</Registry>
+  <Network>bridge</Network>
+  <MyIP/>
+  <Shell>sh</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/Aschefr/Alanbix/issues</Support>
+  <Project>https://github.com/Aschefr/Alanbix</Project>
+  <Overview>Alanbix gère une LAN party de bout en bout : joueurs et équipes, plan de salle, tournois et arbres en direct, chat, notifications et assistant IA local (Ollama ou service compatible OpenAI). Libre et gratuit (MIT).</Overview>
+  <Category>Tools:Utilities Network:Web GameServers:</Category>
+  <WebUI>http://[IP]:[PORT:41481]/</WebUI>
+  <TemplateURL>https://raw.githubusercontent.com/Aschefr/Alanbix/master/unraid-template.xml</TemplateURL>
+  <Icon>https://raw.githubusercontent.com/Aschefr/Alanbix/master/frontend/static/favicon.png</Icon>
+  <ExtraParams/>
+  <PostArgs/>
+  <CPUset/>
+  <DateInstalled></DateInstalled>
+  <DonateText/>
+  <DonateLink/>
+  <Description>Alanbix gère une LAN party de bout en bout : joueurs et équipes, plan de salle, tournois et arbres en direct, chat, notifications et assistant IA local.</Description>
+  <Config Name="WebUI Port" Target="41481" Default="41481" Mode="tcp" Description="Port de l'interface web (41481 = ALABI en leetspeak)." Type="Port" Display="always" Required="true" Mask="false">41481</Config>
+  <Config Name="Dossier AppData" Target="/app/data" Default="/mnt/user/appdata/alanbix" Mode="rw" Description="Base de données, images et réglages. Indispensable pour ne rien perdre." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/alanbix</Config>
+  <Config Name="PUID" Target="PUID" Default="99" Mode="" Description="Compte qui fait tourner l'application (99 = nobody sur Unraid)." Type="Variable" Display="advanced" Required="false" Mask="false">99</Config>
+  <Config Name="PGID" Target="PGID" Default="100" Mode="" Description="Groupe qui fait tourner l'application (100 = users sur Unraid)." Type="Variable" Display="advanced" Required="false" Mask="false">100</Config>
+  <Config Name="Adresse Ollama" Target="OLLAMA_HOST" Default="" Mode="" Description="Facultatif : adresse du serveur IA par défaut (ex. http://192.168.1.10:11434). Les serveurs IA se règlent aussi dans Administration." Type="Variable" Display="always" Required="false" Mask="false"></Config>
+  <Config Name="CORS_ORIGINS" Target="CORS_ORIGINS" Default="" Mode="" Description="Facultatif : autres adresses autorisées (nom de domaine, reverse proxy), séparées par des virgules." Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+</Container>
