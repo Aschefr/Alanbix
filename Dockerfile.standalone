@@ -14,6 +14,10 @@ RUN npm run build
 FROM python:3.11-slim
 WORKDIR /app
 
+# ping et traceroute pour les outils de diagnostic reseau de l'assistant IA
+RUN apt-get update && apt-get install -y --no-install-recommends iputils-ping traceroute \
+    && rm -rf /var/lib/apt/lists/*
+
 # Installer les dependances Python (toutes existent precompilees pour amd64 et arm64 :
 # pas besoin d'outils de compilation dans l'image)
 COPY backend/requirements.txt .

@@ -41,7 +41,7 @@ Depuis la reprise du 29 octobre 2026 :
 - [ ] Sa réponse prend 1 à 2 minutes avec le modèle actuel. Il faudrait essayer un modèle plus rapide, ou une machine plus puissante.
 - [ ] Assistant privé : appliquer au mode streaming les mêmes corrections d'appel d'outils que dans le chat public (identifiant d'appel, arguments envoyés sous forme de texte).
 
-- [ ] Les outils réseau de l'assistant privé (ping, traceroute, nslookup, arp) ne sont pas installés dans l'image Docker, donc ils échouent. Il faut soit les installer, soit retirer ces outils.
+- [x] Le ping et le traceroute de l'assistant privé échouaient faute de programme dans l'image Docker : ils sont installés (+2 Mo) et fonctionnent sans root. La recherche DNS et le scan réseau n'en avaient pas besoin.
 
 ## Priorité 4 — Documentation
 
