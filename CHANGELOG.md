@@ -7,6 +7,7 @@
 
 ### 🐛 Fixed
 - **AI conversations get their title again with reasoning models**: with a model that thinks before answering (Qwen 3.5 on vLLM, for example), the title request spent its 30 tokens thinking and got an empty answer, so the conversation stayed "New discussion" (the "suggest a title" button failed the same way). Thinking is now switched off for this short request (`enable_thinking: false` for OpenAI-compatible servers, `think: false` for Ollama), with a plain retry if a server refuses the option, and any `<think>` block left in the answer is removed.
+- **Smooth switch between notifications and archives**: the tab lights up at once and the list is replaced in one go, instead of flashing a small loading box that grew while two requests ran one after the other.
 - **More patience with slow models**: `@Alanbix` in the public chat, and the private assistant's tool rounds, gave up on the AI server after 90 to 120 seconds per request. With a slow model, or one loading cold, an answer could be dropped. They now wait up to 5 minutes, like the private assistant's streamed answers.
 
 ## [1.37.0] - 2026-11-02
