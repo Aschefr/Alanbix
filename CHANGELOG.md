@@ -7,6 +7,11 @@
 - **Back to the login screen when a session ends**: an expired session left the interface on screen with nothing working. The app now returns to the login screen by itself, even if nobody clicks, and says "Your session has expired. Sign in again to continue."
 - **Show the password**: an eye button in the password field shows or hides what was typed; the cursor stays in the field, so Enter still signs in.
 
+### 💬 Messages
+- **The Messages tab goes to the new message**: with an unread message, opening Messages shows the conversation (private or team) holding the newest one, also after a reload; until now it reopened the last conversation viewed.
+- **Second tap on Messages (phone)**: it switches between the conversation and the contact list, and goes first to any other conversation with an unread message.
+- **Notification sound**: the sound played for notifications pointed to a file that never existed, so it stayed silent. It is now a short chime made by the app.
+
 ### ⚡ Performance
 - **Lighter app with Svelte 5**: the interface now runs on Svelte 5 (in its compatibility mode, the code is unchanged), and the downloaded app shrinks by 30% (3.0 MB to 2.1 MB), which helps phones on a busy LAN Wi-Fi.
 
