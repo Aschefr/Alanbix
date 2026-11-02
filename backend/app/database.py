@@ -75,6 +75,8 @@ def init_db():
         _safe_add_column(conn, "notifications", "category", "VARCHAR")
         _safe_add_column(conn, "notifications", "link", "VARCHAR")
         _safe_add_column(conn, "notifications", "is_archived", "BOOLEAN DEFAULT 0")
+        # Embedding model that indexed a knowledge entry (vectors of two models cannot be compared)
+        _safe_add_column(conn, "knowledge_base", "embed_model", "VARCHAR")
 
         # Create critical performance indexes if they don't exist
         indexes = [

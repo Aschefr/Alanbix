@@ -93,21 +93,13 @@ def public_tools(ia_cfg: dict) -> list:
 
 
 async def knowledge_block(db, models, query: str, host: str, ia_cfg: dict) -> str:
-    """The admin's knowledge base entries closest to the question, as for the private assistant."""
-    if not ia_cfg.get("rag_enabled", True) or not (query or "").strip():
-        return ""
-    from .ia_utils import get_embedding, search_similar
+    """The admin's knowledge base entries that answer the question, as for the private assistant."""
+    from .ia_knowledge import search_knowledge, knowledge_prompt
     try:
-        embedding = await get_embedding(query, ollama_host=host)
+        return knowledge_prompt(await search_knowledge(db, models, query, host, ia_cfg))
     except Exception as e:
         print(f"[Public Chat AI] Knowledge base lookup failed: {e}")
         return ""
-    if not embedding:
-        return ""
-    min_score = float(ia_cfg.get("rag_min_score", 0.65))
-    docs = db.query(models.KnowledgeBase).all()
-    found = [doc.content for doc, score in search_similar(embedding, docs, top_k=3) if score >= min_score]
-    return "=== Base de Connaissances ===\n" + "\n".join(found) if found else ""
 
 
 THREAD = {

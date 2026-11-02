@@ -7,6 +7,7 @@ import numpy as np
 # Empty counts as unset (Unraid passes blank template fields as empty variables)
 OLLAMA_HOST = os.getenv("OLLAMA_HOST") or "http://host.docker.internal:11434"
 DEFAULT_EMBED_MODEL = "nomic-embed-text"
+LAST_EMBED_ERROR = ""  # why the last embedding request failed, shown in the admin
 
 # Chunking config
 CHUNK_SIZE = 2000       # ~500 tokens per chunk
@@ -171,12 +172,16 @@ async def get_embedding(text: str, ollama_host: str = None, timeout: float = 60.
                 json=payload,
                 timeout=timeout
             )
+            if response.status_code != 200:
+                raise RuntimeError(f"HTTP {response.status_code} ({embed_model}): {response.text[:160]}")
             data = response.json()
             if is_openai:
                 return data["data"][0]["embedding"]
             return data["embedding"]
     except Exception as e:
-        print(f"Embedding error: {e}")
+        global LAST_EMBED_ERROR
+        LAST_EMBED_ERROR = str(e) or type(e).__name__
+        print(f"Embedding error: {LAST_EMBED_ERROR}")
         return None
 
 

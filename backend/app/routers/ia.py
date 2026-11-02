@@ -14,7 +14,7 @@ from typing import List, Optional
 from pydantic import BaseModel
 from ..websockets import manager as ws_manager
 from .. import models, schemas, auth, database
-from ..ia_utils import get_embedding, get_embedding_chunked, search_similar
+from ..ia_knowledge import search_knowledge, index_entry, status as knowledge_status
 from ..ia_utils import ia_client, register_instance_keys
 from starlette.requests import Request as StarletteRequest
 from ..ia_compression import run_truncation, run_compaction, run_summary
@@ -807,7 +807,7 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
     if not conv.model and instance.get("model"):
         model_to_use = instance["model"]
     
-    # 1. RAG (numpy cosine similarity in memory)
+    # 1. RAG: keywords + meaning (ia_knowledge); keywords alone when no embedding model answers
     # The previous player message joins the query so a follow-up ("and how do I do that?") still finds its topic
     rag_context = ""
     if ia_cfg.get("rag_enabled", True):
@@ -818,16 +818,9 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
         query_text = request.prompt
         if prev_user and not request.skip_save_user and prev_user.content != request.prompt:
             query_text = f"{prev_user.content[:300]}\n{request.prompt}"
-        query_embedding = await get_embedding(query_text, ollama_host=ollama_host)
-        if query_embedding:
-            all_docs = db.query(models.KnowledgeBase).all()
-            if request.game_id is not None:
-                # General entries (no game) stay available next to the selected game's entries
-                all_docs = [d for d in all_docs if not (d.metadata_json or {}).get('game_id') or d.metadata_json.get('game_id') == request.game_id]
-            min_score = float(ia_cfg.get("rag_min_score", 0.65))
-            results = [(doc, score) for doc, score in search_similar(query_embedding, all_docs, top_k=3) if score >= min_score]
-            rag_context = "\n".join([doc.content for doc, score in results])
-        
+        found = await search_knowledge(db, models, query_text, ollama_host, ia_cfg, game_id=request.game_id)
+        rag_context = "\n".join(doc.content for doc in found)
+
     # 2. History
     history_query = db.query(models.ChatMessage).filter(models.ChatMessage.conversation_id == request.conversation_id)
     if conv.compressed_at:
@@ -1316,16 +1309,15 @@ class UploadDocumentRequest(BaseModel):
 async def upload_document(req: UploadDocumentRequest, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
     instance = await pick_instance(db)
     host = instance["url"] if instance else get_effective_config(db).get('ollama_host', 'http://localhost:11434')
-    embedding, num_chunks = await get_embedding_chunked(req.content, ollama_host=host)
-    embedding_str = json.dumps(embedding) if embedding else None
-    doc = models.KnowledgeBase(content=req.content, metadata_json=req.metadata, embedding_json=embedding_str)
+    doc = models.KnowledgeBase(content=req.content, metadata_json=req.metadata)
+    num_chunks = await index_entry(doc, host)
+    embedding = doc.embedding_json
     db.add(doc)
     db.commit()
     db.refresh(doc)
     await ws_manager.broadcast({"type": "knowledge_updated"})
     result = {"status": "uploaded", "id": doc.id, "content_length": len(req.content), "chunks": num_chunks}
     if not embedding:
-        result["warning"] = "Le document a été sauvegardé mais la vectorisation a échoué. Vérifiez qu'une instance Ollama est en ligne avec un modèle d'embedding."
         result["has_embedding"] = False
     else:
         result["has_embedding"] = True
@@ -1342,6 +1334,30 @@ async def list_knowledge(db: Session = Depends(database.get_db), admin: models.U
         "has_embedding": d.embedding_json is not None and len(d.embedding_json or "") > 10,
         "metadata": d.metadata_json
     } for d in docs]
+
+@router.get("/knowledge/status")
+async def get_knowledge_status(db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
+    """Meaning search available or not (embedding model), and how many entries need re-indexing."""
+    instance = await pick_instance(db)
+    return await knowledge_status(db, models, instance["url"] if instance else "", get_effective_config(db))
+
+@router.post("/knowledge/reindex")
+async def reindex_knowledge(db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
+    """Re-compute every entry's embedding with the current model (after a model change)."""
+    instance = await pick_instance(db)
+    if not instance:
+        raise HTTPException(503, "Aucune instance IA configurée")
+    docs = db.query(models.KnowledgeBase).all()
+    done = 0
+    for doc in docs:
+        await index_entry(doc, instance["url"])
+        if doc.embedding_json:
+            done += 1
+        elif done == 0:
+            break  # the model does not answer: no use trying every entry
+    db.commit()
+    await ws_manager.broadcast({"type": "knowledge_updated"})
+    return {"indexed": done, "total": len(docs)}
 
 @router.delete("/knowledge/{doc_id}")
 async def delete_knowledge(doc_id: int, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
@@ -1381,17 +1397,15 @@ async def update_knowledge_doc(doc_id: int, req: UpdateDocumentRequest, db: Sess
     
     instance = await pick_instance(db)
     host = instance["url"] if instance else get_effective_config(db).get('ollama_host', 'http://localhost:11434')
-    embedding, num_chunks = await get_embedding_chunked(req.content, ollama_host=host)
-    
     doc.content = req.content
     doc.metadata_json = req.metadata if req.metadata else doc.metadata_json
-    doc.embedding_json = json.dumps(embedding) if embedding else None
+    num_chunks = await index_entry(doc, host)
+    embedding = doc.embedding_json
     db.commit()
     await ws_manager.broadcast({"type": "knowledge_updated"})
     
     result = {"status": "updated", "id": doc.id, "content_length": len(req.content), "chunks": num_chunks}
     if not embedding:
-        result["warning"] = "Le contenu a été mis à jour mais la re-vectorisation a échoué."
         result["has_embedding"] = False
     else:
         result["has_embedding"] = True
@@ -1602,17 +1616,11 @@ async def approve_rag_suggestion(suggestion_id: int, payload: dict, db: Session 
     content = f"Q: {suggestion.question}\nR: {answer}"
     meta = {"category": suggestion.category or "general", "source": "rag_suggestion", "suggestion_id": suggestion_id}
     
-    # Embed and store in KnowledgeBase
-    from ..ia_utils import get_embedding
+    # Embed and store in KnowledgeBase (kept for the keyword search if the embedding model is down)
     instance = await pick_instance(db)
     host = instance["url"] if instance else get_effective_config(db).get('ollama_host', 'http://localhost:11434')
-    embedding = await get_embedding(content, ollama_host=host)
-    import json as _json
-    kb_entry = models.KnowledgeBase(
-        content=content,
-        metadata_json=meta,
-        embedding_json=_json.dumps(embedding) if embedding else None
-    )
+    kb_entry = models.KnowledgeBase(content=content, metadata_json=meta)
+    await index_entry(kb_entry, host)
     db.add(kb_entry)
 
     suggestion.status = "approved"

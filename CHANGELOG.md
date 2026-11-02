@@ -15,6 +15,11 @@
 ### ⚡ Performance
 - **Lighter app with Svelte 5**: the interface now runs on Svelte 5 (in its compatibility mode, the code is unchanged), and the downloaded app shrinks by 30% (3.0 MB to 2.1 MB), which helps phones on a busy LAN Wi-Fi.
 
+### 📚 Knowledge base (RAG)
+- **It works without an embedding model**: the knowledge base was only searched by meaning (embeddings). When the embedding model did not answer (missing, turned off, or not served by an OpenAI-compatible server), every entry silently became unreachable. A keyword search (BM25) now always runs, and is merged with the meaning search when it works (hybrid search, Reciprocal Rank Fusion), for the private assistant and `@Alanbix` alike. Keywords find names and exact terms, meaning finds rephrasings.
+- **A dead embedding server no longer slows every message**: after a failure it is asked again only every 5 minutes, and the error says why (HTTP status and model) instead of `'data'`.
+- **Entries remember their embedding model**: vectors made by another model are no longer compared with the question's (the result was meaningless). A banner at the top of the knowledge base says which search works, why the meaning search does not, and how many entries need re-indexing, with a **Re-index** button. Entries saved while the model is down are kept and found by keywords.
+
 ### 🗺️ Room map
 - **Wi-Fi access point element**: the map editor gets a "Wi-Fi access point" element, next to the door, kitchen, bar, toilets, rack and screen.
 - **The assistant knows where things are**: asked "where is the Wi-Fi access point?", "where are the toilets?" or "where is the bar?", the private assistant and `@Alanbix` in the public chat now read the map elements. They answer with landmarks and a general direction, as on the map ("between Table 2 and Table 3, on the right side of the room"), add a rough distance only when it helps (a seat counts as about 0.8 m, the map is not to scale), and can list the free seats closest to a Wi-Fi access point. Until now they had no idea and could make up a place.

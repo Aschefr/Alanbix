@@ -21,6 +21,24 @@
 		try {
 			docs = await api.get('/ia/knowledge');
 		} catch { docs = []; }
+		loadStatus();
+	}
+
+	// Which search works (meaning and/or keywords) and how many entries the current model has not indexed
+	let status = null;
+	let reindexing = false;
+	async function loadStatus() {
+		try { status = await api.get('/ia/knowledge/status'); } catch { status = null; }
+	}
+	async function reindex() {
+		reindexing = true;
+		try {
+			const res = await api.post('/ia/knowledge/reindex', {});
+			if (res.indexed > 0) toast(get(t)('admin_rag_reindex_done', { indexed: res.indexed, total: res.total, plural: res.indexed > 1 ? 's' : '' }), 'success');
+			else toast(get(t)('admin_rag_reindex_failed'), 'error');
+		} catch (e) { toast(e.message || get(t)('admin_rag_reindex_failed'), 'error'); }
+		reindexing = false;
+		loadKnowledge();
 	}
 
 	async function deleteKnowledge(docId) {
@@ -47,8 +65,8 @@
 		editDocSaving = true;
 		try {
 			const res = await api.put(`/ia/knowledge/${editingDocId}`, { content: editDocContent });
-			if (res.warning) {
-				toast(res.warning, 'error');
+			if (res.has_embedding === false) {
+				toast(get(t)('admin_rag_saved_keywords'), 'info');
 			} else if (res.chunks > 1) {
 				toast(get(t)('admin_rag_reindexed', { chunks: res.chunks, chars: res.content_length }), 'success');
 			} else {
@@ -67,8 +85,8 @@
 		try {
 			const res = await api.post('/ia/upload-document', { content: newDocContent });
 			newDocContent = '';
-			if (res.warning) {
-				toast(res.warning, 'error');
+			if (res.has_embedding === false) {
+				toast(get(t)('admin_rag_saved_keywords'), 'info');
 			} else if (res.chunks > 1) {
 				toast(get(t)('admin_rag_indexed', { chunks: res.chunks, chars: res.content_length }), 'success');
 			} else {
@@ -90,6 +108,30 @@
 </script>
 
 <svelte:window on:keydown={(e) => { if (e.key === 'Escape' && editingDocId) editingDocId = null; }} />
+
+{#if status}
+	<div class="rag-status" class:keywords-only={status.rag_enabled && status.semantic !== 'ok'} class:off={!status.rag_enabled} role="status">
+		<span class="rag-status-icon"><Icon name={!status.rag_enabled ? 'info' : status.semantic === 'ok' ? 'check-circle' : 'search'} size={15} /></span>
+		<div class="rag-status-text">
+			{#if !status.rag_enabled}
+				<span>{$t('admin_rag_status_disabled')}</span>
+			{:else if status.semantic === 'ok'}
+				<span>{$t('admin_rag_status_both', { model: status.model })}</span>
+				{#if status.to_index > 0}
+					<span class="rag-status-detail">{$t('admin_rag_status_to_index', { count: status.to_index, plural: status.to_index > 1 ? 's' : '' })}</span>
+				{/if}
+			{:else}
+				<span>{$t('admin_rag_status_keywords', { model: status.model })}</span>
+				{#if status.error}<span class="rag-status-detail" title={status.error}>{status.error}</span>{/if}
+			{/if}
+		</div>
+		{#if status.rag_enabled && status.semantic === 'ok' && status.to_index > 0}
+			<button class="btn-secondary btn-xs" on:click={reindex} disabled={reindexing}>
+				<Icon name="refresh" size={13} /> {$t('admin_rag_reindex')}
+			</button>
+		{/if}
+	</div>
+{/if}
 
 <!-- Existing documents -->
 {#if docs.length > 0}
@@ -189,4 +231,13 @@
 	.btn-icon { background: var(--hover-tint); border: 1px solid var(--glass-border); border-radius: 6px; padding: 0.25rem 0.4rem; cursor: pointer; font-size: 0.75rem; transition: all 0.15s; flex-shrink: 0; }
 	.btn-icon:hover { background: var(--accent-soft); border-color: var(--accent); }
 	.btn-icon-danger:hover { border-color: var(--danger, #ef4444); background: rgba(239,68,68,0.15); }
+	.rag-status { display: flex; align-items: center; gap: 0.6rem; padding: 0.55rem 0.75rem; margin-bottom: 0.75rem; border-radius: 8px; background: color-mix(in srgb, #10b981 8%, transparent); border: 1px solid color-mix(in srgb, #10b981 22%, transparent); font-size: 0.8rem; color: var(--text-main); }
+	.rag-status.keywords-only { background: color-mix(in srgb, #f59e0b 8%, transparent); border-color: color-mix(in srgb, #f59e0b 25%, transparent); }
+	.rag-status.off { background: var(--surface-sunken); border-color: var(--glass-border); }
+	.rag-status-icon { display: inline-flex; color: #10b981; flex-shrink: 0; }
+	.rag-status.keywords-only .rag-status-icon { color: #f59e0b; }
+	.rag-status.off .rag-status-icon { color: var(--text-muted); }
+	.rag-status-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.1rem; line-height: 1.35; }
+	.rag-status-detail { font-size: 0.75rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.rag-status .btn-xs { flex-shrink: 0; display: inline-flex; align-items: center; gap: 0.3rem; }
 </style>

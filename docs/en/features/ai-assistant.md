@@ -13,12 +13,16 @@ Alanbix integrates a sophisticated self-hosted AI assistant based on Ollama, des
 ![AI Question](../../../screenshots/alanbix_assistant_ia_question.png)
 ![AI Response](../../../screenshots/alanbix_assistant_ia_reponse.png)
 
-### Native RAG Engine (NumPy Calculations)
-To avoid the complex infrastructure of a dedicated vector database (like pgvector/PostgreSQL), Alanbix embeds a matrix RAG engine written in native Python with NumPy:
-1. **Indexing**: Documents uploaded by administrators are chunked, and their embeddings (vector representations) are calculated via Ollama and stored in JSON format inside the SQLite database.
-2. **Vector Search**: For each question asked by a user, the backend loads the embeddings from SQLite and performs a **Cosine Similarity** calculation in RAM via NumPy.
-3. **Context Isolation**: The AI intelligently switches between the general LAN context (schedule, WiFi, rules) and the context of a specific game to optimize response quality.
-4. **Relevance threshold**: an entry is only passed to the AI when its similarity is above an adjustable threshold (0.65 by default, in the model settings). The search combines the question with the player's previous message, so a follow-up ("and how do I do that?") still finds its topic.
+### Knowledge base (hybrid RAG)
+Before each answer, Alanbix looks in the knowledge base for the entries that answer the question and puts them in the AI's instructions. No vector database to install: everything runs in memory, which is plenty for a few hundred entries.
+1. **Two searches, combined**:
+   * **By keywords** (BM25 score, the one of classic search engines): always available, finds names and exact terms ("Goldberg", "WC"). Accents, small words and simple plurals are ignored, and an entry must hold a good share of the question's words.
+   * **By meaning** (embeddings and cosine similarity): finds rephrasings ("toilet door" / "WC lock"), when an embedding model answers. An entry is kept only above an adjustable similarity threshold (0.65 by default).
+   * Both rankings are merged (Reciprocal Rank Fusion) and the best 3 entries are passed on.
+2. **Without an embedding model**, the keyword search works alone. The embedding server is then asked again only every 5 minutes, so it does not slow every message down.
+3. **Indexing**: each entry records the embedding model that indexed it. Vectors of two different models are never compared: after a model change, the banner of the "Knowledge base" section shows how many entries need re-indexing, with a **Re-index** button. The banner also says whether the meaning search works, and if not, why.
+4. **Context isolation**: the AI switches between the general LAN context (schedule, WiFi, rules) and the context of a specific game.
+5. **Follow-ups**: the search combines the question with the player's previous message, so a follow-up ("and how do I do that?") still finds its topic. `@Alanbix` in the public chat uses the same search.
 
 ### System prompt construction (layers)
 Each request sends the model a single system message, built in this order:

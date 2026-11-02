@@ -13,12 +13,16 @@ Alanbix intègre un assistant IA auto-hébergé sophistiqué basé sur Ollama, c
 ![Question IA](../../../screenshots/alanbix_assistant_ia_question.png)
 ![Réponse IA](../../../screenshots/alanbix_assistant_ia_reponse.png)
 
-### Moteur de RAG Native (Calcul NumPy)
-Afin d'éviter l'infrastructure complexe d'une base de données vectorielle dédiée (comme pgvector/PostgreSQL), Alanbix embarque un moteur RAG matriciel codé en Python natif avec NumPy :
-1. **Indexation** : Les documents téléchargés par les administrateurs sont découpés et leurs embeddings (représentations vectorielles) sont calculés via Ollama puis stockés en format JSON dans la base SQLite.
-2. **Recherche Vectorielle** : À chaque question posée par un utilisateur, le backend charge les embeddings de la base SQLite et effectue un calcul de **Similarité Cosinus (Cosine Similarity)** en mémoire vive via NumPy.
-3. **Isolation de contexte** : L'IA bascule intelligemment entre le contexte général de la LAN (planning, WiFi, règlements) et le contexte d'un jeu spécifique pour optimiser la qualité des réponses.
-4. **Seuil de pertinence** : une fiche n'est transmise à l'IA que si sa similarité dépasse un seuil réglable (0,65 par défaut, dans la configuration du modèle). La recherche combine la question avec le message précédent du joueur, pour qu'une relance (« et comment je fais ? ») retrouve son sujet.
+### Base de connaissances (RAG hybride)
+Avant chaque réponse, Alanbix cherche dans la base de connaissances les fiches qui répondent à la question, et les place dans les consignes de l'IA. Pas de base de données vectorielle à installer : tout se fait en mémoire, ce qui suffit largement pour quelques centaines de fiches.
+1. **Deux recherches combinées** :
+   * **Par mots-clés** (score BM25, celui des moteurs de recherche classiques) : toujours disponible, retrouve les noms et termes exacts (« Goldberg », « WC »). Les accents, les petits mots et les pluriels simples sont ignorés, et une fiche doit contenir une bonne part des mots de la question.
+   * **Par le sens** (embeddings et similarité cosinus) : retrouve les reformulations (« porte des toilettes » / « serrure des WC »), si un modèle d'embedding répond. Une fiche n'est retenue que si sa similarité dépasse un seuil réglable (0,65 par défaut).
+   * Les deux classements sont fusionnés (Reciprocal Rank Fusion) et les 3 meilleures fiches sont transmises.
+2. **Sans modèle d'embedding**, la recherche par mots-clés fonctionne seule. Le serveur d'embedding n'est alors réinterrogé que toutes les 5 minutes, pour ne pas ralentir chaque message.
+3. **Indexation** : chaque fiche retient le modèle d'embedding qui l'a indexée. Les vecteurs de deux modèles différents ne sont jamais comparés : après un changement de modèle, le bandeau de la section « Base de connaissances » indique combien de fiches sont à réindexer, avec un bouton **Réindexer**. Ce bandeau dit aussi si la recherche par le sens fonctionne, et sinon pourquoi.
+4. **Isolation de contexte** : l'IA bascule entre le contexte général de la LAN (planning, WiFi, règlements) et le contexte d'un jeu spécifique.
+5. **Relances** : la recherche combine la question avec le message précédent du joueur, pour qu'une relance (« et comment je fais ? ») retrouve son sujet. `@Alanbix`, dans le chat public, utilise la même recherche.
 
 ### Construction du prompt système (en couches)
 Chaque requête envoie au modèle un seul message système, assemblé dans cet ordre :
