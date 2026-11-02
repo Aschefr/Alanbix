@@ -1360,7 +1360,7 @@
 									on:click|stopPropagation={() => scrollToAndHighlightMessage(msg.reply_to.id)}
 									title={$t('chat_view_original')}
 								>
-									<span class="quote-symbol">↩️</span>
+									<Icon name="reply" size={12} class="quote-symbol" />
 									<strong class="quote-author">@{msg.reply_to.username}</strong>
 									<span class="quote-snippet">{msg.reply_to.content}</span>
 								</div>
@@ -1517,7 +1517,7 @@
 	{#if replyingTo}
 		<div class="replying-preview-bar">
 			<div class="replying-content">
-				<span class="replying-icon">↩️</span>
+				<Icon name="reply" size={14} class="replying-icon" />
 				<div class="replying-text-group">
 					<span class="replying-lead">
 						{$t('dash_chat_replying_to')}
@@ -1526,7 +1526,9 @@
 					<span class="replying-snippet">{replyingTo.content || (replyingTo.image_path ? $t('chat_attachment') : '')}</span>
 				</div>
 			</div>
-			<button class="replying-cancel-btn" on:click={cancelReply} title={$t('dash_chat_cancel_reply')}>✕</button>
+			<button class="replying-cancel-btn" on:click={cancelReply} title={$t('dash_chat_cancel_reply')} aria-label={$t('dash_chat_cancel_reply')}>
+				<Icon name="x" size={14} />
+			</button>
 		</div>
 	{/if}
 
@@ -2617,25 +2619,25 @@
 	.msg-reply-quote {
 		display: flex;
 		align-items: center;
-		gap: 0.4rem;
-		padding: 0.2rem 0.5rem;
-		background: rgba(255, 255, 255, 0.04);
-		border-left: 3px solid var(--accent);
-		border-radius: 4px;
+		gap: 0.35rem;
+		padding: 0.22rem 0.55rem;
+		background: color-mix(in srgb, var(--accent) 8%, transparent);
+		border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+		border-radius: 8px;
 		font-size: 0.7rem;
 		cursor: pointer;
-		margin-bottom: 0.2rem;
-		transition: background 0.2s;
+		margin-bottom: 0.25rem;
+		transition: background 0.2s, border-color 0.2s;
 		max-width: 100%;
 		overflow: hidden;
 	}
 	.msg-reply-quote:hover {
-		background: rgba(255, 255, 255, 0.08);
+		background: color-mix(in srgb, var(--accent) 14%, transparent);
+		border-color: color-mix(in srgb, var(--accent) 35%, transparent);
 	}
-	.quote-symbol {
-		font-size: 0.75rem;
+	.msg-reply-quote :global(.quote-symbol) {
 		flex-shrink: 0;
-		opacity: 0.7;
+		color: var(--accent);
 	}
 	.quote-author {
 		color: var(--accent);
@@ -2997,10 +2999,12 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding: 0.35rem 0.8rem;
-		background: rgba(59, 130, 246, 0.08);
-		border-top: 1px solid rgba(59, 130, 246, 0.2);
-		border-left: 3px solid var(--accent);
+		gap: 0.4rem;
+		margin: 0.4rem 0.6rem 0;
+		padding: 0.3rem 0.3rem 0.3rem 0.6rem;
+		background: color-mix(in srgb, var(--accent) 8%, transparent);
+		border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+		border-radius: 10px;
 		font-size: 0.72rem;
 		flex-shrink: 0;
 		animation: slideUpReply 0.2s ease-out;
@@ -3016,9 +3020,9 @@
 		min-width: 0;
 		flex: 1;
 	}
-	.replying-icon {
-		font-size: 0.8rem;
+	.replying-content :global(.replying-icon) {
 		flex-shrink: 0;
+		color: var(--accent);
 	}
 	.replying-text-group {
 		display: flex;
@@ -3040,13 +3044,17 @@
 		font-size: 0.72rem;
 	}
 	.replying-cancel-btn {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 28px;
+		height: 28px;
 		background: none;
 		border: none;
 		color: var(--text-muted);
 		cursor: pointer;
-		font-size: 0.8rem;
-		padding: 0.15rem 0.35rem;
-		border-radius: 4px;
+		padding: 0;
+		border-radius: 6px;
 		transition: all 0.15s;
 		flex-shrink: 0;
 	}
