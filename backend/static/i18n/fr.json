@@ -1922,5 +1922,7 @@
   "map_clear_confirm": "Effacer tout le plan ?",
   "map_clear_yes": "Effacer",
   "map_clear_done": "Plan vidé. Enregistrez pour confirmer, ou Ctrl+Z pour annuler.",
-  "admin_settings_purge_room_btn": "Supprimer le plan"
+  "admin_settings_purge_room_btn": "Supprimer le plan",
+  "login_error_invalid": "Mot de passe incorrect.",
+  "login_error_too_many": "Trop d'essais. Réessayez dans {minutes} min."
 }

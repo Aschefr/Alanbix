@@ -27,6 +27,51 @@ def check_username_exists(username: str, request: Request, db: Session = Depends
     return {"exists": db.query(models.User).filter(models.User.username == username).first() is not None}
 
 
+# --- Brute-force guard for /token ---
+# After too many wrong passwords from one address, that address waits before trying again.
+# Counted per address + username (guessing one account) and per address (trying many accounts).
+_LOGIN_WINDOW = 15 * 60
+_LOGIN_LOCK = 5 * 60
+_LOGIN_MAX_PER_ACCOUNT = 5
+_LOGIN_MAX_PER_ADDRESS = 20
+_login_failures: dict[tuple, list[float]] = {}
+
+
+def _recent_failures(key, now):
+    stamps = [s for s in _login_failures.get(key, []) if now - s < _LOGIN_WINDOW]
+    if stamps:
+        _login_failures[key] = stamps
+    else:
+        _login_failures.pop(key, None)
+    return stamps
+
+
+def _login_wait(client_ip, username, now):
+    """Seconds this address must still wait before trying this username, 0 if it may try now."""
+    wait = 0
+    for key, limit in (((client_ip, username), _LOGIN_MAX_PER_ACCOUNT), ((client_ip, None), _LOGIN_MAX_PER_ADDRESS)):
+        stamps = _recent_failures(key, now)
+        if len(stamps) >= limit:
+            wait = max(wait, stamps[-1] + _LOGIN_LOCK - now)
+    return int(wait) + 1 if wait > 0 else 0
+
+
+def _record_login_failure(client_ip, username, now):
+    if len(_login_failures) > 5000:
+        for key in list(_login_failures):
+            _recent_failures(key, now)
+    for key in ((client_ip, username), (client_ip, None)):
+        _login_failures.setdefault(key, []).append(now)
+
+
+def _too_many_attempts(wait):
+    return HTTPException(
+        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+        detail={"code": "too_many_attempts", "message": "Too many failed attempts", "retry_after": wait},
+        headers={"Retry-After": str(wait)},
+    )
+
+
 @router.post("/register", response_model=schemas.User)
 async def register_user(user: schemas.UserCreate, db: Session = Depends(database.get_db)):
     db_user = db.query(models.User).filter(models.User.username == user.username).first()
@@ -45,14 +90,24 @@ async def register_user(user: schemas.UserCreate, db: Session = Depends(database
     return new_user
 
 @router.post("/token", response_model=schemas.Token)
-async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(database.get_db)):
+async def login_for_access_token(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(database.get_db)):
+    client_ip = request.client.host if request.client else "unknown"
+    now = _time.monotonic()
+    wait = _login_wait(client_ip, form_data.username, now)
+    if wait:
+        raise _too_many_attempts(wait)
     user = db.query(models.User).filter(models.User.username == form_data.username).first()
     if not user or not auth.verify_password(form_data.password, user.hashed_password):
+        _record_login_failure(client_ip, form_data.username, now)
+        wait = _login_wait(client_ip, form_data.username, now)
+        if wait:
+            raise _too_many_attempts(wait)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    _login_failures.pop((client_ip, form_data.username), None)
     access_token_expires = timedelta(minutes=auth.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = auth.create_access_token(
         data={"sub": user.username}, expires_delta=access_token_expires

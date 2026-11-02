@@ -1933,5 +1933,7 @@
   "map_clear_confirm": "¿Borrar todo el plano?",
   "map_clear_yes": "Borrar",
   "map_clear_done": "Plano vaciado. Guarde para confirmar, o Ctrl+Z para deshacer.",
-  "admin_settings_purge_room_btn": "Eliminar el plano"
+  "admin_settings_purge_room_btn": "Eliminar el plano",
+  "login_error_invalid": "Contraseña incorrecta.",
+  "login_error_too_many": "Demasiados intentos. Vuelva a intentarlo en {minutes} min."
 }
