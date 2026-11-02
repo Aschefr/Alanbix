@@ -79,7 +79,7 @@ PUBLIC_TOOL_NAMES = {
     "get_tournaments", "get_tournament_standings", "get_leaderboard", "get_leaderboard_by_game",
     "get_player_info", "get_my_matches", "get_player_match_history", "get_player_rank_progression",
     "get_live_matches", "get_upcoming_matches", "get_bracket_detail", "get_tournament_bracket_path",
-    "get_team_roster", "get_player_seat", "get_games", "get_game_rules", "get_awards", "get_files",
+    "get_team_roster", "get_player_seat", "get_room_places", "get_games", "get_game_rules", "get_awards", "get_files",
     "get_event_info", "get_current_datetime",
 }
 

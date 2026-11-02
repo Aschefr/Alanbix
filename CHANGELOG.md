@@ -15,6 +15,11 @@
 ### ⚡ Performance
 - **Lighter app with Svelte 5**: the interface now runs on Svelte 5 (in its compatibility mode, the code is unchanged), and the downloaded app shrinks by 30% (3.0 MB to 2.1 MB), which helps phones on a busy LAN Wi-Fi.
 
+### 🗺️ Room map
+- **Wi-Fi access point element**: the map editor gets a "Wi-Fi access point" element, next to the door, kitchen, bar, toilets, rack and screen.
+- **The assistant knows where things are**: asked "where is the Wi-Fi access point?", "where are the toilets?" or "where is the bar?", the private assistant and `@Alanbix` in the public chat now read the map elements. They answer with landmarks and a general direction, as on the map ("between Table 2 and Table 3, on the right side of the room"), add a rough distance only when it helps (a seat counts as about 0.8 m, the map is not to scale), and can list the free seats closest to a Wi-Fi access point. Until now they had no idea and could make up a place.
+- **Element icons on every map**: the dashboard, projector and welcome maps printed the icon's name ("server", "door") for elements added with a recent editor; they now draw the same line icons as the editor.
+
 ### 🤖 Private AI assistant
 - **It acts before it explains**: asked for an administrator, the assistant could first write made-up steps ("open the menu, find the Contact button…") and only then alert the admin itself, leaving both on screen. A new fixed rule tells it to do what it can do itself first (alert an admin, notify a player, look up data), without writing anything before, then answer from the result, and never to explain how to do it by hand.
 

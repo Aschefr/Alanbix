@@ -9,7 +9,7 @@ import difflib
 from typing import Any, Dict, Optional
 from .visibility import visible_tournaments
 from .clock import utcnow
-from .ia_room import _seat_labeler
+from .ia_room import _seat_labeler, _tool_get_room_places
 
 
 def _find_best_match(query: str, possibilities: list[str], cutoff: float = 0.55) -> Optional[str]:
@@ -198,6 +198,27 @@ TOOL_DEFINITIONS = [
                     "username": {
                         "type": "string",
                         "description": "Le pseudo du joueur (optionnel — si vide, utilise l'utilisateur courant)"
+                    }
+                },
+                "required": []
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_room_places",
+            "description": "Situer les éléments du plan de salle (borne Wi-Fi, toilettes, porte, bar, cuisine, écran, baie réseau…) : entre quelles tables ils sont, dans quelle direction depuis la place du joueur, et à quelle distance environ. Utilise-la quand le joueur demande où se trouve quelque chose dans la salle, ou pour un problème de Wi-Fi (trouver la borne la plus proche et des places libres à côté). Guide avec des repères et une direction, pas avec des chiffres.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "place": {
+                        "type": "string",
+                        "description": "Ce que cherche le joueur, dans ses mots (« wifi », « toilettes », « bar »…). Vide : tous les éléments du plan."
+                    },
+                    "free_seats": {
+                        "type": "boolean",
+                        "description": "true pour avoir aussi les places libres les plus proches de chaque élément (par exemple pour se rapprocher de la borne Wi-Fi)."
                     }
                 },
                 "required": []
@@ -635,6 +656,8 @@ async def execute_tool(name: str, arguments: Dict[str, Any], user_id: int = 0, o
             return _tool_get_notifications(db, models, arguments, user_id)
         elif name == "get_player_seat":
             return _tool_get_player_seat(db, models, arguments, user_id)
+        elif name == "get_room_places":
+            return _tool_get_room_places(db, models, arguments, user_id)
         elif name == "ping_host":
             if on_client_call:
                 return await _execute_client_tool("ping_host", arguments, on_client_call)
