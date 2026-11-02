@@ -46,7 +46,7 @@ Depuis la reprise du 29 octobre 2026 :
 ## Priorité 4 — Documentation
 
 - [x] La doc renvoyait vers un `unraid-template.xml` qui n'est plus dans ce dépôt : elle renvoie maintenant vers le store Community Applications et vers `alanbix.xml` du dépôt `Aschefr/unraid-templates`.
-- [ ] Ajouter `PUID=99` et `PGID=100` à `alanbix.xml` dans le dépôt `Aschefr/unraid-templates` (la 1.37.0, qui ne tourne plus en root, est publiée).
+- [x] `PUID=99` et `PGID=100` ajoutés à `alanbix.xml` dans le dépôt `Aschefr/unraid-templates`.
 
 ## Plus tard — Entretien du code
 
