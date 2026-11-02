@@ -15,6 +15,9 @@
 ### ⚡ Performance
 - **Lighter app with Svelte 5**: the interface now runs on Svelte 5 (in its compatibility mode, the code is unchanged), and the downloaded app shrinks by 30% (3.0 MB to 2.1 MB), which helps phones on a busy LAN Wi-Fi.
 
+### 🤖 Private AI assistant
+- **It acts before it explains**: asked for an administrator, the assistant could first write made-up steps ("open the menu, find the Contact button…") and only then alert the admin itself, leaving both on screen. A new fixed rule tells it to do what it can do itself first (alert an admin, notify a player, look up data), without writing anything before, then answer from the result, and never to explain how to do it by hand.
+
 ### 🐛 Fixed
 - **AI conversations get their title again with reasoning models**: with a model that thinks before answering (Qwen 3.5 on vLLM, for example), the title request spent its 30 tokens thinking and got an empty answer, so the conversation stayed "New discussion" (the "suggest a title" button failed the same way). Thinking is now switched off for this short request (`enable_thinking: false` for OpenAI-compatible servers, `think: false` for Ollama), with a plain retry if a server refuses the option, and any `<think>` block left in the answer is removed.
 - **Smooth switch between notifications and archives**: the tab lights up at once and the list is replaced in one go, instead of flashing a small loading box that grew while two requests ran one after the other.
