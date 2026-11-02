@@ -13,6 +13,9 @@ import httpx
 
 from .ia_utils import is_openai_host
 
+# A slow model or one loading cold can take minutes for a single answer: wait as long as the streaming chat
+AI_READ_TIMEOUT = httpx.Timeout(connect=10.0, read=300.0, write=10.0, pool=10.0)
+
 XML_TOOL_CALL = re.compile(r'<tool_call name="([^"]+)">\s*(.*?)\s*</tool_call>', re.DOTALL)
 
 
@@ -120,7 +123,7 @@ async def run_tool_rounds(
             body = {**req_data, "messages": messages + added, "stream": False}
 
         try:
-            res = await client.post(url, json=body, timeout=httpx.Timeout(connect=10.0, read=120.0, write=10.0, pool=10.0))
+            res = await client.post(url, json=body, timeout=AI_READ_TIMEOUT)
             data = res.json()
         except Exception as e:
             print(f"[ToolCall] Non-streaming call failed: {e}", flush=True)

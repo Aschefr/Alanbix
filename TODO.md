@@ -38,7 +38,7 @@ Depuis la reprise du 29 octobre 2026 :
 
 - [x] Quand il est déjà occupé (pause de 15 secondes), désactivé ou que l'IA ne répond pas, le joueur qui l'a appelé en est prévenu, au lieu d'un silence.
 - [x] Dans ses réponses en liste, le gras (`**Nom**`) s'affichait avec ses astérisques : le chat public met maintenant en forme le gras, l'italique, le code et les puces.
-- [ ] Sa réponse prend 1 à 2 minutes avec le modèle actuel. Il faudrait essayer un modèle plus rapide, ou une machine plus puissante.
+- [ ] Sa réponse prend 1 à 2 minutes avec le modèle actuel. Il faudrait essayer un modèle plus rapide, ou une machine plus puissante (pas urgent). En attendant, chaque demande au modèle peut durer jusqu'à 5 minutes avant d'être abandonnée, au lieu de 90 à 120 secondes.
 - [x] Assistant privé en streaming avec un service compatible OpenAI : les appels d'outils arrivaient en morceaux jamais recollés, donc ils plantaient. Ils sont maintenant reconstitués, avec leurs arguments et leur identifiant.
 
 - [x] Le ping et le traceroute de l'assistant privé échouaient faute de programme dans l'image Docker : ils sont installés (+2 Mo) et fonctionnent sans root. La recherche DNS et le scan réseau n'en avaient pas besoin.
@@ -50,7 +50,7 @@ Depuis la reprise du 29 octobre 2026 :
 
 ## Plus tard — Entretien du code
 
-- [ ] Découper petit à petit les fichiers trop gros, chaque fois qu'on y touche :
+- [ ] Découper petit à petit les fichiers trop gros, chaque fois qu'on y touche (règle systématique : à chaque correction ou amélioration qui touche l'un d'eux, une partie en est sortie dans un fichier à part) :
   - `PublicChat.svelte` et `routers/tournaments.py` font environ 3 000 lignes chacun ;
   - le tableau de bord, la page IA, les réglages admin et `ia_tools.py` en font plus de 2 000.
 - [x] `datetime.utcnow()`, qui disparaîtra d'une future version de Python, est remplacé partout (47 endroits) par `app/clock.py`.

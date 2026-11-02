@@ -18,7 +18,7 @@ from collections import deque
 from .websockets import manager as ws_manager
 from .ia_title_utils import _build_title_prompt, _clean_title, _is_default_title
 from .ia_utils import ia_client
-from .ia_tool_loop import run_tool_rounds, merge_stream_tool_calls, parse_tool_args, parse_xml_tool_calls
+from .ia_tool_loop import AI_READ_TIMEOUT, run_tool_rounds, merge_stream_tool_calls, parse_tool_args, parse_xml_tool_calls
 
 
 def is_openai_host(url: str) -> bool:
@@ -893,7 +893,7 @@ class IAQueueManager:
                             "stream": False,
                             "options": {"temperature": temperature, "num_predict": max_answer, "num_ctx": context_window}
                         }
-                    res = await client.post(url, json=req_json, timeout=90.0)
+                    res = await client.post(url, json=req_json, timeout=AI_READ_TIMEOUT)
 
                     if res.status_code != 200:
                         raise Exception(f"AI service returned HTTP {res.status_code}: {res.text[:200]}")
