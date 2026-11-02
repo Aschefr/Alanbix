@@ -823,6 +823,8 @@
 			</div>
 		</div>
 	</div>
+{/if}
+
 <!-- Modal de confirmation de sortie -->
 {#if showUnsavedModal}
 	<div class="modal-overlay" use:portal on:click|self={cancelLeavePage}>
@@ -843,8 +845,6 @@
 			</div>
 		</div>
 	</div>
-{/if}
-
 {/if}
 
 {/if}

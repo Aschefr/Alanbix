@@ -1586,15 +1586,17 @@
 	</div>
 {/if}
 
-<!-- Toasts -->
-<div class="toast-container" use:portal>
-	{#each toasts as t (t.id)}
-		<div class="toast {t.type} {t.leaving ? 'toast-leave' : 'toast-enter'}">
-			<Icon name={t.type === 'success' ? 'check-circle' : t.type === 'error' ? 'x-circle' : 'info'} size={18} />
-			<span>{t.message}</span>
-		</div>
-	{/each}
-</div>
+<!-- Toasts (alone in their {#if}: a moved last node would make Svelte 5 erase the next page) -->
+{#if toasts.length > 0}
+	<div class="toast-container" use:portal>
+		{#each toasts as t (t.id)}
+			<div class="toast {t.type} {t.leaving ? 'toast-leave' : 'toast-enter'}">
+				<Icon name={t.type === 'success' ? 'check-circle' : t.type === 'error' ? 'x-circle' : 'info'} size={18} />
+				<span>{t.message}</span>
+			</div>
+		{/each}
+	</div>
+{/if}
 
 <style>
 	.map-page { display: flex; flex-direction: column; gap: 1rem; height: 100%; }
