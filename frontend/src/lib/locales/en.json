@@ -1936,6 +1936,9 @@
   "admin_settings_purge_room_btn": "Delete the map",
   "login_error_invalid": "Wrong password.",
   "login_error_too_many": "Too many attempts. Try again in {minutes} min.",
+  "login_password_show": "Show password",
+  "login_password_hide": "Hide password",
+  "login_session_expired": "Your session has expired. Sign in again to continue.",
   "chat_alanbix_busy": "Alanbix was just called. Try again in {seconds} s.",
   "chat_alanbix_disabled": "Alanbix's answers are turned off by the organizers.",
   "chat_alanbix_unavailable": "Alanbix could not answer: the AI is unavailable. Try again later or tell an organizer."

@@ -114,6 +114,15 @@ async def login_for_access_token(request: Request, form_data: OAuth2PasswordRequ
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
+@router.post("/token/refresh")
+async def refresh_access_token(current_user: models.User = Depends(auth.get_current_user)):
+    """A fresh session for a player still using the app, so only inactivity logs out."""
+    access_token = auth.create_access_token(
+        data={"sub": current_user.username},
+        expires_delta=timedelta(minutes=auth.ACCESS_TOKEN_EXPIRE_MINUTES),
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
+
 @router.get("/me", response_model=schemas.User)
 async def read_users_me(current_user: models.User = Depends(auth.get_current_user)):
     return current_user

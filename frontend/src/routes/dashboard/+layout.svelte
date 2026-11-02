@@ -1,7 +1,7 @@
 <script>
 	import { authStore } from '$lib/auth';
 	import { onMount, onDestroy, tick } from 'svelte';
-	import { api } from '$lib/api';
+	import { api, tokenClaims, expireSession } from '$lib/api';
 	import { connectWS, wsMessageStore } from '$lib/ws';
 	import { invalidateAll, goto } from '$app/navigation';
 	import { pmUnreadCount, groupUnreadCount, totalMsgUnread, notifUnreadCount, aiUnreadCount } from '$lib/pmStore';
@@ -389,6 +389,7 @@
 			goto('/', { replaceState: true });
 			return;
 		}
+		sessionStarted = true;
 		await initI18n();
 		if ('Notification' in window) {
 			browserNotifSupport = true;
@@ -401,7 +402,7 @@
 		// Listen for page focus to handle notification click navigation
 		window.addEventListener('focus', handleNotifNav);
 		document.addEventListener('visibilitychange', () => {
-			if (document.visibilityState === 'visible') handleNotifNav();
+			if (document.visibilityState === 'visible') { checkSession(); handleNotifNav(); }
 		});
 
 		// Listen for profile changes to update sidebar without F5
@@ -427,6 +428,22 @@
 		await initApp();
 	});
 
+	// Session end: back to the login screen, even when nobody clicks. A timer fires at the
+	// token's expiry, and coming back to the tab checks it again (timers sleep with the device).
+	let sessionStarted = false;
+	let sessionTimer;
+	function checkSession() {
+		const exp = tokenClaims(get(authStore))?.exp;
+		if (exp && exp * 1000 <= Date.now()) expireSession();
+	}
+	function watchSession(token) {
+		clearTimeout(sessionTimer);
+		const exp = tokenClaims(token)?.exp;
+		if (exp) sessionTimer = setTimeout(checkSession, Math.min(Math.max(exp * 1000 - Date.now(), 0) + 1000, 2147483000));
+	}
+	$: if (typeof window !== 'undefined') watchSession($authStore);
+	$: if (sessionStarted && !$authStore) goto('/', { replaceState: true });
+
 	async function handleUserUpdateEvent() {
 		try {
 			user = await api.get('/me');
@@ -445,6 +462,7 @@
 	onDestroy(() => {
 		if (unsub) unsub();
 		if (iaInterval) clearInterval(iaInterval);
+		clearTimeout(sessionTimer);
 		if (typeof window !== 'undefined') {
 			window.removeEventListener('user-updated', handleUserUpdateEvent);
 		}

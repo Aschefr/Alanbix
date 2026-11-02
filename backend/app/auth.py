@@ -39,7 +39,9 @@ def _load_or_create_secret_key() -> str:
 
 SECRET_KEY = _load_or_create_secret_key()
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 600 # Long duration for LAN
+# A session lasts 3 days and the app renews it while it is used (POST /token/refresh),
+# so only 3 days without opening the app log a player out
+ACCESS_TOKEN_EXPIRE_MINUTES = 3 * 24 * 60
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
@@ -63,7 +65,8 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
         expire = utcnow() + expires_delta
     else:
         expire = utcnow() + timedelta(minutes=15)
-    to_encode.update({"exp": expire})
+    # iat lets the app renew a session at most once an hour
+    to_encode.update({"exp": expire, "iat": utcnow()})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 

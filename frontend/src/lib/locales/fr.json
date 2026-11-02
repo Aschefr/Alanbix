@@ -1936,6 +1936,9 @@
   "admin_settings_purge_room_btn": "Supprimer le plan",
   "login_error_invalid": "Mot de passe incorrect.",
   "login_error_too_many": "Trop d'essais. Réessayez dans {minutes} min.",
+  "login_password_show": "Afficher le mot de passe",
+  "login_password_hide": "Masquer le mot de passe",
+  "login_session_expired": "Votre session a expiré. Reconnectez-vous pour continuer.",
   "chat_alanbix_busy": "Alanbix vient d'être appelé. Réessayez dans {seconds} s.",
   "chat_alanbix_disabled": "Les réponses d'Alanbix sont désactivées par les organisateurs.",
   "chat_alanbix_unavailable": "Alanbix n'a pas pu répondre : l'IA est indisponible. Réessayez plus tard ou prévenez un organisateur."

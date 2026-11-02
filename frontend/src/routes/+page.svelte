@@ -1,5 +1,5 @@
 <script>
-	import { api } from '$lib/api';
+	import { api, takeSessionExpired } from '$lib/api';
 	import { authStore } from '$lib/auth';
 	import { getCustomServerUrl, isCapacitorNative } from '$lib/config';
 	import ServerConfigModal from '$lib/components/ServerConfigModal.svelte';
@@ -14,6 +14,8 @@
 	let checking = false;
 	let error = '';
 	let serverDown = false;
+	let showPassword = false;
+	let sessionExpired = false; // came back here because the session ran out
 	let isDark = true;
 	import { themeStore, toggleTheme } from '$lib/theme';
 
@@ -93,6 +95,7 @@
 			goto('/dashboard', { replaceState: true });
 			return;
 		}
+		sessionExpired = takeSessionExpired();
 		// Show the form at once; the event name fills in when the server answers
 		isCheckingAuth = false;
 		api.get('/dashboard/stats')
@@ -146,6 +149,9 @@
 				</button>
 			</div>
 		{/if}
+		{#if sessionExpired && !error}
+			<p class="session-expired" role="status"><Icon name="clock" size={16} /> {$t('login_session_expired')}</p>
+		{/if}
 		{#if error}
 			<p class="error-msg">{error}</p>
 		{/if}
@@ -176,7 +182,28 @@
 					<label for="password">
 						{mode === 'register' ? $t('register_password_label') : $t('login_password_label')}
 					</label>
-					<input type="password" id="password" bind:value={password} placeholder="••••••••" required />
+					<div class="password-row">
+						<input
+							type={showPassword ? 'text' : 'password'}
+							id="password"
+							value={password}
+							on:input={(e) => (password = e.currentTarget.value)}
+							placeholder="••••••••"
+							autocomplete={mode === 'register' ? 'new-password' : 'current-password'}
+							required
+						/>
+						<button
+							type="button"
+							class="btn-toggle-password"
+							on:mousedown|preventDefault
+							on:click={() => (showPassword = !showPassword)}
+							aria-pressed={showPassword}
+							aria-label={showPassword ? $t('login_password_hide') : $t('login_password_show')}
+							title={showPassword ? $t('login_password_hide') : $t('login_password_show')}
+						>
+							<Icon name={showPassword ? 'eye-off' : 'eye'} size={18} />
+						</button>
+					</div>
 				</div>
 			{/if}
 
@@ -300,6 +327,50 @@
 
 	.username-row input {
 		flex: 1;
+	}
+
+	.password-row {
+		position: relative;
+	}
+
+	.password-row input {
+		width: 100%;
+		padding-right: 2.75rem;
+	}
+
+	.btn-toggle-password {
+		position: absolute;
+		top: 50%;
+		right: 2px;
+		transform: translateY(-50%);
+		width: 40px;
+		height: 40px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background: none;
+		border: none;
+		border-radius: 8px;
+		color: var(--text-dim);
+		cursor: pointer;
+	}
+
+	.btn-toggle-password:hover,
+	.btn-toggle-password:focus-visible {
+		color: var(--text-main);
+	}
+
+	.session-expired {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		color: var(--text-main);
+		background: var(--accent-soft);
+		padding: 0.5rem 0.75rem;
+		border-radius: 8px;
+		font-size: 0.8rem;
+		margin-bottom: 1rem;
+		text-align: left;
 	}
 
 	.btn-change-pseudo {

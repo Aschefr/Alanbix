@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### 🔐 Login and sessions
+- **Sessions follow activity**: a session used to end 10 hours after logging in, even in the middle of the LAN. It now lasts 3 days and renews itself (at most once an hour) while the app is used, so only 3 days without opening it log a player out.
+- **Back to the login screen when a session ends**: an expired session left the interface on screen with nothing working. The app now returns to the login screen by itself, even if nobody clicks, and says "Your session has expired. Sign in again to continue."
+- **Show the password**: an eye button in the password field shows or hides what was typed; the cursor stays in the field, so Enter still signs in.
+
 ### ⚡ Performance
 - **Lighter app with Svelte 5**: the interface now runs on Svelte 5 (in its compatibility mode, the code is unchanged), and the downloaded app shrinks by 30% (3.0 MB to 2.1 MB), which helps phones on a busy LAN Wi-Fi.
 
