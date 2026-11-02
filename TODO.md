@@ -1,6 +1,6 @@
 # Alanbix — liste des améliorations
 
-Bilan du 2 novembre 2026. Cochez une ligne quand elle est faite.
+Bilan du 2 novembre 2026. Cochez une ligne quand elle est faite. Version 1.37.0 publiée le 2 novembre 2026.
 
 ## Où en est l'app
 
@@ -46,7 +46,7 @@ Depuis la reprise du 29 octobre 2026 :
 ## Priorité 4 — Documentation
 
 - [x] La doc renvoyait vers un `unraid-template.xml` qui n'est plus dans ce dépôt : elle renvoie maintenant vers le store Community Applications et vers `alanbix.xml` du dépôt `Aschefr/unraid-templates`.
-- [ ] Ajouter `PUID=99` et `PGID=100` à `alanbix.xml` dans le dépôt `Aschefr/unraid-templates`, au moment de publier la version qui ne tourne plus en root.
+- [ ] Ajouter `PUID=99` et `PGID=100` à `alanbix.xml` dans le dépôt `Aschefr/unraid-templates` (la 1.37.0, qui ne tourne plus en root, est publiée).
 
 ## Plus tard — Entretien du code
 
@@ -55,4 +55,6 @@ Depuis la reprise du 29 octobre 2026 :
   - le tableau de bord, la page IA, les réglages admin et `ia_tools.py` en font plus de 2 000.
 - [x] `datetime.utcnow()`, qui disparaîtra d'une future version de Python, est remplacé partout (47 endroits) par `app/clock.py`.
 - [x] L'avertissement `Event.wait` venait d'un test qui remplaçait `asyncio.wait_for` sans fermer la tâche : corrigé. Les tests tournent sans aucun avertissement.
-- [ ] Passer à Svelte 5. Ce chantier a été reporté volontairement et peut attendre.
+- [ ] Passer à Svelte 5 (mesuré le 2 novembre 2026) :
+  - étape 1, sans réécrire le code : l'app compile telle quelle avec Svelte 5 (mode compatibilité), bundle 30 % plus léger (3,0 → 2,1 Mo), 20 nouveaux avertissements d'accessibilité. Reste à tester tous les écrans sur une branche ;
+  - étape 2, réécriture « runes » : 228 `$:`, 131 `export let`, 1 025 `on:`, 26 `createEventDispatcher` dans 50 fichiers (36 000 lignes). À faire fichier par fichier, en même temps que le découpage des gros fichiers.
