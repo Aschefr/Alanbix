@@ -427,6 +427,61 @@ async def test_auto_title_skips_custom_title(db_session):
             "No conv_title_updated should be broadcast when title is custom"
 
 
+def _title_client(*responses):
+    from unittest.mock import MagicMock, AsyncMock
+    mocks = []
+    for status, body in responses:
+        r = MagicMock()
+        r.status_code = status
+        r.json.return_value = body
+        mocks.append(r)
+    client = AsyncMock()
+    client.post = AsyncMock(side_effect=mocks)
+    client.__aenter__ = AsyncMock(return_value=client)
+    client.__aexit__ = AsyncMock(return_value=False)
+    return client
+
+
+@pytest.mark.asyncio
+async def test_title_request_switches_thinking_off():
+    """A reasoning model (Qwen 3.5 on vLLM) used up the 30 tokens thinking and returned
+    content=None, so the conversation kept its default title."""
+    from unittest.mock import patch
+    from app.ia_queue import IAQueueManager
+
+    client = _title_client((200, {"choices": [{"message": {"content": "Blague de LAN"}}]}))
+    with patch("httpx.AsyncClient", return_value=client):
+        title, status = await IAQueueManager()._request_title(
+            "http://gpu:8000/v1", "qwen3.5", "User: Raconte-moi une blague de LAN")
+    assert (title, status) == ("Blague de LAN", 200)
+    assert client.post.call_args.kwargs["json"]["chat_template_kwargs"] == {"enable_thinking": False}
+
+    client = _title_client((200, {"response": "<think>hmm</think>Tournoi Rocket League"}))
+    with patch("httpx.AsyncClient", return_value=client):
+        title, _ = await IAQueueManager()._request_title("http://gpu1:11434", "qwen3", "User: ...")
+    assert title == "Tournoi Rocket League"
+    assert client.post.call_args.kwargs["json"]["think"] is False
+
+
+@pytest.mark.asyncio
+async def test_title_request_retries_without_switch_when_refused():
+    from unittest.mock import patch
+    from app.ia_queue import IAQueueManager
+
+    client = _title_client(
+        (400, {"error": "Unrecognized request argument: chat_template_kwargs"}),
+        (200, {"choices": [{"message": {"content": "Réseau du tournoi"}}]}),
+    )
+    with patch("httpx.AsyncClient", return_value=client):
+        title, _ = await IAQueueManager()._request_title("http://gpu:8000/v1", "gpt", "User: ...")
+    assert title == "Réseau du tournoi"
+    assert "chat_template_kwargs" not in client.post.call_args_list[1].kwargs["json"]
+
+    client = _title_client((200, {"choices": [{"message": {"content": None}}]}))
+    with patch("httpx.AsyncClient", return_value=client):
+        assert (await IAQueueManager()._request_title("http://gpu:8000/v1", "m", "x"))[0] is None
+
+
 @pytest.mark.asyncio
 async def test_process_entry_routes_correctly():
     """Verify _process_entry dispatches to the correct handler for each task_type."""
