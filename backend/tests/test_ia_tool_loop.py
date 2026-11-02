@@ -60,3 +60,29 @@ async def test_xml_fallback_and_disallowed_tool():
     result = out["added"][-1]
     assert result["role"] == "user" and "not available" in result["content"]
     assert json.loads(result["content"].split(": ", 1)[1])["error"]
+
+
+def test_merge_stream_tool_calls_rebuilds_openai_pieces():
+    from app.ia_tool_loop import merge_stream_tool_calls
+    pieces = [
+        {"index": 0, "id": "call_1", "type": "function", "function": {"name": "get_player_seat", "arguments": ""}},
+        {"index": 0, "function": {"arguments": '{"user'}},
+        {"index": 0, "function": {"arguments": 'name": "Obelix"}'}},
+        {"index": 1, "id": "call_2", "function": {"name": "get_games", "arguments": "{}"}},
+    ]
+    calls = merge_stream_tool_calls(pieces)
+    assert [c["function"]["name"] for c in calls] == ["get_player_seat", "get_games"]
+    assert calls[0]["id"] == "call_1" and calls[0]["type"] == "function"
+    assert parse_tool_args(calls[0]["function"]["arguments"]) == {"username": "Obelix"}
+    assert calls[1]["type"] == "function"
+
+
+def test_merge_stream_tool_calls_keeps_whole_ollama_calls():
+    from app.ia_tool_loop import merge_stream_tool_calls
+    whole = [
+        {"function": {"name": "get_games", "arguments": {}}},
+        {"function": {"name": "get_player_seat", "arguments": {"username": "Obelix"}}},
+    ]
+    calls = merge_stream_tool_calls(whole)
+    assert [c["function"] for c in calls] == [w["function"] for w in whole]
+    assert "id" not in calls[0]

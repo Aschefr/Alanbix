@@ -31,6 +31,39 @@ def parse_tool_args(raw) -> dict:
     return {}
 
 
+def merge_stream_tool_calls(chunks: list) -> list:
+    """Tool calls gathered from a streamed answer, made whole.
+
+    OpenAI-compatible services send each call in pieces sharing an "index" (the id and name first,
+    then the arguments string bit by bit); Ollama sends each call whole, without a top-level index.
+    """
+    merged = {}
+    for i, chunk in enumerate(chunks or []):
+        if not isinstance(chunk, dict):
+            continue
+        key = chunk["index"] if "index" in chunk else f"whole-{i}"
+        fn = chunk.get("function") or {}
+        call = merged.get(key)
+        if call is None:
+            call = merged[key] = {k: v for k, v in chunk.items() if k not in ("index", "function")}
+            call["function"] = {"name": fn.get("name") or "", "arguments": fn.get("arguments") if fn.get("arguments") is not None else ""}
+            continue
+        if chunk.get("id"):
+            call["id"] = chunk["id"]
+        if fn.get("name"):
+            call["function"]["name"] = fn["name"]
+        piece = fn.get("arguments")
+        if isinstance(piece, str) and isinstance(call["function"]["arguments"], str):
+            call["function"]["arguments"] += piece
+        elif piece:
+            call["function"]["arguments"] = piece
+    calls = [c for c in merged.values() if c["function"]["name"]]
+    for call in calls:
+        if call.get("id"):
+            call.setdefault("type", "function")
+    return calls
+
+
 def parse_xml_tool_calls(text: str) -> list:
     """Tool calls written as XML in the answer text."""
     return [

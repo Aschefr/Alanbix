@@ -17,7 +17,7 @@ from collections import deque
 from .websockets import manager as ws_manager
 from .ia_title_utils import _build_title_prompt, _clean_title, _is_default_title
 from .ia_utils import ia_client
-from .ia_tool_loop import run_tool_rounds
+from .ia_tool_loop import run_tool_rounds, merge_stream_tool_calls, parse_tool_args, parse_xml_tool_calls
 
 
 def is_openai_host(url: str) -> bool:
@@ -661,25 +661,15 @@ class IAQueueManager:
                             traceback.print_exc()
 
                 # If a tool call was detected, execute it and do another round
+                # OpenAI-compatible services stream each call in pieces: put them back together
+                native_tool_calls = merge_stream_tool_calls(native_tool_calls)
                 has_tool_call = bool(native_tool_calls) or detected_xml_call
                 if has_tool_call and tool_calling_mode == "stream_intercept":
                     # Parse tools
                     parsed_calls = []
                     if detected_xml_call:
-                        import re
-                        match = re.search(r'<tool_call name="([^"]+)">\s*(.*?)\s*</tool_call>', xml_buffer, re.DOTALL)
-                        if match:
-                            name = match.group(1)
-                            args_str = match.group(2)
-                            try:
-                                args = json.loads(args_str)
-                            except Exception:
-                                try:
-                                    args = json.loads(args_str.replace("'", '"'))
-                                except Exception:
-                                    args = {}
-                            parsed_calls.append({"function": {"name": name, "arguments": args}})
-                    
+                        parsed_calls.extend(parse_xml_tool_calls(xml_buffer)[:1])
+
                     for tc in native_tool_calls:
                         parsed_calls.append(tc)
 
@@ -712,7 +702,7 @@ class IAQueueManager:
 
                     for call in parsed_calls:
                         fn_name = call["function"]["name"]
-                        fn_args = call["function"]["arguments"]
+                        fn_args = parse_tool_args(call["function"]["arguments"])
                         if fn_name not in used_tools:
                             used_tools.append(fn_name)
                         t_tool_start = time.time()
@@ -725,7 +715,10 @@ class IAQueueManager:
                         if detected_xml_call:
                             tool_messages.append({"role": "user", "content": f"Résultat de l'outil {fn_name}: {result}"})
                         else:
-                            tool_messages.append({"role": "tool", "content": result})
+                            reply = {"role": "tool", "content": result}
+                            if call.get("id"):
+                                reply["tool_call_id"] = call["id"]
+                            tool_messages.append(reply)
                     if visible:
                         tool_messages[-1]["content"] += "\n\n(The player has already read your previous message. Continue it with this result in one or two sentences; do not repeat it.)"
 

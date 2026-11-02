@@ -39,7 +39,7 @@ Depuis la reprise du 29 octobre 2026 :
 - [x] Quand il est déjà occupé (pause de 15 secondes), désactivé ou que l'IA ne répond pas, le joueur qui l'a appelé en est prévenu, au lieu d'un silence.
 - [x] Dans ses réponses en liste, le gras (`**Nom**`) s'affichait avec ses astérisques : le chat public met maintenant en forme le gras, l'italique, le code et les puces.
 - [ ] Sa réponse prend 1 à 2 minutes avec le modèle actuel. Il faudrait essayer un modèle plus rapide, ou une machine plus puissante.
-- [ ] Assistant privé : appliquer au mode streaming les mêmes corrections d'appel d'outils que dans le chat public (identifiant d'appel, arguments envoyés sous forme de texte).
+- [x] Assistant privé en streaming avec un service compatible OpenAI : les appels d'outils arrivaient en morceaux jamais recollés, donc ils plantaient. Ils sont maintenant reconstitués, avec leurs arguments et leur identifiant.
 
 - [x] Le ping et le traceroute de l'assistant privé échouaient faute de programme dans l'image Docker : ils sont installés (+2 Mo) et fonctionnent sans root. La recherche DNS et le scan réseau n'en avaient pas besoin.
 
