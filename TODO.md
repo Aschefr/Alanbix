@@ -52,7 +52,8 @@ Depuis la reprise du 29 octobre 2026 :
 
 - [x] Recherche hybride : mots-clés (toujours disponibles) + sens (si un modèle d'embedding répond), avec un bandeau d'état et un bouton « Réindexer » dans l'administration.
 - [ ] Longs documents : indexer chaque morceau séparément et ne transmettre que les morceaux pertinents (aujourd'hui, un long document est résumé en un seul vecteur moyen et envoyé en entier).
-- [ ] Pouvoir choisir un serveur d'embedding différent du serveur de chat (par exemple un petit Ollama dédié).
+- [x] Modèle d'embedding intégré, sans serveur : bibliothèques dans l'image, modèle téléchargé à la demande (135 Mo), proposé aussi dans la configuration guidée.
+- [ ] Pouvoir choisir un serveur d'embedding externe différent du serveur de chat (moins utile depuis le modèle intégré).
 
 ## Plus tard — Entretien du code
 

@@ -1,4 +1,7 @@
 {
+ "admin_ai_embed_auto": [
+  "— Automático (nomic-embed-text) —"
+ ],
  "admin_games_nuke_title": [
   "Supresión Crítica"
  ],
@@ -60,6 +63,9 @@
  ],
  "admin_settings_ai_instances_sub": [
   "Servidores distribuidos para consultas de IA — ordenados por prioridad"
+ ],
+ "admin_settings_ai_rag_min_score_hint": [
+  "Una ficha solo se da a la IA si se parece lo suficiente a la pregunta. Más alto: menos fichas fuera de tema; más bajo: se transmiten más fichas."
  ],
  "admin_settings_searxng_title": [
   "Configuracion de SearXNG"

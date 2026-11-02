@@ -18,7 +18,12 @@
 ### 📚 Knowledge base (RAG)
 - **It works without an embedding model**: the knowledge base was only searched by meaning (embeddings). When the embedding model did not answer (missing, turned off, or not served by an OpenAI-compatible server), every entry silently became unreachable. A keyword search (BM25) now always runs, and is merged with the meaning search when it works (hybrid search, Reciprocal Rank Fusion), for the private assistant and `@Alanbix` alike. Keywords find names and exact terms, meaning finds rephrasings.
 - **A dead embedding server no longer slows every message**: after a failure it is asked again only every 5 minutes, and the error says why (HTTP status and model) instead of `'data'`.
+- **A built-in search model, installed in one click**: a button in the knowledge base section and in the guided setup downloads a small multilingual model once (`paraphrase-multilingual-MiniLM-L12-v2`, 135 MB, verified) into the data folder, where it survives updates. No AI server, graphics card or Internet needed afterwards: it runs on the processor (about 400 MB of memory, from the first search), finds rephrasings and questions asked in another language (a question in English finds an entry written in French), and re-indexes the entries by itself. The image grows by about 28 MB to download (115 MB on disk); the model stays optional.
+- **The assistant uses the entries better**: they now come with instructions: give the answer precisely (number, name, instruction), in the player's language, ignore unrelated entries, and do not take an entry as proof that something was done.
 - **Entries remember their embedding model**: vectors made by another model are no longer compared with the question's (the result was meaningless). A banner at the top of the knowledge base says which search works, why the meaning search does not, and how many entries need re-indexing, with a **Re-index** button. Entries saved while the model is down are kept and found by keywords.
+
+### 🧭 Guided setup
+- **A knowledge base step**: the guided setup explains what entries are for and how to write useful ones (one topic, a complete answer, no secrets, no need to copy the Infos page), offers to install the built-in search model, and turns the answers to a few questions (who to contact, gear to borrow, parking, sleeping) into the first entries.
 
 ### 🗺️ Room map
 - **Wi-Fi access point element**: the map editor gets a "Wi-Fi access point" element, next to the door, kitchen, bar, toilets, rack and screen.

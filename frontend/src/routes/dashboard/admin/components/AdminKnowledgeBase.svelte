@@ -6,6 +6,7 @@
 	import { api } from '$lib/api';
 	import { t } from '$lib/i18nStore';
 	import { wsMessageStore } from '$lib/ws';
+	import BuiltinModelInstall from '$lib/components/BuiltinModelInstall.svelte';
 
 	export let docs = [];
 	export let toast = (msg, type) => {};
@@ -116,7 +117,7 @@
 			{#if !status.rag_enabled}
 				<span>{$t('admin_rag_status_disabled')}</span>
 			{:else if status.semantic === 'ok'}
-				<span>{$t('admin_rag_status_both', { model: status.model })}</span>
+				<span>{$t('admin_rag_status_both', { model: status.builtin ? $t('admin_rag_builtin_name') : status.model })}</span>
 				{#if status.to_index > 0}
 					<span class="rag-status-detail">{$t('admin_rag_status_to_index', { count: status.to_index, plural: status.to_index > 1 ? 's' : '' })}</span>
 				{/if}
@@ -131,6 +132,10 @@
 			</button>
 		{/if}
 	</div>
+{/if}
+
+{#if status?.rag_enabled && status.semantic !== 'ok' && !status.builtin_install?.installed}
+	<div class="rag-install"><BuiltinModelInstall on:installed={loadKnowledge} /></div>
 {/if}
 
 <!-- Existing documents -->
@@ -239,5 +244,6 @@
 	.rag-status.off .rag-status-icon { color: var(--text-muted); }
 	.rag-status-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.1rem; line-height: 1.35; }
 	.rag-status-detail { font-size: 0.75rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.rag-install { margin-bottom: 0.9rem; }
 	.rag-status .btn-xs { flex-shrink: 0; display: inline-flex; align-items: center; gap: 0.3rem; }
 </style>

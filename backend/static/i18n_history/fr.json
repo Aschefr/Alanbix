@@ -1,4 +1,7 @@
 {
+ "admin_ai_embed_auto": [
+  "— Automatique (nomic-embed-text) —"
+ ],
  "admin_awards_desc3": [
   "Les descriptions supportent l'interpolation de variables de statistiques pour afficher des valeurs dynamiques."
  ],
@@ -128,6 +131,9 @@
  ],
  "admin_settings_ai_rag": [
   "Base de Connaissances RAG"
+ ],
+ "admin_settings_ai_rag_min_score_hint": [
+  "Une fiche n'est donnée à l'IA que si elle ressemble assez à la question. Plus haut : moins de fiches hors sujet ; plus bas : plus de fiches transmises."
  ],
  "admin_settings_ai_rag_model": [
   "Modèle d'Embedding (RAG):"
