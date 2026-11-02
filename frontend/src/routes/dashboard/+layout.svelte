@@ -26,7 +26,6 @@
 	let notifBounce = false;
 	let aiBounce = false;
 	let pmBounce = false;
-	let lastPmSender = null;
 	let iaInstances = [];
 	let iaInterval = null;
 	let iaQueueSize = 0;
@@ -259,11 +258,6 @@
 						}).catch(() => {});
 					}
 					if (msg.type === 'private_message_new') {
-						// Track sender for auto-open on Players page
-						if (msg.sender_id && msg.sender_id !== user.id) {
-							lastPmSender = msg.sender_id;
-							localStorage.setItem('alanbix_pm_last_sender', String(msg.sender_id));
-						}
 						api.get('/players/messages/unread-count').then(r => {
 							const oldCount = get(pmUnreadCount);
 							const newCount = r.count || 0;
@@ -612,7 +606,7 @@
 				<span class="icon">🏆</span>
 				<span class="label">{$t('nav_tournaments')}</span>
 			</a>
-			<a href="/dashboard/players{$totalMsgUnread > 0 && lastPmSender ? '?chat=' + lastPmSender : ''}" class="nav-item pm-nav" class:active={$page.url.pathname.startsWith('/dashboard/players')}>
+			<a href="/dashboard/players" class="nav-item pm-nav" class:active={$page.url.pathname.startsWith('/dashboard/players')}>
 				<span class="icon">💬</span>
 				<span class="label">{$t('mobile_tab_messages')}</span>
 				{#if $totalMsgUnread > 0}
@@ -747,7 +741,7 @@
 			<span class="tab-icon"><Icon name="trophy" size={17} /></span>
 			<span class="tab-label">{$t('mobile_tab_tournaments')}</span>
 		</a>
-		<a href="/dashboard/players{$totalMsgUnread > 0 && lastPmSender ? '?chat=' + lastPmSender : ''}" class="bottom-tab" class:active={$page.url.pathname.startsWith('/dashboard/players')} on:click={onMessagesTab}>
+		<a href="/dashboard/players" class="bottom-tab" class:active={$page.url.pathname.startsWith('/dashboard/players')} on:click={onMessagesTab}>
 			<span class="tab-icon tab-badge-wrap">
 				<Icon name="chat" size={17} />
 				{#if $totalMsgUnread > 0}

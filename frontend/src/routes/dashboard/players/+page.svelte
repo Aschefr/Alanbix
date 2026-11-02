@@ -143,8 +143,14 @@
 			} else if (savedGroup) {
 				openGroupChat(savedGroup);
 			}
+		} else if (urlPeer) {
+			const targetPeer = parseInt(urlPeer);
+			if (targetPeer && targetPeer !== currentUser?.id) openChat(targetPeer);
+		} else if (newestUnread()) {
+			// The Messages badge promises a new message: open that conversation
+			openConversation(newestUnread());
 		} else {
-			const targetPeer = urlPeer ? parseInt(urlPeer) : (savedPeer ? parseInt(savedPeer) : null);
+			const targetPeer = savedPeer ? parseInt(savedPeer) : null;
 			if (targetPeer && targetPeer !== currentUser?.id) {
 				openChat(targetPeer);
 			} else if (savedGroup) {
@@ -224,9 +230,30 @@
 		}
 	}
 
+	// Last lists from the server, to find the newest unread conversation
+	let pmConvos = [];
+	let groupChannels = [];
+
+	/** The conversation (private or group) with the newest unread message, or null. */
+	function newestUnread() {
+		const items = [
+			...pmConvos.filter(c => c.unread > 0 && c.peer_id !== currentUser?.id).map(c => ({ kind: 'p2p', peerId: c.peer_id, at: c.last_at || '' })),
+			...groupChannels.filter(c => c.unread > 0).map(c => ({ kind: 'group', key: c.channel_key, at: c.last_at || '' }))
+		];
+		items.sort((a, b) => b.at.localeCompare(a.at));
+		return items[0] || null;
+	}
+	function isOpen(c) {
+		return c.kind === 'p2p' ? chatMode === 'p2p' && chatPeerId === c.peerId : chatMode === 'group' && chatChannelKey === c.key;
+	}
+	function openConversation(c) {
+		if (c.kind === 'p2p') openChat(c.peerId); else openGroupChat(c.key);
+	}
+
 	async function loadUnreadMap() {
 		try {
 			const convos = await api.get('/players/messages/conversations');
+			pmConvos = convos;
 			const map = {};
 			let total = 0;
 			convos.forEach(c => { if (c.unread > 0) { map[c.peer_id] = c.unread; total += c.unread; } });
@@ -238,6 +265,7 @@
 	async function loadGroupUnreadMap() {
 		try {
 			const channels = await api.get('/players/group/channels');
+			groupChannels = channels;
 			const map = {};
 			let total = 0;
 			channels.forEach(c => { if (c.unread > 0) { map[c.channel_key] = c.unread; total += c.unread; } });
@@ -388,9 +416,13 @@
 		if (r.kind === 'p2p') openChat(r.peerId); else openGroupChat(r.key);
 	}
 
-	// Tapping the Messages tab again, while on the contact list, goes back to the last conversation
+	// Tapping the Messages tab again (phone): an unread conversation elsewhere opens first;
+	// otherwise it switches between the open conversation and the contact list
 	function onMessagesTab() {
-		if (chatMode === null) resumeChat();
+		const unread = newestUnread();
+		if (unread && !isOpen(unread)) openConversation(unread);
+		else if (chatMode !== null) closeChat();
+		else resumeChat();
 	}
 
 	function closeChat() {
