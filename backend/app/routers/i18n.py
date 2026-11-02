@@ -17,8 +17,10 @@ router = APIRouter(prefix="/api/i18n", tags=["i18n"])
 # Track which instance URLs are actively used by bulk translation
 bulk_translate_active_urls: set = set()
 
-# Reference files shipped with the app (read-only in standalone/Docker)
-STATIC_I18N_DIR = "static/i18n"
+# Reference files shipped with the app (read-only in standalone/Docker), found from
+# the backend folder rather than the current directory, so tests and scripts see them too
+BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+STATIC_I18N_DIR = os.path.join(BACKEND_DIR, "static", "i18n")
 # User-editable files persisted in the data volume
 DATA_DIR = os.path.dirname(os.getenv("DATABASE_PATH", "/app/data/alanbix.db"))
 DATA_I18N_DIR = os.path.join(DATA_DIR, "i18n")
@@ -96,7 +98,7 @@ def load_i18n_merged(lang: str) -> dict:
     merged = {**static_data, **data_data}
     return merged
 
-STATIC_I18N_HISTORY_DIR = "static/i18n_history"
+STATIC_I18N_HISTORY_DIR = os.path.join(BACKEND_DIR, "static", "i18n_history")
 
 def _read_json(path: str) -> dict:
     if not os.path.exists(path):

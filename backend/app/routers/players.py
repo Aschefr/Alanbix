@@ -11,6 +11,7 @@ from .. import models, auth, database
 from ..websockets import manager as ws_manager
 from .public_chat import extract_link_preview, URL_REGEX
 from ..visibility import visible_tournaments
+from ..clock import utcnow
 
 router = APIRouter(prefix="/players", tags=["Players"])
 
@@ -416,7 +417,7 @@ async def pm_send(peer_id: int, body: SendMessage, db: Session = Depends(databas
         "body": (content or ("📷 Image" if image_path else ""))[:100],
         "link": f"/dashboard/players?chat={user.id}",
         "data": {"sender_id": user.id, "message_id": msg.id},
-        "created_at": msg.created_at.isoformat() if msg.created_at else datetime.datetime.utcnow().isoformat()
+        "created_at": msg.created_at.isoformat() if msg.created_at else utcnow().isoformat()
     })
 
     return {
@@ -802,7 +803,7 @@ async def group_send(body: GroupSendMessage, db: Session = Depends(database.get_
                 "body": (content or ("📷 Image" if image_path else ""))[:100],
                 "link": channel_link,
                 "data": {"channel_key": channel.channel_key, "message_id": msg.id},
-                "created_at": msg.created_at.isoformat() if msg.created_at else datetime.datetime.utcnow().isoformat()
+                "created_at": msg.created_at.isoformat() if msg.created_at else utcnow().isoformat()
             })
 
     return {

@@ -19,6 +19,7 @@ from ..ia_utils import ia_client, register_instance_keys
 from starlette.requests import Request as StarletteRequest
 from ..ia_compression import run_truncation, run_compaction, run_summary
 from ..ia_title_utils import _is_default_title, _build_title_prompt, _clean_title
+from ..clock import utcnow
 
 router = APIRouter(prefix="/ia", tags=["IA"])
 
@@ -64,7 +65,7 @@ def get_effective_config(db: Session):
             val["context_window"] = MIN_CONTEXT_WINDOW
         return val
     return {
-        "ollama_host": os.getenv("OLLAMA_HOST", "http://host.docker.internal:11434"),
+        "ollama_host": os.getenv("OLLAMA_HOST") or "http://host.docker.internal:11434",
         "model": "",
         "rag_enabled": True,
         "network_tools_enabled": True,
@@ -553,7 +554,7 @@ async def compress_context(conv_id: int, req: CompressRequest, db: Session = Dep
             compressed = "[Tronqué]\n" + "\n".join(dropped_lines)
             conv.compressed_context = compressed
             if not preserving_cutoff:
-                conv.compressed_at = kept[0].timestamp if kept else datetime.utcnow()
+                conv.compressed_at = kept[0].timestamp if kept else utcnow()
             conv.compression_mode = "truncate"
             conv.auto_compression_mode = "truncate"
             db.commit()
@@ -567,7 +568,7 @@ async def compress_context(conv_id: int, req: CompressRequest, db: Session = Dep
         text_to_compress += f"{'Utilisateur' if m.role == 'user' else 'Assistant'} : {m.content}\n\n"
         
     # For mode switches, keep original cutoff; for new compressions, use current time
-    cutoff_time = conv.compressed_at if preserving_cutoff else datetime.utcnow()
+    cutoff_time = conv.compressed_at if preserving_cutoff else utcnow()
     
     # Route through AI queue for compact/summary (requires GPU)
     from ..ia_queue import queue_manager, QueueEntry
@@ -851,7 +852,7 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
         cooldown_min = int(ia_cfg.get("call_admin_cooldown_minutes", 30))
         daily_limit = int(ia_cfg.get("call_admin_daily_limit", 3))
         global_hourly_limit = int(ia_cfg.get("call_admin_global_hourly_limit", 15))
-        now = dt.datetime.utcnow()
+        now = utcnow()
         
         # User cooldown
         cutoff_cooldown = now - dt.timedelta(minutes=cooldown_min)
@@ -1445,7 +1446,7 @@ async def check_call_admin_cooldown(db: Session = Depends(database.get_db), user
     daily_limit = int(ia_cfg.get("call_admin_daily_limit", 3))
     global_hourly_limit = int(ia_cfg.get("call_admin_global_hourly_limit", 15))
 
-    now = dt.datetime.utcnow()
+    now = utcnow()
 
     # Cooldown par utilisateur
     cutoff_cooldown = now - dt.timedelta(minutes=cooldown_min)
@@ -1540,7 +1541,7 @@ async def resolve_admin_call(call_id: int, payload: dict, db: Session = Depends(
         raise HTTPException(404)
     call.status = "resolved"
     call.resolved_by = user.id
-    call.resolved_at = datetime.utcnow()
+    call.resolved_at = utcnow()
     call.resolution_note = payload.get("note", "")
     db.commit()
     await ws_manager.broadcast({"type": "admin_calls_updated"})
@@ -1555,7 +1556,7 @@ async def dismiss_admin_call(call_id: int, db: Session = Depends(database.get_db
         raise HTTPException(404)
     call.status = "dismissed"
     call.resolved_by = user.id
-    call.resolved_at = datetime.utcnow()
+    call.resolved_at = utcnow()
     db.commit()
     await ws_manager.broadcast({"type": "admin_calls_updated"})
     return {"status": "ok"}
@@ -1616,7 +1617,7 @@ async def approve_rag_suggestion(suggestion_id: int, payload: dict, db: Session 
 
     suggestion.status = "approved"
     suggestion.approved_by = user.id
-    suggestion.approved_at = datetime.utcnow()
+    suggestion.approved_at = utcnow()
     suggestion.approved_content = answer
     db.commit()
     await ws_manager.broadcast({"type": "rag_suggestions_updated"})
@@ -1632,7 +1633,7 @@ async def reject_rag_suggestion(suggestion_id: int, db: Session = Depends(databa
         raise HTTPException(404)
     suggestion.status = "rejected"
     suggestion.approved_by = user.id
-    suggestion.approved_at = datetime.utcnow()
+    suggestion.approved_at = utcnow()
     db.commit()
     await ws_manager.broadcast({"type": "rag_suggestions_updated"})
     return {"status": "ok"}

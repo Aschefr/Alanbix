@@ -12,3 +12,4 @@ python-multipart==0.0.29
 bcrypt==5.0.0
 PyJWT==2.15.1
 Pillow==13.0.0
+tzdata==2026.6

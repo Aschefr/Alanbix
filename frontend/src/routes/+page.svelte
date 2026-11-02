@@ -66,7 +66,10 @@
 				goto('/dashboard', { replaceState: true });
 			}
 		} catch (e) {
-			if (isNetworkError(e)) serverDown = true; else error = e.message;
+			if (isNetworkError(e)) serverDown = true;
+			else if (e.status === 429) error = $t('login_error_too_many', { minutes: Math.max(1, Math.ceil(e.retryAfter / 60)) });
+			else if (e.status === 401) error = $t('login_error_invalid');
+			else error = e.message;
 		}
 	}
 

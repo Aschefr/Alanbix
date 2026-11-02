@@ -1,5 +1,6 @@
 import os
 import re
+import math
 import time
 import uuid
 import datetime
@@ -16,6 +17,7 @@ from sqlalchemy import func
 
 from .. import models, schemas, auth, database
 from ..websockets import manager as ws_manager
+from ..clock import utcnow
 manager = ws_manager
 
 router = APIRouter(prefix="/public-chat", tags=["Public Chat"])
@@ -145,7 +147,7 @@ def serialize_message(msg: models.PublicChatMessage) -> dict:
         "reactions": msg.reactions or {},
         "reply_to_id": msg.reply_to_id,
         "reply_to": reply_to_data,
-        "created_at": msg.created_at.isoformat() if msg.created_at else datetime.datetime.utcnow().isoformat(),
+        "created_at": msg.created_at.isoformat() if msg.created_at else utcnow().isoformat(),
         "username": user.username if user else (msg.sender_name or ("Alanbix" if msg.is_bot else None)),
         "avatar_url": user.avatar_url if user else ("/favicon.svg" if msg.is_bot else None),
         "avatar_shape": user.avatar_shape if user else "circle",
@@ -254,8 +256,8 @@ async def send_message(
 
     # 2. Check Mute
     if user.public_chat_muted_until:
-        if user.public_chat_muted_until > datetime.datetime.utcnow():
-            remaining = int((user.public_chat_muted_until - datetime.datetime.utcnow()).total_seconds())
+        if user.public_chat_muted_until > utcnow():
+            remaining = int((user.public_chat_muted_until - utcnow()).total_seconds())
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Vous êtes temporairement exclu du chat public ({remaining}s restantes)."
@@ -341,6 +343,7 @@ async def send_message(
 
     # 8b. Reply-To Validation
     reply_to_id = None
+    replies_to_alanbix = False
     if payload.reply_to_id:
         parent_msg = db.query(models.PublicChatMessage).filter(
             models.PublicChatMessage.id == payload.reply_to_id,
@@ -348,6 +351,7 @@ async def send_message(
         ).first()
         if parent_msg:
             reply_to_id = parent_msg.id
+            replies_to_alanbix = bool(parent_msg.is_bot)
 
     # 9. Create and Save Message
     db_msg = models.PublicChatMessage(
@@ -360,7 +364,7 @@ async def send_message(
         reactions={},
         is_bot=False,
         is_deleted=False,
-        created_at=datetime.datetime.utcnow()
+        created_at=utcnow()
     )
     db.add(db_msg)
     db.commit()
@@ -387,7 +391,7 @@ async def send_message(
                 "body": (content or ("📷 Image" if image_path else ""))[:100],
                 "link": "/dashboard",
                 "data": {"message_id": db_msg.id, "sender_id": user.id},
-                "created_at": db_msg.created_at.isoformat() if db_msg.created_at else datetime.datetime.utcnow().isoformat()
+                "created_at": db_msg.created_at.isoformat() if db_msg.created_at else utcnow().isoformat()
             })
 
     # Clear sender's typing state
@@ -399,10 +403,16 @@ async def send_message(
         "is_typing": False
     })
 
-    # 11. Trigger AI Reply if @Alanbix mentioned
-    if has_alanbix and config.get("ai_mention_enabled", True):
+    # 11. Trigger AI Reply if @Alanbix mentioned, or when a player answers one of Alanbix's messages.
+    # When it will not answer, the response says why, for the sender only (alanbix_notice)
+    alanbix_notice = None
+    if (has_alanbix or replies_to_alanbix) and not config.get("ai_mention_enabled", True):
+        alanbix_notice = {"state": "disabled"}
+    elif has_alanbix or replies_to_alanbix:
         ai_cd = config.get("ai_cooldown_seconds", 15)
-        if (now - _last_ai_reply_time) >= ai_cd:
+        if (now - _last_ai_reply_time) < ai_cd:
+            alanbix_notice = {"state": "busy", "retry_after": max(1, math.ceil(ai_cd - (now - _last_ai_reply_time)))}
+        else:
             _last_ai_reply_time = now
             # Immediately show Alanbix as typing
             await ws_manager.broadcast({
@@ -412,70 +422,58 @@ async def send_message(
                 "is_bot": True,
                 "is_typing": True
             })
-            background_tasks.add_task(_process_alanbix_public_reply, db_msg.id, content, user.username)
+            background_tasks.add_task(_process_alanbix_public_reply, db_msg.id, user.id)
 
+    if alanbix_notice:
+        return {**serialized, "alanbix_notice": alanbix_notice}
     return serialized
 
 
-async def _process_alanbix_public_reply(trigger_msg_id: int, user_prompt: str, author_username: str):
-    """Background task to generate Alanbix's reply in public chat via Ollama/IA queue."""
+async def _tell_alanbix_unavailable(user_id: int):
+    """Alanbix was called but could not answer: tell the player who asked, not the whole room."""
+    await ws_manager.send_to_user(user_id, {"type": "public_chat_alanbix_notice", "state": "unavailable"})
+
+
+async def _process_alanbix_public_reply(trigger_msg_id: int, author_id: int):
+    """Background task to generate Alanbix's reply in public chat via the IA queue."""
     from ..ia_queue import queue_manager, QueueEntry
     from ..database import SessionLocal
-    from .ia import get_instances, get_effective_config
+    from ..ia_public_chat import build_public_system_prompt, build_thread_message, knowledge_block, public_tools
+    from .ia import pick_instance, get_effective_config
 
+    answered = False
     try:
         await asyncio.sleep(0.3)
 
         with SessionLocal() as db:
             ia_cfg = get_effective_config(db)
-
-            # Check active Ollama instances
-            instances = [i for i in get_instances(db) if i.get("enabled", True)]
-            if not instances:
-                print("[Public Chat AI] No active Ollama instances configured")
+            author = db.query(models.User).filter(models.User.id == author_id).first()
+            if not author:
                 return
 
-            instance = instances[0]
+            # Same instance choice as the private assistant (priority, round-robin, health check)
+            instance = await pick_instance(db, model=ia_cfg.get("model") or None)
+            if not instance:
+                print("[Public Chat AI] No active AI instance configured")
+                return
+
             ollama_host = instance.get("url") or instance.get("host") or "http://localhost:11434"
-            model_to_use = instance.get("model") or "llama3"
-            context_window = ia_cfg.get("context_window", 4096)
+            model_to_use = instance.get("model") or ia_cfg.get("model") or "llama3"
+            context_window = ia_cfg.get("context_window", 16384)
             temperature = ia_cfg.get("temperature", 0.7)
 
-            # Fetch sliding window (last 6 messages)
-            recent_msgs = (
-                db.query(models.PublicChatMessage)
-                .filter(models.PublicChatMessage.is_deleted == False)
-                .order_by(models.PublicChatMessage.id.desc())
-                .limit(6)
-                .all()
-            )
-            recent_msgs.reverse()
+            trigger = db.query(models.PublicChatMessage).filter(models.PublicChatMessage.id == trigger_msg_id).first()
+            if not trigger or trigger.is_deleted:
+                answered = True  # nothing left to answer: no notice
+                return
 
-            # Build conversation context string
-            context_lines = []
-            for m in recent_msgs:
-                sender = m.user.username if m.user else (m.sender_name or "Alanbix")
-                context_lines.append(f"{sender}: {m.content}")
-            chat_context = "\n".join(context_lines)
-
-            system_prompt = (
-                "Tu es Alanbix, l'IA mascotte et arbitre joviale de la LAN Party. "
-                "Tu interviens directement dans le chat public de la salle. "
-                "Réponds de manière concise (1 à 3 phrases maximum), avec humour, dynamisme, esprit gamer et bienveillance. "
-                "Termine toujours ta réponse de façon complète sans t'interrompre. "
-                "N'utilise pas de formalisme inutile. Ne préfixe jamais ta réponse par 'Alanbix:'."
-            )
-
-            full_prompt = (
-                f"Voici les derniers échanges dans le chat public de la LAN :\n"
-                f"{chat_context}\n\n"
-                f"{author_username} s'est adressé à toi avec : \"{user_prompt}\"\n"
-                f"Réponds-lui directement dans le chat :"
-            )
-
+            system_prompt, lan_lang = build_public_system_prompt(db, models, author)
+            knowledge = await knowledge_block(db, models, trigger.content, ollama_host, ia_cfg)
+            if knowledge:
+                system_prompt = f"{system_prompt}\n\n{knowledge}"
             messages = [
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": full_prompt}
+                {"role": "user", "content": build_thread_message(db, models, trigger, lan_lang)}
             ]
 
             entry = QueueEntry(
@@ -489,7 +487,9 @@ async def _process_alanbix_public_reply(trigger_msg_id: int, user_prompt: str, a
                     "model": model_to_use,
                     "messages": messages,
                     "temperature": temperature,
-                    "context_window": context_window
+                    "context_window": context_window,
+                    "tools": public_tools(ia_cfg),
+                    "asker_id": author.id,
                 }
             )
 
@@ -512,8 +512,10 @@ async def _process_alanbix_public_reply(trigger_msg_id: int, user_prompt: str, a
                         sender_name="Alanbix",
                         is_bot=True,
                         content=clean_response,
+                        # Shown as an answer to the player's message, so everyone sees whom Alanbix answers
+                        reply_to_id=trigger.id,
                         is_deleted=False,
-                        created_at=datetime.datetime.utcnow()
+                        created_at=utcnow()
                     )
                     db.add(bot_msg)
                     db.commit()
@@ -526,9 +528,15 @@ async def _process_alanbix_public_reply(trigger_msg_id: int, user_prompt: str, a
                         "seat_id": None,
                         "user_id": None
                     })
+                    answered = True
             except Exception as e:
                 print(f"[Public Chat AI] Error generating reply: {e}")
+    except Exception as e:
+        print(f"[Public Chat AI] Error preparing reply: {e}")
     finally:
+        # No instance, AI error or empty answer: the player who asked is told, instead of silence
+        if not answered:
+            await _tell_alanbix_unavailable(author_id)
         # Guarantee Alanbix typing status is cleared
         await ws_manager.broadcast({
             "type": "public_chat_typing",
@@ -546,7 +554,7 @@ async def upload_image(
 ):
     """Upload an image or GIF for public chat (max 8MB)."""
     # Check mute
-    if user.public_chat_muted_until and user.public_chat_muted_until > datetime.datetime.utcnow():
+    if user.public_chat_muted_until and user.public_chat_muted_until > utcnow():
         raise HTTPException(status_code=403, detail="Vous êtes exclu du chat public.")
 
     allowed_exts = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
@@ -661,7 +669,7 @@ async def pin_message(
         if not msg:
             raise HTTPException(status_code=404, detail="Message non trouvé.")
         
-        now_iso = datetime.datetime.utcnow().isoformat()
+        now_iso = utcnow().isoformat()
         pinned_val = {
             "message_id": msg.id,
             "pinned_by": admin.username,
@@ -763,7 +771,7 @@ async def mute_user(
     if duration_minutes is None or duration_minutes <= 0:
         target.public_chat_muted_until = None
     else:
-        target.public_chat_muted_until = datetime.datetime.utcnow() + datetime.timedelta(minutes=duration_minutes)
+        target.public_chat_muted_until = utcnow() + datetime.timedelta(minutes=duration_minutes)
 
     db.commit()
     await ws_manager.broadcast({"type": "users_updated"})

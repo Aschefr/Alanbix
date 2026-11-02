@@ -17,11 +17,26 @@ from collections import deque
 from .websockets import manager as ws_manager
 from .ia_title_utils import _build_title_prompt, _clean_title, _is_default_title
 from .ia_utils import ia_client
+from .ia_tool_loop import run_tool_rounds, merge_stream_tool_calls, parse_tool_args, parse_xml_tool_calls
 
 
 def is_openai_host(url: str) -> bool:
     clean = url.rstrip("/")
     return clean.endswith("/v1") or "/v1/" in clean or "openai" in clean.lower()
+
+
+# Answer length cap for @Alanbix in the public chat (thinking included)
+PUBLIC_CHAT_MAX_ANSWER_TOKENS = 4096
+
+PUBLIC_CHAT_TOOL_INSTRUCTION = {
+    "role": "system",
+    "content": (
+        "You can look up the LAN's live data with your tools (tournaments, matches, brackets, rankings, teams, "
+        "seats, games and rules, files, event info). Use them whenever the answer needs facts. "
+        "If your API has no native tool calling, write the call exactly like this in your answer:\n"
+        "<tool_call name=\"tool_name\">\n{\"parameter\": \"value\"}\n</tool_call>"
+    ),
+}
 
 
 # ---------------------------------------------------------------------------
@@ -419,7 +434,6 @@ class IAQueueManager:
             
             # Phase 1: Legacy Double Call mode (if requested)
             if tools and tool_calling_mode == "legacy_double":
-                from .ia_tools import execute_tool
                 has_moderation = any(t.get("function", {}).get("name") == "block_user_from_ia" for t in tools)
                 moderation_instruction = ""
                 if has_moderation:
@@ -447,97 +461,18 @@ class IAQueueManager:
                 non_system = [m for m in tool_messages if m.get("role") != "system"]
                 tool_detect_msgs = system_msgs + [tool_instruction] + non_system
 
-                while tool_round < max_tool_rounds:
-                    tool_round += 1
-                    try:
-                        is_openai = is_openai_host(ollama_host)
-                        if is_openai:
-                            url = f"{ollama_host.rstrip('/')}/chat/completions"
-                            openai_req = {
-                                "model": req_data.get("model"),
-                                "messages": tool_detect_msgs,
-                                "stream": False,
-                                "temperature": req_data.get("options", {}).get("temperature", 0.2),
-                                "max_tokens": req_data.get("options", {}).get("num_predict", 4096),
-                            }
-                            if "tools" in req_data:
-                                openai_req["tools"] = req_data["tools"]
-                        else:
-                            url = f"{ollama_host.rstrip('/')}/api/chat"
-                            openai_req = {**req_data, "messages": tool_detect_msgs, "stream": False}
+                async def notify(name):
+                    await entry.result_stream.put({"status": "tool_call", "tool_name": name})
 
-                        tool_res = await client.post(
-                            url,
-                            json=openai_req,
-                            timeout=httpx.Timeout(connect=10.0, read=120.0, write=10.0, pool=10.0)
-                        )
-                        tool_data = tool_res.json()
-                    except Exception as e:
-                        print(f"[ToolCall] Non-streaming call failed: {e}", flush=True)
-                        break
-
-                    if is_openai:
-                        choices = tool_data.get("choices", [{}])
-                        msg = choices[0].get("message", {})
-                        tool_calls = msg.get("tool_calls")
-                        direct_content = msg.get("content", "")
-                        thinking_content = msg.get("thinking", "")
-                    else:
-                        msg = tool_data.get("message", {})
-                        tool_calls = msg.get("tool_calls")
-                        direct_content = msg.get("content", "")
-                        thinking_content = msg.get("thinking", "")
-
-                    is_xml_fallback = False
-                    if not tool_calls:
-                        text_to_search = direct_content + "\n" + (thinking_content or "")
-                        found_calls = []
-                        import re
-                        for match in re.finditer(r'<tool_call name="([^"]+)">\s*(.*?)\s*</tool_call>', text_to_search, re.DOTALL):
-                            name = match.group(1)
-                            args_str = match.group(2)
-                            try:
-                                args = json.loads(args_str)
-                            except Exception:
-                                try:
-                                    args = json.loads(args_str.replace("'", '"'))
-                                except Exception:
-                                    args = {}
-                            found_calls.append({"function": {"name": name, "arguments": args}})
-                        if found_calls:
-                            tool_calls = found_calls
-                            is_xml_fallback = True
-
-                    if not tool_calls:
-                        break
-
-                    if is_xml_fallback:
-                        tool_messages.append({"role": "assistant", "content": direct_content})
-                        tool_detect_msgs.append({"role": "assistant", "content": direct_content})
-                    else:
-                        tool_messages.append({"role": "assistant", "tool_calls": tool_calls})
-                        tool_detect_msgs.append({"role": "assistant", "tool_calls": tool_calls})
-
-                    for tc in tool_calls:
-                        fn = tc.get("function", {})
-                        fn_name = fn.get("name", "")
-                        fn_args = fn.get("arguments", {})
-                        await entry.result_stream.put({"status": "tool_call", "tool_name": fn_name})
-                        if fn_name not in used_tools:
-                            used_tools.append(fn_name)
-                        t_tool_start = time.time()
-                        try:
-                            result = await execute_tool(fn_name, fn_args, user_id=entry.user_id, conversation_id=entry.conversation_id or 0)
-                        except Exception as e:
-                            result = json.dumps({"error": str(e)})
-                        tool_time += (time.time() - t_tool_start)
-
-                        if is_xml_fallback:
-                            tool_messages.append({"role": "user", "content": f"Résultat de l'outil {fn_name}: {result}"})
-                            tool_detect_msgs.append({"role": "user", "content": f"Résultat de l'outil {fn_name}: {result}"})
-                        else:
-                            tool_messages.append({"role": "tool", "content": result})
-                            tool_detect_msgs.append({"role": "tool", "content": result})
+                outcome = await run_tool_rounds(
+                    client, ollama_host, req_data, tool_detect_msgs,
+                    user_id=entry.user_id, conversation_id=entry.conversation_id or 0,
+                    max_rounds=max_tool_rounds, on_tool_call=notify,
+                )
+                tool_messages.extend(outcome["added"])
+                used_tools.extend(outcome["used_tools"])
+                tool_time += outcome["tool_time"]
+                tool_round = outcome["rounds"]
 
             # Send initial thinking status (waiting for first token / prompt processing)
             await entry.result_stream.put({"status": "thinking"})
@@ -726,25 +661,15 @@ class IAQueueManager:
                             traceback.print_exc()
 
                 # If a tool call was detected, execute it and do another round
+                # OpenAI-compatible services stream each call in pieces: put them back together
+                native_tool_calls = merge_stream_tool_calls(native_tool_calls)
                 has_tool_call = bool(native_tool_calls) or detected_xml_call
                 if has_tool_call and tool_calling_mode == "stream_intercept":
                     # Parse tools
                     parsed_calls = []
                     if detected_xml_call:
-                        import re
-                        match = re.search(r'<tool_call name="([^"]+)">\s*(.*?)\s*</tool_call>', xml_buffer, re.DOTALL)
-                        if match:
-                            name = match.group(1)
-                            args_str = match.group(2)
-                            try:
-                                args = json.loads(args_str)
-                            except Exception:
-                                try:
-                                    args = json.loads(args_str.replace("'", '"'))
-                                except Exception:
-                                    args = {}
-                            parsed_calls.append({"function": {"name": name, "arguments": args}})
-                    
+                        parsed_calls.extend(parse_xml_tool_calls(xml_buffer)[:1])
+
                     for tc in native_tool_calls:
                         parsed_calls.append(tc)
 
@@ -777,7 +702,7 @@ class IAQueueManager:
 
                     for call in parsed_calls:
                         fn_name = call["function"]["name"]
-                        fn_args = call["function"]["arguments"]
+                        fn_args = parse_tool_args(call["function"]["arguments"])
                         if fn_name not in used_tools:
                             used_tools.append(fn_name)
                         t_tool_start = time.time()
@@ -790,7 +715,10 @@ class IAQueueManager:
                         if detected_xml_call:
                             tool_messages.append({"role": "user", "content": f"Résultat de l'outil {fn_name}: {result}"})
                         else:
-                            tool_messages.append({"role": "tool", "content": result})
+                            reply = {"role": "tool", "content": result}
+                            if call.get("id"):
+                                reply["tool_call_id"] = call["id"]
+                            tool_messages.append(reply)
                     if visible:
                         tool_messages[-1]["content"] += "\n\n(The player has already read your previous message. Continue it with this result in one or two sentences; do not repeat it.)"
 
@@ -923,37 +851,57 @@ class IAQueueManager:
         messages = payload["messages"]
         context_window = payload.get("context_window", 4096)
         temperature = payload.get("temperature", 0.7)
+        # A chat line needs little, but thinking models spend tokens before answering;
+        # never ask for more than the context (some online services reject it)
+        max_answer = min(context_window, PUBLIC_CHAT_MAX_ANSWER_TOKENS)
+
+        tools = payload.get("tools") or []
 
         try:
             is_openai = is_openai_host(ollama_host)
-            if is_openai:
-                url = f"{ollama_host.rstrip('/')}/chat/completions"
-                req_json = {
-                    "model": model,
-                    "messages": messages,
-                    "stream": False,
-                    "temperature": temperature,
-                    "max_tokens": context_window
-                }
-            else:
-                url = f"{ollama_host.rstrip('/')}/api/chat"
-                req_json = {
-                    "model": model,
-                    "messages": messages,
-                    "stream": False,
-                    "options": {"temperature": temperature, "num_predict": context_window, "num_ctx": context_window}
-                }
-
             async with ia_client() as client:
-                res = await client.post(url, json=req_json, timeout=90.0)
+                raw = None
+                if tools:
+                    # Read-only tools, run for the asking player; a round without tool call is the answer
+                    outcome = await run_tool_rounds(
+                        client, ollama_host,
+                        {"model": model, "tools": tools,
+                         "options": {"temperature": temperature, "num_predict": max_answer, "num_ctx": context_window}},
+                        [*messages[:1], PUBLIC_CHAT_TOOL_INSTRUCTION, *messages[1:]],
+                        user_id=payload.get("asker_id", 0),
+                        allowed_tools={t["function"]["name"] for t in tools},
+                    )
+                    messages = messages + outcome["added"]
+                    raw = outcome["final"] or None
 
-            if res.status_code != 200:
-                raise Exception(f"AI service returned HTTP {res.status_code}: {res.text[:200]}")
+                if raw is None:
+                    if is_openai:
+                        url = f"{ollama_host.rstrip('/')}/chat/completions"
+                        req_json = {
+                            "model": model,
+                            "messages": messages,
+                            "stream": False,
+                            "temperature": temperature,
+                            "max_tokens": max_answer
+                        }
+                    else:
+                        url = f"{ollama_host.rstrip('/')}/api/chat"
+                        req_json = {
+                            "model": model,
+                            "messages": messages,
+                            "stream": False,
+                            "options": {"temperature": temperature, "num_predict": max_answer, "num_ctx": context_window}
+                        }
+                    res = await client.post(url, json=req_json, timeout=90.0)
 
-            if is_openai:
-                raw = res.json().get("choices", [{}])[0].get("message", {}).get("content", "")
-            else:
-                raw = res.json().get("message", {}).get("content", "")
+                    if res.status_code != 200:
+                        raise Exception(f"AI service returned HTTP {res.status_code}: {res.text[:200]}")
+
+                    if is_openai:
+                        raw = res.json().get("choices", [{}])[0].get("message", {}).get("content", "")
+                    else:
+                        raw = res.json().get("message", {}).get("content", "")
+                raw = raw or ""
 
             import re
             # Strip reasoning tokens (e.g. DeepSeek-R1 / Qwen thinking tags)

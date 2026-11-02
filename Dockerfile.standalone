@@ -14,14 +14,14 @@ RUN npm run build
 FROM python:3.11-slim
 WORKDIR /app
 
-# Installer les dependances systemes
-RUN apt-get update && apt-get install -y \
-    build-essential \
+# ping et traceroute pour les outils de diagnostic reseau de l'assistant IA
+RUN apt-get update && apt-get install -y --no-install-recommends iputils-ping traceroute \
     && rm -rf /var/lib/apt/lists/*
 
-# Installer les dependances Python
+# Installer les dependances Python (toutes existent precompilees pour amd64 et arm64 :
+# pas besoin d'outils de compilation dans l'image)
 COPY backend/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --only-binary=:all: -r requirements.txt
 
 # Copier le code backend
 COPY backend/ .
@@ -40,6 +40,16 @@ EXPOSE 41481
 
 # Variable d'environnement pour indiquer ou se trouve le frontend compilé
 ENV FRONTEND_DIST_DIR=/app/frontend_dist
+
+# Docker (et Unraid, Portainer...) affiche "healthy" tant que l'app repond
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:41481/health', timeout=4)"]
+
+# L'app tourne avec un compte ordinaire (PUID/PGID), pas en root : voir docker-entrypoint.sh
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh && chmod +x /usr/local/bin/docker-entrypoint.sh \
+    && mkdir -p /app/static/uploads/games && chown -R 1000:1000 /app/static/uploads
+ENTRYPOINT ["docker-entrypoint.sh"]
 
 # Lancer l'API
 # No per-message compression on websockets: every connection otherwise keeps a ~37 KB zlib context,

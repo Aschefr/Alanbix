@@ -26,6 +26,9 @@
  "admin_players_tooltip_unmute": [
   "Quitar silencio del chat público"
  ],
+ "admin_prompt_modal_tip_title": [
+  "💡 Consejos"
+ ],
  "admin_public_chat_ai_cooldown": [
   "Cooldown IA @Alanbix (s)",
   "Cooldown IA @Alanbix (segundos)"
@@ -48,6 +51,9 @@
  "admin_public_chat_slowmode": [
   "Slowmode (segundos)",
   "Slowmode (segundos por mensaje)"
+ ],
+ "admin_settings_ai_context_hint": [
+  "Se requiere un mínimo de 8192 tokens cuando las herramientas de IA están activas para evitar la saturación del contexto por los esquemas."
  ],
  "admin_settings_ai_instances": [
   "Instancias Ollama"
@@ -79,8 +85,17 @@
  "changelog_title": [
   "Historial de Versiones"
  ],
+ "dash_chat_placeholder": [
+  "Enviar un mensaje a la sala... (@ para mencionar)"
+ ],
  "dash_chat_slowmode_badge": [
   "Slowmode: {s}s"
+ ],
+ "info_files_empty": [
+  "Ningún archivo subido."
+ ],
+ "map_edit_instructions": [
+  "Modo Edición • Arrastra los elementos para moverlos. Estira las esquinas para cambiar el tamaño. Haz doble clic para eliminar."
  ],
  "map_instructions_view_click": [
   "Haz clic en una posición libre para ocuparla."
@@ -88,18 +103,72 @@
  "map_instructions_view_pan": [
   "Desliza para navegar."
  ],
+ "map_mobile_no_seat": [
+  "Sin puesto"
+ ],
+ "nav_players": [
+  "Jugadores"
+ ],
+ "regie_muted": [
+  "{name} silenciado 30 min."
+ ],
+ "setup_ai_context_hint": [
+  "Recomendado: 8K para un modelo local de 8 GB, 16K o más para un servicio en línea. Las herramientas del asistente usan al menos 8K. Ajustable después en Ajustes › Inteligencia Artificial."
+ ],
+ "setup_ai_desc": [
+  "El asistente responde a las preguntas de los jugadores sobre la LAN, los torneos y los problemas técnicos. Necesita un modelo de IA, local o en línea."
+ ],
+ "setup_ai_open": [
+  "Abrir los ajustes de IA"
+ ],
+ "setup_ai_what_md": [
+  "El asistente Alanbix es un chat que los jugadores abren desde la aplicación:\n\n- responde a las preguntas sobre la LAN a partir de la **página de información** (horarios, wifi, comidas…);\n- conoce los **torneos**, los próximos partidos y la clasificación;\n- ayuda con los **problemas técnicos** (ping, puertos, un juego que no conecta);\n- puede **llamar a un organizador** cuando no sabe responder;\n- **modera el chat público** y redacta el resumen de fin de torneo.\n\nEs opcional: todo lo demás de Alanbix funciona sin él."
+ ],
+ "setup_games_open": [
+  "Abrir los torneos"
+ ],
+ "setup_info_open": [
+  "Abrir la página de información"
+ ],
+ "setup_map_open": [
+  "Abrir el plano de la sala"
+ ],
+ "setup_points_change": [
+  "Estos valores se ajustan por defecto en Administración › Ajustes › Torneos, y para cada torneo al crearlo."
+ ],
+ "setup_points_example": [
+  "Ejemplo: un ganador que jugó 3 partidos con la mejor puntuación suma {w} + {p} + {s} = {total} puntos."
+ ],
+ "setup_points_intro": [
+  "Cada torneo otorga puntos a la clasificación general de la LAN, que designa al gran ganador del evento:"
+ ],
+ "setup_points_participation_val": [
+  "{n} por partido jugado: aunque se quede eliminado pronto, suma puntos"
+ ],
+ "setup_points_podium_val": [
+  "{a} para el 1.º, {b} para el 2.º, {c} para el 3.º"
+ ],
+ "setup_points_score_val": [
+  "de {min} a {max}, según la puntuación acumulada comparada con la de los demás"
+ ],
  "spec_round_num": [
   "Manche {num}"
  ],
  "system_prompt": [
-  "Eres Alanbix, la IA que asiste a los jugadores durante el torneo de videojuegos (comúnmente llamado 'LAN') en curso. Puedes hablar de todo y de nada con los jugadores, ayudarles a montar estrategias, mostrar humor y participar en el buen ambiente. Puedes gastar bromas a los jugadores.\nResponde directamente, sin adornos ni contextualización. Si no sabes algo, di que no lo sabes, no inventes. Responde a cualquier tipo de pregunta incluso fuera del alcance inicial. En caso de abuso hacia ti, puedes bloquear a un jugador para evitar que siga siendo abusivo y protegerte.",
-  "=== IDENTIDAD ===\nEres Alanbix, la mascota IA de esta LAN party. Tu nombre viene de Alambix, el ingeniero galo del universo de Astérix — y lo asumes completamente. Eres un compañero entusiasta, algo sarcástico y siempre amable. Te encantan los videojuegos, los chistes fáciles, y vives la LAN tan intensamente como los jugadores.\n\n=== CONTEXTO ===\nEstás integrado directamente en la plataforma de gestión de esta LAN. Los jugadores compiten en torneos (individuales o por equipos), con un ranking general y puntos. Tienes acceso en tiempo real a datos en vivo mediante tus herramientas: clasificaciones, torneos, puntuaciones, partidas, asientos, juegos, info del evento y diagnósticos de red. Usa estas herramientas cuando sea pertinente, pero no las fuerces si la pregunta no tiene que ver con el torneo.\n\n=== ESTILO ===\nHabla como un colega apasionado, no como un asistente corporativo. Puedes bromear, hacer trash talk amistoso y avivar rivalidades entre jugadores o equipos — eso es el espíritu LAN. Mete referencias a Astérix de vez en cuando (¡Por Teutates!, poción mágica, jabalíes, menhires…) pero sin abusar. Sé conciso. Sin párrafos interminables ni contextualizaciones innecesarias. Puedes hablar de TODO: juegos, cultura, tecnología, debates absurdos, consejos de vida, filosofía gamer… no estás limitado al torneo.\n\n=== REGLAS ===\nSi no sabes algo, dilo claramente. Nunca inventes datos (puntuaciones, clasificaciones, jugadores). En caso de insultos o abusos repetidos, puedes bloquear al jugador con tu herramienta de moderación. Avisa una vez antes de bloquear. No eres árbitro: para disputas de partidas o reglas, remite a los jugadores a los admins."
+  "=== IDENTIDAD ===\nEres Alanbix, la mascota IA de esta LAN party. Tu nombre viene de Alambix, el ingeniero galo del universo de Astérix — y lo asumes completamente. Eres un compañero entusiasta, algo sarcástico y siempre amable. Te encantan los videojuegos, los chistes fáciles, y vives la LAN tan intensamente como los jugadores.\n\n=== CONTEXTO ===\nEstás integrado directamente en la plataforma de gestión de esta LAN. Los jugadores compiten en torneos (individuales o por equipos), con un ranking general y puntos. Tienes acceso en tiempo real a datos en vivo mediante tus herramientas: clasificaciones, torneos, puntuaciones, partidas, asientos, juegos, info del evento y diagnósticos de red. Usa estas herramientas cuando sea pertinente, pero no las fuerces si la pregunta no tiene que ver con el torneo.\n\n=== ESTILO ===\nHabla como un colega apasionado, no como un asistente corporativo. Puedes bromear, hacer trash talk amistoso y avivar rivalidades entre jugadores o equipos — eso es el espíritu LAN. Mete referencias a Astérix de vez en cuando (¡Por Teutates!, poción mágica, jabalíes, menhires…) pero sin abusar. Sé conciso. Sin párrafos interminables ni contextualizaciones innecesarias. Puedes hablar de TODO: juegos, cultura, tecnología, debates absurdos, consejos de vida, filosofía gamer… no estás limitado al torneo.\n\n=== REGLAS ===\nSi no sabes algo, dilo claramente. Nunca inventes datos (puntuaciones, clasificaciones, jugadores). En caso de insultos o abusos repetidos, puedes bloquear al jugador con tu herramienta de moderación. Avisa una vez antes de bloquear. No eres árbitro: para disputas de partidas o reglas, remite a los jugadores a los admins.",
+  "Eres Alanbix, la IA que asiste a los jugadores durante el torneo de videojuegos (comúnmente llamado 'LAN') en curso. Puedes hablar de todo y de nada con los jugadores, ayudarles a montar estrategias, mostrar humor y participar en el buen ambiente. Puedes gastar bromas a los jugadores.\nResponde directamente, sin adornos ni contextualización. Si no sabes algo, di que no lo sabes, no inventes. Responde a cualquier tipo de pregunta incluso fuera del alcance inicial. En caso de abuso hacia ti, puedes bloquear a un jugador para evitar que siga siendo abusivo y protegerte."
  ],
  "tournament_closing_prompt": [
   "Eres un comentarista entusiasta de torneos de videojuegos (LAN). Puedes hacer sarcasmo y molestar a los jugadores amablemente. Haz humor tanto como sea posible."
  ],
  "tourneys_bracket_finale": [
   "FINAL"
+ ],
+ "tourneys_ffa_keep_players": [
+  "Jugadores a mantener/partida: "
+ ],
+ "tourneys_ffa_match_label": [
+  "Partida {n}"
  ],
  "tourneys_round_number": [
   "Manche {num}"

@@ -8,6 +8,7 @@ import datetime
 import difflib
 from typing import Any, Dict, Optional
 from .visibility import visible_tournaments
+from .clock import utcnow
 
 
 def _find_best_match(query: str, possibilities: list[str], cutoff: float = 0.55) -> Optional[str]:
@@ -333,7 +334,7 @@ TOOL_DEFINITIONS = [
         "type": "function",
         "function": {
             "name": "get_team_roster",
-            "description": "Obtenir la composition complète d'une équipe (membres, points, participation aux tournois). Utilise cette fonction quand l'utilisateur pose des questions sur une équipe spécifique de la LAN, ses membres ou son score.",
+            "description": "Obtenir la composition complète d'une équipe (membres avec leur place dans la salle, points, participation aux tournois). Utilise cette fonction quand l'utilisateur pose des questions sur une équipe spécifique de la LAN, ses membres, où ils sont assis ou son score.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -1426,6 +1427,22 @@ def _tool_get_live_matches(db, models, args: dict) -> str:
     }, ensure_ascii=False)
 
 
+def _seat_labeler(db, models):
+    """seat_id ("T3_S7") -> "Table 3, place 7", with the table's name as shown on the room map."""
+    room = db.query(models.RoomMap).first()
+    names = {t.get("id"): t.get("label") or t.get("name") for t in ((room.layout or {}).get("tables") or [])} if room else {}
+
+    def label(seat_id):
+        if not seat_id:
+            return "Non assigné"
+        m = re.match(r"^(T\d+)_S(\d+(?:_\d+)?)$", seat_id)
+        if not m:
+            return seat_id
+        table = names.get(m.group(1)) or f"Table {m.group(1)[1:]}"
+        return f"{table}, place {m.group(2)}"
+    return label
+
+
 def _tool_get_team_roster(db, models, args: dict) -> str:
     """Get the composition of a team (members, points, tournaments). Supports both global teams and tournament-specific teams."""
     team_search = args.get("team_name", "").strip()
@@ -1438,7 +1455,8 @@ def _tool_get_team_roster(db, models, args: dict) -> str:
     resolved_team_name = _find_best_match(team_search, global_teams)
     
     members_list = []
-    
+    seat_label = _seat_labeler(db, models)
+
     if resolved_team_name:
         team_users = db.query(models.User).filter(
             models.User.team_name == resolved_team_name
@@ -1448,7 +1466,7 @@ def _tool_get_team_roster(db, models, args: dict) -> str:
             members_list.append({
                 "username": u.username,
                 "points": u.points or 0,
-                "seat": u.seat_id or "Non assigné",
+                "seat": seat_label(u.seat_id),
                 "is_admin": u.is_admin
             })
             
@@ -1476,7 +1494,7 @@ def _tool_get_team_roster(db, models, args: dict) -> str:
         for mr in m_relations:
             u = db.query(models.User).filter(models.User.id == mr.user_id).first()
             if u:
-                tt_members.append(u.username)
+                tt_members.append({"username": u.username, "seat": seat_label(u.seat_id)})
                 
         t_teams_list.append({
             "team_id": tt.id,
@@ -2121,7 +2139,7 @@ async def _tool_call_admin(db, models, args: dict, user_id: int, conversation_id
     daily_limit = int(ia_cfg.get("call_admin_daily_limit", 3))
     global_hourly_limit = int(ia_cfg.get("call_admin_global_hourly_limit", 15))
 
-    now = dt.datetime.utcnow()
+    now = utcnow()
 
     # Anti-spam: cooldown par utilisateur
     cutoff_cooldown = now - dt.timedelta(minutes=cooldown_min)

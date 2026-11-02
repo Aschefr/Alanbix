@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from .. import models, auth, database
+from ..clock import utcnow
 
 router = APIRouter(prefix="/devices", tags=["Devices"])
 
@@ -46,8 +47,8 @@ async def register_device(
         name=payload.name.strip() if payload.name else None,
         push_token=payload.push_token.strip() if payload.push_token else None,
         device_key=payload.device_key.strip() if payload.device_key else None,
-        created_at=datetime.utcnow(),
-        last_seen=datetime.utcnow()
+        created_at=utcnow(),
+        last_seen=utcnow()
     )
     db.add(device)
     db.commit()

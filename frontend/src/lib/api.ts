@@ -81,8 +81,14 @@ export const api = {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
 			body: formData
-		}).then(res => {
-			if (!res.ok) throw new Error('Identifiants invalides');
+		}).then(async res => {
+			if (!res.ok) {
+				// The login page turns the status into a translated message
+				const err: any = new Error(`login ${res.status}`); // i18n-ignore
+				err.status = res.status;
+				err.retryAfter = Number(res.headers.get('Retry-After')) || 0;
+				throw err;
+			}
 			return res.json();
 		});
 

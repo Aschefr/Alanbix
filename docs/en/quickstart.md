@@ -29,6 +29,7 @@ docker run -d \
 * SQLite database files and uploads are stored in the persistent volume `alanbix_data`.
 * **Login secret key**: on first start, Alanbix generates a unique random key and stores it in the volume (`/app/data/.secret_key`). Keep this volume: if it is lost, everyone simply has to log in again. To provide your own key, set the `SECRET_KEY` environment variable.
 * **Access from other sites (CORS)**: by default, only the machine itself, the mobile app, the local network and Tailscale are allowed. For another address (domain name, reverse proxy…), set `CORS_ORIGINS` (comma-separated list, or `*` to allow everything).
+* **Account used in the container**: since version 1.37, the app no longer runs as root but as an ordinary account, `1000:1000` by default. On start, the data folder is handed to it automatically, including the one of an older install. For another account, set `PUID` and `PGID` (on Unraid: `PUID=99` and `PGID=100`).
 
 #### 🔍 (Optional) Deploying SearXNG for Game Cover Search
 If you want to use the automated game cover search feature with the Docker Hub image, you must run a SearXNG instance alongside it:
@@ -79,13 +80,12 @@ If you wish to modify the code or run the project locally with Hot Module Replac
 ---
 
 ### Option C: On Unraid (Community Applications / XML Template)
-Alanbix has an official Unraid template:
+Alanbix is available in Unraid's **Community Applications** store:
 
-1. Open the **Docker** tab in your Unraid interface.
-2. Click on **Add Container**.
-3. In the **Template** dropdown, select **User Templates > Alanbix**.
-4. *(If the template does not appear)*: Copy the `unraid-template.xml` file located at the root of the Git repository into the `/boot/config/plugins/dockerMan/templates-user/alanbix.xml` directory of your Unraid USB flash drive.
-6. Click **Apply** to start the container!
+1. Open the **Apps** tab in your Unraid interface and search for **Alanbix**.
+2. Click **Install**, check the port and the `appdata` folder, then click **Apply**.
+
+*(Without the store)*: copy the [`alanbix.xml`](https://github.com/Aschefr/unraid-templates/blob/master/alanbix.xml) template from the `Aschefr/unraid-templates` repository to `/boot/config/plugins/dockerMan/templates-user/` on your Unraid USB flash drive, then choose **Add Container > User Templates > Alanbix**.
 
 #### 🔍 (Optional) Setting up SearXNG on Unraid
 If you run Alanbix on Unraid and want game cover search:

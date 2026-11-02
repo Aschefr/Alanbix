@@ -54,9 +54,8 @@ async def startup():
     data_dir = os.path.dirname(os.getenv("DATABASE_PATH", "/app/data/alanbix.db"))
     import shutil
     data_i18n_dir = os.path.join(data_dir, "i18n")
-    static_i18n_dir = "static/i18n"
+    from .routers.i18n import cleanup_user_overrides, STATIC_I18N_DIR as static_i18n_dir
     os.makedirs(data_i18n_dir, exist_ok=True)
-    from .routers.i18n import cleanup_user_overrides
     cleanup_user_overrides()
 
     # ── Update i18n keys for Ollama/OpenAI instances ─────────────────────
@@ -569,6 +568,8 @@ async def serve_spa(full_path: str):
     if os.path.isfile(index_path):
         return FileResponse(index_path, headers=_cache_headers(index_path))
         
-    return {"error": "Frontend not built or not found"}
+    # A Response, not a dict: the page-navigation middleware returns this as is
+    from fastapi.responses import JSONResponse
+    return JSONResponse({"error": "Frontend not built or not found"}, status_code=404)
 
 

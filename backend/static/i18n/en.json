@@ -1922,5 +1922,10 @@
   "map_clear_confirm": "Clear the whole map?",
   "map_clear_yes": "Clear",
   "map_clear_done": "Map cleared. Save to confirm, or Ctrl+Z to undo.",
-  "admin_settings_purge_room_btn": "Delete the map"
+  "admin_settings_purge_room_btn": "Delete the map",
+  "login_error_invalid": "Wrong password.",
+  "login_error_too_many": "Too many attempts. Try again in {minutes} min.",
+  "chat_alanbix_busy": "Alanbix was just called. Try again in {seconds} s.",
+  "chat_alanbix_disabled": "Alanbix's answers are turned off by the organizers.",
+  "chat_alanbix_unavailable": "Alanbix could not answer: the AI is unavailable. Try again later or tell an organizer."
 }

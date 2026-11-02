@@ -266,6 +266,8 @@
 				clearTyper(msg.message.is_bot ? 'bot_alanbix' : msg.message.user_id);
 			} else if (msg.type === 'public_chat_typing') {
 				handleTypingEvent(msg);
+			} else if (msg.type === 'public_chat_alanbix_notice') {
+				showAlanbixNotice(msg);
 			} else if (msg.type === 'public_chat_message_deleted') {
 				messages = messages.filter(m => m.id !== msg.message_id);
 				if (pinnedMessage?.message?.id === msg.message_id) {
@@ -295,6 +297,7 @@
 		if (resizeObserver) resizeObserver.disconnect();
 		if (wsUnsub) wsUnsub();
 		if (slowmodeInterval) clearInterval(slowmodeInterval);
+		if (alanbixNoticeTimer) clearTimeout(alanbixNoticeTimer);
 		if (pruneTypersInterval) clearInterval(pruneTypersInterval);
 		if (typingDebounceTimer) clearTimeout(typingDebounceTimer);
 		if (highlightTimer) clearTimeout(highlightTimer);
@@ -689,6 +692,24 @@
 		if (textareaEl) textareaEl.focus();
 	}
 
+	// Why Alanbix will not answer a mention (busy, turned off, AI unavailable): shown to the sender only
+	let alanbixNotice = null;
+	let alanbixNoticeTimer = null;
+	function showAlanbixNotice(notice) {
+		if (!notice?.state) return;
+		alanbixNotice = notice;
+		if (alanbixNoticeTimer) clearTimeout(alanbixNoticeTimer);
+		alanbixNoticeTimer = setTimeout(() => (alanbixNotice = null), 10000);
+	}
+	function dismissAlanbixNotice() {
+		alanbixNotice = null;
+		if (alanbixNoticeTimer) clearTimeout(alanbixNoticeTimer);
+	}
+	$: alanbixNoticeText = !alanbixNotice ? ''
+		: alanbixNotice.state === 'busy' ? $t('chat_alanbix_busy', { seconds: alanbixNotice.retry_after || 15 })
+		: alanbixNotice.state === 'disabled' ? $t('chat_alanbix_disabled')
+		: $t('chat_alanbix_unavailable');
+
 	function startSlowmodeCooldown(seconds) {
 		slowmodeRemaining = seconds;
 		if (slowmodeInterval) clearInterval(slowmodeInterval);
@@ -741,7 +762,9 @@
 			});
 
 			if (postedMsg && postedMsg.id) {
-				handleIncomingMessage(postedMsg);
+				const { alanbix_notice, ...message } = postedMsg;
+				handleIncomingMessage(message);
+				showAlanbixNotice(alanbix_notice);
 			}
 
 			// Apply slowmode cooldown
@@ -1029,8 +1052,16 @@
 			.replace(/</g, '&lt;')
 			.replace(/>/g, '&gt;');
 
+		// Light formatting, on the escaped text only (anyone can make Alanbix write HTML):
+		// "* item" / "- item" bullets, **bold**, *italic*, `code`
+		const formatted = escaped
+			.replace(/^(\s*)[*-][ \t]+/gm, '$1• ')
+			.replace(/`([^`\n]+)`/g, '<code>$1</code>')
+			.replace(/\*\*(\S(?:[^*\n]*?\S)?)\*\*/g, '<strong>$1</strong>')
+			.replace(/(^|[^*\w])\*([^*\s][^*\n]*?)\*(?![*\w])/g, '$1<em>$2</em>');
+
 		// Highlight @mentions
-		const withMentions = escaped.replace(/@([a-zA-Z0-9_-]+)/g, (match, handle) => {
+		const withMentions = formatted.replace(/@([a-zA-Z0-9_-]+)/g, (match, handle) => {
 			const isMe = user && handle.toLowerCase() === user.username?.toLowerCase();
 			const isAlanbix = handle.toLowerCase() === 'alanbix';
 			const cls = isAlanbix ? 'mention-alanbix' : isMe ? 'mention-me' : 'mention-user';
@@ -1143,6 +1174,7 @@
 	{/if}
 
 	<!-- Messages Scroll View -->
+	<div class="chat-scroll-area">
 	<div class="chat-scroll-container" bind:this={chatScrollEl} on:scroll={handleScroll}>
 		<div class="chat-messages-inner" bind:this={messagesListEl}>
 			{#if messages.length === 0}
@@ -1336,7 +1368,7 @@
 									on:click|stopPropagation={() => scrollToAndHighlightMessage(msg.reply_to.id)}
 									title={$t('chat_view_original')}
 								>
-									<span class="quote-symbol">↩️</span>
+									<Icon name="reply" size={12} class="quote-symbol" />
 									<strong class="quote-author">@{msg.reply_to.username}</strong>
 									<span class="quote-snippet">{msg.reply_to.content}</span>
 								</div>
@@ -1398,7 +1430,7 @@
 		</div>
 	</div>
 
-	<!-- Floating Jump to Latest Button -->
+	<!-- Floating Jump to Latest Button: pinned to the bottom of the messages, above the bars below them -->
 	{#if isScrolledUp}
 		<button class="jump-latest-pill" on:click={() => scrollToBottom(false)}>
 			<span>↓</span>
@@ -1408,6 +1440,7 @@
 			{/if}
 		</button>
 	{/if}
+	</div>
 
 	<!-- Mention Autocomplete Popover -->
 	{#if showMentionDropdown && filteredMentions.length > 0}
@@ -1478,11 +1511,21 @@
 		</div>
 	{/if}
 
+	{#if alanbixNotice}
+		<div class="chat-alanbix-notice" role="status">
+			<Icon name="bot" size={14} />
+			<span class="alanbix-notice-text">{alanbixNoticeText}</span>
+			<button type="button" class="alanbix-notice-close" on:click={dismissAlanbixNotice} aria-label={$t('common_close')} title={$t('common_close')}>
+				<Icon name="x" size={13} />
+			</button>
+		</div>
+	{/if}
+
 	<!-- Replying To Preview Bar (Point 2) -->
 	{#if replyingTo}
 		<div class="replying-preview-bar">
 			<div class="replying-content">
-				<span class="replying-icon">↩️</span>
+				<Icon name="reply" size={14} class="replying-icon" />
 				<div class="replying-text-group">
 					<span class="replying-lead">
 						{$t('dash_chat_replying_to')}
@@ -1491,7 +1534,9 @@
 					<span class="replying-snippet">{replyingTo.content || (replyingTo.image_path ? $t('chat_attachment') : '')}</span>
 				</div>
 			</div>
-			<button class="replying-cancel-btn" on:click={cancelReply} title={$t('dash_chat_cancel_reply')}>✕</button>
+			<button class="replying-cancel-btn" on:click={cancelReply} title={$t('dash_chat_cancel_reply')} aria-label={$t('dash_chat_cancel_reply')}>
+				<Icon name="x" size={14} />
+			</button>
 		</div>
 	{/if}
 
@@ -1658,6 +1703,14 @@
 	}
 
 	/* Messages Container */
+	.chat-scroll-area {
+		position: relative;
+		flex: 1;
+		min-height: 0;
+		display: flex;
+		flex-direction: column;
+	}
+
 	.chat-scroll-container {
 		flex: 1;
 		overflow-y: auto;
@@ -1898,6 +1951,14 @@
 		white-space: pre-wrap;
 		word-break: break-word;
 	}
+	.msg-text :global(strong) { font-weight: 700; color: var(--text-main); }
+	.chat-msg-row.is-mine .msg-text :global(strong) { color: #ffffff; }
+	.msg-text :global(code) {
+		font-size: 0.92em;
+		padding: 0.05rem 0.3rem;
+		border-radius: 4px;
+		background: color-mix(in srgb, currentColor 12%, transparent);
+	}
 
 	:global(.mention-chip) {
 		display: inline-block;
@@ -1988,7 +2049,7 @@
 	/* Floating jump button */
 	.jump-latest-pill {
 		position: absolute;
-		bottom: 56px;
+		bottom: 10px;
 		right: 14px;
 		display: flex;
 		align-items: center;
@@ -2345,6 +2406,35 @@
 	}
 
 	/* Active Typers Indicator */
+	.chat-alanbix-notice {
+		display: flex;
+		align-items: center;
+		gap: 0.45rem;
+		padding: 0.35rem 0.5rem 0.35rem 0.85rem;
+		background: var(--surface-sunken);
+		border-top: 1px solid var(--glass-border);
+		font-size: 0.75rem;
+		color: var(--text-main);
+		flex-shrink: 0;
+		animation: typingSlideIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+	}
+	.chat-alanbix-notice :global(.icon-bot) { color: var(--accent); flex-shrink: 0; }
+	.alanbix-notice-text { flex: 1; min-width: 0; line-height: 1.35; }
+	.alanbix-notice-close {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 28px;
+		height: 28px;
+		flex-shrink: 0;
+		border: none;
+		border-radius: 6px;
+		background: transparent;
+		color: var(--text-dim);
+		cursor: pointer;
+	}
+	.alanbix-notice-close:hover { color: var(--text-main); background: var(--glass-border); }
+
 	.chat-typing-bar {
 		display: flex;
 		align-items: center;
@@ -2545,25 +2635,25 @@
 	.msg-reply-quote {
 		display: flex;
 		align-items: center;
-		gap: 0.4rem;
-		padding: 0.2rem 0.5rem;
-		background: rgba(255, 255, 255, 0.04);
-		border-left: 3px solid var(--accent);
-		border-radius: 4px;
+		gap: 0.35rem;
+		padding: 0.22rem 0.55rem;
+		background: color-mix(in srgb, var(--accent) 8%, transparent);
+		border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+		border-radius: 8px;
 		font-size: 0.7rem;
 		cursor: pointer;
-		margin-bottom: 0.2rem;
-		transition: background 0.2s;
+		margin-bottom: 0.25rem;
+		transition: background 0.2s, border-color 0.2s;
 		max-width: 100%;
 		overflow: hidden;
 	}
 	.msg-reply-quote:hover {
-		background: rgba(255, 255, 255, 0.08);
+		background: color-mix(in srgb, var(--accent) 14%, transparent);
+		border-color: color-mix(in srgb, var(--accent) 35%, transparent);
 	}
-	.quote-symbol {
-		font-size: 0.75rem;
+	.msg-reply-quote :global(.quote-symbol) {
 		flex-shrink: 0;
-		opacity: 0.7;
+		color: var(--accent);
 	}
 	.quote-author {
 		color: var(--accent);
@@ -2925,10 +3015,12 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding: 0.35rem 0.8rem;
-		background: rgba(59, 130, 246, 0.08);
-		border-top: 1px solid rgba(59, 130, 246, 0.2);
-		border-left: 3px solid var(--accent);
+		gap: 0.4rem;
+		margin: 0.4rem 0.6rem 0;
+		padding: 0.3rem 0.3rem 0.3rem 0.6rem;
+		background: color-mix(in srgb, var(--accent) 8%, transparent);
+		border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+		border-radius: 10px;
 		font-size: 0.72rem;
 		flex-shrink: 0;
 		animation: slideUpReply 0.2s ease-out;
@@ -2944,9 +3036,9 @@
 		min-width: 0;
 		flex: 1;
 	}
-	.replying-icon {
-		font-size: 0.8rem;
+	.replying-content :global(.replying-icon) {
 		flex-shrink: 0;
+		color: var(--accent);
 	}
 	.replying-text-group {
 		display: flex;
@@ -2968,13 +3060,17 @@
 		font-size: 0.72rem;
 	}
 	.replying-cancel-btn {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 28px;
+		height: 28px;
 		background: none;
 		border: none;
 		color: var(--text-muted);
 		cursor: pointer;
-		font-size: 0.8rem;
-		padding: 0.15rem 0.35rem;
-		border-radius: 4px;
+		padding: 0;
+		border-radius: 6px;
 		transition: all 0.15s;
 		flex-shrink: 0;
 	}

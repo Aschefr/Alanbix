@@ -1,6 +1,7 @@
 from fastapi import WebSocket, WebSocketDisconnect
 from typing import List, Dict, Set, Optional, Iterable
 import datetime
+from .clock import utcnow
 
 class ConnectionManager:
     def __init__(self):
@@ -36,7 +37,7 @@ class ConnectionManager:
         self.user_connections[user_id].add(websocket)
 
         if client_type != "push":
-            ACTIVE_USERS[user_id] = datetime.datetime.utcnow()
+            ACTIVE_USERS[user_id] = utcnow()
 
         if is_first_active_tab:
             await self.broadcast({

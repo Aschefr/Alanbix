@@ -34,6 +34,7 @@ docker run -d \
 * Les données de la base SQLite et des téléversements de fichiers sont conservées dans le volume `alanbix_data`.
 * **Clé secrète des connexions** : au premier démarrage, Alanbix génère une clé aléatoire unique et la conserve dans le volume (`/app/data/.secret_key`). Conservez ce volume : s'il est perdu, tout le monde devra simplement se reconnecter. Pour fournir votre propre clé, définissez la variable d'environnement `SECRET_KEY`.
 * **Accès depuis d'autres sites (CORS)** : par défaut, seuls la machine elle-même, l'application mobile, le réseau local et Tailscale sont autorisés. Pour une autre adresse (nom de domaine, reverse proxy…), définissez `CORS_ORIGINS` (liste séparée par des virgules, ou `*` pour tout autoriser).
+* **Compte utilisé dans le conteneur** : depuis la version 1.37, l'application ne tourne plus en administrateur (root) mais avec un compte ordinaire, `1000:1000` par défaut. Au démarrage, le dossier de données lui est confié automatiquement, y compris celui d'une ancienne installation. Pour un autre compte, définissez `PUID` et `PGID` (sur Unraid : `PUID=99` et `PGID=100`).
 
 #### 🔍 (Optionnel) Déployer SearXNG pour la recherche de jaquettes
 Si vous utilisez le déploiement Docker Hub (Option A) et souhaitez bénéficier de la recherche automatique de jaquettes de jeux, vous devez lancer une instance SearXNG à côté :
@@ -84,13 +85,12 @@ Si vous souhaitez modifier le code ou exécuter le projet en local avec le recha
 ---
 
 ### Option C : Sur Unraid (Community Applications / Modèle XML)
-Alanbix dispose d'un modèle officiel pour Unraid :
+Alanbix est disponible dans le store **Community Applications** d'Unraid :
 
-1. Ouvrez l'onglet **Docker** de votre interface Unraid.
-2. Cliquez sur **Add Container**.
-3. Dans le menu déroulant **Template**, sélectionnez **User Templates > Alanbix**.
-4. *(Si le modèle n'apparaît pas)* : Copiez le fichier `unraid-template.xml` présent à la racine du dépôt Git dans le répertoire `/boot/config/plugins/dockerMan/templates-user/alanbix.xml` de votre clé USB Unraid.
-6. Cliquez sur **Apply** pour démarrer le conteneur !
+1. Ouvrez l'onglet **Apps** de votre interface Unraid et cherchez **Alanbix**.
+2. Cliquez sur **Install**, vérifiez le port et le dossier `appdata`, puis cliquez sur **Apply**.
+
+*(Sans le store)* : copiez le modèle [`alanbix.xml`](https://github.com/Aschefr/unraid-templates/blob/master/alanbix.xml) du dépôt `Aschefr/unraid-templates` dans `/boot/config/plugins/dockerMan/templates-user/` sur votre clé USB Unraid, puis choisissez **Add Container > User Templates > Alanbix**.
 
 #### 🔍 (Optionnel) Configurer SearXNG sur Unraid
 Si vous hébergez Alanbix sur Unraid et souhaitez activer la recherche automatique de jaquettes :

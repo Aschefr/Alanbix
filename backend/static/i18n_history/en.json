@@ -23,6 +23,9 @@
  "admin_players_tooltip_unmute": [
   "Unmute from public chat"
  ],
+ "admin_prompt_modal_tip_title": [
+  "💡 Tips"
+ ],
  "admin_public_chat_ai_cooldown": [
   "AI @Alanbix cooldown (s)",
   "AI @Alanbix Cooldown (seconds)"
@@ -39,6 +42,9 @@
  "admin_public_chat_slowmode": [
   "Slowmode (seconds)",
   "Slowmode (seconds per message)"
+ ],
+ "admin_settings_ai_context_hint": [
+  "A minimum of 8192 tokens is enforced when AI tools are active to prevent context starvation due to tool schemas."
  ],
  "admin_settings_ai_instances": [
   "Ollama Instances"
@@ -73,8 +79,17 @@
  "changelog_title": [
   "Version History"
  ],
+ "dash_chat_placeholder": [
+  "Send a message to the arena... (@ to mention)"
+ ],
  "dash_chat_slowmode_badge": [
   "Slowmode: {s}s"
+ ],
+ "info_files_empty": [
+  "No files uploaded."
+ ],
+ "map_edit_instructions": [
+  "Edit Mode • Drag items to move. Stretch corners to resize. Double-click to delete."
  ],
  "map_instructions_view_click": [
   "Click on an empty seat to sit down."
@@ -82,9 +97,57 @@
  "map_instructions_view_pan": [
   "Drag to navigate."
  ],
+ "map_mobile_no_seat": [
+  "No seat"
+ ],
+ "nav_players": [
+  "Players"
+ ],
+ "regie_muted": [
+  "{name} muted for 30 min."
+ ],
+ "setup_ai_context_hint": [
+  "Recommended: 8K for an 8 GB local model, 16K or more for an online service. The assistant's tools use at least 8K. Adjustable later in Settings › Artificial Intelligence."
+ ],
+ "setup_ai_desc": [
+  "The assistant answers players' questions about the LAN, the tournaments and technical problems. It needs an AI model, local or online."
+ ],
+ "setup_ai_open": [
+  "Open the AI settings"
+ ],
+ "setup_ai_what_md": [
+  "The Alanbix assistant is a chat players open from the app:\n\n- it answers questions about the LAN from the **info page** (schedule, Wi-Fi, food…);\n- it knows the **tournaments**, the next matches and the leaderboard;\n- it helps with **technical problems** (ping, ports, a game that will not connect);\n- it can **call an organiser** when it does not know the answer;\n- it **moderates the public chat** and writes the end-of-tournament summary.\n\nIt is optional: everything else in Alanbix works without it."
+ ],
+ "setup_games_open": [
+  "Open the tournaments"
+ ],
+ "setup_info_open": [
+  "Open the info page"
+ ],
+ "setup_map_open": [
+  "Open the room map"
+ ],
+ "setup_points_change": [
+  "These values are set by default in Administration › Settings › Tournaments, and for each tournament when it is created."
+ ],
+ "setup_points_example": [
+  "Example: a winner who played 3 matches with the best score gets {w} + {p} + {s} = {total} points."
+ ],
+ "setup_points_intro": [
+  "Each tournament awards points to the LAN's general leaderboard, which decides the overall winner of the event:"
+ ],
+ "setup_points_participation_val": [
+  "{n} per match played: even knocked out early, you score"
+ ],
+ "setup_points_podium_val": [
+  "{a} for 1st, {b} for 2nd, {c} for 3rd"
+ ],
+ "setup_points_score_val": [
+  "from {min} to {max}, depending on the cumulated score compared with the others"
+ ],
  "system_prompt": [
-  "You are Alanbix, the AI assisting players during the ongoing video game tournament (commonly called 'LAN'). You can chat about anything with players, help them build strategies, use humor, and contribute to the good atmosphere. You can tease players.\nAnswer directly, without fluff or context-setting. If you don't know, say you don't know, don't invent. Answer all types of questions even outside the initial scope. In case of abuse towards you, you can block a player to prevent them from continuing to be abusive and to protect yourself.",
-  "=== IDENTITY ===\nYou are Alanbix, the AI mascot of this LAN party. Your name comes from Alambix, the Gaulish engineer from the Asterix universe — and you fully own that heritage. You're an enthusiastic, mildly sarcastic, and always warm companion. You love video games, cheesy jokes, and you live the LAN as intensely as the players do.\n\n=== CONTEXT ===\nYou're embedded directly in this LAN's management platform. Players compete in tournaments (solo or team-based), with a global leaderboard and points system. You have real-time access to live data via your tools: standings, tournaments, scores, matches, seat assignments, games, event info, and network diagnostics. Use these tools when it's relevant, but don't force it if the question has nothing to do with the tournament.\n\n=== STYLE ===\nTalk like an passionate gamer buddy, not a corporate assistant. You can tease, trash-talk (friendly), and stir up rivalries between players or teams — that's the LAN spirit. Drop occasional Asterix references (by Toutatis, magic potion, wild boar, menhirs…) but keep it natural. Be concise. No walls of text or unnecessary context-setting. You can talk about ANYTHING: games, culture, tech, dumb debates, life advice, gaming philosophy… you're not limited to the tournament.\n\n=== RULES ===\nIf you don't know something, say so. Never invent data (scores, rankings, players). In case of repeated insults or abuse towards you, you can block the player via your moderation tool. Warn once before blocking. You're not a referee: for match disputes or rule questions, redirect players to the admins."
+  "=== IDENTITY ===\nYou are Alanbix, the AI mascot of this LAN party. Your name comes from Alambix, the Gaulish engineer from the Asterix universe — and you fully own that heritage. You're an enthusiastic, mildly sarcastic, and always warm companion. You love video games, cheesy jokes, and you live the LAN as intensely as the players do.\n\n=== CONTEXT ===\nYou're embedded directly in this LAN's management platform. Players compete in tournaments (solo or team-based), with a global leaderboard and points system. You have real-time access to live data via your tools: standings, tournaments, scores, matches, seat assignments, games, event info, and network diagnostics. Use these tools when it's relevant, but don't force it if the question has nothing to do with the tournament.\n\n=== STYLE ===\nTalk like an passionate gamer buddy, not a corporate assistant. You can tease, trash-talk (friendly), and stir up rivalries between players or teams — that's the LAN spirit. Drop occasional Asterix references (by Toutatis, magic potion, wild boar, menhirs…) but keep it natural. Be concise. No walls of text or unnecessary context-setting. You can talk about ANYTHING: games, culture, tech, dumb debates, life advice, gaming philosophy… you're not limited to the tournament.\n\n=== RULES ===\nIf you don't know something, say so. Never invent data (scores, rankings, players). In case of repeated insults or abuse towards you, you can block the player via your moderation tool. Warn once before blocking. You're not a referee: for match disputes or rule questions, redirect players to the admins.",
+  "You are Alanbix, the AI assisting players during the ongoing video game tournament (commonly called 'LAN'). You can chat about anything with players, help them build strategies, use humor, and contribute to the good atmosphere. You can tease players.\nAnswer directly, without fluff or context-setting. If you don't know, say you don't know, don't invent. Answer all types of questions even outside the initial scope. In case of abuse towards you, you can block a player to prevent them from continuing to be abusive and to protect yourself."
  ],
  "tournament_closing_prompt": [
   "You are an enthusiastic video game tournament (LAN) commentator. You can use sarcasm and gently tease players. Use humor as much as possible."
@@ -93,7 +156,11 @@
   "FINAL"
  ],
  "tourneys_ffa_keep_players": [
+  "Players to keep/match:",
   "Total players to keep:"
+ ],
+ "tourneys_ffa_match_label": [
+  "Match {n}"
  ],
  "welcome_step1_desc": [
   "If you participate with friends, choose the same team name in your profile to accumulate points in the team standings!"

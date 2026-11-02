@@ -89,13 +89,13 @@ docker compose -f docker-compose.prod.yml up -d
 
 Pour mettre à jour une installation existante, relancer ces deux commandes : les données de `./data` sont conservées.
 
-**Installation dans un clone git (réglages locaux).** Si le serveur est un clone du dépôt, `docker-compose.yml` y est la pile de **développement**. Copier `docker-compose.override.yml.example` en `docker-compose.override.yml` (ignoré par git), y mettre son Ollama et son domaine, puis ne démarrer que les services de production :
+**Installation dans un clone git (réglages locaux).** Si le serveur est un clone du dépôt, `docker-compose.yml` y est la pile de **développement**. Copier `docker-compose.override.yml.example` en `docker-compose.override.yml` (ignoré par git) et y mettre son Ollama et son domaine. Ce fichier range les services de développement (`backend`, `frontend`) dans le profil `dev`, qui ne démarre jamais seul, et demande à `alanbix` de toujours télécharger la dernière image (`pull_policy: always`). La mise à jour se résume alors à :
 
 ```bash
-docker compose down && git pull && docker compose pull alanbix searxng && docker compose up -d alanbix searxng
+docker compose down && git pull && docker compose up -d
 ```
 
-Ne jamais utiliser `docker compose up -d --build` sur un serveur de production : cela démarre aussi la pile de développement (qui prend le port 41481) et ne télécharge pas la nouvelle image.
+Sans ces deux réglages (ancien fichier d'override), un simple `docker compose up -d --build` démarrerait aussi la pile de développement (qui prend le port 41481) et ne téléchargerait pas la nouvelle image : il fallait alors nommer les services, `docker compose pull alanbix searxng && docker compose up -d alanbix searxng`.
 
 ---
 
@@ -105,7 +105,7 @@ Pour qu'Unraid affiche correctement ton application avec la belle interface, nou
 
 Le modèle ne vit pas dans ce dépôt mais dans le dépôt dédié **[Aschefr/unraid-templates](https://github.com/Aschefr/unraid-templates)**, fichier **`alanbix.xml`** : c'est ce dépôt que le store Community Applications (CA) lit, avec `ca_profile.xml` pour le profil de l'auteur.
 
-- Il contient la configuration officielle : image `aschefr/alanbix`, icône servie depuis ce dépôt GitHub (`frontend/static/favicon.png` sur `master`), port WebUI `41481`, dossier `appdata` monté sur `/app/data`.
+- Il contient la configuration officielle : image `aschefr/alanbix`, icône servie depuis ce dépôt GitHub (`frontend/static/favicon.png` sur `master`), port WebUI `41481`, dossier `appdata` monté sur `/app/data`, et depuis la 1.37 `PUID=99` / `PGID=100` (le compte habituel d'Unraid ; l'image ne tourne plus en root).
 - Tant que l'icône reste présente sur `master`, Unraid l'affichera correctement.
 - À mettre à jour seulement si le port, les volumes, les variables d'environnement ou l'icône changent ; une nouvelle version de l'image ne demande aucune modification du modèle.
 - Pour un test local hors store, le XML s'importe dans `/boot/config/plugins/dockerMan/templates-user/`.

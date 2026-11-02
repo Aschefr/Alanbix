@@ -1,16 +1,17 @@
 # Example of a local production setup (copy to docker-compose.override.yml, which git ignores).
 #
 # docker-compose.yml is the DEVELOPMENT stack (Vite + backend with auto-reload). This override adds
-# the published production image next to it, with your own settings. Start ONLY the production
-# services, otherwise the development stack starts too and takes port 41481:
+# the published production image next to it, with your own settings, and keeps the development
+# services off (profile "dev"), so a plain "up" only starts production. "pull_policy: always"
+# makes every "up" download the latest published version. Updating is then:
 #
-#   docker compose down && git pull && docker compose pull alanbix searxng && docker compose up -d alanbix searxng
+#   docker compose down && git pull && docker compose up -d
 #
-# Never use "docker compose up -d --build" on a production server: it starts the development stack
-# and does not download the new image.
+# (The development stack can still be started on purpose with: docker compose --profile dev up -d)
 services:
   alanbix:
     image: aschefr/alanbix:latest
+    pull_policy: always   # every "up" fetches the latest published version
     container_name: alanbix
     restart: unless-stopped
     ports:
@@ -33,3 +34,9 @@ services:
       - ./searxng:/etc/searxng
     ports:
       - "127.0.0.1:8888:8080"
+
+  # Development stack from docker-compose.yml: never started on a production server
+  backend:
+    profiles: ["dev"]
+  frontend:
+    profiles: ["dev"]

@@ -8,6 +8,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from . import models, database
+from .clock import utcnow
 
 # Config
 def _load_or_create_secret_key() -> str:
@@ -59,9 +60,9 @@ def get_password_hash(password):
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+        expire = utcnow() + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(minutes=15)
+        expire = utcnow() + timedelta(minutes=15)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
@@ -79,7 +80,7 @@ async def get_current_user(db: Session = Depends(database.get_db), token: str = 
         user = db.query(models.User).filter(models.User.id == device.user_id).first()
         if user is None:
             raise credentials_exception
-        device.last_seen = datetime.utcnow()
+        device.last_seen = utcnow()
         db.commit()
         return user
 
@@ -96,7 +97,7 @@ async def get_current_user(db: Session = Depends(database.get_db), token: str = 
     
     # Track online presence in memory (zero SQLite write lock latency)
     from .database import ACTIVE_USERS
-    ACTIVE_USERS[user.id] = datetime.utcnow()
+    ACTIVE_USERS[user.id] = utcnow()
             
     return user
 
@@ -131,7 +132,7 @@ def get_user_id_from_token(token: str, db: Optional[Session] = None) -> Optional
             if db is not None:
                 device = db.query(models.Device).filter(models.Device.token == token).first()
                 if device:
-                    device.last_seen = datetime.utcnow()
+                    device.last_seen = utcnow()
                     db.commit()
                     return device.user_id
                 return None
@@ -139,7 +140,7 @@ def get_user_id_from_token(token: str, db: Optional[Session] = None) -> Optional
             with SessionLocal() as session:
                 device = session.query(models.Device).filter(models.Device.token == token).first()
                 if device:
-                    device.last_seen = datetime.utcnow()
+                    device.last_seen = utcnow()
                     session.commit()
                     return device.user_id
                 return None

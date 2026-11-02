@@ -1933,5 +1933,10 @@
   "map_clear_confirm": "¿Borrar todo el plano?",
   "map_clear_yes": "Borrar",
   "map_clear_done": "Plano vaciado. Guarde para confirmar, o Ctrl+Z para deshacer.",
-  "admin_settings_purge_room_btn": "Eliminar el plano"
+  "admin_settings_purge_room_btn": "Eliminar el plano",
+  "login_error_invalid": "Contraseña incorrecta.",
+  "login_error_too_many": "Demasiados intentos. Vuelva a intentarlo en {minutes} min.",
+  "chat_alanbix_busy": "Alanbix acaba de ser llamado. Vuelva a intentarlo en {seconds} s.",
+  "chat_alanbix_disabled": "Las respuestas de Alanbix están desactivadas por los organizadores.",
+  "chat_alanbix_unavailable": "Alanbix no pudo responder: la IA no está disponible. Vuelva a intentarlo más tarde o avise a un organizador."
 }

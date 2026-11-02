@@ -217,3 +217,58 @@ async def test_chat_streaming_openai():
                 tokens.append(chunk["text"])
         
         assert "".join(tokens) == "Hello world"
+
+
+@pytest.mark.asyncio
+async def test_chat_streaming_openai_runs_a_tool_sent_in_pieces():
+    """OpenAI-compatible services stream a tool call in pieces: they are put back together, the tool
+    runs with its arguments, and its result goes back with the call's id."""
+    def sse(delta, finish=None):
+        return "data: " + json.dumps({"choices": [{"delta": delta, "finish_reason": finish}]}) + "\n"
+    rounds = [
+        [
+            sse({"tool_calls": [{"index": 0, "id": "call_7", "type": "function", "function": {"name": "get_player_seat", "arguments": ""}}]}),
+            sse({"tool_calls": [{"index": 0, "function": {"arguments": '{"username": '}}]}),
+            sse({"tool_calls": [{"index": 0, "function": {"arguments": '"Obelix"}'}}]}, "tool_calls"),
+            "data: [DONE]\n",
+        ],
+        [sse({"content": "Table 4, place 7."}, "stop"), "data: [DONE]\n"],
+    ]
+    bodies = []
+
+    class Client:
+        def stream(self, method, url, json=None, **kwargs):
+            bodies.append(json)
+            res = MagicMock()
+            res.status_code = 200
+            lines = rounds[len(bodies) - 1]
+            async def aiter_lines():
+                for line in lines:
+                    yield line
+            res.aiter_lines = aiter_lines
+            return AsyncContextManagerMock(res)
+        async def aclose(self):
+            pass
+
+    qm = IAQueueManager()
+    entry = QueueEntry(priority=10, created_at=0.0, user_id=1, username="player1", task_type="chat", payload={
+        "ollama_host": "http://instance-openai/v1",
+        "conversation_id": 1,
+        "req_data": {"model": "m", "messages": [{"role": "user", "content": "Où est Obelix ?"}], "stream": True,
+                     "tools": [{"type": "function", "function": {"name": "get_player_seat", "parameters": {}}}]},
+    })
+    with patch("app.ia_queue.ia_client", return_value=Client()), \
+         patch("app.ia_tools.execute_tool", AsyncMock(return_value='{"seat": "Table 4, place 7"}')) as run:
+        await qm._process_chat(entry, entry.payload)
+
+    run.assert_awaited_once()
+    assert run.call_args.args[:2] == ("get_player_seat", {"username": "Obelix"})
+    sent = bodies[1]["messages"]
+    assert sent[-2]["tool_calls"][0]["id"] == "call_7"
+    assert sent[-1]["role"] == "tool" and sent[-1]["tool_call_id"] == "call_7"
+    text = []
+    while not entry.result_stream.empty():
+        chunk = await entry.result_stream.get()
+        if "text" in chunk:
+            text.append(chunk["text"])
+    assert "".join(text) == "Table 4, place 7."

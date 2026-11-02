@@ -37,7 +37,13 @@ Les discussions directes et de groupes bénéficient de toute la richesse du cha
 ### 3. Chat Public de la Salle & Mascotte IA (Dashboard)
 Le Dashboard principal intègre un espace de discussion public accessible à l'ensemble des joueurs et organisateurs de la LAN :
 * **Interactions avec la Salle & la Carte** : Lorsqu'un joueur assis dans la salle envoie un message, son siège sur le plan interactif s'illumine et une bulle de chat s'élève vers le panneau de discussion.
-* **Mascotte IA `@Alanbix`** : En mentionnant `@Alanbix`, l'assistant IA local prend part à la conversation avec son ton gamer et bienveillant (pipeline asynchrone protégé par la file d'attente IA).
+* **Mascotte IA `@Alanbix`** : En mentionnant `@Alanbix`, ou en répondant (`↩`) à l'un de ses messages, l'assistant IA prend part à la conversation avec la personnalité réglée par l'administrateur (pipeline asynchrone protégé par la file d'attente IA). Sa réponse s'affiche en réponse au message du joueur.
+  * **Il suit la conversation** : il lit les 20 derniers messages (30 dernières minutes) avec qui parle et à qui chacun répond, ainsi que les messages plus anciens auxquels la question répond. Ses propres réponses y sont marquées, pour qu'il ne se répète pas.
+  * **Il connaît le joueur qui l'interpelle** : équipe, place et prochains matchs, même avec un petit modèle sans outils (« quel match je dois jouer ? »).
+  * **Il consulte les données en direct** : tournois, matchs, arbres, classements, équipes, places, jeux et règles, fichiers et infos de l'événement, avec des outils en lecture seule. Le mode d'appel d'outils des réglages IA s'applique (désactivé = pas d'outils). La base de connaissances sert aussi.
+  * **Rien de privé ni d'action** : la réponse étant lue par toute la salle, il ne lit pas les notifications d'un joueur, ne prévient pas d'administrateur, n'envoie ni notification ni annonce et ne bloque personne. Pour cela, il renvoie vers l'Assistant IA privé.
+  * **Jamais de silence** : quand il ne répond pas, le joueur qui l'a appelé voit pourquoi, dans une ligne sous les messages visible de lui seul : il vient d'être appelé (avec le nombre de secondes à attendre), ses réponses sont désactivées par les organisateurs, ou l'IA est indisponible.
+* **Mise en forme** : `**gras**`, `*italique*`, `` `code` `` et les lignes commençant par `*` ou `-` (affichées en puces) sont mis en forme, dans les réponses d'Alanbix comme dans les messages des joueurs. Aucun code HTML n'est interprété.
 * **Indicateur de Saisie Temps Réel (Typing Indicator)** :
   * Détecte instantanément quand un ou plusieurs joueurs tapent au clavier, ainsi que lorsque la mascotte `@Alanbix` prépare sa réponse.
   * Regroupe les rédacteurs dans une phrase unifiée au format `"Untel, untel, Alanbix …"` accompagnée de punchlines humoristiques tournantes adaptées en singulier et pluriel (ex. *"distille un chef-d'œuvre"*, *"font chauffer leurs claviers mécaniques"*).
