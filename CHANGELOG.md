@@ -21,6 +21,8 @@
 - **Element icons on every map**: the dashboard, projector and welcome maps printed the icon's name ("server", "door") for elements added with a recent editor; they now draw the same line icons as the editor.
 
 ### 🤖 Private AI assistant
+- **A more natural tone**: the default personality made Alanbix a "mascot" asked to tease, crack jokes and drop Asterix references, which a small model did in every answer. It is now a player giving a hand: simple, direct, relaxed, usually one to three sentences, jokes only when the player jokes, no greeting or follow-up question by habit, serious when something is wrong (fr, en, es). LANs that kept the old default text get the new one; a personality written by the organizers is kept. `@Alanbix` in the public chat follows it too.
+- **It checks before talking about the LAN**: a fixed rule now says matches, scores, rankings, seats and room map elements change all the time, so the assistant always looks them up before answering, even when it thinks it knows (it could otherwise make up a match or a place).
 - **It acts before it explains**: asked for an administrator, the assistant could first write made-up steps ("open the menu, find the Contact button…") and only then alert the admin itself, leaving both on screen. A new fixed rule tells it to do what it can do itself first (alert an admin, notify a player, look up data), without writing anything before, then answer from the result, and never to explain how to do it by hand.
 
 ### 🐛 Fixed
