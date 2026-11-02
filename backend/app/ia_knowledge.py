@@ -12,7 +12,7 @@ import re
 import time
 import unicodedata
 
-from . import ia_utils
+from . import ia_builtin_embed, ia_utils
 
 TOP_K = 3
 RRF_K = 60                  # standard Reciprocal Rank Fusion constant
@@ -133,7 +133,8 @@ async def search_knowledge(db, models, query: str, host: str, ia_cfg: dict, game
     if vector:
         model = current_model()
         candidates = [d for d in docs if _comparable(d, model, len(vector))]
-        min_score = float(ia_cfg.get("rag_min_score", 0.65))
+        # A similarity threshold only means something for one model: the built-in one has its own
+        min_score = ia_builtin_embed.MIN_SCORE if model == ia_builtin_embed.NAME else float(ia_cfg.get("rag_min_score", 0.65))
         rankings.append([doc for doc, score in ia_utils.search_similar(vector, candidates, top_k=len(candidates)) if score >= min_score])
 
     fused = {}
@@ -144,14 +145,26 @@ async def search_knowledge(db, models, query: str, host: str, ia_cfg: dict, game
     return [doc for _, doc in best[:TOP_K]]
 
 
-def knowledge_prompt(docs: list) -> str:
-    return "=== Base de Connaissances ===\n" + "\n".join(d.content for d in docs) if docs else ""
+# What the model is told about the entries: without it, a small model paraphrases them, drops the
+# phone number that was the whole answer, or claims it has already acted
+KNOWLEDGE_INTRO = {
+    "fr": "=== BASE DE CONNAISSANCES ===\nFiches écrites par les organisateurs de la LAN, peut-être liées à la question. Si l'une y répond, donne sa réponse précisément (numéro, nom, consigne), dans la langue du joueur, sans rien inventer autour. Ignore celles qui n'ont pas de rapport. Une fiche ne te dit pas que quelque chose a été fait.",
+    "en": "=== KNOWLEDGE BASE ===\nEntries written by the LAN organizers, possibly related to the question. If one answers it, give its answer precisely (number, name, instruction), in the player's language, inventing nothing around it. Ignore the unrelated ones. An entry does not tell you that something has been done.",
+    "es": "=== BASE DE CONOCIMIENTOS ===\nFichas escritas por los organizadores de la LAN, quizá relacionadas con la pregunta. Si una responde, da su respuesta con precisión (número, nombre, instrucción), en el idioma del jugador, sin inventar nada alrededor. Ignora las que no tengan relación. Una ficha no te dice que algo se haya hecho.",
+}
+
+
+def knowledge_prompt(docs: list, lang: str = "fr") -> str:
+    if not docs:
+        return ""
+    intro = KNOWLEDGE_INTRO.get((lang or "").lower()[:2], KNOWLEDGE_INTRO["en"])
+    return intro + "\n" + "\n---\n".join(d.content for d in docs)
 
 
 async def status(db, models, host: str, ia_cfg: dict) -> dict:
     """What the admin sees: is the meaning search working, with which model, and what to re-index."""
     model = current_model()
-    vector = await embed("test", host, force=True) if host else None
+    vector = await embed("test", host, force=True) if (host or model == ia_builtin_embed.NAME) else None
     docs = db.query(models.KnowledgeBase).all()
     if vector:
         indexed = sum(1 for d in docs if _comparable(d, model, len(vector)))
@@ -163,7 +176,23 @@ async def status(db, models, host: str, ia_cfg: dict) -> dict:
         "semantic": "ok" if vector else "unavailable",
         "model": model,
         "error": None if vector else (ia_utils.LAST_EMBED_ERROR or "no AI instance"),
+        "builtin": model == ia_builtin_embed.NAME,
+        "builtin_install": ia_builtin_embed.install_state(),
         "entries": len(docs),
         "indexed": indexed,
         "to_index": len(docs) - indexed,
     }
+
+
+async def reindex_all(db, models, host: str) -> dict:
+    """Re-compute every entry's embedding with the current model (after a model change)."""
+    docs = db.query(models.KnowledgeBase).all()
+    done = 0
+    for doc in docs:
+        await index_entry(doc, host)
+        if doc.embedding_json:
+            done += 1
+        elif done == 0:
+            break  # the model does not answer: no use trying every entry
+    db.commit()
+    return {"indexed": done, "total": len(docs)}

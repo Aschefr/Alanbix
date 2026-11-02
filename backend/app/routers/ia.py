@@ -14,7 +14,8 @@ from typing import List, Optional
 from pydantic import BaseModel
 from ..websockets import manager as ws_manager
 from .. import models, schemas, auth, database
-from ..ia_knowledge import search_knowledge, index_entry, status as knowledge_status
+from .. import ia_builtin_embed
+from ..ia_knowledge import search_knowledge, knowledge_prompt, index_entry, reindex_all, status as knowledge_status
 from ..ia_utils import ia_client, register_instance_keys
 from starlette.requests import Request as StarletteRequest
 from ..ia_compression import run_truncation, run_compaction, run_summary
@@ -809,7 +810,7 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
     
     # 1. RAG: keywords + meaning (ia_knowledge); keywords alone when no embedding model answers
     # The previous player message joins the query so a follow-up ("and how do I do that?") still finds its topic
-    rag_context = ""
+    knowledge_docs = []
     if ia_cfg.get("rag_enabled", True):
         prev_user = db.query(models.ChatMessage).filter(
             models.ChatMessage.conversation_id == request.conversation_id,
@@ -818,8 +819,7 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
         query_text = request.prompt
         if prev_user and not request.skip_save_user and prev_user.content != request.prompt:
             query_text = f"{prev_user.content[:300]}\n{request.prompt}"
-        found = await search_knowledge(db, models, query_text, ollama_host, ia_cfg, game_id=request.game_id)
-        rag_context = "\n".join(doc.content for doc in found)
+        knowledge_docs = await search_knowledge(db, models, query_text, ollama_host, ia_cfg, game_id=request.game_id)
 
     # 2. History
     history_query = db.query(models.ChatMessage).filter(models.ChatMessage.conversation_id == request.conversation_id)
@@ -895,8 +895,8 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
         print(f"[Error checking cooldown context] {e}")
     if conv.compressed_context:
         system_parts.append(f"=== Contexte Compressé ===\n{conv.compressed_context}")
-    if rag_context:
-        system_parts.append(f"=== Base de Connaissances ===\n{rag_context}")
+    if knowledge_docs:
+        system_parts.append(knowledge_prompt(knowledge_docs, prompt_lang))
         
     from ..ia_prompt import language_block, LANG_NAMES
     system_parts.append(language_block(prompt_lang))
@@ -1345,19 +1345,35 @@ async def get_knowledge_status(db: Session = Depends(database.get_db), admin: mo
 async def reindex_knowledge(db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):
     """Re-compute every entry's embedding with the current model (after a model change)."""
     instance = await pick_instance(db)
-    if not instance:
+    if not instance and not ia_builtin_embed.is_installed():
         raise HTTPException(503, "Aucune instance IA configurée")
-    docs = db.query(models.KnowledgeBase).all()
-    done = 0
-    for doc in docs:
-        await index_entry(doc, instance["url"])
-        if doc.embedding_json:
-            done += 1
-        elif done == 0:
-            break  # the model does not answer: no use trying every entry
-    db.commit()
+    result = await reindex_all(db, models, instance["url"] if instance else "")
     await ws_manager.broadcast({"type": "knowledge_updated"})
-    return {"indexed": done, "total": len(docs)}
+    return result
+
+@router.get("/knowledge/builtin")
+async def builtin_model_state(admin: models.User = Depends(auth.get_current_admin)):
+    """Built-in embedding model: installed or not, download progress (polled while downloading)."""
+    return ia_builtin_embed.install_state()
+
+_builtin_install_task = None  # keeps the running task alive
+
+@router.post("/knowledge/builtin/install")
+async def install_builtin_model(admin: models.User = Depends(auth.get_current_admin)):
+    """Download the built-in embedding model in the background, then index the entries with it."""
+    global _builtin_install_task
+
+    async def run():
+        if not await ia_builtin_embed.install():
+            return
+        with database.SessionLocal() as db:
+            await reindex_all(db, models, "")
+        await ws_manager.broadcast({"type": "knowledge_updated"})
+
+    state = ia_builtin_embed.install_state()
+    if not state["installed"] and not state["downloading"]:
+        _builtin_install_task = asyncio.create_task(run())
+    return ia_builtin_embed.install_state()
 
 @router.delete("/knowledge/{doc_id}")
 async def delete_knowledge(doc_id: int, db: Session = Depends(database.get_db), admin: models.User = Depends(auth.get_current_admin)):

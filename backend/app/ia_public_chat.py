@@ -92,11 +92,11 @@ def public_tools(ia_cfg: dict) -> list:
     return [t for t in TOOL_DEFINITIONS if t["function"]["name"] in PUBLIC_TOOL_NAMES]
 
 
-async def knowledge_block(db, models, query: str, host: str, ia_cfg: dict) -> str:
+async def knowledge_block(db, models, query: str, host: str, ia_cfg: dict, lang: str = "fr") -> str:
     """The admin's knowledge base entries that answer the question, as for the private assistant."""
     from .ia_knowledge import search_knowledge, knowledge_prompt
     try:
-        return knowledge_prompt(await search_knowledge(db, models, query, host, ia_cfg))
+        return knowledge_prompt(await search_knowledge(db, models, query, host, ia_cfg), lang)
     except Exception as e:
         print(f"[Public Chat AI] Knowledge base lookup failed: {e}")
         return ""
