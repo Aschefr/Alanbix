@@ -26,7 +26,7 @@ Depuis la reprise du 29 octobre 2026 :
 ## Priorité 1 — Sécurité et filet de sécurité
 
 - [x] **Limiter les essais de mot de passe.** Après 5 erreurs sur un compte (ou 20 sur plusieurs comptes) depuis la même adresse en 15 minutes, cette adresse attend 5 minutes.
-- [ ] **Faire tourner les tests sur GitHub.** Les tests automatiques sur GitHub vérifient les traductions mais pas les 241 tests, si bien qu'une régression peut passer inaperçue.
+- [x] **Faire tourner les tests sur GitHub.** Tous les tests tournent maintenant à chaque envoi sur `dev`, `master` ou `main` (`.github/workflows/tests.yml`).
 
 ## Priorité 2 — Image Docker
 
