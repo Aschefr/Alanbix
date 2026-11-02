@@ -31,8 +31,8 @@ Depuis la reprise du 29 octobre 2026 :
 ## Priorité 2 — Image Docker
 
 - [ ] Faire tourner l'app sans les droits administrateur (root).
-- [ ] Ajouter une vérification de santé, pour que Docker sache tout seul si l'app répond.
-- [ ] Retirer de l'image finale les outils de compilation, qui l'alourdissent inutilement.
+- [x] Ajouter une vérification de santé, pour que Docker sache tout seul si l'app répond.
+- [x] Retirer de l'image finale les outils de compilation : l'image installée passe de 641 à 315 Mo.
 
 ## Priorité 3 — @Alanbix
 
