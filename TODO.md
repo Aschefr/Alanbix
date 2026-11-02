@@ -53,6 +53,6 @@ Depuis la reprise du 29 octobre 2026 :
 - [ ] Découper petit à petit les fichiers trop gros, chaque fois qu'on y touche :
   - `PublicChat.svelte` et `routers/tournaments.py` font environ 3 000 lignes chacun ;
   - le tableau de bord, la page IA, les réglages admin et `ia_tools.py` en font plus de 2 000.
-- [ ] Remplacer `datetime.utcnow()`, qui disparaîtra d'une future version de Python (12 endroits).
-- [ ] Chercher pourquoi les tests signalent une tâche `Event.wait` lancée sans attendre sa fin.
+- [x] `datetime.utcnow()`, qui disparaîtra d'une future version de Python, est remplacé partout (47 endroits) par `app/clock.py`.
+- [x] L'avertissement `Event.wait` venait d'un test qui remplaçait `asyncio.wait_for` sans fermer la tâche : corrigé. Les tests tournent sans aucun avertissement.
 - [ ] Passer à Svelte 5. Ce chantier a été reporté volontairement et peut attendre.

@@ -8,6 +8,7 @@ import datetime
 import difflib
 from typing import Any, Dict, Optional
 from .visibility import visible_tournaments
+from .clock import utcnow
 
 
 def _find_best_match(query: str, possibilities: list[str], cutoff: float = 0.55) -> Optional[str]:
@@ -2138,7 +2139,7 @@ async def _tool_call_admin(db, models, args: dict, user_id: int, conversation_id
     daily_limit = int(ia_cfg.get("call_admin_daily_limit", 3))
     global_hourly_limit = int(ia_cfg.get("call_admin_global_hourly_limit", 15))
 
-    now = dt.datetime.utcnow()
+    now = utcnow()
 
     # Anti-spam: cooldown par utilisateur
     cutoff_cooldown = now - dt.timedelta(minutes=cooldown_min)

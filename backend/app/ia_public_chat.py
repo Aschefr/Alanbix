@@ -7,6 +7,7 @@ player's matches so even a small model without tools can answer "which match do 
 import json
 
 from .ia_prompt import _lang, app_guide_block, language_block, live_context_block
+from .clock import utcnow
 
 PUBLIC_RULES = {
     "fr": (
@@ -167,7 +168,7 @@ def build_thread_message(db, models, trigger, lang: str) -> str:
     import datetime as dt
     L = THREAD[_lang(lang)]
     Msg = models.PublicChatMessage
-    since = (trigger.created_at or dt.datetime.utcnow()) - dt.timedelta(minutes=HISTORY_MINUTES)
+    since = (trigger.created_at or utcnow()) - dt.timedelta(minutes=HISTORY_MINUTES)
     recent = (
         db.query(Msg)
         .filter(Msg.is_deleted == False, Msg.id < trigger.id, Msg.created_at >= since)

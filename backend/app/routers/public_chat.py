@@ -17,6 +17,7 @@ from sqlalchemy import func
 
 from .. import models, schemas, auth, database
 from ..websockets import manager as ws_manager
+from ..clock import utcnow
 manager = ws_manager
 
 router = APIRouter(prefix="/public-chat", tags=["Public Chat"])
@@ -146,7 +147,7 @@ def serialize_message(msg: models.PublicChatMessage) -> dict:
         "reactions": msg.reactions or {},
         "reply_to_id": msg.reply_to_id,
         "reply_to": reply_to_data,
-        "created_at": msg.created_at.isoformat() if msg.created_at else datetime.datetime.utcnow().isoformat(),
+        "created_at": msg.created_at.isoformat() if msg.created_at else utcnow().isoformat(),
         "username": user.username if user else (msg.sender_name or ("Alanbix" if msg.is_bot else None)),
         "avatar_url": user.avatar_url if user else ("/favicon.svg" if msg.is_bot else None),
         "avatar_shape": user.avatar_shape if user else "circle",
@@ -255,8 +256,8 @@ async def send_message(
 
     # 2. Check Mute
     if user.public_chat_muted_until:
-        if user.public_chat_muted_until > datetime.datetime.utcnow():
-            remaining = int((user.public_chat_muted_until - datetime.datetime.utcnow()).total_seconds())
+        if user.public_chat_muted_until > utcnow():
+            remaining = int((user.public_chat_muted_until - utcnow()).total_seconds())
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Vous êtes temporairement exclu du chat public ({remaining}s restantes)."
@@ -363,7 +364,7 @@ async def send_message(
         reactions={},
         is_bot=False,
         is_deleted=False,
-        created_at=datetime.datetime.utcnow()
+        created_at=utcnow()
     )
     db.add(db_msg)
     db.commit()
@@ -390,7 +391,7 @@ async def send_message(
                 "body": (content or ("📷 Image" if image_path else ""))[:100],
                 "link": "/dashboard",
                 "data": {"message_id": db_msg.id, "sender_id": user.id},
-                "created_at": db_msg.created_at.isoformat() if db_msg.created_at else datetime.datetime.utcnow().isoformat()
+                "created_at": db_msg.created_at.isoformat() if db_msg.created_at else utcnow().isoformat()
             })
 
     # Clear sender's typing state
@@ -514,7 +515,7 @@ async def _process_alanbix_public_reply(trigger_msg_id: int, author_id: int):
                         # Shown as an answer to the player's message, so everyone sees whom Alanbix answers
                         reply_to_id=trigger.id,
                         is_deleted=False,
-                        created_at=datetime.datetime.utcnow()
+                        created_at=utcnow()
                     )
                     db.add(bot_msg)
                     db.commit()
@@ -553,7 +554,7 @@ async def upload_image(
 ):
     """Upload an image or GIF for public chat (max 8MB)."""
     # Check mute
-    if user.public_chat_muted_until and user.public_chat_muted_until > datetime.datetime.utcnow():
+    if user.public_chat_muted_until and user.public_chat_muted_until > utcnow():
         raise HTTPException(status_code=403, detail="Vous êtes exclu du chat public.")
 
     allowed_exts = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
@@ -668,7 +669,7 @@ async def pin_message(
         if not msg:
             raise HTTPException(status_code=404, detail="Message non trouvé.")
         
-        now_iso = datetime.datetime.utcnow().isoformat()
+        now_iso = utcnow().isoformat()
         pinned_val = {
             "message_id": msg.id,
             "pinned_by": admin.username,
@@ -770,7 +771,7 @@ async def mute_user(
     if duration_minutes is None or duration_minutes <= 0:
         target.public_chat_muted_until = None
     else:
-        target.public_chat_muted_until = datetime.datetime.utcnow() + datetime.timedelta(minutes=duration_minutes)
+        target.public_chat_muted_until = utcnow() + datetime.timedelta(minutes=duration_minutes)
 
     db.commit()
     await ws_manager.broadcast({"type": "users_updated"})

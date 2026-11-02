@@ -2,6 +2,7 @@ from sqlalchemy import Column, Integer, Float, String, Boolean, ForeignKey, Date
 from sqlalchemy.orm import relationship
 from .database import Base
 import datetime
+from .clock import utcnow
 
 class User(Base):
     __tablename__ = "users"
@@ -28,7 +29,7 @@ class User(Base):
         if not last_active:
             return False
         import datetime
-        return (datetime.datetime.utcnow() - last_active).total_seconds() < 120
+        return (utcnow() - last_active).total_seconds() < 120
     
     tournaments = relationship("TournamentParticipant", back_populates="user")
 
@@ -116,7 +117,7 @@ class MatchReport(Base):
     match_m = Column(Integer) # Match index
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
     score = Column(JSON) # [score_p1, score_p2]
-    timestamp = Column(DateTime, default=datetime.datetime.utcnow)
+    timestamp = Column(DateTime, default=utcnow)
 
 class Conflict(Base):
     __tablename__ = "conflicts"
@@ -149,7 +150,7 @@ class Conversation(Base):
     player_last_read_message_id = Column(Integer, default=0)
     title_generation_attempted = Column(Boolean, default=False, server_default="0")
 
-    created_at = Column(DateTime, default=datetime.datetime.utcnow, index=True)
+    created_at = Column(DateTime, default=utcnow, index=True)
     
     messages = relationship("ChatMessage", back_populates="conversation", cascade="all, delete-orphan")
 
@@ -160,7 +161,7 @@ class ChatMessage(Base):
     role = Column(String) # user, bot
     content = Column(Text)
     image_path = Column(String, nullable=True)  # Relative path to attached image
-    timestamp = Column(DateTime, default=datetime.datetime.utcnow, index=True)
+    timestamp = Column(DateTime, default=utcnow, index=True)
     meta = Column(JSON, nullable=True)
     
     conversation = relationship("Conversation", back_populates="messages")
@@ -177,7 +178,7 @@ class Notification(Base):
     is_read = Column(Boolean, default=False, index=True)
     # Archived: hidden from the notification list without being deleted (deleted from the archive view)
     is_archived = Column(Boolean, default=False, index=True)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow, index=True)
+    created_at = Column(DateTime, default=utcnow, index=True)
     metadata_json = Column(JSON, nullable=True)  # tournament_id, conversation_id, etc.
 
 
@@ -191,8 +192,8 @@ class Device(Base):
     name = Column(String, nullable=True)  # "Pixel 8", "iPhone 13"
     push_token = Column(String, nullable=True)  # Pour relais FCM / APNs futur
     device_key = Column(String, nullable=True)  # Clé de chiffrement client
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
-    last_seen = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
+    last_seen = Column(DateTime, default=utcnow)
 
     user = relationship("User", backref="devices")
 
@@ -207,7 +208,7 @@ class PrivateMessage(Base):
     reactions = Column(JSON, nullable=True, default=dict)
     reply_to_id = Column(Integer, ForeignKey("private_messages.id", ondelete="SET NULL"), nullable=True, index=True)
     is_read = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow, index=True)
+    created_at = Column(DateTime, default=utcnow, index=True)
 
     sender = relationship("User", foreign_keys=[sender_id], backref="sent_private_messages")
     receiver = relationship("User", foreign_keys=[receiver_id], backref="received_private_messages")
@@ -220,7 +221,7 @@ class GroupChannel(Base):
     channel_key = Column(String, unique=True, index=True)  # "team:Alpha Wolves" ou "inter:Alpha Wolves|Neon Vipers"
     channel_type = Column(String)  # "team" ou "inter"
     team_names = Column(JSON)  # ["Alpha Wolves"] ou ["Alpha Wolves", "Neon Vipers"]
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
 
     messages = relationship("GroupMessage", back_populates="channel", cascade="all, delete-orphan")
 
@@ -235,7 +236,7 @@ class GroupMessage(Base):
     link_preview = Column(JSON, nullable=True)
     reactions = Column(JSON, nullable=True, default=dict)
     reply_to_id = Column(Integer, ForeignKey("group_messages.id", ondelete="SET NULL"), nullable=True, index=True)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow, index=True)
+    created_at = Column(DateTime, default=utcnow, index=True)
 
     channel = relationship("GroupChannel", back_populates="messages")
     sender = relationship("User", foreign_keys=[sender_id])
@@ -257,7 +258,7 @@ class Award(Base):
     award_key = Column(String, nullable=True)
     title = Column(String, nullable=False)
     description = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
 
     user = relationship("User", backref="awards")
 
@@ -271,7 +272,7 @@ class AdminCallRequest(Base):
     question         = Column(Text)           # Reformulation structurée de la demande non résolue
     source           = Column(String, default="manual")  # "manual" | "ia"
     status           = Column(String, default="pending", index=True)  # pending / resolved / dismissed
-    created_at       = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at       = Column(DateTime, default=utcnow)
     resolved_at      = Column(DateTime, nullable=True)
     resolved_by      = Column(Integer, ForeignKey("users.id"), nullable=True)
     resolution_note  = Column(Text, nullable=True)
@@ -287,7 +288,7 @@ class RagSuggestion(Base):
     category         = Column(String, nullable=True)  # technique / règles / logistique / autre
     similarity_hash  = Column(String, nullable=True, index=True)  # MD5 normalisé pour dédoublonnage
     status           = Column(String, default="pending", index=True)  # pending / approved / rejected
-    created_at       = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at       = Column(DateTime, default=utcnow)
     approved_at      = Column(DateTime, nullable=True)
     approved_by      = Column(Integer, ForeignKey("users.id"), nullable=True)
     approved_content = Column(Text, nullable=True)   # Réponse admin avant injection RAG
@@ -306,7 +307,7 @@ class PublicChatMessage(Base):
     is_deleted       = Column(Boolean, default=False, index=True) # Soft delete pour modération
     reactions        = Column(JSON, nullable=True, default=dict) # {"🔥": [user_id_1, user_id_2]}
     reply_to_id      = Column(Integer, ForeignKey("public_chat_messages.id", ondelete="SET NULL"), nullable=True, index=True)
-    created_at       = Column(DateTime, default=datetime.datetime.utcnow, index=True)
+    created_at       = Column(DateTime, default=utcnow, index=True)
 
     user             = relationship("User", backref="public_chat_messages")
     reply_to         = relationship("PublicChatMessage", remote_side=[id], foreign_keys=[reply_to_id], backref="replies")

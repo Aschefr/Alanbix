@@ -7,6 +7,7 @@ import pytest
 
 from app import models
 from app.ia_public_chat import asker_matches_block, build_public_system_prompt
+from app.clock import utcnow
 
 
 def test_public_prompt_has_public_rules_and_asker_card(db_session):
@@ -68,7 +69,7 @@ def _msg(db, user=None, content="", minutes_ago=0, is_bot=False, reply_to=None, 
     m = models.PublicChatMessage(
         user_id=user.id if user else None, sender_name="Alanbix" if is_bot else None, is_bot=is_bot,
         content=content, reply_to_id=reply_to.id if reply_to else None, is_deleted=deleted,
-        created_at=dt.datetime.utcnow() - dt.timedelta(minutes=minutes_ago),
+        created_at=utcnow() - dt.timedelta(minutes=minutes_ago),
     )
     db.add(m)
     db.commit()

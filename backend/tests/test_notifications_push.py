@@ -6,6 +6,7 @@ from app.main import app
 from app import models, database, auth
 from app.websockets import manager as ws_manager
 from app.routers.notifications import notify_user
+from app.clock import utcnow
 
 
 @pytest.fixture
@@ -104,7 +105,7 @@ async def test_get_missed_events(db_session, client):
     admin_user = db_session.query(models.User).filter(models.User.username == "admin").first()
     player1 = db_session.query(models.User).filter(models.User.username == "Player1").first()
 
-    now = datetime.datetime.utcnow()
+    now = utcnow()
     past = now - datetime.timedelta(minutes=10)
 
     # 1. Add a notification for admin

@@ -37,7 +37,11 @@ async def test_network_diagnostics_client_timeout():
     async def dummy_on_client_call(name, args, call_id):
         pass
 
-    with patch("asyncio.wait_for", side_effect=asyncio.TimeoutError):
+    async def times_out(awaitable, timeout=None):
+        awaitable.close()  # the tool's event.wait() coroutine, never awaited here
+        raise asyncio.TimeoutError
+
+    with patch("asyncio.wait_for", side_effect=times_out):
         res = await execute_tool("ping_host", {"host": "192.168.30.100"}, on_client_call=dummy_on_client_call)
         data = json.loads(res)
         assert "error" in data

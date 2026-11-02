@@ -5,6 +5,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from .. import models, auth, database
 from ..websockets import manager as ws_manager
+from ..clock import utcnow
 
 router = APIRouter(prefix="/notifications", tags=["Notifications"])
 
@@ -27,7 +28,7 @@ async def notify_user(
         content=body,
         link=link,
         metadata_json=data or {},
-        created_at=datetime.utcnow()
+        created_at=utcnow()
     )
     db.add(notif)
     db.commit()
@@ -43,7 +44,7 @@ async def notify_user(
         "body": body,
         "link": link or "/dashboard/notifications",
         "data": data or {},
-        "created_at": notif.created_at.isoformat() if notif.created_at else datetime.utcnow().isoformat()
+        "created_at": notif.created_at.isoformat() if notif.created_at else utcnow().isoformat()
     }
     await ws_manager.send_to_user(user_id, push_event)
 
@@ -111,7 +112,7 @@ async def get_missed_events(
 
     if not since_dt:
         # Default: last 24 hours
-        since_dt = datetime.utcnow() - timedelta(hours=24)
+        since_dt = utcnow() - timedelta(hours=24)
 
     # 1. System notifications
     notifs = db.query(models.Notification).filter(
