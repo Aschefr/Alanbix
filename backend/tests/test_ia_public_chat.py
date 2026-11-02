@@ -110,6 +110,48 @@ def test_answering_an_alanbix_message_calls_alanbix(client, db_session):
     assert reply.call_args.args[0] == res.json()["id"]
 
 
+def test_busy_alanbix_tells_the_sender_when_to_retry(client):
+    import app.routers.public_chat as pc
+    pc._last_ai_reply_time = time.time() - 5
+    with patch.object(pc, "_process_alanbix_public_reply", AsyncMock()) as reply:
+        res = client.post("/public-chat/messages", json={"content": "@Alanbix t'es là ?"})
+    assert res.status_code == 200, res.text
+    reply.assert_not_called()
+    notice = res.json()["alanbix_notice"]
+    assert notice["state"] == "busy" and 1 <= notice["retry_after"] <= 10
+
+
+def test_alanbix_turned_off_tells_the_sender(client):
+    import app.routers.public_chat as pc
+    pc._last_ai_reply_time = 0
+    real_config = pc.get_public_chat_config
+    with patch.object(pc, "get_public_chat_config", side_effect=lambda db: {**real_config(db), "ai_mention_enabled": False}), \
+         patch.object(pc, "_process_alanbix_public_reply", AsyncMock()) as reply:
+        res = client.post("/public-chat/messages", json={"content": "@Alanbix coucou"})
+    reply.assert_not_called()
+    assert res.json()["alanbix_notice"] == {"state": "disabled"}
+
+
+def test_plain_message_has_no_alanbix_notice(client):
+    res = client.post("/public-chat/messages", json={"content": "Salut tout le monde"})
+    assert "alanbix_notice" not in res.json()
+
+
+@pytest.mark.asyncio
+async def test_alanbix_without_ai_instance_tells_the_asker(db_session):
+    import app.routers.public_chat as pc
+    asker = db_session.query(models.User).first()
+    trigger = _msg(db_session, asker, "@Alanbix quel match ?")
+    session = MagicMock()
+    session.__enter__.return_value = db_session
+    with patch("app.database.SessionLocal", return_value=session), \
+         patch("app.routers.ia.pick_instance", AsyncMock(return_value=None)), \
+         patch.object(pc.ws_manager, "broadcast", AsyncMock()), \
+         patch.object(pc.ws_manager, "send_to_user", AsyncMock()) as send:
+        await pc._process_alanbix_public_reply(trigger.id, asker.id)
+    send.assert_awaited_once_with(asker.id, {"type": "public_chat_alanbix_notice", "state": "unavailable"})
+
+
 def test_public_tools_only_read_public_data():
     from app.ia_public_chat import PUBLIC_TOOL_NAMES, public_tools
     from app.ia_tools import TOOL_DEFINITIONS

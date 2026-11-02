@@ -1,5 +1,6 @@
 import os
 import re
+import math
 import time
 import uuid
 import datetime
@@ -401,10 +402,16 @@ async def send_message(
         "is_typing": False
     })
 
-    # 11. Trigger AI Reply if @Alanbix mentioned, or when a player answers one of Alanbix's messages
-    if (has_alanbix or replies_to_alanbix) and config.get("ai_mention_enabled", True):
+    # 11. Trigger AI Reply if @Alanbix mentioned, or when a player answers one of Alanbix's messages.
+    # When it will not answer, the response says why, for the sender only (alanbix_notice)
+    alanbix_notice = None
+    if (has_alanbix or replies_to_alanbix) and not config.get("ai_mention_enabled", True):
+        alanbix_notice = {"state": "disabled"}
+    elif has_alanbix or replies_to_alanbix:
         ai_cd = config.get("ai_cooldown_seconds", 15)
-        if (now - _last_ai_reply_time) >= ai_cd:
+        if (now - _last_ai_reply_time) < ai_cd:
+            alanbix_notice = {"state": "busy", "retry_after": max(1, math.ceil(ai_cd - (now - _last_ai_reply_time)))}
+        else:
             _last_ai_reply_time = now
             # Immediately show Alanbix as typing
             await ws_manager.broadcast({
@@ -416,7 +423,14 @@ async def send_message(
             })
             background_tasks.add_task(_process_alanbix_public_reply, db_msg.id, user.id)
 
+    if alanbix_notice:
+        return {**serialized, "alanbix_notice": alanbix_notice}
     return serialized
+
+
+async def _tell_alanbix_unavailable(user_id: int):
+    """Alanbix was called but could not answer: tell the player who asked, not the whole room."""
+    await ws_manager.send_to_user(user_id, {"type": "public_chat_alanbix_notice", "state": "unavailable"})
 
 
 async def _process_alanbix_public_reply(trigger_msg_id: int, author_id: int):
@@ -426,6 +440,7 @@ async def _process_alanbix_public_reply(trigger_msg_id: int, author_id: int):
     from ..ia_public_chat import build_public_system_prompt, build_thread_message, knowledge_block, public_tools
     from .ia import pick_instance, get_effective_config
 
+    answered = False
     try:
         await asyncio.sleep(0.3)
 
@@ -448,6 +463,7 @@ async def _process_alanbix_public_reply(trigger_msg_id: int, author_id: int):
 
             trigger = db.query(models.PublicChatMessage).filter(models.PublicChatMessage.id == trigger_msg_id).first()
             if not trigger or trigger.is_deleted:
+                answered = True  # nothing left to answer: no notice
                 return
 
             system_prompt, lan_lang = build_public_system_prompt(db, models, author)
@@ -511,9 +527,15 @@ async def _process_alanbix_public_reply(trigger_msg_id: int, author_id: int):
                         "seat_id": None,
                         "user_id": None
                     })
+                    answered = True
             except Exception as e:
                 print(f"[Public Chat AI] Error generating reply: {e}")
+    except Exception as e:
+        print(f"[Public Chat AI] Error preparing reply: {e}")
     finally:
+        # No instance, AI error or empty answer: the player who asked is told, instead of silence
+        if not answered:
+            await _tell_alanbix_unavailable(author_id)
         # Guarantee Alanbix typing status is cleared
         await ws_manager.broadcast({
             "type": "public_chat_typing",

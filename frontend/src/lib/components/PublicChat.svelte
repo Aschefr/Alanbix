@@ -266,6 +266,8 @@
 				clearTyper(msg.message.is_bot ? 'bot_alanbix' : msg.message.user_id);
 			} else if (msg.type === 'public_chat_typing') {
 				handleTypingEvent(msg);
+			} else if (msg.type === 'public_chat_alanbix_notice') {
+				showAlanbixNotice(msg);
 			} else if (msg.type === 'public_chat_message_deleted') {
 				messages = messages.filter(m => m.id !== msg.message_id);
 				if (pinnedMessage?.message?.id === msg.message_id) {
@@ -295,6 +297,7 @@
 		if (resizeObserver) resizeObserver.disconnect();
 		if (wsUnsub) wsUnsub();
 		if (slowmodeInterval) clearInterval(slowmodeInterval);
+		if (alanbixNoticeTimer) clearTimeout(alanbixNoticeTimer);
 		if (pruneTypersInterval) clearInterval(pruneTypersInterval);
 		if (typingDebounceTimer) clearTimeout(typingDebounceTimer);
 		if (highlightTimer) clearTimeout(highlightTimer);
@@ -689,6 +692,24 @@
 		if (textareaEl) textareaEl.focus();
 	}
 
+	// Why Alanbix will not answer a mention (busy, turned off, AI unavailable): shown to the sender only
+	let alanbixNotice = null;
+	let alanbixNoticeTimer = null;
+	function showAlanbixNotice(notice) {
+		if (!notice?.state) return;
+		alanbixNotice = notice;
+		if (alanbixNoticeTimer) clearTimeout(alanbixNoticeTimer);
+		alanbixNoticeTimer = setTimeout(() => (alanbixNotice = null), 10000);
+	}
+	function dismissAlanbixNotice() {
+		alanbixNotice = null;
+		if (alanbixNoticeTimer) clearTimeout(alanbixNoticeTimer);
+	}
+	$: alanbixNoticeText = !alanbixNotice ? ''
+		: alanbixNotice.state === 'busy' ? $t('chat_alanbix_busy', { seconds: alanbixNotice.retry_after || 15 })
+		: alanbixNotice.state === 'disabled' ? $t('chat_alanbix_disabled')
+		: $t('chat_alanbix_unavailable');
+
 	function startSlowmodeCooldown(seconds) {
 		slowmodeRemaining = seconds;
 		if (slowmodeInterval) clearInterval(slowmodeInterval);
@@ -741,7 +762,9 @@
 			});
 
 			if (postedMsg && postedMsg.id) {
-				handleIncomingMessage(postedMsg);
+				const { alanbix_notice, ...message } = postedMsg;
+				handleIncomingMessage(message);
+				showAlanbixNotice(alanbix_notice);
 			}
 
 			// Apply slowmode cooldown
@@ -1143,6 +1166,7 @@
 	{/if}
 
 	<!-- Messages Scroll View -->
+	<div class="chat-scroll-area">
 	<div class="chat-scroll-container" bind:this={chatScrollEl} on:scroll={handleScroll}>
 		<div class="chat-messages-inner" bind:this={messagesListEl}>
 			{#if messages.length === 0}
@@ -1398,7 +1422,7 @@
 		</div>
 	</div>
 
-	<!-- Floating Jump to Latest Button -->
+	<!-- Floating Jump to Latest Button: pinned to the bottom of the messages, above the bars below them -->
 	{#if isScrolledUp}
 		<button class="jump-latest-pill" on:click={() => scrollToBottom(false)}>
 			<span>↓</span>
@@ -1408,6 +1432,7 @@
 			{/if}
 		</button>
 	{/if}
+	</div>
 
 	<!-- Mention Autocomplete Popover -->
 	{#if showMentionDropdown && filteredMentions.length > 0}
@@ -1475,6 +1500,16 @@
 				<span class="typing-ellipsis">…</span>
 				<span class="typing-humor-phrase">{currentHumorousPhrase}</span>
 			</div>
+		</div>
+	{/if}
+
+	{#if alanbixNotice}
+		<div class="chat-alanbix-notice" role="status">
+			<Icon name="bot" size={14} />
+			<span class="alanbix-notice-text">{alanbixNoticeText}</span>
+			<button type="button" class="alanbix-notice-close" on:click={dismissAlanbixNotice} aria-label={$t('common_close')} title={$t('common_close')}>
+				<Icon name="x" size={13} />
+			</button>
 		</div>
 	{/if}
 
@@ -1658,6 +1693,14 @@
 	}
 
 	/* Messages Container */
+	.chat-scroll-area {
+		position: relative;
+		flex: 1;
+		min-height: 0;
+		display: flex;
+		flex-direction: column;
+	}
+
 	.chat-scroll-container {
 		flex: 1;
 		overflow-y: auto;
@@ -1988,7 +2031,7 @@
 	/* Floating jump button */
 	.jump-latest-pill {
 		position: absolute;
-		bottom: 56px;
+		bottom: 10px;
 		right: 14px;
 		display: flex;
 		align-items: center;
@@ -2345,6 +2388,35 @@
 	}
 
 	/* Active Typers Indicator */
+	.chat-alanbix-notice {
+		display: flex;
+		align-items: center;
+		gap: 0.45rem;
+		padding: 0.35rem 0.5rem 0.35rem 0.85rem;
+		background: var(--surface-sunken);
+		border-top: 1px solid var(--glass-border);
+		font-size: 0.75rem;
+		color: var(--text-main);
+		flex-shrink: 0;
+		animation: typingSlideIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+	}
+	.chat-alanbix-notice :global(.icon-bot) { color: var(--accent); flex-shrink: 0; }
+	.alanbix-notice-text { flex: 1; min-width: 0; line-height: 1.35; }
+	.alanbix-notice-close {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 28px;
+		height: 28px;
+		flex-shrink: 0;
+		border: none;
+		border-radius: 6px;
+		background: transparent;
+		color: var(--text-dim);
+		cursor: pointer;
+	}
+	.alanbix-notice-close:hover { color: var(--text-main); background: var(--glass-border); }
+
 	.chat-typing-bar {
 		display: flex;
 		align-items: center;
