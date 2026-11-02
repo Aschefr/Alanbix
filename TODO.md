@@ -37,7 +37,7 @@ Depuis la reprise du 29 octobre 2026 :
 ## Priorité 3 — @Alanbix
 
 - [x] Quand il est déjà occupé (pause de 15 secondes), désactivé ou que l'IA ne répond pas, le joueur qui l'a appelé en est prévenu, au lieu d'un silence.
-- [ ] Dans ses réponses en liste, le gras (`**Nom**`) s'affiche avec ses astérisques au lieu d'être mis en gras.
+- [x] Dans ses réponses en liste, le gras (`**Nom**`) s'affichait avec ses astérisques : le chat public met maintenant en forme le gras, l'italique, le code et les puces.
 - [ ] Sa réponse prend 1 à 2 minutes avec le modèle actuel. Il faudrait essayer un modèle plus rapide, ou une machine plus puissante.
 - [ ] Assistant privé : appliquer au mode streaming les mêmes corrections d'appel d'outils que dans le chat public (identifiant d'appel, arguments envoyés sous forme de texte).
 

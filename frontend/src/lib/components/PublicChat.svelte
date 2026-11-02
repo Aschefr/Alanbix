@@ -1052,8 +1052,16 @@
 			.replace(/</g, '&lt;')
 			.replace(/>/g, '&gt;');
 
+		// Light formatting, on the escaped text only (anyone can make Alanbix write HTML):
+		// "* item" / "- item" bullets, **bold**, *italic*, `code`
+		const formatted = escaped
+			.replace(/^(\s*)[*-][ \t]+/gm, '$1• ')
+			.replace(/`([^`\n]+)`/g, '<code>$1</code>')
+			.replace(/\*\*(\S(?:[^*\n]*?\S)?)\*\*/g, '<strong>$1</strong>')
+			.replace(/(^|[^*\w])\*([^*\s][^*\n]*?)\*(?![*\w])/g, '$1<em>$2</em>');
+
 		// Highlight @mentions
-		const withMentions = escaped.replace(/@([a-zA-Z0-9_-]+)/g, (match, handle) => {
+		const withMentions = formatted.replace(/@([a-zA-Z0-9_-]+)/g, (match, handle) => {
 			const isMe = user && handle.toLowerCase() === user.username?.toLowerCase();
 			const isAlanbix = handle.toLowerCase() === 'alanbix';
 			const cls = isAlanbix ? 'mention-alanbix' : isMe ? 'mention-me' : 'mention-user';
@@ -1942,6 +1950,14 @@
 		line-height: 1.35;
 		white-space: pre-wrap;
 		word-break: break-word;
+	}
+	.msg-text :global(strong) { font-weight: 700; color: var(--text-main); }
+	.chat-msg-row.is-mine .msg-text :global(strong) { color: #ffffff; }
+	.msg-text :global(code) {
+		font-size: 0.92em;
+		padding: 0.05rem 0.3rem;
+		border-radius: 4px;
+		background: color-mix(in srgb, currentColor 12%, transparent);
 	}
 
 	:global(.mention-chip) {
