@@ -45,7 +45,8 @@ Depuis la reprise du 29 octobre 2026 :
 
 ## Priorité 4 — Documentation
 
-- [x] `unraid-template.xml`, supprimé par erreur en juin, est restauré et mis à jour (PUID/PGID, adresse Ollama facultative). Les étapes Unraid de la doc sont remises dans le bon ordre.
+- [x] La doc renvoyait vers un `unraid-template.xml` qui n'est plus dans ce dépôt : elle renvoie maintenant vers le store Community Applications et vers `alanbix.xml` du dépôt `Aschefr/unraid-templates`.
+- [ ] Ajouter `PUID=99` et `PGID=100` à `alanbix.xml` dans le dépôt `Aschefr/unraid-templates`, au moment de publier la version qui ne tourne plus en root.
 
 ## Plus tard — Entretien du code
 

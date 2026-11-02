@@ -85,12 +85,12 @@ Si vous souhaitez modifier le code ou exécuter le projet en local avec le recha
 ---
 
 ### Option C : Sur Unraid (Community Applications / Modèle XML)
-Alanbix dispose d'un modèle pour Unraid :
+Alanbix est disponible dans le store **Community Applications** d'Unraid :
 
-1. Copiez le fichier [`unraid-template.xml`](../../unraid-template.xml), à la racine du dépôt, dans `/boot/config/plugins/dockerMan/templates-user/my-alanbix.xml` sur votre clé USB Unraid.
-2. Ouvrez l'onglet **Docker** de votre interface Unraid et cliquez sur **Add Container**.
-3. Dans le menu déroulant **Template**, sélectionnez **User Templates > Alanbix**.
-4. Cliquez sur **Apply** pour démarrer le conteneur ! Le modèle règle déjà `PUID=99` et `PGID=100`, le compte habituel d'Unraid.
+1. Ouvrez l'onglet **Apps** de votre interface Unraid et cherchez **Alanbix**.
+2. Cliquez sur **Install**, vérifiez le port et le dossier `appdata`, puis cliquez sur **Apply**.
+
+*(Sans le store)* : copiez le modèle [`alanbix.xml`](https://github.com/Aschefr/unraid-templates/blob/master/alanbix.xml) du dépôt `Aschefr/unraid-templates` dans `/boot/config/plugins/dockerMan/templates-user/` sur votre clé USB Unraid, puis choisissez **Add Container > User Templates > Alanbix**.
 
 #### 🔍 (Optionnel) Configurer SearXNG sur Unraid
 Si vous hébergez Alanbix sur Unraid et souhaitez activer la recherche automatique de jaquettes :

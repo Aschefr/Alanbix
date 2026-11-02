@@ -205,11 +205,11 @@ Si vous souhaitez modifier le code source et bénéficier du rechargement à cha
 
 ### 3. Installation sur Unraid OS
 
-Alanbix dispose d'un modèle (template) pour Unraid :
-1. Copiez le fichier [`unraid-template.xml`](unraid-template.xml) de ce dépôt dans `/boot/config/plugins/dockerMan/templates-user/my-alanbix.xml` sur votre clé USB Unraid.
-2. Depuis l'onglet **Docker** d'Unraid, cliquez sur **Add Container**.
-3. Dans le menu déroulant **Template**, sélectionnez **User Templates > Alanbix**.
-4. Cliquez sur **Apply** ! L'image sera téléchargée et lancée. Le modèle règle déjà `PUID=99` et `PGID=100`, le compte habituel d'Unraid.
+Alanbix est disponible dans le store **Community Applications** d'Unraid :
+1. Ouvrez l'onglet **Apps** d'Unraid et cherchez **Alanbix**.
+2. Cliquez sur **Install**, vérifiez le port et le dossier `appdata`, puis **Apply**.
+
+Sans le store, copiez le modèle [`alanbix.xml`](https://github.com/Aschefr/unraid-templates/blob/master/alanbix.xml) du dépôt `Aschefr/unraid-templates` dans `/boot/config/plugins/dockerMan/templates-user/` sur votre clé USB Unraid, puis choisissez **Add Container > User Templates > Alanbix**.
 
 
 ### Premiers Pas
