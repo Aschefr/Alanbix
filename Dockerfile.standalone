@@ -41,6 +41,12 @@ ENV FRONTEND_DIST_DIR=/app/frontend_dist
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
     CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:41481/health', timeout=4)"]
 
+# L'app tourne avec un compte ordinaire (PUID/PGID), pas en root : voir docker-entrypoint.sh
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh && chmod +x /usr/local/bin/docker-entrypoint.sh \
+    && mkdir -p /app/static/uploads/games && chown -R 1000:1000 /app/static/uploads
+ENTRYPOINT ["docker-entrypoint.sh"]
+
 # Lancer l'API
 # No per-message compression on websockets: every connection otherwise keeps a ~37 KB zlib context,
 # and connections cut abruptly (phones going to sleep) left them in memory until the swap filled up

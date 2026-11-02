@@ -7,6 +7,7 @@
 
 ### 🐳 Docker image
 - **Half the size, with a health check**: the image no longer ships compilers (every Python package installs prebuilt on amd64 and arm64), so it takes 315 MB once installed instead of 641 MB. Docker, Unraid and Portainer now show it as "healthy" while the app answers on `/health`.
+- **No longer runs as root**: the app runs as an ordinary account, `1000:1000` by default, chosen with `PUID` and `PGID` (on Unraid, `99:100`). On start, the container hands the data folder to that account, so existing installs, whose files were written as root, keep working without any manual step.
 
 ### 🤖 @Alanbix in the public chat
 - **Real answers instead of small talk**: asked "which match do I play?", `@Alanbix` used to answer with generic banter, as it only got the last 6 messages and no data. It now gets the same layers as the private assistant: the administrator's personality, rules written for a public room, the app guide, the asking player's team, seat and upcoming matches, the knowledge base excerpts close to the question, and the LAN language. It looks up live data with 20 read-only tools run for the asking player (tournaments, matches, brackets, rankings, teams, seats, games and rules, files, event info), following the tool calling mode of the AI settings; when no tool is needed, it answers in a single request. Notifications, announcements, admin calls, blocking and network probes stay with the private assistant and are refused if called from the public chat.

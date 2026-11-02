@@ -30,7 +30,7 @@ Depuis la reprise du 29 octobre 2026 :
 
 ## Priorité 2 — Image Docker
 
-- [ ] Faire tourner l'app sans les droits administrateur (root).
+- [x] Faire tourner l'app sans les droits administrateur (root). Le compte se règle avec `PUID` et `PGID`, et les anciennes installations sont reprises automatiquement.
 - [x] Ajouter une vérification de santé, pour que Docker sache tout seul si l'app répond.
 - [x] Retirer de l'image finale les outils de compilation : l'image installée passe de 641 à 315 Mo.
 
@@ -39,6 +39,8 @@ Depuis la reprise du 29 octobre 2026 :
 - [ ] Quand il est déjà occupé (pause de 15 secondes), il ignore la mention sans rien dire. Il devrait le signaler au joueur.
 - [ ] Sa réponse prend 1 à 2 minutes avec le modèle actuel. Il faudrait essayer un modèle plus rapide, ou une machine plus puissante.
 - [ ] Assistant privé : appliquer au mode streaming les mêmes corrections d'appel d'outils que dans le chat public (identifiant d'appel, arguments envoyés sous forme de texte).
+
+- [ ] Les outils réseau de l'assistant privé (ping, traceroute, nslookup, arp) ne sont pas installés dans l'image Docker, donc ils échouent. Il faut soit les installer, soit retirer ces outils.
 
 ## Priorité 4 — Documentation
 

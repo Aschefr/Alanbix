@@ -34,6 +34,7 @@ docker run -d \
 * Les données de la base SQLite et des téléversements de fichiers sont conservées dans le volume `alanbix_data`.
 * **Clé secrète des connexions** : au premier démarrage, Alanbix génère une clé aléatoire unique et la conserve dans le volume (`/app/data/.secret_key`). Conservez ce volume : s'il est perdu, tout le monde devra simplement se reconnecter. Pour fournir votre propre clé, définissez la variable d'environnement `SECRET_KEY`.
 * **Accès depuis d'autres sites (CORS)** : par défaut, seuls la machine elle-même, l'application mobile, le réseau local et Tailscale sont autorisés. Pour une autre adresse (nom de domaine, reverse proxy…), définissez `CORS_ORIGINS` (liste séparée par des virgules, ou `*` pour tout autoriser).
+* **Compte utilisé dans le conteneur** : depuis la version 1.37, l'application ne tourne plus en administrateur (root) mais avec un compte ordinaire, `1000:1000` par défaut. Au démarrage, le dossier de données lui est confié automatiquement, y compris celui d'une ancienne installation. Pour un autre compte, définissez `PUID` et `PGID` (sur Unraid : `PUID=99` et `PGID=100`).
 
 #### 🔍 (Optionnel) Déployer SearXNG pour la recherche de jaquettes
 Si vous utilisez le déploiement Docker Hub (Option A) et souhaitez bénéficier de la recherche automatique de jaquettes de jeux, vous devez lancer une instance SearXNG à côté :
