@@ -17,4 +17,5 @@ RUN mkdir -p /app/data
 
 COPY . .
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--ws-per-message-deflate", "false"]
+# Watch only the source folder: the whole bind-mounted backend (venv, data, uploads) cost ~10% CPU
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "app", "--ws-per-message-deflate", "false"]
