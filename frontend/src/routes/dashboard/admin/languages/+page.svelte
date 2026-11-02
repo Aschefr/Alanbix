@@ -343,8 +343,8 @@
 	// Keys that exist in ref but are completely absent from target file (structural sync needed)
 	$: structuralMissingCount = Object.keys(refData).filter(k => !(k in targetData)).length;
 
-	function catMissingCount(keys) {
-		return keys.filter(k => !targetData[k] || targetData[k].trim() === '').length;
+	function catMissingCount(keys, data = targetData) {
+		return keys.filter(k => !data[k] || data[k].trim() === '').length;
 	}
 
 	// autoResize directive
@@ -719,7 +719,7 @@
 		<nav class="sidebar">
 			{#each groupedKeys as [cat, keys] (cat)}
 				{@const meta = getCategoryMeta(cat, $t)}
-				{@const missing = catMissingCount(keys)}
+				{@const missing = catMissingCount(keys, targetData)}
 				<button
 					class="sidebar-item"
 					class:active={activeCategory === cat}

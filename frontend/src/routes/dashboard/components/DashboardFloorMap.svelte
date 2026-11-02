@@ -10,8 +10,9 @@
 	export let isDraggingSplitter = false;
 	export let chatSplitRatio = 55;
 
-	function getOccupant(seatId) {
-		return (allUsers || []).find(u => u.seat_id === seatId);
+	// `users` is passed by the template so a seat change re-renders it (Svelte 5 {@const})
+	function getOccupant(seatId, users = allUsers) {
+		return (users || []).find(u => u.seat_id === seatId);
 	}
 
 	$: occupiedSeats = (roomLayout?.seats || []).filter(s => getOccupant(s.id)).length;
@@ -140,7 +141,7 @@
 			{/each}
 
 			{#each (roomLayout?.seats || []) as seat}
-				{@const occ = getOccupant(seat.id)}
+				{@const occ = getOccupant(seat.id, allUsers)}
 				{@const isMine = occ && user && occ.id === user.id}
 				{@const isTeammate = occ && !isMine && user?.team_name && occ.team_name === user.team_name}
 				{@const isPulsing = activePulsingSeats[seat.id]}

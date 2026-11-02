@@ -61,8 +61,9 @@
 		step = 2;
 	}
 
-	function getOccupant(seatId) {
-		return allUsers.find(u => u.seat_id === seatId);
+	// `users` is passed by the template so a seat change re-renders it (Svelte 5 {@const})
+	function getOccupant(seatId, users = allUsers) {
+		return users.find(u => u.seat_id === seatId);
 	}
 
 	async function claimSeat(seatId) {
@@ -232,7 +233,7 @@
 						{/each}
 
 						{#each layout.seats as seat}
-							{@const occupant = getOccupant(seat.id)}
+							{@const occupant = getOccupant(seat.id, allUsers)}
 							{@const isMine = selectedSeat === seat.id}
 							{@const isOccupied = !!occupant}
 							{@const isTeammate = !isMine && isOccupied && user?.team_name && occupant.team_name === user.team_name}

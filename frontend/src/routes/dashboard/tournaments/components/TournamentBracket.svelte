@@ -171,8 +171,9 @@
 		return { total: all.length, played: all.filter(isRRDone).length };
 	}
 	$: orderedGroups = [...rrGroups].sort((a, b) => Number(groupHasMine(b)) - Number(groupHasMine(a)));
-	function matchesOpen(group, mine) {
-		return rrMatchesOpen[group.id] ?? (mine || rrGroups.length === 1 || !groupTables);
+	// `opened` is passed in (rrMatchesOpen) so the template recomputes when a group is folded
+	function matchesOpen(group, mine, opened) {
+		return opened[group.id] ?? (mine || rrGroups.length === 1 || !groupTables);
 	}
 	function currentRRRound(group) {
 		const i = group.rounds.findIndex(r => r.some(m => !isRRDone(m)));
@@ -541,7 +542,7 @@
 					{@const counts = groupCounts(group)}
 					{@const mineGroup = groupHasMine(group)}
 					{@const table = groupTables?.[group.id]}
-					{@const open = matchesOpen(group, mineGroup)}
+					{@const open = matchesOpen(group, mineGroup, rrMatchesOpen)}
 					<section class="rr-group" class:mine-group={mineGroup}>
 						<header class="rr-group-head">
 							{#if rrGroups.length > 1}
