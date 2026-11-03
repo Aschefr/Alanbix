@@ -928,6 +928,7 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
     # ── Enqueue into AI Queue (G-52) ──
     from ..ia_queue import queue_manager, QueueEntry
     from ..ia_tools import TOOL_DEFINITIONS
+    from ..ia_network import ADMIN_ONLY_TOOLS
     
     # Filtrer les outils optionnels de diagnostic réseau et de modération
     enabled_tools = []
@@ -941,6 +942,8 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
             if tool["function"]["name"] in network_tool_names and not network_enabled:
                 continue
             if tool["function"]["name"] == "block_user_from_ia" and not moderation_enabled:
+                continue
+            if tool["function"]["name"] in ADMIN_ONLY_TOOLS and not user.is_admin:
                 continue
             enabled_tools.append(tool)
         

@@ -2,6 +2,9 @@
 import json
 import re
 
+# What these two show (server load, addresses seen on the network) is not for every player
+ADMIN_ONLY_TOOLS = {"check_server_health", "scan_local_network"}
+
 
 def sanitize_host(host: str) -> bool:
     """Return True if host is a valid IPv4, IPv6, or domain name without injection characters."""
@@ -9,7 +12,8 @@ def sanitize_host(host: str) -> bool:
         return False
     # Only allow characters standard for domain names or IP addresses
     # (letters, numbers, dots, hyphens)
-    return bool(re.match(r"^[a-zA-Z0-9.-]+$", host))
+    # A leading hyphen would be read as an option by ping and traceroute
+    return bool(re.match(r"^[a-zA-Z0-9][a-zA-Z0-9.-]*$", host))
 
 
 def ping_host(args: dict) -> str:

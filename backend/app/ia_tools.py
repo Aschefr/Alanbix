@@ -549,6 +549,10 @@ TOOL_DEFINITIONS = [
                     "question": {
                         "type": "string",
                         "description": "Structured and clear reformulation of what the player needs to know or resolve, so the admin can answer directly. Write this question in the language the player is using."
+                    },
+                    "urgent": {
+                        "type": "boolean",
+                        "description": "true ONLY for an immediate danger to people or the venue: fire, injury, gas or water leak. It goes through the anti-spam limits. Never for a technical problem, a match or a rule."
                     }
                 },
                 "required": ["reason", "question"]
@@ -631,6 +635,11 @@ async def execute_tool(name: str, arguments: Dict[str, Any], user_id: int = 0, o
             ia_cfg = get_effective_config(db)
             if not ia_cfg.get("network_tools_enabled", True):
                 return json.dumps({"error": f"L'outil '{name}' est désactivé par l'administrateur dans les paramètres de l'IA."})
+
+        if name in ia_network.ADMIN_ONLY_TOOLS:
+            caller = db.query(models.User).filter(models.User.id == user_id).first()
+            if not caller or not caller.is_admin:
+                return json.dumps({"error": "Cette information est réservée aux administrateurs."}, ensure_ascii=False)
 
         if name == "block_user_from_ia":
             from .routers.ia import get_effective_config
@@ -1927,6 +1936,9 @@ def _tool_announce_to_all(db, models, args: dict, user_id: int) -> str:
     }, ensure_ascii=False)
 
 
+URGENT_CALLS_PER_HOUR = 3
+
+
 async def _tool_call_admin(db, models, args: dict, user_id: int, conversation_id: int, bypass_enabled_check: bool = False) -> str:
     """Escalade une demande vers les admins avec contrôle anti-spam configurable."""
     import datetime as dt
@@ -1942,6 +1954,7 @@ async def _tool_call_admin(db, models, args: dict, user_id: int, conversation_id
 
     reason = args.get("reason", "").strip()
     question = args.get("question", "").strip()
+    urgent = args.get("urgent") in (True, "true", "True", 1)
     if not reason or not question:
         return json.dumps({
             "error": "Les champs 'reason' et 'question' sont requis.",
@@ -1954,6 +1967,19 @@ async def _tool_call_admin(db, models, args: dict, user_id: int, conversation_id
     global_hourly_limit = int(ia_cfg.get("call_admin_global_hourly_limit", 15))
 
     now = utcnow()
+
+    # A real emergency must get through whatever was called before. Still capped, so that crying
+    # wolf cannot flood the admins.
+    if urgent:
+        last_hour = db.query(models.AdminCallRequest).filter(
+            models.AdminCallRequest.user_id == user_id,
+            models.AdminCallRequest.created_at >= now - dt.timedelta(hours=1)
+        ).count()
+        urgent = last_hour < URGENT_CALLS_PER_HOUR
+    if urgent:
+        reason = f"[URGENT] {reason}"
+        cooldown_min = 0
+        daily_limit = global_hourly_limit = 10 ** 9
 
     # Anti-spam: cooldown par utilisateur
     cutoff_cooldown = now - dt.timedelta(minutes=cooldown_min)
