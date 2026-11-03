@@ -248,7 +248,7 @@
   "admin_settings_ai_rag_vectorized": "Search by meaning",
   "admin_settings_ai_rag_vectorizing": "Saving…",
   "admin_settings_ai_rag_vectorizing_new": "Adding… ({count} char.)",
-  "admin_settings_ai_temp": "Temperature:",
+  "admin_settings_ai_temp": "Temperature (how strict answers are):",
   "admin_settings_ai_temp_balanced": "Balanced",
   "admin_settings_ai_temp_creative": "Creative",
   "admin_settings_ai_temp_precise": "Precise",
@@ -1976,9 +1976,9 @@
   "setup_knowledge_q_sleep": "Can I sleep on site?",
   "setup_knowledge_ph_sleep": "Example: yes, rest room upstairs, bring your sleeping bag.",
   "model_catalog_title": "Recommended models",
-  "model_catalog_help": "Compared on real Alanbix questions, with a graphics card: tools used properly, nothing made up, answers in the player's language. Without a graphics card, answers will be much slower.",
+  "model_catalog_help": "Compared on real Alanbix questions, with an RTX 3090 graphics card: tools used properly, nothing made up, answers in the player's language. Without a graphics card, answers will be much slower.",
   "model_tier_recommended": "Recommended",
-  "model_tier_recommended_desc": "The most reliable in our tests: it checks the data, alerts an admin when asked and answers in the player's language.",
+  "model_tier_recommended_desc": "The best balance in our tests: it checks the data, alerts an admin when asked and answers in the player's language.",
   "model_tier_minimum": "Minimum",
   "model_tier_minimum_desc": "Made up no data in our tests, but sometimes asks for details instead of acting and sometimes answers in another language.",
   "model_catalog_size": "{size} GB",
@@ -2032,5 +2032,11 @@
   "ai_setting_call_admin_btn_desc": "Adds this button to the assistant page: the player calls you directly, without going through the model.",
   "ai_setting_rag_suggestion_desc": "When the assistant cannot find an answer, it suggests an entry in the AI conversations tab. Nothing is added without your approval.",
   "ai_setting_call_admin_antispam_desc": "So you are not swamped. An emergency reported by the assistant (fire, injury, leak) still gets through, three times an hour at most per player.",
-  "admin_settings_ai_prompt_close_hint": "Instructions for the personal message sent to each player when you close a tournament."
+  "admin_settings_ai_prompt_close_hint": "Instructions for the personal message sent to each player when you close a tournament.",
+  "admin_settings_ai_temp_hint": "Recommended: {value}. In our tests at 0.7, small models alert an admin less often and sometimes answer in another language. Big models stayed reliable either way.",
+  "admin_settings_ai_temp_apply": "Set to {value}",
+  "model_catalog_temperature": "Recommended temperature: {value}",
+  "model_catalog_speed": "Typical answer: {seconds} s on an RTX 3090",
+  "model_tier_powerful": "Big server",
+  "model_tier_powerful_desc": "Flawless in our tests, even at a higher temperature, but it needs about {vram} GB of video memory and free system memory."
 }

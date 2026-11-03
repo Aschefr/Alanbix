@@ -295,6 +295,9 @@
  "admin_settings_ai_rag_vectorizing_new": [
   "Vectorisation en cours… ({count} car.)"
  ],
+ "admin_settings_ai_temp": [
+  "Température:"
+ ],
  "admin_settings_ai_tool_mode": [
   "Mode d'exécution des outils IA"
  ],
@@ -562,6 +565,12 @@
  ],
  "map_seat_info": [
   "Tu es sur le poste <strong>{seat}</strong>"
+ ],
+ "model_catalog_help": [
+  "Comparés sur de vraies questions Alanbix, avec une carte graphique : outils bien utilisés, rien d'inventé, réponse dans la langue du joueur. Sans carte graphique, les réponses seront bien plus lentes."
+ ],
+ "model_tier_recommended_desc": [
+  "Le plus fiable de nos essais : il consulte les données, prévient un administrateur quand on le lui demande et répond dans la langue du joueur."
  ],
  "nav_dashboard": [
   "Dashboard"

@@ -239,6 +239,9 @@
  "admin_settings_ai_rag_vectorizing_new": [
   "Vectorizando... ({count} car.)"
  ],
+ "admin_settings_ai_temp": [
+  "Temperatura:"
+ ],
  "admin_settings_ai_tool_mode": [
   "Modo de ejecución de herramientas IA"
  ],
@@ -402,6 +405,12 @@
  ],
  "map_mobile_no_seat": [
   "Sin puesto"
+ ],
+ "model_catalog_help": [
+  "Comparados con preguntas reales de Alanbix, con tarjeta gráfica: herramientas bien usadas, nada inventado, respuesta en el idioma del jugador. Sin tarjeta gráfica, las respuestas serán mucho más lentas."
+ ],
+ "model_tier_recommended_desc": [
+  "El más fiable de nuestras pruebas: consulta los datos, avisa a un administrador cuando se le pide y responde en el idioma del jugador."
  ],
  "nav_players": [
   "Jugadores"

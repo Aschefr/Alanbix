@@ -248,7 +248,7 @@
   "admin_settings_ai_rag_vectorized": "Recherche par le sens",
   "admin_settings_ai_rag_vectorizing": "Enregistrement…",
   "admin_settings_ai_rag_vectorizing_new": "Ajout en cours… ({count} car.)",
-  "admin_settings_ai_temp": "Température:",
+  "admin_settings_ai_temp": "Température (rigueur des réponses) :",
   "admin_settings_ai_temp_balanced": "Équilibré",
   "admin_settings_ai_temp_creative": "Créatif",
   "admin_settings_ai_temp_precise": "Précis",
@@ -1976,9 +1976,9 @@
   "setup_knowledge_q_sleep": "Peut-on dormir sur place ?",
   "setup_knowledge_ph_sleep": "Exemple : oui, salle de repos à l'étage, apportez votre duvet.",
   "model_catalog_title": "Modèles conseillés",
-  "model_catalog_help": "Comparés sur de vraies questions Alanbix, avec une carte graphique : outils bien utilisés, rien d'inventé, réponse dans la langue du joueur. Sans carte graphique, les réponses seront bien plus lentes.",
+  "model_catalog_help": "Comparés sur de vraies questions Alanbix, avec une carte graphique RTX 3090 : outils bien utilisés, rien d'inventé, réponse dans la langue du joueur. Sans carte graphique, les réponses seront bien plus lentes.",
   "model_tier_recommended": "Conseillé",
-  "model_tier_recommended_desc": "Le plus fiable de nos essais : il consulte les données, prévient un administrateur quand on le lui demande et répond dans la langue du joueur.",
+  "model_tier_recommended_desc": "Le meilleur équilibre de nos essais : il consulte les données, prévient un administrateur quand on le lui demande et répond dans la langue du joueur.",
   "model_tier_minimum": "Minimum",
   "model_tier_minimum_desc": "N'a pas inventé de données dans nos essais, mais demande parfois des précisions au lieu d'agir et répond parfois dans une autre langue.",
   "model_catalog_size": "{size} Go",
@@ -2032,5 +2032,11 @@
   "ai_setting_call_admin_btn_desc": "Ajoute ce bouton sur la page de l'assistant : le joueur vous appelle directement, sans passer par le modèle.",
   "ai_setting_rag_suggestion_desc": "Quand l'assistant ne trouve pas une réponse, il vous propose une fiche dans l'onglet Conversations IA. Rien n'est ajouté sans votre accord.",
   "ai_setting_call_admin_antispam_desc": "Pour ne pas être submergé. Une urgence signalée par l'assistant (incendie, blessure, fuite) passe quand même, trois fois par heure au plus pour un joueur.",
-  "admin_settings_ai_prompt_close_hint": "Consignes du message personnel envoyé à chaque joueur quand vous clôturez un tournoi."
+  "admin_settings_ai_prompt_close_hint": "Consignes du message personnel envoyé à chaque joueur quand vous clôturez un tournoi.",
+  "admin_settings_ai_temp_hint": "Conseillée : {value}. Dans nos essais à 0,7, les petits modèles préviennent moins souvent un administrateur et répondent parfois dans une autre langue. Les gros modèles sont restés fiables dans les deux cas.",
+  "admin_settings_ai_temp_apply": "Mettre à {value}",
+  "model_catalog_temperature": "Température conseillée : {value}",
+  "model_catalog_speed": "Réponse type : {seconds} s sur RTX 3090",
+  "model_tier_powerful": "Gros serveur",
+  "model_tier_powerful_desc": "Sans faute dans nos essais, même à température plus élevée, mais il faut environ {vram} Go de mémoire vidéo et de la mémoire vive libre."
 }

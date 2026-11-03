@@ -27,9 +27,10 @@
 - **A knowledge base step**: the guided setup explains what entries are for and how to write useful ones (one topic, a complete answer, no secrets, no need to copy the Infos page), offers to install the built-in search model, and turns the answers to a few questions (who to contact, gear to borrow, parking, sleeping) into the first entries.
 
 ### 🧩 AI models
-- **Recommended models, downloaded from Alanbix**: for an Ollama server, the AI settings and the guided setup now list recommended models, each with a download button and its progress, then a button to use it. The list comes from a comparison on real Alanbix questions: `gemma4:e4b` was the most reliable, `gemma4:e2b` is the minimum. Other servers do not show the list: only Ollama can download models on request.
+- **Recommended models, downloaded from Alanbix**: for an Ollama server, the AI settings and the guided setup now list recommended models, each with a download button and its progress, then a button to use it. The list comes from a comparison on real Alanbix questions, with each model's recommended temperature and typical answer time: `gemma4:e2b` is the minimum, `gemma4:e4b` the best balance, `qwen3.8:27b` and `gemma4:31b` suit a big server. Other servers do not show the list: only Ollama can download models on request.
 
 ### 🛡️ Administration
+- **A recommended temperature**: the AI settings now show the recommended temperature (0.2) with a button to apply it, and new installations start there. At 0.7, small models acted less reliably in our tests.
 - **Settings in plain words**: every assistant option now says what it does, where it applies and what it needs. Technical settings moved under "Advanced settings", a warning shows when no AI server is active, and the same things now have the same name everywhere (the "AI & Settings" tab is now "Settings").
 - **A Diagnostic tab**: admins can now see the server's processor, memory and disk, and run ping, traceroute and DNS tests by hand, with the result in plain words. They run from the Alanbix server, and they are the same tests the assistant uses.
 - **Server state and network scan are for admins only**: any player could ask the assistant for the server's load and for the addresses seen on the network. Players keep the ping, traceroute and DNS tests.

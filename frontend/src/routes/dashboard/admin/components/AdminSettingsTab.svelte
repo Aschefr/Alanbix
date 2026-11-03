@@ -3,10 +3,12 @@
 	import { get } from 'svelte/store';
 	import { onMount, onDestroy } from 'svelte';
 	import { api } from '$lib/api';
-	import { t } from '$lib/i18nStore';
+	import { t, currentLang } from '$lib/i18nStore';
 	import { wsMessageStore } from '$lib/ws';
 	import AdminAIQueueList from './AdminAIQueueList.svelte';
 	import AdminAIBehaviour from './AdminAIBehaviour.svelte';
+	// Same value as RECOMMENDED_TEMPERATURE in backend/app/ia_model_catalog.py
+	const RECOMMENDED_TEMPERATURE = 0.2;
 	import OllamaModelCatalog from '$lib/components/OllamaModelCatalog.svelte';
 	import AdminKnowledgeBase from './AdminKnowledgeBase.svelte';
 
@@ -61,7 +63,7 @@
 	let iaConfig = { 
 		ollama_host: '', model: '', rag_enabled: true, network_tools_enabled: true,
 		auto_moderation_enabled: true,
-		temperature: 0.7, context_window: 16384,
+		temperature: RECOMMENDED_TEMPERATURE, context_window: 16384,
 		ollama_instances: [], embedding_model: '',
 		tool_calling_mode: 'stream_intercept',
 		call_admin_enabled: true,
@@ -1308,12 +1310,18 @@
 				<!-- Temperature -->
 				<div>
 					<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem;">
-						<label class="compact-label">{$t('admin_settings_ai_temp')} <strong>{iaConfig.temperature}</strong></label>
+						<label class="compact-label">{$t('admin_settings_ai_temp')} <strong>{Number(iaConfig.temperature).toLocaleString($currentLang)}</strong></label>
 						<span class="range-hint text-xs" style="color: var(--text-muted); font-size: 0.75rem;">
 							{iaConfig.temperature <= 0.3 ? $t('admin_settings_ai_temp_precise') : iaConfig.temperature >= 0.7 ? $t('admin_settings_ai_temp_creative') : $t('admin_settings_ai_temp_balanced')}
 						</span>
 					</div>
 					<input type="range" bind:value={iaConfig.temperature} on:change={saveIAConfig} min="0" max="1" step="0.1" class="range-accent" style="width: 100%;" />
+					<div class="temp-advice">
+						<span class="range-hint text-xs">{$t('admin_settings_ai_temp_hint', { value: RECOMMENDED_TEMPERATURE.toLocaleString($currentLang) })}</span>
+						{#if iaConfig.temperature !== RECOMMENDED_TEMPERATURE}
+							<button type="button" class="btn-secondary btn-sm" on:click={() => { iaConfig.temperature = RECOMMENDED_TEMPERATURE; saveIAConfig(); }}>{$t('admin_settings_ai_temp_apply', { value: RECOMMENDED_TEMPERATURE.toLocaleString($currentLang) })}</button>
+						{/if}
+					</div>
 				</div>
 
 				<!-- Context Window -->
@@ -1982,6 +1990,8 @@
 	/* AI tab: model fields in two columns, behaviour options as compact rows */
 	.ai-model-body { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.9rem 1.5rem; }
 	@media (max-width: 900px) { .ai-model-body, .ai-advanced-body { grid-template-columns: minmax(0, 1fr); } }
+	.temp-advice { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.8rem; margin-top: 0.35rem; }
+	.temp-advice .range-hint { flex: 1 1 240px; font-size: 0.75rem; line-height: 1.35; color: var(--text-muted); }
 	.ai-advanced { grid-column: 1 / -1; }
 	.ai-advanced summary { cursor: pointer; font-size: 0.8rem; font-weight: 700; color: var(--text-dim); min-height: 28px; }
 	.ai-advanced-hint { margin: 0.2rem 0 0.6rem; font-size: 0.76rem; color: var(--text-muted); }

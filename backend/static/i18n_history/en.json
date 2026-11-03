@@ -234,6 +234,9 @@
  "admin_settings_ai_rag_vectorizing_new": [
   "Vectorizing... ({count} chars)"
  ],
+ "admin_settings_ai_temp": [
+  "Temperature:"
+ ],
  "admin_settings_ai_tool_mode": [
   "AI Tool Execution Mode"
  ],
@@ -400,6 +403,12 @@
  ],
  "map_mobile_no_seat": [
   "No seat"
+ ],
+ "model_catalog_help": [
+  "Compared on real Alanbix questions, with a graphics card: tools used properly, nothing made up, answers in the player's language. Without a graphics card, answers will be much slower."
+ ],
+ "model_tier_recommended_desc": [
+  "The most reliable in our tests: it checks the data, alerts an admin when asked and answers in the player's language."
  ],
  "nav_players": [
   "Players"

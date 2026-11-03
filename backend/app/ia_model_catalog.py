@@ -13,10 +13,19 @@ import httpx
 from .ia_compression import is_openai_host
 from .ia_utils import ia_client
 
-# size_gb is what /api/tags reports once downloaded
+# Temperature: at 0.7 the small models act less reliably (alert an admin less often, answer in another
+# language); the big ones were flawless at both 0.2 and 0.7.
+RECOMMENDED_TEMPERATURE = 0.2
+
+# size_gb is what /api/tags reports once downloaded. typical_seconds is the median answer, tool calls
+# included, measured on an RTX 3090 with a 16K context. vram_gb is what /api/ps showed once loaded, kept
+# for the big models only: the reading looked wrong for the small ones.
+# No MoE model here (qwen3.5:35b...): loading one crashed a server with 32 GB of memory.
 CATALOG = [
-    {"name": "gemma4:e2b", "tier": "minimum", "size_gb": 4.6},
-    {"name": "gemma4:e4b", "tier": "recommended", "size_gb": 9.6},
+    {"name": "gemma4:e2b", "tier": "minimum", "size_gb": 4.6, "typical_seconds": 3, "temperature": RECOMMENDED_TEMPERATURE},
+    {"name": "gemma4:e4b", "tier": "recommended", "size_gb": 9.6, "typical_seconds": 4, "temperature": RECOMMENDED_TEMPERATURE},
+    {"name": "qwen3.8:27b", "tier": "powerful", "size_gb": 17.7, "typical_seconds": 7, "vram_gb": 18, "temperature": RECOMMENDED_TEMPERATURE},
+    {"name": "gemma4:31b", "tier": "powerful", "size_gb": 19.9, "typical_seconds": 14, "vram_gb": 20, "temperature": RECOMMENDED_TEMPERATURE},
 ]
 _NAMES = {m["name"] for m in CATALOG}
 

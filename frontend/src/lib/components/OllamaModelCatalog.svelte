@@ -68,7 +68,11 @@
 						<span class="tier" class:recommended={m.tier === 'recommended'}>{$t(`model_tier_${m.tier}`)}</span>
 						<span class="size">{$t('model_catalog_size', { size: m.size_gb.toLocaleString($currentLang) })}</span>
 					</div>
-					<p class="desc">{$t(`model_tier_${m.tier}_desc`)}</p>
+					<p class="desc">{$t(m.vram_gb ? 'model_tier_powerful_desc' : `model_tier_${m.tier}_desc`, { vram: m.vram_gb })}</p>
+					<p class="facts">
+						<span>{$t('model_catalog_temperature', { value: m.temperature.toLocaleString($currentLang) })}</span>
+						<span>{$t('model_catalog_speed', { seconds: m.typical_seconds })}</span>
+					</p>
 					{#if m.downloading}
 						<div class="progress" role="progressbar" aria-valuenow={m.percent} aria-valuemin="0" aria-valuemax="100" aria-label={m.name}>
 							<div class="progress-fill" style="width: {m.percent}%"></div>
@@ -116,6 +120,7 @@
 	.tier.recommended { color: var(--accent); border-color: var(--accent); }
 	.size { font-size: 0.78rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 	.desc { margin: 0; font-size: 0.8rem; line-height: 1.45; color: var(--text-dim); max-width: 68ch; }
+	.facts { display: flex; flex-wrap: wrap; gap: 0.15rem 1rem; margin: 0; font-size: 0.78rem; font-weight: 600; color: var(--text-main); font-variant-numeric: tabular-nums; }
 	.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.7rem; }
 	.actions button { display: inline-flex; align-items: center; gap: 0.4rem; }
 	.note { margin: 0; font-size: 0.78rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }

@@ -51,6 +51,13 @@ def test_catalog_marks_installed_models(monkeypatch):
     assert by_name["gemma4:e4b"]["installed"] is False
 
 
+def test_every_recommended_model_says_its_temperature_and_speed():
+    for model in catalog.CATALOG:
+        assert model["temperature"] == catalog.RECOMMENDED_TEMPERATURE
+        assert model["typical_seconds"] > 0
+        assert "moe" not in model["name"] and model["name"] != "qwen3.5:35b"
+
+
 def test_openai_service_is_not_supported_without_any_call(monkeypatch):
     def handler(request):
         raise AssertionError("no call expected")

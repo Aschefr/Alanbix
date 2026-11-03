@@ -462,7 +462,7 @@ async def _process_alanbix_public_reply(trigger_msg_id: int, author_id: int):
             ollama_host = instance.get("url") or instance.get("host") or "http://localhost:11434"
             model_to_use = instance.get("model") or ia_cfg.get("model") or "llama3"
             context_window = ia_cfg.get("context_window", 16384)
-            temperature = ia_cfg.get("temperature", 0.7)
+            temperature = ia_cfg.get("temperature", 0.2)
 
             trigger = db.query(models.PublicChatMessage).filter(models.PublicChatMessage.id == trigger_msg_id).first()
             if not trigger or trigger.is_deleted:
