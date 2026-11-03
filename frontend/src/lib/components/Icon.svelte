@@ -101,6 +101,8 @@
     <rect width="20" height="8" x="2" y="14" rx="2" ry="2" />
     <line x1="6" x2="6.01" y1="6" y2="6" />
     <line x1="6" x2="6.01" y1="18" y2="18" />
+  {:else if name === 'route'}
+    <circle cx="6" cy="19" r="3" /><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15" /><circle cx="18" cy="5" r="3" />
   {:else if name === 'wifi'}
     <path d="M5 13a10 10 0 0 1 14 0" />
     <path d="M8.5 16.5a5 5 0 0 1 7 0" />

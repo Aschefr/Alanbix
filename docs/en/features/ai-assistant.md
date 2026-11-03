@@ -93,6 +93,8 @@ To make it easy to follow discussions without forcing a page refresh (zero F5):
 
 ## 🔑 Online services and API keys
 
+**Diagnostic tab**: Administration › Diagnostics shows the server state and runs ping, traceroute and DNS tests by hand, from the Alanbix server. For players, the assistant only has ping, traceroute and DNS; server state and network scan are for admins. Under Docker, the scan sees little beyond Docker's internal addresses.
+
 **Recommended models**: for an Ollama instance, the "Recommended models" list (AI settings and guided setup) offers `gemma4:e4b` (9.6 GB, the most reliable in our tests) and `gemma4:e2b` (4.6 GB, the minimum), with a button to download them to the Ollama server. They were compared on real Alanbix questions, with a graphics card: tools used properly, nothing made up, answers in the player's language. A bigger model is not always better, and the server matters too: under Ollama, `qwen3.5:9b` made up rankings, while the same model served by vLLM made up nothing in 21 tries. Ollama also uses system memory, not only video memory: if its container has a memory limit, leave room for every model loaded at the same time. Only Ollama has a download command: this button does not exist for OpenAI-compatible services.
 
 An instance can also be an OpenAI-compatible service (address ending in `/v1`): LM Studio or llama.cpp locally, or an online service such as OpenAI, Mistral, OpenRouter or Groq. For the latter, enter the instance's **API key** in **Settings › Artificial Intelligence › Servers** (or at step 5 of the guided setup). It is sent as `Authorization: Bearer` with every request to that instance (chat, tools, summaries, embeddings, translations, model list).

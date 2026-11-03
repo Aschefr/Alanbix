@@ -35,9 +35,13 @@ def ping_host(args: dict) -> str:
             ["ping", "-c", str(count), "-W", "2", host],
             capture_output=True, text=True, timeout=15
         )
+        loss = re.search(r"([\d.]+)% packet loss", res.stdout)
+        average = re.search(r"= [\d.]+/([\d.]+)/", res.stdout)
         return json.dumps({
             "host": host,
             "success": res.returncode == 0,
+            "loss_percent": float(loss.group(1)) if loss else None,
+            "avg_ms": float(average.group(1)) if average else None,
             "stdout": res.stdout,
             "stderr": res.stderr
         }, ensure_ascii=False)
@@ -103,7 +107,7 @@ def server_health() -> str:
     import shutil
     import os
     
-    health = {}
+    health = {"cpu_count": os.cpu_count() or 1}
     
     # 1. CPU load average
     try:
