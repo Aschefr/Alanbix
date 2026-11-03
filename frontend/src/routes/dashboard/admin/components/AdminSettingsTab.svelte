@@ -6,6 +6,7 @@
 	import { t } from '$lib/i18nStore';
 	import { wsMessageStore } from '$lib/ws';
 	import AdminAIQueueList from './AdminAIQueueList.svelte';
+	import AdminAIBehaviour from './AdminAIBehaviour.svelte';
 	import OllamaModelCatalog from '$lib/components/OllamaModelCatalog.svelte';
 	import AdminKnowledgeBase from './AdminKnowledgeBase.svelte';
 
@@ -1379,73 +1380,7 @@
 		</h2>
 		<div class="sc glass sc-full sc-bare">
 			<div class="sc-body">
-				<div class="ai-opts">
-<!-- Network Tools -->
-				<div style="display: flex; align-items: center; justify-content: space-between; padding-top: 0.4rem; border-top: 1px solid var(--glass-border);">
-					<span class="compact-label ai-opt-label" style="font-weight: 600;"><Icon name="globe" size={15} /> {$t('admin_settings_ai_tools')}</span>
-					<label class="toggle-switch-mini">
-						<input type="checkbox" bind:checked={iaConfig.network_tools_enabled} on:change={saveIAConfig} />
-						<span class="toggle-slider"></span>
-					</label>
-				</div>
-
-				<!-- Auto-moderation -->
-				<div style="display: flex; align-items: center; justify-content: space-between; padding-top: 0.4rem; border-top: 1px solid var(--glass-border);">
-					<span class="compact-label ai-opt-label" style="font-weight: 600;"><Icon name="shield" size={15} /> {$t('admin_settings_ai_moderation')}</span>
-					<label class="toggle-switch-mini">
-						<input type="checkbox" bind:checked={iaConfig.auto_moderation_enabled} on:change={saveIAConfig} />
-						<span class="toggle-slider"></span>
-					</label>
-				</div>
-
-				<!-- Appel Admin Outil -->
-				<div style="display: flex; align-items: center; justify-content: space-between; padding-top: 0.4rem; border-top: 1px solid var(--glass-border);">
-					<span class="compact-label ai-opt-label" style="font-weight: 600;"><Icon name="megaphone" size={15} /> {$t('ai_setting_call_admin_tool_enabled')}</span>
-					<label class="toggle-switch-mini">
-						<input type="checkbox" bind:checked={iaConfig.call_admin_enabled} on:change={saveIAConfig} />
-						<span class="toggle-slider"></span>
-					</label>
-				</div>
-
-				<!-- Appel Admin Bouton Manuel -->
-				<div style="display: flex; align-items: center; justify-content: space-between; padding-top: 0.4rem; border-top: 1px solid var(--glass-border);">
-					<span class="compact-label ai-opt-label" style="font-weight: 600;"><Icon name="bell" size={15} /> {$t('ai_setting_call_admin_btn_enabled')}</span>
-					<label class="toggle-switch-mini">
-						<input type="checkbox" bind:checked={iaConfig.call_admin_button_enabled} on:change={saveIAConfig} />
-						<span class="toggle-slider"></span>
-					</label>
-				</div>
-				{#if iaConfig.call_admin_enabled || iaConfig.call_admin_button_enabled}
-				<div class="ai-antispam" style="padding: 0.6rem; margin-top: 0.4rem; background: rgba(255, 255, 255, 0.03); border: 1px dashed var(--glass-border); border-radius: 4px; display: flex; flex-direction: column; gap: 0.5rem;">
-					<span class="compact-label" style="font-weight: 600; font-size: 0.85rem; letter-spacing: 0.05em; color: var(--text-muted);">
-						{$t('ai_setting_call_admin_antispam_section_title')}
-					</span>
-					<div style="display: flex; flex-direction: column; gap: 0.4rem;">
-						<label class="compact-label" style="display: flex; align-items: center; justify-content: space-between;">
-							<span>{$t('ai_setting_call_admin_cooldown')}</span>
-							<input type="number" min="1" max="1440" bind:value={iaConfig.call_admin_cooldown_minutes} on:change={saveIAConfig} style="width:70px;" />
-						</label>
-						<label class="compact-label" style="display: flex; align-items: center; justify-content: space-between;">
-							<span>{$t('ai_setting_call_admin_daily')}</span>
-							<input type="number" min="1" max="50" bind:value={iaConfig.call_admin_daily_limit} on:change={saveIAConfig} style="width:70px;" />
-						</label>
-						<label class="compact-label" style="display: flex; align-items: center; justify-content: space-between;">
-							<span>{$t('ai_setting_call_admin_global_hourly')}</span>
-							<input type="number" min="1" max="500" bind:value={iaConfig.call_admin_global_hourly_limit} on:change={saveIAConfig} style="width:70px;" />
-						</label>
-					</div>
-				</div>
-				{/if}
-
-				<!-- Suggestions RAG -->
-				<div style="display: flex; align-items: center; justify-content: space-between; padding-top: 0.4rem; border-top: 1px solid var(--glass-border);">
-					<span class="compact-label ai-opt-label" style="font-weight: 600;"><Icon name="lightbulb" size={15} /> {$t('ai_setting_rag_suggestion_enabled')}</span>
-					<label class="toggle-switch-mini">
-						<input type="checkbox" bind:checked={iaConfig.rag_suggestion_enabled} on:change={saveIAConfig} />
-						<span class="toggle-slider"></span>
-					</label>
-				</div>
-				</div>
+				<AdminAIBehaviour bind:config={iaConfig} on:change={saveIAConfig} />
 			</div>
 		</div>
 
@@ -2031,15 +1966,7 @@
 	.status-dot.on { background: var(--success); box-shadow: 0 0 6px color-mix(in srgb, var(--success) 60%, transparent); }
 	/* AI tab: model fields in two columns, behaviour options as compact rows */
 	.ai-model-body { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.9rem 1.5rem; }
-	.ai-opts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.6rem; }
-	.ai-opts > div { border-top: none !important; padding-top: 0 !important; }
-	.ai-opts > div:not(.ai-antispam) { padding: 0.65rem 0.9rem !important; border-radius: 10px; background: var(--hover-tint); border: 1px solid var(--glass-border) !important; }
-	.ai-opts > .ai-antispam { grid-column: 1 / -1; margin-top: 0 !important; }
-	.ai-antispam > div { display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem 1.5rem !important; }
-	@media (max-width: 900px) { .ai-antispam > div { grid-template-columns: minmax(0, 1fr); } }
-	.ai-opt-label { display: inline-flex; align-items: center; gap: 0.5rem; }
-	.ai-opt-label :global(svg) { color: var(--accent); flex-shrink: 0; }
-	@media (max-width: 900px) { .ai-model-body, .ai-opts { grid-template-columns: minmax(0, 1fr); } }
+	@media (max-width: 900px) { .ai-model-body { grid-template-columns: minmax(0, 1fr); } }
 	.app-guide-field { display: flex; flex-direction: column; gap: 0.35rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--glass-border); }
 	.app-guide-head { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; }
 	.app-guide-field .sc-sub { margin: 0; }
