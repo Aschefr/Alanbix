@@ -38,6 +38,7 @@ Depuis la reprise du 29 octobre 2026 :
 
 - [x] Quand il est déjà occupé (pause de 15 secondes), désactivé ou que l'IA ne répond pas, le joueur qui l'a appelé en est prévenu, au lieu d'un silence.
 - [x] Dans ses réponses en liste, le gras (`**Nom**`) s'affichait avec ses astérisques : le chat public met maintenant en forme le gras, l'italique, le code et les puces.
+- [ ] Mesurer les modèles conseillés sans carte graphique, et `qwen3.5:9b` sous vLLM : sous Ollama, il a inventé des classements. Le chat public retombe sur `llama3` si aucun modèle n'est configuré : à revoir.
 - [ ] Sa réponse prend 1 à 2 minutes avec le modèle actuel. Il faudrait essayer un modèle plus rapide, ou une machine plus puissante (pas urgent). En attendant, chaque demande au modèle peut durer jusqu'à 5 minutes avant d'être abandonnée, au lieu de 90 à 120 secondes.
 - [x] Assistant privé en streaming avec un service compatible OpenAI : les appels d'outils arrivaient en morceaux jamais recollés, donc ils plantaient. Ils sont maintenant reconstitués, avec leurs arguments et leur identifiant.
 

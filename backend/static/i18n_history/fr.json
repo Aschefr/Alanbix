@@ -318,6 +318,12 @@
  "setup_ai_desc": [
   "L'assistant répond aux questions des joueurs sur la LAN, les tournois et les problèmes techniques. Il demande un modèle d'IA, local ou en ligne."
  ],
+ "setup_ai_local_howto_md": [
+  "1. Installez Ollama depuis [ollama.com](https://ollama.com) sur le PC qui a la carte graphique.\n2. Téléchargez un modèle qui sait utiliser des outils, par exemple : `ollama pull qwen3:8b` (environ 8 Go de mémoire vidéo).\n3. Si Ollama tourne sur un autre PC que le serveur Alanbix, autorisez les connexions du réseau : variable d'environnement `OLLAMA_HOST=0.0.0.0`, puis redémarrez Ollama.\n4. Indiquez son adresse ci-dessous, par exemple `http://192.168.1.20:11434`."
+ ],
+ "setup_ai_model_help_local": [
+  "Choisissez un modèle qui sait appeler des outils (Qwen 3, Llama 3.1, Mistral…) : l'assistant en a besoin pour consulter les tournois."
+ ],
  "setup_ai_open": [
   "Ouvrir les réglages de l'IA"
  ],

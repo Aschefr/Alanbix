@@ -6,6 +6,7 @@
 	import { t } from '$lib/i18nStore';
 	import { wsMessageStore } from '$lib/ws';
 	import AdminAIQueueList from './AdminAIQueueList.svelte';
+	import OllamaModelCatalog from '$lib/components/OllamaModelCatalog.svelte';
 	import AdminKnowledgeBase from './AdminKnowledgeBase.svelte';
 
 	export let toast = (msg, type) => {};
@@ -489,6 +490,12 @@
 		} else {
 			toast(get(t)('admin_toast_ollama_fail') + res.detail, 'error');
 		}
+	}
+
+	async function useCatalogModel(idx, name) {
+		iaConfig.ollama_instances[idx].model = name;
+		await loadInstanceStatuses();
+		await saveIAConfig();
 	}
 
 	async function loadInstanceStatuses() {
@@ -1270,6 +1277,7 @@
 							<button class="inst-btn-mini danger" on:click={() => removeInstance(idx)} title="{$t('admin_tourneys_tooltip_delete')}" aria-label="{$t('admin_tourneys_tooltip_delete')}"><Icon name="x" size={14} /></button>
 						</div>
 					</div>
+					<OllamaModelCatalog url={inst.url} current={inst.model} on:use={(e) => useCatalogModel(idx, e.detail)} on:installed={loadInstanceStatuses} />
 				{:else}
 					<div class="inst-empty">{$t("admin_settings_instances_empty")}</div>
 				{/each}

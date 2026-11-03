@@ -25,6 +25,9 @@
 ### 🧭 Guided setup
 - **A knowledge base step**: the guided setup explains what entries are for and how to write useful ones (one topic, a complete answer, no secrets, no need to copy the Infos page), offers to install the built-in search model, and turns the answers to a few questions (who to contact, gear to borrow, parking, sleeping) into the first entries.
 
+### 🧩 AI models
+- **Recommended models, downloaded from Alanbix**: for an Ollama server, the AI settings and the guided setup now list recommended models, each with a download button and its progress, then a button to use it. The list comes from a comparison on real Alanbix questions: `gemma4:e4b` was the most reliable, `gemma4:e2b` is the minimum. Other servers do not show the list: only Ollama can download models on request.
+
 ### 🗺️ Room map
 - **Wi-Fi access point element**: the map editor gets a "Wi-Fi access point" element, next to the door, kitchen, bar, toilets, rack and screen.
 - **The assistant knows where things are**: asked "where is the Wi-Fi access point?", "where are the toilets?" or "where is the bar?", the private assistant and `@Alanbix` in the public chat now read the map elements. They answer with landmarks and a general direction, as on the map ("between Table 2 and Table 3, on the right side of the room"), add a rough distance only when it helps (a seat counts as about 0.8 m, the map is not to scale), and can list the free seats closest to a Wi-Fi access point. Until now they had no idea and could make up a place.

@@ -4,6 +4,7 @@
 	import { t } from '$lib/i18nStore';
 	import { renderMarkdown } from '$lib/markdown';
 	import Icon from '$lib/components/Icon.svelte';
+	import OllamaModelCatalog from '$lib/components/OllamaModelCatalog.svelte';
 
 	const PROVIDERS = [
 		{ id: 'openai', label: 'OpenAI', url: 'https://api.openai.com/v1' },
@@ -56,6 +57,16 @@
 				testState = 'ok';
 			} else testState = 'fail';
 		} catch { testState = 'fail'; }
+	}
+
+	function addModel(name) {
+		if (!models.includes(name)) models = [...models, name];
+		if (!model) model = name;
+	}
+
+	function useModel(name) {
+		addModel(name);
+		model = name;
 	}
 
 	/** Called by the setup page when the admin continues. */
@@ -161,6 +172,9 @@
 				{/if}
 				<span class="help">{$t(mode === 'online' ? 'setup_ai_model_help_online' : 'setup_ai_model_help_local')}</span>
 			</label>
+			{#if mode === 'local'}
+				<OllamaModelCatalog url={url.trim()} current={model} open on:use={(e) => useModel(e.detail)} on:installed={(e) => addModel(e.detail)} />
+			{/if}
 		{/if}
 	</section>
 {/if}
