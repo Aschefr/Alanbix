@@ -8,6 +8,7 @@
 - **Show the password**: an eye button in the password field shows or hides what was typed; the cursor stays in the field, so Enter still signs in.
 
 ### 💬 Messages
+- **Quieter contact list**: the active conversation now has a thin outline and unread contacts a tinted background, instead of a thick coloured bar on the side.
 - **The Messages tab goes to the new message**: with an unread message, opening Messages shows the conversation (private or team) holding the newest one, also after a reload; until now it reopened the last conversation viewed.
 - **Second tap on Messages (phone)**: it switches between the conversation and the contact list, and goes first to any other conversation with an unread message.
 - **Notification sound**: the sound played for notifications pointed to a file that never existed, so it stayed silent. It is now a short chime made by the app.
