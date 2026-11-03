@@ -62,17 +62,18 @@
 		dispatch('setTeamCaptain', { teamId, captainId });
 	}
 
-	function canManageLock(team) {
+	// Reactive so the template's {@const} re-run when the user, the admin flag or the tournament change (Svelte 5)
+	$: canManageLock = (team) => {
 		if (isAdmin) return true;
 		const lockMode = selected?.config?.team_lock_mode || 'captain';
 		if (lockMode === 'admin' || lockMode === 'open') return false;
 		return team.captain_id === currentUser?.id || team.created_by === currentUser?.id;
-	}
+	};
 
-	function canManageCaptain(team) {
+	$: canManageCaptain = (team) => {
 		if (isAdmin) return true;
 		return team.captain_id === currentUser?.id || team.created_by === currentUser?.id;
-	}
+	};
 </script>
 
 <div class="teams-section glass">

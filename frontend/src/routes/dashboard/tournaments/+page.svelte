@@ -1511,15 +1511,17 @@
 	</div>
 {/if}
 
-<!-- Toasts -->
-<div class="toast-container" use:portal>
-	{#each toasts as t (t.id)}
-		<div class="toast {t.type} {t.leaving ? 'toast-leave' : 'toast-enter'}">
-			<span><Icon name={t.type === 'success' ? 'check-circle' : t.type === 'error' ? 'x-circle' : 'info'} size={16} /></span>
-			<span class="toast-msg">{t.message}</span>
-		</div>
-	{/each}
-</div>
+<!-- Toasts (alone in their {#if}: a moved last node would make Svelte 5 erase the next page) -->
+{#if toasts.length > 0}
+	<div class="toast-container" use:portal>
+		{#each toasts as t (t.id)}
+			<div class="toast {t.type} {t.leaving ? 'toast-leave' : 'toast-enter'}">
+				<span><Icon name={t.type === 'success' ? 'check-circle' : t.type === 'error' ? 'x-circle' : 'info'} size={16} /></span>
+				<span class="toast-msg">{t.message}</span>
+			</div>
+		{/each}
+	</div>
+{/if}
 
 <style>
 	.sidebar-actions { padding: 0.5rem 0.5rem 0 0.5rem; display: flex; flex-direction: column; }

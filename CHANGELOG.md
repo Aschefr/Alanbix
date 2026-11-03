@@ -2,8 +2,46 @@
 
 ## [Unreleased]
 
+### 🔐 Login and sessions
+- **Sessions follow activity**: a session used to end 10 hours after logging in, even in the middle of the LAN. It now lasts 3 days and renews itself (at most once an hour) while the app is used, so only 3 days without opening it log a player out.
+- **Back to the login screen when a session ends**: an expired session left the interface on screen with nothing working. The app now returns to the login screen by itself, even if nobody clicks, and says "Your session has expired. Sign in again to continue."
+- **Show the password**: an eye button in the password field shows or hides what was typed; the cursor stays in the field, so Enter still signs in.
+
+### 💬 Messages
+- **Quieter contact list**: the active conversation now has a thin outline and unread contacts a tinted background, instead of a thick coloured bar on the side.
+- **The Messages tab goes to the new message**: with an unread message, opening Messages shows the conversation (private or team) holding the newest one, also after a reload; until now it reopened the last conversation viewed.
+- **Second tap on Messages (phone)**: it switches between the conversation and the contact list, and goes first to any other conversation with an unread message.
+- **Notification sound**: the sound played for notifications pointed to a file that never existed, so it stayed silent. It is now a short chime made by the app.
+
+### ⚡ Performance
+- **Lighter app with Svelte 5**: the interface now runs on Svelte 5 (in its compatibility mode, the code is unchanged), and the downloaded app shrinks by 30% (3.0 MB to 2.1 MB), which helps phones on a busy LAN Wi-Fi.
+
+### 📚 Knowledge base (RAG)
+- **It works without an embedding model**: the knowledge base was only searched by meaning (embeddings). When the embedding model did not answer (missing, turned off, or not served by an OpenAI-compatible server), every entry silently became unreachable. A keyword search (BM25) now always runs, and is merged with the meaning search when it works (hybrid search, Reciprocal Rank Fusion), for the private assistant and `@Alanbix` alike. Keywords find names and exact terms, meaning finds rephrasings.
+- **A dead embedding server no longer slows every message**: after a failure it is asked again only every 5 minutes, and the error says why (HTTP status and model) instead of `'data'`.
+- **A built-in search model, installed in one click**: a button in the knowledge base section and in the guided setup downloads a small multilingual model once (`paraphrase-multilingual-MiniLM-L12-v2`, 135 MB, verified) into the data folder, where it survives updates. No AI server, graphics card or Internet needed afterwards: it runs on the processor (about 400 MB of memory, from the first search), finds rephrasings and questions asked in another language (a question in English finds an entry written in French), and re-indexes the entries by itself. The image grows by about 28 MB to download (115 MB on disk); the model stays optional.
+- **The assistant uses the entries better**: they now come with instructions: give the answer precisely (number, name, instruction), in the player's language, ignore unrelated entries, and do not take an entry as proof that something was done.
+- **Entries remember their embedding model**: vectors made by another model are no longer compared with the question's (the result was meaningless). A banner at the top of the knowledge base says which search works, why the meaning search does not, and how many entries need re-indexing, with a **Re-index** button. Entries saved while the model is down are kept and found by keywords.
+
+### 🧭 Guided setup
+- **A knowledge base step**: the guided setup explains what entries are for and how to write useful ones (one topic, a complete answer, no secrets, no need to copy the Infos page), offers to install the built-in search model, and turns the answers to a few questions (who to contact, gear to borrow, parking, sleeping) into the first entries.
+
+### 🧩 AI models
+- **Recommended models, downloaded from Alanbix**: for an Ollama server, the AI settings and the guided setup now list recommended models, each with a download button and its progress, then a button to use it. The list comes from a comparison on real Alanbix questions: `gemma4:e4b` was the most reliable, `gemma4:e2b` is the minimum. Other servers do not show the list: only Ollama can download models on request.
+
+### 🗺️ Room map
+- **Wi-Fi access point element**: the map editor gets a "Wi-Fi access point" element, next to the door, kitchen, bar, toilets, rack and screen.
+- **The assistant knows where things are**: asked "where is the Wi-Fi access point?", "where are the toilets?" or "where is the bar?", the private assistant and `@Alanbix` in the public chat now read the map elements. They answer with landmarks and a general direction, as on the map ("between Table 2 and Table 3, on the right side of the room"), add a rough distance only when it helps (a seat counts as about 0.8 m, the map is not to scale), and can list the free seats closest to a Wi-Fi access point. Until now they had no idea and could make up a place.
+- **Element icons on every map**: the dashboard, projector and welcome maps printed the icon's name ("server", "door") for elements added with a recent editor; they now draw the same line icons as the editor.
+
+### 🤖 Private AI assistant
+- **A more natural tone**: the default personality made Alanbix a "mascot" asked to tease, crack jokes and drop Asterix references, which a small model did in every answer. It is now a player giving a hand: simple, direct, relaxed, usually one to three sentences, jokes only when the player jokes, no greeting or follow-up question by habit, serious when something is wrong (fr, en, es). LANs that kept the old default text get the new one; a personality written by the organizers is kept. `@Alanbix` in the public chat follows it too.
+- **It checks before talking about the LAN**: a fixed rule now says matches, scores, rankings, seats and room map elements change all the time, so the assistant always looks them up before answering, even when it thinks it knows (it could otherwise make up a match or a place).
+- **It acts before it explains**: asked for an administrator, the assistant could first write made-up steps ("open the menu, find the Contact button…") and only then alert the admin itself, leaving both on screen. A new fixed rule tells it to do what it can do itself first (alert an admin, notify a player, look up data), without writing anything before, then answer from the result, and never to explain how to do it by hand.
+
 ### 🐛 Fixed
 - **AI conversations get their title again with reasoning models**: with a model that thinks before answering (Qwen 3.5 on vLLM, for example), the title request spent its 30 tokens thinking and got an empty answer, so the conversation stayed "New discussion" (the "suggest a title" button failed the same way). Thinking is now switched off for this short request (`enable_thinking: false` for OpenAI-compatible servers, `think: false` for Ollama), with a plain retry if a server refuses the option, and any `<think>` block left in the answer is removed.
+- **Smooth switch between notifications and archives**: the tab lights up at once and the list is replaced in one go, instead of flashing a small loading box that grew while two requests ran one after the other.
 - **More patience with slow models**: `@Alanbix` in the public chat, and the private assistant's tool rounds, gave up on the AI server after 90 to 120 seconds per request. With a slow model, or one loading cold, an answer could be dropped. They now wait up to 5 minutes, like the private assistant's streamed answers.
 
 ## [1.37.0] - 2026-11-02

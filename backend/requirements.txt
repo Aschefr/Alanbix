@@ -13,3 +13,5 @@ bcrypt==5.0.0
 PyJWT==2.15.1
 Pillow==13.0.0
 tzdata==2026.6
+# Built-in embedding model (knowledge base search by meaning, CPU only; tokenizers is in requirements-nodeps.txt); the model itself is downloaded on demand
+onnxruntime==1.31.1

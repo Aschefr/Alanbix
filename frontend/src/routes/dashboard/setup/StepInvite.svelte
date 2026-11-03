@@ -7,7 +7,9 @@
 	export let eventName = '';
 	export let wifiSsids = '';
 
-	// The poster lives directly in <body> so printing can hide the whole app around it
+	// The poster lives directly in <body> so printing can hide the whole app around it.
+	// A moved element must be alone in its {#if}: Svelte 5 clears a block from its first to
+	// its last node, so a moved first/last node makes it erase whatever follows (next page).
 	function portal(node) {
 		document.body.appendChild(node);
 		return { destroy() { node.remove(); } };
@@ -35,13 +37,15 @@
 </div>
 
 <!-- Printed poster only (Print button) -->
-<div class="poster setup-poster" use:portal>
-	<h1>{eventName}</h1>
-	<p class="poster-lead">{$t('setup_invite_poster_lead')}</p>
-	<QrCode value={playerUrl} size={420} />
-	<p class="poster-url">{playerUrl}</p>
-	{#if wifiSsids}<p class="poster-wifi">{$t('setup_invite_poster_wifi', { wifi: wifiSsids })}</p>{/if}
-</div>
+{#if playerUrl}
+	<div class="poster setup-poster" use:portal>
+		<h1>{eventName}</h1>
+		<p class="poster-lead">{$t('setup_invite_poster_lead')}</p>
+		<QrCode value={playerUrl} size={420} />
+		<p class="poster-url">{playerUrl}</p>
+		{#if wifiSsids}<p class="poster-wifi">{$t('setup_invite_poster_wifi', { wifi: wifiSsids })}</p>{/if}
+	</div>
+{/if}
 
 <style>
 	.invite { display: flex; gap: 1.5rem; align-items: flex-start; flex-wrap: wrap; }

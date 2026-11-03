@@ -12,7 +12,7 @@ Accessible from **Administration > Room Plan**. This editor allows designing the
 You can Drag & Drop the following elements onto the canvas:
 * **Seat**: The primary element on which a player can sit.
 * **Table**: Furniture of different sizes to structure rows.
-* **Structural Elements**: Walls, Doors, Technical Racks, Projection Screens.
+* **Structural Elements**: Walls, Doors, Technical Racks, Projection Screens, **Wi-Fi access points**.
 * **Amenities**: Kitchen corner, Food bar, Restrooms (WC).
 
 ![Room Editor](../../../screenshots/alanbix_plan_salle_editeur.png)
@@ -22,7 +22,8 @@ You can Drag & Drop the following elements onto the canvas:
 * **Clear everything**: empties the map in the editor after a confirmation; Ctrl+Z brings it back until it is saved. On save, players sitting on a seat that no longer exists are freed (true for any deleted seat). The administration's danger zone also has "Room map" to delete it directly.
 * **Keyboard**: arrows move the selection (Shift: 5 cells), Del deletes (Enter confirms a table), Ctrl+D duplicates, Esc deselects, Ctrl+Z / Ctrl+Y undo / redo (100 steps), Ctrl+S saves.
 * **Unsaved changes**: a "Not saved" mark shows next to the Save button; closing the editor or leaving the page then offers to stay, discard the changes or save.
-* **Readability**: seats show their number (`7` rather than `T1_S7`), only the selected table shows its `+` button, and elements (door, kitchen, bar, toilets, rack, screen) use the app's line icons.
+* **Readability**: seats show their number (`7` rather than `T1_S7`), only the selected table shows its `+` button, and elements (door, kitchen, bar, toilets, rack, screen, Wi-Fi access point) use the app's line icons, on every map (editor, dashboard, projector, welcome).
+* **The AI assistant knows the elements**: a player can ask it "where is the Wi-Fi access point?" or "where are the toilets?". It answers with landmarks and a direction ("between Table 2 and Table 3, on the right side of the room"), a rough distance only as an extra, and can suggest the free seats closest to a Wi-Fi access point. `@Alanbix` knows it too in the public chat. So place the Wi-Fi access points, the toilets and the door on the map.
 * **Coordinated Rotation**: Clicking the rotation handle of a table (at its right end) and rotating it automatically moves and aligns all associated seats in a circular arc around the table's center.
 * **Delete Confirmation (Table)**: Deleting a table displays a visual confirmation overlay (`✓` / `✕`) shown in the middle of the table, in place of its name, to prevent accidental clicks, and automatically cascades deletion to all associated seats.
 * **Direct Seat Addition**: Seats go **around** the table, like chairs: one row along the top edge, then one along the bottom edge, centred on its length. A green `+` button (ghost seat) appears at the next free place; clicking it generates a seat with a unique sequential ID (e.g. `T5_S9`). The button skips places covered by another table or seat, and disappears when both rows are full: for more places, make the table longer (a 300-wide table holds 5 seats per side). A seat stays bound to its table by its ID, so it follows the table when it is moved or rotated. A new table is thin (80 deep) and is placed leaving room for its seats. The toolbar's **+ Seat** button keeps going beyond that, on extra rows just above and then below the table. Older maps, with the seats on the table, keep working.

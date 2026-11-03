@@ -38,6 +38,7 @@ Depuis la reprise du 29 octobre 2026 :
 
 - [x] Quand il est déjà occupé (pause de 15 secondes), désactivé ou que l'IA ne répond pas, le joueur qui l'a appelé en est prévenu, au lieu d'un silence.
 - [x] Dans ses réponses en liste, le gras (`**Nom**`) s'affichait avec ses astérisques : le chat public met maintenant en forme le gras, l'italique, le code et les puces.
+- [ ] Mesurer les modèles conseillés sans carte graphique. Le chat public retombe sur `llama3` si aucun modèle n'est configuré : à revoir.
 - [ ] Sa réponse prend 1 à 2 minutes avec le modèle actuel. Il faudrait essayer un modèle plus rapide, ou une machine plus puissante (pas urgent). En attendant, chaque demande au modèle peut durer jusqu'à 5 minutes avant d'être abandonnée, au lieu de 90 à 120 secondes.
 - [x] Assistant privé en streaming avec un service compatible OpenAI : les appels d'outils arrivaient en morceaux jamais recollés, donc ils plantaient. Ils sont maintenant reconstitués, avec leurs arguments et leur identifiant.
 
@@ -48,6 +49,13 @@ Depuis la reprise du 29 octobre 2026 :
 - [x] La doc renvoyait vers un `unraid-template.xml` qui n'est plus dans ce dépôt : elle renvoie maintenant vers le store Community Applications et vers `alanbix.xml` du dépôt `Aschefr/unraid-templates`.
 - [x] `PUID=99` et `PGID=100` ajoutés à `alanbix.xml` dans le dépôt `Aschefr/unraid-templates`.
 
+## Plus tard — Base de connaissances (RAG)
+
+- [x] Recherche hybride : mots-clés (toujours disponibles) + sens (si un modèle d'embedding répond), avec un bandeau d'état et un bouton « Réindexer » dans l'administration.
+- [ ] Longs documents : indexer chaque morceau séparément et ne transmettre que les morceaux pertinents (aujourd'hui, un long document est résumé en un seul vecteur moyen et envoyé en entier).
+- [x] Modèle d'embedding intégré, sans serveur : bibliothèques dans l'image, modèle téléchargé à la demande (135 Mo), proposé aussi dans la configuration guidée.
+- [ ] Pouvoir choisir un serveur d'embedding externe différent du serveur de chat (moins utile depuis le modèle intégré).
+
 ## Plus tard — Entretien du code
 
 - [ ] Découper petit à petit les fichiers trop gros, chaque fois qu'on y touche (règle systématique : à chaque correction ou amélioration qui touche l'un d'eux, une partie en est sortie dans un fichier à part) :
@@ -55,6 +63,7 @@ Depuis la reprise du 29 octobre 2026 :
   - le tableau de bord, la page IA, les réglages admin et `ia_tools.py` en font plus de 2 000.
 - [x] `datetime.utcnow()`, qui disparaîtra d'une future version de Python, est remplacé partout (47 endroits) par `app/clock.py`.
 - [x] L'avertissement `Event.wait` venait d'un test qui remplaçait `asyncio.wait_for` sans fermer la tâche : corrigé. Les tests tournent sans aucun avertissement.
+- [ ] Tableau de bord, onglet « Tournois en cours » : sur un écran de 900 px de haut, l'aperçu de l'arbre déborde par-dessus le lien « Voir les tournois » (la zone de l'arbre impose 200 px minimum, alors qu'il ne reste qu'environ 95 px). Ce problème existait déjà avant Svelte 5.
 - [ ] Passer à Svelte 5 (mesuré le 2 novembre 2026) :
-  - étape 1, sans réécrire le code : l'app compile telle quelle avec Svelte 5 (mode compatibilité), bundle 30 % plus léger (3,0 → 2,1 Mo), 20 nouveaux avertissements d'accessibilité. Reste à tester tous les écrans sur une branche ;
+  - étape 1, sans réécrire le code : faite sur la branche `feat/svelte5` (2 novembre 2026). Le code de l'app est plus léger de 30 % (3,0 → 2,1 Mo). Tous les écrans ont été vérifiés sur le serveur de test (ordinateur, mobile 360 px, mode sombre, langues, assistant IA, chat public, administration), sans erreur. Reste à l'utiliser quelques jours en test, puis à fusionner dans `dev` ;
   - étape 2, réécriture « runes » : 228 `$:`, 131 `export let`, 1 025 `on:`, 26 `createEventDispatcher` dans 50 fichiers (36 000 lignes). À faire fichier par fichier, en même temps que le découpage des gros fichiers.

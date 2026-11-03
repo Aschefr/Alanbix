@@ -1,0 +1,2 @@
+# Installed without their dependencies: tokenizers pulls huggingface_hub and more, only used to download from the Internet
+tokenizers==0.23.3

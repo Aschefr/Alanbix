@@ -468,7 +468,7 @@ async def _process_alanbix_public_reply(trigger_msg_id: int, author_id: int):
                 return
 
             system_prompt, lan_lang = build_public_system_prompt(db, models, author)
-            knowledge = await knowledge_block(db, models, trigger.content, ollama_host, ia_cfg)
+            knowledge = await knowledge_block(db, models, trigger.content, ollama_host, ia_cfg, lan_lang)
             if knowledge:
                 system_prompt = f"{system_prompt}\n\n{knowledge}"
             messages = [
