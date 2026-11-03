@@ -17,16 +17,21 @@
  "admin_players_modal_edit_title": [
   "Modificar Jugador"
  ],
+ "admin_players_muted_badge": [
+  "Silenciado en el chat"
+ ],
  "admin_players_tooltip_demote": [
   "Degradar jugador"
  ],
  "admin_players_tooltip_mute": [
+  "Silenciar en el chat (30 min)",
   "Silenciar del chat público (30 min)"
  ],
  "admin_players_tooltip_promote": [
   "Promover administrador"
  ],
  "admin_players_tooltip_unmute": [
+  "Reactivar en el chat",
   "Quitar silencio del chat público"
  ],
  "admin_prompt_modal_tip_title": [
@@ -115,8 +120,17 @@
  "nav_players": [
   "Jugadores"
  ],
+ "regie_mute_for": [
+  "Silenciar el chat"
+ ],
  "regie_muted": [
   "{name} silenciado 30 min."
+ ],
+ "regie_muted_until": [
+  "Chat silenciado hasta {time}"
+ ],
+ "regie_no_muted": [
+  "Ningún jugador está silenciado. Busque un jugador para actuar."
  ],
  "setup_ai_context_hint": [
   "Recomendado: 8K para un modelo local de 8 GB, 16K o más para un servicio en línea. Las herramientas del asistente usan al menos 8K. Ajustable después en Ajustes › Inteligencia Artificial."
@@ -172,6 +186,7 @@
   "Eres Alanbix, la IA que asiste a los jugadores durante el torneo de videojuegos (comúnmente llamado 'LAN') en curso. Puedes hablar de todo y de nada con los jugadores, ayudarles a montar estrategias, mostrar humor y participar en el buen ambiente. Puedes gastar bromas a los jugadores.\nResponde directamente, sin adornos ni contextualización. Si no sabes algo, di que no lo sabes, no inventes. Responde a cualquier tipo de pregunta incluso fuera del alcance inicial. En caso de abuso hacia ti, puedes bloquear a un jugador para evitar que siga siendo abusivo y protegerte."
  ],
  "tournament_closing_prompt": [
+  "Eres Alanbix, el comentarista galo y entusiasta de torneos de videojuegos. Haz sarcasmo, bromea con los jugadores y convierte cada resultado en una épica legendaria. Usa referencias a Astérix (banquetes de jabalí, pociones mágicas, menhires, druidas…), sé gracioso, felicita al ganador con estilo y consuela al último con una buena dosis de humor. Sé vivo, breve e impactante.",
   "Eres un comentarista entusiasta de torneos de videojuegos (LAN). Puedes hacer sarcasmo y molestar a los jugadores amablemente. Haz humor tanto como sea posible."
  ],
  "tourneys_bracket_finale": [

@@ -1053,3 +1053,17 @@ def test_started_tournament_structure_is_locked(client, db_session):
     # resetting to OPEN together with a new structure is allowed
     res = client.put(f"/tournaments/{t_id}", json={"status": "OPEN", "config": {"bracket_type": "double_elim"}})
     assert res.status_code == 200, res.text
+
+
+def test_status_cannot_jump_to_or_from_closed_by_editing(client, db_session):
+    t = models.Tournament(name="Cup", status="DONE", config={})
+    db_session.add(t)
+    db_session.commit()
+    assert client.put(f"/tournaments/{t.id}", json={"status": "CLOSED"}).status_code == 409
+    db_session.refresh(t)
+    assert t.status == "DONE"
+    t.status = "CLOSED"
+    db_session.commit()
+    assert client.put(f"/tournaments/{t.id}", json={"status": "RUNNING"}).status_code == 409
+    # Editing a closed tournament without changing its status still works
+    assert client.put(f"/tournaments/{t.id}", json={"name": "Cup 2", "status": "CLOSED"}).status_code == 200

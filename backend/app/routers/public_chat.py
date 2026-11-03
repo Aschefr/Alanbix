@@ -408,6 +408,8 @@ async def send_message(
     alanbix_notice = None
     if (has_alanbix or replies_to_alanbix) and not config.get("ai_mention_enabled", True):
         alanbix_notice = {"state": "disabled"}
+    elif (has_alanbix or replies_to_alanbix) and user.ia_blocked and not user.is_admin:
+        alanbix_notice = {"state": "blocked"}
     elif has_alanbix or replies_to_alanbix:
         ai_cd = config.get("ai_cooldown_seconds", 15)
         if (now - _last_ai_reply_time) < ai_cd:

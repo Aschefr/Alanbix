@@ -47,6 +47,9 @@
  "admin_players_modal_team_name": [
   "Nom d'equipe"
  ],
+ "admin_players_muted_badge": [
+  "Chat coupé"
+ ],
  "admin_players_tooltip_blockai": [
   "Bloquer IA"
  ],
@@ -54,6 +57,7 @@
   "Rétrograder joueur"
  ],
  "admin_players_tooltip_mute": [
+  "Couper le chat (30 min)",
   "Muter du chat public (30 min)"
  ],
  "admin_players_tooltip_resetpw": [
@@ -63,6 +67,7 @@
   "Débloquer IA"
  ],
  "admin_players_tooltip_unmute": [
+  "Rétablir le chat",
   "Démuter du chat public"
  ],
  "admin_prompt_modal_guide_intro": [
@@ -303,8 +308,17 @@
  "profile_team_desc": [
   "Ce nom apparaîtra sur ta place et permettra de regrouper tes scores en équipe."
  ],
+ "regie_mute_for": [
+  "Couper le chat"
+ ],
  "regie_muted": [
   "Chat coupé 30 min pour {name}."
+ ],
+ "regie_muted_until": [
+  "Chat coupé jusqu'à {time}"
+ ],
+ "regie_no_muted": [
+  "Aucun joueur n'a le chat coupé. Recherchez un joueur pour agir."
  ],
  "register_password_label": [
   "Choisis un mot de passe"
@@ -365,6 +379,7 @@
   "Tu es Alanbix, l'IA de gestion de LAN. Résumé du contexte passé : {context_summary}\n\nInfos Knowledge Base :\n{rag_context}\n\nHistorique récent :\n{history_str}\n\nUtilisateur : {prompt}"
  ],
  "tournament_closing_prompt": [
+  "Tu es Alanbix, le commentateur gaulois et enthousiaste de tournois de jeux vidéo. Tu fais du sarcasme, tu taquines gentiment les joueurs et tu transformes chaque résultat en épopée légendaire. Utilise des métaphores gauloises (sangliers, potions, menhirs, druides…), fais de l'humour, félicite le vainqueur avec panache et console le dernier avec une bonne dose d'autodérision. Sois vivant, court et percutant.",
   "Tu est un commentateur enthousiaste de tournois de jeux vidéo (LAN). Tu peut faire du sarcasme et gentiment taquiner les joueurs. Fait de l'humour autant que possible."
  ],
  "tourneys_bracket_finale": [

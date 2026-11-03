@@ -29,6 +29,15 @@
 ### 🧩 AI models
 - **Recommended models, downloaded from Alanbix**: for an Ollama server, the AI settings and the guided setup now list recommended models, each with a download button and its progress, then a button to use it. The list comes from a comparison on real Alanbix questions: `gemma4:e4b` was the most reliable, `gemma4:e2b` is the minimum. Other servers do not show the list: only Ollama can download models on request.
 
+### 🛡️ Administration
+- **Server state and network scan are for admins only**: any player could ask the assistant for the server's load and for the addresses seen on the network. Players keep the ping, traceroute and DNS tests.
+- **Closing a tournament always hands out the points**: choosing "Closed" in the edit window changed the status without any points, and reopening then took away points never given. That status now only changes through the close and reopen buttons.
+- **Blocked means blocked**: a player cut off from the assistant could still call @Alanbix in the public chat, and is now told why it does not answer.
+- **"Mute" says what it does**: it only covers the public chat; private and team messages stay possible.
+- **Emergencies get through**: the assistant can alert an admin about a fire, an injury or a leak despite the anti-spam limits, three times an hour at most.
+- **Players know**: a line under the assistant tells them the organisers can read their conversations.
+- **End-of-tournament messages drop the old tone**: the default instructions no longer ask for Gaulish metaphors and epic style.
+
 ### 🗺️ Room map
 - **Wi-Fi access point element**: the map editor gets a "Wi-Fi access point" element, next to the door, kitchen, bar, toilets, rack and screen.
 - **The assistant knows where things are**: asked "where is the Wi-Fi access point?", "where are the toilets?" or "where is the bar?", the private assistant and `@Alanbix` in the public chat now read the map elements. They answer with landmarks and a general direction, as on the map ("between Table 2 and Table 3, on the right side of the room"), add a rough distance only when it helps (a seat counts as about 0.8 m, the map is not to scale), and can list the free seats closest to a Wi-Fi access point. Until now they had no idea and could make up a place.

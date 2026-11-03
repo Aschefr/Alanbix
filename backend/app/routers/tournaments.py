@@ -329,6 +329,10 @@ async def update_tournament(
         raise HTTPException(status_code=404, detail="Tournament not found")
         
     update_data = tournament_update.model_dump(exclude_unset=True)
+    new_status = update_data.get("status")
+    if new_status and new_status != db_tournament.status and "CLOSED" in (new_status, db_tournament.status):
+        # Closing hands out the points and reopening takes them back: only their own routes do that
+        raise HTTPException(status_code=409, detail="Use the close or reopen button to change this status")
 
     # The edit dialog sends the whole config: keep what only the server writes
     if isinstance(update_data.get("config"), dict) and update_data.get("status") != "OPEN":

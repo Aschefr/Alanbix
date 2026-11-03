@@ -1601,6 +1601,7 @@
 				</div>
 			{/if}
 
+			<p class="privacy-note">{$t("ai_privacy_note")}</p>
 			<form class="input-area" class:input-disabled={loading || busyOtherConv} on:submit|preventDefault={() => send()}>
 				{#if pendingImagePreview}
 					<div class="pending-image-preview">
@@ -1720,6 +1721,7 @@
 {/if}
 
 <style>
+	.privacy-note { margin: 0; padding: 0.25rem 1rem 0; font-size: 0.72rem; line-height: 1.35; color: var(--text-muted); text-align: center; }
 	.ai-wrap { height: 100%; display: flex; flex-direction: column; gap: 1rem; }
 	.ai-header { flex-shrink: 0; min-height: 0; padding: 0; background: none; border: none; box-shadow: none; }
 	.ai-page { flex: 1; min-height: 0; gap: 1.25rem; align-items: stretch; }

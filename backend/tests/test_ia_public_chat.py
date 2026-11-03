@@ -216,3 +216,14 @@ def test_team_roster_gives_each_member_seat(db_session):
     members = data["tournament_teams"][0]["members"]
     assert {"username": "Player1", "seat": "Fond de salle, place 7"} in members
     assert {"username": "Player2", "seat": "Non assigné"} in members
+
+
+def test_player_blocked_from_the_ai_cannot_call_alanbix(client, db_session):
+    from app.auth import get_current_user
+    from app.main import app
+    player = models.User(username="blockedone", hashed_password="x", ia_blocked=True)
+    db_session.add(player)
+    db_session.commit()
+    app.dependency_overrides[get_current_user] = lambda: player
+    res = client.post("/public-chat/messages", json={"content": "@Alanbix salut"})
+    assert res.json()["alanbix_notice"] == {"state": "blocked"}
