@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [1.38.0] - 2026-11-03
 
 ### 🔐 Login and sessions
 - **Sessions follow activity**: a session used to end 10 hours after logging in, even in the middle of the LAN. It now lasts 3 days and renews itself (at most once an hour) while the app is used, so only 3 days without opening it log a player out.
