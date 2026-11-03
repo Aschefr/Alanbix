@@ -64,6 +64,7 @@ Depuis la reprise du 29 octobre 2026 :
 - [x] `datetime.utcnow()`, qui disparaîtra d'une future version de Python, est remplacé partout (47 endroits) par `app/clock.py`.
 - [x] L'avertissement `Event.wait` venait d'un test qui remplaçait `asyncio.wait_for` sans fermer la tâche : corrigé. Les tests tournent sans aucun avertissement.
 - [ ] Tableau de bord, onglet « Tournois en cours » : sur un écran de 900 px de haut, l'aperçu de l'arbre déborde par-dessus le lien « Voir les tournois » (la zone de l'arbre impose 200 px minimum, alors qu'il ne reste qu'environ 95 px). Ce problème existait déjà avant Svelte 5.
+- [ ] Actions GitHub sur Node.js 24 : `tests.yml` est fait. Restent `verify-i18n.yml`, `build-mobile.yml` et `privacy-pages.yml`, à vérifier lors d'un envoi sur `master`.
 - [ ] Passer à Svelte 5 (mesuré le 2 novembre 2026) :
   - étape 1, sans réécrire le code : faite et fusionnée dans `dev` (3 novembre 2026), pas encore publiée. Le code de l'app est plus léger de 30 % (3,0 → 2,1 Mo). Tous les écrans ont été vérifiés sur le serveur de test (ordinateur, mobile 360 px, mode sombre, langues, assistant IA, chat public, administration), sans erreur. Reste à la surveiller à l'usage sur le serveur de test ;
   - étape 2, réécriture « runes » : 228 `$:`, 131 `export let`, 1 025 `on:`, 26 `createEventDispatcher` dans 50 fichiers (36 000 lignes). À faire fichier par fichier, en même temps que le découpage des gros fichiers.
