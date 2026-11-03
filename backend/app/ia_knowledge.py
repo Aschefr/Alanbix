@@ -30,7 +30,7 @@ al como con cual cuando de del donde el en es esta hay la las lo los me mi no o 
 tu un una y yo
 """.split())
 
-_embed_state = {"failed_at": 0.0}
+_embed_state = {"failed_at": None}
 
 
 def _plain(text) -> str:
@@ -87,10 +87,11 @@ def current_model() -> str:
 async def embed(text: str, host: str, force: bool = False):
     """Embedding of a text, or None (model missing, server down). After a failure, waits a while
     before asking again, so every chat message does not pay for a dead embedding server."""
-    if not force and time.monotonic() - _embed_state["failed_at"] < EMBED_RETRY_SECONDS:
+    failed_at = _embed_state["failed_at"]
+    if not force and failed_at is not None and time.monotonic() - failed_at < EMBED_RETRY_SECONDS:
         return None
     vector = await ia_utils.get_embedding(text, ollama_host=host)
-    _embed_state["failed_at"] = 0.0 if vector else time.monotonic()
+    _embed_state["failed_at"] = None if vector else time.monotonic()
     return vector
 
 
@@ -98,7 +99,7 @@ async def index_entry(doc, host: str) -> int:
     """(Re)compute an entry's embedding with the current model. Returns the number of chunks;
     the entry is kept without embedding (keywords only) when the model does not answer."""
     vector, chunks = await ia_utils.get_embedding_chunked(doc.content, ollama_host=host)
-    _embed_state["failed_at"] = 0.0 if vector else time.monotonic()
+    _embed_state["failed_at"] = None if vector else time.monotonic()
     doc.embedding_json = json.dumps(vector) if vector else None
     doc.embed_model = current_model() if vector else None
     return chunks

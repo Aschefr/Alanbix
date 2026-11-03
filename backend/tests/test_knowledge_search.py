@@ -11,9 +11,9 @@ CFG = {"rag_enabled": True, "rag_min_score": 0.65}
 
 @pytest.fixture(autouse=True)
 def fresh_embed_state():
-    ia_knowledge._embed_state["failed_at"] = 0.0
+    ia_knowledge._embed_state["failed_at"] = None
     yield
-    ia_knowledge._embed_state["failed_at"] = 0.0
+    ia_knowledge._embed_state["failed_at"] = None
 
 
 def add(db, content, vector=None, model=None, meta=None):
@@ -47,6 +47,14 @@ def test_keyword_search_needs_enough_of_the_question():
     # One word out of four is not enough to inject an entry
     assert keyword_search("comment régler la latence du match en ligne", docs) == []
     assert keyword_search("salut", docs) == []
+
+
+@pytest.mark.asyncio
+async def test_meaning_works_right_after_the_machine_started():
+    # The monotonic clock counts from boot: "no failure yet" must not look like a recent failure
+    with patch("app.ia_knowledge.time.monotonic", return_value=10.0),          patch("app.ia_utils.get_embedding", AsyncMock(return_value=[1.0])) as emb:
+        assert await ia_knowledge.embed("question", "http://ai") == [1.0]
+    assert emb.await_count == 1
 
 
 @pytest.mark.asyncio

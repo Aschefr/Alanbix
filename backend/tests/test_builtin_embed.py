@@ -26,11 +26,11 @@ def small_model(tmp_path, monkeypatch):
         "tokenizer.json": ("http://hf/tokenizer", len(TOKENIZER), sha(TOKENIZER)),
     })
     builtin._install.update(downloading=False, downloaded=0, error=None)
-    ia_knowledge._embed_state["failed_at"] = 0.0
+    ia_knowledge._embed_state["failed_at"] = None
     yield tmp_path
     builtin._install.update(downloading=False, downloaded=0, error=None)
     builtin._runtime.update(session=None, tokenizer=None)
-    ia_knowledge._embed_state["failed_at"] = 0.0
+    ia_knowledge._embed_state["failed_at"] = None
 
 
 class FakeResponse:
