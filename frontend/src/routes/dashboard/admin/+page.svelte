@@ -8,6 +8,7 @@
 	import AdminPlayersTab from './components/AdminPlayersTab.svelte';
 	import AdminSettingsTab from './components/AdminSettingsTab.svelte';
 	import AdminConversationsTab from './components/AdminConversationsTab.svelte';
+	import AdminDiagnosticsTab from './components/AdminDiagnosticsTab.svelte';
 	import AdminAwardsTab from './components/AdminAwardsTab.svelte';
 	import AdminRegieTab from './components/AdminRegieTab.svelte';
 	import { SETUP_STEPS, loadSetupRaw, saveSetup } from '$lib/adminSetup';
@@ -63,6 +64,7 @@
 		else if (activeTab === 'settings') tabName = `${baseAdmin} - ${$t('admin_tab_settings')}`;
 		else if (activeTab === 'conversations') tabName = `${baseAdmin} - ${$t('admin_tab_conversations')}`;
 		else if (activeTab === 'awards') tabName = `${baseAdmin} - ${$t('admin_tab_awards')}`;
+		else if (activeTab === 'diagnostics') tabName = `${baseAdmin} - ${$t('admin_tab_diagnostics')}`;
 		customPageTitle.set(tabName);
 	}
 
@@ -182,6 +184,7 @@
 				{/if}
 			</button>
 			<button class={activeTab === 'awards' ? 'active' : ''} on:click={() => { activeTab = 'awards'; if (awardsTabRef) awardsTabRef.loadAwardsTab(); }}><Icon name="trophy" size={15} /> {$t('admin_tab_awards')}</button>
+			<button class={activeTab === 'diagnostics' ? 'active' : ''} on:click={() => activeTab = 'diagnostics'}>{$t('admin_tab_diagnostics')}</button>
 			<button class="desktop-only" on:click={() => window.location.href = '/dashboard/admin/languages'}><Icon name="globe" size={15} /> {$t('admin_tab_languages')}</button>
 		</div>
 	</header>
@@ -213,21 +216,25 @@
 			<AdminConversationsTab bind:this={conversationsTabRef} initialConvId={selectedConvId} bind:unreadCount={adminUnreadConvsCount} {toast} />
 		{:else if activeTab === 'awards'}
 			<AdminAwardsTab bind:this={awardsTabRef} {toast} />
+		{:else if activeTab === 'diagnostics'}
+			<AdminDiagnosticsTab />
 		{/if}
 	</div>
 </div>
 
-<!-- Toast Notifications -->
-<div class="toast-container" use:portal>
-	{#each toasts as t (t.id)}
-		<div class="toast {t.type} {t.leaving ? 'toast-leave' : 'toast-enter'}">
-			<span class="toast-icon">
-				<Icon name={t.type === 'success' ? 'check-circle' : t.type === 'error' ? 'x-circle' : 'info'} size={18} />
-			</span>
-			<span class="toast-msg">{t.message}</span>
-		</div>
-	{/each}
-</div>
+<!-- Toast Notifications (alone in their {#if}: a moved last node would make Svelte 5 erase the next page) -->
+{#if toasts.length > 0}
+	<div class="toast-container" use:portal>
+		{#each toasts as t (t.id)}
+			<div class="toast {t.type} {t.leaving ? 'toast-leave' : 'toast-enter'}">
+				<span class="toast-icon">
+					<Icon name={t.type === 'success' ? 'check-circle' : t.type === 'error' ? 'x-circle' : 'info'} size={18} />
+				</span>
+				<span class="toast-msg">{t.message}</span>
+			</div>
+		{/each}
+	</div>
+{/if}
 {/if}
 
 <style>

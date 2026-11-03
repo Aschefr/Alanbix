@@ -61,7 +61,8 @@ Nommé en clin d'œil à *Alambix* de l'univers d'Astérix — une machinerie co
 ### 🤖 Assistant IA (Ollama & OpenAI / LocalAI)
 - **Compatibilité multi-moteurs** : Supporte à la fois les instances locales d'Ollama et les API compatibles OpenAI (LocalAI, vllm, LM Studio, etc. se terminant par `/v1`).
 - **Réponses en streaming** : Affichage fluide via Server-Sent Events.
-- **Pipeline RAG** : Recherche vectorielle native avec NumPy (aucune base de données externe requise).
+- **Base de connaissances** : Recherche par mots-clés toujours active, complétée par une recherche par le sens (aucune base de données externe requise). Un petit modèle de recherche intégré s'installe en un clic et tourne sur le processeur.
+- **Modèles conseillés** : Pour un serveur Ollama, liste de modèles testés sur de vraies questions Alanbix, téléchargeables directement depuis l'application.
 - **Équilibrage de charge / Failover** : Équilibrage multi-instances avec gestion des priorités et basculement automatique (failover).
 - **Diagnostics réseau déportés côté client** : Possibilité d'exécuter les outils de diagnostic réseau (ping, traceroute, DNS) directement depuis le navigateur de l'utilisateur pour contourner l'isolation réseau de Docker.
 - **Compression du contexte** : Troncature, compactage et résumé IA pour économiser les tokens.

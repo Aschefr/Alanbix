@@ -101,6 +101,8 @@ class KnowledgeBase(Base):
     metadata_json = Column(JSON) # e.g. game_id, category
     # Embedding stored as JSON-serialized list of floats (searched via numpy in memory)
     embedding_json = Column(Text, nullable=True)
+    # Model that produced embedding_json: entries indexed by another model are re-indexed, not compared
+    embed_model = Column(String, nullable=True)
 
 class RoomMap(Base):
     __tablename__ = "room_map"

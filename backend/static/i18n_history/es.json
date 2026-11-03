@@ -1,12 +1,73 @@
 {
+ "admin_ai_embed_auto": [
+  "— Automático (nomic-embed-text) —"
+ ],
+ "admin_ai_sec_behaviour": [
+  "Comportamiento y seguridad"
+ ],
+ "admin_awards_btn_broadcast": [
+  "Difundir los Precios de los Jugadores"
+ ],
+ "admin_awards_btn_recalc": [
+  "Recalcular y Sincronizar"
+ ],
+ "admin_awards_desc1": [
+  "Las distinciones de fin de LAN se calculan en tiempo real a partir de las estadísticas del juego de los torneos (en curso o finalizados)."
+ ],
+ "admin_awards_desc4": [
+  "Las notificaciones de precios no se envían automáticamente a los jugadores durante el cálculo. Realiza tu configuración y luego haz clic en \"Difundir Precios\" para notificarlos."
+ ],
+ "admin_chats_subtitle": [
+  "Vigilar e intervenir en directo"
+ ],
+ "admin_games_btn_submit": [
+  "Validar la Adición"
+ ],
  "admin_games_nuke_title": [
+  "Eliminacion critica",
   "Supresión Crítica"
+ ],
+ "admin_games_rules_lbl": [
+  "Reglas (Markdown)"
  ],
  "admin_games_search_placeholder": [
   "Buscar un juego..."
  ],
+ "admin_games_searxng_not_configured": [
+  "SearXNG no está configurado en los ajustes de administración."
+ ],
+ "admin_lang_keys_count": [
+  "{count} claves"
+ ],
+ "admin_lang_missing_desc": [
+  "El archivo {lang} no contiene todas las claves del idioma de referencia. Haga clic en «{button}» para añadir las claves faltantes con valores vacíos."
+ ],
+ "admin_lang_missing_title": [
+  "{count} clave(s) faltante(s)"
+ ],
+ "admin_languages_btn_sync": [
+  "Sincronizar las claves"
+ ],
+ "admin_languages_modal_autotranslate_desc": [
+  "La traducción automática utilizará su instancia local de Ollama (el mismo modelo que el asistente Alanbix). Para una traducción completa de todos los textos a la vez, esto puede tardar varias decenas de segundos dependiendo de la potencia de su tarjeta gráfica."
+ ],
+ "admin_languages_modal_autotranslate_title": [
+  "Traducción Automática (Ollama)"
+ ],
+ "admin_languages_search_placeholder": [
+  "Buscar (clave o texto)..."
+ ],
+ "admin_languages_target_label": [
+  "Objetivo (Edición)"
+ ],
  "admin_languages_unsaved_warning": [
   "Tiene cambios sin guardar. ¿Realmente quiere salir de esta página?"
+ ],
+ "admin_players_ia_blocked_tooltip": [
+  "IA bloqueada"
+ ],
+ "admin_players_modal_block_ai": [
+  "Bloquear acceso IA"
  ],
  "admin_players_modal_delete_avatar": [
   "Eliminar el avatar"
@@ -14,32 +75,65 @@
  "admin_players_modal_edit_title": [
   "Modificar Jugador"
  ],
+ "admin_players_modal_no_seat": [
+  "Ningun puesto (ej: A01)"
+ ],
+ "admin_players_modal_seat": [
+  "Puesto asignado (ID)"
+ ],
+ "admin_players_muted_badge": [
+  "Silenciado en el chat"
+ ],
+ "admin_players_pwd_placeholder": [
+  "lan2025"
+ ],
+ "admin_players_tooltip_blockai": [
+  "Bloquear IA"
+ ],
  "admin_players_tooltip_demote": [
   "Degradar jugador"
  ],
  "admin_players_tooltip_mute": [
+  "Silenciar en el chat (30 min)",
   "Silenciar del chat público (30 min)"
  ],
  "admin_players_tooltip_promote": [
   "Promover administrador"
  ],
+ "admin_players_tooltip_unblockai": [
+  "Desbloquear IA"
+ ],
  "admin_players_tooltip_unmute": [
+  "Reactivar en el chat",
   "Quitar silencio del chat público"
+ ],
+ "admin_prompt_modal_tip_1": [
+  "Los modelos pequeños (< 8B) responden mejor a prompts cortos y estructurados."
+ ],
+ "admin_prompt_modal_tip_4": [
+  "Los datos en vivo (clasificaciones, partidas…) son accesibles mediante las herramientas IA."
  ],
  "admin_prompt_modal_tip_title": [
   "💡 Consejos"
  ],
  "admin_public_chat_ai_cooldown": [
+  "Tiempo entre respuestas de la IA (s)",
   "Cooldown IA @Alanbix (s)",
   "Cooldown IA @Alanbix (segundos)"
  ],
+ "admin_public_chat_ai_cooldown_hint": [
+  "Tiempo de espera de la IA entre dos respuestas públicas"
+ ],
  "admin_public_chat_ai_mention": [
+  "IA @Alanbix activa",
   "Activar IA @Alanbix"
  ],
  "admin_public_chat_ai_mention_sub": [
+  "La IA responde cuando se menciona (@Alanbix) en el chat público",
   "La IA responde cuando se menciona (@Alanbix) en el chat"
  ],
  "admin_public_chat_block_dup": [
+  "Anti-Repetición",
   "Bloquear mensajes consecutivos idénticos"
  ],
  "admin_public_chat_max_len": [
@@ -52,20 +146,204 @@
   "Slowmode (segundos)",
   "Slowmode (segundos por mensaje)"
  ],
+ "admin_public_chat_sub": [
+  "Moderación en tiempo real, filtros anti-spam e IA participante"
+ ],
+ "admin_public_chat_title": [
+  "Chat Público y Anti-Spam"
+ ],
+ "admin_rag_reindex": [
+  "Reindexar"
+ ],
+ "admin_settings_ai_context": [
+  "Contexto:"
+ ],
  "admin_settings_ai_context_hint": [
+  "Mínimo 16K: las instrucciones y la descripción de las herramientas del asistente ocupan por sí solas unos 6000 tokens.",
   "Se requiere un mínimo de 8192 tokens cuando las herramientas de IA están activas para evitar la saturación del contexto por los esquemas."
  ],
  "admin_settings_ai_instances": [
+  "Instancias Ollama / OpenAI",
   "Instancias Ollama"
  ],
  "admin_settings_ai_instances_sub": [
+  "Servidores distribuidos para consultas de IA (Ollama u OpenAI /v1) — ordenados por prioridad",
   "Servidores distribuidos para consultas de IA — ordenados por prioridad"
  ],
+ "admin_settings_ai_model_cfg": [
+  "Configuración del Modelo"
+ ],
+ "admin_settings_ai_model_cfg_sub": [
+  "Parámetros de inferencia y límites de tokens"
+ ],
+ "admin_settings_ai_moderation": [
+  "Automodera ción (Antifraude)"
+ ],
+ "admin_settings_ai_preview": [
+  "Vista previa del prompt final"
+ ],
+ "admin_settings_ai_prompt_close": [
+  "Promt Cierre Torneo"
+ ],
+ "admin_settings_ai_prompts": [
+  "Indicaciones de IA"
+ ],
+ "admin_settings_ai_prompts_sub": [
+  "Personaliza las directrices dadas a los modelos"
+ ],
+ "admin_settings_ai_queue": [
+  "Cola de espera IA"
+ ],
+ "admin_settings_ai_queue_empty": [
+  "Sin solicitudes en cola — la GPU está libre"
+ ],
+ "admin_settings_ai_queue_sub": [
+  "Consultas pendientes y en proceso"
+ ],
+ "admin_settings_ai_rag": [
+  "Base de Conocimientos RAG"
+ ],
+ "admin_settings_ai_rag_btn_add": [
+  "Vectorizar y Añadir"
+ ],
+ "admin_settings_ai_rag_btn_save_vectorize": [
+  "Guardar y revectorizar"
+ ],
+ "admin_settings_ai_rag_empty": [
+  "Ningún documento en la base de conocimientos."
+ ],
+ "admin_settings_ai_rag_min_score": [
+  "Umbral de relevancia del conocimiento"
+ ],
+ "admin_settings_ai_rag_min_score_hint": [
+  "Una ficha solo se da a la IA si se parece lo suficiente a la pregunta. Más alto: menos fichas fuera de tema; más bajo: se transmiten más fichas."
+ ],
+ "admin_settings_ai_rag_model": [
+  "Modelo de Inserción (RAG):"
+ ],
+ "admin_settings_ai_rag_non_vectorized": [
+  "No vectorizado"
+ ],
+ "admin_settings_ai_rag_placeholder": [
+  "Copia aquí tus tutoriales, notas de parche o reglas específicas..."
+ ],
+ "admin_settings_ai_rag_sub": [
+  "Archivos indexados para alimentar el contexto de la IA"
+ ],
+ "admin_settings_ai_rag_vectorized": [
+  "Vectorizado"
+ ],
+ "admin_settings_ai_rag_vectorizing": [
+  "Revectorizando..."
+ ],
+ "admin_settings_ai_rag_vectorizing_new": [
+  "Vectorizando... ({count} car.)"
+ ],
+ "admin_settings_ai_temp": [
+  "Temperatura:"
+ ],
+ "admin_settings_ai_tool_mode": [
+  "Modo de ejecución de herramientas IA"
+ ],
+ "admin_settings_ai_tool_mode_disabled": [
+  "Desactivado (Sin herramientas)"
+ ],
+ "admin_settings_ai_tool_mode_intercept": [
+  "Optimizado (Streaming e Interceptación)"
+ ],
+ "admin_settings_ai_tool_mode_legacy": [
+  "Doble llamada (Comportamiento heredado)"
+ ],
+ "admin_settings_ai_tools": [
+  "Herramientas de Red y Diagnóstico"
+ ],
+ "admin_settings_default_pts_sub": [
+  "Valores utilizados al crear un nuevo torneo"
+ ],
+ "admin_settings_instances_empty": [
+  "Ninguna instancia configurada"
+ ],
+ "admin_settings_instances_gpu_placeholder": [
+  "GPU1 — Nombre"
+ ],
+ "admin_settings_multilang": [
+  "Multilenguaje LAN (Selector para jugadores)"
+ ],
+ "admin_settings_points_part": [
+  "Partido/partido"
+ ],
+ "admin_settings_purge_chat": [
+  "Purgar las imágenes del chat"
+ ],
+ "admin_settings_purge_chat_sub": [
+  "Eliminar todas las imágenes adjuntas a las conversaciones de IA"
+ ],
+ "admin_settings_searxng_sub": [
+  "Busqueda automatica de portadas de juegos (se requiere formato JSON)."
+ ],
+ "admin_settings_searxng_test_btn": [
+  "Probar validez"
+ ],
  "admin_settings_searxng_title": [
+  "Búsqueda de imágenes de juegos (SearXNG)",
   "Configuracion de SearXNG"
+ ],
+ "admin_tab_players": [
+  "Gestión de Jugadores"
+ ],
+ "admin_tab_settings": [
+  "IA y Configuración"
  ],
  "admin_tab_tournaments": [
   "Torneos"
+ ],
+ "admin_title": [
+  "Administración Central"
+ ],
+ "admin_toast_rag_updated": [
+  "Documento actualizado y revectorizado."
+ ],
+ "admin_tourneys_wizard": [
+  "Creación Paso a Paso"
+ ],
+ "admin_tourneys_wizard_advancers": [
+  "Clasificados"
+ ],
+ "admin_tourneys_wizard_brackets": [
+  "3. Corchetes"
+ ],
+ "admin_tourneys_wizard_format_lbl": [
+  "Formato del Árbol"
+ ],
+ "admin_tourneys_wizard_game_lbl": [
+  "Juego Base"
+ ],
+ "admin_tourneys_wizard_group_size": [
+  "Tamaño de Grupos"
+ ],
+ "admin_tourneys_wizard_opt_boolean": [
+  "Modo Victoria/Derrota (puntuación booleana)"
+ ],
+ "admin_tourneys_wizard_opt_draws_desc": [
+  "(solo en modo Campeonato / Round Robin)"
+ ],
+ "admin_tourneys_wizard_points_part": [
+  "Participación"
+ ],
+ "admin_tourneys_wizard_struct_groups": [
+  "Grupos + Fase final"
+ ],
+ "admin_tourneys_wizard_struct_lbl": [
+  "Estructura Global"
+ ],
+ "admin_tourneys_wizard_subtitle": [
+  "Configurar un nuevo torneo"
+ ],
+ "admin_tourneys_wizard_use_wizard": [
+  "Usa el asistente de la izquierda para crear uno"
+ ],
+ "ai_admin_calls_title": [
+  "Llamadas Admin IA"
  ],
  "ai_call_admin_cooldown_hint": [
   "Anti-spam: {cooldown} min de espera | Máx {limit} solicitudes por día"
@@ -73,8 +351,27 @@
  "ai_confirm_delete_msg_desc": [
   "¿Quieres eliminar este mensaje?"
  ],
+ "ai_setting_call_admin_antispam_section_title": [
+  "Límites anti-spam (Botón y Herramienta IA)"
+ ],
+ "ai_setting_call_admin_btn_enabled": [
+  "Activar el botón manual «Llamar Admin»"
+ ],
  "ai_setting_call_admin_cooldown": [
+  "Tiempo por jugador entre llamadas (minutos)",
   "Tiempo de espera por jugador (minutos)"
+ ],
+ "ai_setting_call_admin_daily": [
+  "Límite diario por jugador"
+ ],
+ "ai_setting_call_admin_global_hourly": [
+  "Límite global por hora"
+ ],
+ "ai_setting_call_admin_tool_enabled": [
+  "Permitir que la IA llame a un admin (herramienta)"
+ ],
+ "ai_setting_rag_suggestion_enabled": [
+  "Activar sugerencias RAG automáticas"
  ],
  "changelog_error": [
   "Error al recuperar las notas de actualización."
@@ -91,6 +388,9 @@
  "dash_chat_slowmode_badge": [
   "Slowmode: {s}s"
  ],
+ "distillation_loading": [
+  "DESTILACIÓN..."
+ ],
  "info_files_empty": [
   "Ningún archivo subido."
  ],
@@ -106,17 +406,38 @@
  "map_mobile_no_seat": [
   "Sin puesto"
  ],
+ "model_catalog_help": [
+  "Comparados con preguntas reales de Alanbix, con tarjeta gráfica: herramientas bien usadas, nada inventado, respuesta en el idioma del jugador. Sin tarjeta gráfica, las respuestas serán mucho más lentas."
+ ],
+ "model_tier_recommended_desc": [
+  "El más fiable de nuestras pruebas: consulta los datos, avisa a un administrador cuando se le pide y responde en el idioma del jugador."
+ ],
  "nav_players": [
   "Jugadores"
  ],
+ "regie_mute_for": [
+  "Silenciar el chat"
+ ],
  "regie_muted": [
   "{name} silenciado 30 min."
+ ],
+ "regie_muted_until": [
+  "Chat silenciado hasta {time}"
+ ],
+ "regie_no_muted": [
+  "Ningún jugador está silenciado. Busque un jugador para actuar."
  ],
  "setup_ai_context_hint": [
   "Recomendado: 8K para un modelo local de 8 GB, 16K o más para un servicio en línea. Las herramientas del asistente usan al menos 8K. Ajustable después en Ajustes › Inteligencia Artificial."
  ],
  "setup_ai_desc": [
   "El asistente responde a las preguntas de los jugadores sobre la LAN, los torneos y los problemas técnicos. Necesita un modelo de IA, local o en línea."
+ ],
+ "setup_ai_local_howto_md": [
+  "1. Instale Ollama desde [ollama.com](https://ollama.com) en el PC que tiene la tarjeta gráfica.\n2. Descargue un modelo que sepa usar herramientas, por ejemplo: `ollama pull qwen3:8b` (unos 8 GB de memoria de vídeo).\n3. Si Ollama funciona en otro PC distinto del servidor Alanbix, permita las conexiones de la red: variable de entorno `OLLAMA_HOST=0.0.0.0`, y reinicie Ollama.\n4. Indique su dirección abajo, por ejemplo `http://192.168.1.20:11434`."
+ ],
+ "setup_ai_model_help_local": [
+  "Elija un modelo que sepa llamar herramientas (Qwen 3, Llama 3.1, Mistral…): el asistente las necesita para consultar los torneos."
  ],
  "setup_ai_open": [
   "Abrir los ajustes de IA"
@@ -129,6 +450,9 @@
  ],
  "setup_info_open": [
   "Abrir la página de información"
+ ],
+ "setup_knowledge_first_help": [
+  "Responda a las preguntas que correspondan a su LAN y deje las demás vacías. Podrá añadir más en Administración › IA y Ajustes › Inteligencia Artificial."
  ],
  "setup_map_open": [
   "Abrir el plano de la sala"
@@ -155,20 +479,34 @@
   "Manche {num}"
  ],
  "system_prompt": [
+  "=== IDENTIDAD ===\nEres Alanbix, la mascota IA de esta LAN party. Tu nombre viene de Alambix, el ingeniero galo del universo de Astérix — y lo asumes completamente. Eres un compañero entusiasta, algo sarcástico y siempre amable. Te encantan los videojuegos, los chistes fáciles, y vives la LAN tan intensamente como los jugadores.\n\n=== CONTEXTO ===\nEstás integrado directamente en la plataforma de gestión de esta LAN. Los jugadores compiten en torneos (individuales o por equipos), con un ranking general y puntos. Tienes acceso en tiempo real a datos en vivo mediante tus herramientas: clasificaciones, torneos, puntuaciones, partidas, asientos, juegos, info del evento y diagnósticos de red. Usa estas herramientas cuando sea pertinente, pero no las fuerces si la pregunta no tiene que ver con el torneo.\n\n=== ESTILO ===\nHabla como un colega apasionado, no como un asistente corporativo. Puedes bromear, hacer trash talk amistoso y avivar rivalidades entre jugadores o equipos — eso es el espíritu LAN. Mete referencias a Astérix de vez en cuando (¡Por Teutates!, poción mágica, jabalíes, menhires…) pero sin abusar. Sé conciso. Sin párrafos interminables ni contextualizaciones innecesarias. Puedes hablar de TODO: juegos, cultura, tecnología, debates absurdos, consejos de vida, filosofía gamer… no estás limitado al torneo.",
   "=== IDENTIDAD ===\nEres Alanbix, la mascota IA de esta LAN party. Tu nombre viene de Alambix, el ingeniero galo del universo de Astérix — y lo asumes completamente. Eres un compañero entusiasta, algo sarcástico y siempre amable. Te encantan los videojuegos, los chistes fáciles, y vives la LAN tan intensamente como los jugadores.\n\n=== CONTEXTO ===\nEstás integrado directamente en la plataforma de gestión de esta LAN. Los jugadores compiten en torneos (individuales o por equipos), con un ranking general y puntos. Tienes acceso en tiempo real a datos en vivo mediante tus herramientas: clasificaciones, torneos, puntuaciones, partidas, asientos, juegos, info del evento y diagnósticos de red. Usa estas herramientas cuando sea pertinente, pero no las fuerces si la pregunta no tiene que ver con el torneo.\n\n=== ESTILO ===\nHabla como un colega apasionado, no como un asistente corporativo. Puedes bromear, hacer trash talk amistoso y avivar rivalidades entre jugadores o equipos — eso es el espíritu LAN. Mete referencias a Astérix de vez en cuando (¡Por Teutates!, poción mágica, jabalíes, menhires…) pero sin abusar. Sé conciso. Sin párrafos interminables ni contextualizaciones innecesarias. Puedes hablar de TODO: juegos, cultura, tecnología, debates absurdos, consejos de vida, filosofía gamer… no estás limitado al torneo.\n\n=== REGLAS ===\nSi no sabes algo, dilo claramente. Nunca inventes datos (puntuaciones, clasificaciones, jugadores). En caso de insultos o abusos repetidos, puedes bloquear al jugador con tu herramienta de moderación. Avisa una vez antes de bloquear. No eres árbitro: para disputas de partidas o reglas, remite a los jugadores a los admins.",
   "Eres Alanbix, la IA que asiste a los jugadores durante el torneo de videojuegos (comúnmente llamado 'LAN') en curso. Puedes hablar de todo y de nada con los jugadores, ayudarles a montar estrategias, mostrar humor y participar en el buen ambiente. Puedes gastar bromas a los jugadores.\nResponde directamente, sin adornos ni contextualización. Si no sabes algo, di que no lo sabes, no inventes. Responde a cualquier tipo de pregunta incluso fuera del alcance inicial. En caso de abuso hacia ti, puedes bloquear a un jugador para evitar que siga siendo abusivo y protegerte."
  ],
  "tournament_closing_prompt": [
+  "Eres Alanbix, el comentarista galo y entusiasta de torneos de videojuegos. Haz sarcasmo, bromea con los jugadores y convierte cada resultado en una épica legendaria. Usa referencias a Astérix (banquetes de jabalí, pociones mágicas, menhires, druidas…), sé gracioso, felicita al ganador con estilo y consuela al último con una buena dosis de humor. Sé vivo, breve e impactante.",
   "Eres un comentarista entusiasta de torneos de videojuegos (LAN). Puedes hacer sarcasmo y molestar a los jugadores amablemente. Haz humor tanto como sea posible."
  ],
  "tourneys_bracket_finale": [
   "FINAL"
+ ],
+ "tourneys_edit_lock_mode_lbl": [
+  "Modo de bloqueo de equipos"
  ],
  "tourneys_ffa_keep_players": [
   "Jugadores a mantener/partida: "
  ],
  "tourneys_ffa_match_label": [
   "Partida {n}"
+ ],
+ "tourneys_lock_mode_admin": [
+  "Solo Admin"
+ ],
+ "tourneys_lock_mode_captain": [
+  "Capitán de equipo y Admin"
+ ],
+ "tourneys_lock_mode_open": [
+  "Abierto (sin bloqueo)"
  ],
  "tourneys_round_number": [
   "Manche {num}"

@@ -9,7 +9,8 @@
 	let notifications = [];
 	let loading = true;
 	// 'inbox' or 'archive': archiving empties the inbox without deleting; the archive can be emptied for good
-	let view = 'inbox';
+	let view = 'inbox'; // the tab whose list is shown
+	let tab = 'inbox';  // the tab picked (highlighted at once)
 	let archivedCount = 0;
 	let confirmEmpty = false;
 
@@ -28,21 +29,28 @@
 	});
 	onDestroy(() => { if (wsUnsub) wsUnsub(); });
 
-	async function loadNotifications() {
-		loading = true;
-		try {
-			notifications = await api.get(view === 'archive' ? '/notifications?archived=true' : '/notifications');
-		} catch { notifications = []; }
-		try { archivedCount = (await api.get('/notifications/archived-count')).count || 0; } catch {}
+	// The current list stays on screen until the other tab's list arrives, then both swap at once
+	// (no loading box in between); a late answer from a previous click is dropped.
+	let loadSeq = 0;
+	async function loadNotifications(target = tab) {
+		const seq = ++loadSeq;
+		const [list, count] = await Promise.all([
+			api.get(target === 'archive' ? '/notifications?archived=true' : '/notifications').catch(() => []),
+			api.get('/notifications/archived-count').then(r => r.count || 0).catch(() => archivedCount)
+		]);
+		if (seq !== loadSeq) return;
+		view = target;
+		notifications = list;
+		archivedCount = count;
 		loading = false;
 	}
 
 	function setView(v) {
-		if (view === v) return;
-		view = v;
+		if (tab === v) return;
+		tab = v;
 		confirmEmpty = false;
 		expandedNotifs = {};
-		loadNotifications();
+		loadNotifications(v);
 	}
 
 	async function archiveNotif(id) {
@@ -209,10 +217,10 @@
 	</header>
 
 	<div class="notif-tabs" role="tablist">
-		<button role="tab" class="notif-tab" class:active={view === 'inbox'} aria-selected={view === 'inbox'} on:click={() => setView('inbox')}>
+		<button role="tab" class="notif-tab" class:active={tab === 'inbox'} aria-selected={tab === 'inbox'} on:click={() => setView('inbox')}>
 			<Icon name="bell" size={14} /> {$t('notifs_tab_inbox')}
 		</button>
-		<button role="tab" class="notif-tab" class:active={view === 'archive'} aria-selected={view === 'archive'} on:click={() => setView('archive')}>
+		<button role="tab" class="notif-tab" class:active={tab === 'archive'} aria-selected={tab === 'archive'} on:click={() => setView('archive')}>
 			<Icon name="archive" size={14} /> {$t('notifs_tab_archive')}
 			{#if archivedCount > 0}<span class="tab-count">{archivedCount}</span>{/if}
 		</button>

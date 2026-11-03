@@ -179,12 +179,29 @@ export function triggerVibration(pattern: number[] = [80, 40, 80]): void {
 	}
 }
 
+// A two-note chime made on the fly (the sound file it used to play never existed)
+let chimeCtx: AudioContext | null = null;
 export function triggerNotificationSound(): void {
 	if (typeof window === 'undefined') return;
 	try {
-		const audio = new Audio('/sounds/notification.mp3');
-		audio.volume = 0.5;
-		audio.play().catch(() => {});
+		const Ctx = window.AudioContext || (window as any).webkitAudioContext;
+		if (!Ctx) return;
+		if (!chimeCtx) chimeCtx = new Ctx();
+		if (chimeCtx.state === 'suspended') chimeCtx.resume().catch(() => {});
+		const now = chimeCtx.currentTime;
+		[[659.25, 0], [987.77, 0.13]].forEach(([freq, delay]) => {
+			const osc = chimeCtx!.createOscillator();
+			const gain = chimeCtx!.createGain();
+			osc.type = 'sine';
+			osc.frequency.setValueAtTime(freq, now + delay); // E5 then B5
+			gain.gain.setValueAtTime(0.0001, now + delay);
+			gain.gain.exponentialRampToValueAtTime(0.14, now + delay + 0.02);
+			gain.gain.exponentialRampToValueAtTime(0.0001, now + delay + 0.32);
+			osc.connect(gain);
+			gain.connect(chimeCtx!.destination);
+			osc.start(now + delay);
+			osc.stop(now + delay + 0.34);
+		});
 	} catch {}
 }
 

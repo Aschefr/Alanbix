@@ -708,6 +708,7 @@
 	$: alanbixNoticeText = !alanbixNotice ? ''
 		: alanbixNotice.state === 'busy' ? $t('chat_alanbix_busy', { seconds: alanbixNotice.retry_after || 15 })
 		: alanbixNotice.state === 'disabled' ? $t('chat_alanbix_disabled')
+		: alanbixNotice.state === 'blocked' ? $t('chat_alanbix_blocked')
 		: $t('chat_alanbix_unavailable');
 
 	function startSlowmodeCooldown(seconds) {

@@ -1,5 +1,7 @@
 <script>
 	import { t, initI18n } from '$lib/i18nStore';
+	import Icon from '$lib/components/Icon.svelte';
+	import { furnitureIcon } from '$lib/roomLayout';
 	import { initTheme } from '$lib/theme';
 	import { get } from 'svelte/store';
 	import { onMount, onDestroy } from 'svelte';
@@ -488,7 +490,7 @@
 									fill="rgba(245,158,11,0.1)" stroke="rgba(245,158,11,0.4)" stroke-width="1.5" stroke-dasharray="5 2"/>
 								<foreignObject x={furn.x} y={furn.y} width={furn.w} height={furn.h} style="pointer-events:none">
 									<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;height:100%;line-height:1.1;">
-										<span style="font-size: {furn.h <= 40 ? '18px' : '26px'};">{furn.icon}</span>
+										<span style="display:inline-flex;color:#f59e0b;"><Icon name={furnitureIcon(furn)} size={furn.h <= 40 ? 16 : 24} /></span>
 										<span style="font-size: {furn.h <= 40 ? '10px' : '12px'};font-weight:700;color:#f59e0b;margin-top:2px;text-align:center;word-break:break-all;padding:0 4px;">{furn.label}</span>
 									</div>
 								</foreignObject>

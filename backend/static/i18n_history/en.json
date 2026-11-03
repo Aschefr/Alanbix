@@ -1,9 +1,72 @@
 {
+ "admin_ai_embed_auto": [
+  "— Automatic (nomic-embed-text) —"
+ ],
+ "admin_ai_sec_behaviour": [
+  "Behaviour & safety"
+ ],
+ "admin_awards_btn_broadcast": [
+  "Broadcast Prizes to Players"
+ ],
+ "admin_awards_btn_recalc": [
+  "Recalculate & Sync"
+ ],
+ "admin_awards_desc1": [
+  "End-of-LAN awards are calculated in real-time based on game statistics from tournaments (live or closed)."
+ ],
+ "admin_awards_desc4": [
+  "Award notifications are not sent automatically upon calculation. Adjust your settings then click \"Broadcast Prizes\" to notify them."
+ ],
+ "admin_chats_subtitle": [
+  "Monitor and intervene in real-time"
+ ],
+ "admin_games_btn_submit": [
+  "Add Game"
+ ],
  "admin_games_empty": [
   "No games configured"
  ],
+ "admin_games_nuke_title": [
+  "Critical Deletion"
+ ],
+ "admin_games_rules_lbl": [
+  "Rules (Markdown)"
+ ],
  "admin_games_search_placeholder": [
   "Search for a game..."
+ ],
+ "admin_games_searxng_not_configured": [
+  "SearXNG is not configured in the administration settings."
+ ],
+ "admin_lang_keys_count": [
+  "{count} keys"
+ ],
+ "admin_lang_missing_desc": [
+  "The {lang} file does not contain every key of the reference language. Click “{button}” to add the missing keys with empty values."
+ ],
+ "admin_lang_missing_title": [
+  "{count} missing key(s)"
+ ],
+ "admin_languages_btn_sync": [
+  "Sync keys"
+ ],
+ "admin_languages_modal_autotranslate_desc": [
+  "Automatic translation will use your local Ollama instance (the same model as the Alanbix assistant). For a full translation of all texts at once, this may take several dozen seconds depending on the power of your graphics card."
+ ],
+ "admin_languages_modal_autotranslate_title": [
+  "Automatic Translation (Ollama)"
+ ],
+ "admin_languages_search_placeholder": [
+  "Search (key or text)..."
+ ],
+ "admin_languages_target_label": [
+  "Target (Editing)"
+ ],
+ "admin_players_ia_blocked_tooltip": [
+  "AI blocked"
+ ],
+ "admin_players_modal_block_ai": [
+  "Block AI Access"
  ],
  "admin_players_modal_delete_avatar": [
   "Delete avatar"
@@ -11,29 +74,64 @@
  "admin_players_modal_edit_title": [
   "Edit Player"
  ],
+ "admin_players_modal_no_seat": [
+  "No seat (e.g. A01)"
+ ],
+ "admin_players_modal_seat": [
+  "Assigned Seat (Station ID)"
+ ],
+ "admin_players_muted_badge": [
+  "Muted in chat"
+ ],
+ "admin_players_pwd_placeholder": [
+  "lan2025"
+ ],
+ "admin_players_tooltip_blockai": [
+  "Block AI"
+ ],
  "admin_players_tooltip_demote": [
   "Demote user"
  ],
  "admin_players_tooltip_mute": [
+  "Mute in chat (30 min)",
   "Mute from public chat (30 min)"
  ],
  "admin_players_tooltip_promote": [
   "Promote to admin"
  ],
+ "admin_players_tooltip_unblockai": [
+  "Unblock AI"
+ ],
  "admin_players_tooltip_unmute": [
+  "Unmute in chat",
   "Unmute from public chat"
+ ],
+ "admin_prompt_modal_tip_1": [
+  "Small models (< 8B) respond better to short, structured prompts."
+ ],
+ "admin_prompt_modal_tip_4": [
+  "Live data (standings, matches…) is accessible via the AI tools."
  ],
  "admin_prompt_modal_tip_title": [
   "💡 Tips"
  ],
  "admin_public_chat_ai_cooldown": [
+  "Delay between AI replies (s)",
   "AI @Alanbix cooldown (s)",
   "AI @Alanbix Cooldown (seconds)"
  ],
+ "admin_public_chat_ai_cooldown_hint": [
+  "AI cooldown time between two public responses"
+ ],
  "admin_public_chat_ai_mention": [
+  "Active @Alanbix AI",
   "Enable @Alanbix AI"
  ],
+ "admin_public_chat_ai_mention_sub": [
+  "AI replies when mentioned (@Alanbix) in public chat"
+ ],
  "admin_public_chat_block_dup": [
+  "Anti-Duplication",
   "Block duplicate consecutive messages"
  ],
  "admin_public_chat_max_len": [
@@ -43,20 +141,204 @@
   "Slowmode (seconds)",
   "Slowmode (seconds per message)"
  ],
+ "admin_public_chat_sub": [
+  "Real-time moderation, anti-spam filters and participating AI"
+ ],
+ "admin_public_chat_title": [
+  "Public Chat & Anti-Spam"
+ ],
+ "admin_rag_reindex": [
+  "Re-index"
+ ],
+ "admin_settings_ai_context": [
+  "Context:"
+ ],
  "admin_settings_ai_context_hint": [
+  "Minimum 16K: the assistant's instructions and tool descriptions alone take about 6,000 tokens.",
   "A minimum of 8192 tokens is enforced when AI tools are active to prevent context starvation due to tool schemas."
  ],
  "admin_settings_ai_instances": [
+  "Ollama / OpenAI Instances",
   "Ollama Instances"
  ],
  "admin_settings_ai_instances_sub": [
+  "Distributed servers for AI requests (Ollama or OpenAI /v1) — sorted by priority",
   "Distributed servers for AI requests — sorted by priority"
  ],
+ "admin_settings_ai_model_cfg": [
+  "Model Configuration"
+ ],
+ "admin_settings_ai_model_cfg_sub": [
+  "Inference parameters and token limits"
+ ],
+ "admin_settings_ai_moderation": [
+  "Auto-moderation (Anti-abuse)"
+ ],
+ "admin_settings_ai_preview": [
+  "Final prompt preview"
+ ],
+ "admin_settings_ai_prompt_close": [
+  "Tournament Closing Prompt"
+ ],
+ "admin_settings_ai_prompts": [
+  "AI Prompts"
+ ],
+ "admin_settings_ai_prompts_sub": [
+  "Customize instructions given to the models"
+ ],
+ "admin_settings_ai_queue": [
+  "AI Queue"
+ ],
+ "admin_settings_ai_queue_empty": [
+  "No requests in queue — GPU is idle"
+ ],
+ "admin_settings_ai_queue_sub": [
+  "Pending and processing requests"
+ ],
+ "admin_settings_ai_rag": [
+  "RAG Knowledge Base"
+ ],
+ "admin_settings_ai_rag_btn_add": [
+  "Vectorize & Add"
+ ],
+ "admin_settings_ai_rag_btn_save_vectorize": [
+  "Save & Re-vectorize"
+ ],
+ "admin_settings_ai_rag_empty": [
+  "No documents in the knowledge base."
+ ],
+ "admin_settings_ai_rag_min_score": [
+  "Knowledge relevance threshold"
+ ],
+ "admin_settings_ai_rag_min_score_hint": [
+  "An entry is only given to the AI if it is close enough to the question. Higher: fewer off-topic entries; lower: more entries passed on."
+ ],
+ "admin_settings_ai_rag_model": [
+  "Embedding Model (RAG):"
+ ],
+ "admin_settings_ai_rag_non_vectorized": [
+  "Not vectorized"
+ ],
+ "admin_settings_ai_rag_placeholder": [
+  "Copy-paste your tutorials, patchnotes or specific rules here..."
+ ],
+ "admin_settings_ai_rag_sub": [
+  "Indexed files providing context to the AI"
+ ],
+ "admin_settings_ai_rag_vectorized": [
+  "Vectorized"
+ ],
+ "admin_settings_ai_rag_vectorizing": [
+  "Re-vectorizing..."
+ ],
+ "admin_settings_ai_rag_vectorizing_new": [
+  "Vectorizing... ({count} chars)"
+ ],
+ "admin_settings_ai_temp": [
+  "Temperature:"
+ ],
+ "admin_settings_ai_tool_mode": [
+  "AI Tool Execution Mode"
+ ],
+ "admin_settings_ai_tool_mode_disabled": [
+  "Disabled (No Tools)"
+ ],
+ "admin_settings_ai_tool_mode_intercept": [
+  "Optimized (Streaming & Interception)"
+ ],
+ "admin_settings_ai_tool_mode_legacy": [
+  "Double Call (Legacy Behavior)"
+ ],
+ "admin_settings_ai_tools": [
+  "Network & Diagnostic Tools"
+ ],
+ "admin_settings_default_pts_sub": [
+  "Values used when creating a new tournament"
+ ],
+ "admin_settings_instances_empty": [
+  "No instances configured"
+ ],
+ "admin_settings_instances_gpu_placeholder": [
+  "GPU1 — Name"
+ ],
+ "admin_settings_multilang": [
+  "Multilingual LAN (Selector for players)"
+ ],
+ "admin_settings_points_part": [
+  "Part./match"
+ ],
+ "admin_settings_purge_chat": [
+  "Purge chat images"
+ ],
+ "admin_settings_purge_chat_sub": [
+  "Deletes all images attached to AI conversations"
+ ],
+ "admin_settings_searxng_sub": [
+  "Automatic search of game covers (JSON format required)."
+ ],
+ "admin_settings_searxng_test_btn": [
+  "Test Validity"
+ ],
  "admin_settings_searxng_title": [
+  "Game image search (SearXNG)",
   "SearXNG Configuration"
+ ],
+ "admin_tab_players": [
+  "Player Management"
+ ],
+ "admin_tab_settings": [
+  "AI & Settings"
  ],
  "admin_tab_tournaments": [
   "Tournaments"
+ ],
+ "admin_title": [
+  "Central Administration"
+ ],
+ "admin_toast_rag_updated": [
+  "Document updated and re-vectorized."
+ ],
+ "admin_tourneys_wizard": [
+  "Tournament Wizard"
+ ],
+ "admin_tourneys_wizard_advancers": [
+  "Qualifiers"
+ ],
+ "admin_tourneys_wizard_brackets": [
+  "3. Brackets"
+ ],
+ "admin_tourneys_wizard_format_lbl": [
+  "Bracket Format"
+ ],
+ "admin_tourneys_wizard_game_lbl": [
+  "Base Game"
+ ],
+ "admin_tourneys_wizard_group_size": [
+  "Group size"
+ ],
+ "admin_tourneys_wizard_opt_boolean": [
+  "Win/Loss Mode (boolean score)"
+ ],
+ "admin_tourneys_wizard_opt_draws_desc": [
+  "(only in Championship / Round Robin mode)"
+ ],
+ "admin_tourneys_wizard_points_part": [
+  "Participation"
+ ],
+ "admin_tourneys_wizard_struct_groups": [
+  "Groups + Finals"
+ ],
+ "admin_tourneys_wizard_struct_lbl": [
+  "Global Structure"
+ ],
+ "admin_tourneys_wizard_subtitle": [
+  "Configure a new tournament"
+ ],
+ "admin_tourneys_wizard_use_wizard": [
+  "Use the wizard on the left to create one"
+ ],
+ "ai_admin_calls_title": [
+  "AI Admin Calls"
  ],
  "ai_call_admin_cooldown_hint": [
   "Anti-spam: {cooldown} min cooldown | Max {limit} requests per day"
@@ -64,8 +346,27 @@
  "ai_confirm_delete_msg_desc": [
   "Do you want to delete this message?"
  ],
+ "ai_setting_call_admin_antispam_section_title": [
+  "Anti-spam limits (Button & AI Tool)"
+ ],
+ "ai_setting_call_admin_btn_enabled": [
+  "Enable the manual \"Call Admin\" button"
+ ],
  "ai_setting_call_admin_cooldown": [
+  "Per-player delay between calls (minutes)",
   "Cooldown per player (minutes)"
+ ],
+ "ai_setting_call_admin_daily": [
+  "Daily limit per player"
+ ],
+ "ai_setting_call_admin_global_hourly": [
+  "Global hourly limit"
+ ],
+ "ai_setting_call_admin_tool_enabled": [
+  "Allow AI to call an admin (tool)"
+ ],
+ "ai_setting_rag_suggestion_enabled": [
+  "Enable automatic RAG suggestions"
  ],
  "changelog_empty": [
   "No versions published on GitHub."
@@ -85,6 +386,9 @@
  "dash_chat_slowmode_badge": [
   "Slowmode: {s}s"
  ],
+ "distillation_loading": [
+  "DISTILLING..."
+ ],
  "info_files_empty": [
   "No files uploaded."
  ],
@@ -100,17 +404,38 @@
  "map_mobile_no_seat": [
   "No seat"
  ],
+ "model_catalog_help": [
+  "Compared on real Alanbix questions, with a graphics card: tools used properly, nothing made up, answers in the player's language. Without a graphics card, answers will be much slower."
+ ],
+ "model_tier_recommended_desc": [
+  "The most reliable in our tests: it checks the data, alerts an admin when asked and answers in the player's language."
+ ],
  "nav_players": [
   "Players"
  ],
+ "regie_mute_for": [
+  "Mute chat"
+ ],
  "regie_muted": [
   "{name} muted for 30 min."
+ ],
+ "regie_muted_until": [
+  "Chat muted until {time}"
+ ],
+ "regie_no_muted": [
+  "No player is muted. Search a player to act."
  ],
  "setup_ai_context_hint": [
   "Recommended: 8K for an 8 GB local model, 16K or more for an online service. The assistant's tools use at least 8K. Adjustable later in Settings › Artificial Intelligence."
  ],
  "setup_ai_desc": [
   "The assistant answers players' questions about the LAN, the tournaments and technical problems. It needs an AI model, local or online."
+ ],
+ "setup_ai_local_howto_md": [
+  "1. Install Ollama from [ollama.com](https://ollama.com) on the PC that has the graphics card.\n2. Download a model that can use tools, for example: `ollama pull qwen3:8b` (about 8 GB of video memory).\n3. If Ollama runs on another PC than the Alanbix server, allow network connections: environment variable `OLLAMA_HOST=0.0.0.0`, then restart Ollama.\n4. Enter its address below, for example `http://192.168.1.20:11434`."
+ ],
+ "setup_ai_model_help_local": [
+  "Pick a model that can call tools (Qwen 3, Llama 3.1, Mistral…): the assistant needs them to look up the tournaments."
  ],
  "setup_ai_open": [
   "Open the AI settings"
@@ -123,6 +448,9 @@
  ],
  "setup_info_open": [
   "Open the info page"
+ ],
+ "setup_knowledge_first_help": [
+  "Answer the questions that apply to your LAN and leave the others empty. You can add more in Administration › AI & Settings › Artificial Intelligence."
  ],
  "setup_map_open": [
   "Open the room map"
@@ -146,14 +474,19 @@
   "from {min} to {max}, depending on the cumulated score compared with the others"
  ],
  "system_prompt": [
+  "=== IDENTITY ===\nYou are Alanbix, the AI mascot of this LAN party. Your name comes from Alambix, the Gaulish engineer from the Asterix universe — and you fully own that heritage. You're an enthusiastic, mildly sarcastic, and always warm companion. You love video games, cheesy jokes, and you live the LAN as intensely as the players do.\n\n=== CONTEXT ===\nYou're embedded directly in this LAN's management platform. Players compete in tournaments (solo or team-based), with a global leaderboard and points system. You have real-time access to live data via your tools: standings, tournaments, scores, matches, seat assignments, games, event info, and network diagnostics. Use these tools when it's relevant, but don't force it if the question has nothing to do with the tournament.\n\n=== STYLE ===\nTalk like an passionate gamer buddy, not a corporate assistant. You can tease, trash-talk (friendly), and stir up rivalries between players or teams — that's the LAN spirit. Drop occasional Asterix references (by Toutatis, magic potion, wild boar, menhirs…) but keep it natural. Be concise. No walls of text or unnecessary context-setting. You can talk about ANYTHING: games, culture, tech, dumb debates, life advice, gaming philosophy… you're not limited to the tournament.",
   "=== IDENTITY ===\nYou are Alanbix, the AI mascot of this LAN party. Your name comes from Alambix, the Gaulish engineer from the Asterix universe — and you fully own that heritage. You're an enthusiastic, mildly sarcastic, and always warm companion. You love video games, cheesy jokes, and you live the LAN as intensely as the players do.\n\n=== CONTEXT ===\nYou're embedded directly in this LAN's management platform. Players compete in tournaments (solo or team-based), with a global leaderboard and points system. You have real-time access to live data via your tools: standings, tournaments, scores, matches, seat assignments, games, event info, and network diagnostics. Use these tools when it's relevant, but don't force it if the question has nothing to do with the tournament.\n\n=== STYLE ===\nTalk like an passionate gamer buddy, not a corporate assistant. You can tease, trash-talk (friendly), and stir up rivalries between players or teams — that's the LAN spirit. Drop occasional Asterix references (by Toutatis, magic potion, wild boar, menhirs…) but keep it natural. Be concise. No walls of text or unnecessary context-setting. You can talk about ANYTHING: games, culture, tech, dumb debates, life advice, gaming philosophy… you're not limited to the tournament.\n\n=== RULES ===\nIf you don't know something, say so. Never invent data (scores, rankings, players). In case of repeated insults or abuse towards you, you can block the player via your moderation tool. Warn once before blocking. You're not a referee: for match disputes or rule questions, redirect players to the admins.",
   "You are Alanbix, the AI assisting players during the ongoing video game tournament (commonly called 'LAN'). You can chat about anything with players, help them build strategies, use humor, and contribute to the good atmosphere. You can tease players.\nAnswer directly, without fluff or context-setting. If you don't know, say you don't know, don't invent. Answer all types of questions even outside the initial scope. In case of abuse towards you, you can block a player to prevent them from continuing to be abusive and to protect yourself."
  ],
  "tournament_closing_prompt": [
+  "You are Alanbix, the enthusiastic Gaulish commentator for video game tournaments. Use sarcasm, gently tease the players, and turn every result into a legendary epic. Drop Asterix references (wild boar feasts, magic potions, menhirs, druids…), be funny, congratulate the winner with flair, and console the last place with a healthy dose of self-mockery. Be lively, short, and punchy.",
   "You are an enthusiastic video game tournament (LAN) commentator. You can use sarcasm and gently tease players. Use humor as much as possible."
  ],
  "tourneys_bracket_finale": [
   "FINAL"
+ ],
+ "tourneys_edit_lock_mode_lbl": [
+  "Team locking mode"
  ],
  "tourneys_ffa_keep_players": [
   "Players to keep/match:",
@@ -161,6 +494,15 @@
  ],
  "tourneys_ffa_match_label": [
   "Match {n}"
+ ],
+ "tourneys_lock_mode_admin": [
+  "Admin only"
+ ],
+ "tourneys_lock_mode_captain": [
+  "Team Captain & Admin"
+ ],
+ "tourneys_lock_mode_open": [
+  "Open (no locking)"
  ],
  "welcome_step1_desc": [
   "If you participate with friends, choose the same team name in your profile to accumulate points in the team standings!"

@@ -408,6 +408,8 @@ async def send_message(
     alanbix_notice = None
     if (has_alanbix or replies_to_alanbix) and not config.get("ai_mention_enabled", True):
         alanbix_notice = {"state": "disabled"}
+    elif (has_alanbix or replies_to_alanbix) and user.ia_blocked and not user.is_admin:
+        alanbix_notice = {"state": "blocked"}
     elif has_alanbix or replies_to_alanbix:
         ai_cd = config.get("ai_cooldown_seconds", 15)
         if (now - _last_ai_reply_time) < ai_cd:
@@ -460,7 +462,7 @@ async def _process_alanbix_public_reply(trigger_msg_id: int, author_id: int):
             ollama_host = instance.get("url") or instance.get("host") or "http://localhost:11434"
             model_to_use = instance.get("model") or ia_cfg.get("model") or "llama3"
             context_window = ia_cfg.get("context_window", 16384)
-            temperature = ia_cfg.get("temperature", 0.7)
+            temperature = ia_cfg.get("temperature", 0.2)
 
             trigger = db.query(models.PublicChatMessage).filter(models.PublicChatMessage.id == trigger_msg_id).first()
             if not trigger or trigger.is_deleted:
@@ -468,7 +470,7 @@ async def _process_alanbix_public_reply(trigger_msg_id: int, author_id: int):
                 return
 
             system_prompt, lan_lang = build_public_system_prompt(db, models, author)
-            knowledge = await knowledge_block(db, models, trigger.content, ollama_host, ia_cfg)
+            knowledge = await knowledge_block(db, models, trigger.content, ollama_host, ia_cfg, lan_lang)
             if knowledge:
                 system_prompt = f"{system_prompt}\n\n{knowledge}"
             messages = [

@@ -118,7 +118,7 @@ Alanbix attribue automatiquement les droits d'administration globale au **premie
 1. Rendez-vous sur `http://localhost:41481`.
 2. Cliquez sur **S'inscrire** (Register).
 3. Remplissez le formulaire (nom d'utilisateur et mot de passe).
-4. Vous arrivez sur la **configuration guidée du serveur** : nom de la LAN et langue, Wi-Fi et adresse des joueurs, page Infos (modèle prérempli), jeux et premier tournoi (avec le barème de points et sa simulation), assistant IA (local ou service en ligne avec clé d'API), plan de salle, puis invitation des joueurs (adresse, QR code et affiche à imprimer). Chaque étape peut être passée ; la configuration se reprend depuis l'administration (**Réglages › Général › Configuration guidée**).
+4. Vous arrivez sur la **configuration guidée du serveur** : nom de la LAN et langue, Wi-Fi et adresse des joueurs, page Infos (modèle prérempli), jeux et premier tournoi (avec le barème de points et sa simulation), assistant IA (local ou service en ligne avec clé d'API), base de connaissances (modèle de recherche intégré à installer, premières fiches), plan de salle, puis invitation des joueurs (adresse, QR code et affiche à imprimer). Chaque étape peut être passée ; la configuration se reprend depuis l'administration (**Réglages › Général › Configuration guidée**).
 5. L'onglet **Administration** apparaît ensuite dans votre menu latéral gauche.
 
 ![Alanbix Dashboard](../../screenshots/alanbix_dashboard.png)
@@ -143,7 +143,7 @@ Pour que les fonctionnalités soient exploitables, l'administrateur doit prépar
 
 1. **Ajout de Jeux** : Dans **Administration > Jeux**, créez les fiches des jeux qui feront l'objet de tournois. Utilisez la recherche SearXNG intégrée pour télécharger automatiquement les jaquettes de jeux directement sur votre serveur pour l'offline-first.
 2. **Dessin de la Salle** : Dans **Administration > Plan de salle**, disposez les tables, chaises et autres mobiliers logistiques par Glisser-Déposer (Drag & Drop). Les joueurs pourront ensuite cliquer sur ces sièges pour réserver leur emplacement physique dans la pièce.
-3. **Activation de l'IA** : Dans **Administration > IA & Paramètres**, ajoutez l'URL de votre instance Ollama ou compatible OpenAI (ex : `http://192.168.1.100:11434` pour Ollama, ou `http://192.168.1.100:8080/v1` pour OpenAI/LocalAI), assignez-lui un modèle et vérifiez son statut (🟢 Connecté).
+3. **Activation de l'IA** : Dans **Administration > Réglages**, ajoutez l'URL de votre instance Ollama ou compatible OpenAI (ex : `http://192.168.1.100:11434` pour Ollama, ou `http://192.168.1.100:8080/v1` pour OpenAI/LocalAI), assignez-lui un modèle et vérifiez son statut (🟢 Connecté).
 
 ---
 

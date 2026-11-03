@@ -4,9 +4,12 @@ import re
 import httpx
 import numpy as np
 
+from . import ia_builtin_embed
+
 # Empty counts as unset (Unraid passes blank template fields as empty variables)
 OLLAMA_HOST = os.getenv("OLLAMA_HOST") or "http://host.docker.internal:11434"
 DEFAULT_EMBED_MODEL = "nomic-embed-text"
+LAST_EMBED_ERROR = ""  # why the last embedding request failed, shown in the admin
 
 # Chunking config
 CHUNK_SIZE = 2000       # ~500 tokens per chunk
@@ -21,13 +24,14 @@ def _get_embed_model():
         db = SessionLocal()
         try:
             cfg = db.query(m.SystemConfig).filter(m.SystemConfig.key == "ia_settings").first()
-            if cfg and cfg.value:
-                return cfg.value.get("embedding_model") or DEFAULT_EMBED_MODEL
+            if cfg and cfg.value and cfg.value.get("embedding_model"):
+                return cfg.value["embedding_model"]
         finally:
             db.close()
     except Exception:
         pass
-    return DEFAULT_EMBED_MODEL
+    # "Auto": the built-in model once the admin installed it, else what the AI server usually offers
+    return ia_builtin_embed.NAME if ia_builtin_embed.is_installed() else DEFAULT_EMBED_MODEL
 
 
 def chunk_text(text: str, chunk_size: int = CHUNK_SIZE, overlap: int = CHUNK_OVERLAP) -> list[str]:
@@ -151,6 +155,8 @@ async def get_embedding(text: str, ollama_host: str = None, timeout: float = 60.
     host = ollama_host or OLLAMA_HOST
     embed_model = _get_embed_model()
     try:
+        if embed_model == ia_builtin_embed.NAME:
+            return await ia_builtin_embed.embed(text)
         is_openai = is_openai_host(host)
         if is_openai:
             url = f"{host.rstrip('/')}/embeddings"
@@ -171,12 +177,16 @@ async def get_embedding(text: str, ollama_host: str = None, timeout: float = 60.
                 json=payload,
                 timeout=timeout
             )
+            if response.status_code != 200:
+                raise RuntimeError(f"HTTP {response.status_code} ({embed_model}): {response.text[:160]}")
             data = response.json()
             if is_openai:
                 return data["data"][0]["embedding"]
             return data["embedding"]
     except Exception as e:
-        print(f"Embedding error: {e}")
+        global LAST_EMBED_ERROR
+        LAST_EMBED_ERROR = str(e) or type(e).__name__
+        print(f"Embedding error: {LAST_EMBED_ERROR}")
         return None
 
 

@@ -13,12 +13,17 @@ Alanbix integrates a sophisticated self-hosted AI assistant based on Ollama, des
 ![AI Question](../../../screenshots/alanbix_assistant_ia_question.png)
 ![AI Response](../../../screenshots/alanbix_assistant_ia_reponse.png)
 
-### Native RAG Engine (NumPy Calculations)
-To avoid the complex infrastructure of a dedicated vector database (like pgvector/PostgreSQL), Alanbix embeds a matrix RAG engine written in native Python with NumPy:
-1. **Indexing**: Documents uploaded by administrators are chunked, and their embeddings (vector representations) are calculated via Ollama and stored in JSON format inside the SQLite database.
-2. **Vector Search**: For each question asked by a user, the backend loads the embeddings from SQLite and performs a **Cosine Similarity** calculation in RAM via NumPy.
-3. **Context Isolation**: The AI intelligently switches between the general LAN context (schedule, WiFi, rules) and the context of a specific game to optimize response quality.
-4. **Relevance threshold**: an entry is only passed to the AI when its similarity is above an adjustable threshold (0.65 by default, in the model settings). The search combines the question with the player's previous message, so a follow-up ("and how do I do that?") still finds its topic.
+### Knowledge base (hybrid RAG)
+Before each answer, Alanbix looks in the knowledge base for the entries that answer the question and puts them in the AI's instructions. No vector database to install: everything runs in memory, which is plenty for a few hundred entries.
+1. **Two searches, combined**:
+   * **By keywords** (BM25 score, the one of classic search engines): always available, finds names and exact terms ("Goldberg", "WC"). Accents, small words and simple plurals are ignored, and an entry must hold a good share of the question's words.
+   * **By meaning** (embeddings and cosine similarity): finds rephrasings ("toilet door" / "WC lock") and questions asked in another language, when an embedding model answers. An entry is kept only above a similarity threshold: adjustable for an external model (0.65 by default), specific to the built-in model (0.35).
+   * Both rankings are merged (Reciprocal Rank Fusion) and the best 3 entries are passed on.
+2. **The built-in model**: a button in the guided setup and in the "Knowledge base" section downloads `paraphrase-multilingual-MiniLM-L12-v2` once (135 MB, Apache 2.0 licence, verified download) into the data folder, where it survives updates. It runs on the processor with ONNX Runtime, with no graphics card or Internet, and takes about 400 MB of memory from the first search. Entries are re-indexed automatically. In "Automatic" mode it is used as soon as it is installed; an external model picked in the settings still wins.
+3. **Without an embedding model**, the keyword search works alone. The embedding server is then asked again only every 5 minutes, so it does not slow every message down.
+4. **Indexing**: each entry records the embedding model that indexed it. Vectors of two different models are never compared: after a model change, the banner of the "Knowledge base" section shows how many entries need re-indexing, with a **Re-index** button. The banner also says whether the meaning search works, and if not, why.
+5. **Context isolation**: the AI switches between the general LAN context (schedule, WiFi, rules) and the context of a specific game.
+6. **Follow-ups**: the search combines the question with the player's previous message, so a follow-up ("and how do I do that?") still finds its topic. `@Alanbix` in the public chat uses the same search.
 
 ### System prompt construction (layers)
 Each request sends the model a single system message, built in this order:
@@ -87,6 +92,10 @@ To make it easy to follow discussions without forcing a page refresh (zero F5):
 ---
 
 ## 🔑 Online services and API keys
+
+**Diagnostic tab**: Administration › Diagnostics shows the server state and runs ping, traceroute and DNS tests by hand, from the Alanbix server. For players, the assistant only has ping, traceroute and DNS; server state and network scan are for admins. Under Docker, the scan sees little beyond Docker's internal addresses.
+
+**Recommended models**: for an Ollama instance, the "Recommended models" list (AI settings and guided setup) offers four models, with a button to download them to the Ollama server: `gemma4:e2b` (4.6 GB, the minimum), `gemma4:e4b` (9.6 GB, the best balance), and for a big server `qwen3.8:27b` (17.7 GB, about 18 GB of video memory) and `gemma4:31b` (19.9 GB, about 20 GB). They were compared on real Alanbix questions with an RTX 3090, at temperatures 0.2 and 0.7: tools used properly, nothing made up, answers in the player's language. **The recommended temperature is 0.2**: at 0.7, small models alert an admin less often and sometimes answer in another language; big ones stay reliable. A bigger model is not always better, and the server matters too: `gemma4:12b` did not check the rankings and made up seats, and under Ollama `qwen3.5:9b` made up rankings, while the same model served by vLLM made up nothing in 21 tries. Avoid MoE models such as `qwen3.5:35b` on a machine with limited memory: loading one has already crashed a server with 32 GB. Ollama also uses system memory, not only video memory: if its container has a memory limit, leave room for every model loaded at the same time. Only Ollama has a download command: this button does not exist for OpenAI-compatible services.
 
 An instance can also be an OpenAI-compatible service (address ending in `/v1`): LM Studio or llama.cpp locally, or an online service such as OpenAI, Mistral, OpenRouter or Groq. For the latter, enter the instance's **API key** in **Settings › Artificial Intelligence › Servers** (or at step 5 of the guided setup). It is sent as `Authorization: Bearer` with every request to that instance (chat, tools, summaries, embeddings, translations, model list).
 

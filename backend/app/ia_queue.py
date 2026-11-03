@@ -7,6 +7,7 @@ import asyncio
 import time
 import uuid
 import json
+import re
 import httpx
 import base64
 import os
@@ -17,7 +18,7 @@ from collections import deque
 from .websockets import manager as ws_manager
 from .ia_title_utils import _build_title_prompt, _clean_title, _is_default_title
 from .ia_utils import ia_client
-from .ia_tool_loop import run_tool_rounds, merge_stream_tool_calls, parse_tool_args, parse_xml_tool_calls
+from .ia_tool_loop import AI_READ_TIMEOUT, run_tool_rounds, merge_stream_tool_calls, parse_tool_args, parse_xml_tool_calls
 
 
 def is_openai_host(url: str) -> bool:
@@ -892,7 +893,7 @@ class IAQueueManager:
                             "stream": False,
                             "options": {"temperature": temperature, "num_predict": max_answer, "num_ctx": context_window}
                         }
-                    res = await client.post(url, json=req_json, timeout=90.0)
+                    res = await client.post(url, json=req_json, timeout=AI_READ_TIMEOUT)
 
                     if res.status_code != 200:
                         raise Exception(f"AI service returned HTTP {res.status_code}: {res.text[:200]}")
@@ -962,49 +963,20 @@ class IAQueueManager:
         conv_id = payload["conversation_id"]
         user_id = payload["user_id"]
         try:
-            is_openai = is_openai_host(ollama_host)
-            prompt = _build_title_prompt(excerpt)
-            if is_openai:
-                url = f"{ollama_host.rstrip('/')}/chat/completions"
-                req_json = {
-                    "model": model,
-                    "messages": [{"role": "user", "content": prompt}],
-                    "stream": False,
-                    "temperature": 0.2,
-                    "max_tokens": 30
-                }
-            else:
-                url = f"{ollama_host.rstrip('/')}/api/generate"
-                req_json = {
-                    "model": model,
-                    "prompt": prompt,
-                    "stream": False,
-                    "options": {"temperature": 0.2, "num_predict": 30}
-                }
-
-            timeout = httpx.Timeout(connect=10.0, read=120.0, write=10.0, pool=5.0)
-            async with ia_client(timeout=timeout) as client:
-                res = await client.post(url, json=req_json)
-
-            if res.status_code == 200:
-                if is_openai:
-                    raw = res.json().get("choices", [{}])[0].get("message", {}).get("content", "")
-                else:
-                    raw = res.json().get("response", "")
-                suggestion = _clean_title(raw)
-                if suggestion:
-                    await ws_manager.broadcast({
-                        "type": "title_suggestion_ready",
-                        "conversation_id": conv_id,
-                        "user_id": user_id,
-                        "suggestion": suggestion
-                    })
-                    return
+            suggestion, status = await self._request_title(ollama_host, model, excerpt)
+            if suggestion:
+                await ws_manager.broadcast({
+                    "type": "title_suggestion_ready",
+                    "conversation_id": conv_id,
+                    "user_id": user_id,
+                    "suggestion": suggestion
+                })
+                return
             await ws_manager.broadcast({
                 "type": "title_suggestion_ready",
                 "conversation_id": conv_id,
                 "user_id": user_id,
-                "error": f"HTTP {res.status_code}"
+                "error": f"HTTP {status}"
             })
         except Exception as e:
             await ws_manager.broadcast({
@@ -1022,56 +994,71 @@ class IAQueueManager:
         conv_id = payload["conversation_id"]
         num_ctx = payload.get("num_ctx")
         try:
-            is_openai = is_openai_host(ollama_host)
-            prompt = _build_title_prompt(excerpt)
-            if is_openai:
-                url = f"{ollama_host.rstrip('/')}/chat/completions"
-                req_json = {
-                    "model": model,
-                    "messages": [{"role": "user", "content": prompt}],
-                    "stream": False,
-                    "temperature": 0.2,
-                    "max_tokens": 30
-                }
+            title_text, status = await self._request_title(ollama_host, model, excerpt, num_ctx)
+            if title_text:
+                from .database import SessionLocal
+                from .models import Conversation
+                with SessionLocal() as db:
+                    c = db.query(Conversation).filter(Conversation.id == conv_id).first()
+                    # Crucial safety check to prevent overwriting manual renames
+                    if c and _is_default_title(c.title):
+                        c.title = title_text
+                        db.commit()
+                        await ws_manager.broadcast({
+                            "type": "conv_title_updated",
+                            "conversation_id": conv_id,
+                            "title": title_text,
+                            "user_id": payload.get("user_id")
+                        })
             else:
-                url = f"{ollama_host.rstrip('/')}/api/generate"
-                options = {"temperature": 0.2, "num_predict": 30}
-                if num_ctx:
-                    options["num_ctx"] = num_ctx
-                req_json = {
-                    "model": model,
-                    "prompt": prompt,
-                    "stream": False,
-                    "options": options
-                }
-
-            timeout = httpx.Timeout(connect=10.0, read=120.0, write=10.0, pool=5.0)
-            async with ia_client(timeout=timeout) as client:
-                res = await client.post(url, json=req_json)
-
-            if res.status_code == 200:
-                if is_openai:
-                    raw = res.json().get("choices", [{}])[0].get("message", {}).get("content", "")
-                else:
-                    raw = res.json().get("response", "")
-                title_text = _clean_title(raw)
-                if title_text:
-                    from .database import SessionLocal
-                    from .models import Conversation
-                    with SessionLocal() as db:
-                        c = db.query(Conversation).filter(Conversation.id == conv_id).first()
-                        # Crucial safety check to prevent overwriting manual renames
-                        if c and _is_default_title(c.title):
-                            c.title = title_text
-                            db.commit()
-                            await ws_manager.broadcast({
-                                "type": "conv_title_updated",
-                                "conversation_id": conv_id,
-                                "title": title_text,
-                                "user_id": payload.get("user_id")
-                            })
+                print(f"[IA Queue] Auto-title: no usable title (HTTP {status})", flush=True)
         except Exception as e:
             print(f"[IA Queue] Auto-title generation error: {e}", flush=True)
+
+    async def _request_title(self, ollama_host: str, model: str, excerpt: str, num_ctx: int | None = None) -> tuple[str | None, int]:
+        """Ask the model for a short title. Returns (cleaned title or None, HTTP status).
+        Thinking is switched off: with only 30 tokens, a reasoning model (Qwen 3.5...) spends
+        them all thinking and returns no content. A server that refuses the switch gets a plain retry."""
+        is_openai = is_openai_host(ollama_host)
+        prompt = _build_title_prompt(excerpt)
+        if is_openai:
+            url = f"{ollama_host.rstrip('/')}/chat/completions"
+            req_json = {
+                "model": model,
+                "messages": [{"role": "user", "content": prompt}],
+                "stream": False,
+                "temperature": 0.2,
+                "max_tokens": 30
+            }
+            no_think = {"chat_template_kwargs": {"enable_thinking": False}}
+        else:
+            url = f"{ollama_host.rstrip('/')}/api/generate"
+            options = {"temperature": 0.2, "num_predict": 30}
+            if num_ctx:
+                options["num_ctx"] = num_ctx
+            req_json = {
+                "model": model,
+                "prompt": prompt,
+                "stream": False,
+                "options": options
+            }
+            no_think = {"think": False}
+
+        timeout = httpx.Timeout(connect=10.0, read=120.0, write=10.0, pool=5.0)
+        async with ia_client(timeout=timeout) as client:
+            res = await client.post(url, json={**req_json, **no_think})
+            if res.status_code == 400:
+                res = await client.post(url, json=req_json)
+
+        if res.status_code != 200:
+            return None, res.status_code
+        if is_openai:
+            raw = res.json().get("choices", [{}])[0].get("message", {}).get("content")
+        else:
+            raw = res.json().get("response")
+        # Some servers leave the reasoning inline
+        raw = re.sub(r"<think>.*?(</think>|$)", "", raw or "", flags=re.DOTALL)
+        return _clean_title(raw), res.status_code
 
     # --- Internal helpers ---
 

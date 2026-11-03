@@ -275,3 +275,59 @@ async def test_announce_to_all_admin_vs_user(db_session, mock_db_session):
         
         await asyncio.sleep(0.01)
         assert mock_broadcast.called
+
+
+def _user(db_session, name, is_admin=False):
+    user = models.User(username=name, hashed_password="x", is_admin=is_admin)
+    db_session.add(user)
+    db_session.commit()
+    return user
+
+
+class _Session:
+    """execute_tool opens its own session: give it the test's, without closing it."""
+    def __init__(self, db):
+        self.db = db
+    def __call__(self):
+        return self
+    def __enter__(self):
+        return self.db
+    def __exit__(self, *a):
+        return False
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("tool", ["check_server_health", "scan_local_network"])
+async def test_server_state_and_scan_are_for_admins_only(db_session, monkeypatch, tool):
+    from app import database
+    monkeypatch.setattr(database, "SessionLocal", _Session(db_session))
+    player, admin = _user(db_session, "player1"), _user(db_session, "boss", is_admin=True)
+    refused = json.loads(await execute_tool(tool, {}, user_id=player.id))
+    assert "administrateurs" in refused["error"]
+    allowed = json.loads(await execute_tool(tool, {}, user_id=admin.id))
+    assert "administrateurs" not in allowed.get("error", "")
+
+
+def test_host_cannot_be_read_as_an_option():
+    from app.ia_network import sanitize_host
+    assert sanitize_host("192.168.1.20") and sanitize_host("example.com")
+    assert not sanitize_host("-f") and not sanitize_host("a;b") and not sanitize_host("")
+
+
+async def _call_admin(db_session, user, **extra):
+    from app.ia_tools import _tool_call_admin
+    args = {"reason": "Fuite d'eau", "question": "Venez vite", **extra}
+    return json.loads(await _tool_call_admin(db_session, models, args, user.id, 0))
+
+
+@pytest.mark.asyncio
+async def test_emergency_goes_through_the_limits_but_stays_capped(db_session):
+    user = _user(db_session, "caller")
+    assert "error" not in await _call_admin(db_session, user)
+    assert (await _call_admin(db_session, user))["error_code"] == "cooldown"
+    assert "error" not in await _call_admin(db_session, user, urgent=True)
+    assert "error" not in await _call_admin(db_session, user, urgent=True)
+    calls = db_session.query(models.AdminCallRequest).filter_by(user_id=user.id).all()
+    assert sum(c.reason.startswith("[URGENT]") for c in calls) == 2
+    # Three calls in the hour: no more free pass
+    assert (await _call_admin(db_session, user, urgent=True))["error_code"] == "cooldown"

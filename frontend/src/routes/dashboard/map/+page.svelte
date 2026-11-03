@@ -7,22 +7,12 @@
 	import { page } from '$app/stores';
 	import { beforeNavigate, goto } from '$app/navigation';
 	import { wsMessageStore } from '$lib/ws';
-	import { SEAT_SIZE, SEAT_RING, TABLE_DEPTH, firstFreeSlot, autoSeatLayout } from '$lib/roomLayout';
+	import { SEAT_SIZE, SEAT_RING, TABLE_DEPTH, firstFreeSlot, autoSeatLayout, FURNITURE_TYPES as ROOM_ELEMENTS, furnitureIcon } from '$lib/roomLayout';
 
 	let layout = { seats: [], tables: [], furniture: [] };
 
 	// AXE-09: Furniture type presets
-	const FURNITURE_TYPES = [
-		{ type: 'door', icon: 'door', label: get(t)('map_furniture_door'), w: 80, h: 40 },
-		{ type: 'kitchen', icon: 'utensils', label: get(t)('map_furniture_kitchen'), w: 160, h: 100 },
-		{ type: 'bar', icon: 'beer', label: get(t)('map_furniture_bar'), w: 200, h: 60 },
-		{ type: 'wc', icon: 'restroom', label: get(t)('map_furniture_wc'), w: 80, h: 80 },
-		{ type: 'rack', icon: 'server', label: get(t)('map_furniture_rack'), w: 60, h: 80 },
-		{ type: 'screen', icon: 'monitor', label: get(t)('map_furniture_screen'), w: 160, h: 40 },
-		{ type: 'generic', icon: 'package', label: get(t)('map_furniture_generic'), w: 100, h: 80 },
-	];
-	// Line icon of an element (older maps stored an emoji in furn.icon: the type decides)
-	const furnitureIcon = (furn) => (FURNITURE_TYPES.find(ft => ft.type === furn.type) || FURNITURE_TYPES[FURNITURE_TYPES.length - 1]).icon;
+	const FURNITURE_TYPES = ROOM_ELEMENTS.map(ft => ({ ...ft, label: get(t)('map_furniture_' + ft.type) }));
 	// "T3_S7" is shown as "7": the table's name already says where it is
 	const seatNumber = (id) => (id.match(/_S(\d+(?:_\d+)?)$/) || [])[1] || id;
 	let selectedFurnitureType = 'door';
@@ -1009,8 +999,9 @@
 	}
 
 	// --- User seat interactions ---
-	function getOccupant(seatId) {
-		return allUsers.find(u => u.seat_id === seatId);
+	// `users` is passed by the template so a seat change re-renders it (Svelte 5 {@const})
+	function getOccupant(seatId, users = allUsers) {
+		return users.find(u => u.seat_id === seatId);
 	}
 
 	async function claimSeat(seatId) {
@@ -1371,7 +1362,7 @@
 
 			<!-- Seats -->
 			{#each layout.seats as seat (seat.id)}
-				{@const occupant = getOccupant(seat.id)}
+				{@const occupant = getOccupant(seat.id, allUsers)}
 				{@const isMine = selectedSeat === seat.id}
 				{@const isOccupied = !!occupant}
 				{@const isTeammate = !isMine && isOccupied && user?.team_name && occupant.team_name === user.team_name}
@@ -1586,15 +1577,17 @@
 	</div>
 {/if}
 
-<!-- Toasts -->
-<div class="toast-container" use:portal>
-	{#each toasts as t (t.id)}
-		<div class="toast {t.type} {t.leaving ? 'toast-leave' : 'toast-enter'}">
-			<Icon name={t.type === 'success' ? 'check-circle' : t.type === 'error' ? 'x-circle' : 'info'} size={18} />
-			<span>{t.message}</span>
-		</div>
-	{/each}
-</div>
+<!-- Toasts (alone in their {#if}: a moved last node would make Svelte 5 erase the next page) -->
+{#if toasts.length > 0}
+	<div class="toast-container" use:portal>
+		{#each toasts as t (t.id)}
+			<div class="toast {t.type} {t.leaving ? 'toast-leave' : 'toast-enter'}">
+				<Icon name={t.type === 'success' ? 'check-circle' : t.type === 'error' ? 'x-circle' : 'info'} size={18} />
+				<span>{t.message}</span>
+			</div>
+		{/each}
+	</div>
+{/if}
 
 <style>
 	.map-page { display: flex; flex-direction: column; gap: 1rem; height: 100%; }

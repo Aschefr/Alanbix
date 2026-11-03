@@ -4,6 +4,8 @@
 	import { api } from '$lib/api';
 	import { startTutorial } from '$lib/tutorialStore';
 	import { eventName, t } from '$lib/i18nStore';
+	import Icon from '$lib/components/Icon.svelte';
+	import { furnitureIcon } from '$lib/roomLayout';
 
 	let step = 1;
 	let user = null;
@@ -61,8 +63,9 @@
 		step = 2;
 	}
 
-	function getOccupant(seatId) {
-		return allUsers.find(u => u.seat_id === seatId);
+	// `users` is passed by the template so a seat change re-renders it (Svelte 5 {@const})
+	function getOccupant(seatId, users = allUsers) {
+		return users.find(u => u.seat_id === seatId);
 	}
 
 	async function claimSeat(seatId) {
@@ -226,13 +229,13 @@
 							{@const fcy = furn.y + furn.h / 2}
 							<g transform="rotate({furn.rotation || 0}, {fcx}, {fcy})">
 								<rect x={furn.x} y={furn.y} width={furn.w} height={furn.h} rx="6" fill="var(--map-table-fill)" stroke="var(--map-table-stroke)"/>
-								<text x={fcx} y={fcy - 2} text-anchor="middle" font-size="16" style="pointer-events:none">{furn.icon}</text>
+								<foreignObject x={fcx - 8} y={fcy - 18} width="16" height="16" style="pointer-events:none;color:var(--text-dim)"><Icon name={furnitureIcon(furn)} size={16} /></foreignObject>
 								<text x={fcx} y={fcy + 12} text-anchor="middle" fill="var(--text-dim)" font-size="10">{furn.label}</text>
 							</g>
 						{/each}
 
 						{#each layout.seats as seat}
-							{@const occupant = getOccupant(seat.id)}
+							{@const occupant = getOccupant(seat.id, allUsers)}
 							{@const isMine = selectedSeat === seat.id}
 							{@const isOccupied = !!occupant}
 							{@const isTeammate = !isMine && isOccupied && user?.team_name && occupant.team_name === user.team_name}

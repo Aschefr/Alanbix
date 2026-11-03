@@ -7,8 +7,11 @@ import json
 import datetime
 import difflib
 from typing import Any, Dict, Optional
+
+from . import ia_network
 from .visibility import visible_tournaments
 from .clock import utcnow
+from .ia_room import _seat_labeler, _tool_get_room_places
 
 
 def _find_best_match(query: str, possibilities: list[str], cutoff: float = 0.55) -> Optional[str]:
@@ -197,6 +200,27 @@ TOOL_DEFINITIONS = [
                     "username": {
                         "type": "string",
                         "description": "Le pseudo du joueur (optionnel — si vide, utilise l'utilisateur courant)"
+                    }
+                },
+                "required": []
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_room_places",
+            "description": "Situer les éléments du plan de salle (borne Wi-Fi, toilettes, porte, bar, cuisine, écran, baie réseau…) : entre quelles tables ils sont, dans quelle direction depuis la place du joueur, et à quelle distance environ. Utilise-la quand le joueur demande où se trouve quelque chose dans la salle, ou pour un problème de Wi-Fi (trouver la borne la plus proche et des places libres à côté). Guide avec des repères et une direction, pas avec des chiffres.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "place": {
+                        "type": "string",
+                        "description": "Ce que cherche le joueur, dans ses mots (« wifi », « toilettes », « bar »…). Vide : tous les éléments du plan."
+                    },
+                    "free_seats": {
+                        "type": "boolean",
+                        "description": "true pour avoir aussi les places libres les plus proches de chaque élément (par exemple pour se rapprocher de la borne Wi-Fi)."
                     }
                 },
                 "required": []
@@ -525,6 +549,10 @@ TOOL_DEFINITIONS = [
                     "question": {
                         "type": "string",
                         "description": "Structured and clear reformulation of what the player needs to know or resolve, so the admin can answer directly. Write this question in the language the player is using."
+                    },
+                    "urgent": {
+                        "type": "boolean",
+                        "description": "true ONLY for an immediate danger to people or the venue: fire, injury, gas or water leak. It goes through the anti-spam limits. Never for a technical problem, a match or a rule."
                     }
                 },
                 "required": ["reason", "question"]
@@ -608,6 +636,11 @@ async def execute_tool(name: str, arguments: Dict[str, Any], user_id: int = 0, o
             if not ia_cfg.get("network_tools_enabled", True):
                 return json.dumps({"error": f"L'outil '{name}' est désactivé par l'administrateur dans les paramètres de l'IA."})
 
+        if name in ia_network.ADMIN_ONLY_TOOLS:
+            caller = db.query(models.User).filter(models.User.id == user_id).first()
+            if not caller or not caller.is_admin:
+                return json.dumps({"error": "Cette information est réservée aux administrateurs."}, ensure_ascii=False)
+
         if name == "block_user_from_ia":
             from .routers.ia import get_effective_config
             ia_cfg = get_effective_config(db)
@@ -634,24 +667,26 @@ async def execute_tool(name: str, arguments: Dict[str, Any], user_id: int = 0, o
             return _tool_get_notifications(db, models, arguments, user_id)
         elif name == "get_player_seat":
             return _tool_get_player_seat(db, models, arguments, user_id)
+        elif name == "get_room_places":
+            return _tool_get_room_places(db, models, arguments, user_id)
         elif name == "ping_host":
             if on_client_call:
                 return await _execute_client_tool("ping_host", arguments, on_client_call)
-            return _tool_ping_host(arguments)
+            return ia_network.ping_host(arguments)
         elif name == "traceroute_host":
             if on_client_call:
                 return await _execute_client_tool("traceroute_host", arguments, on_client_call)
-            return _tool_traceroute_host(arguments)
+            return ia_network.traceroute_host(arguments)
         elif name == "dns_lookup":
             if on_client_call:
                 return await _execute_client_tool("dns_lookup", arguments, on_client_call)
-            return _tool_dns_lookup(arguments)
+            return ia_network.dns_lookup(arguments)
         elif name == "check_server_health":
-            return _tool_check_server_health()
+            return ia_network.server_health()
         elif name == "scan_local_network":
             if on_client_call:
                 return await _execute_client_tool("scan_local_network", arguments, on_client_call)
-            return _tool_scan_local_network()
+            return ia_network.scan_arp_table()
         elif name == "get_game_rules":
             return _tool_get_game_rules(db, models, arguments)
         elif name == "block_user_from_ia":
@@ -1091,202 +1126,6 @@ def _tool_get_player_seat(db, models, args: dict, user_id: int) -> str:
 # ---------------------------------------------------------------------------
 import re
 
-def _sanitize_host(host: str) -> bool:
-    """Return True if host is a valid IPv4, IPv6, or domain name without injection characters."""
-    if not host or not isinstance(host, str):
-        return False
-    # Only allow characters standard for domain names or IP addresses
-    # (letters, numbers, dots, hyphens)
-    return bool(re.match(r"^[a-zA-Z0-9.-]+$", host))
-
-
-def _tool_ping_host(args: dict) -> str:
-    import subprocess
-    host = args.get("host", "").strip()
-    if not _sanitize_host(host):
-        return json.dumps({"error": f"Nom d'hôte ou IP invalide: '{host}'."}, ensure_ascii=False)
-    
-    count = args.get("count", 4)
-    try:
-        count = int(count)
-        if count < 1: count = 1
-        if count > 10: count = 10
-    except:
-        count = 4
-        
-    try:
-        res = subprocess.run(
-            ["ping", "-c", str(count), "-W", "2", host],
-            capture_output=True, text=True, timeout=15
-        )
-        return json.dumps({
-            "host": host,
-            "success": res.returncode == 0,
-            "stdout": res.stdout,
-            "stderr": res.stderr
-        }, ensure_ascii=False)
-    except subprocess.TimeoutExpired:
-        return json.dumps({"error": "Le test de ping a expiré (timeout)."}, ensure_ascii=False)
-    except Exception as e:
-        return json.dumps({"error": f"Erreur lors du ping: {str(e)}"}, ensure_ascii=False)
-
-
-def _tool_traceroute_host(args: dict) -> str:
-    import subprocess
-    host = args.get("host", "").strip()
-    if not _sanitize_host(host):
-        return json.dumps({"error": f"Nom d'hôte ou IP invalide: '{host}'."}, ensure_ascii=False)
-        
-    try:
-        res = subprocess.run(
-            ["traceroute", "-m", "15", "-q", "1", host],
-            capture_output=True, text=True, timeout=20
-        )
-        return json.dumps({
-            "host": host,
-            "stdout": res.stdout,
-            "stderr": res.stderr
-        }, ensure_ascii=False)
-    except subprocess.TimeoutExpired:
-        return json.dumps({"error": "Le traceroute a expiré."}, ensure_ascii=False)
-    except Exception as e:
-        return json.dumps({"error": f"Erreur lors du traceroute: {str(e)}"}, ensure_ascii=False)
-
-
-def _tool_dns_lookup(args: dict) -> str:
-    import socket
-    domain = args.get("domain", "").strip()
-    if not _sanitize_host(domain):
-        return json.dumps({"error": f"Nom de domaine invalide: '{domain}'."}, ensure_ascii=False)
-        
-    try:
-        name, aliases, addresses = socket.gethostbyname_ex(domain)
-        return json.dumps({
-            "domain": domain,
-            "canonical_name": name,
-            "aliases": aliases,
-            "ips": addresses
-        }, ensure_ascii=False)
-    except Exception as e:
-        import subprocess
-        try:
-            res = subprocess.run(
-                ["nslookup", domain],
-                capture_output=True, text=True, timeout=5
-            )
-            return json.dumps({
-                "domain": domain,
-                "stdout": res.stdout,
-                "stderr": res.stderr
-            }, ensure_ascii=False)
-        except Exception as shell_err:
-            return json.dumps({"error": f"Impossible de résoudre le domaine: {str(e)} (nslookup err: {str(shell_err)})"}, ensure_ascii=False)
-
-
-def _tool_check_server_health() -> str:
-    import shutil
-    import os
-    
-    health = {}
-    
-    # 1. CPU load average
-    try:
-        if os.path.exists("/proc/loadavg"):
-            with open("/proc/loadavg", "r") as f:
-                load = f.read().strip().split()
-                if len(load) >= 3:
-                    health["cpu_load_1m"] = float(load[0])
-                    health["cpu_load_5m"] = float(load[1])
-                    health["cpu_load_15m"] = float(load[2])
-        else:
-            loadavg = os.getloadavg()
-            health["cpu_load_1m"] = loadavg[0]
-            health["cpu_load_5m"] = loadavg[1]
-            health["cpu_load_15m"] = loadavg[2]
-    except Exception as e:
-        health["cpu_load_error"] = str(e)
-        
-    # 2. Memory RAM Info
-    try:
-        if os.path.exists("/proc/meminfo"):
-            mem_total = 0
-            mem_free = 0
-            mem_available = 0
-            with open("/proc/meminfo", "r") as f:
-                for line in f:
-                    parts = line.split()
-                    if len(parts) >= 2:
-                        key = parts[0].replace(":", "")
-                        val = int(parts[1])
-                        if key == "MemTotal":
-                            mem_total = val
-                        elif key == "MemFree":
-                            mem_free = val
-                        elif key == "MemAvailable":
-                            mem_available = val
-            health["ram_total_mb"] = round(mem_total / 1024)
-            health["ram_free_mb"] = round(mem_free / 1024)
-            health["ram_available_mb"] = round(mem_available / 1024)
-            health["ram_used_mb"] = round((mem_total - mem_available) / 1024) if mem_available else round((mem_total - mem_free) / 1024)
-        else:
-            health["ram_note"] = "Info de RAM non disponible via /proc/meminfo"
-    except Exception as e:
-        health["ram_error"] = str(e)
-        
-    # 3. Disk space
-    try:
-        total, used, free = shutil.disk_usage("/")
-        health["disk_total_gb"] = round(total / (1024**3), 1)
-        health["disk_used_gb"] = round(used / (1024**3), 1)
-        health["disk_free_gb"] = round(free / (1024**3), 1)
-        health["disk_use_percent"] = round((used / total) * 100, 1)
-    except Exception as e:
-        health["disk_error"] = str(e)
-        
-    return json.dumps(health, ensure_ascii=False)
-
-
-def _tool_scan_local_network() -> str:
-    import os
-    hosts = []
-    try:
-        if os.path.exists("/proc/net/arp"):
-            with open("/proc/net/arp", "r") as f:
-                lines = f.readlines()
-                for line in lines[1:]:
-                    parts = line.split()
-                    if len(parts) >= 6:
-                        ip = parts[0]
-                        mac = parts[3]
-                        device = parts[5]
-                        if mac != "00:00:00:00:00:00":
-                            hosts.append({
-                                "ip": ip,
-                                "mac": mac,
-                                "interface": device
-                            })
-        else:
-            import subprocess
-            res = subprocess.run(["arp", "-a"], capture_output=True, text=True, timeout=5)
-            for line in res.stdout.splitlines():
-                if "at" in line:
-                    parts = line.split()
-                    try:
-                        ip = parts[1].strip("()")
-                        mac = parts[3]
-                        hosts.append({"ip": ip, "mac": mac})
-                    except:
-                        pass
-    except Exception as e:
-        return json.dumps({"error": f"Erreur lors du scan réseau: {str(e)}"}, ensure_ascii=False)
-        
-    return json.dumps({
-        "hosts": hosts,
-        "count": len(hosts),
-        "note": "Affiche les machines connectées découvertes dans la table ARP du serveur."
-    }, ensure_ascii=False)
-
-
 def _tool_get_game_rules(db, models, args: dict) -> str:
     game_name = args.get("game_name", "").strip()
     if not game_name:
@@ -1425,22 +1264,6 @@ def _tool_get_live_matches(db, models, args: dict) -> str:
         "live_matches": live_matches,
         "count": len(live_matches)
     }, ensure_ascii=False)
-
-
-def _seat_labeler(db, models):
-    """seat_id ("T3_S7") -> "Table 3, place 7", with the table's name as shown on the room map."""
-    room = db.query(models.RoomMap).first()
-    names = {t.get("id"): t.get("label") or t.get("name") for t in ((room.layout or {}).get("tables") or [])} if room else {}
-
-    def label(seat_id):
-        if not seat_id:
-            return "Non assigné"
-        m = re.match(r"^(T\d+)_S(\d+(?:_\d+)?)$", seat_id)
-        if not m:
-            return seat_id
-        table = names.get(m.group(1)) or f"Table {m.group(1)[1:]}"
-        return f"{table}, place {m.group(2)}"
-    return label
 
 
 def _tool_get_team_roster(db, models, args: dict) -> str:
@@ -2113,6 +1936,9 @@ def _tool_announce_to_all(db, models, args: dict, user_id: int) -> str:
     }, ensure_ascii=False)
 
 
+URGENT_CALLS_PER_HOUR = 3
+
+
 async def _tool_call_admin(db, models, args: dict, user_id: int, conversation_id: int, bypass_enabled_check: bool = False) -> str:
     """Escalade une demande vers les admins avec contrôle anti-spam configurable."""
     import datetime as dt
@@ -2128,6 +1954,7 @@ async def _tool_call_admin(db, models, args: dict, user_id: int, conversation_id
 
     reason = args.get("reason", "").strip()
     question = args.get("question", "").strip()
+    urgent = args.get("urgent") in (True, "true", "True", 1)
     if not reason or not question:
         return json.dumps({
             "error": "Les champs 'reason' et 'question' sont requis.",
@@ -2140,6 +1967,19 @@ async def _tool_call_admin(db, models, args: dict, user_id: int, conversation_id
     global_hourly_limit = int(ia_cfg.get("call_admin_global_hourly_limit", 15))
 
     now = utcnow()
+
+    # A real emergency must get through whatever was called before. Still capped, so that crying
+    # wolf cannot flood the admins.
+    if urgent:
+        last_hour = db.query(models.AdminCallRequest).filter(
+            models.AdminCallRequest.user_id == user_id,
+            models.AdminCallRequest.created_at >= now - dt.timedelta(hours=1)
+        ).count()
+        urgent = last_hour < URGENT_CALLS_PER_HOUR
+    if urgent:
+        reason = f"[URGENT] {reason}"
+        cooldown_min = 0
+        daily_limit = global_hourly_limit = 10 ** 9
 
     # Anti-spam: cooldown par utilisateur
     cutoff_cooldown = now - dt.timedelta(minutes=cooldown_min)

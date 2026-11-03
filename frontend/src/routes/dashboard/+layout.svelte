@@ -1,7 +1,7 @@
 <script>
 	import { authStore } from '$lib/auth';
 	import { onMount, onDestroy, tick } from 'svelte';
-	import { api } from '$lib/api';
+	import { api, tokenClaims, expireSession } from '$lib/api';
 	import { connectWS, wsMessageStore } from '$lib/ws';
 	import { invalidateAll, goto } from '$app/navigation';
 	import { pmUnreadCount, groupUnreadCount, totalMsgUnread, notifUnreadCount, aiUnreadCount } from '$lib/pmStore';
@@ -26,7 +26,6 @@
 	let notifBounce = false;
 	let aiBounce = false;
 	let pmBounce = false;
-	let lastPmSender = null;
 	let iaInstances = [];
 	let iaInterval = null;
 	let iaQueueSize = 0;
@@ -259,11 +258,6 @@
 						}).catch(() => {});
 					}
 					if (msg.type === 'private_message_new') {
-						// Track sender for auto-open on Players page
-						if (msg.sender_id && msg.sender_id !== user.id) {
-							lastPmSender = msg.sender_id;
-							localStorage.setItem('alanbix_pm_last_sender', String(msg.sender_id));
-						}
 						api.get('/players/messages/unread-count').then(r => {
 							const oldCount = get(pmUnreadCount);
 							const newCount = r.count || 0;
@@ -340,9 +334,9 @@
 			// Fetch SemVer version
 			try {
 				const res = await api.get('/health');
-				version = res.version || '1.37.0';
+				version = res.version || '1.38.0';
 			} catch {
-				version = '1.37.0';
+				version = '1.38.0';
 			}
 
 			// Admin: poll IA status
@@ -389,6 +383,7 @@
 			goto('/', { replaceState: true });
 			return;
 		}
+		sessionStarted = true;
 		await initI18n();
 		if ('Notification' in window) {
 			browserNotifSupport = true;
@@ -401,7 +396,7 @@
 		// Listen for page focus to handle notification click navigation
 		window.addEventListener('focus', handleNotifNav);
 		document.addEventListener('visibilitychange', () => {
-			if (document.visibilityState === 'visible') handleNotifNav();
+			if (document.visibilityState === 'visible') { checkSession(); handleNotifNav(); }
 		});
 
 		// Listen for profile changes to update sidebar without F5
@@ -427,6 +422,22 @@
 		await initApp();
 	});
 
+	// Session end: back to the login screen, even when nobody clicks. A timer fires at the
+	// token's expiry, and coming back to the tab checks it again (timers sleep with the device).
+	let sessionStarted = false;
+	let sessionTimer;
+	function checkSession() {
+		const exp = tokenClaims(get(authStore))?.exp;
+		if (exp && exp * 1000 <= Date.now()) expireSession();
+	}
+	function watchSession(token) {
+		clearTimeout(sessionTimer);
+		const exp = tokenClaims(token)?.exp;
+		if (exp) sessionTimer = setTimeout(checkSession, Math.min(Math.max(exp * 1000 - Date.now(), 0) + 1000, 2147483000));
+	}
+	$: if (typeof window !== 'undefined') watchSession($authStore);
+	$: if (sessionStarted && !$authStore) goto('/', { replaceState: true });
+
 	async function handleUserUpdateEvent() {
 		try {
 			user = await api.get('/me');
@@ -445,6 +456,7 @@
 	onDestroy(() => {
 		if (unsub) unsub();
 		if (iaInterval) clearInterval(iaInterval);
+		clearTimeout(sessionTimer);
 		if (typeof window !== 'undefined') {
 			window.removeEventListener('user-updated', handleUserUpdateEvent);
 		}
@@ -594,7 +606,7 @@
 				<span class="icon">🏆</span>
 				<span class="label">{$t('nav_tournaments')}</span>
 			</a>
-			<a href="/dashboard/players{$totalMsgUnread > 0 && lastPmSender ? '?chat=' + lastPmSender : ''}" class="nav-item pm-nav" class:active={$page.url.pathname.startsWith('/dashboard/players')}>
+			<a href="/dashboard/players" class="nav-item pm-nav" class:active={$page.url.pathname.startsWith('/dashboard/players')}>
 				<span class="icon">💬</span>
 				<span class="label">{$t('mobile_tab_messages')}</span>
 				{#if $totalMsgUnread > 0}
@@ -729,7 +741,7 @@
 			<span class="tab-icon"><Icon name="trophy" size={17} /></span>
 			<span class="tab-label">{$t('mobile_tab_tournaments')}</span>
 		</a>
-		<a href="/dashboard/players{$totalMsgUnread > 0 && lastPmSender ? '?chat=' + lastPmSender : ''}" class="bottom-tab" class:active={$page.url.pathname.startsWith('/dashboard/players')} on:click={onMessagesTab}>
+		<a href="/dashboard/players" class="bottom-tab" class:active={$page.url.pathname.startsWith('/dashboard/players')} on:click={onMessagesTab}>
 			<span class="tab-icon tab-badge-wrap">
 				<Icon name="chat" size={17} />
 				{#if $totalMsgUnread > 0}

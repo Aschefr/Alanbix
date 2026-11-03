@@ -113,7 +113,7 @@ Alanbix automatically assigns global administration rights to the **first user c
 1. Go to `http://localhost:41481`.
 2. Click on **Register** (S'inscrire).
 3. Fill out the form (username and password).
-4. You land on the **guided server setup**: LAN name and language, Wi-Fi and the players' address, info page (pre-filled template), games and a first tournament (with the points scale and its simulation), AI assistant (local or an online service with an API key), room map, then inviting players (address, QR code and printable poster). Every step can be skipped; the setup can be resumed from the administration (**Settings › General › Guided setup**).
+4. You land on the **guided server setup**: LAN name and language, Wi-Fi and the players' address, info page (pre-filled template), games and a first tournament (with the points scale and its simulation), AI assistant (local or an online service with an API key), knowledge base (built-in search model to install, first entries), room map, then inviting players (address, QR code and printable poster). Every step can be skipped; the setup can be resumed from the administration (**Settings › General › Guided setup**).
 5. The **Administration** tab then appears in your left sidebar.
 
 ![Alanbix Dashboard](../../screenshots/alanbix_dashboard.png)
@@ -138,7 +138,7 @@ For features to be usable, the administrator must prepare the environment:
 
 1. **Adding Games**: In **Administration > Games**, create entries for the games featured in your tournaments. Use the integrated SearXNG search to automatically download game covers directly to your server for offline-first capabilities.
 2. **Room Plan**: In **Administration > Room Plan**, arrange seats, tables, and other logistical furniture via Drag & Drop. Players can then click on these seats to reserve their physical location in the room.
-3. **AI Activation**: In **Administration > AI & Settings**, add your Ollama or OpenAI-compatible instance URL (e.g., `http://192.168.1.100:11434` for Ollama, or `http://192.168.1.100:8080/v1` for OpenAI/LocalAI), assign it a model, and verify its status (🟢 Connected).
+3. **AI Activation**: In **Administration > Settings**, add your Ollama or OpenAI-compatible instance URL (e.g., `http://192.168.1.100:11434` for Ollama, or `http://192.168.1.100:8080/v1` for OpenAI/LocalAI), assign it a model, and verify its status (🟢 Connected).
 
 ---
 

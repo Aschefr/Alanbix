@@ -121,12 +121,15 @@
 						{#if showStatus}
 							<div class="edit-field">
 								<label for="edit-status">{$t('admin_tourneys_edit_status')}</label>
-								<select id="edit-status" bind:value={editConfig.status}>
+								<select id="edit-status" bind:value={editConfig.status} disabled={tournament.status === 'CLOSED'}>
 									<option value="OPEN">{$t("admin_tourneys_status_pill_open")}</option>
 									<option value="RUNNING">{$t("admin_tourneys_status_pill_running")}</option>
 									<option value="DONE">{$t("admin_tourneys_status_pill_done")}</option>
-									<option value="CLOSED">{$t("admin_tourneys_status_pill_closed")}</option>
+									{#if tournament.status === 'CLOSED'}
+										<option value="CLOSED">{$t("admin_tourneys_status_pill_closed")}</option>
+									{/if}
 								</select>
+								<span class="status-hint">{$t(tournament.status === 'CLOSED' ? 'admin_tourneys_edit_status_closed_hint' : 'admin_tourneys_edit_status_hint')}</span>
 							</div>
 						{/if}
 
@@ -283,6 +286,7 @@
 {/if}
 
 <style>
+	.status-hint { display: block; margin-top: 0.3rem; font-size: 0.75rem; line-height: 1.4; color: var(--text-muted); }
 	fieldset.edit-section { min-width: 0; margin: 0; }
 	fieldset.edit-section:disabled { opacity: 0.55; }
 	.edit-lock-note { display: flex; align-items: center; gap: 0.5rem; margin: 0; padding: 0.6rem 0.9rem; border-radius: var(--radius-md); font-size: 0.8125rem; color: var(--warning); background: color-mix(in srgb, var(--warning) 10%, transparent); border: 1px solid color-mix(in srgb, var(--warning) 30%, transparent); }

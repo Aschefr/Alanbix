@@ -13,6 +13,7 @@ export const SETUP_STEPS = [
 	{ id: 'info', icon: 'book-open' },
 	{ id: 'games', icon: 'gamepad' },
 	{ id: 'ai', icon: 'bot', optional: true },
+	{ id: 'knowledge', icon: 'lightbulb', optional: true },
 	{ id: 'map', icon: 'map', optional: true },
 	{ id: 'invite', icon: 'users' },
 	{ id: 'recap', icon: 'check-circle' },

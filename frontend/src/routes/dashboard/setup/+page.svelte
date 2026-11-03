@@ -8,6 +8,7 @@
 	import StepInfo from './StepInfo.svelte';
 	import StepGames from './StepGames.svelte';
 	import StepAI from './StepAI.svelte';
+	import StepKnowledge from './StepKnowledge.svelte';
 	import StepMap from './StepMap.svelte';
 	import StepInvite from './StepInvite.svelte';
 
@@ -206,6 +207,9 @@
 
 				{:else if step.id === 'ai'}
 					<StepAI bind:this={stepRef} />
+
+				{:else if step.id === 'knowledge'}
+					<StepKnowledge bind:this={stepRef} />
 
 				{:else if step.id === 'map'}
 					<StepMap bind:this={stepRef} />

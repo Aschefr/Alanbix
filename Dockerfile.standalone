@@ -20,8 +20,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends iputils-ping tr
 
 # Installer les dependances Python (toutes existent precompilees pour amd64 et arm64 :
 # pas besoin d'outils de compilation dans l'image)
-COPY backend/requirements.txt .
-RUN pip install --no-cache-dir --only-binary=:all: -r requirements.txt
+COPY backend/requirements.txt backend/requirements-nodeps.txt ./
+RUN pip install --no-cache-dir --only-binary=:all: -r requirements.txt && pip install --no-cache-dir --only-binary=:all: --no-deps -r requirements-nodeps.txt
 
 # Copier le code backend
 COPY backend/ .

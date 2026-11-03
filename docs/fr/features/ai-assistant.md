@@ -13,12 +13,17 @@ Alanbix intègre un assistant IA auto-hébergé sophistiqué basé sur Ollama, c
 ![Question IA](../../../screenshots/alanbix_assistant_ia_question.png)
 ![Réponse IA](../../../screenshots/alanbix_assistant_ia_reponse.png)
 
-### Moteur de RAG Native (Calcul NumPy)
-Afin d'éviter l'infrastructure complexe d'une base de données vectorielle dédiée (comme pgvector/PostgreSQL), Alanbix embarque un moteur RAG matriciel codé en Python natif avec NumPy :
-1. **Indexation** : Les documents téléchargés par les administrateurs sont découpés et leurs embeddings (représentations vectorielles) sont calculés via Ollama puis stockés en format JSON dans la base SQLite.
-2. **Recherche Vectorielle** : À chaque question posée par un utilisateur, le backend charge les embeddings de la base SQLite et effectue un calcul de **Similarité Cosinus (Cosine Similarity)** en mémoire vive via NumPy.
-3. **Isolation de contexte** : L'IA bascule intelligemment entre le contexte général de la LAN (planning, WiFi, règlements) et le contexte d'un jeu spécifique pour optimiser la qualité des réponses.
-4. **Seuil de pertinence** : une fiche n'est transmise à l'IA que si sa similarité dépasse un seuil réglable (0,65 par défaut, dans la configuration du modèle). La recherche combine la question avec le message précédent du joueur, pour qu'une relance (« et comment je fais ? ») retrouve son sujet.
+### Base de connaissances (RAG hybride)
+Avant chaque réponse, Alanbix cherche dans la base de connaissances les fiches qui répondent à la question, et les place dans les consignes de l'IA. Pas de base de données vectorielle à installer : tout se fait en mémoire, ce qui suffit largement pour quelques centaines de fiches.
+1. **Deux recherches combinées** :
+   * **Par mots-clés** (score BM25, celui des moteurs de recherche classiques) : toujours disponible, retrouve les noms et termes exacts (« Goldberg », « WC »). Les accents, les petits mots et les pluriels simples sont ignorés, et une fiche doit contenir une bonne part des mots de la question.
+   * **Par le sens** (embeddings et similarité cosinus) : retrouve les reformulations (« porte des toilettes » / « serrure des WC ») et les questions posées dans une autre langue, si un modèle d'embedding répond. Une fiche n'est retenue que si sa similarité dépasse un seuil : réglable pour un modèle externe (0,65 par défaut), propre au modèle intégré (0,35).
+   * Les deux classements sont fusionnés (Reciprocal Rank Fusion) et les 3 meilleures fiches sont transmises.
+2. **Le modèle intégré** : un bouton dans la configuration guidée et dans la section « Base de connaissances » télécharge une fois `paraphrase-multilingual-MiniLM-L12-v2` (135 Mo, licence Apache 2.0, téléchargement vérifié) dans le dossier de données, où il survit aux mises à jour. Il tourne sur le processeur avec ONNX Runtime, sans carte graphique ni Internet, et prend environ 400 Mo de mémoire à partir de la première recherche. Les fiches sont réindexées automatiquement. En mode « Automatique », il est utilisé dès qu'il est installé ; un modèle externe choisi dans les réglages reste prioritaire.
+3. **Sans modèle d'embedding**, la recherche par mots-clés fonctionne seule. Le serveur d'embedding n'est alors réinterrogé que toutes les 5 minutes, pour ne pas ralentir chaque message.
+4. **Indexation** : chaque fiche retient le modèle d'embedding qui l'a indexée. Les vecteurs de deux modèles différents ne sont jamais comparés : après un changement de modèle, le bandeau de la section « Base de connaissances » indique combien de fiches sont à réindexer, avec un bouton **Réindexer**. Ce bandeau dit aussi si la recherche par le sens fonctionne, et sinon pourquoi.
+5. **Isolation de contexte** : l'IA bascule entre le contexte général de la LAN (planning, WiFi, règlements) et le contexte d'un jeu spécifique.
+6. **Relances** : la recherche combine la question avec le message précédent du joueur, pour qu'une relance (« et comment je fais ? ») retrouve son sujet. `@Alanbix`, dans le chat public, utilise la même recherche.
 
 ### Construction du prompt système (en couches)
 Chaque requête envoie au modèle un seul message système, assemblé dans cet ordre :
@@ -87,6 +92,10 @@ Pour faciliter le suivi des échanges sans forcer le rafraîchissement de la pag
 ---
 
 ## 🔑 Services en ligne et clés d'API
+
+**Onglet Diagnostic** : Administration › Diagnostic affiche l'état du serveur et lance à la main les tests ping, traceroute et DNS, depuis le serveur Alanbix. Pour les joueurs, l'assistant n'a accès qu'au ping, au traceroute et au DNS ; l'état du serveur et le scan du réseau sont réservés aux administrateurs. Sous Docker, le scan ne voit presque que les adresses internes de Docker.
+
+**Modèles conseillés** : pour une instance Ollama, la liste « Modèles conseillés » (réglages de l'IA et configuration guidée) propose quatre modèles, avec un bouton pour les télécharger sur le serveur Ollama : `gemma4:e2b` (4,6 Go, le minimum), `gemma4:e4b` (9,6 Go, le meilleur équilibre), et pour un gros serveur `qwen3.8:27b` (17,7 Go, environ 18 Go de mémoire vidéo) et `gemma4:31b` (19,9 Go, environ 20 Go). Ils ont été comparés sur de vraies questions Alanbix avec une RTX 3090, à températures 0,2 et 0,7 : outils bien utilisés, rien d'inventé, réponse dans la langue du joueur. **La température conseillée est 0,2** : à 0,7, les petits modèles préviennent moins souvent un administrateur et répondent parfois dans une autre langue ; les gros restent fiables. Un modèle plus gros n'est pas forcément meilleur, et le serveur compte aussi : `gemma4:12b` n'a pas consulté le classement et a inventé des places, et sous Ollama `qwen3.5:9b` a inventé des classements, alors que le même modèle servi par vLLM n'a rien inventé sur 21 essais. Évitez les modèles MoE comme `qwen3.5:35b` sur une machine à la mémoire limitée : leur chargement a déjà fait planter un serveur de 32 Go. Ollama occupe aussi de la mémoire vive, pas seulement de la mémoire vidéo : si son conteneur a une limite de mémoire, prévoyez de la place pour tous les modèles chargés en même temps. Seul Ollama a une commande de téléchargement : ce bouton n'existe pas pour les services compatibles OpenAI.
 
 Une instance peut aussi être un service compatible OpenAI (adresse en `/v1`) : LM Studio ou llama.cpp en local, ou un service en ligne comme OpenAI, Mistral, OpenRouter ou Groq. Pour ces derniers, saisissez la **clé d'API** de l'instance dans **Réglages › Intelligence Artificielle › Serveurs** (ou à l'étape 5 de la configuration guidée). Elle est envoyée en `Authorization: Bearer` à chaque requête vers cette instance (conversation, outils, résumés, embeddings, traductions, liste des modèles).
 

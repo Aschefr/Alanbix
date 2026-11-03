@@ -3,8 +3,14 @@
 	import { get } from 'svelte/store';
 	import { onMount, onDestroy } from 'svelte';
 	import { api } from '$lib/api';
-	import { t } from '$lib/i18nStore';
+	import { t, currentLang } from '$lib/i18nStore';
 	import { wsMessageStore } from '$lib/ws';
+	import AdminAIQueueList from './AdminAIQueueList.svelte';
+	import AdminAIBehaviour from './AdminAIBehaviour.svelte';
+	// Same value as RECOMMENDED_TEMPERATURE in backend/app/ia_model_catalog.py
+	const RECOMMENDED_TEMPERATURE = 0.2;
+	import OllamaModelCatalog from '$lib/components/OllamaModelCatalog.svelte';
+	import AdminKnowledgeBase from './AdminKnowledgeBase.svelte';
 
 	export let toast = (msg, type) => {};
 	export let settingsSubTab = (typeof localStorage !== 'undefined' && localStorage.getItem('admin_subtab')) || 'general';
@@ -57,7 +63,7 @@
 	let iaConfig = { 
 		ollama_host: '', model: '', rag_enabled: true, network_tools_enabled: true,
 		auto_moderation_enabled: true,
-		temperature: 0.7, context_window: 16384,
+		temperature: RECOMMENDED_TEMPERATURE, context_window: 16384,
 		ollama_instances: [], embedding_model: '',
 		tool_calling_mode: 'stream_intercept',
 		call_admin_enabled: true,
@@ -119,14 +125,8 @@
 		promptModalDraft += block;
 	}
 
-	// Knowledge / RAG
+	// Knowledge / RAG (entries are loaded and edited by AdminKnowledgeBase)
 	let knowledgeDocs = [];
-	let newDocContent = '';
-	let editingDocId = null;
-	let editDocContent = '';
-	let editDocLoading = false;
-	let editDocSaving = false;
-	let uploadingDoc = false;
 
 	// AI Queue Admin State
 	let iaQueueData = { pending: [], active: [], queue_size: 0, active_count: 0, avg_duration: 15 };
@@ -216,9 +216,6 @@
 
 		wsUnsub = wsMessageStore.subscribe(msg => {
 			if (!msg) return;
-			if (msg.type === 'knowledge_updated') {
-				loadKnowledge();
-			}
 			if (msg.type === 'ia_queue_update') {
 				loadQueueAdmin();
 			}
@@ -297,7 +294,6 @@
 			loadInstanceStatuses();
 		} catch {}
 
-		loadKnowledge();
 		loadQueueAdmin();
 	}
 
@@ -499,6 +495,12 @@
 		}
 	}
 
+	async function useCatalogModel(idx, name) {
+		iaConfig.ollama_instances[idx].model = name;
+		await loadInstanceStatuses();
+		await saveIAConfig();
+	}
+
 	async function loadInstanceStatuses() {
 		try { instanceStatuses = await api.get('/ia/instances/status'); } catch { instanceStatuses = []; }
 	}
@@ -575,68 +577,6 @@
 		} catch (e) {
 			toast('Erreur: ' + e.message, 'error');
 		}
-	}
-
-	async function loadKnowledge() {
-		try {
-			knowledgeDocs = await api.get('/ia/knowledge');
-		} catch { knowledgeDocs = []; }
-	}
-
-	async function deleteKnowledge(docId) {
-		try {
-			await api.delete(`/ia/knowledge/${docId}`);
-			toast(get(t)('admin_toast_rag_deleted'), 'success');
-			loadKnowledge();
-		} catch (e) { toast(e.message || get(t)('admin_toast_delete_error'), 'error'); }
-	}
-
-	async function editKnowledge(docId) {
-		if (editingDocId === docId) { editingDocId = null; return; }
-		editDocLoading = true;
-		editingDocId = docId;
-		try {
-			const doc = await api.get(`/ia/knowledge/${docId}`);
-			editDocContent = doc.content;
-		} catch (e) { toast(get(t)('admin_toast_load_doc_error'), 'error'); editingDocId = null; }
-		editDocLoading = false;
-	}
-
-	async function saveKnowledgeEdit() {
-		if (!editDocContent.trim() || !editingDocId) return;
-		editDocSaving = true;
-		try {
-			const res = await api.put(`/ia/knowledge/${editingDocId}`, { content: editDocContent });
-			if (res.warning) {
-				toast(res.warning, 'error');
-			} else if (res.chunks > 1) {
-				toast(get(t)('admin_rag_reindexed', { chunks: res.chunks, chars: res.content_length }), 'success');
-			} else {
-				toast(get(t)('admin_toast_rag_updated'), 'success');
-			}
-			editingDocId = null;
-			editDocContent = '';
-			loadKnowledge();
-		} catch (e) { toast(e.message || get(t)('admin_rag_update_error'), 'error'); }
-		editDocSaving = false;
-	}
-
-	async function uploadRagDoc() {
-		if (!newDocContent.trim()) return;
-		uploadingDoc = true;
-		try {
-			const res = await api.post('/ia/upload-document', { content: newDocContent });
-			newDocContent = '';
-			if (res.warning) {
-				toast(res.warning, 'error');
-			} else if (res.chunks > 1) {
-				toast(get(t)('admin_rag_indexed', { chunks: res.chunks, chars: res.content_length }), 'success');
-			} else {
-				toast(get(t)('admin_toast_rag_added'), 'success');
-			}
-			loadKnowledge();
-		} catch (e) { toast(e.message || get(t)('admin_rag_index_error'), 'error'); }
-		uploadingDoc = false;
 	}
 
 	// Danger Zone Nukes
@@ -741,7 +681,6 @@
 	function handleKeydown(e) {
 		if (e.key === 'Escape') {
 			if (showPromptModal) showPromptModal = false;
-			else if (editingDocId) editingDocId = null;
 		}
 	}
 </script>
@@ -1263,6 +1202,11 @@
 			{/each}
 		</nav>
 		<div class="stab-content">
+		{#if !iaConfig.ollama_instances?.some(i => i.enabled) && !(iaConfig.ollama_host && iaConfig.model)}
+			<p class="ai-server-notice" role="status"><Icon name="alert-triangle" size={15} /> {$t('admin_ai_no_server')}</p>
+		{:else if instanceStatuses.length > 0 && !instanceStatuses.some(s => s.enabled && s.online)}
+			<p class="ai-server-notice" role="status"><Icon name="alert-triangle" size={15} /> {$t('admin_ai_server_offline')}</p>
+		{/if}
 		<h2 class="admin-section-title" id="gi-servers" data-gsection>
 			<span class="ss-icon"><Icon name="server" size={16} /></span>
 			<span class="ss-title">{$t('admin_ai_sec_servers')}</span>
@@ -1283,34 +1227,7 @@
 				</div>
 			</div>
 			<div class="sc-body">
-				{#if iaQueueData.active.length > 0}
-					<div class="queue-section-label">{$t("admin_settings_queue_processing")}</div>
-					{#each iaQueueData.active as entry}
-						<div class="queue-row active">
-							<span class="queue-row-type"><Icon name={entry.task_type === 'chat' ? 'chat' : entry.task_type === 'compress' ? 'layers' : (entry.task_type === 'title_suggestion' || entry.task_type === 'auto_title') ? 'pencil' : 'trophy'} size={16} /></span>
-							<span class="queue-row-user">{entry.username || '—'}</span>
-							<span class="queue-row-type-label">{entry.task_type}</span>
-							<span class="queue-row-time">{entry.processing_since}s</span>
-							<button class="queue-cancel-btn" on:click|stopPropagation={() => cancelQueueEntry(entry.id)} title="{$t('admin_settings_queue_cancel_tooltip')}" aria-label="{$t('admin_settings_queue_cancel_tooltip')}"><Icon name="x" size={14} /></button>
-						</div>
-					{/each}
-				{/if}
-				{#if iaQueueData.pending.length > 0}
-					<div class="queue-section-label" style="margin-top:{iaQueueData.active.length > 0 ? '0.75rem' : '0'}">{$t("admin_settings_queue_pending")}</div>
-					{#each iaQueueData.pending as entry}
-						<div class="queue-row">
-							<span class="queue-row-pos">#{entry.position}</span>
-							<span class="queue-row-type"><Icon name={entry.task_type === 'chat' ? 'chat' : entry.task_type === 'compress' ? 'layers' : (entry.task_type === 'title_suggestion' || entry.task_type === 'auto_title') ? 'pencil' : 'trophy'} size={16} /></span>
-							<span class="queue-row-user">{entry.username || '—'}</span>
-							<span class="queue-row-type-label">{entry.task_type}</span>
-							<span class="queue-row-time">{entry.waiting_since}s</span>
-							<button class="queue-cancel-btn" on:click|stopPropagation={() => cancelQueueEntry(entry.id)} title="{$t('admin_settings_queue_cancel_tooltip')}" aria-label="{$t('admin_settings_queue_cancel_tooltip')}"><Icon name="x" size={14} /></button>
-						</div>
-					{/each}
-				{/if}
-				{#if iaQueueData.active.length === 0 && iaQueueData.pending.length === 0}
-					<div class="queue-empty"><Icon name="check-circle" size={16} /> {$t("admin_settings_ai_queue_empty")}</div>
-				{/if}
+				<AdminAIQueueList queue={iaQueueData} on:cancel={(e) => cancelQueueEntry(e.detail)} />
 			</div>
 		</div>
 
@@ -1368,6 +1285,7 @@
 							<button class="inst-btn-mini danger" on:click={() => removeInstance(idx)} title="{$t('admin_tourneys_tooltip_delete')}" aria-label="{$t('admin_tourneys_tooltip_delete')}"><Icon name="x" size={14} /></button>
 						</div>
 					</div>
+					<OllamaModelCatalog url={inst.url} current={inst.model} on:use={(e) => useCatalogModel(idx, e.detail)} on:installed={loadInstanceStatuses} />
 				{:else}
 					<div class="inst-empty">{$t("admin_settings_instances_empty")}</div>
 				{/each}
@@ -1392,12 +1310,18 @@
 				<!-- Temperature -->
 				<div>
 					<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem;">
-						<label class="compact-label">{$t('admin_settings_ai_temp')} <strong>{iaConfig.temperature}</strong></label>
+						<label class="compact-label">{$t('admin_settings_ai_temp')} <strong>{Number(iaConfig.temperature).toLocaleString($currentLang)}</strong></label>
 						<span class="range-hint text-xs" style="color: var(--text-muted); font-size: 0.75rem;">
 							{iaConfig.temperature <= 0.3 ? $t('admin_settings_ai_temp_precise') : iaConfig.temperature >= 0.7 ? $t('admin_settings_ai_temp_creative') : $t('admin_settings_ai_temp_balanced')}
 						</span>
 					</div>
 					<input type="range" bind:value={iaConfig.temperature} on:change={saveIAConfig} min="0" max="1" step="0.1" class="range-accent" style="width: 100%;" />
+					<div class="temp-advice">
+						<span class="range-hint text-xs">{$t('admin_settings_ai_temp_hint', { value: RECOMMENDED_TEMPERATURE.toLocaleString($currentLang) })}</span>
+						{#if iaConfig.temperature !== RECOMMENDED_TEMPERATURE}
+							<button type="button" class="btn-secondary btn-sm" on:click={() => { iaConfig.temperature = RECOMMENDED_TEMPERATURE; saveIAConfig(); }}>{$t('admin_settings_ai_temp_apply', { value: RECOMMENDED_TEMPERATURE.toLocaleString($currentLang) })}</button>
+						{/if}
+					</div>
 				</div>
 
 				<!-- Context Window -->
@@ -1430,6 +1354,10 @@
 					</span>
 				</div>
 
+				<details class="ai-advanced">
+					<summary>{$t('admin_settings_ai_advanced')}</summary>
+					<p class="ai-advanced-hint">{$t('admin_settings_ai_advanced_hint')}</p>
+					<div class="ai-advanced-body">
 				<!-- Embedding Model -->
 				<div>
 					<label class="compact-label" style="margin-bottom: 0.2rem; display: block;">{$t('admin_settings_ai_rag_model')}</label>
@@ -1458,7 +1386,12 @@
 						<option value="legacy_double">{$t('admin_settings_ai_tool_mode_legacy')}</option>
 						<option value="disabled">{$t('admin_settings_ai_tool_mode_disabled')}</option>
 					</select>
+					<span class="range-hint text-xs" style="color: var(--text-muted); font-size: 0.75rem; display: block; margin-top: 0.25rem; line-height: 1.2;">
+						{$t('admin_settings_ai_tool_mode_hint')}
+					</span>
 				</div>
+					</div>
+				</details>
 
 			</div>
 		</div>
@@ -1469,73 +1402,7 @@
 		</h2>
 		<div class="sc glass sc-full sc-bare">
 			<div class="sc-body">
-				<div class="ai-opts">
-<!-- Network Tools -->
-				<div style="display: flex; align-items: center; justify-content: space-between; padding-top: 0.4rem; border-top: 1px solid var(--glass-border);">
-					<span class="compact-label ai-opt-label" style="font-weight: 600;"><Icon name="globe" size={15} /> {$t('admin_settings_ai_tools')}</span>
-					<label class="toggle-switch-mini">
-						<input type="checkbox" bind:checked={iaConfig.network_tools_enabled} on:change={saveIAConfig} />
-						<span class="toggle-slider"></span>
-					</label>
-				</div>
-
-				<!-- Auto-moderation -->
-				<div style="display: flex; align-items: center; justify-content: space-between; padding-top: 0.4rem; border-top: 1px solid var(--glass-border);">
-					<span class="compact-label ai-opt-label" style="font-weight: 600;"><Icon name="shield" size={15} /> {$t('admin_settings_ai_moderation')}</span>
-					<label class="toggle-switch-mini">
-						<input type="checkbox" bind:checked={iaConfig.auto_moderation_enabled} on:change={saveIAConfig} />
-						<span class="toggle-slider"></span>
-					</label>
-				</div>
-
-				<!-- Appel Admin Outil -->
-				<div style="display: flex; align-items: center; justify-content: space-between; padding-top: 0.4rem; border-top: 1px solid var(--glass-border);">
-					<span class="compact-label ai-opt-label" style="font-weight: 600;"><Icon name="megaphone" size={15} /> {$t('ai_setting_call_admin_tool_enabled')}</span>
-					<label class="toggle-switch-mini">
-						<input type="checkbox" bind:checked={iaConfig.call_admin_enabled} on:change={saveIAConfig} />
-						<span class="toggle-slider"></span>
-					</label>
-				</div>
-
-				<!-- Appel Admin Bouton Manuel -->
-				<div style="display: flex; align-items: center; justify-content: space-between; padding-top: 0.4rem; border-top: 1px solid var(--glass-border);">
-					<span class="compact-label ai-opt-label" style="font-weight: 600;"><Icon name="bell" size={15} /> {$t('ai_setting_call_admin_btn_enabled')}</span>
-					<label class="toggle-switch-mini">
-						<input type="checkbox" bind:checked={iaConfig.call_admin_button_enabled} on:change={saveIAConfig} />
-						<span class="toggle-slider"></span>
-					</label>
-				</div>
-				{#if iaConfig.call_admin_enabled || iaConfig.call_admin_button_enabled}
-				<div class="ai-antispam" style="padding: 0.6rem; margin-top: 0.4rem; background: rgba(255, 255, 255, 0.03); border: 1px dashed var(--glass-border); border-radius: 4px; display: flex; flex-direction: column; gap: 0.5rem;">
-					<span class="compact-label" style="font-weight: 600; font-size: 0.85rem; letter-spacing: 0.05em; color: var(--text-muted);">
-						{$t('ai_setting_call_admin_antispam_section_title')}
-					</span>
-					<div style="display: flex; flex-direction: column; gap: 0.4rem;">
-						<label class="compact-label" style="display: flex; align-items: center; justify-content: space-between;">
-							<span>{$t('ai_setting_call_admin_cooldown')}</span>
-							<input type="number" min="1" max="1440" bind:value={iaConfig.call_admin_cooldown_minutes} on:change={saveIAConfig} style="width:70px;" />
-						</label>
-						<label class="compact-label" style="display: flex; align-items: center; justify-content: space-between;">
-							<span>{$t('ai_setting_call_admin_daily')}</span>
-							<input type="number" min="1" max="50" bind:value={iaConfig.call_admin_daily_limit} on:change={saveIAConfig} style="width:70px;" />
-						</label>
-						<label class="compact-label" style="display: flex; align-items: center; justify-content: space-between;">
-							<span>{$t('ai_setting_call_admin_global_hourly')}</span>
-							<input type="number" min="1" max="500" bind:value={iaConfig.call_admin_global_hourly_limit} on:change={saveIAConfig} style="width:70px;" />
-						</label>
-					</div>
-				</div>
-				{/if}
-
-				<!-- Suggestions RAG -->
-				<div style="display: flex; align-items: center; justify-content: space-between; padding-top: 0.4rem; border-top: 1px solid var(--glass-border);">
-					<span class="compact-label ai-opt-label" style="font-weight: 600;"><Icon name="lightbulb" size={15} /> {$t('ai_setting_rag_suggestion_enabled')}</span>
-					<label class="toggle-switch-mini">
-						<input type="checkbox" bind:checked={iaConfig.rag_suggestion_enabled} on:change={saveIAConfig} />
-						<span class="toggle-slider"></span>
-					</label>
-				</div>
-				</div>
+				<AdminAIBehaviour bind:config={iaConfig} on:change={saveIAConfig} />
 			</div>
 		</div>
 
@@ -1563,6 +1430,7 @@
 					</div>
 					<div style="display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; flex: 1;">
 						<label class="compact-label">{$t('admin_settings_ai_prompt_close')}</label>
+						<span class="range-hint text-xs" style="color: var(--text-muted); font-size: 0.75rem;">{$t('admin_settings_ai_prompt_close_hint')}</span>
 						<textarea class="prompt-textarea-compact" bind:value={closingPrompt} on:input={() => debounceSave('closingPrompt', saveClosingPrompt)} placeholder="{$t('admin_settings_ai_prompt_close_placeholder')}" rows="6" style="flex: 1; height: 100%; resize: none;"></textarea>
 					</div>
 				</div>
@@ -1605,69 +1473,7 @@
 				<span class="badge-count">{knowledgeDocs.length}</span>
 			</div>
 			<div class="sc-body">
-				<!-- Existing documents -->
-				{#if knowledgeDocs.length > 0}
-					<div class="rag-list">
-						{#each knowledgeDocs as doc}
-							<div class="rag-item {editingDocId === doc.id ? 'rag-item-editing' : ''}">
-								<div class="rag-item-main">
-									<div class="rag-item-header">
-										<span class="rag-id">#{doc.id}</span>
-										<span class="rag-size">{doc.content_length} {$t("admin_settings_ai_rag_chars")}</span>
-										{#if doc.has_embedding}
-											<span class="rag-embed-badge">{$t("admin_settings_ai_rag_vectorized")}</span>
-										{:else}
-											<span class="rag-embed-badge no">{$t("admin_settings_ai_rag_non_vectorized")}</span>
-										{/if}
-									</div>
-									{#if editingDocId === doc.id}
-										{#if editDocLoading}
-											<div class="rag-edit-loading">{$t("admin_settings_ai_rag_edit_loading")}</div>
-										{:else}
-											<textarea class="rag-edit-textarea" bind:value={editDocContent} rows="8" disabled={editDocSaving}></textarea>
-											{#if editDocSaving}
-												<div class="rag-vectorize-anim">
-													<div class="rag-vectorize-bar"></div>
-													<span class="rag-vectorize-label">{$t("admin_settings_ai_rag_vectorizing")}</span>
-												</div>
-											{:else}
-												<div class="rag-edit-actions">
-													<span class="rag-edit-chars">{editDocContent.length} {$t("admin_settings_ai_rag_chars")}</span>
-													<button class="btn-secondary btn-xs" on:click={() => { editingDocId = null; editDocContent = ''; }}><Icon name="x" size={13} /> {$t('admin_settings_cancel')}</button>
-													<button class="btn-primary btn-xs" on:click={saveKnowledgeEdit} disabled={!editDocContent.trim()}>{$t("admin_settings_ai_rag_btn_save_vectorize")}</button>
-												</div>
-											{/if}
-										{/if}
-									{:else}
-										<p class="rag-preview">{doc.content}</p>
-									{/if}
-								</div>
-								<div class="rag-item-actions">
-									<button class="btn-icon" title="{$t('admin_tourneys_tooltip_edit')}" on:click={() => editKnowledge(doc.id)} aria-label={$t('admin_tourneys_tooltip_edit')}><Icon name={editingDocId === doc.id ? 'x' : 'pencil'} size={14} /></button>
-									<button class="btn-icon btn-icon-danger" title="{$t('admin_tourneys_tooltip_delete')}" on:click={() => deleteKnowledge(doc.id)} aria-label={$t('admin_tourneys_tooltip_delete')}><Icon name="trash" size={14} /></button>
-								</div>
-							</div>
-						{/each}
-					</div>
-				{:else}
-					<div class="rag-empty">
-						<span><Icon name="inbox" size={22} /></span>
-						<p>{$t("admin_settings_ai_rag_empty")}</p>
-					</div>
-				{/if}
-
-				<!-- Add new document -->
-				<div class="rag-add-section">
-					<textarea bind:value={newDocContent} placeholder="{$t('admin_settings_ai_rag_placeholder')}" class="prompt-textarea" rows="3" disabled={uploadingDoc}></textarea>
-					{#if uploadingDoc}
-						<div class="rag-vectorize-anim">
-							<div class="rag-vectorize-bar"></div>
-							<span class="rag-vectorize-label">{$t("admin_settings_ai_rag_vectorizing_new", { count: newDocContent.length })}</span>
-						</div>
-					{:else}
-						<button class="btn-primary btn-xs" on:click={uploadRagDoc} style="align-self:flex-end;margin-top:0.5rem;" disabled={!newDocContent.trim()}>{$t("admin_settings_ai_rag_btn_add")}</button>
-					{/if}
-				</div>
+				<AdminKnowledgeBase bind:docs={knowledgeDocs} {toast} />
 			</div>
 		</div>
 	</div>
@@ -1815,8 +1621,6 @@
 	@media (min-width: 1024px) {
 		.prompts-container { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 	}
-	.prompt-textarea { width: 100%; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 10px; padding: 0.7rem; color: var(--text-main); font-size: 0.8rem; resize: vertical; font-family: inherit; line-height: 1.5; min-height: 80px; }
-	.prompt-textarea:focus { border-color: var(--accent); outline: none; }
 	.btn-prompt-edit { font-size: 0.75rem; font-weight: 700; padding: 0.2rem 0.6rem; border-radius: 6px; border: 1px solid rgba(139,92,246,0.3); background: rgba(139,92,246,0.06); color: #a78bfa; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
 	.btn-prompt-edit:hover { background: rgba(139,92,246,0.18); border-color: #a78bfa; box-shadow: 0 0 8px rgba(139,92,246,0.2); }
 
@@ -1867,54 +1671,11 @@
 	.queue-stat-badge.pending { background: rgba(245,158,11,0.12); color: #f59e0b; border: 1px solid rgba(245,158,11,0.3); }
 	.queue-stat-badge.active { background: rgba(16,185,129,0.12); color: #10b981; border: 1px solid rgba(16,185,129,0.3); }
 	.queue-stat-badge.avg { background: rgba(99,102,241,0.12); color: #818cf8; border: 1px solid rgba(99,102,241,0.3); }
-	.queue-section-label { font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.4rem; }
-	.queue-row { display: flex; align-items: center; gap: 0.6rem; padding: 0.5rem 0.6rem; border-radius: 8px; background: var(--hover-tint); border: 1px solid transparent; margin-bottom: 0.3rem; transition: all 0.2s; }
-	.queue-row:hover { border-color: var(--glass-border); }
-	.queue-row.active { background: rgba(16,185,129,0.06); border: 1px solid rgba(16,185,129,0.2); }
-	.queue-row-pos { font-size: 0.75rem; font-weight: 800; color: var(--accent); min-width: 1.5rem; }
-	.queue-row-type { font-size: 0.85rem; }
-	.queue-row-user { flex: 1; font-size: 0.8rem; font-weight: 600; color: var(--text-main); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-	.queue-row-type-label { font-size: 0.75rem; color: var(--text-muted); padding: 0.1rem 0.4rem; background: var(--surface-sunken); border-radius: 4px; }
-	.queue-row-time { font-size: 0.75rem; color: var(--text-dim); font-family: monospace; min-width: 2.5rem; text-align: right; }
-	.queue-cancel-btn { background: none; border: 1px solid rgba(239,68,68,0.2); color: var(--text-muted); border-radius: 6px; padding: 0.15rem 0.4rem; font-size: 0.75rem; cursor: pointer; transition: all 0.2s; }
-	.queue-cancel-btn:hover { background: rgba(239,68,68,0.15); color: #ef4444; border-color: rgba(239,68,68,0.4); }
-	.queue-empty { text-align: center; padding: 1rem; font-size: 0.8rem; color: var(--text-muted); }
 
 	/* RAG List */
 	.badge-count { font-size: 0.75rem; background: var(--accent-soft); color: var(--accent); padding: 0.2rem 0.6rem; border-radius: 4px; font-weight: 800; border: 1px solid var(--accent); }
-	.rag-list { display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 1rem; max-height: 300px; overflow-y: auto; }
-	.rag-item { display: flex; align-items: flex-start; gap: 0.5rem; padding: 0.6rem 0.7rem; border-radius: 8px; background: var(--hover-tint); border: 1px solid var(--glass-border); transition: all 0.15s; }
-	.rag-item:hover { border-color: rgba(59,130,246,0.2); background: rgba(59,130,246,0.03); }
-	.rag-item-main { flex: 1; min-width: 0; }
-	.rag-item-header { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.2rem; }
-	.rag-id { font-size: 0.75rem; font-weight: 800; color: var(--accent); background: rgba(59,130,246,0.1); padding: 0.1rem 0.3rem; border-radius: 4px; }
-	.rag-size { font-size: 0.75rem; color: var(--text-muted); }
-	.rag-embed-badge { font-size: 0.75rem; font-weight: 700; padding: 0.1rem 0.35rem; border-radius: 4px; background: rgba(16,185,129,0.1); color: #10b981; }
-	.rag-embed-badge.no { background: rgba(245,158,11,0.1); color: #f59e0b; }
-	.rag-preview { font-size: 0.75rem; color: var(--text-dim); line-height: 1.4; margin: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; word-break: break-word; }
-	.rag-item-actions { display: flex; flex-direction: column; gap: 0.2rem; }
-	.rag-item-editing { border-color: rgba(59,130,246,0.3); background: rgba(59,130,246,0.05); }
-	.rag-edit-textarea { width: 100%; min-height: 120px; resize: vertical; border-radius: 6px; border: 1px solid var(--glass-border); background: var(--bg-secondary); color: var(--text-main); padding: 0.5rem; font-size: 0.75rem; font-family: inherit; line-height: 1.5; margin-top: 0.3rem; }
-	.rag-edit-textarea:focus { outline: none; border-color: var(--accent); }
-	.rag-edit-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.4rem; justify-content: flex-end; }
-	.rag-edit-actions button { max-width: 100%; white-space: normal; }
 	/* editing a document: the list grows instead of scrolling inside itself; on a phone it never scrolls inside itself */
-	.rag-list:has(.rag-item-editing) { max-height: none; }
 	@media (max-width: 900px) { .rag-list { max-height: none; } }
-	.rag-edit-chars { font-size: 0.75rem; color: var(--text-muted); margin-right: auto; }
-	.rag-edit-loading { font-size: 0.75rem; color: var(--text-muted); padding: 0.5rem 0; }
-	.rag-vectorize-anim { position: relative; margin-top: 0.5rem; padding: 0.6rem 0.8rem; border-radius: 8px; overflow: hidden; background: rgba(99,102,241,0.06); border: 1px solid rgba(99,102,241,0.15); }
-	.rag-vectorize-bar { position: absolute; top: 0; left: 0; height: 100%; width: 40%; background: linear-gradient(90deg, transparent, rgba(99,102,241,0.15), rgba(139,92,246,0.2), rgba(99,102,241,0.15), transparent); animation: rag-sweep 1.8s ease-in-out infinite; border-radius: 8px; }
-	.rag-vectorize-label { position: relative; z-index: 1; font-size: 0.75rem; font-weight: 600; color: #a78bfa; display: flex; align-items: center; gap: 0.4rem; animation: rag-pulse-text 2s ease-in-out infinite; }
-	@keyframes rag-sweep { 0% { left: -40%; } 100% { left: 100%; } }
-	@keyframes rag-pulse-text { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
-	.rag-empty { display: flex; flex-direction: column; align-items: center; gap: 0.3rem; padding: 1.5rem; color: var(--text-muted); font-size: 0.8rem; }
-	.rag-empty span { font-size: 1.5rem; opacity: 0.5; }
-	.rag-empty p { margin: 0; }
-	.rag-add-section { margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--glass-border); display: flex; flex-direction: column; }
-	.btn-icon { background: var(--hover-tint); border: 1px solid var(--glass-border); border-radius: 6px; padding: 0.25rem 0.4rem; cursor: pointer; font-size: 0.75rem; transition: all 0.15s; flex-shrink: 0; }
-	.btn-icon:hover { background: var(--accent-soft); border-color: var(--accent); }
-	.btn-icon-danger:hover { border-color: var(--danger, #ef4444); background: rgba(239,68,68,0.15); }
 
 	/* Public Chat Grid & Modern Controls */
 	.pca-container { display: flex; flex-direction: column; gap: 1.25rem; width: 100%; }
@@ -2228,15 +1989,15 @@
 	.status-dot.on { background: var(--success); box-shadow: 0 0 6px color-mix(in srgb, var(--success) 60%, transparent); }
 	/* AI tab: model fields in two columns, behaviour options as compact rows */
 	.ai-model-body { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.9rem 1.5rem; }
-	.ai-opts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.6rem; }
-	.ai-opts > div { border-top: none !important; padding-top: 0 !important; }
-	.ai-opts > div:not(.ai-antispam) { padding: 0.65rem 0.9rem !important; border-radius: 10px; background: var(--hover-tint); border: 1px solid var(--glass-border) !important; }
-	.ai-opts > .ai-antispam { grid-column: 1 / -1; margin-top: 0 !important; }
-	.ai-antispam > div { display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem 1.5rem !important; }
-	@media (max-width: 900px) { .ai-antispam > div { grid-template-columns: minmax(0, 1fr); } }
-	.ai-opt-label { display: inline-flex; align-items: center; gap: 0.5rem; }
-	.ai-opt-label :global(svg) { color: var(--accent); flex-shrink: 0; }
-	@media (max-width: 900px) { .ai-model-body, .ai-opts { grid-template-columns: minmax(0, 1fr); } }
+	@media (max-width: 900px) { .ai-model-body, .ai-advanced-body { grid-template-columns: minmax(0, 1fr); } }
+	.temp-advice { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.8rem; margin-top: 0.35rem; }
+	.temp-advice .range-hint { flex: 1 1 240px; font-size: 0.75rem; line-height: 1.35; color: var(--text-muted); }
+	.ai-advanced { grid-column: 1 / -1; }
+	.ai-advanced summary { cursor: pointer; font-size: 0.8rem; font-weight: 700; color: var(--text-dim); min-height: 28px; }
+	.ai-advanced-hint { margin: 0.2rem 0 0.6rem; font-size: 0.76rem; color: var(--text-muted); }
+	.ai-advanced-body { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.8rem 1.2rem; }
+	.ai-server-notice { display: flex; align-items: flex-start; gap: 0.5rem; margin: 0 0 1rem; padding: 0.7rem 0.9rem; border-radius: 10px; border: 1px solid var(--warning, #f59e0b); color: var(--text-main); font-size: 0.85rem; line-height: 1.45; }
+	.ai-server-notice :global(svg) { flex-shrink: 0; margin-top: 0.15rem; color: var(--warning, #f59e0b); }
 	.app-guide-field { display: flex; flex-direction: column; gap: 0.35rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--glass-border); }
 	.app-guide-head { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; }
 	.app-guide-field .sc-sub { margin: 0; }

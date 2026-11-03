@@ -143,8 +143,14 @@
 			} else if (savedGroup) {
 				openGroupChat(savedGroup);
 			}
+		} else if (urlPeer) {
+			const targetPeer = parseInt(urlPeer);
+			if (targetPeer && targetPeer !== currentUser?.id) openChat(targetPeer);
+		} else if (newestUnread()) {
+			// The Messages badge promises a new message: open that conversation
+			openConversation(newestUnread());
 		} else {
-			const targetPeer = urlPeer ? parseInt(urlPeer) : (savedPeer ? parseInt(savedPeer) : null);
+			const targetPeer = savedPeer ? parseInt(savedPeer) : null;
 			if (targetPeer && targetPeer !== currentUser?.id) {
 				openChat(targetPeer);
 			} else if (savedGroup) {
@@ -224,9 +230,30 @@
 		}
 	}
 
+	// Last lists from the server, to find the newest unread conversation
+	let pmConvos = [];
+	let groupChannels = [];
+
+	/** The conversation (private or group) with the newest unread message, or null. */
+	function newestUnread() {
+		const items = [
+			...pmConvos.filter(c => c.unread > 0 && c.peer_id !== currentUser?.id).map(c => ({ kind: 'p2p', peerId: c.peer_id, at: c.last_at || '' })),
+			...groupChannels.filter(c => c.unread > 0).map(c => ({ kind: 'group', key: c.channel_key, at: c.last_at || '' }))
+		];
+		items.sort((a, b) => b.at.localeCompare(a.at));
+		return items[0] || null;
+	}
+	function isOpen(c) {
+		return c.kind === 'p2p' ? chatMode === 'p2p' && chatPeerId === c.peerId : chatMode === 'group' && chatChannelKey === c.key;
+	}
+	function openConversation(c) {
+		if (c.kind === 'p2p') openChat(c.peerId); else openGroupChat(c.key);
+	}
+
 	async function loadUnreadMap() {
 		try {
 			const convos = await api.get('/players/messages/conversations');
+			pmConvos = convos;
 			const map = {};
 			let total = 0;
 			convos.forEach(c => { if (c.unread > 0) { map[c.peer_id] = c.unread; total += c.unread; } });
@@ -238,6 +265,7 @@
 	async function loadGroupUnreadMap() {
 		try {
 			const channels = await api.get('/players/group/channels');
+			groupChannels = channels;
 			const map = {};
 			let total = 0;
 			channels.forEach(c => { if (c.unread > 0) { map[c.channel_key] = c.unread; total += c.unread; } });
@@ -388,9 +416,13 @@
 		if (r.kind === 'p2p') openChat(r.peerId); else openGroupChat(r.key);
 	}
 
-	// Tapping the Messages tab again, while on the contact list, goes back to the last conversation
+	// Tapping the Messages tab again (phone): an unread conversation elsewhere opens first;
+	// otherwise it switches between the open conversation and the contact list
 	function onMessagesTab() {
-		if (chatMode === null) resumeChat();
+		const unread = newestUnread();
+		if (unread && !isOpen(unread)) openConversation(unread);
+		else if (chatMode !== null) closeChat();
+		else resumeChat();
 	}
 
 	function closeChat() {
@@ -801,8 +833,8 @@
 	.directory-col { overflow-y: auto; display: flex; flex-direction: column; gap: 0.6rem; padding-right: 0.3rem; padding-bottom: 1rem; }
 	.my-team-quick-bar { display: flex; align-items: center; gap: 0.6rem; padding: 0.75rem 1rem; border-radius: 12px; border: 1px solid rgba(16,185,129,0.35); background: rgba(16,185,129,0.1); color: var(--text-main); font-weight: 800; font-size: 0.82rem; cursor: pointer; text-align: left; width: 100%; flex-shrink: 0; transition: all 0.15s; }
 	.my-team-quick-bar:hover { background: rgba(16,185,129,0.18); }
-	.team-section { border-radius: 12px; overflow: visible; flex-shrink: 0; border-left: 3px solid transparent !important; transition: all 0.15s; }
-	.team-section.active-chat { background-color: var(--accent-soft) !important; border-left: 3px solid var(--accent) !important; }
+	.team-section { border-radius: 12px; overflow: visible; flex-shrink: 0; transition: all 0.15s; }
+	.team-section.active-chat { background-color: var(--accent-soft) !important; border-color: var(--accent) !important; }
 	.team-header { display: flex; align-items: center; gap: 0.6rem; padding: 0.7rem 1rem; cursor: pointer; transition: background 0.15s; user-select: none; }
 	.team-header:hover { background: var(--hover-tint); }
 	.solo-header { cursor: default; }
@@ -827,9 +859,8 @@
 	/* Player card — clickable row */
 	.player-card { border-radius: 8px; padding: 0.1rem; transition: all 0.15s; cursor: pointer; }
 	.player-card:hover { background: var(--hover-tint); }
-	.player-card.active-chat { background: rgba(59,130,246,0.08); border-left: 3px solid var(--accent); }
-	.player-card.has-unread { background: rgba(139,92,246,0.06); }
-	.player-card.has-unread:not(.active-chat) { border-left: 3px solid #8b5cf6; }
+	.player-card.active-chat { background: rgba(59,130,246,0.08); box-shadow: inset 0 0 0 1px var(--accent); }
+	.player-card.has-unread { background: rgba(139,92,246,0.14); }
 	.player-main { display: flex; align-items: center; gap: 0.6rem; padding: 0.5rem 0.6rem; }
 	.player-avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--bg-tertiary); display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 800; color: var(--accent); border: 1px solid rgba(59,130,246,0.2); flex-shrink: 0; position: relative; }
 	.player-avatar.solo { border-color: var(--glass-border); color: var(--text-dim); }

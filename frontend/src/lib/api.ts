@@ -3,6 +3,52 @@ import { authStore } from './auth';
 import { API_URL, resolveApiUrl, isDemoMode } from './config';
 import { handleDemoRequest } from './demoData';
 
+// --- Session: renewed while the app is used, so only inactivity logs out ---
+const SESSION_EXPIRED_FLAG = 'alanbix_session_expired';
+const RENEW_AFTER_SECONDS = 3600;
+
+/** The token's claims (exp, iat in seconds), or null if it cannot be read. */
+export function tokenClaims(token: string | null): { exp?: number; iat?: number } | null {
+	try {
+		const part = token?.split('.')[1];
+		return part ? JSON.parse(atob(part.replace(/-/g, '+').replace(/_/g, '/'))) : null;
+	} catch {
+		return null;
+	}
+}
+
+/** Log out because the session ran out; the login screen then says so. */
+export function expireSession() {
+	try { sessionStorage.setItem(SESSION_EXPIRED_FLAG, '1'); } catch {}
+	authStore.logout();
+}
+
+/** True once, on the login screen, after a session ran out. */
+export function takeSessionExpired(): boolean {
+	try {
+		const expired = sessionStorage.getItem(SESSION_EXPIRED_FLAG) === '1';
+		sessionStorage.removeItem(SESSION_EXPIRED_FLAG);
+		return expired;
+	} catch {
+		return false;
+	}
+}
+
+let renewing = false;
+function renewSessionIfOld(token: string, baseUrl: string) {
+	const iat = tokenClaims(token)?.iat ?? 0;
+	if (renewing || Date.now() / 1000 - iat < RENEW_AFTER_SECONDS) return;
+	renewing = true;
+	fetch(`${baseUrl}/token/refresh`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, credentials: 'omit' })
+		.then(r => (r.ok ? r.json() : null))
+		.then(data => {
+			// Keep the new session only if the player is still the one logged in
+			if (data?.access_token && get(authStore) === token) authStore.login(data.access_token);
+		})
+		.catch(() => {})
+		.finally(() => { renewing = false; });
+}
+
 async function request(path: string, options: RequestInit = {}) {
 	if (isDemoMode()) {
 		return handleDemoRequest(path, options.method || 'GET', options.body);
@@ -24,7 +70,9 @@ async function request(path: string, options: RequestInit = {}) {
 
 
 	if (response.status === 401) {
-		authStore.logout();
+		if (token) expireSession();
+	} else if (response.ok && token) {
+		renewSessionIfOld(token, baseUrl);
 	}
 
 	if (!response.ok) {

@@ -11,6 +11,23 @@ export const SEAT_OFFSET = 40;   // from the table edge to the centre of its sea
 export const SEAT_RING = SEAT_OFFSET + SEAT_SIZE / 2; // room a table needs above and below it for its seats
 export const TABLE_DEPTH = 80;   // default depth of a table: the seats are outside it
 
+// Room elements: line icon and default size. Older maps stored an emoji in furn.icon, so the type
+// decides the icon everywhere; "generic" stays last as the fallback.
+export const FURNITURE_TYPES = [
+	{ type: 'door', icon: 'door', w: 80, h: 40 },
+	{ type: 'kitchen', icon: 'utensils', w: 160, h: 100 },
+	{ type: 'bar', icon: 'beer', w: 200, h: 60 },
+	{ type: 'wc', icon: 'restroom', w: 80, h: 80 },
+	{ type: 'rack', icon: 'server', w: 60, h: 80 },
+	{ type: 'screen', icon: 'monitor', w: 160, h: 40 },
+	{ type: 'wifi', icon: 'wifi', w: 60, h: 60 },
+	{ type: 'generic', icon: 'package', w: 100, h: 80 }
+];
+
+export function furnitureIcon(furn: { type?: string }): string {
+	return (FURNITURE_TYPES.find(ft => ft.type === furn.type) || FURNITURE_TYPES[FURNITURE_TYPES.length - 1]).icon;
+}
+
 type Table = { x: number; y: number; w: number; h: number; rotation?: number };
 type Seat = { id: string; x: number; y: number; rotation?: number };
 
