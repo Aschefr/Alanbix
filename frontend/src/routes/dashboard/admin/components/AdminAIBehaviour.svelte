@@ -1,5 +1,6 @@
 <script>
 	// What the assistant may do: network tests, blocking, calling an admin, suggesting entries.
+	// Each option says what it does, where it applies and what it needs.
 	import { createEventDispatcher } from 'svelte';
 	import { t } from '$lib/i18nStore';
 	import Icon from '$lib/components/Icon.svelte';
@@ -7,91 +8,78 @@
 	export let config;
 
 	const dispatch = createEventDispatcher();
+	const save = () => dispatch('change');
+
+	const OPTIONS = [
+		{ key: 'network_tools_enabled', icon: 'globe', label: 'admin_settings_ai_tools', desc: 'admin_settings_ai_tools_desc' },
+		{ key: 'auto_moderation_enabled', icon: 'shield', label: 'admin_settings_ai_moderation', desc: 'admin_settings_ai_moderation_desc' },
+		{ key: 'call_admin_enabled', icon: 'megaphone', label: 'ai_setting_call_admin_tool_enabled', desc: 'ai_setting_call_admin_tool_desc' },
+		{ key: 'call_admin_button_enabled', icon: 'bell', label: 'ai_setting_call_admin_btn_enabled', desc: 'ai_setting_call_admin_btn_desc' },
+		{ key: 'rag_suggestion_enabled', icon: 'lightbulb', label: 'ai_setting_rag_suggestion_enabled', desc: 'ai_setting_rag_suggestion_desc' },
+	];
+	const LIMITS = [
+		{ key: 'call_admin_cooldown_minutes', label: 'ai_setting_call_admin_cooldown', max: 1440 },
+		{ key: 'call_admin_daily_limit', label: 'ai_setting_call_admin_daily', max: 50 },
+		{ key: 'call_admin_global_hourly_limit', label: 'ai_setting_call_admin_global_hourly', max: 500 },
+	];
 </script>
 
-<div class="ai-opts">
-<!-- Network Tools -->
-<div style="display: flex; align-items: center; justify-content: space-between; padding-top: 0.4rem; border-top: 1px solid var(--glass-border);">
-	<span class="compact-label ai-opt-label" style="font-weight: 600;"><Icon name="globe" size={15} /> {$t('admin_settings_ai_tools')}</span>
-	<label class="toggle-switch-mini">
-		<input type="checkbox" bind:checked={config.network_tools_enabled} on:change={() => dispatch('change')} />
-		<span class="toggle-slider"></span>
-	</label>
+<p class="intro">{$t('admin_ai_behaviour_intro')}</p>
+<div class="options">
+	{#each OPTIONS as opt (opt.key)}
+		<label class="option">
+			<span class="option-icon"><Icon name={opt.icon} size={15} /></span>
+			<span class="option-text">
+				<span class="option-label">{$t(opt.label)}</span>
+				<span class="option-desc">{$t(opt.desc)}</span>
+			</span>
+			<span class="toggle-switch-mini">
+				<input type="checkbox" bind:checked={config[opt.key]} on:change={save} />
+				<span class="toggle-slider"></span>
+			</span>
+		</label>
+	{/each}
 </div>
 
-<!-- Auto-moderation -->
-<div style="display: flex; align-items: center; justify-content: space-between; padding-top: 0.4rem; border-top: 1px solid var(--glass-border);">
-	<span class="compact-label ai-opt-label" style="font-weight: 600;"><Icon name="shield" size={15} /> {$t('admin_settings_ai_moderation')}</span>
-	<label class="toggle-switch-mini">
-		<input type="checkbox" bind:checked={config.auto_moderation_enabled} on:change={() => dispatch('change')} />
-		<span class="toggle-slider"></span>
-	</label>
-</div>
-
-<!-- Appel Admin Outil -->
-<div style="display: flex; align-items: center; justify-content: space-between; padding-top: 0.4rem; border-top: 1px solid var(--glass-border);">
-	<span class="compact-label ai-opt-label" style="font-weight: 600;"><Icon name="megaphone" size={15} /> {$t('ai_setting_call_admin_tool_enabled')}</span>
-	<label class="toggle-switch-mini">
-		<input type="checkbox" bind:checked={config.call_admin_enabled} on:change={() => dispatch('change')} />
-		<span class="toggle-slider"></span>
-	</label>
-</div>
-
-<!-- Appel Admin Bouton Manuel -->
-<div style="display: flex; align-items: center; justify-content: space-between; padding-top: 0.4rem; border-top: 1px solid var(--glass-border);">
-	<span class="compact-label ai-opt-label" style="font-weight: 600;"><Icon name="bell" size={15} /> {$t('ai_setting_call_admin_btn_enabled')}</span>
-	<label class="toggle-switch-mini">
-		<input type="checkbox" bind:checked={config.call_admin_button_enabled} on:change={() => dispatch('change')} />
-		<span class="toggle-slider"></span>
-	</label>
-</div>
 {#if config.call_admin_enabled || config.call_admin_button_enabled}
-<div class="ai-antispam" style="padding: 0.6rem; margin-top: 0.4rem; background: rgba(255, 255, 255, 0.03); border: 1px dashed var(--glass-border); border-radius: 4px; display: flex; flex-direction: column; gap: 0.5rem;">
-	<span class="compact-label" style="font-weight: 600; font-size: 0.85rem; letter-spacing: 0.05em; color: var(--text-muted);">
-		{$t('ai_setting_call_admin_antispam_section_title')}
-	</span>
-	<div style="display: flex; flex-direction: column; gap: 0.4rem;">
-		<label class="compact-label" style="display: flex; align-items: center; justify-content: space-between;">
-			<span>{$t('ai_setting_call_admin_cooldown')}</span>
-			<input type="number" min="1" max="1440" bind:value={config.call_admin_cooldown_minutes} on:change={() => dispatch('change')} style="width:70px;" />
-		</label>
-		<label class="compact-label" style="display: flex; align-items: center; justify-content: space-between;">
-			<span>{$t('ai_setting_call_admin_daily')}</span>
-			<input type="number" min="1" max="50" bind:value={config.call_admin_daily_limit} on:change={() => dispatch('change')} style="width:70px;" />
-		</label>
-		<label class="compact-label" style="display: flex; align-items: center; justify-content: space-between;">
-			<span>{$t('ai_setting_call_admin_global_hourly')}</span>
-			<input type="number" min="1" max="500" bind:value={config.call_admin_global_hourly_limit} on:change={() => dispatch('change')} style="width:70px;" />
-		</label>
+	<div class="limits">
+		<h4>{$t('ai_setting_call_admin_antispam_section_title')}</h4>
+		<p class="option-desc">{$t('ai_setting_call_admin_antispam_desc')}</p>
+		<div class="limit-fields">
+			{#each LIMITS as limit (limit.key)}
+				<label class="limit">
+					<span>{$t(limit.label)}</span>
+					<input type="number" min="1" max={limit.max} bind:value={config[limit.key]} on:change={save} />
+				</label>
+			{/each}
+		</div>
 	</div>
-</div>
 {/if}
 
-<!-- Suggestions RAG -->
-<div style="display: flex; align-items: center; justify-content: space-between; padding-top: 0.4rem; border-top: 1px solid var(--glass-border);">
-	<span class="compact-label ai-opt-label" style="font-weight: 600;"><Icon name="lightbulb" size={15} /> {$t('ai_setting_rag_suggestion_enabled')}</span>
-	<label class="toggle-switch-mini">
-		<input type="checkbox" bind:checked={config.rag_suggestion_enabled} on:change={() => dispatch('change')} />
-		<span class="toggle-slider"></span>
-	</label>
-</div>
-</div>
-
 <style>
-	.compact-label { font-size: 0.75rem; font-weight: 700; color: var(--text-dim);  margin: 0; }
-	.toggle-switch-mini { position: relative; display: inline-block; width: 32px; height: 18px; cursor: pointer; flex-shrink: 0; }
-	.toggle-switch-mini input { opacity: 0; width: 0; height: 0; position: absolute; pointer-events: none; }
+	.intro { margin: 0 0 0.7rem; font-size: 0.82rem; line-height: 1.5; color: var(--text-dim); max-width: 75ch; }
+	.options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.6rem; }
+	.option { display: flex; align-items: flex-start; gap: 0.6rem; padding: 0.7rem 0.9rem; border-radius: 10px; background: var(--hover-tint); border: 1px solid var(--glass-border); cursor: pointer; }
+	.option-icon { flex-shrink: 0; margin-top: 0.1rem; color: var(--accent); }
+	.option-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.2rem; }
+	.option-label { font-size: 0.82rem; font-weight: 700; color: var(--text-main); }
+	.option-desc { font-size: 0.76rem; line-height: 1.45; color: var(--text-dim); }
+
+	.limits { display: flex; flex-direction: column; gap: 0.35rem; margin-top: 0.6rem; padding: 0.7rem 0.9rem; border-radius: 10px; border: 1px solid var(--glass-border); }
+	.limits h4 { margin: 0; font-size: 0.82rem; font-weight: 700; color: var(--text-main); }
+	.limit-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem 1.5rem; margin-top: 0.3rem; }
+	.limit { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; font-size: 0.76rem; font-weight: 600; color: var(--text-dim); }
+	.limit input { width: 70px; flex-shrink: 0; }
+
+	.toggle-switch-mini { position: relative; display: inline-block; width: 32px; height: 18px; cursor: pointer; flex-shrink: 0; margin-top: 0.1rem; }
+	.toggle-switch-mini input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+	.toggle-switch-mini input:focus-visible + .toggle-slider { outline: 2px solid var(--accent); outline-offset: 2px; }
 	.toggle-switch-mini .toggle-slider { position: absolute; inset: 0; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 18px; transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1); pointer-events: none; }
 	.toggle-switch-mini .toggle-slider::before { content: ''; position: absolute; height: 12px; width: 12px; left: 2px; bottom: 2px; background: var(--text-dim); border-radius: 50%; transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
-	.toggle-switch-mini input:checked + .toggle-slider { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 10px var(--accent-glow); }
+	.toggle-switch-mini input:checked + .toggle-slider { background: var(--accent); border-color: var(--accent); }
 	.toggle-switch-mini input:checked + .toggle-slider::before { transform: translateX(14px); background: #ffffff; }
-	.ai-opts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.6rem; }
-	.ai-opts > div { border-top: none !important; padding-top: 0 !important; }
-	.ai-opts > div:not(.ai-antispam) { padding: 0.65rem 0.9rem !important; border-radius: 10px; background: var(--hover-tint); border: 1px solid var(--glass-border) !important; }
-	.ai-opts > .ai-antispam { grid-column: 1 / -1; margin-top: 0 !important; }
-	.ai-antispam > div { display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem 1.5rem !important; }
-	@media (max-width: 900px) { .ai-antispam > div { grid-template-columns: minmax(0, 1fr); } }
-	.ai-opt-label { display: inline-flex; align-items: center; gap: 0.5rem; }
-	.ai-opt-label :global(svg) { color: var(--accent); flex-shrink: 0; }
-	@media (max-width: 900px) { .ai-opts { grid-template-columns: minmax(0, 1fr); } }
+
+	@media (max-width: 900px) {
+		.options, .limit-fields { grid-template-columns: minmax(0, 1fr); }
+	}
 </style>

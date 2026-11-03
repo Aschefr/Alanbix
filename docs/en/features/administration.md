@@ -102,6 +102,10 @@ To feed the memory of the local AI assistant (RAG):
 
 ---
 
+## 📡 Diagnostics tab
+
+Server state (processor, memory, disk) and network tests run by hand: ping, traceroute and DNS, with the result in plain words. The tests start from the Alanbix server, not from the admin's or a player's computer.
+
 ## 🩺 Server Memory Diagnostics
 To watch a long-running server (a Raspberry Pi for example), the API exposes `GET /admin/diagnostics/memory`, restricted to administrators (same session as the app, same port).
 

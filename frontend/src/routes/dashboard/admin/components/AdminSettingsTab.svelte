@@ -1200,6 +1200,11 @@
 			{/each}
 		</nav>
 		<div class="stab-content">
+		{#if !iaConfig.ollama_instances?.some(i => i.enabled) && !(iaConfig.ollama_host && iaConfig.model)}
+			<p class="ai-server-notice" role="status"><Icon name="alert-triangle" size={15} /> {$t('admin_ai_no_server')}</p>
+		{:else if instanceStatuses.length > 0 && !instanceStatuses.some(s => s.enabled && s.online)}
+			<p class="ai-server-notice" role="status"><Icon name="alert-triangle" size={15} /> {$t('admin_ai_server_offline')}</p>
+		{/if}
 		<h2 class="admin-section-title" id="gi-servers" data-gsection>
 			<span class="ss-icon"><Icon name="server" size={16} /></span>
 			<span class="ss-title">{$t('admin_ai_sec_servers')}</span>
@@ -1341,6 +1346,10 @@
 					</span>
 				</div>
 
+				<details class="ai-advanced">
+					<summary>{$t('admin_settings_ai_advanced')}</summary>
+					<p class="ai-advanced-hint">{$t('admin_settings_ai_advanced_hint')}</p>
+					<div class="ai-advanced-body">
 				<!-- Embedding Model -->
 				<div>
 					<label class="compact-label" style="margin-bottom: 0.2rem; display: block;">{$t('admin_settings_ai_rag_model')}</label>
@@ -1369,7 +1378,12 @@
 						<option value="legacy_double">{$t('admin_settings_ai_tool_mode_legacy')}</option>
 						<option value="disabled">{$t('admin_settings_ai_tool_mode_disabled')}</option>
 					</select>
+					<span class="range-hint text-xs" style="color: var(--text-muted); font-size: 0.75rem; display: block; margin-top: 0.25rem; line-height: 1.2;">
+						{$t('admin_settings_ai_tool_mode_hint')}
+					</span>
 				</div>
+					</div>
+				</details>
 
 			</div>
 		</div>
@@ -1408,6 +1422,7 @@
 					</div>
 					<div style="display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; flex: 1;">
 						<label class="compact-label">{$t('admin_settings_ai_prompt_close')}</label>
+						<span class="range-hint text-xs" style="color: var(--text-muted); font-size: 0.75rem;">{$t('admin_settings_ai_prompt_close_hint')}</span>
 						<textarea class="prompt-textarea-compact" bind:value={closingPrompt} on:input={() => debounceSave('closingPrompt', saveClosingPrompt)} placeholder="{$t('admin_settings_ai_prompt_close_placeholder')}" rows="6" style="flex: 1; height: 100%; resize: none;"></textarea>
 					</div>
 				</div>
@@ -1966,7 +1981,13 @@
 	.status-dot.on { background: var(--success); box-shadow: 0 0 6px color-mix(in srgb, var(--success) 60%, transparent); }
 	/* AI tab: model fields in two columns, behaviour options as compact rows */
 	.ai-model-body { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.9rem 1.5rem; }
-	@media (max-width: 900px) { .ai-model-body { grid-template-columns: minmax(0, 1fr); } }
+	@media (max-width: 900px) { .ai-model-body, .ai-advanced-body { grid-template-columns: minmax(0, 1fr); } }
+	.ai-advanced { grid-column: 1 / -1; }
+	.ai-advanced summary { cursor: pointer; font-size: 0.8rem; font-weight: 700; color: var(--text-dim); min-height: 28px; }
+	.ai-advanced-hint { margin: 0.2rem 0 0.6rem; font-size: 0.76rem; color: var(--text-muted); }
+	.ai-advanced-body { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.8rem 1.2rem; }
+	.ai-server-notice { display: flex; align-items: flex-start; gap: 0.5rem; margin: 0 0 1rem; padding: 0.7rem 0.9rem; border-radius: 10px; border: 1px solid var(--warning, #f59e0b); color: var(--text-main); font-size: 0.85rem; line-height: 1.45; }
+	.ai-server-notice :global(svg) { flex-shrink: 0; margin-top: 0.15rem; color: var(--warning, #f59e0b); }
 	.app-guide-field { display: flex; flex-direction: column; gap: 0.35rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--glass-border); }
 	.app-guide-head { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; }
 	.app-guide-field .sc-sub { margin: 0; }

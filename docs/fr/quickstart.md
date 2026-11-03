@@ -143,7 +143,7 @@ Pour que les fonctionnalités soient exploitables, l'administrateur doit prépar
 
 1. **Ajout de Jeux** : Dans **Administration > Jeux**, créez les fiches des jeux qui feront l'objet de tournois. Utilisez la recherche SearXNG intégrée pour télécharger automatiquement les jaquettes de jeux directement sur votre serveur pour l'offline-first.
 2. **Dessin de la Salle** : Dans **Administration > Plan de salle**, disposez les tables, chaises et autres mobiliers logistiques par Glisser-Déposer (Drag & Drop). Les joueurs pourront ensuite cliquer sur ces sièges pour réserver leur emplacement physique dans la pièce.
-3. **Activation de l'IA** : Dans **Administration > IA & Paramètres**, ajoutez l'URL de votre instance Ollama ou compatible OpenAI (ex : `http://192.168.1.100:11434` pour Ollama, ou `http://192.168.1.100:8080/v1` pour OpenAI/LocalAI), assignez-lui un modèle et vérifiez son statut (🟢 Connecté).
+3. **Activation de l'IA** : Dans **Administration > Réglages**, ajoutez l'URL de votre instance Ollama ou compatible OpenAI (ex : `http://192.168.1.100:11434` pour Ollama, ou `http://192.168.1.100:8080/v1` pour OpenAI/LocalAI), assignez-lui un modèle et vérifiez son statut (🟢 Connecté).
 
 ---
 

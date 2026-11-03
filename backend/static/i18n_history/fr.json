@@ -2,17 +2,57 @@
  "admin_ai_embed_auto": [
   "— Automatique (nomic-embed-text) —"
  ],
+ "admin_ai_sec_behaviour": [
+  "Comportement & sécurité"
+ ],
+ "admin_awards_btn_broadcast": [
+  "Diffuser les Prix aux Joueurs"
+ ],
+ "admin_awards_btn_recalc": [
+  "Recalculer & Synchroniser"
+ ],
+ "admin_awards_desc1": [
+  "Les distinctions de fin de LAN sont calculées en temps réel d'après les statistiques de jeu des tournois (en cours ou terminés)."
+ ],
  "admin_awards_desc3": [
   "Les descriptions supportent l'interpolation de variables de statistiques pour afficher des valeurs dynamiques."
  ],
+ "admin_awards_desc4": [
+  "Les notifications de prix ne sont pas envoyées automatiquement aux joueurs lors du calcul. Effectuez vos réglages puis cliquez sur \"Diffuser les Prix\" pour les notifier."
+ ],
  "admin_awards_interpolation_tip": [
   "Les descriptions supportent l'interpolation de variables de statistiques liées au vainqueur (ex: {points}, {wins}, {matches_played}, {team_name})."
+ ],
+ "admin_chats_subtitle": [
+  "Surveiller et intervenir en direct"
+ ],
+ "admin_games_btn_submit": [
+  "Valider l'Ajout"
+ ],
+ "admin_games_nuke_title": [
+  "Suppression Critique"
+ ],
+ "admin_games_rules_lbl": [
+  "Règles (Markdown)"
  ],
  "admin_games_search_placeholder": [
   "Rechercher un jeu..."
  ],
  "admin_games_searxng_not_configured": [
+  "La recherche d'images n'est pas configurée (Administration › IA & Paramètres › Services).",
   "SearXNG n'est pas configuré dans les paramètres de l'administration."
+ ],
+ "admin_lang_keys_count": [
+  "{count} clés"
+ ],
+ "admin_lang_missing_desc": [
+  "Le fichier {lang} ne contient pas toutes les clés de la langue de référence. Cliquez sur « {button} » pour ajouter les clés manquantes avec des valeurs vides."
+ ],
+ "admin_lang_missing_title": [
+  "{count} clé(s) manquante(s)"
+ ],
+ "admin_languages_btn_sync": [
+  "Synchroniser les clés"
  ],
  "admin_languages_cat_dash": [
   "Dashboard"
@@ -23,10 +63,26 @@
  "admin_languages_cat_system": [
   "Prompts Système IA"
  ],
+ "admin_languages_modal_autotranslate_desc": [
+  "La traduction automatique va utiliser votre instance Ollama locale (le même modèle que l'assistant Alanbix). Pour une traduction complète de tous les textes d'un coup, cela peut prendre plusieurs dizaines de secondes selon la puissance de votre carte graphique."
+ ],
+ "admin_languages_modal_autotranslate_title": [
+  "Traduction Automatique (Ollama)"
+ ],
+ "admin_languages_search_placeholder": [
+  "Rechercher (clé ou texte)..."
+ ],
+ "admin_languages_target_label": [
+  "Cible (Édition)"
+ ],
  "admin_languages_unsaved_warning": [
   "Vous avez des modifications non sauvegardées. Voulez-vous vraiment quitter cette page ?"
  ],
+ "admin_players_ia_blocked_tooltip": [
+  "IA bloquée"
+ ],
  "admin_players_modal_block_ai": [
+  "Bloquer l'accès à l'IA",
   "Bloquer l'acces IA"
  ],
  "admin_players_modal_edit_title": [
@@ -35,13 +91,20 @@
  "admin_players_modal_is_admin": [
   "Est Administrateur"
  ],
+ "admin_players_modal_no_seat": [
+  "Aucun poste (ex: A01)"
+ ],
  "admin_players_modal_no_team": [
   "Aucune equipe"
  ],
  "admin_players_modal_points": [
   "Points cumules"
  ],
+ "admin_players_modal_reset_btn": [
+  "Reinitialiser"
+ ],
  "admin_players_modal_seat": [
+  "Place assignée (poste)",
   "Place assignee (Poste ID)"
  ],
  "admin_players_modal_team_name": [
@@ -50,7 +113,11 @@
  "admin_players_muted_badge": [
   "Chat coupé"
  ],
+ "admin_players_pwd_placeholder": [
+  "lan2025"
+ ],
  "admin_players_tooltip_blockai": [
+  "Bloquer l'IA",
   "Bloquer IA"
  ],
  "admin_players_tooltip_demote": [
@@ -64,6 +131,7 @@
   "Réinitialiser MDP"
  ],
  "admin_players_tooltip_unblockai": [
+  "Débloquer l'IA",
   "Débloquer IA"
  ],
  "admin_players_tooltip_unmute": [
@@ -80,10 +148,14 @@
   "Réinitialiser le prompt par défaut"
  ],
  "admin_prompt_modal_tip_1": [
+  "Les petits modèles (< 8B) répondent mieux à des consignes courtes et structurées.",
   "Les petits modèles (< 8B) répondent mieux à un prompt court et structuré."
  ],
  "admin_prompt_modal_tip_2": [
   "Évitez les listes à puces dans le prompt — préférez des phrases directes."
+ ],
+ "admin_prompt_modal_tip_4": [
+  "Les données live (classements, matchs…) sont accessibles via les outils IA."
  ],
  "admin_prompt_modal_tip_title": [
   "💡 Conseils"
@@ -92,16 +164,23 @@
   "Éditeur de Prompt Système"
  ],
  "admin_public_chat_ai_cooldown": [
+  "Délai entre deux réponses de l'IA (s)",
   "Cooldown IA @Alanbix (s)",
   "Cooldown IA @Alanbix (secondes)"
  ],
+ "admin_public_chat_ai_cooldown_hint": [
+  "Temps de repos de l'IA entre deux réponses publiques"
+ ],
  "admin_public_chat_ai_mention": [
+  "IA @Alanbix active",
   "Activer l'IA @Alanbix"
  ],
  "admin_public_chat_ai_mention_sub": [
+  "L'IA répond quand elle est mentionnée (@Alanbix) dans le chat",
   "L'IA répond quand mentionnée (@Alanbix) dans le chat public"
  ],
  "admin_public_chat_block_dup": [
+  "Anti-Répétition",
   "Bloquer les messages consécutifs identiques"
  ],
  "admin_public_chat_enable_sub": [
@@ -114,34 +193,122 @@
   "Slowmode (secondes)",
   "Slowmode (secondes par message)"
  ],
+ "admin_public_chat_sub": [
+  "Modération en temps réel, filtres anti-spam et IA participante"
+ ],
+ "admin_public_chat_title": [
+  "Chat Public & Anti-Spam"
+ ],
+ "admin_rag_reindex": [
+  "Réindexer"
+ ],
+ "admin_settings_ai_context": [
+  "Contexte:"
+ ],
  "admin_settings_ai_context_hint": [
+  "Minimum 16K : les instructions et la description des outils de l'assistant occupent à elles seules environ 6 000 tokens.",
   "Quand les outils de l'IA sont activés, un contexte d'au moins 8192 tokens est imposé pour qu'il ne soit pas saturé par la description des outils.",
   "Un minimum de 8192 tokens est forcé lorsque les outils IA sont activés pour éviter la saturation du contexte par les schémas d'outils."
  ],
  "admin_settings_ai_instances": [
+  "Instances Ollama / OpenAI",
   "Instances Ollama"
  ],
  "admin_settings_ai_instances_sub": [
+  "Serveurs d'IA utilisés (Ollama ou compatibles OpenAI), par ordre de priorité",
   "Serveurs distribués pour les requêtes IA (Ollama ou OpenAI /v1) — triés par priorité",
   "Serveurs distribués pour les requêtes IA — triés par priorité"
  ],
+ "admin_settings_ai_model_cfg": [
+  "Configuration du Modèle"
+ ],
+ "admin_settings_ai_model_cfg_sub": [
+  "Paramètres d'inférence et limites de jetons"
+ ],
+ "admin_settings_ai_moderation": [
+  "Auto-modération (Anti-abus)"
+ ],
+ "admin_settings_ai_preview": [
+  "Aperçu du prompt final"
+ ],
  "admin_settings_ai_prompt_close": [
+  "Consignes pour la clôture d'un tournoi",
   "Prompt Clôture Tournoi"
  ],
  "admin_settings_ai_prompt_sys": [
   "Prompt Système"
  ],
  "admin_settings_ai_prompts": [
+  "Consignes de l'IA",
   "Prompts de l'IA"
  ],
+ "admin_settings_ai_prompts_sub": [
+  "Personnalisez les directives données aux modèles"
+ ],
+ "admin_settings_ai_queue": [
+  "File d'attente IA"
+ ],
+ "admin_settings_ai_queue_empty": [
+  "Aucune requête en file — le GPU est libre"
+ ],
+ "admin_settings_ai_queue_sub": [
+  "Requêtes en attente et en cours de traitement"
+ ],
  "admin_settings_ai_rag": [
+  "Base de connaissances de l'IA",
   "Base de Connaissances RAG"
+ ],
+ "admin_settings_ai_rag_btn_add": [
+  "Vectoriser & Ajouter"
+ ],
+ "admin_settings_ai_rag_btn_save_vectorize": [
+  "Sauvegarder & Re-vectoriser"
+ ],
+ "admin_settings_ai_rag_empty": [
+  "Aucun document dans la base de connaissances."
+ ],
+ "admin_settings_ai_rag_min_score": [
+  "Seuil de pertinence des connaissances"
  ],
  "admin_settings_ai_rag_min_score_hint": [
   "Une fiche n'est donnée à l'IA que si elle ressemble assez à la question. Plus haut : moins de fiches hors sujet ; plus bas : plus de fiches transmises."
  ],
  "admin_settings_ai_rag_model": [
+  "Modèle d'indexation (embedding) :",
   "Modèle d'Embedding (RAG):"
+ ],
+ "admin_settings_ai_rag_non_vectorized": [
+  "Non vectorisé"
+ ],
+ "admin_settings_ai_rag_placeholder": [
+  "Copiez-collez ici vos tutoriels, patchnotes ou règles spécifiques..."
+ ],
+ "admin_settings_ai_rag_sub": [
+  "Fichiers indexés pour alimenter le contexte de l'IA"
+ ],
+ "admin_settings_ai_rag_vectorized": [
+  "Vectorisé"
+ ],
+ "admin_settings_ai_rag_vectorizing": [
+  "Re-vectorisation en cours…"
+ ],
+ "admin_settings_ai_rag_vectorizing_new": [
+  "Vectorisation en cours… ({count} car.)"
+ ],
+ "admin_settings_ai_tool_mode": [
+  "Mode d'exécution des outils IA"
+ ],
+ "admin_settings_ai_tool_mode_disabled": [
+  "Désactivé (Pas d'outils)"
+ ],
+ "admin_settings_ai_tool_mode_intercept": [
+  "Optimisé (Streaming & Interception)"
+ ],
+ "admin_settings_ai_tool_mode_legacy": [
+  "Double appel (Ancien comportement)"
+ ],
+ "admin_settings_ai_tools": [
+  "Outils Réseau & Diagnostic"
  ],
  "admin_settings_ai_translate_title": [
   "Traduction des Prompts IA"
@@ -152,20 +319,55 @@
  "admin_settings_chat_slowmode": [
   "Délai anti-flood (Slowmode en secondes)"
  ],
+ "admin_settings_default_pts_sub": [
+  "Valeurs utilisées lors de la création d'un nouveau tournoi"
+ ],
+ "admin_settings_instances_empty": [
+  "Aucune instance configurée"
+ ],
+ "admin_settings_instances_gpu_placeholder": [
+  "GPU1 — Nom"
+ ],
  "admin_settings_lan_name_sub": [
   "Visible sur le Dashboard et la vue Projecteur"
+ ],
+ "admin_settings_multilang": [
+  "LAN Multilingue (Sélecteur pour les joueurs)"
  ],
  "admin_settings_points_bonus": [
   "Bonus/Score"
  ],
+ "admin_settings_points_part": [
+  "Parti./match"
+ ],
+ "admin_settings_purge_chat": [
+  "Purger les images du chat"
+ ],
+ "admin_settings_purge_chat_sub": [
+  "Supprime toutes les images jointes aux conversations IA"
+ ],
  "admin_settings_searxng_sub": [
+  "Trouve automatiquement les jaquettes des jeux. L'instance SearXNG doit accepter le format JSON.",
   "Recherche automatique de jaquettes de jeux (format JSON requis)."
  ],
+ "admin_settings_searxng_test_btn": [
+  "Tester la validité"
+ ],
  "admin_settings_searxng_title": [
+  "Recherche d'images de jeux (SearXNG)",
   "Configuration de SearXNG"
+ ],
+ "admin_tab_players": [
+  "Gestion Joueurs"
+ ],
+ "admin_tab_settings": [
+  "IA & Paramètres"
  ],
  "admin_tab_tournaments": [
   "Tournois"
+ ],
+ "admin_title": [
+  "Administration Centrale"
  ],
  "admin_toast_closing_prompt_saved": [
   "Prompt de clôture sauvegardé."
@@ -179,6 +381,9 @@
  "admin_toast_rag_deleted": [
   "Document supprimé de la base RAG."
  ],
+ "admin_toast_rag_updated": [
+  "Document mis à jour et re-vectorisé."
+ ],
  "admin_toast_searxng_url_saved": [
   "URL de l'instance SearXNG enregistree."
  ],
@@ -191,11 +396,53 @@
  "admin_tourneys_view_ai_prompt": [
   "Voir le prompt IA"
  ],
+ "admin_tourneys_wizard": [
+  "Création Pas-à-Pas"
+ ],
+ "admin_tourneys_wizard_advancers": [
+  "Qualifiés"
+ ],
+ "admin_tourneys_wizard_brackets": [
+  "3. Brackets"
+ ],
+ "admin_tourneys_wizard_format_lbl": [
+  "Format de l'Arbre"
+ ],
+ "admin_tourneys_wizard_game_lbl": [
+  "Jeu de Base"
+ ],
+ "admin_tourneys_wizard_group_size": [
+  "Taille Groupes"
+ ],
+ "admin_tourneys_wizard_opt_boolean": [
+  "Mode Victoire/Défaite (score booléen)"
+ ],
+ "admin_tourneys_wizard_opt_draws_desc": [
+  "(uniquement en mode Championnat / Round Robin)"
+ ],
  "admin_tourneys_wizard_points_bonus": [
   "Bonus/Score"
  ],
  "admin_tourneys_wizard_points_hint": [
   "Bonus/Score = bonus du plancher (valeur saisie) au plafond (2×) selon le score cumulé de chaque joueur/équipe"
+ ],
+ "admin_tourneys_wizard_points_part": [
+  "Participation"
+ ],
+ "admin_tourneys_wizard_struct_groups": [
+  "Groupes + Phase finale"
+ ],
+ "admin_tourneys_wizard_struct_lbl": [
+  "Structure Globale"
+ ],
+ "admin_tourneys_wizard_subtitle": [
+  "Configurer un nouveau tournoi"
+ ],
+ "admin_tourneys_wizard_use_wizard": [
+  "Utilisez le wizard à gauche pour en créer un"
+ ],
+ "ai_admin_calls_title": [
+  "Appels Admin IA"
  ],
  "ai_call_admin_cooldown_hint": [
   "Anti-spam : Cooldown de {cooldown} min | Max {limit} demandes par jour"
@@ -218,10 +465,27 @@
  "ai_rag_suggestions_title": [
   "Suggestions de Base RAG"
  ],
+ "ai_setting_call_admin_antispam_section_title": [
+  "Limitation anti-spam (Bouton & Outil IA)"
+ ],
+ "ai_setting_call_admin_btn_enabled": [
+  "Activer le bouton manuel « Appeler un Admin »"
+ ],
  "ai_setting_call_admin_cooldown": [
+  "Délai par joueur entre deux appels (minutes)",
   "Cooldown par joueur (minutes)"
  ],
+ "ai_setting_call_admin_daily": [
+  "Limite journalière par joueur"
+ ],
+ "ai_setting_call_admin_global_hourly": [
+  "Limite globale horaire"
+ ],
+ "ai_setting_call_admin_tool_enabled": [
+  "Autoriser l’IA à appeler un admin (outil)"
+ ],
  "ai_setting_rag_suggestion_enabled": [
+  "Proposer automatiquement des ajouts à la base de connaissances",
   "Activer les suggestions RAG automatiques"
  ],
  "changelog_error": [
@@ -259,6 +523,9 @@
  ],
  "dash_title": [
   "LAN Party Dashboard"
+ ],
+ "distillation_loading": [
+  "DISTILLATION..."
  ],
  "ia_queue_text": [
   "File: {waiting} en attente{active_text}"
@@ -350,6 +617,9 @@
  "setup_info_open": [
   "Ouvrir la page Infos"
  ],
+ "setup_knowledge_first_help": [
+  "Répondez aux questions qui concernent votre LAN et laissez les autres vides. Vous pourrez en ajouter d'autres dans Administration › IA & Paramètres › Intelligence Artificielle."
+ ],
  "setup_map_open": [
   "Ouvrir le plan de salle"
  ],
@@ -385,6 +655,9 @@
  "tourneys_bracket_finale": [
   "FINALE"
  ],
+ "tourneys_edit_lock_mode_lbl": [
+  "Mode de verrouillage des équipes"
+ ],
  "tourneys_ffa_keep_players": [
   "Joueurs à garder/match :",
   "Joueurs à garder au total :"
@@ -394,6 +667,15 @@
  ],
  "tourneys_ffa_rollback_tooltip": [
   "Supprimer cette manche et revenir en arrière"
+ ],
+ "tourneys_lock_mode_admin": [
+  "Admin uniquement"
+ ],
+ "tourneys_lock_mode_captain": [
+  "Référent d'équipe & Admin"
+ ],
+ "tourneys_lock_mode_open": [
+  "Ouvert (aucun verrouillage)"
  ],
  "tourneys_toast_ffa_rolled_back": [
   "Manche supprimée avec succès !"

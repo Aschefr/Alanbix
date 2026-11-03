@@ -103,6 +103,10 @@ Pour alimenter la mémoire de l'assistant IA local (RAG) :
 
 ---
 
+## 📡 Onglet Diagnostic
+
+État du serveur (processeur, mémoire, disque) et tests réseau lancés à la main : ping, traceroute et DNS, avec le résultat en clair. Les tests partent du serveur Alanbix, pas de l'ordinateur de l'administrateur ni de celui d'un joueur.
+
 ## 🩺 Diagnostic mémoire du serveur
 Pour surveiller un serveur qui tourne depuis longtemps (par exemple un Raspberry Pi), l'API expose `GET /admin/diagnostics/memory`, réservé aux administrateurs (même session que l'application, même port).
 

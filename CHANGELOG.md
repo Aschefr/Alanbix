@@ -30,6 +30,7 @@
 - **Recommended models, downloaded from Alanbix**: for an Ollama server, the AI settings and the guided setup now list recommended models, each with a download button and its progress, then a button to use it. The list comes from a comparison on real Alanbix questions: `gemma4:e4b` was the most reliable, `gemma4:e2b` is the minimum. Other servers do not show the list: only Ollama can download models on request.
 
 ### 🛡️ Administration
+- **Settings in plain words**: every assistant option now says what it does, where it applies and what it needs. Technical settings moved under "Advanced settings", a warning shows when no AI server is active, and the same things now have the same name everywhere (the "AI & Settings" tab is now "Settings").
 - **A Diagnostic tab**: admins can now see the server's processor, memory and disk, and run ping, traceroute and DNS tests by hand, with the result in plain words. They run from the Alanbix server, and they are the same tests the assistant uses.
 - **Server state and network scan are for admins only**: any player could ask the assistant for the server's load and for the addresses seen on the network. Players keep the ping, traceroute and DNS tests.
 - **Closing a tournament always hands out the points**: choosing "Closed" in the edit window changed the status without any points, and reopening then took away points never given. That status now only changes through the close and reopen buttons.
