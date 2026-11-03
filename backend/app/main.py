@@ -381,12 +381,13 @@ def list_languages():
         pass
     return {"languages": ["fr", "en"]}
 
-from app.routers import users, tournaments, room, ia, dashboard, i18n, public_chat
+from app.routers import users, tournaments, room, ia, ia_models, dashboard, i18n, public_chat
 
 app.include_router(users.router)
 app.include_router(tournaments.router)
 app.include_router(room.router)
 app.include_router(ia.router)
+app.include_router(ia_models.router)
 app.include_router(dashboard.router)
 app.include_router(i18n.router)
 app.include_router(notifications.router)
