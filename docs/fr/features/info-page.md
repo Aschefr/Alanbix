@@ -25,6 +25,7 @@ Dans le cadre d'une LAN locale, il est fréquent que les organisateurs partagent
   1. Le parser Markdown de la page Infos analyse le texte et détecte automatiquement les expressions correspondant à des chemins de répertoires Windows.
      * Chemins UNC réseau : `\\serveur\partage\dossier`
      * Chemins de disques locaux : `C:\Jeux\Alanbix`
+     * Un chemin seul entre accents graves est détecté aussi ; un bloc de code garde le texte tel qu'il est écrit.
   2. Ces textes sont automatiquement encapsulés dans un composant visuel intégrant une icône de dossier (📂).
   3. **Bouton Copie Rapide** : Au clic gauche sur l'un de ces chemins, le système copie automatiquement l'adresse dans le presse-papier de l'utilisateur et affiche une bulle de notification temporaire *"Chemin copié !"*. Le joueur n'a plus qu'à coller le chemin (`Ctrl+V`) dans son explorateur de fichiers Windows pour accéder directement au dossier réseau de la LAN.
 

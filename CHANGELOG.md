@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### 🐛 Fixes
+- **Network paths on the Info page**: a path between backticks showed raw HTML, and `\\server\share` lost a backslash on screen and when copied. A path alone between backticks is now clickable like any other.
+- **Phone home page**: tournament cards always showed "Game · 0 participants". They now show the real game and player count.
+- **Texts stuck in French**: round labels on the home page and match-ready notifications now follow the player's language. Notifications received before this version stay as they were.
+- **Prizes & Awards**: the admin page showed French award texts in any language, and Spanish LANs got French award texts. Both now use the right language.
+
 ### 📖 Documentation
 - **French and English guides checked against the app**: menu paths, button names, tournament statuses, award names, score correction rules, room editor, context compression and the list of assistant tools now match what the app does. The mobile guide now exists in English too.
 - **All screenshots redone**: they dated from version 1.15. There is now one set per language (`screenshots/fr`, `screenshots/en`), including new views: guided setup, live control, diagnostics, knowledge base, projector and phone.
