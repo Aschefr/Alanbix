@@ -2031,5 +2031,20 @@
   "notif_match_ready_title": "¡Partida lista!",
   "notif_match_ready_body": "Su partida contra {opponent} está lista en {tournament}.",
   "notif_match_opponent_fallback": "Oponente",
-  "mobile_round_match": "Partida"
+  "mobile_round_match": "Partida",
+  "common_close": "Cerrar",
+  "mobile_match_enter_score_btn": "Ingresar puntuación",
+  "mobile_match_quick_score": "Entrada rápida de puntuación",
+  "mobile_match_view_bracket": "Ver cuadro",
+  "mobile_score_draw": "Empate",
+  "mobile_score_loss": "Derrota",
+  "mobile_score_my_score": "Tú",
+  "mobile_score_opp_score": "Rival",
+  "mobile_score_saved": "¡Puntuación guardada con éxito!",
+  "mobile_score_submit": "Validar puntuación",
+  "mobile_score_submitting": "Validando...",
+  "mobile_score_win": "Victoria",
+  "notif_ai_failed_title": "Fallo de la IA — {tournament}",
+  "notif_ai_failed_body": "La generación de mensajes personalizados ha fallado.",
+  "notif_retry_failed": "Error: {error}"
 }

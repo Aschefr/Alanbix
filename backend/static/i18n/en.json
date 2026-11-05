@@ -2031,5 +2031,20 @@
   "notif_match_ready_title": "Match ready!",
   "notif_match_ready_body": "Your match against {opponent} is ready in {tournament}.",
   "notif_match_opponent_fallback": "Opponent",
-  "mobile_round_match": "Match"
+  "mobile_round_match": "Match",
+  "common_close": "Close",
+  "mobile_match_enter_score_btn": "Enter score",
+  "mobile_match_quick_score": "Quick score entry",
+  "mobile_match_view_bracket": "View bracket",
+  "mobile_score_draw": "Draw",
+  "mobile_score_loss": "Defeat",
+  "mobile_score_my_score": "You",
+  "mobile_score_opp_score": "Opponent",
+  "mobile_score_saved": "Score saved successfully!",
+  "mobile_score_submit": "Submit score",
+  "mobile_score_submitting": "Submitting...",
+  "mobile_score_win": "Victory",
+  "notif_ai_failed_title": "AI failure — {tournament}",
+  "notif_ai_failed_body": "Generating the personalised messages failed.",
+  "notif_retry_failed": "Failed: {error}"
 }

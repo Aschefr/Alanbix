@@ -3,6 +3,7 @@ import asyncio
 import json
 from .. import models
 from ..websockets import manager
+from .awards import get_i18n_dict
 
 
 def _build_player_narratives(bracket, bracket_type, results, config, db, participant_uids, use_teams):
@@ -333,13 +334,18 @@ async def _generate_tournament_notifications(tournament_id, tournament_name, gam
             err_db = SessionLocal()
             try:
                 admins = err_db.query(models.User).filter(models.User.is_admin == True).all()
+                # Stored in the language of the LAN; the app shows it in each admin's language
+                config_lang = err_db.query(models.SystemConfig).filter(models.SystemConfig.key == "lan_default_language").first()
+                i18n = get_i18n_dict(config_lang.value if config_lang else "fr")
+                failed_title = i18n.get("notif_ai_failed_title", "Échec IA — {tournament}").replace("{tournament}", tournament_name)
+                failed_body = i18n.get("notif_ai_failed_body", "La génération de messages personnalisés a échoué.")
                 for admin in admins:
                     notif = models.Notification(
                         user_id=admin.id,
                         type="system",
-                        title=f"\u26a0\ufe0f \u00c9chec IA \u2014 {tournament_name}",
-                        content=f"La g\u00e9n\u00e9ration de messages personnalis\u00e9s a \u00e9chou\u00e9.\n{error_detail}",
-                        metadata_json={"tournament_id": tournament_id, "error": True}
+                        title=f"⚠️ {failed_title}",
+                        content=f"{failed_body}\n{error_detail}",
+                        metadata_json={"tournament_id": tournament_id, "tournament_name": tournament_name, "error_detail": error_detail, "error": True}
                     )
                     err_db.add(notif)
                 err_db.commit()

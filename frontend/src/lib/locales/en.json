@@ -2042,5 +2042,8 @@
   "notif_match_ready_title": "Match ready!",
   "notif_match_ready_body": "Your match against {opponent} is ready in {tournament}.",
   "notif_match_opponent_fallback": "Opponent",
-  "mobile_round_match": "Match"
+  "mobile_round_match": "Match",
+  "notif_ai_failed_title": "AI failure — {tournament}",
+  "notif_ai_failed_body": "Generating the personalised messages failed.",
+  "notif_retry_failed": "Failed: {error}"
 }

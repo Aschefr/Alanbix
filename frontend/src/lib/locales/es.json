@@ -2042,5 +2042,8 @@
   "notif_match_ready_title": "¡Partida lista!",
   "notif_match_ready_body": "Su partida contra {opponent} está lista en {tournament}.",
   "notif_match_opponent_fallback": "Oponente",
-  "mobile_round_match": "Partida"
+  "mobile_round_match": "Partida",
+  "notif_ai_failed_title": "Fallo de la IA — {tournament}",
+  "notif_ai_failed_body": "La generación de mensajes personalizados ha fallado.",
+  "notif_retry_failed": "Error: {error}"
 }
