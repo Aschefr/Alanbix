@@ -6,7 +6,8 @@ from sqlalchemy.orm import Session
 
 from .. import auth, database, models
 from ..websockets import manager
-from .tournaments import _hidden_tournament_guard, _compute_projected_standings, _generate_tournament_notifications
+from .tournaments import _hidden_tournament_guard, _compute_projected_standings
+from .tournament_ai_messages import _generate_tournament_notifications
 
 router = APIRouter(prefix="/tournaments", tags=["Tournaments"], dependencies=[Depends(_hidden_tournament_guard)])
 
