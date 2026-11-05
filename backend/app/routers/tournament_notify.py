@@ -1,6 +1,7 @@
 """Notifications sent to players by tournaments."""
 from sqlalchemy.orm import Session
 from .. import models
+from .awards import get_i18n_dict
 from .notifications import notify_user
 
 
@@ -19,8 +20,18 @@ async def _notify_match_ready(db: Session, tournament: models.Tournament, match:
     if len(score) >= 2 and (score[0] or score[1]):
         return
 
+    # Stored in the language of the LAN; the app shows it in each player's language
+    config_lang = db.query(models.SystemConfig).filter(models.SystemConfig.key == "lan_default_language").first()
+    i18n = get_i18n_dict(config_lang.value if config_lang else "fr")
+    opponent_fallback = i18n.get("notif_match_opponent_fallback", "Adversaire")
+    title = f"⚔️ {i18n.get('notif_match_ready_title', 'Match prêt !')}"
+    body_template = i18n.get("notif_match_ready_body", "Votre match contre {opponent} est prêt dans {tournament}.")
+
+    def body(opponent: str) -> str:
+        return body_template.replace("{opponent}", opponent).replace("{tournament}", tournament.name)
+
     # Resolve p0
-    p0_name = "Adversaire"
+    p0_name = opponent_fallback
     p0_uids = []
     if use_teams and p0 < 0:
         team0 = db.query(models.TournamentTeam).filter(models.TournamentTeam.id == abs(p0)).first()
@@ -34,7 +45,7 @@ async def _notify_match_ready(db: Session, tournament: models.Tournament, match:
             p0_uids = [u0.id]
 
     # Resolve p1
-    p1_name = "Adversaire"
+    p1_name = opponent_fallback
     p1_uids = []
     if use_teams and p1 < 0:
         team1 = db.query(models.TournamentTeam).filter(models.TournamentTeam.id == abs(p1)).first()
@@ -50,15 +61,13 @@ async def _notify_match_ready(db: Session, tournament: models.Tournament, match:
     link = f"/dashboard/tournaments/{tournament.id}"
     for uid in p0_uids:
         await notify_user(
-            db, uid, "match_ready", "⚔️ Match prêt !",
-            f"Votre match contre {p1_name} est prêt dans {tournament.name}.",
+            db, uid, "match_ready", title, body(p1_name),
             link=link,
-            data={"tournament_id": tournament.id, "opponent": p1_name, "match": match.get("id")}
+            data={"tournament_id": tournament.id, "tournament_name": tournament.name, "opponent": p1_name, "match": match.get("id")}
         )
     for uid in p1_uids:
         await notify_user(
-            db, uid, "match_ready", "⚔️ Match prêt !",
-            f"Votre match contre {p0_name} est prêt dans {tournament.name}.",
+            db, uid, "match_ready", title, body(p0_name),
             link=link,
-            data={"tournament_id": tournament.id, "opponent": p0_name, "match": match.get("id")}
+            data={"tournament_id": tournament.id, "tournament_name": tournament.name, "opponent": p0_name, "match": match.get("id")}
         )

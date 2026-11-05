@@ -5,6 +5,7 @@
 	import { goto } from '$app/navigation';
 	import { t, currentLang } from '$lib/i18nStore';
 	import Icon from '$lib/components/Icon.svelte';
+	import { localizedNotif } from '$lib/notifText';
 
 	let notifications = [];
 	let loading = true;
@@ -277,10 +278,10 @@
 					</div>
 					<div class="notif-body">
 						<div class="notif-title-row">
-							<span class="notif-title">{n.title}</span>
+							<span class="notif-title">{localizedNotif(n.type, n.metadata, n.title, n.content, $t).title}</span>
 							{#if !n.is_read}<span class="new-badge">{n.metadata?.error ? $t('notifs_error') : $t('notifs_new')}</span>{/if}
 						</div>
-						<p class="notif-content">{n.content}</p>
+						<p class="notif-content">{localizedNotif(n.type, n.metadata, n.title, n.content, $t).body}</p>
 						<div class="notif-footer-row">
 							<span class="notif-time">{timeAgo(n.created_at, $currentLang)}</span>
 							{#if n.metadata?.tournament_id || n.metadata?.conversation_id || n.metadata?.rag_suggestion_id || (n.title && n.title.includes('Suggestion RAG'))}<!-- i18n-ignore: matches a server-generated title -->

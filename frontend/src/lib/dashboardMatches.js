@@ -72,16 +72,16 @@ export function buildMyMatches(user, tournaments, games, allUsers, myTeamSlots, 
 				oppSeat = oppUser?.seat_id || null;
 			}
 			const gameObj = (games || []).find(g => g.id === tourney.game_id);
-			const gameName = gameObj?.name || tourney.game || 'Tournoi';
-			let roundLabel = 'Match';
+			const gameName = gameObj?.name || tourney.game || tFunc('common_game_fallback');
+			let roundLabel = tFunc('mobile_round_match');
 			if (m.id?.s === 2) {
-				roundLabel = `Loser Bracket · Tour ${m.id.r || '?'}`;
+				roundLabel = tFunc('tourneys_bracket_lb_round', { n: m.id.r || '?' });
 			} else if (m.id?.s >= 100) {
-				roundLabel = `${tFunc('spec_group_num', { group: String.fromCharCode(64 + m.id.s - 100) })} · Tour ${m.id.r || '?'}`;
+				roundLabel = `${tFunc('spec_group_num', { group: String.fromCharCode(64 + m.id.s - 100) })} · ${tFunc('tourneys_round_n', { n: m.id.r || '?' })}`;
 			} else if (m.id?.s === 3) {
-				roundLabel = `Grande Finale`;
+				roundLabel = tFunc('mobile_round_gf');
 			} else if (m.id?.r) {
-				roundLabel = `Tour ${m.id.r}`;
+				roundLabel = tFunc('tourneys_round_n', { n: m.id.r });
 			}
 			list.push({
 				tournament_id: tourney.id,
@@ -100,7 +100,7 @@ export function buildMyMatches(user, tournaments, games, allUsers, myTeamSlots, 
 				outcome: p.length === 2 && isCompleted
 					? (score[mySlot] === score[1 - mySlot] ? 'draw' : ((config.lower_score_is_better ? score[mySlot] < score[1 - mySlot] : score[mySlot] > score[1 - mySlot]) ? 'win' : 'loss'))
 					: null,
-				my_name: user?.username || 'Vous',
+				my_name: user?.username || tFunc('chat_you'),
 				opponent_name: oppName,
 				opponent_id: oppPid > 0 ? oppPid : null,
 				opponent_seat: oppSeat,

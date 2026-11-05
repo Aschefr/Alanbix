@@ -2038,5 +2038,9 @@
   "model_catalog_temperature": "Recommended temperature: {value}",
   "model_catalog_speed": "Typical answer: {seconds} s on an RTX 3090",
   "model_tier_powerful": "Big server",
-  "model_tier_powerful_desc": "Flawless in our tests, even at a higher temperature, but it needs about {vram} GB of video memory and free system memory."
+  "model_tier_powerful_desc": "Flawless in our tests, even at a higher temperature, but it needs about {vram} GB of video memory and free system memory.",
+  "notif_match_ready_title": "Match ready!",
+  "notif_match_ready_body": "Your match against {opponent} is ready in {tournament}.",
+  "notif_match_opponent_fallback": "Opponent",
+  "mobile_round_match": "Match"
 }
