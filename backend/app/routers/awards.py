@@ -11,10 +11,9 @@ router = APIRouter(tags=["Awards"])
 
 
 def get_i18n_dict(lang: str) -> dict:
-    lang = "en" if lang == "en" else "fr"
     try:
         from .i18n import load_i18n_merged
-        return load_i18n_merged(lang) or {}
+        return load_i18n_merged(lang) or load_i18n_merged("fr") or {}
     except Exception as e:
         print(f"Failed to load i18n dict for {lang}: {e}")
         return {}
