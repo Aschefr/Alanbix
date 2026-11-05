@@ -10,8 +10,7 @@ Alanbix intègre un assistant IA auto-hébergé sophistiqué basé sur Ollama, c
 * Pour éviter des temps d'attente frustrants aux joueurs, le backend FastAPI renvoie les mots générés par le LLM au fur et à mesure (streaming) via des connexions Server-Sent Events (SSE).
 * Le frontend SvelteKit consomme ce flux en direct à l'aide d'un décodeur de texte (`TextDecoder`) pour un rendu fluide mot-à-mot.
 
-![Question IA](../../../screenshots/alanbix_assistant_ia_question.png)
-![Réponse IA](../../../screenshots/alanbix_assistant_ia_reponse.png)
+![Question IA](../../../screenshots/fr/ai_assistant.png)
 
 ### Base de connaissances (RAG hybride)
 Avant chaque réponse, Alanbix cherche dans la base de connaissances les fiches qui répondent à la question, et les place dans les consignes de l'IA. Pas de base de données vectorielle à installer : tout se fait en mémoire, ce qui suffit largement pour quelques centaines de fiches.
@@ -42,15 +41,12 @@ L'onglet IA de l'administration propose un **aperçu du prompt final** (avec sa 
 
 Les modèles de langage locaux possèdent une limite physique en nombre de mots qu'ils peuvent analyser en même temps (la fenêtre de contexte).
 
-### Le Mécanisme d'Auto-Compression (G-40)
-Avant chaque requête, le backend estime le nombre de tokens de la conversation (règle empirique : 1 mot = ~1.3 tokens).
-* Si le volume de tokens dépasse **90%** de la taille de fenêtre du modèle (ex: 4096 tokens) : Le serveur déclenche une compression automatique.
-* **Stratégie** : Il tronque 50% de l'historique de discussion, conserve les messages clés, et demande au LLM d'en générer un résumé compact sous forme de paragraphe.
-* **Le Contexte Compressé** : Ce paragraphe est alors stocké dans `conv.compressed_context` et placé tout en haut de la conversation avec une icône de boîte d'archive (🗄️).
-* **Édition Libre** : L'utilisateur peut cliquer sur le bouton Crayon (✏️) au niveau du contexte compressé pour modifier le résumé manuellement afin d'ajuster ce que l'IA doit "se rappeler" pour la suite de la discussion.
+### Quand la conversation devient trop longue
+Avant chaque envoi, l'application estime le nombre de tokens de la conversation. La barre **Contexte** en haut de la discussion en montre le remplissage.
+* Si le volume dépasse **85 %** de la place disponible, le joueur choisit une compression (voir ci-dessous). Une fois un mode choisi, il s'applique automatiquement la fois suivante.
+* **Le Contexte Compressé** : Le résultat est stocké dans `conv.compressed_context` et envoyé au modèle avant les messages récents. **Espace Contexte** permet de le lire et de le modifier à la main.
 
-### Le Modal Utilisateur (G-43)
-Lorsque le volume atteint **85%** de la limite, le joueur se voit proposer un modal de choix de compression :
+### Les trois modes de compression
 1. **Tronquer** : Supprime simplement les plus vieux messages (rapide).
 2. **Compacter** : Fusionne les messages redondants ou salutations (moyen).
 3. **Résumer** : Génère un résumé global (meilleure rétention d'information).
@@ -63,18 +59,21 @@ Lorsque le volume atteint **85%** de la limite, le joueur se voit proposer un mo
 Les GPU locaux (sur lesquels tourne Ollama) ne peuvent traiter qu'un nombre restreint de requêtes en parallèle sous peine de s'effondrer. Alanbix intègre une file d'attente prioritaire :
 * **Priorités de traitement** :
   * `Priorité 0` (Admin) : Traitée en priorité absolue.
+  * `Priorité 5` (Suggestions) : Titres de conversation proposés.
   * `Priorité 10` (Joueur) : Traitée dans l'ordre d'arrivée.
   * `Priorité 15` (Compression) : Tâches de fond de résumé.
   * `Priorité 20` (Background) : Tâches de génération hors-connexion.
-* **Widget d'état** : Un indicateur visuel dans la barre latérale affiche la charge (En attente, Temps de réponse estimé basé sur une moyenne des 20 dernières requêtes).
-* **Contrôle Admin** : L'administrateur peut visualiser la file complète, réordonner les requêtes ou annuler des générations suspectes de bloquer le serveur.
+* **Widget d'état** : Un indicateur visuel dans la barre latérale des administrateurs affiche l'état de chaque serveur et son temps de réponse.
+* **Contrôle Admin** : L'administrateur peut visualiser la file complète et annuler une demande (**Réglages › Intelligence Artificielle › Serveurs**).
+
+![Réglages de l'IA](../../../screenshots/fr/admin_ai_settings.png)
 
 ### 2. Prise de contrôle en direct (AI Takeover)
-Si un joueur discute avec l'IA et que celle-ci commence à s'embrouiller, l'administrateur système peut ouvrir cette conversation depuis son interface de modération.
-* L'admin peut **saisir une réponse manuellement** à la place de l'IA.
-* Côté joueur, le message apparaît sous forme de message système distinct : *"L'administrateur a pris le contrôle de cette réponse"*, pour un support technique humain immédiat.
+Si un joueur discute avec l'IA et que celle-ci commence à s'embrouiller, l'administrateur peut ouvrir cette conversation depuis **Administration › Conversations IA** et cliquer sur **Prendre la main**. **Rendre la main à l'IA** la lui redonne.
+* L'admin **répond lui-même** à la place de l'IA.
+* Côté joueur, le message apparaît dans la conversation, signalé comme venant d'un administrateur, pour un support humain immédiat.
 
-![AI Takeover](../../../screenshots/alanbix_administration_conversation_ia_prendre_la_main.png)
+![AI Takeover](../../../screenshots/fr/admin_conversations.png)
 
 ### 3. Suivi des Messages Non Lus (Badges en Temps Réel)
 Pour faciliter le suivi des échanges sans forcer le rafraîchissement de la page (zéro F5) :
@@ -85,7 +84,6 @@ Pour faciliter le suivi des échanges sans forcer le rafraîchissement de la pag
   * **Marquage automatique** : La conversation perd son surlignage et son badge instantanément dès que l'administrateur clique pour l'ouvrir.
 
 ### 4. Édition, Retry Inline & Ergonomie
-* **Redimensionnement du Chat** : Les utilisateurs disposent d'une barre de redimensionnement pour élargir le panneau de discussion jusqu'à **70%** de la largeur de l'écran. L'ajustement de la largeur est sauvegardé de manière persistante.
 * **Bouton Crayon (✏️)** : Tout message utilisateur peut être édité inline. La modification supprime la branche de discussion ultérieure pour éviter les paradoxes de conversation et relance le flux.
 * **Bouton Retry (🔄)** : Présent sous les bulles de dialogue, il permet de ré-exécuter le message de l'utilisateur ou de régénérer une nouvelle réponse du bot si la précédente n'était pas satisfaisante.
 
@@ -105,28 +103,32 @@ La clé reste sur le serveur : `/ia/config`, lisible par les joueurs, indique se
 
 Pour les événements de grande envergure, un seul PC serveur ne suffit pas pour faire tourner l'IA. Alanbix permet de chaîner plusieurs serveurs Ollama distants.
 
-1. **Configuration** : Dans **Administration > Paramètres IA**, listez les serveurs disponibles (`http://192.168.1.10:11434`, `http://192.168.1.11:11434`).
-2. **Priorités d'Instance** : Attribuez une priorité numérique à chaque serveur (ex: 0 pour un serveur avec RTX 4090, 10 pour un petit laptop).
+1. **Configuration** : Dans **Administration › Réglages › Intelligence Artificielle › Serveurs**, listez les serveurs disponibles (`http://192.168.1.10:11434`, `http://192.168.1.11:11434`).
+2. **Priorités d'Instance** : L'ordre de la liste fixe la priorité : placez en tête le serveur le plus puissant.
 3. **Mécanisme de Failover** : Le backend interroge les serveurs en commençant par les plus performants. Si l'un des serveurs ne répond plus (timeout / plantage), il est désactivé temporairement (pastille rouge 🔴) et la requête bascule de manière invisible sur l'instance de secours disponible sans perturber le joueur.
 
 ---
 
 ## 🛠️ Les Outils de l'IA (Tool Calling)
 
-L'assistant IA d'Alanbix dispose de capacités d'appel d'outils (tool calling) lui permettant d'interagir dynamiquement avec le système et d'effectuer des tâches utiles pour les joueurs et les organisateurs :
+L'assistant consulte les données en direct avec des outils, et répond à partir de leurs résultats plutôt que de sa mémoire :
 
-### 1. Localisation et plan de salle
-* `get_player_seat` : Permet à l'IA de retrouver le siège assigné à un joueur (format `T{table}_S{siège}`) et d'identifier ses voisins directs de table.
+### 1. Tournois et classements
+`get_tournaments`, `get_tournament_standings`, `get_leaderboard`, `get_leaderboard_by_game`, `get_bracket_detail`, `get_tournament_bracket_path`, `get_live_matches`, `get_upcoming_matches`, `get_my_matches`, `get_awards`.
 
-### 2. Diagnostics Réseau et Logistique
-* `ping_host` : Permet à l'IA de tester la connectivité réseau vers une machine.
-* `traceroute_host` : Permet de diagnostiquer les chemins réseau.
-* `dns_lookup` : Effectue des résolutions d'adresses IP/noms d'hôtes.
-* `scan_local_network` : Scanne le sous-réseau local pour détecter les ports et services actifs.
-* `check_server_health` : Retourne l'état de santé global du serveur Alanbix.
+### 2. Joueurs et équipes
+`get_player_info`, `get_player_match_history`, `get_player_rank_progression`, `get_team_roster`.
 
-### 3. Informations sur les Jeux
-* `get_game_rules` : Récupère la fiche descriptive et les règles d'un jeu configuré dans la bibliothèque.
+### 3. Salle et événement
+`get_player_seat` (place au format `T{table}_S{siège}` et voisins), `get_room_places` (places libres, éléments du plan), `get_event_info`, `get_files`, `get_games`, `get_game_rules`, `get_notifications`, `get_current_datetime`.
 
-*Ces outils peuvent être activés ou désactivés globalement par l'administrateur depuis les options d'administration de l'IA.*
+### 4. Réseau
+`ping_host`, `traceroute_host`, `dns_lookup` pour tous. `scan_local_network` et `check_server_health` sont réservés aux administrateurs.
+
+### 5. Actions
+`call_admin` (prévenir un organisateur), `suggest_rag_entry` (proposer une fiche de connaissances), et pour les administrateurs `send_notification_to_player`, `announce_to_all`, `block_user_from_ia`.
+
+Dans le chat public, `@Alanbix` n'a accès qu'aux outils de lecture des données publiques.
+
+*L'appel d'outils se règle ou se désactive globalement dans **Réglages › Intelligence Artificielle › Comportement**.*
 

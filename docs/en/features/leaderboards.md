@@ -6,7 +6,7 @@ Alanbix offers a complete system to track individual and team performances throu
 
 ## 🏆 Global Individual Leaderboard
 
-Accessible from the main tab of the Dashboard. It lists players sorted in descending order of their accumulated points in the `users` table.
+Accessible from the **Leaderboard** tab of the home page and on the Projector. It lists players sorted by points: points already earned (the `points` column of the `users` table), plus the provisional points of running tournaments.
 
 ### Progression Indicators (↑↓ NEW)
 To make the leaderboard dynamic, the frontend memorizes the last state of the leaderboard in the `previousLeaderboard` variable (temporary persistence in local memory).
@@ -23,7 +23,7 @@ Upon each data refresh (via API or WebSocket):
 This ranking groups players by the value of their `User.team_name` column (their global team declared on their profile). Team rows are colored in purple (`var(--primary-purple)`) to distinguish them from individual rankings.
 
 ### The 2 Score Calculation Modes
-The administrator can choose the calculation mode from the **Administration > Settings** tab (SQLite configuration key `team_scoring_mode`):
+The administrator can choose the calculation mode from **Administration › Settings › General** (SQLite configuration key `team_scoring_mode`):
 
 1. **Raw Mode (`raw`)**:
    $$\text{Team Score} = \sum \text{Points of all members}$$
@@ -54,30 +54,32 @@ From their Profile page, players can upload their own avatar. A mini-visual edit
   * **Square** (pure square without rounding)
 * **Global Propagation**: The shape chosen by the user is stored in the database and applied dynamically across the entire application interface (Sidebar, Leaderboard, Chat boxes, Tournament Brackets, 2D Room Plan, Projector view, and Admin Panel).
 
-![Player Profile](../../../screenshots/alanbix_profile_joueur.png)
+![Player Profile](../../../screenshots/en/profile.png)
 
 ---
 
 ## 🎁 Automatic Awards System
 
-At each tournament closing, the server runs a statistical analysis pipeline on the SQLite database to automatically assign or reassign 12 specific trophies (`awards` table).
+At each tournament closing, the server recomputes 12 awards from all the LAN's data (`awards` table). They can be viewed in **Administration › Prizes & Awards**, where **Send the awards to players** notifies the winners and shows the awards on their profile.
+
+![Prizes and awards](../../../screenshots/en/admin_awards.png)
 
 ### The 12 Managed Trophies
-1. **First of the LAN**: Player occupying the 1st place in the general classification.
-2. **First Team of the LAN**: Team occupying the 1st place in the team standings.
-3. **The Executioner (Le Bourreau)**: Player who has inflicted the highest number of defeats (lost bracket rounds) on other players.
-4. **Coop King (Le Roi du Coop)**: Player with the most wins in tournaments played in Team mode.
-5. **Lone Wolf (Loup Solitaire)**: Player with the most wins in tournaments played in Solo (1v1) mode.
-6. **The Marathoner (Le Marathonien)**: Player who has played the highest total number of matches, across all tournaments.
-7. **Trigger Happy (Gâchette Facile)**: Player with the highest cumulative score (goals/points scored in matches).
-8. **The Sieve (La Passoire)**: Player with the lowest cumulative score among the matches played.
-9. **BYE's Favorite (Chouchou des BYE)**: Player who has benefited from the highest number of BYEs (slots in the bracket that moved them forward without playing).
-10. **The Swiss (Le Suisse)**: Player with the highest number of draws.
-11. **Losers Bracket Survivor**: Player who has played the most matches in the Losers Bracket.
-12. **The Important Thing is to Participate**: Player with the fewest wins among those who have played at least 2 tournament matches.
+1. **King of the LAN**: Player in 1st place in the general ranking.
+2. **Strength in Numbers**: Team in 1st place in the team ranking.
+3. **The Bracket Executioner**: Player who inflicted the most defeats on other players.
+4. **The Coop King**: Player with the most wins in team tournaments.
+5. **Lone Wolf**: Player with the most wins in solo tournaments.
+6. **The Marathoner**: Player who played the most matches, across all tournaments.
+7. **Gunslinger**: Player with the highest top score in a single game.
+8. **The LAN Sieve**: Player who conceded the most points or goals.
+9. **The Lucky Bye Favorite**: Player who benefited from the most BYEs.
+10. **The Swiss**: Player with the most draws.
+11. **LB Survivor**: Player who played the most matches in the losers bracket.
+12. **The Important Thing is to Participate**: Player with the lowest win rate among those who played at least 2 matches.
 
 ### Notifications and Personalization
-* **Real-Time Notification**: When a trophy changes hands after a tournament closes, the server instantly pushes a WebSocket notification (gift icon 🎁) to the player who just won the award.
+* **Notification**: After sending from the administration, each winner receives a notification (type `award`) describing their award.
 * **Admin Personalization**: The titles and descriptions of the awards can be edited in the administration interface. The descriptions support dynamic variables interpolated by the server during display (e.g., `{points}`, `{wins}`, `{matches_played}`).
 
 ---

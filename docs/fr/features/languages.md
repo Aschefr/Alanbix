@@ -9,19 +9,21 @@ Alanbix intègre un système complet de gestion des langues et des traductions d
 ### Le Système Double Couche (Merge)
 Afin de concilier les mises à jour de l'application et les personnalisations locales faites par les organisateurs :
 * **Dossier Usine (`static/i18n/`)** : Contient les traductions de référence livrées avec l'application (`fr.json`, `en.json`, etc.). Ces fichiers ne doivent pas être édités manuellement.
-* **Dossier Utilisateur (`data/i18n/`)** : Dossier de persistance locale monté sur le serveur. Au premier démarrage, les fichiers usine y sont automatiquement copiés (seeding) s'ils n'existent pas.
+* **Dossier Utilisateur (`data/i18n/`)** : Dossier de persistance locale monté sur le serveur. Il ne contient que les personnalisations des organisateurs, jamais une copie complète, pour que les mises à jour de l'application continuent d'apporter leurs nouveaux textes.
 * **Mécanisme de Fusion (Merge)** : Lors d'un appel API, le backend FastAPI charge d'abord le fichier de référence (usine) puis lui superpose (merge) les modifications apportées par l'utilisateur présentes dans le dossier utilisateur. Toute édition effectuée depuis l'application est écrite dans `data/i18n/`, garantissant ainsi la persistance lors de mises à jour de l'image Docker.
 
 ### Rendu Réactif Frontend
 * **Store Svelte (`i18nStore.ts`)** : Le store gère le chargement asynchrone des traductions depuis l'API de fusion (`/api/i18n/{lang}`).
 * **Helper réactif `$t(...)`** : Permet la traduction à la volée des textes avec support de l'interpolation de variables dynamiques (ex : `{$t('tournaments.started_by', { name: userName })}`).
-* **Sélecteur de Langue** : Un menu déroulant équipé de drapeaux emojis est intégré à la barre latérale du dashboard. Le choix de l'utilisateur est stocké dans le `localStorage` pour persister entre les sessions.
+* **Sélecteur de Langue** : Dans la barre latérale quand la LAN laisse les joueurs choisir leur langue, et dans la page **Paramètres**. Le choix est stocké dans le `localStorage` pour persister entre les sessions.
 
 ---
 
 ## 🖥️ L'Interface d'Administration des Langues
 
-Accessible via l'onglet **Administration > Traduction** (ou la route `/dashboard/admin/languages`).
+Accessible via l'onglet **Administration › Langues** (ou la route `/dashboard/admin/languages`).
+
+![Gestion des langues](../../../screenshots/fr/admin_languages.png)
 
 ### 1. Éditeur Bicolonne
 L'interface propose une vue comparative côte-à-côté :

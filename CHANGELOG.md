@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased]
+
+### 📖 Documentation
+- **French and English guides checked against the app**: menu paths, button names, tournament statuses, award names, score correction rules, room editor, context compression and the list of assistant tools now match what the app does. The mobile guide now exists in English too.
+- **All screenshots redone**: they dated from version 1.15. There is now one set per language (`screenshots/fr`, `screenshots/en`), including new views: guided setup, live control, diagnostics, knowledge base, projector and phone.
+- **`scripts/docs_demo`**: starts a throwaway server with invented data and takes the screenshots again, in one command per language.
+
 ## [1.38.0] - 2026-11-03
 
 ### 🔐 Login and sessions

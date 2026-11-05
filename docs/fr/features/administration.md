@@ -20,6 +20,8 @@ Le premier compte créé sur un serveur neuf (l'administrateur) arrive sur **Con
 
 La progression est enregistrée sur le serveur (`admin_setup`). L'administration affiche un bandeau tant que la configuration n'est ni terminée ni masquée, et **Réglages › Général › Configuration guidée** la relance. Après une réinitialisation complète, elle réapparaît.
 
+![Configuration guidée](../../../screenshots/fr/setup.png)
+
 ---
 
 ## 🎚️ Régie (onglet par défaut)
@@ -30,50 +32,55 @@ La Régie rassemble ce qui demande l'attention de l'organisateur pendant la LAN 
 * **Modération rapide** : recherche d'un joueur puis bouton « ⋯ » : couper le chat (15 min, 30 min, 1 h, 24 h) ou le rétablir, bloquer l'IA, écrire au joueur, ou ouvrir sa fiche complète dans Gestion Joueurs.
 * **Tournois en cours** : progression de chaque tournoi.
 
+![Régie](../../../screenshots/fr/admin_regie.png)
+
+Les autres onglets : **Tournois & Jeux**, **Joueurs**, **Réglages**, **Conversations IA**, **Prix & Distinctions**, **Diagnostic** et **Langues**.
+
 ---
 
 ## 👥 Gestion des Comptes Joueurs
 
-Accessible via l'onglet **Administration > Joueurs**.
+Accessible via l'onglet **Administration › Joueurs**.
 
 ### Actions Individuelles
 * **Création manuelle** : L'administrateur peut enregistrer un joueur directement via le formulaire en définissant son pseudo, mot de passe initial, et équipe.
 * **Édition & Réinitialisation** : Possibilité de modifier le pseudo, de réinitialiser le mot de passe d'un participant (en cas d'oubli), d'éditer son nom d'équipe globale, ou de lui attribuer les privilèges d'administrateur.
 * **Modération IA** : L'administrateur peut révoquer l'accès à l'assistant IA pour un joueur s'il en abuse (ce qui masque le chat IA de son interface).
 
-![Gestion des Joueurs](../../../screenshots/alanbix_administration_joueurs.png)
+![Gestion des Joueurs](../../../screenshots/fr/admin_players.png)
 
 ### Génération d'un Pool de Test (G-46)
 Pour valider le bon fonctionnement des brackets de tournoi ou de la messagerie sans avoir à créer manuellement 20 comptes :
 * **Le Bouton** : Cliquez sur le bouton **"Générer 20 joueurs de test"** (`POST /admin/users/generate-test-pool`).
-* **Résultat** : Crée instantanément 20 comptes de joueurs fictifs avec des pseudonymes de type gamers (ex: `FragMaster2000`, `CyberNinja`, etc.) répartis équitablement dans 4 équipes prédéfinies (*Alpha Wolves*, *Neon Vipers*, *Shadow Foxes*, *Iron Bears*) et leur attribue un historique de points aléatoire pour peupler les leaderboards. Cette opération est idempotente : elle n'écrase pas les pseudos déjà existants.
+* **Résultat** : Crée instantanément 20 comptes de joueurs fictifs (mot de passe `test`, points à zéro) avec des pseudonymes de type gamers (ex: `FragMaster2000`, `CyberWolf`, etc.), répartis équitablement dans 4 équipes prédéfinies (*Alpha Wolves*, *Neon Vipers*, *Shadow Foxes*, *Iron Bears*). Cette opération est idempotente : elle n'écrase pas les pseudos déjà existants. À réserver aux essais, puisque tout le monde connaît ce mot de passe.
 
 ---
 
 ## 🎮 Bibliothèque de Jeux (SearXNG Proxy)
 
 Pour associer une image et un règlement aux tournois, les administrateurs gèrent un catalogue local de jeux.
-* **Création d'un Jeu** : Allez dans **Administration > Jeux > Nouveau Jeu**.
+* **Création d'un Jeu** : Allez dans **Administration › Tournois & Jeux**, section **Bibliothèque**, puis **Ajouter un Jeu**.
 * **Recherche de jaquette automatique** : Pour éviter d'avoir à télécharger et héberger vous-même l'image d'un jeu, saisissez le nom du jeu et cliquez sur le bouton Loupe de recherche. Le serveur interroge en arrière-plan un moteur SearXNG (proxy local) pour récupérer l'image officielle et l'enregistrer localement dans `/app/data/game_images/` (volume persistant) afin de garantir l'offline-first de la LAN.
 * **Upload manuel** : L'administration permet également de téléverser une image de couverture directement depuis le disque dur du PC de l'administrateur, qui sera stockée de manière persistante.
 
-![Gestion de la Bibliothèque de Jeux](../../../screenshots/alanbix_administration_jeux.png)
+![Gestion de la Bibliothèque de Jeux](../../../screenshots/fr/admin_games.png)
 
 ---
 
-## 🎛️ Paramètres Système & Édition Inline (G-24)
+## 🎛️ Réglages
 
-* **Pas de modale disruptive** : Conformément à la charte d'ergonomie d'Alanbix, les fenêtres d'édition de paramètres (comme l'édition de la configuration d'un tournoi ou des informations système) s'affichent sous forme de panneaux dépliables inline (en accordéon) directement au niveau de la fiche concernée, plutôt que dans une fenêtre modale qui bloquerait l'écran. Un seul élément peut être édité à la fois (singleton `inlineEditId`).
-* **Renommage de la LAN** : L'administrateur peut modifier le nom de l'événement. Le changement est sauvegardé via `PUT /admin/config/event_name` et se met à jour en temps réel sur les dashboards de tous les participants grâce au WebSocket.
+L'onglet **Réglages** a deux parties : **Général** (Événement, Tournois, Chat & modération, Services, Zone dangereuse) et **Intelligence Artificielle** (Serveurs, Modèle, Comportement, Consignes, Connaissances). Les modifications y sont enregistrées automatiquement, et chaque option est expliquée sur place.
 
-![Paramètres d'Administration](../../../screenshots/alanbix_administration_param%C3%A8tres.png)
+* **Renommage de la LAN** : Le changement est sauvegardé via `PUT /admin/config/event_name` et se met à jour en temps réel sur les dashboards de tous les participants grâce au WebSocket.
+
+![Paramètres d'Administration](../../../screenshots/fr/admin_settings.png)
 
 
 ---
 
 ## ☢️ Contrôles d'Auto-Destruction (Boutons NUKE) (G-08)
 
-Pour faciliter le nettoyage de la base de données entre deux événements ou après des phases de tests intensifs, l'onglet Paramètres d'administration propose des boutons de purge massive (dits **Boutons NUKE**) :
+Pour faciliter le nettoyage de la base de données entre deux événements ou après des phases de tests intensifs, la **Zone dangereuse** (**Réglages › Général**) propose des boutons de purge massive (dits **Boutons NUKE**) :
 
 * **Purger le chat public** : supprime définitivement tous les messages du chat public et leurs images, et retire le message épinglé.
 * **Tournois** : supprime tous les tournois, arbres, scores, équipes de tournoi et remet les points de tous les joueurs à zéro.
@@ -85,27 +92,30 @@ Pour faciliter le nettoyage de la base de données entre deux événements ou ap
 * **Plan de salle** : supprime toutes les tables, places et éléments du plan, et libère la place de chaque joueur.
 * **Réinitialisation complète** : vide tout le serveur comme une nouvelle installation (toutes les données, tous les fichiers téléversés, les réglages et les traductions personnalisées). Les comptes administrateurs peuvent être conservés (pseudo, mot de passe, avatar). Il faut taper `RESET` pour confirmer ; les autres personnes connectées sont rechargées automatiquement.
 
+![Zone dangereuse](../../../screenshots/fr/admin_danger_zone.png)
+
 ### Ergonomie de Sécurité (Pas de window.confirm)
-Pour éviter les suppressions accidentelles tout en conservant une interface soignée :
-1. Aucun bouton de suppression ou de purge n'utilise la boîte de dialogue système par défaut du navigateur (`window.confirm`).
-2. À la place, le bouton passe à l'état `delete_pending` local.
-3. Le texte du bouton se transforme dynamiquement pour afficher **"Êtes-vous sûr ?"** avec un changement de couleur vers le rouge vif et démarre un court compte à rebours de sécurité.
-4. L'administrateur doit cliquer une seconde fois pour confirmer définitivement l'action de purge massive.
+Aucune purge n'utilise la boîte de dialogue du navigateur (`window.confirm`) : la confirmation s'affiche dans l'interface, et un second clic est nécessaire. La réinitialisation complète demande en plus de taper `RESET`.
 
 ---
 
 ## 📚 Base de Connaissances IA (RAG)
 
 Pour alimenter la mémoire de l'assistant IA local (RAG) :
-* **Zone de Saisie de Document** : Un champ de texte volumineux (TextArea) est présent sous **Administration > Assistant IA > Base de connaissances**.
-* **Bouton `🚀 Vectoriser & Ajouter`** : Découpe le texte saisi, l'envoie à l'instance d'Ollama active pour en extraire des vecteurs sémantiques (embeddings) et les stocke dans la table `rag_documents` afin qu'ils soient immédiatement exploitables dans les discussions des joueurs.
-* **Boutons de Gestion des Documents** : Permet de lister et de supprimer unitairement des blocs de connaissances indexés.
+* **Où** : **Administration › Réglages › Intelligence Artificielle › Connaissances**. Chaque fiche est enregistrée dans la table `knowledge_base`.
+* **Ajouter une fiche** : le texte est indexé aussitôt pour la recherche par mots-clés, et pour la recherche par le sens si un modèle d'embedding répond. Voir [l'assistant IA](ai-assistant.md).
+* **Gérer les fiches** : modification et suppression fiche par fiche, bandeau d'état de la recherche et bouton **Réindexer les fiches**.
+* **Suggestions** : quand l'assistant ne trouve pas une réponse, il peut proposer une fiche, que l'administrateur approuve ou refuse dans l'onglet **Conversations IA**.
+
+![Base de connaissances](../../../screenshots/fr/admin_knowledge.png)
 
 ---
 
 ## 📡 Onglet Diagnostic
 
 État du serveur (processeur, mémoire, disque) et tests réseau lancés à la main : ping, traceroute et DNS, avec le résultat en clair. Les tests partent du serveur Alanbix, pas de l'ordinateur de l'administrateur ni de celui d'un joueur.
+
+![Diagnostic](../../../screenshots/fr/admin_diagnostics.png)
 
 ## 🩺 Diagnostic mémoire du serveur
 Pour surveiller un serveur qui tourne depuis longtemps (par exemple un Raspberry Pi), l'API expose `GET /admin/diagnostics/memory`, réservé aux administrateurs (même session que l'application, même port).

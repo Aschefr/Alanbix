@@ -9,19 +9,21 @@ Alanbix integrates a complete language and translation management system directl
 ### The Double Layer System (Merge)
 To reconcile application updates and local customizations made by organizers:
 * **Factory Folder (`static/i18n/`)**: Contains the reference translations shipped with the application (`fr.json`, `en.json`, etc.). These files must not be edited manually.
-* **User Folder (`data/i18n/`)**: Local persistence folder mounted on the server. On first startup, factory files are automatically copied there (seeding) if they do not exist.
+* **User Folder (`data/i18n/`)**: Local persistence folder mounted on the server. It only holds the organisers' customisations, never a full copy, so that application updates keep bringing their new texts.
 * **Merge Mechanism**: During an API call, the FastAPI backend first loads the reference file (factory) and then overlays (merges) the modifications made by the user present in the user folder. Any edits made from the application are written to `data/i18n/`, ensuring persistence across Docker image updates.
 
 ### Reactive Frontend Rendering
 * **Svelte Store (`i18nStore.ts`)**: The store manages the asynchronous loading of translations from the merge API (`/api/i18n/{lang}`).
 * **Reactive `$t(...)` Helper**: Allows on-the-fly translation of texts with support for dynamic variable interpolation (e.g., `{$t('tournaments.started_by', { name: userName })}`).
-* **Language Selector**: A dropdown menu featuring emoji flags is built into the dashboard sidebar. The user's choice is stored in `localStorage` to persist across sessions.
+* **Language Selector**: In the sidebar when the LAN lets players choose their language, and on the **Settings** page. The choice is stored in `localStorage` to persist between sessions.
 
 ---
 
 ## 🖥️ The Language Administration Interface
 
-Accessible via the **Administration > Translation** tab (or the `/dashboard/admin/languages` route).
+Accessible via the **Administration › Languages** tab (or the `/dashboard/admin/languages` route).
+
+![Language management](../../../screenshots/en/admin_languages.png)
 
 ### 1. Bicolumn Editor
 The interface offers a side-by-side comparative view:
