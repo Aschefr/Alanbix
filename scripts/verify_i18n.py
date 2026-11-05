@@ -61,6 +61,22 @@ def check_json_files():
                 print(f"[ERREUR] {len(extra)} clés en trop dans {file} par rapport à fr.json: {list(extra)}")
                 has_error = True
 
+    # The app ships a second copy for the browser: both must say the same.
+    # ai_app_guide is read by the server only.
+    for file in json_files:
+        bundled_path = os.path.join(FRONTEND_DIR, "lib", "locales", file)
+        if not os.path.exists(bundled_path):
+            continue
+        with open(os.path.join(I18N_DIR, file), 'r', encoding='utf-8-sig') as f:
+            server = json.load(f)
+        with open(bundled_path, 'r', encoding='utf-8-sig') as f:
+            bundled = json.load(f)
+        server.pop("ai_app_guide", None)
+        different = sorted(k for k in set(server) | set(bundled) if server.get(k) != bundled.get(k))
+        if different:
+            print(f"[ERREUR] {len(different)} clés différentes entre les deux copies de {file} : {different[:15]}")
+            has_error = True
+
     if not has_error:
         print("✅ Fichiers JSON propres (aucun émoji hors ai_typing, syntaxe valide, clés synchrones et traduites).")
     return not has_error

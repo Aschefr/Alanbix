@@ -12,12 +12,17 @@ Un tournoi traverse quatre statuts principaux dans la base de données :
 graph LR
     OPEN[OPEN / Inscriptions] --> RUNNING[RUNNING / En Cours]
     RUNNING --> CLOSED[CLOSED / Clôturé]
-    CLOSED -.->|Rollback| OPEN
+    RUNNING --> DONE[DONE / Terminé]
+    DONE --> CLOSED
+    CLOSED -.->|Ré-ouvrir| DONE
 ```
 
 1. **OPEN (Ouvert)** : Les inscriptions sont ouvertes. Les joueurs peuvent s'inscrire, se désinscrire ou créer/rejoindre des équipes.
 2. **RUNNING (En Cours)** : Le bracket est verrouillé et généré. Les matchs peuvent être scorés. Les inscriptions sont closes.
-3. **CLOSED (Clôturé)** : La finale est terminée, les standings finaux sont figés, les points de classement général sont distribués aux profils des joueurs et les notifications d'awards sont émises.
+3. **DONE (Terminé)** : Tous les matchs sont joués (ou la manche finale est validée en Chacun pour soi). Les scores restent corrigeables et le tournoi attend sa clôture.
+4. **CLOSED (Clôturé)** : Les standings finaux sont figés, les points de classement général sont distribués aux profils des joueurs et les résumés IA sont envoyés.
+
+Un administrateur peut aussi **masquer un tournoi** (icône en forme d'œil, ou `Masquer aux joueurs`) : les joueurs ne le voient plus, ni dans les listes ni sur le Projecteur, jusqu'à ce qu'il soit de nouveau affiché.
 
 ---
 
@@ -38,23 +43,26 @@ graph LR
 * *Note d'affichage* : Le round de la Grande Finale est labellisé `🏆 FINALE` avec un style doré et une marge d'espacement accrue pour le distinguer visuellement. Les rounds Losers vides sont automatiquement masqués du DOM.
 * **Affichage Spectateur / Dashboard** : Pour éviter la compression horizontale sur les résolutions standards, le Winners Bracket et le Losers Bracket sont présentés sous forme de couches distinctes et empilés verticalement sur la vue Spectateur.
 
-![Double Élimination](../../../screenshots/alanbix_tournois_double_elimination.png)
+![Double Élimination](../../../screenshots/fr/tournament_double_elim.png)
 
 ### 3. Championnat / Tout contre tous (`round_robin`)
 * Pas d'arbre d'élimination. Chaque participant affronte tous les autres participants à tour de rôle.
 * Le système utilise l'**Algorithme de Rotation (Circle Method)** pour planifier automatiquement les journées (rounds) de match sans conflit de calendrier.
 * Si le nombre de participants est impair, un participant fantôme "BYE" est inséré à chaque round.
-* **Lisibilité Spectateur** : Le format dispose de cartes au fond contrasté semi-transparent et de textes blancs à fort contraste, facilitant la lecture au-dessus des arrière-plans cinématiques de jeux.
+
+* **Lisibilité Spectateur** : Le format dispose de cartes contrastées qui restent lisibles au-dessus des arrière-plans cinématiques de jeux.
+
+![Championnat](../../../screenshots/fr/tournament_round_robin.png)
 
 ### 4. Chacun pour Soi (`ffa` / Free For All)
 * Adapté aux jeux de course (Trackmania, Mario Kart) ou de combat multijoueur (Smash à 4).
 * Une manche se compose d'une seule série de placements.
-* L'administrateur saisit le classement final de la manche dans l'interface, puis définit par configuration combien de joueurs avancent à la manche suivante.
+* Chaque joueur saisit son propre résultat de manche (un administrateur peut tout saisir). L'administrateur valide ensuite la manche et définit combien de joueurs avancent à la manche suivante.
 * **Vue en arbre** : les manches s'affichent de gauche à droite, chaque salon (groupe de joueurs) est relié aux salons d'où viennent ses joueurs ; zoom, déplacement et « Recentrer » comme pour l'arbre d'élimination. L'administrateur choisit le nombre de qualifiés **par salon** pour la manche suivante.
 * **Mise en page fluide** : La vue spectateur utilise une disposition flexible (`flex-wrap`) et une hauteur dynamique (`fit-content`) qui élimine tout grand espace vide superflu entre les manches.
 * **Annulation de manche (Rollback)** : Les annulations de manche FFA sont sécurisées par une modale de confirmation inline non intrusive (évitant ainsi les `window.confirm` bloquants du navigateur).
 
-![FFA](../../../screenshots/alanbix_tournois_FFA.png)
+![FFA](../../../screenshots/fr/tournament_ffa.png)
 
 ---
 
@@ -65,18 +73,20 @@ graph LR
 3. L'onglet **Poules** reste consultable pendant la phase finale ; **« Revenir aux poules »** annule l'arbre tant qu'aucun match de la phase finale n'a été joué.
 Les joueurs éliminés en poules sont classés derrière ceux de la phase finale. Une fois le tournoi lancé, le format et le mode de jeu sont verrouillés (réinitialisez le tournoi pour les changer).
 
+![Phase de poules](../../../screenshots/fr/tournament_groups.png)
+
 ## ⚙️ Les Mécaniques de Match et de Score
 
 ### Identification visuelle du joueur
 Le pseudo du joueur connecté (ou le nom de son équipe globale/de tournoi) est mis en surbrillance dans l'arbre du tournoi avec un fond bleu accent et une bordure latérale distinctive, adapté aux thèmes clair et sombre, pour tous les formats de bracket (Single/Double Élim, Round Robin, FFA).
 
 ### La Saisie et le Verrouillage Automatique (🔒)
-* **Qui peut saisir ?** N'importe quel joueur participant au match concerné (si l'adversaire est déterminé), ou un Administrateur.
+* **Qui peut saisir ?** N'importe quel joueur participant au match concerné (si l'adversaire est déterminé), ou un Administrateur. La page d'accueil et la Régie proposent aussi cette saisie.
 * **Saisie sur match TBD** : Il est interdit de saisir des scores sur un match dont l'adversaire n'est pas encore déterminé (joueur TBD, ID 0). Les champs de saisie correspondants sont automatiquement masqués sur le frontend et le backend rejette toute soumission de score contenant un joueur TBD afin de prévenir la corruption des brackets.
 * **Fusion intelligente des scores** : Les scores saisis sont fusionnés de manière atomique avec les données existantes sur le backend pour éviter les conditions de concurrence (race conditions) et les écrasements accidentels en cas de soumission simultanée.
-* **Le Verrou de Saisie (Cooldown de 5s)** : Pour éviter le vandalisme ou les erreurs de saisie simultanée entre adversaires, la validation du score applique un cooldown de 5 secondes.
-* **Le Verrou Automatique** : Une fois le score soumis et validé par le serveur, le match est marqué d'une icône Cadenas (🔒). Les joueurs ne peuvent plus modifier le score.
-* **Forçage Admin** : Seul un Administrateur système a le droit d'écraser un score verrouillé pour corriger une erreur de saisie des joueurs.
+* **Le délai de saisie (5 s)** : Après validation par un joueur, le score reste annulable pendant 5 secondes avant d'être envoyé, pour rattraper une faute de frappe. Le score d'un administrateur part aussitôt.
+* **Correction par les joueurs** : Un joueur peut corriger un match terminé (le sien, ou celui de son adversaire direct) tant que le tournoi n'a pas avancé au-delà de ce match. Ensuite, le match est verrouillé (🔒).
+* **Forçage Admin** : Un Administrateur peut toujours corriger un score verrouillé.
 
 ### La Résolution récursive des "BYE"
 * Si un joueur n'a pas d'adversaire au Round 1 (suite à un nombre impair de participants), le moteur de tournoi détecte un match `[Joueur, 0]`.
@@ -101,37 +111,39 @@ Lorsque l'option **Utiliser des équipes** (`config.use_teams = true`) est activ
 6. **Accordéons / Repliage des Équipes** : Boutons `Tout replier` et `Tout déplier` dans l'en-tête de la section pour naviguer fluidement dans les tournois réunissant des dizaines d'équipes.
 7. **Édition à chaud & Changement de jeu (Game Swap)** : Modale d'édition accessible aux organisateurs permettant d'ajuster le nom, les consignes et de permuter le jeu associé (`game_id`) sans jamais altérer les matchs joués ou les scores enregistrés.
 
+![Équipes de tournoi](../../../screenshots/fr/tournament_teams.png)
+
 ---
 
 ## 💰 Clôture, Distribution & Rollback des Points
 
-### Bouton "Clôturer le Tournoi" (Admin)
+### Bouton "Clôturer & Distribuer" (Admin)
 Au clic sur ce bouton, le serveur calcule les scores et applique la grille de points configurée :
 * `pts_winner` : Points attribués au 1er.
 * `pts_second` : Points attribués au 2ème.
 * `pts_third` : Points attribués au 3ème.
-* `pts_participation` : Points attribués à tous les participants ayant joué au moins un match.
-* `pts_per_goal` : Multiplicateur de points par point/but marqué durant les matchs (ex: 0.5 points par but à Rocket League).
+* `pts_participation` : Points attribués par match joué.
+* `pts_per_match` : Bonus selon le score, de la valeur saisie (minimum) au double de cette valeur (maximum).
 
 Les points calculés sont ajoutés définitivement à la colonne `points` de la table `users`. En cas de tournoi en équipe, tous les membres de l'équipe se voient attribuer ces points individuellement.
 
-### Bouton "Réouvrir le Tournoi" (Rollback Admin)
+### Bouton "Ré-ouvrir" (Rollback Admin)
 Si un tournoi a été clôturé par erreur :
-1. L'admin clique sur **Réouvrir** (Reopen).
+1. L'admin clique sur **Ré-ouvrir**.
 2. Le backend récupère l'historique des points distribués stocké dans le champ `results` (JSON) du tournoi.
-3. Le serveur soustrait exactement ces deltas de points des profils des joueurs concernés, ramenant le tournoi à l'état **RUNNING** sans corrompre le classement global.
+3. Le serveur soustrait exactement ces deltas de points des profils des joueurs concernés, ramenant le tournoi à l'état **DONE** sans corrompre le classement général.
 
 ---
 
 ## 🎛️ Lexique des Boutons & Actions Clés
 
 ### Côté Administrateur (🛡️)
-* **Bouton `Démarrer le tournoi`** : Génère le bracket initial à partir des participants inscrits. Passe le statut de `OPEN` à `RUNNING`.
-* **Bouton `🎲 Répartir` (🎲 Distribute)** : (Seulement en mode Équipes, statut `OPEN`) Répartit aléatoirement tous les joueurs inscrits dans des équipes créées pour atteindre la taille configurée.
-* **Bouton `Inscrire tous les joueurs`** (Bulk Join) : Inscrit en une fois tous les comptes de la base SQLite au tournoi.
-* **Bouton `Désinscrire tout le monde`** (Bulk Leave) : Vide la liste des participants et supprime toutes les équipes créées pour ce tournoi.
-* **Bouton `Clôturer le Tournoi`** : Calcule les podiums, attribue les points globaux et met à jour le statut en `CLOSED`.
-* **Bouton `Réouvrir le Tournoi`** : Annule la clôture et lance la soustraction automatique des points distribués.
+* **Bouton `Lancer`** : Génère le bracket initial à partir des participants inscrits. Passe le statut de `OPEN` à `RUNNING`.
+* **Bouton `Répartir`** : (Seulement en mode Équipes, statut `OPEN`) Répartit aléatoirement les joueurs inscrits dans les équipes déjà créées, jusqu'à la taille configurée.
+* **Bouton `Inscrire tout le monde`** : Inscrit en une fois tous les comptes au tournoi.
+* **Bouton `Désinscrire tout`** : Vide la liste des participants et supprime toutes les équipes créées pour ce tournoi.
+* **Bouton `Clôturer & Distribuer`** : Calcule les podiums, attribue les points globaux et met à jour le statut en `CLOSED`.
+* **Bouton `Ré-ouvrir`** : Annule la clôture et lance la soustraction automatique des points distribués.
 * **Forçage de Score (Saisie Admin)** : En cliquant sur un match du bracket (même s'il est verrouillé 🔒), l'admin accède à un panneau d'édition prioritaire pour corriger n'importe quel score.
 * **Bouton `Supprimer` (Icône Corbeille)** : Après confirmation de sécurité, supprime définitivement le tournoi et toutes ses données associées (participants, équipes).
 

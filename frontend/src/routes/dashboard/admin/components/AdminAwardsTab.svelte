@@ -2,7 +2,7 @@
 	import Icon from '$lib/components/Icon.svelte';
 	import { onMount } from 'svelte';
 	import { api } from '$lib/api';
-	import { t } from '$lib/i18nStore';
+	import { t, currentLang } from '$lib/i18nStore';
 
 	export let toast = (msg, type) => {};
 
@@ -34,10 +34,18 @@
 		loadAwardsTab();
 	});
 
+	let loadedLang = null;
+	$: if (loadedLang && $currentLang !== loadedLang) loadAwardsTab();
+
+	function fetchAwards() {
+		loadedLang = $currentLang;
+		return api.get(`/admin/awards?lang=${encodeURIComponent($currentLang)}`);
+	}
+
 	export async function loadAwardsTab() {
 		awardsLoading = true;
 		try {
-			awardsList = await api.get('/admin/awards');
+			awardsList = await fetchAwards();
 		} catch (e) {
 			toast(e.message || $t('admin_awards_load_error'), 'error');
 		} finally {
@@ -72,7 +80,7 @@
 	async function triggerSync() {
 		awardsLoading = true;
 		try {
-			awardsList = await api.get('/admin/awards');
+			awardsList = await fetchAwards();
 			toast($t('admin_awards_synced'), 'success');
 		} catch (e) {
 			toast(e.message || $t('admin_awards_sync_error'), 'error');

@@ -13,7 +13,11 @@ Alanbix gère les flux de discussion via des connexions WebSocket persistantes (
 * Les messages sont stockés dans la table SQLite `private_messages`.
 * Le système génère automatiquement des badges de notification violets avec un compteur de messages non-lus sur le nom de l'expéditeur dans l'annuaire et sur l'onglet messagerie global de la barre latérale.
 
-![Annuaire et Chat](../../../screenshots/alanbix_joueurs.png)
+![Annuaire des joueurs](../../../screenshots/fr/players.png)
+
+![Conversation privée](../../../screenshots/fr/messages.png)
+
+* **L'onglet Messages** : Avec un message non lu, il ouvre la conversation (privée ou d'équipe) qui contient le plus récent. Sur téléphone, un second appui alterne entre la conversation et la liste des contacts.
 
 ### 2. Canaux de Groupe d'Équipe Déterministes (G-53)
 Pour les besoins tactiques et communautaires de la LAN, Alanbix intègre un système de salons de groupe dont les clés d'identification sont calculées de manière déterministe côté serveur :
@@ -34,7 +38,7 @@ Les discussions directes et de groupes bénéficient de toute la richesse du cha
 * **Notifications sonores & Filtre anti-propos** : Signal audio léger lors d'une mention directe `@pseudo` (désactivable via `🔊`/`🔇`) et bouclier de courtoisie (`🛡️`/`👁️`) pour masquer les grossièretés (`putain` -> `p****n`).
 * **Confidentialité & Exclusion stricte de l'IA** : L'assistant `@Alanbix` reste exclusivement confiné au salon public du Dashboard et n'intervient jamais dans les discussions privées ou d'équipes.
 
-### 3. Chat Public de la Salle & Mascotte IA (Dashboard)
+### 4. Chat Public de la Salle & Mascotte IA (Dashboard)
 Le Dashboard principal intègre un espace de discussion public accessible à l'ensemble des joueurs et organisateurs de la LAN :
 * **Interactions avec la Salle & la Carte** : Lorsqu'un joueur assis dans la salle envoie un message, son siège sur le plan interactif s'illumine et une bulle de chat s'élève vers le panneau de discussion.
 * **Mascotte IA `@Alanbix`** : En mentionnant `@Alanbix`, ou en répondant (`↩`) à l'un de ses messages, l'assistant IA prend part à la conversation avec la personnalité réglée par l'administrateur (pipeline asynchrone protégé par la file d'attente IA). Sa réponse s'affiche en réponse au message du joueur.
@@ -63,14 +67,17 @@ Le Dashboard principal intègre un espace de discussion public accessible à l'e
 
 ## 🔔 Le Centre de Notifications (Temps Réel)
 
-L'icône en forme de Cloche dans la barre latérale permet d'ouvrir le centre de notifications (table SQL `notifications`).
+La page **Notifications** du menu (ou la cloche sur téléphone) ouvre le centre de notifications (table SQL `notifications`).
 
-![Centre de Notifications](../../../screenshots/alanbix_notifications.png)
+![Centre de Notifications](../../../screenshots/fr/notifications.png)
 
 ### Les Différents Types de Notifications
-1. **Notifications Admin (`admin`)** : Envoyées lorsqu'un organisateur publie une annonce générale ou répond manuellement à une conversation technique.
-2. **Notifications de Tournoi IA (`tournament_ia`)** : Messages d'animation rédigés par l'assistant LLM local à la clôture d'un tournoi (voir ci-dessous).
-3. **Notifications de Trophée (`award`)** : Alertes poussées en temps réel lorsqu'un joueur hérite ou se fait détrôner d'une distinction automatique (icône 🎁).
+1. **Match prêt (`match_ready`)** : Votre adversaire est connu et le match peut commencer. Ce texte s'affiche dans la langue de chaque joueur, comme l'alerte d'échec de l'IA pour les administrateurs ; les autres types restent dans la langue où ils ont été écrits.
+2. **Annonces et messages admin (`admin_message`)** : Envoyés lorsqu'un organisateur publie une annonce générale ou répond manuellement à une conversation.
+3. **Clôture de tournoi (`tournament_closed`)** : Message rédigé par l'assistant à la clôture d'un tournoi (voir ci-dessous).
+4. **Distinctions (`award`)** : Envoyées quand un administrateur publie les distinctions.
+
+Chaque notification peut être archivée (onglet **Archives**), et **Tout marquer comme lu** ou **Tout archiver** agit sur la liste entière.
 
 ### Résumés de Matchs par l'IA
 À la fermeture d'un tournoi, pour chaque participant, le serveur place une tâche de génération IA en file d'attente.

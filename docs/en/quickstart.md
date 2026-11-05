@@ -51,7 +51,7 @@ If you want to use the automated game cover search feature with the Docker Hub i
      --name alanbix_searxng \
      searxng/searxng:latest
    ```
-3. In the Alanbix Admin Dashboard (**Administration > Settings**), enter your SearXNG URL (e.g. `http://<YOUR_SERVER_IP>:8888`).
+3. In **Administration › Settings › General › Services**, enter your SearXNG URL (e.g. `http://<YOUR_SERVER_IP>:8888`), then click **Test the connection**.
 
 ---
 
@@ -63,12 +63,12 @@ If you wish to modify the code or run the project locally with Hot Module Replac
    git clone https://github.com/Aschefr/Alanbix.git
    cd Alanbix
    ```
-2. **(Optional - For LAN network access)**: If you want to access the app from other devices on your local network:
-   * Copy the example environment file:
+2. **(Optional - For LAN network access)**: to reach it from other devices on your local network, tell browsers where to find the API:
+   * Copy the sample configuration file:
      ```bash
      cp .env.example .env
      ```
-   * Open `.env` and set `LAN_IP` to your server's local IP address (e.g., `LAN_IP=192.168.1.50`).
+   * Add your host machine's address to `.env`: `VITE_API_URL=http://192.168.1.50:8000`.
 3. Launch the development containers:
    ```bash
    docker compose up -d --build
@@ -100,7 +100,7 @@ If you run Alanbix on Unraid and want game cover search:
        - json
    ```
 4. Restart the SearXNG container in Unraid.
-5. In the Alanbix Admin Dashboard, set the SearXNG URL to `http://<YOUR_UNRAID_IP>:<SEARXNG_PORT>`.
+5. In **Administration › Settings › General › Services**, set the SearXNG URL to `http://<YOUR_UNRAID_IP>:<SEARXNG_PORT>`.
 
 ---
 
@@ -116,19 +116,21 @@ Alanbix automatically assigns global administration rights to the **first user c
 4. You land on the **guided server setup**: LAN name and language, Wi-Fi and the players' address, info page (pre-filled template), games and a first tournament (with the points scale and its simulation), AI assistant (local or an online service with an API key), knowledge base (built-in search model to install, first entries), room map, then inviting players (address, QR code and printable poster). Every step can be skipped; the setup can be resumed from the administration (**Settings › General › Guided setup**).
 5. The **Administration** tab then appears in your left sidebar.
 
-![Alanbix Dashboard](../../screenshots/alanbix_dashboard.png)
+**Signing in later**: enter your username, **Next**, then your password (the eye icon shows it). A session lasts 3 days and renews with use; when it ends, the app returns to the sign-in screen.
+
+![Alanbix Dashboard](../../screenshots/en/dashboard.png)
 
 ---
 
 ## ⚙️ Step 3: Global Configuration
 
-Go to **Administration > Settings** (Paramètres):
+Go to **Administration › Settings**. Changes are saved automatically:
 
 * **LAN Name**: Personalize the application header (e.g., *Retro LAN 2026*).
 * **Team Scoring Mode**:
   * *Raw*: Sum of all members' points.
   * *Weighted*: Sum divided by team size (prevents penalizing smaller teams).
-* **System Prompt**: Personalize the AI's personality (e.g., *"You are the official commentator for a fun LAN party"*).
+* **Assistant prompts** (**Settings › AI Settings › Prompts**): Customize the AI personality (e.g. *"You are the official commentator of a fun LAN party"*).
 
 ---
 
@@ -136,20 +138,20 @@ Go to **Administration > Settings** (Paramètres):
 
 For features to be usable, the administrator must prepare the environment:
 
-1. **Adding Games**: In **Administration > Games**, create entries for the games featured in your tournaments. Use the integrated SearXNG search to automatically download game covers directly to your server for offline-first capabilities.
-2. **Room Plan**: In **Administration > Room Plan**, arrange seats, tables, and other logistical furniture via Drag & Drop. Players can then click on these seats to reserve their physical location in the room.
-3. **AI Activation**: In **Administration > Settings**, add your Ollama or OpenAI-compatible instance URL (e.g., `http://192.168.1.100:11434` for Ollama, or `http://192.168.1.100:8080/v1` for OpenAI/LocalAI), assign it a model, and verify its status (🟢 Connected).
+1. **Adding Games**: In **Administration › Tournaments & Games**, **Library** section, click **Add a Game**. Use the built-in SearXNG search to download game covers directly to your server, for offline-first use.
+2. **Room Plan**: Open the **Room Map** page, then **Edit**: add tables (with their seats) and elements (door, bar, toilets, Wi-Fi access point…), move them, then **Save**. Players can then click these seats to reserve their physical spot in the room.
+3. **AI Activation**: In **Administration › Settings › AI Settings › Servers**, add the URL of your Ollama or OpenAI-compatible instance (e.g. `http://192.168.1.100:11434` for Ollama, or `http://192.168.1.100:8080/v1` for OpenAI/LocalAI), assign a model and check its status.
 
 ---
 
 ## 🏆 Step 5: Launching the First Tournament
 
-1. Go to **Administration > Tournaments > New Tournament**.
+1. Go to **Administration › Tournaments & Games**, **Create a tournament** block.
 2. Follow the 3-step wizard:
-   * **General**: Name the tournament, associate the pre-configured game.
-   * **Format**: Choose whether it is solo or team-based (and define the team size).
-   * **Bracket & Points**: Choose the bracket format (e.g., *Double Elimination*) and configure points for wins, participation, scores, etc.
-3. The created tournament will appear with the **OPEN** status. Your players can register directly from their dashboard!
+   * **General**: Name the tournament, link the pre-configured game.
+   * **Format**: Choose individual or team play (and set the team size).
+   * **Format and points**: Choose the format (e.g. *Double Elimination*) and set the points awarded.
+3. The created tournament then appears with status **OPEN**. Your players can sign up from the **Tournaments** page!
 
 ---
 

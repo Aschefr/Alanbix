@@ -10,10 +10,14 @@ Alanbix manages chat streams via persistent WebSocket connections (`/ws` handled
 
 ### 1. Peer-to-Peer Private Chat (P2P)
 * By clicking on a player profile from the directory, a direct messaging space opens.
-* Messages are stored in the SQLite `messages` table.
+* Messages are stored in the SQLite `private_messages` table.
 * The system automatically generates red notification badges with an unread message count next to the sender's name in the directory and on the global messaging tab in the sidebar.
 
-![Directory and Chat](../../../screenshots/alanbix_joueurs.png)
+![Player directory](../../../screenshots/en/players.png)
+
+![Private conversation](../../../screenshots/en/messages.png)
+
+* **The Messages tab**: With an unread message, it opens the conversation (private or team) holding the newest one. On a phone, a second tap switches between the conversation and the contact list.
 
 ### 2. Deterministic Team Group Channels (G-53)
 For team tactics and LAN community needs, Alanbix integrates a group chat system with channel keys calculated deterministically server-side:
@@ -34,6 +38,16 @@ Both direct and group chats enjoy the full modern feature set of the public chat
 * **Sound Alerts & Profanity Filter**: Gentle Web Audio chime on direct `@username` mention (with header mute toggle `🔊`/`🔇`) and client-side courtesy shield (`🛡️`/`👁️`) masking offensive words (`f**k`).
 * **Privacy & AI Exclusion**: The `@Alanbix` bot is strictly confined to the public chat and never participates in private or team chats.
 
+### 4. Public Room Chat & AI Mascot (Dashboard)
+The main Dashboard includes a public chat open to all players and organisers of the LAN:
+* **Room & Map Interaction**: When a seated player sends a message, their seat lights up on the interactive map and a chat bubble rises towards the chat panel.
+* **Live typing indicator**: Shows who is typing, including `@Alanbix` preparing an answer, with rotating humorous lines; it expires after 5-6 seconds of inactivity.
+* **Reactions**: Hover bar, the 4 recently used emojis (kept in `localStorage`), a full picker with search and tabs (Recent, All, Gaming & LAN, Gamer Tags such as `GG`, `EZ`, `WP`, Smileys, Gestures, Symbols), and clickable counters updated live.
+* **Replies & Quotes**: A `↩️ Reply` button opens a preview bar above the input (cancel with `✕` or `Esc`); the sent message carries a clickable quote that scrolls back to the original.
+* **Pinned Message**: A discreet banner under the chat header for important announcements, controlled by organisers; a click scrolls to the original message.
+* **Mention Sounds**: A soft chime generated with the Web Audio API (100% offline), only when a player is mentioned directly (`@MyName`), with a toggle in the chat header.
+* **Media & Moderation**: Images and GIFs (up to 8 MB), OpenGraph link previews, an unread line with a quick return button, and moderation settings (slowmode, banned words, anti-flood).
+
 ### `@Alanbix` in the public chat
 Mention `@Alanbix`, or reply (`↩`) to one of its messages, and the AI assistant joins the conversation with the personality set by the administrator. Its answer is shown as a reply to the player's message.
 * **It follows the conversation**: it reads the last 20 messages (last 30 minutes) with who speaks and whom each message replies to, plus the older messages the question replies to. Its own answers are marked so it does not repeat itself.
@@ -47,14 +61,17 @@ Mention `@Alanbix`, or reply (`↩`) to one of its messages, and the AI assistan
 
 ## 🔔 Notification Center (Real-Time)
 
-The bell icon in the sidebar opens the notification center (SQLite `notifications` table).
+The **Notifications** page of the menu (or the bell on a phone) opens the notification center (SQLite `notifications` table).
 
-![Notification Center](../../../screenshots/alanbix_notifications.png)
+![Notification Center](../../../screenshots/en/notifications.png)
 
 ### Notification Types
-1. **Admin Notifications (`admin`)**: Sent when an organizer publishes a general announcement or manually replies to a technical chat.
-2. **AI Tournament Notifications (`tournament_ia`)**: Animation messages written by the local LLM assistant at the closing of a tournament (see below).
-3. **Award Notifications (`award`)**: Alerts pushed in real-time when a player inherits or is dethroned from an automatic distinction (gift icon 🎁).
+1. **Match ready (`match_ready`)**: Your opponent is known and the match can start. This text shows in each player's language, like the AI failure alert for admins; the other types stay in the language they were written in.
+2. **Announcements and admin messages (`admin_message`)**: Sent when an organiser publishes a general announcement or replies by hand in a conversation.
+3. **Tournament closing (`tournament_closed`)**: A message written by the assistant when a tournament closes (see below).
+4. **Awards (`award`)**: Sent when an administrator publishes the awards.
+
+Each notification can be archived (**Archive** tab), and **Mark all as read** or **Archive all** act on the whole list.
 
 ### Match Summaries by AI
 Upon closing a tournament, for each participant, the server adds an AI generation task to the queue.

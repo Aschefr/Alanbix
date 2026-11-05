@@ -1,7 +1,7 @@
 # 🎮 Alanbix — Système de Gestion de LAN Party
 
 <p align="center">
-  <img src="screenshots/alanbix_dashboard.png" alt="Alanbix Dashboard" width="800"/>
+  <img src="screenshots/fr/dashboard.png" alt="Alanbix Dashboard" width="800"/>
 </p>
 
 **Alanbix** (A-LAN-bix) est un système de gestion de LAN party auto-hébergé de nouvelle génération, assisté par l'IA.  
@@ -44,7 +44,7 @@ Nommé en clin d'œil à *Alambix* de l'univers d'Astérix — une machinerie co
 - **Avatars personnalisés** : Importation d'une image de profil avec un mini-éditeur visuel intégré (zoom, rognage/déplacement, couleur de fond pour les PNG transparents et choix de la forme de l'avatar : cercle, carré arrondi ou carré pur). La forme choisie est automatiquement propagée à travers toutes les pages du projet (sidebar, chats, brackets, plan 2D, etc.).
 
 ### 📽️ Mode Spectateur (Projecteur)
-- **Cycle automatique 4 vues** : Leaderboard → Équipes → Plan de salle → Bracket.
+- **Cycle automatique 5 vues** : Classement → Équipes → Plan de salle → Bracket → Infos.
 - **Fonds d'écran cinématiques** : Images de jeux en plein écran avec effet de vignetage.
 - **Contrôles clavier** : ← → (naviguer), Espace (pause/reprendre).
 - **Actualisation WebSocket** : Rafraîchissement automatique au moindre changement de score.
@@ -99,68 +99,81 @@ Nommé en clin d'œil à *Alambix* de l'univers d'Astérix — une machinerie co
 
 **Dashboard**  
 Le hub central pour tous les participants. Les joueurs peuvent y voir rapidement le classement général, la position de leur équipe, les tournois actifs et les annonces récentes. L'interface propose un design épuré inspiré du glassmorphism.
-![Dashboard](screenshots/alanbix_dashboard.png)
+![Dashboard](screenshots/fr/dashboard.png)
 
 **Page d'Informations**  
 Une page gérée en Markdown où les organisateurs peuvent afficher les horaires, les règles, le code WiFi et les liens importants. Elle défile également automatiquement sur le projecteur !
-![Information Page](screenshots/alanbix_informations.png)
+![Information Page](screenshots/fr/info.png)
 
 **Arbres de Tournois (Brackets)**  
 Qu'il s'agisse d'un duel tendu en Double Élimination ou d'un match chaotique à 16 joueurs en Chacun pour soi (FFA), la vue du bracket se met à jour en temps réel. Les joueurs peuvent facilement suivre qui avance vers la grande finale.
-![Double Elimination](screenshots/alanbix_tournois_double_elimination.png)
-![FFA Tournament](screenshots/alanbix_tournois_FFA.png)
+![Double Elimination](screenshots/fr/tournament_double_elim.png)
+![FFA Tournament](screenshots/fr/tournament_ffa.png)
 
 **Annuaire des Joueurs & Messagerie Privée**  
 Besoin de trouver quelqu'un ou de vérifier ses scores ? La page des joueurs regroupe tout le monde par équipe. Cliquer sur un joueur ouvre un chat privé en direct, parfait pour organiser vos matchs ou trouver votre prochain adversaire.
-![Players Directory](screenshots/alanbix_joueurs.png)
+![Players Directory](screenshots/fr/players.png)
 
 **Centre de Notifications & Profils**  
 Ne manquez rien. Lorsqu'un tournoi se termine, l'IA génère un message récapitulatif personnalisé. Les administrateurs peuvent également envoyer des notifications directes, et toutes les alertes non lues sont suivies avec un système de badges unifié. Les joueurs peuvent également consulter le détail complet de leurs points sur leur profil.
-![Notifications](screenshots/alanbix_notifications.png)
-![Player Profile](screenshots/alanbix_profile_joueur.png)
+![Notifications](screenshots/fr/notifications.png)
+![Player Profile](screenshots/fr/profile.png)
 
 **Plan de Salle Interactif**  
 Fini de tourner en rond pour trouver sa place. Les joueurs peuvent zoomer et se déplacer sur la carte interactive pour localiser leur bureau assigné ou voir où sont assis leurs amis.
-![Room Plan Zoom](screenshots/alanbix_plan_salle_zoom.png)
+![Room Plan Zoom](screenshots/fr/room_plan_zoom.png)
 
 ### 🤖 L'Assistant IA
 
 **Le Compagnon Intelligent de la LAN**  
 Propulsé par une instance locale d'Ollama, l'assistant IA sait tout sur la LAN. Il peut répondre aux questions sur le planning, le classement actuel ou les règles d'un jeu spécifique, directement depuis l'interface de chat.
-![AI Chat](screenshots/alanbix_assistant_ia_question.png)
-![AI Chat Response](screenshots/alanbix_assistant_ia_reponse.png)
+![AI Chat](screenshots/fr/ai_assistant.png)
 
 ### 📽️ Mode Projecteur (Spectateur)
 
 **Rotation Automatique Mains-libres**  
-Conçu pour tourner sur un grand écran ou un vidéoprojecteur, ce mode fait défiler automatiquement le classement, le plan de salle et les arbres de tournois en cours toutes les quelques secondes. Il intègre de superbes fonds d'écran de jeux et force le thème sombre pour une lisibilité optimale dans les pièces sombres.
-![Spectator Leaderboard](screenshots/alanbix_projecteur_leaderboard.png)
-![Spectator Bracket](screenshots/alanbix_projecteur_tournois_en_cours.png)
+Conçu pour tourner sur un grand écran ou un vidéoprojecteur, ce mode fait défiler automatiquement le classement, le plan de salle, les arbres de tournois en cours et les infos toutes les quelques secondes, avec les images des jeux en fond d'écran. Il suit le thème clair ou sombre choisi.
+![Spectator Leaderboard](screenshots/fr/spectator_leaderboard.png)
+![Spectator Bracket](screenshots/fr/spectator_bracket.png)
+![Spectator Map](screenshots/fr/spectator_map.png)
+
+### 📱 Sur Téléphone
+
+**Tout dans la poche**
+Sur téléphone, l'interface passe à cinq onglets en bas de l'écran : accueil avec ses matchs à jouer, tournois, messages, assistant et profil.
+<p>
+  <img src="screenshots/fr/mobile_dashboard.png" alt="Accueil sur téléphone" width="260"/>
+  <img src="screenshots/fr/mobile_tournament.png" alt="Tournoi sur téléphone" width="260"/>
+  <img src="screenshots/fr/mobile_messages.png" alt="Messages sur téléphone" width="260"/>
+</p>
 
 ### 🛡️ Administration & Contrôles
 
+**Régie**
+L'onglet par défaut rassemble ce qui demande l'attention de l'organisateur pendant la LAN : appels à l'aide, scores à saisir, modération rapide et tournois en cours.
+![Admin Live Control](screenshots/fr/admin_regie.png)
+
 **Gestion des Tournois**  
 Les administrateurs ont le contrôle total sur le cycle de vie du tournoi : brouillon, lancement, scores et clôture. Ils peuvent également configurer des prompts IA personnalisés pour générer des résumés de fin de match épiques ou hilarants pour les participants.
-![Admin Tournaments](screenshots/alanbix_administration_tournois.png)
-![Admin Tournament AI Prompt](screenshots/alanbix_administration_tournois_prompt_ia.png)
+![Admin Tournaments](screenshots/fr/admin_tournaments.png)
 
 **Éditeur de Plan de Salle**  
 Une interface drag-and-drop permettant aux organisateurs de cartographier l'espace physique. Créez des tables, ajoutez des sièges et assignez les joueurs en quelques clics.
-![Room Plan Editor](screenshots/alanbix_plan_salle_editeur.png)
+![Room Plan Editor](screenshots/fr/room_plan_editor.png)
 
 **Bibliothèque de Jeux**  
 Gerez les jeux joues pendant la LAN. Le systeme peut recuperer automatiquement des jaquettes de haute qualite en configurant votre instance SearXNG privee dans les parametres d'administration, et les stocke localement pour un fonctionnement garanti hors-ligne.
-![Admin Games](screenshots/alanbix_administration_jeux.png)
+![Admin Games](screenshots/fr/admin_games.png)
 
 **Modération des Joueurs**  
 Les admins peuvent gérer les comptes, réinitialiser les mots de passe et définir les affiliations d'équipes. Besoin d'intervenir ? Les administrateurs peuvent même prendre le contrôle d'une conversation IA pour parler directement à un joueur si le robot s'embrouille !
-![Admin Players](screenshots/alanbix_administration_joueurs.png)
-![Admin AI Takeover](screenshots/alanbix_administration_conversation_ia_prendre_la_main.png)
+![Admin Players](screenshots/fr/admin_players.png)
+![Admin AI Takeover](screenshots/fr/admin_conversations.png)
 
 **Paramètres IA & Globaux**  
 Configurez les instances Ollama, ajustez les limites de contexte et gérez les paramètres globaux du système. Le tableau de bord inclut un widget d'état en direct pour surveiller la charge et la disponibilité de l'IA.
-![Admin Settings](screenshots/alanbix_administration_paramètres.png)
-![Admin AI Settings](screenshots/alanbix_administration_assistant_ia.png)
+![Admin Settings](screenshots/fr/admin_settings.png)
+![Admin AI Settings](screenshots/fr/admin_ai_settings.png)
 
 ---
 
@@ -172,7 +185,7 @@ Configurez les instances Ollama, ajustez les limites de contexte et gérez les p
 
 ### 1. Installation en Production (Recommandé pour Serveurs, RPi, VPS)
 
-Pour déployer Alanbix sur un serveur (Raspberry Pi, VPS, serveur local dédié), nous utilisons l'**image standalone unifiée** : elle intègre l'API FastAPI et les fichiers statiques du frontend sur un port unique (`41481`), ne requiert aucun processus Node.js, et consomme très peu de ressources (~80 Mo de RAM) :
+Pour déployer Alanbix sur un serveur (Raspberry Pi, VPS, serveur local dédié), nous utilisons l'**image standalone unifiée** : elle intègre l'API FastAPI et les fichiers statiques du frontend sur un port unique (`41481`) et ne requiert aucun processus Node.js :
 
 1. Récupérez le fichier de composition de production :
    ```bash
@@ -227,7 +240,7 @@ Si vous possédez une instance Ollama ou un endpoint compatible OpenAI (LocalAI,
 - **Compatibles OpenAI (LocalAI, LM Studio, vLLM, etc.)** : Utilisez l'URL se terminant par `/v1` (ex: `http://192.168.1.100:8080/v1`).
 - **Services en ligne compatibles OpenAI (OpenAI, Mistral, OpenRouter, Groq…)** : indiquez l'adresse `/v1` du service et sa **clé d'API** ; la clé reste sur le serveur.
 
-Configurez et gérez vos instances IA directement dans l'interface de l'application : **Administration > IA & Paramètres**.
+Configurez et gérez vos instances IA directement dans l'interface de l'application : **Administration › Réglages › Intelligence Artificielle**.
 
 ---
 
@@ -275,7 +288,7 @@ Alanbix/
 - **Offline-first** : Fonctionne sans aucune connexion internet (les jaquettes de jeux sont auto-téléchargées localement via SearXNG).
 - **Optimisation Matérielle** : Animations et transitions CSS "GPU-friendly", spécifiquement réglées pour réduire les couches de compositing.
 - **Base de données monolithique** : SQLite — ultra-portable, aucune configuration requise.
-- **Cockpit UI Sombre** : Design moderne avec Glassmorphism, mesh gradients et transitions fluides.
+- **Thèmes clair et sombre** : Le thème suit l'appareil, ou le choix du joueur dans ses paramètres.
 
 ---
 

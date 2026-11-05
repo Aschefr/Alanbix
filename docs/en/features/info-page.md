@@ -2,7 +2,7 @@
 
 Alanbix's information page (route `/dashboard/info`) centralizes announcements, schedules, LAN rules, and useful download links.
 
-![Information Page](../../../screenshots/alanbix_informations.png)
+![Information Page](../../../screenshots/en/info.png)
 
 ---
 
@@ -10,7 +10,7 @@ Alanbix's information page (route `/dashboard/info`) centralizes announcements, 
 
 Administrators use the app's own Markdown editor (`MarkdownEditor.svelte`): a plain text field, a toolbar (bold, italic, heading, quote, lists, link, image, table, divider; Ctrl+B and Ctrl+I shortcuts) and a **Preview** tab showing exactly what players will see. It uses no third-party library and downloads nothing.
 * This editor features two separate input tabs:
-  1. **Main Content (Players)**: Displays on the dashboard of connected participants (schedule, rules, WiFi codes).
+  1. **Main Content (Players)**: Displays on the **Infos** page of logged-in participants (schedule, rules, WiFi codes).
   2. **Projector Content**: Displays only during the automatic scrolling of **Spectator Mode** (e.g., key matches of the evening, meal times), also rendered as Markdown.
 * Saving is done by writing to the `system_config` table under the respective keys `info_page_content` and `info_spectator_content`.
 
@@ -25,6 +25,7 @@ In a local LAN context, organizers frequently share network folders (e.g., to di
   1. The Markdown parser of the Info page analyzes the text and automatically detects expressions corresponding to Windows directory paths.
      * Network UNC paths: `\\server\share\folder`
      * Local drive paths: `C:\Games\Alanbix`
+     * A folder with spaces is recognised only when another one follows (`C:\Program Files\Steam`), since nothing shows where a path ends in a sentence. For a last folder with spaces, write the path alone between backticks. Other code keeps the text as typed.
   2. These texts are automatically encapsulated in a visual component integrating a folder icon (📂).
   3. **Quick Copy Button**: Left-clicking one of these paths automatically copies the address to the user's clipboard and displays a temporary notification tooltip *"Path copied!"*. The player only needs to paste the path (`Ctrl+V`) into their Windows File Explorer to directly access the LAN's network folder.
 
@@ -37,14 +38,13 @@ In a local LAN context, organizers frequently share network folders (e.g., to di
 In addition to network links, Alanbix integrates a dedicated physical file manager allowing organizers to host useful files (torrents, game patches, network configuration utilities, `.cfg` files) directly on the server.
 
 ### Administration Interface (Upload & Management)
-From the **Administration > Files** tab:
+From the **Infos** page, **Useful Files** section (administrators):
 * **Select file / Drag & Drop Button**: Allows choosing a file on the computer (limited to 100 MB max per file).
-* **"Upload" Button (🚀)**: Sends the file to the server. The backend applies a `_sanitize_filename` function to remove special characters or problematic spaces.
+* **Upload**: The file goes to the server. The backend applies the `_sanitize_filename` security function to remove special characters or problematic spaces.
 * **Anti-Overwrite Security**: If a file with the same name already exists, the server automatically adds an incremental suffix (e.g., `patch_1.exe`, `patch_2.exe`) rather than overwriting the original file.
 * **Delete Button (✕)** (next to each file): Permanently deletes the file from the server's storage.
-* **Global Purge Button ("Nuke Files")**: Deletes all uploaded files from the server in bulk (after a security confirmation).
 
 ### Player Side (Download)
-* Uploaded files automatically appear as **clickable cards** in a dedicated section at the bottom of the information page (`/dashboard/info`).
+* Uploaded files automatically appear in the **Useful Files** section, at the bottom of the **Infos** page (`/dashboard/info`).
 * Each card shows the **file name**, its **formatted size** (KB, MB), and the **modification date**.
 * Left-clicking instantly downloads the file via direct HTTP from the server's static `/data/info_files/` directory, even if the LAN is completely disconnected from the Internet.
