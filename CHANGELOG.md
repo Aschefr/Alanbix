@@ -4,8 +4,10 @@
 
 ### 🐛 Fixes
 - **Network paths on the Info page**: a path between backticks showed raw HTML, and `\\server\share` lost a backslash on screen and when copied. A path alone between backticks is now clickable like any other.
+- **Local paths on the Info page**: a path such as `C:\Games\CS2` took in the words after it, and showed raw HTML when another paragraph followed. It now stops at the end of the path, and accented folder names and `Program Files (x86)` work.
 - **Phone home page**: tournament cards always showed "Game · 0 participants". They now show the real game and player count.
-- **Texts stuck in French**: round labels on the home page and match-ready notifications now follow the player's language. Notifications received before this version stay as they were.
+- **Texts stuck in French**: round labels on the home page and match-ready notifications now follow the player's language. The same goes for the AI failure alert sent to admins. Notifications received before this version stay as they were.
+- **Translation editor**: 12 texts of the score form and of the close buttons were missing from the server's language files, so a language added by an admin could not translate them. `verify_i18n.py` now compares both copies.
 - **Prizes & Awards**: the admin page showed French award texts in any language, and Spanish LANs got French award texts. Both now use the right language.
 
 ### 📖 Documentation

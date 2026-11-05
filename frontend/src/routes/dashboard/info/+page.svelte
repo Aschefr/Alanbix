@@ -148,14 +148,20 @@
 			const safe = path.replace(/\\/g, '&#92;');
 			return `<span class="net-path" data-path="${safe}" title="${tooltip}">${safe}</span>`;
 		};
-		const unc = String.raw`\\\\[\w.\-]+(?:\\[\w.\-]+)*\\?`; // \\server\share
-		const drive = String.raw`[A-Za-z]:\\[\w.\-\s]+(?:\\[\w.\-\s]+)*\\?`; // C:\Games\Something
-		const onlyPath = new RegExp(`^(?:${unc}|${drive})$`);
+		// A path has no clear end in running text. Spaces and brackets count only in a folder
+		// followed by another one (C:\Program Files (x86)\Steam), and a final dot ends the sentence.
+		const name = String.raw`[\p{L}\p{N}_.\-]*[\p{L}\p{N}_\-]`;
+		const folders = String.raw`(?:[\p{L}\p{N}_.\- ()]+\\)*`;
+		const rest = `${folders}(?:${name})?`;
+		const unc = String.raw`\\\\${name}(?:\\${rest})?`; // \\server\share
+		const drive = String.raw`[A-Za-z]:\\${rest}`; // C:\Games\Something
+		// Between backticks the author marks where it ends, so a last name can hold spaces
+		const onlyPath = new RegExp(String.raw`^(?:\\\\|[A-Za-z]:\\)[\p{L}\p{N}_.\- ()\\]*$`, 'u');
 		// Code is split out first: a span inside it would show as raw HTML
 		const parts = text.split(/(```[\s\S]*?```|`[^`\n]+`)/);
 		return renderMarkdown(parts.map((part, i) => {
 			if (i % 2 === 0) {
-				return part.replace(new RegExp(unc, 'g'), wrap).replace(new RegExp(drive, 'g'), wrap);
+				return part.replace(new RegExp(unc, 'gu'), wrap).replace(new RegExp(drive, 'gu'), wrap);
 			}
 			const inner = part.slice(1, -1);
 			return onlyPath.test(inner) ? wrap(inner) : part;

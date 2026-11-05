@@ -154,7 +154,7 @@
 			await api.delete(`/notifications/${n.id}`);
 			notifications = notifications.filter(x => x.id !== n.id);
 		} catch (e) {
-			alert('Échec: ' + (e.message || e));
+			alert($t('notif_retry_failed', { error: e.message || e }));
 		}
 		delete retrying[n.id];
 		retrying = retrying;
