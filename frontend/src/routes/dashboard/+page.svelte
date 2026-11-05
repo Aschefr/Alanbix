@@ -869,7 +869,7 @@
 						<div class="tourney-card-info">
 							<span class="tourney-name">{tourney.name}</span>
 							<span class="tourney-sub">
-								<Icon name="gamepad" size={12} /> {tourney.game || $t('common_game_fallback')} · {$t('dash_participants_count', { count: tourney.participants_count || 0 })}
+								<Icon name="gamepad" size={12} /> {(games || []).find(g => g.id === tourney.game_id)?.name || tourney.game || $t('common_game_fallback')} · {$t('dash_participants_count', { count: tourney.participants?.length || tourney.participants_count || 0 })}
 							</span>
 						</div>
 						<span class="tourney-badge badge-{tourney.status.toLowerCase()}">
