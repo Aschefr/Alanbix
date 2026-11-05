@@ -25,6 +25,7 @@ In a local LAN context, organizers frequently share network folders (e.g., to di
   1. The Markdown parser of the Info page analyzes the text and automatically detects expressions corresponding to Windows directory paths.
      * Network UNC paths: `\\server\share\folder`
      * Local drive paths: `C:\Games\Alanbix`
+     * A path alone between backticks is detected too; other code keeps the text as typed.
   2. These texts are automatically encapsulated in a visual component integrating a folder icon (📂).
   3. **Quick Copy Button**: Left-clicking one of these paths automatically copies the address to the user's clipboard and displays a temporary notification tooltip *"Path copied!"*. The player only needs to paste the path (`Ctrl+V`) into their Windows File Explorer to directly access the LAN's network folder.
 

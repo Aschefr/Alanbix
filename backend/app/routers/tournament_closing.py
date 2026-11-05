@@ -84,7 +84,7 @@ async def close_tournament(
     db.commit()
     
     try:
-        from .users import sync_automatic_awards
+        from .awards import sync_automatic_awards
         await sync_automatic_awards(db)
     except Exception as e:
         print(f"Error syncing awards on close: {e}")
@@ -159,7 +159,7 @@ async def reopen_tournament(
     db.commit()
 
     try:
-        from .users import sync_automatic_awards
+        from .awards import sync_automatic_awards
         await sync_automatic_awards(db)
     except Exception as e:
         print(f"Error syncing awards on reopen: {e}")

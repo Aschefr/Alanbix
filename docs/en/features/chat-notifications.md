@@ -66,7 +66,7 @@ The **Notifications** page of the menu (or the bell on a phone) opens the notifi
 ![Notification Center](../../../screenshots/en/notifications.png)
 
 ### Notification Types
-1. **Match ready (`match_ready`)**: Your opponent is known and the match can start.
+1. **Match ready (`match_ready`)**: Your opponent is known and the match can start. This text shows in each player's language; the other types stay in the language they were written in.
 2. **Announcements and admin messages (`admin_message`)**: Sent when an organiser publishes a general announcement or replies by hand in a conversation.
 3. **Tournament closing (`tournament_closed`)**: A message written by the assistant when a tournament closes (see below).
 4. **Awards (`award`)**: Sent when an administrator publishes the awards.

@@ -1438,7 +1438,7 @@ def _tool_get_player_match_history(db, models, args: dict, user_id: int) -> str:
 
 def _tool_get_awards(db, models) -> str:
     """Get active awards and calculations."""
-    from .routers.users import _compute_awards_suggestions
+    from .routers.awards import _compute_awards_suggestions
     
     config_lang = db.query(models.SystemConfig).filter(models.SystemConfig.key == "lan_default_language").first()
     lang = config_lang.value if config_lang else "fr"

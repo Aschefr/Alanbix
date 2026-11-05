@@ -9,6 +9,7 @@
 	import TutorialOverlay from '$lib/components/TutorialOverlay.svelte';
 	import { page } from '$app/stores';
 	import { currentLang, availableLanguages, lanMultilingual, loadLocale, flagMap, t, initI18n, refreshEventName, eventName } from '$lib/i18nStore';
+	import { localizedNotif } from '$lib/notifText';
 	import { handleIncomingPush, getOrRegisterDeviceToken, startNativePushService, stopNativePushService, revokeCurrentDeviceToken, getNativePushStatus, requestNativeNotificationPermission, checkAndHandlePendingDeepLink, getNotificationPreferences } from '$lib/push';
 	import { resolveMediaUrl, isCapacitorNative, getCustomServerUrl, setCustomServerUrl } from '$lib/config';
 	import ServerConfigModal from '$lib/components/ServerConfigModal.svelte';
@@ -323,9 +324,10 @@
 						}, (url) => goto(url));
 					}
 					if (msg.type === 'push') {
-						const shown = handleIncomingPush(msg, (url) => goto(url));
+						const text = localizedNotif(msg.category, msg.data, msg.title, msg.body, get(t));
+						const shown = handleIncomingPush({ ...msg, ...text }, (url) => goto(url));
 						if (shown && msg.category !== 'private_message' && msg.category !== 'team_message') {
-							showGlobalToast(`${msg.title} : ${msg.body}`, 'info', msg.link || '/dashboard/notifications');
+							showGlobalToast(`${text.title} : ${text.body}`, 'info', msg.link || '/dashboard/notifications');
 						}
 					}
 				}
