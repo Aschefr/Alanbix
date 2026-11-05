@@ -1,5 +1,11 @@
 # 📱 Application Mobile Compagnon & Paramètres (Android & iOS)
 
+<p>
+  <img src="../../../screenshots/fr/mobile_dashboard.png" alt="Accueil sur téléphone" width="260"/>
+  <img src="../../../screenshots/fr/mobile_tournament.png" alt="Tournoi sur téléphone" width="260"/>
+  <img src="../../../screenshots/fr/mobile_messages.png" alt="Messages sur téléphone" width="260"/>
+</p>
+
 L'application mobile **Alanbix Compagnon** permet aux participants et organisateurs d'une LAN party de suivre leurs tournois, interagir avec la communauté et recevoir leurs alertes directement depuis leur smartphone, sans dépendre exclusivement de leur PC de jeu.
 
 ---
@@ -7,7 +13,7 @@ L'application mobile **Alanbix Compagnon** permet aux participants et organisate
 ## 1. Ergonomie Mobile « Player-First »
 
 Sur les écrans de smartphone ou tablettes (`<= 900px`), l'interface s'adapte automatiquement :
-- **Masquage de la colonne latérale PC** et des fonctions d'administration ou de projection pour préserver l'espace utile.
+- **Masquage de la colonne latérale PC** et du Projecteur pour préserver l'espace utile. L'administration reste accessible par son bouton dans la barre supérieure, pour les administrateurs.
 - **Barre supérieure compacte** :
   - Logo et nom de l'événement LAN.
   - Raccourcis vers les infos de la LAN (📋), le plan de salle (📍), le centre de notifications (🔔) et l'écran des paramètres (⚙️).
@@ -55,4 +61,6 @@ L'écran des paramètres rassemble l'ensemble des réglages locaux de l'applicat
 - **Serveur LAN** : affichage de l'URL connectée, de la latence (ping ms), des SSIDs Wi-Fi déclarés et raccourci pour changer de serveur.
 - **Apparence & Langue** : bascule de thème clair/sombre et sélection immédiate de la langue (`fr`, `en`, `es`).
 - **Compte** : statut de session et déconnexion sécurisée (avec révocation du jeton d'appareil enregistré sur le serveur).
+
+![Écran des paramètres](../../../screenshots/fr/settings.png)
 

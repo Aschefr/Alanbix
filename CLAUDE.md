@@ -69,6 +69,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 - Les guides se trouvent sous `docs/fr/` (guide de démarrage, moteur de tournois, classements, plan de salle, assistant ia, messagerie, page d'infos et administration).
 - Si une modification affecte des boutons, des flux utilisateur ou des configurations système, mettez à jour le fichier de fonctionnalité correspondant et assurez-vous que les captures d'écran associées dans `/screenshots` restent fidèles à l'interface.
+- Les captures existent en français et en anglais (`screenshots/fr`, `screenshots/en`). Pour les refaire, avec des données inventées et sans toucher au serveur de développement : `python scripts/docs_demo/run.py fr`, puis `python scripts/docs_demo/capture.py fr` (idem avec `en`).
 - Le Changelog (`CHANGELOG.md`) doit **toujours** être rédigé en anglais pour les nouvelles versions.
 
 ---

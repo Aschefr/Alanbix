@@ -6,7 +6,7 @@ Alanbix propose un système complet pour suivre les performances individuelles e
 
 ## 🏆 Le Leaderboard Global Individuel
 
-Accessible depuis l'onglet principal du Dashboard. Il liste les joueurs triés par ordre décroissant de leurs points accumulés dans la table `users`.
+Accessible depuis l'onglet **Classement** de l'accueil et sur le Projecteur. Il liste les joueurs triés par points : les points acquis (colonne `points` de la table `users`), auxquels s'ajoutent les points provisoires des tournois en cours.
 
 ### Les Indicateurs de Progression (↑↓ NEW)
 Pour rendre le classement dynamique, le frontend mémorise le dernier état du leaderboard dans la variable `previousLeaderboard` (persistance temporaire en mémoire locale).
@@ -23,7 +23,7 @@ Pour rendre le classement dynamique, le frontend mémorise le dernier état du l
 Ce classement groupe les joueurs par la valeur de leur colonne `User.team_name` (leur équipe globale déclarée sur leur profil). Les lignes d'équipes sont colorées en violet (`var(--primary-purple)`) pour se distinguer du classement individuel.
 
 ### Les 2 Modes de Calcul de Score
-L'administrateur peut choisir le mode de calcul depuis l'onglet **Administration > Paramètres** (clé de configuration SQLite `team_scoring_mode`) :
+L'administrateur peut choisir le mode de calcul depuis **Administration › Réglages › Général** (clé de configuration SQLite `team_scoring_mode`) :
 
 1. **Mode Brut (`raw`)** :
    $$\text{Score Équipe} = \sum \text{Points de tous les membres}$$
@@ -54,30 +54,32 @@ Depuis leur page Profil, les joueurs peuvent uploader leur propre avatar. Un min
   * **Carré** (carré pur sans arrondi)
 * **Propagation globale** : La forme choisie par l'utilisateur est stockée en base de données et appliquée dynamiquement sur l'ensemble de l'interface de l'application (Sidebar, Leaderboard, Boîtes de chat, Brackets de Tournois, Plan de salle 2D, Mode Projecteur et Panel Admin).
 
-![Profil Joueur](../../../screenshots/alanbix_profile_joueur.png)
+![Profil Joueur](../../../screenshots/fr/profile.png)
 
 ---
 
 ## 🎁 Le Système de Distinctions Automatiques (Awards)
 
-À chaque clôture de tournoi, le serveur exécute un pipeline d'analyse statistique sur l'ensemble de la base de données SQLite pour attribuer ou réassigner automatiquement 12 trophées spécifiques (table `awards`).
+À chaque clôture de tournoi, le serveur recalcule 12 distinctions à partir de toutes les données de la LAN (table `awards`). Elles se consultent dans **Administration › Prix & Distinctions**, où **Envoyer les prix aux joueurs** les notifie aux gagnants et les affiche sur leur profil.
+
+![Prix et distinctions](../../../screenshots/fr/admin_awards.png)
 
 ### Les 12 Trophées Gérés
-1. **Premier de la LAN** : Joueur occupant la 1ère place du classement général.
-2. **Équipe première de la LAN** : Équipe occupant la 1ère place du classement équipes.
-3. **Le Bourreau** : Joueur ayant infligé le plus grand nombre de défaites (rounds de brackets perdus) aux autres joueurs.
-4. **Le Roi du Coop** : Joueur comptabilisant le plus de victoires dans des tournois joués en mode Équipe.
-5. **Loup Solitaire** : Joueur comptabilisant le plus de victoires dans des tournois joués en mode Solo (1v1).
+1. **Roi de la LAN** : Joueur occupant la 1ère place du classement général.
+2. **L'Union fait la Force** : Équipe occupant la 1ère place du classement équipes.
+3. **Le Bourreau des Brackets** : Joueur ayant infligé le plus grand nombre de défaites aux autres joueurs.
+4. **Le Roi du Coop** : Joueur comptabilisant le plus de victoires dans des tournois joués en équipe.
+5. **Le Loup Solitaire** : Joueur comptabilisant le plus de victoires dans des tournois joués en solo.
 6. **Le Marathonien** : Joueur ayant disputé le plus grand nombre total de matchs, tous tournois confondus.
-7. **Gâchette Facile** : Joueur ayant le score cumulé (buts/points marqués dans les matchs) le plus élevé.
-8. **La Passoire** : Joueur ayant le score cumulé le plus bas parmi les matchs joués.
-9. **Chouchou des BYE** : Joueur ayant bénéficié du plus grand nombre de BYE (trous dans le bracket l'ayant fait avancer sans jouer).
-10. **Le Suisse** : Joueur ayant obtenu le plus grand nombre de matchs nuls (draws).
-11. **Survivant du Losers Bracket** : Joueur ayant disputé le plus de matchs dans le Losers Bracket.
-12. **L'Important c'est de participer** : Joueur ayant obtenu le moins de victoires parmi ceux ayant disputé au moins 2 matchs de tournoi.
+7. **La Gâchette Facile** : Joueur ayant réalisé le score maximal le plus élevé sur une seule partie.
+8. **La Passoire de la LAN** : Joueur ayant encaissé le plus de points ou de buts.
+9. **Le Chouchou des BYE** : Joueur ayant bénéficié du plus grand nombre de BYE.
+10. **Le Suisse** : Joueur ayant obtenu le plus grand nombre de matchs nuls.
+11. **Le Survivant du LB** : Joueur ayant disputé le plus de matchs dans le tableau de repêchage.
+12. **L'Important c'est de Participer** : Joueur ayant le moins bon taux de victoires parmi ceux ayant disputé au moins 2 matchs.
 
 ### Notifications et Personnalisation
-* **Notification Temps Réel** : Lorsqu'un trophée change de mains suite à la clôture d'un tournoi, le serveur pousse instantanément une notification WebSocket (icône 🎁) au joueur qui vient de remporter la distinction.
+* **Notification** : Après l'envoi depuis l'administration, chaque gagnant reçoit une notification (type `award`) qui décrit sa distinction.
 * **Personnalisation Admin** : Les titres et descriptions des distinctions peuvent être édités dans l'administration. Les descriptions supportent des variables dynamiques interpolées par le serveur lors de l'affichage (ex: `{points}`, `{wins}`, `{matches_played}`).
 
 ---

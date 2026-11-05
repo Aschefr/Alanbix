@@ -2,7 +2,7 @@
 
 La page d'informations d'Alanbix (route `/dashboard/info`) centralise les annonces, plannings, règlements de la LAN et liens de téléchargements utiles.
 
-![Page d'Informations](../../../screenshots/alanbix_informations.png)
+![Page d'Informations](../../../screenshots/fr/info.png)
 
 ---
 
@@ -10,7 +10,7 @@ La page d'informations d'Alanbix (route `/dashboard/info`) centralise les annonc
 
 Les administrateurs disposent de l'éditeur Markdown de l'application (`MarkdownEditor.svelte`) : une zone de texte simple, une barre d'outils (gras, italique, titre, citation, listes, lien, image, tableau, séparateur ; raccourcis Ctrl+B et Ctrl+I) et un onglet **Aperçu** qui affiche exactement le rendu vu par les joueurs. Il n'utilise aucune bibliothèque tierce et ne télécharge rien.
 * Cet éditeur comporte deux onglets de saisie distincts :
-  1. **Contenu Principal (Joueurs)** : S'affiche sur le tableau de bord des participants connectés (planning, règlements, codes WiFi).
+  1. **Contenu Principal (Joueurs)** : S'affiche sur la page **Infos** des participants connectés (planning, règlements, codes WiFi).
   2. **Contenu Projecteur** : S'affiche uniquement lors du défilement automatique du **Mode Spectateur** (ex: les matchs clés de la soirée, les horaires des repas), lui aussi rendu en Markdown.
 * La sauvegarde s'effectue en écrivant dans la table `system_config` sous les clés respectives `info_page_content` et `info_spectator_content`.
 
@@ -37,14 +37,13 @@ Dans le cadre d'une LAN locale, il est fréquent que les organisateurs partagent
 En complément des liens réseau, Alanbix intègre un gestionnaire de fichiers physiques dédié permettant aux organisateurs d'héberger directement sur le serveur des fichiers utiles (torrents, patchs de jeux, utilitaires de configuration réseau, fichiers `.cfg`).
 
 ### Interface d'Administration (Upload & Gestion)
-Depuis l'onglet **Administration > Fichiers** :
+Depuis la page **Infos**, section **Fichiers utiles** (administrateurs) :
 * **Bouton Sélectionner un fichier / Glisser-Déposer** : Permet de choisir un fichier sur son ordinateur (limité à 100 Mo max par fichier).
-* **Bouton "🚀 Téléverser"** : Envoie le fichier au serveur. Le backend applique la fonction de sécurisation `_sanitize_filename` pour supprimer les caractères spéciaux ou espaces problématiques.
+* **Envoi** : Le fichier part au serveur. Le backend applique la fonction de sécurisation `_sanitize_filename` pour supprimer les caractères spéciaux ou espaces problématiques.
 * **Sécurité Anti-Écrasement** : Si un fichier avec le même nom existe déjà, le serveur ajoute automatiquement un suffixe incrémental (ex: `patch_1.exe`, `patch_2.exe`) plutôt que d'écraser le fichier d'origine.
 * **Bouton Corbeille (✕)** (à côté de chaque fichier) : Supprime définitivement le fichier du stockage du serveur.
-* **Bouton de Purge Globale ("Nuke Fichiers")** : Permet de supprimer en masse tous les fichiers téléversés du serveur (après confirmation de sécurité).
 
 ### Côté Joueurs (Téléchargement)
-* Les fichiers téléversés apparaissent automatiquement sous forme de **cartes cliquables** dans une section dédiée au bas de la page d'informations (`/dashboard/info`).
+* Les fichiers téléversés apparaissent automatiquement dans la section **Fichiers utiles**, au bas de la page **Infos** (`/dashboard/info`).
 * Chaque carte indique le **nom du fichier**, sa **taille formatée** (Ko, Mo) et la **date de modification**.
 * Un clic gauche télécharge instantanément le fichier en HTTP direct depuis le dossier statique `/data/info_files/` du serveur, même si la LAN est totalement coupée d'Internet.

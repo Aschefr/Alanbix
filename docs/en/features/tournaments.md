@@ -11,13 +11,18 @@ A tournament goes through four main statuses in the database:
 ```mermaid
 graph LR
     OPEN[OPEN / Registrations] --> RUNNING[RUNNING / Active]
-    RUNNING --> CLOSED[CLOSED / Completed]
-    CLOSED -.->|Rollback| OPEN
+    RUNNING --> CLOSED[CLOSED / Closed]
+    RUNNING --> DONE[DONE / Finished]
+    DONE --> CLOSED
+    CLOSED -.->|Reopen| DONE
 ```
 
 1. **OPEN**: Registrations are open. Players can register, unregister, or create/join tournament teams.
 2. **RUNNING**: The bracket is locked and generated. Matches can be scored. Registrations are closed.
-3. **CLOSED**: The final is completed, final standings are frozen, general ranking points are distributed to player profiles, and award notifications are issued.
+3. **DONE**: All matches are played (or the final round is confirmed in Free For All). Scores can still be corrected, and the tournament waits to be closed.
+4. **CLOSED**: Final standings are frozen, general ranking points are distributed to player profiles, and AI summaries are sent.
+
+An administrator can also **hide a tournament** (eye icon, or `Hide from players`): players no longer see it, in the lists or on the Projector, until it is shown again.
 
 ---
 
@@ -38,23 +43,25 @@ graph LR
 * *Display Note*: The Grand Final round is labeled `🏆 FINAL` with a gold style and increased margin to visually distinguish it. Empty Losers rounds are automatically hidden from the DOM.
 * **Spectator / Dashboard View**: To prevent horizontal compression on standard resolutions, the Winners Bracket and Losers Bracket are displayed as separate layers, stacked vertically on the Spectator view.
 
-![Double Elimination](../../../screenshots/alanbix_tournois_double_elimination.png)
+![Double Elimination](../../../screenshots/en/tournament_double_elim.png)
 
 ### 3. Championship / Round Robin (`round_robin`)
 * No elimination tree. Each participant plays every other participant in turn.
 * The system uses the **Circle Method** rotation algorithm to automatically schedule match days (rounds) without scheduling conflicts.
 * If the number of participants is odd, a dummy "BYE" participant is inserted in each round.
-* **Spectator Readability**: The format features cards with a semi-transparent contrasted background and high-contrast white text for easy reading over cinematic game backgrounds.
+* **Spectator Readability**: The format features contrasted cards that stay readable over the cinematic game backgrounds.
+
+![Round Robin](../../../screenshots/en/tournament_round_robin.png)
 
 ### 4. Free For All (`ffa`)
 * Suitable for racing games (Trackmania, Mario Kart) or multiplayer fighting games (4-player Smash).
 * A round consists of a single series of placements.
-* The administrator enters the final ranking of the round in the interface, then configures how many players advance to the next round.
+* Each player enters their own round result (an administrator can enter them all). The administrator then confirms the round and sets how many players advance to the next one.
 * **Tree view**: rounds run from left to right, each lobby (group of players) is linked to the lobbies its players came from; zoom, pan and "Recenter" work like the elimination bracket. The administrator picks how many players qualify **per lobby** for the next round.
 * **Fluid Layout**: The spectator view uses a flexible (`flex-wrap`) and dynamic height (`fit-content`) layout that eliminates any superfluous empty space between rounds.
 * **Round Cancellation (Rollback)**: FFA round cancellations are secured by an inline, non-intrusive confirmation modal (avoiding blocking browser `window.confirm` dialogs).
 
-![FFA](../../../screenshots/alanbix_tournois_FFA.png)
+![FFA](../../../screenshots/en/tournament_ffa.png)
 
 ---
 
@@ -63,20 +70,22 @@ When creating the tournament (or editing it before the start), choose **"Groups,
 1. **Group stage**: every group plays a round robin (3 points for a win, 1 for a draw). Group tables are displayed with the qualifiers highlighted.
 2. When every group match is played, the organiser clicks **"Start the knockout"**: qualifiers (group winners first, then runners-up...) are seeded into the elimination bracket, avoiding a repeat of a group match in the first round.
 3. The **Groups** tab stays available during the knockout; **"Back to the groups"** removes the bracket as long as no knockout match has been played.
-Players out after the groups rank behind the knockout players. Once the tournament has started, the format and play mode are locked (reset the tournament to change them).
+Players out after the groups rank behind the knockout players. Once the tournament has started, the format and the game mode are locked (reset the tournament to change them).
+
+![Group stage](../../../screenshots/en/tournament_groups.png)
 
 ## ⚙️ Match & Score Mechanics
 
 ### Visual Player Highlight
 The connected player's username (or their global/tournament team name) is highlighted in the tournament tree with a blue accent background and a distinctive side border, adapted for both light and dark themes across all bracket formats (Single/Double Elim, Round Robin, FFA).
 
-### Saisie et Verrouillage Automatique (🔒)
-* **Who can enter scores?** Any player participating in the match (if the opponent is determined), or an Administrator.
+### Score Entry and Automatic Lock (🔒)
+* **Who can enter scores?** Any player taking part in the match (once the opponent is known), or an Administrator. The home page and the Live control tab offer this entry too.
 * **TBD Match Scoring**: It is forbidden to enter scores on a match where the opponent is not yet determined (TBD player, ID 0). The corresponding input fields are automatically hidden on the frontend, and the backend rejects any score submission containing a TBD player to prevent bracket corruption.
 * **Intelligent Score Fusion**: Submitted scores are atomically merged with existing data on the backend to prevent race conditions and accidental overwrites in case of simultaneous submissions.
-* **Input Lock (5s Cooldown)**: To prevent vandalism or simultaneous input errors between opponents, score validation applies a 5-second cooldown.
-* **Automatic Lock**: Once the score is submitted and validated by the server, the match is marked with a padlock icon (🔒). Players can no longer modify the score.
-* **Admin Override**: Only a system Administrator has the right to overwrite a locked score to correct input errors by players.
+* **Entry delay (5 s)**: After a player confirms, the score can still be cancelled for 5 seconds before it is sent, to catch a typing mistake. An administrator's score goes straight away.
+* **Player corrections**: A player can correct a finished match (their own, or their direct opponent's) until the tournament has moved past it. After that, the match is locked (🔒).
+* **Admin Override**: An Administrator can always correct a locked score.
 
 ### Recursive BYE Resolution
 * If a player has no opponent in Round 1 (due to an odd number of participants), the tournament engine detects a `[Player, 0]` match.
@@ -101,17 +110,19 @@ When the **Use Teams** (`config.use_teams = true`) option is enabled for a tourn
 6. **Collapsible Team Accordions**: `Collapse all` and `Expand all` buttons in the team view header to easily browse tournaments with dozens of teams.
 7. **Live Tournament Editing & Game Swap**: Organizers can update tournament name, custom rules, and swap the associated game (`game_id`) on the fly without losing bracket matches or recorded scores.
 
+![Tournament teams](../../../screenshots/en/tournament_teams.png)
+
 ---
 
 ## 💰 Closing, Distribution & Points Rollback
 
-### "Close Tournament" Button (Admin)
+### "Close & Distribute" Button (Admin)
 Clicking this button triggers the server to calculate the scores and apply the configured points grid:
 * `pts_winner`: Points awarded to 1st place.
 * `pts_second`: Points awarded to 2nd place.
 * `pts_third`: Points awarded to 3rd place.
-* `pts_participation`: Points awarded to all participants who played at least one match.
-* `pts_per_goal`: Points multiplier per score/goal scored during matches (e.g., 0.5 points per goal in Rocket League).
+* `pts_participation`: Points awarded per match played.
+* `pts_per_match`: Bonus based on the score, from the value entered (minimum) to twice that value (maximum).
 
 Calculated points are permanently added to the `points` column in the `users` table. In case of team tournaments, all team members are awarded these points individually.
 
@@ -119,18 +130,18 @@ Calculated points are permanently added to the `points` column in the `users` ta
 If a tournament was closed by mistake:
 1. The admin clicks **Reopen** (Réouvrir).
 2. The backend retrieves the points distribution history stored in the tournament's `results` (JSON) field.
-3. The server subtracts exactly those point deltas from the concerned players' profiles, reverting the tournament to the **RUNNING** state without corrupting the global leaderboard.
+3. The server subtracts exactly those point deltas from the affected player profiles, bringing the tournament back to **DONE** status without corrupting the general ranking.
 
 ---
 
 ## 🎛️ Buttons & Key Actions Glossary
 
 ### Administrator Side (🛡️)
-* **`Start Tournament` Button**: Generates the initial bracket from registered participants. Switches status from `OPEN` to `RUNNING`.
-* **`🎲 Distribute` Button (🎲 Répartir)**: (Only in Team mode, `OPEN` status) Randomly distributes all registered players into created teams to reach the configured size.
+* **`Start` Button**: Generates the initial bracket from registered participants. Moves the status from `OPEN` to `RUNNING`.
+* **`Shuffle / Randomize` Button**: (Only in Team mode, `OPEN` status) Randomly spreads registered players across the teams already created, up to the configured size.
 * **`Register All Players` Button** (Bulk Join): Registers all accounts in the SQLite database to the tournament in one go.
 * **`Unregister Everyone` Button** (Bulk Leave): Empties the participant list and deletes all created teams for this tournament.
-* **`Close Tournament` Button**: Calculates podiums, awards global points, and updates the status to `CLOSED`.
+* **`Close & Distribute` Button**: Calculates podiums, awards global points, and sets the status to `CLOSED`.
 * **`Reopen Tournament` Button**: Cancels the closing and starts the automatic subtraction of distributed points.
 * **Score Override (Admin Input)**: By clicking a match in the bracket (even if locked 🔒), the admin accesses a priority editing panel to correct any score.
 * **`Delete` Button (Trash Icon)**: After security confirmation, permanently deletes the tournament and all its associated data (participants, teams).

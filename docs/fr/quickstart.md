@@ -56,7 +56,7 @@ Si vous utilisez le déploiement Docker Hub (Option A) et souhaitez bénéficier
      --name alanbix_searxng \
      searxng/searxng:latest
    ```
-3. Dans le panneau d'administration d'Alanbix (**Administration > Paramètres**), renseignez l'URL de votre API SearXNG (ex: `http://<IP_DE_VOTRE_SERVEUR>:8888`).
+3. Dans **Administration › Réglages › Général › Services**, renseignez l'URL de votre API SearXNG (ex: `http://<IP_DE_VOTRE_SERVEUR>:8888`), puis cliquez sur **Tester la connexion**.
 
 ---
 
@@ -68,12 +68,12 @@ Si vous souhaitez modifier le code ou exécuter le projet en local avec le recha
    git clone https://github.com/Aschefr/Alanbix.git
    cd Alanbix
    ```
-2. **(Optionnel - Pour l'accès réseau LAN)** : Si vous souhaitez y accéder depuis d'autres appareils de votre réseau local :
+2. **(Optionnel - Pour l'accès réseau LAN)** : pour y accéder depuis d'autres appareils de votre réseau local, indiquez aux navigateurs où trouver l'API :
    * Copiez le fichier de configuration d'exemple :
      ```bash
      cp .env.example .env
      ```
-   * Ouvrez `.env` et définissez `LAN_IP` avec l'adresse IP locale de votre machine hôte (ex: `LAN_IP=192.168.1.50`).
+   * Ajoutez dans `.env` l'adresse de votre machine hôte : `VITE_API_URL=http://192.168.1.50:8000`.
 3. Lancez les conteneurs :
    ```bash
    docker compose up -d --build
@@ -105,7 +105,7 @@ Si vous hébergez Alanbix sur Unraid et souhaitez activer la recherche automatiq
        - json
    ```
 4. Redémarrez le conteneur SearXNG depuis l'interface Unraid.
-5. Dans le panneau d'administration d'Alanbix, renseignez l'URL de votre API SearXNG (ex : `http://<IP_DE_VOTRE_UNRAID>:<PORT_SEARXNG>`).
+5. Dans **Administration › Réglages › Général › Services**, renseignez l'URL de votre API SearXNG (ex : `http://<IP_DE_VOTRE_UNRAID>:<PORT_SEARXNG>`).
 
 ---
 
@@ -121,19 +121,21 @@ Alanbix attribue automatiquement les droits d'administration globale au **premie
 4. Vous arrivez sur la **configuration guidée du serveur** : nom de la LAN et langue, Wi-Fi et adresse des joueurs, page Infos (modèle prérempli), jeux et premier tournoi (avec le barème de points et sa simulation), assistant IA (local ou service en ligne avec clé d'API), base de connaissances (modèle de recherche intégré à installer, premières fiches), plan de salle, puis invitation des joueurs (adresse, QR code et affiche à imprimer). Chaque étape peut être passée ; la configuration se reprend depuis l'administration (**Réglages › Général › Configuration guidée**).
 5. L'onglet **Administration** apparaît ensuite dans votre menu latéral gauche.
 
-![Alanbix Dashboard](../../screenshots/alanbix_dashboard.png)
+**Se connecter ensuite** : saisissez le pseudo, **Suivant**, puis le mot de passe (l'icône en forme d'œil l'affiche). Une session dure 3 jours et se renouvelle à l'usage ; quand elle se termine, l'application revient à l'écran de connexion.
+
+![Alanbix Dashboard](../../screenshots/fr/dashboard.png)
 
 ---
 
 ## ⚙️ Étape 3 : Configuration Globale
 
-Allez sur **Administration > Paramètres (Settings)** :
+Allez dans **Administration › Réglages**. Les modifications y sont enregistrées automatiquement :
 
 * **Nom de la LAN** : Personnalisez l'en-tête de l'application (ex: *Retro LAN 2026*).
 * **Mode de Calcul d'Équipe** :
   * *Raw (Brut)* : Somme totale des points.
   * *Weighted (Pondéré)* : Somme divisée par la taille de l'équipe (évite de pénaliser les petites équipes).
-* **Prompt Système** : Personnalisez la personnalité de l'IA (ex: *"Tu es le commentateur officiel d'une LAN party fun"*).
+* **Consignes de l'assistant** (**Réglages › Intelligence Artificielle › Consignes**) : Personnalisez la personnalité de l'IA (ex: *"Tu es le commentateur officiel d'une LAN party fun"*).
 
 ---
 
@@ -141,20 +143,20 @@ Allez sur **Administration > Paramètres (Settings)** :
 
 Pour que les fonctionnalités soient exploitables, l'administrateur doit préparer l'environnement :
 
-1. **Ajout de Jeux** : Dans **Administration > Jeux**, créez les fiches des jeux qui feront l'objet de tournois. Utilisez la recherche SearXNG intégrée pour télécharger automatiquement les jaquettes de jeux directement sur votre serveur pour l'offline-first.
-2. **Dessin de la Salle** : Dans **Administration > Plan de salle**, disposez les tables, chaises et autres mobiliers logistiques par Glisser-Déposer (Drag & Drop). Les joueurs pourront ensuite cliquer sur ces sièges pour réserver leur emplacement physique dans la pièce.
-3. **Activation de l'IA** : Dans **Administration > Réglages**, ajoutez l'URL de votre instance Ollama ou compatible OpenAI (ex : `http://192.168.1.100:11434` pour Ollama, ou `http://192.168.1.100:8080/v1` pour OpenAI/LocalAI), assignez-lui un modèle et vérifiez son statut (🟢 Connecté).
+1. **Ajout de Jeux** : Dans **Administration › Tournois & Jeux**, section **Bibliothèque**, cliquez sur **Ajouter un Jeu**. Utilisez la recherche SearXNG intégrée pour télécharger automatiquement les jaquettes de jeux directement sur votre serveur pour l'offline-first.
+2. **Dessin de la Salle** : Ouvrez la page **Plan Salle**, puis **Éditer** : ajoutez les tables (avec leurs sièges) et les éléments (porte, bar, toilettes, borne Wi-Fi…), déplacez-les, puis **Sauvegarder**. Les joueurs pourront ensuite cliquer sur ces sièges pour réserver leur emplacement physique dans la pièce.
+3. **Activation de l'IA** : Dans **Administration › Réglages › Intelligence Artificielle › Serveurs**, ajoutez l'URL de votre instance Ollama ou compatible OpenAI (ex : `http://192.168.1.100:11434` pour Ollama, ou `http://192.168.1.100:8080/v1` pour OpenAI/LocalAI), assignez-lui un modèle et vérifiez son statut.
 
 ---
 
 ## 🏆 Étape 5 : Lancement du Premier Tournoi
 
-1. Allez sur **Administration > Tournois > Nouveau Tournoi**.
+1. Allez dans **Administration › Tournois & Jeux**, bloc **Créer un tournoi**.
 2. Suivez le wizard en 3 étapes :
    * **Général** : Nommez le tournoi, associez le jeu pré-configuré.
    * **Format** : Choisissez si c'est individuel ou en équipe (et définissez la taille de l'équipe).
-   * **Bracket & Points** : Choisissez le format de bracket (ex: *Double Élimination*) et configurez les points par victoire, participation, buts, etc.
-3. Le tournoi créé apparaît alors au statut **OPEN** (Ouvert). Vos joueurs peuvent s'y inscrire depuis leur dashboard !
+   * **Déroulement et points** : Choisissez le format (ex: *Double Élimination*) et configurez les points attribués.
+3. Le tournoi créé apparaît alors au statut **OPEN** (Ouvert). Vos joueurs peuvent s'y inscrire depuis la page **Tournois** !
 
 ---
 

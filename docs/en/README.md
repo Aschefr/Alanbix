@@ -38,6 +38,11 @@ This documentation is organized modularly to guide you step-by-step through the 
   * Bicolumn comparative editor and category filtering.
   * AI-assisted translation (Ollama) individual and in bulk.
   * One-click detection and synchronization of missing structural keys.
+* 📱 **[Mobile Companion App & Settings](features/mobile-companion.md)**:
+  * "Player-First" touch navigation with 5 tabs and live match cards.
+  * Three connection modes (LAN auto-discovery, direct IP and offline Demo Mode).
+  * Background notifications without internet (OkHttp WebSocket service on Android / Local Push on iOS).
+  * Full settings screen (alert categories, do not disturb, theme, LAN Wi-Fi).
 * 🛡️ **[System Administration & Moderation](features/administration.md)**:
   * Full profile and password management.
   * Game library and automatic cover art downloader (SearXNG).
