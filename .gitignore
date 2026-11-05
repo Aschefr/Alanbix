@@ -99,3 +99,6 @@ frontend/ios/capacitor-cordova-ios-plugins/
 # Impeccable design hook cache
 .impeccable/hook.cache.json
 **/.impeccable/hook.cache.json
+
+# === Local handover notes (not for GitHub) ===
+/REPRISE_ALANBIX.md
