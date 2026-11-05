@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [1.38.1] - 2026-11-05
 
 ### 🐛 Fixes
 - **Network paths on the Info page**: a path between backticks showed raw HTML, and `\\server\share` lost a backslash on screen and when copied. A path alone between backticks is now clickable like any other.
