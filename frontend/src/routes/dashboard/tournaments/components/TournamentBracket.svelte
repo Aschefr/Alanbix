@@ -155,11 +155,13 @@
 	// group cards: my group first, matches folded away unless it is mine (or the only one)
 	let rrMatchesOpen = {};
 	const RR_CARD_W = 440;
-	$: rrColumns = Math.max(1, Math.min(rrGroups.length, 3));
-	// fit the groups in the frame when they first appear or their number changes
-	let rrFitted = -1;
-	$: if (bracketType === 'round_robin' && viewportEl && canvasEl && rrGroups.length !== rrFitted) {
-		rrFitted = rrGroups.length;
+	// on a phone the groups are stacked: side by side they were shrunk and still cut off
+	let rrViewportW = 0;
+	$: rrColumns = rrViewportW && rrViewportW < 700 ? 1 : Math.max(1, Math.min(rrGroups.length, 3));
+	// fit the groups in the frame when they first appear or their layout changes
+	let rrFitted = '';
+	$: if (bracketType === 'round_robin' && viewportEl && canvasEl && `${rrGroups.length}_${rrColumns}` !== rrFitted) {
+		rrFitted = `${rrGroups.length}_${rrColumns}`;
 		setTimeout(() => resetZoom(), 0);
 	}
 	function isMineMatch(m) {
@@ -170,7 +172,7 @@
 		const all = group.rounds.flat();
 		return { total: all.length, played: all.filter(isRRDone).length };
 	}
-	$: orderedGroups = [...rrGroups].sort((a, b) => Number(groupHasMine(b)) - Number(groupHasMine(a)));
+	$: orderedGroups = (myTeamSlotId, currentUser, [...rrGroups].sort((a, b) => Number(groupHasMine(b)) - Number(groupHasMine(a))));
 	// `opened` is passed in (rrMatchesOpen) so the template recomputes when a group is folded
 	function matchesOpen(group, mine, opened) {
 		return opened[group.id] ?? (mine || rrGroups.length === 1 || !groupTables);
@@ -387,7 +389,8 @@
 		optimalScale = Math.max(0.55, Math.min(optimalScale, 1.25));
 		scale = optimalScale;
 		panX = (vw - cw * scale) / 2;
-		panY = (vh - ch * scale) / 2;
+		// groups read from the top like a list; centring them left an empty band above
+		panY = bracketType === 'round_robin' ? 0 : (vh - ch * scale) / 2;
 		clampPan();
 	}
 
@@ -533,7 +536,7 @@
 		{:else if bracketType === 'round_robin'}
 			<!-- Round Robin Table -->
 			<!-- svelte-ignore a11y-no-static-element-interactions -->
-			<div class="bracket-viewport-wrapper">
+			<div class="bracket-viewport-wrapper" bind:clientWidth={rrViewportW}>
 			<div class="bracket-viewport" bind:this={viewportEl} on:wheel={onWheel} on:mousedown={onMouseDown} on:touchstart={onTouchStart} on:touchmove={onTouchMove} on:touchend={onTouchEnd} on:touchcancel={onTouchEnd}>
 			<div class="bracket-canvas" bind:this={canvasEl} style="transform: translate({panX}px, {panY}px) scale({scale});">
 			<div class="rr-container">

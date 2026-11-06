@@ -74,7 +74,12 @@ export function buildMyMatches(user, tournaments, games, allUsers, myTeamSlots, 
 			const gameObj = (games || []).find(g => g.id === tourney.game_id);
 			const gameName = gameObj?.name || tourney.game || tFunc('common_game_fallback');
 			let roundLabel = tFunc('mobile_round_match');
-			if (m.id?.s === 2) {
+			if (config.bracket_type === 'round_robin' && m.id?.s < 100) {
+				// a plain championship: the section is the pool (1 = A), not a losers' bracket
+				const matchday = tFunc('spec_matchday_num', { num: m.id.r || 1 });
+				const pools = new Set(tourney.bracket.map(x => x.id?.s)).size;
+				roundLabel = pools > 1 ? `${tFunc('spec_group_num', { group: String.fromCharCode(64 + m.id.s) })} · ${matchday}` : matchday;
+			} else if (m.id?.s === 2) {
 				roundLabel = tFunc('tourneys_bracket_lb_round', { n: m.id.r || '?' });
 			} else if (m.id?.s >= 100) {
 				roundLabel = `${tFunc('spec_group_num', { group: String.fromCharCode(64 + m.id.s - 100) })} · ${tFunc('tourneys_round_n', { n: m.id.r || '?' })}`;
@@ -100,7 +105,11 @@ export function buildMyMatches(user, tournaments, games, allUsers, myTeamSlots, 
 				outcome: p.length === 2 && isCompleted
 					? (score[mySlot] === score[1 - mySlot] ? 'draw' : ((config.lower_score_is_better ? score[mySlot] < score[1 - mySlot] : score[mySlot] > score[1 - mySlot]) ? 'win' : 'loss'))
 					: null,
-				my_name: user?.username || tFunc('chat_you'),
+				// in a team match the score is the team's, so the field shows the team
+				is_team: p[mySlot] < 0,
+				my_name: p[mySlot] < 0
+					? (teamMap[String(p[mySlot])] || user?.team_name || tFunc('mobile_team_placeholder', { id: Math.abs(p[mySlot]) }))
+					: (user?.username || tFunc('chat_you')),
 				opponent_name: oppName,
 				opponent_id: oppPid > 0 ? oppPid : null,
 				opponent_seat: oppSeat,

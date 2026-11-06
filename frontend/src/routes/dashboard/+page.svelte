@@ -837,7 +837,7 @@
 						<div class="result-row" class:win={r.outcome === 'win'} class:loss={r.outcome === 'loss'}>
 							<Icon name="check-circle" size={15} />
 							<span class="rr-text">
-								<strong>{r.is_ffa ? $t('result_ffa_mine', { n: r.my_score }) : `${$t('mobile_score_my_score')} ${r.my_score} – ${r.opp_score}`}</strong>
+								<strong>{r.is_ffa ? $t('result_ffa_mine', { n: r.my_score }) : `${r.is_team ? r.my_name : $t('mobile_score_my_score')} ${r.my_score} – ${r.opp_score}`}</strong>
 								{#if !r.is_ffa}{r.opponent_name}{/if}
 								<span class="rr-meta">· {r.game_name} · {r.round_label}</span>
 							</span>
@@ -1087,7 +1087,7 @@
 						<div class="result-row" class:win={r.outcome === 'win'} class:loss={r.outcome === 'loss'}>
 							<Icon name="check-circle" size={15} />
 							<span class="rr-text">
-								<strong>{r.is_ffa ? $t('result_ffa_mine', { n: r.my_score }) : `${$t('mobile_score_my_score')} ${r.my_score} – ${r.opp_score}`}</strong>
+								<strong>{r.is_ffa ? $t('result_ffa_mine', { n: r.my_score }) : `${r.is_team ? r.my_name : $t('mobile_score_my_score')} ${r.my_score} – ${r.opp_score}`}</strong>
 								{#if !r.is_ffa}{r.opponent_name}{/if}
 								<span class="rr-meta">· {r.game_name} · {r.round_label}</span>
 							</span>

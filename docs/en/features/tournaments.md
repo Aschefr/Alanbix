@@ -49,6 +49,8 @@ An administrator can also **hide a tournament** (eye icon, or `Hide from players
 * No elimination tree. Each participant plays every other participant in turn.
 * The system uses the **Circle Method** rotation algorithm to automatically schedule match days (rounds) without scheduling conflicts.
 * If the number of participants is odd, a dummy "BYE" participant is inserted in each round.
+* With several pools, yours comes first; on a phone the pools are stacked one under the other.
+* In a team tournament, the score form shows both team names: you enter your team's score, not a personal one.
 * **Spectator Readability**: The format features contrasted cards that stay readable over the cinematic game backgrounds.
 
 ![Round Robin](../../../screenshots/en/tournament_round_robin.png)
