@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.38.2] - 2026-11-06
+
+### 🐛 Fixes
+- **Team matches**: the quick score form on the home page and the score line of the tournament page showed the player's name, or "my score", while the score entered is the team's. They now show the team names. The tournament page's score line also never appeared for team members; it does now.
+- **Pools in a championship**: a match in pool B was labelled "Losers · Round 1" on the home page; it now reads "Group B · Matchday 1". On a phone, the pools sat side by side, shrunk and cut off, under an empty band; they are now stacked from the top, the player's own pool first.
+
 ## [1.38.1] - 2026-11-05
 
 ### 🐛 Fixes

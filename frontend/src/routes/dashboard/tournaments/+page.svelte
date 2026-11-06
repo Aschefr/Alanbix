@@ -522,11 +522,14 @@
 		return { isMe, nameOf };
 	}
 	const matchKeyOf = (m) => `${selected.id}_${m.id?.s}_${m.id?.r}_${m.id?.m}`;
-	const roundLabelOf = (m) => m.id?.s >= 100
+	const roundLabelOf = (m) => selected.config?.bracket_type === 'round_robin' && m.id?.s < 100
+		? $t('spec_matchday_num', { num: m.id?.r || 1 })
+		: m.id?.s >= 100
 		? $t('spec_group_num', { group: String.fromCharCode(64 + m.id.s - 100) })
 		: m.id?.s === 2 ? $t('tourneys_bracket_lb_round', { n: m.id.r }) : $t('tourneys_round_n', { n: m.id?.r || 1 });
 
-	$: myNextMatch = (() => {
+	// myTeam is read inside myIdentity(): passed in so a team member sees the line once the teams load
+	$: myNextMatch = ((_team) => {
 		if (!selected || selected.status !== 'RUNNING' || !currentUser || !Array.isArray(selected.bracket)) return null;
 		const who = myIdentity();
 		if (!who) return null;
@@ -548,10 +551,12 @@
 			if (done && matchKeyOf(m) !== reopenedKey) continue;
 			const mySlot = who.isMe(pl[0]) ? 0 : who.isMe(pl[1]) ? 1 : -1;
 			if (mySlot === -1) continue;
-			return { match: m, mySlot, oppName: who.nameOf(pl[1 - mySlot]), round: roundLabelOf(m), key: matchKeyOf(m), ffa: false };
+			// in a team match the score is the team's: name the team rather than "my score"
+			const myName = pl[mySlot] < 0 ? who.nameOf(pl[mySlot]) : null;
+			return { match: m, mySlot, myName, oppName: who.nameOf(pl[1 - mySlot]), round: roundLabelOf(m), key: matchKeyOf(m), ffa: false };
 		}
 		return ffaPick;
-	})();
+	})(myTeam);
 
 	// A finished match the player unlocked to correct: it becomes "my next match" again, prefilled
 	let reopenedKey = null;
@@ -572,7 +577,7 @@
 	}
 
 	// the last score the player entered stays on screen until they hide it
-	$: myLastResult = (() => {
+	$: myLastResult = ((_team) => {
 		if (!selected || !currentUser || !Array.isArray(selected.bracket)) return null;
 		const who = myIdentity();
 		if (!who) return null;
@@ -593,10 +598,10 @@
 			if (!done) continue;
 			const mine = sc[slot], opp = sc[1 - slot];
 			const better = cfg.lower_score_is_better ? mine < opp : mine > opp;
-			last = { key: matchKeyOf(m), round: roundLabelOf(m), ffa: false, mine, opp, oppName: who.nameOf(pl[1 - slot]), outcome: mine === opp ? 'draw' : (better ? 'win' : 'loss'), order: m.id.r };
+			last = { key: matchKeyOf(m), round: roundLabelOf(m), ffa: false, mine, opp, myName: pl[slot] < 0 ? who.nameOf(pl[slot]) : null, oppName: who.nameOf(pl[1 - slot]), outcome: mine === opp ? 'draw' : (better ? 'win' : 'loss'), order: m.id.r };
 		}
 		return last && last.key !== reopenedKey && !hiddenResults.includes(last.key) ? last : null;
-	})();
+	})(myTeam);
 
 	let myScoreInput = '';
 	let oppScoreInput = '';
@@ -1080,8 +1085,8 @@
 						{:else}
 							<form class="mm-score" on:submit|preventDefault={submitMyMatchScore}>
 								<label class="mm-field">
-									<span>{myNextMatch.ffa ? $t('mobile_score_ffa_mine') : $t('mobile_score_my_score')}</span>
-									<input type="number" min="0" inputmode="numeric" placeholder={myNextMatch.ffa ? $t('mobile_score_ffa_mine') : $t('mobile_score_my_score')} aria-label={myNextMatch.ffa ? $t('mobile_score_ffa_mine') : $t('mobile_score_my_score')} bind:value={myScoreInput} disabled={submittingMyScore} />
+									<span>{myNextMatch.ffa ? $t('mobile_score_ffa_mine') : (myNextMatch.myName || $t('mobile_score_my_score'))}</span>
+									<input type="number" min="0" inputmode="numeric" placeholder={myNextMatch.ffa ? $t('mobile_score_ffa_mine') : (myNextMatch.myName || $t('mobile_score_my_score'))} aria-label={myNextMatch.ffa ? $t('mobile_score_ffa_mine') : (myNextMatch.myName || $t('mobile_score_my_score'))} bind:value={myScoreInput} disabled={submittingMyScore} />
 								</label>
 								{#if !myNextMatch.ffa}
 									<span class="mm-dash">–</span>
@@ -1105,7 +1110,7 @@
 							{#if myLastResult.ffa}
 								· {myLastResult.round} · {$t('mobile_score_ffa_mine')} <b>{myLastResult.mine}</b>
 							{:else}
-								· {myLastResult.round} · {$t('mobile_score_my_score')} <b>{myLastResult.mine} – {myLastResult.opp}</b> {myLastResult.oppName}
+								· {myLastResult.round} · {myLastResult.myName || $t('mobile_score_my_score')} <b>{myLastResult.mine} – {myLastResult.opp}</b> {myLastResult.oppName}
 							{/if}
 						</span>
 						{#if !myLastResult.ffa && selected?.status === 'RUNNING'}
