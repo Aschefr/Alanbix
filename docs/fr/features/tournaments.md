@@ -49,6 +49,8 @@ Un administrateur peut aussi **masquer un tournoi** (icône en forme d'œil, ou 
 * Pas d'arbre d'élimination. Chaque participant affronte tous les autres participants à tour de rôle.
 * Le système utilise l'**Algorithme de Rotation (Circle Method)** pour planifier automatiquement les journées (rounds) de match sans conflit de calendrier.
 * Si le nombre de participants est impair, un participant fantôme "BYE" est inséré à chaque round.
+* Avec plusieurs poules, la vôtre s'affiche en premier ; sur téléphone, les poules sont empilées les unes sous les autres.
+* En tournoi par équipes, la saisie du score affiche le nom des deux équipes : on saisit le score de son équipe, pas un score personnel.
 
 * **Lisibilité Spectateur** : Le format dispose de cartes contrastées qui restent lisibles au-dessus des arrière-plans cinématiques de jeux.
 
