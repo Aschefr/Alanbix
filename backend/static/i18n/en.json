@@ -2052,5 +2052,18 @@
   "mobile_score_win": "Victory",
   "notif_ai_failed_title": "AI failure — {tournament}",
   "notif_ai_failed_body": "Generating the personalised messages failed.",
-  "notif_retry_failed": "Failed: {error}"
+  "notif_retry_failed": "Failed: {error}",
+  "notif_test_title": "Alanbix test",
+  "notif_test_body": "Your mobile notifications work perfectly!",
+  "notif_admin_reply_title": "Message from {admin}",
+  "notif_ia_blocked_title": "AI assistant access blocked",
+  "notif_ia_blocked_body": "Your access to the AI assistant has been blocked for inappropriate behaviour: {reason}.",
+  "notif_ia_blocked_admin_title": "Player blocked from the AI assistant",
+  "notif_ia_blocked_admin_body": "The AI assistant automatically blocked {username}. Reason: {reason}.",
+  "notif_organizer_message_title": "Message from the organiser (AI)",
+  "notif_announcement_title": "Announcement",
+  "notif_admin_call_title": "Admin call, help requested",
+  "notif_admin_call_body": "{username} needs help: {question}",
+  "notif_rag_suggestion_title": "Unanswered question",
+  "notif_rag_suggestion_body": "{username} asked a question the assistant could not answer: {question}"
 }

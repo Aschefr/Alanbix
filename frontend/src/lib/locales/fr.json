@@ -2051,5 +2051,18 @@
   "mobile_round_match": "Match",
   "notif_ai_failed_title": "Échec IA — {tournament}",
   "notif_ai_failed_body": "La génération de messages personnalisés a échoué.",
-  "notif_retry_failed": "Échec : {error}"
+  "notif_retry_failed": "Échec : {error}",
+  "notif_test_title": "Test Alanbix",
+  "notif_test_body": "Vos notifications mobiles fonctionnent parfaitement !",
+  "notif_admin_reply_title": "Message de {admin}",
+  "notif_ia_blocked_title": "Accès à l'assistant IA bloqué",
+  "notif_ia_blocked_body": "Votre accès à l'assistant IA a été bloqué pour comportement inapproprié : {reason}.",
+  "notif_ia_blocked_admin_title": "Joueur bloqué de l'assistant IA",
+  "notif_ia_blocked_admin_body": "L'assistant IA a automatiquement bloqué {username}. Motif : {reason}.",
+  "notif_organizer_message_title": "Message de l'organisateur (IA)",
+  "notif_announcement_title": "Annonce générale",
+  "notif_admin_call_title": "Appel admin, aide demandée",
+  "notif_admin_call_body": "{username} a besoin d'aide : {question}",
+  "notif_rag_suggestion_title": "Question sans réponse",
+  "notif_rag_suggestion_body": "{username} a posé une question à laquelle l'assistant n'a pas su répondre : {question}"
 }
