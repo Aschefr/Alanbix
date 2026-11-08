@@ -66,7 +66,9 @@ The **Notifications** page of the menu (or the bell on a phone) opens the notifi
 ![Notification Center](../../../screenshots/en/notifications.png)
 
 ### Notification Types
-1. **Match ready (`match_ready`)**: Your opponent is known and the match can start. This text shows in each player's language, like the AI failure alert for admins; the other types stay in the language they were written in.
+1. **Match ready (`match_ready`)**: Your opponent is known and the match can start. This text shows in each player's language.
+
+Notifications written by the app itself also show in each reader's language: match ready, test notification, an admin's reply, blocking by the AI, a call for an admin, an unanswered question, and for admins the AI failure alert. What someone wrote (a reply, an announcement, a closing message) stays as written; only its title is translated.
 2. **Announcements and admin messages (`admin_message`)**: Sent when an organiser publishes a general announcement or replies by hand in a conversation.
 3. **Tournament closing (`tournament_closed`)**: A message written by the assistant when a tournament closes (see below).
 4. **Awards (`award`)**: Sent when an administrator publishes the awards.

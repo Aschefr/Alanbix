@@ -1283,15 +1283,17 @@ async def admin_intervene(conv_id: int, body: AdminInterveneRequest, db: Session
             is_active = True
 
     if not is_active:
-        from .notifications import notify_user
+        from .notifications import notify_user, localized_text
+        title, text, meta = localized_text(db, "notif_admin_reply_title", params={"admin": admin.username},
+                                           icon="🛡️", body=body.content[:200])
         await notify_user(
             db=db,
             user_id=conv.user_id,
             category="ai_reply",
-            title=f"🛡️ Message de {admin.username}",
-            body=body.content[:200],
+            title=title,
+            body=text,
             link="/dashboard/ai",
-            data={"conversation_id": conv_id}
+            data={"conversation_id": conv_id, **meta}
         )
     return {"status": "ok", "message_id": msg.id}
 

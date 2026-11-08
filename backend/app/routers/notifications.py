@@ -10,6 +10,31 @@ from ..clock import utcnow
 router = APIRouter(prefix="/notifications", tags=["Notifications"])
 
 
+def localized_text(db: Session, title_key: str, body_key: Optional[str] = None, params: Optional[dict] = None,
+                   icon: str = "", body: str = "") -> tuple:
+    """Title, body and metadata of a notification. Stored in the LAN's language; the metadata
+    lets the app show it in each reader's language (lib/notifText.js). Without body_key the body
+    is the given text as is (a message someone wrote)."""
+    from .awards import get_i18n_dict
+    lang = db.query(models.SystemConfig).filter(models.SystemConfig.key == "lan_default_language").first()
+    i18n, fr = get_i18n_dict(lang.value if lang and lang.value else "fr"), get_i18n_dict("fr")
+    params = {k: str(v) for k, v in (params or {}).items()}
+
+    def fill(key: str) -> str:
+        text = i18n.get(key) or fr.get(key) or key
+        for k, v in params.items():
+            text = text.replace("{" + k + "}", v)
+        return text
+
+    meta = {"title": title_key, "params": params}
+    if icon:
+        meta["icon"] = icon
+    if body_key:
+        meta["body"] = body_key
+    title = f"{icon} {fill(title_key)}" if icon else fill(title_key)
+    return title, fill(body_key) if body_key else body, {"i18n": meta}
+
+
 async def notify_user(
     db: Session,
     user_id: int,
@@ -163,14 +188,15 @@ async def send_test_notification(
     user: models.User = Depends(auth.get_current_user)
 ):
     """Trigger an immediate test push notification for current user to verify mobile settings."""
+    title, body, meta = localized_text(db, "notif_test_title", "notif_test_body", icon="🔔")
     notif = await notify_user(
         db=db,
         user_id=user.id,
         category="system",
-        title="🔔 Test Alanbix",
-        body="Vos notifications mobiles fonctionnent parfaitement !",
+        title=title,
+        body=body,
         link="/dashboard/settings",
-        data={"is_test": True}
+        data={"is_test": True, **meta}
     )
     return {"status": "sent", "notification_id": notif.id}
 

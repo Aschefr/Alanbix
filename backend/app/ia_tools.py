@@ -1162,24 +1162,19 @@ def _tool_block_user_from_ia(db, models, args: dict, user_id: int) -> str:
 
     user.ia_blocked = True
     
+    from .routers.notifications import localized_text
+    params = {"username": user.username, "reason": reason.rstrip(".")}
+
     # Create notification for the user
-    notif = models.Notification(
-        user_id=user.id,
-        type="system",
-        title="Accès IA Révoqué",
-        content=f"Votre accès à l'assistant IA a été bloqué pour comportement inapproprié : {reason}."
-    )
+    title, content, meta = localized_text(db, "notif_ia_blocked_title", "notif_ia_blocked_body", params)
+    notif = models.Notification(user_id=user.id, type="system", title=title, content=content, metadata_json=meta)
     db.add(notif)
-    
+
     # Notify all administrators
+    title, content, meta = localized_text(db, "notif_ia_blocked_admin_title", "notif_ia_blocked_admin_body", params)
     admins = db.query(models.User).filter(models.User.is_admin == True).all()
     for admin in admins:
-        admin_notif = models.Notification(
-            user_id=admin.id,
-            type="admin_message",
-            title="Joueur Bloqué de l'IA",
-            content=f"L'assistant IA a automatiquement bloqué '{user.username}' pour le motif suivant : {reason}."
-        )
+        admin_notif = models.Notification(user_id=admin.id, type="admin_message", title=title, content=content, metadata_json=meta)
         db.add(admin_notif)
         
     db.commit()
@@ -1867,11 +1862,14 @@ def _tool_send_notification_to_player(db, models, args: dict) -> str:
         
     dest_user = user_map[best_username]
     
+    from .routers.notifications import localized_text
+    title, content, meta = localized_text(db, "notif_organizer_message_title", body=content)
     notif = models.Notification(
         user_id=dest_user.id,
         type="admin_message",
-        title="Message de l'organisateur (IA)",
-        content=content
+        title=title,
+        content=content,
+        metadata_json=meta
     )
     db.add(notif)
     db.commit()
@@ -1906,13 +1904,16 @@ def _tool_announce_to_all(db, models, args: dict, user_id: int) -> str:
         return json.dumps({"error": "Action non autorisée. Seuls les administrateurs peuvent faire des annonces globales."}, ensure_ascii=False)
         
     all_users = db.query(models.User).all()
-    
+    from .routers.notifications import localized_text
+    title, content, meta = localized_text(db, "notif_announcement_title", icon="📢", body=content)
+
     for u in all_users:
         notif = models.Notification(
             user_id=u.id,
             type="admin_message",
-            title="📢 Annonce Globale",
-            content=content
+            title=title,
+            content=content,
+            metadata_json=meta
         )
         db.add(notif)
         
@@ -2032,15 +2033,18 @@ async def _tool_call_admin(db, models, args: dict, user_id: int, conversation_id
 
     # Notifier tous les admins
     user = db.query(models.User).filter(models.User.id == user_id).first()
-    username = user.username if user else f"Joueur #{user_id}"
+    username = user.username if user else f"#{user_id}"
+    from .routers.notifications import localized_text
+    title, content, meta = localized_text(db, "notif_admin_call_title", "notif_admin_call_body",
+                                          {"username": username, "question": question}, icon="📣")
     admins = db.query(models.User).filter(models.User.is_admin == True).all()
     for admin in admins:
         notif = models.Notification(
             user_id=admin.id,
             type="admin_message",
-            title="📣 Appel Admin — Assistance Requise",
-            content=f"{username} a besoin d'aide : {question}",
-            metadata_json={"conversation_id": conversation_id, "call_request_reason": reason}
+            title=title,
+            content=content,
+            metadata_json={"conversation_id": conversation_id, "call_request_reason": reason, **meta}
         )
         db.add(notif)
 
@@ -2114,15 +2118,18 @@ async def _tool_suggest_rag_entry(db, models, args: dict, user_id: int, conversa
 
     # Notifier les admins (non prioritaire)
     user = db.query(models.User).filter(models.User.id == user_id).first()
-    username = user.username if user else f"Joueur #{user_id}"
+    username = user.username if user else f"#{user_id}"
+    from .routers.notifications import localized_text
+    title, content, meta = localized_text(db, "notif_rag_suggestion_title", "notif_rag_suggestion_body",
+                                          {"username": username, "question": question}, icon="💡")
     admins = db.query(models.User).filter(models.User.is_admin == True).all()
     for admin in admins:
         notif = models.Notification(
             user_id=admin.id,
             type="system",
-            title=f"💡 Suggestion RAG — {category.capitalize()}",
-            content=f"{username} a soumis une question sans réponse : {question}",
-            metadata_json={"category": category, "context": context[:300], "rag_suggestion_id": suggestion.id}
+            title=title,
+            content=content,
+            metadata_json={"category": category, "context": context[:300], "rag_suggestion_id": suggestion.id, **meta}
         )
         db.add(notif)
 

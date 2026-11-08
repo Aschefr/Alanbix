@@ -72,7 +72,9 @@ La page **Notifications** du menu (ou la cloche sur téléphone) ouvre le centre
 ![Centre de Notifications](../../../screenshots/fr/notifications.png)
 
 ### Les Différents Types de Notifications
-1. **Match prêt (`match_ready`)** : Votre adversaire est connu et le match peut commencer. Ce texte s'affiche dans la langue de chaque joueur, comme l'alerte d'échec de l'IA pour les administrateurs ; les autres types restent dans la langue où ils ont été écrits.
+1. **Match prêt (`match_ready`)** : Votre adversaire est connu et le match peut commencer. Ce texte s'affiche dans la langue de chaque joueur.
+
+Les notifications écrites par l'application elle-même s'affichent aussi dans la langue de chaque lecteur : match prêt, notification de test, réponse d'un administrateur, blocage par l'IA, appel d'un admin, question restée sans réponse, et pour les administrateurs l'alerte d'échec de l'IA. Ce que quelqu'un a écrit (une réponse, une annonce, un message de clôture) reste tel qu'il a été écrit ; seul son titre est traduit.
 2. **Annonces et messages admin (`admin_message`)** : Envoyés lorsqu'un organisateur publie une annonce générale ou répond manuellement à une conversation.
 3. **Clôture de tournoi (`tournament_closed`)** : Message rédigé par l'assistant à la clôture d'un tournoi (voir ci-dessous).
 4. **Distinctions (`award`)** : Envoyées quand un administrateur publie les distinctions.
