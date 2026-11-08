@@ -3,10 +3,11 @@
 	import { get } from 'svelte/store';
 	import { onMount, onDestroy } from 'svelte';
 	import { api } from '$lib/api';
-	import { t, currentLang } from '$lib/i18nStore';
+	import { t } from '$lib/i18nStore';
 	import { wsMessageStore } from '$lib/ws';
 	import AdminAIQueueList from './AdminAIQueueList.svelte';
 	import AdminAIBehaviour from './AdminAIBehaviour.svelte';
+	import AdminAIModelConfig from './AdminAIModelConfig.svelte';
 	// Same value as RECOMMENDED_TEMPERATURE in backend/app/ia_model_catalog.py
 	const RECOMMENDED_TEMPERATURE = 0.2;
 	import OllamaModelCatalog from '$lib/components/OllamaModelCatalog.svelte';
@@ -1307,92 +1308,7 @@
 				</div>
 			</div>
 			<div class="sc-body ai-model-body">
-				<!-- Temperature -->
-				<div>
-					<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem;">
-						<label class="compact-label">{$t('admin_settings_ai_temp')} <strong>{Number(iaConfig.temperature).toLocaleString($currentLang)}</strong></label>
-						<span class="range-hint text-xs" style="color: var(--text-muted); font-size: 0.75rem;">
-							{iaConfig.temperature <= 0.3 ? $t('admin_settings_ai_temp_precise') : iaConfig.temperature >= 0.7 ? $t('admin_settings_ai_temp_creative') : $t('admin_settings_ai_temp_balanced')}
-						</span>
-					</div>
-					<input type="range" bind:value={iaConfig.temperature} on:change={saveIAConfig} min="0" max="1" step="0.1" class="range-accent" style="width: 100%;" />
-					<div class="temp-advice">
-						<span class="range-hint text-xs">{$t('admin_settings_ai_temp_hint', { value: RECOMMENDED_TEMPERATURE.toLocaleString($currentLang) })}</span>
-						{#if iaConfig.temperature !== RECOMMENDED_TEMPERATURE}
-							<button type="button" class="btn-secondary btn-sm" on:click={() => { iaConfig.temperature = RECOMMENDED_TEMPERATURE; saveIAConfig(); }}>{$t('admin_settings_ai_temp_apply', { value: RECOMMENDED_TEMPERATURE.toLocaleString($currentLang) })}</button>
-						{/if}
-					</div>
-				</div>
-
-				<!-- Context Window -->
-				<div>
-					<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem;">
-						<label class="compact-label">{$t('admin_settings_ai_context')} <strong>{$t('ai_tokens_count', { n: iaConfig.context_window })}</strong></label>
-						<input 
-							type="number" 
-							bind:value={iaConfig.context_window} 
-							on:change={saveIAConfig} 
-							min="16384" 
-							step="256"
-							style="width: 80px; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 6px; padding: 0.15rem 0.4rem; color: var(--text-main); font-size: 0.72rem; font-weight: 700; text-align: right;" 
-						/>
-					</div>
-					<div class="ctx-presets-grid" style="display: flex; flex-wrap: wrap; gap: 0.25rem;">
-						{#each [16384, 32768, 65536, 131072] as size}
-							<button 
-								type="button" 
-								class="ctx-preset-mini-btn" 
-								class:active={iaConfig.context_window === size}
-								on:click={() => { iaConfig.context_window = size; saveIAConfig(); }}
-							>
-								{size >= 1024 ? (size / 1024) + 'K' : size}
-							</button>
-						{/each}
-					</div>
-					<span class="range-hint text-xs" style="color: var(--text-muted); font-size: 0.75rem; display: block; margin-top: 0.25rem; line-height: 1.2;">
-						{$t('admin_settings_ai_context_hint')}
-					</span>
-				</div>
-
-				<details class="ai-advanced">
-					<summary>{$t('admin_settings_ai_advanced')}</summary>
-					<p class="ai-advanced-hint">{$t('admin_settings_ai_advanced_hint')}</p>
-					<div class="ai-advanced-body">
-				<!-- Embedding Model -->
-				<div>
-					<label class="compact-label" style="margin-bottom: 0.2rem; display: block;">{$t('admin_settings_ai_rag_model')}</label>
-					<select bind:value={iaConfig.embedding_model} on:change={saveIAConfig} class="inst-model-select-wide">
-						<option value="">{$t('admin_ai_embed_auto')}</option>
-						{#each availableModels.filter(m => m.name.includes('embed')) as m}
-							<option value={m.name}>{m.name}</option>
-						{/each}
-					</select>
-				</div>
-
-				<!-- Knowledge base relevance threshold -->
-				<div>
-					<label class="compact-label" for="rag-min-score" style="margin-bottom: 0.2rem; display: block;">{$t('admin_settings_ai_rag_min_score')} : {Number(iaConfig.rag_min_score ?? 0.65).toFixed(2)}</label>
-					<input id="rag-min-score" type="range" bind:value={iaConfig.rag_min_score} on:change={saveIAConfig} min="0.4" max="0.9" step="0.01" class="range-accent" style="width: 100%;" />
-					<span class="range-hint text-xs" style="color: var(--text-muted); font-size: 0.75rem; display: block; margin-top: 0.25rem; line-height: 1.2;">
-						{$t('admin_settings_ai_rag_min_score_hint')}
-					</span>
-				</div>
-
-				<!-- Tool Calling Mode -->
-				<div>
-					<label class="compact-label" style="margin-bottom: 0.2rem; display: block;">{$t('admin_settings_ai_tool_mode')}</label>
-					<select bind:value={iaConfig.tool_calling_mode} on:change={saveIAConfig} class="inst-model-select-wide">
-						<option value="stream_intercept">{$t('admin_settings_ai_tool_mode_intercept')}</option>
-						<option value="legacy_double">{$t('admin_settings_ai_tool_mode_legacy')}</option>
-						<option value="disabled">{$t('admin_settings_ai_tool_mode_disabled')}</option>
-					</select>
-					<span class="range-hint text-xs" style="color: var(--text-muted); font-size: 0.75rem; display: block; margin-top: 0.25rem; line-height: 1.2;">
-						{$t('admin_settings_ai_tool_mode_hint')}
-					</span>
-				</div>
-					</div>
-				</details>
-
+				<AdminAIModelConfig bind:config={iaConfig} models={availableModels} onchange={saveIAConfig} />
 			</div>
 		</div>
 
@@ -1607,12 +1523,6 @@
 
 	/* Compact Labels & Selects */
 	.compact-label { font-size: 0.75rem; font-weight: 700; color: var(--text-dim);  margin: 0; }
-	.ctx-preset-mini-btn { flex: 1; padding: 0.25rem 0.5rem; font-size: 0.75rem; font-weight: 600; border: 1px solid var(--glass-border); border-radius: 6px; background: var(--hover-tint); color: var(--text-dim); cursor: pointer; transition: all 0.15s; text-align: center; }
-	.ctx-preset-mini-btn:hover { border-color: var(--accent); background: rgba(59,130,246,0.05); }
-	.ctx-preset-mini-btn.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); box-shadow: 0 0 8px var(--accent-glow); }
-	.inst-model-select-wide { width: 100%; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 8px; padding: 0.35rem 0.5rem; color: var(--text-main); font-size: 0.75rem; transition: all 0.2s; }
-	.inst-model-select-wide:focus { border-color: var(--accent); outline: none; }
-	.range-accent { width: 100%; accent-color: var(--accent); }
 
 	/* Prompts */
 	.prompt-textarea-compact { width: 100%; max-width: 100%; box-sizing: border-box; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 8px; padding: 0.5rem; color: var(--text-main); font-size: 0.75rem; resize: vertical; font-family: inherit; line-height: 1.4; min-height: 140px; }
@@ -1989,13 +1899,7 @@
 	.status-dot.on { background: var(--success); box-shadow: 0 0 6px color-mix(in srgb, var(--success) 60%, transparent); }
 	/* AI tab: model fields in two columns, behaviour options as compact rows */
 	.ai-model-body { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.9rem 1.5rem; }
-	@media (max-width: 900px) { .ai-model-body, .ai-advanced-body { grid-template-columns: minmax(0, 1fr); } }
-	.temp-advice { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.8rem; margin-top: 0.35rem; }
-	.temp-advice .range-hint { flex: 1 1 240px; font-size: 0.75rem; line-height: 1.35; color: var(--text-muted); }
-	.ai-advanced { grid-column: 1 / -1; }
-	.ai-advanced summary { cursor: pointer; font-size: 0.8rem; font-weight: 700; color: var(--text-dim); min-height: 28px; }
-	.ai-advanced-hint { margin: 0.2rem 0 0.6rem; font-size: 0.76rem; color: var(--text-muted); }
-	.ai-advanced-body { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.8rem 1.2rem; }
+	@media (max-width: 900px) { .ai-model-body { grid-template-columns: minmax(0, 1fr); } }
 	.ai-server-notice { display: flex; align-items: flex-start; gap: 0.5rem; margin: 0 0 1rem; padding: 0.7rem 0.9rem; border-radius: 10px; border: 1px solid var(--warning, #f59e0b); color: var(--text-main); font-size: 0.85rem; line-height: 1.45; }
 	.ai-server-notice :global(svg) { flex-shrink: 0; margin-top: 0.15rem; color: var(--warning, #f59e0b); }
 	.app-guide-field { display: flex; flex-direction: column; gap: 0.35rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--glass-border); }
