@@ -40,6 +40,13 @@ PUBLIC_CHAT_TOOL_INSTRUCTION = {
 }
 
 
+# Added to the last round of the private assistant, which has no tool any more
+LAST_ROUND_INSTRUCTION = {
+    "role": "system",
+    "content": "No more tool calls now: answer the player with the tool results above, in their language.",
+}
+
+
 # ---------------------------------------------------------------------------
 # Queue Entry
 # ---------------------------------------------------------------------------
@@ -481,6 +488,8 @@ class IAQueueManager:
             # Text already streamed to the player in earlier rounds (before a tool call)
             shown_before = ""
             last_visible = ""
+            full_response = ""
+            answered = False
 
             # Streaming loop (Option A and final leg of Option B/D)
             while tool_round < max_tool_rounds:
@@ -504,9 +513,14 @@ class IAQueueManager:
                     stream_req = {**req_data, "messages": tool_messages, "stream": True}
                     if tool_round >= max_tool_rounds:
                         stream_req.pop("tools", None)
+                # Last round: no tool any more. A model that still asked for one used to end the loop
+                # without an answer, and the player waited 5 minutes for nothing (thinking models, mostly)
+                last_round = bool(tools) and tool_round >= max_tool_rounds
+                if last_round:
+                    stream_req["messages"] = tool_messages + [LAST_ROUND_INSTRUCTION]
 
                 # Variables to control streaming chunk buffer for XML detection
-                is_buffering_xml = (tools and tool_calling_mode == "stream_intercept")
+                is_buffering_xml = (tools and tool_calling_mode == "stream_intercept" and not last_round)
                 xml_buffer = ""
                 detected_xml_call = False
                 native_tool_calls = []
@@ -664,7 +678,7 @@ class IAQueueManager:
                 # If a tool call was detected, execute it and do another round
                 # OpenAI-compatible services stream each call in pieces: put them back together
                 native_tool_calls = merge_stream_tool_calls(native_tool_calls)
-                has_tool_call = bool(native_tool_calls) or detected_xml_call
+                has_tool_call = (bool(native_tool_calls) or detected_xml_call) and not last_round
                 if has_tool_call and tool_calling_mode == "stream_intercept":
                     # Parse tools
                     parsed_calls = []
@@ -688,7 +702,6 @@ class IAQueueManager:
                     
                     # The player already sees the text written before the call: hand it back to the model
                     # so the next round continues it instead of writing the whole answer again
-                    import re
                     visible = re.sub(r'<think>.*?</think>', '', full_response, flags=re.DOTALL).strip()
                     if detected_xml_call and "<tool_call" in visible:
                         visible = visible.split("<tool_call", 1)[0].strip()
@@ -733,8 +746,9 @@ class IAQueueManager:
                             await entry.result_stream.put({"status": "generating"})
                         await entry.result_stream.put({"text": xml_buffer})
 
-                    import re
                     clean_response = re.sub(r'<think>.*?</think>', '', full_response, flags=re.DOTALL).strip()
+                    if last_round and "<tool_call" in clean_response:
+                        clean_response = clean_response.split("<tool_call", 1)[0].strip()
                     self._execute_post_stream_tool_calls(clean_response, tools, entry.user_id, used_tools)
                     # Store what the player saw: text from the rounds before tool calls, then the final round
                     if shown_before:
@@ -751,7 +765,17 @@ class IAQueueManager:
                         "saved_by_worker": saved_msg_id is not None,
                         "meta": meta,
                     })
+                    answered = True
                     break
+
+            if not answered and not entry.cancelled:
+                # Left the loop on a tool call that could not be read: end the answer with what the player saw
+                clean_response = re.sub(r'<think>.*?</think>', '', full_response, flags=re.DOTALL)
+                clean_response = f"{shown_before}\n\n{clean_response.split('<tool_call', 1)[0]}".strip()
+                meta = {"model_info": entry.payload.get("model_info"), "used_tools": used_tools, "duration": response_time}
+                saved_msg_id = self._save_bot_message(conversation_id, clean_response, meta=meta)
+                await entry.result_stream.put({"done": True, "full_response": clean_response,
+                                               "saved_by_worker": saved_msg_id is not None, "meta": meta})
         except Exception as e:
             import traceback
             traceback.print_exc()
