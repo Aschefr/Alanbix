@@ -7,6 +7,12 @@
 	const RECOMMENDED_TEMPERATURE = 0.2;
 
 	let { config = $bindable(), models = [], onchange } = $props();
+
+	// Ollama's thinking, split by whether the task uses tools (measured on 2026-11-08, see the help texts)
+	const THINKING = [
+		{ key: 'think_chat', label: 'admin_settings_ai_think_chat', desc: 'admin_settings_ai_think_chat_desc' },
+		{ key: 'think_tasks', label: 'admin_settings_ai_think_tasks', desc: 'admin_settings_ai_think_tasks_desc' },
+	];
 </script>
 
 <!-- Temperature -->
@@ -54,6 +60,26 @@
 	<span class="range-hint text-xs" style="color: var(--text-muted); font-size: 0.75rem; display: block; margin-top: 0.25rem; line-height: 1.2;">
 		{$t('admin_settings_ai_context_hint')}
 	</span>
+</div>
+
+<!-- Thinking -->
+<div class="thinking">
+	<span class="compact-label">{$t('admin_settings_ai_think_title')}</span>
+	<span class="thinking-hint">{$t('admin_settings_ai_think_hint')}</span>
+	<div class="thinking-options">
+		{#each THINKING as opt (opt.key)}
+			<label class="option">
+				<span class="option-text">
+					<span class="option-label">{$t(opt.label)}</span>
+					<span class="option-desc">{$t(opt.desc)}</span>
+				</span>
+				<span class="toggle-switch-mini">
+					<input type="checkbox" bind:checked={config[opt.key]} onchange={onchange} />
+					<span class="toggle-slider"></span>
+				</span>
+			</label>
+		{/each}
+	</div>
 </div>
 
 <details class="ai-advanced">
@@ -109,5 +135,21 @@
 	.ai-advanced summary { cursor: pointer; font-size: 0.8rem; font-weight: 700; color: var(--text-dim); min-height: 28px; }
 	.ai-advanced-hint { margin: 0.2rem 0 0.6rem; font-size: 0.76rem; color: var(--text-muted); }
 	.ai-advanced-body { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.8rem 1.2rem; }
-	@media (max-width: 900px) { .ai-advanced-body { grid-template-columns: minmax(0, 1fr); } }
+
+	.thinking { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 0.25rem; }
+	.thinking-hint { font-size: 0.75rem; line-height: 1.35; color: var(--text-muted); }
+	.thinking-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.6rem; margin-top: 0.2rem; }
+	.option { display: flex; align-items: flex-start; gap: 0.6rem; padding: 0.7rem 0.9rem; border-radius: 10px; background: var(--hover-tint); border: 1px solid var(--glass-border); cursor: pointer; }
+	.option-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.2rem; }
+	.option-label { font-size: 0.82rem; font-weight: 700; color: var(--text-main); }
+	.option-desc { font-size: 0.76rem; line-height: 1.45; color: var(--text-dim); }
+	.toggle-switch-mini { position: relative; display: inline-block; width: 32px; height: 18px; cursor: pointer; flex-shrink: 0; margin-top: 0.1rem; }
+	.toggle-switch-mini input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+	.toggle-switch-mini input:focus-visible + .toggle-slider { outline: 2px solid var(--accent); outline-offset: 2px; }
+	.toggle-switch-mini .toggle-slider { position: absolute; inset: 0; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 18px; transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1); pointer-events: none; }
+	.toggle-switch-mini .toggle-slider::before { content: ''; position: absolute; height: 12px; width: 12px; left: 2px; bottom: 2px; background: var(--text-dim); border-radius: 50%; transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
+	.toggle-switch-mini input:checked + .toggle-slider { background: var(--accent); border-color: var(--accent); }
+	.toggle-switch-mini input:checked + .toggle-slider::before { transform: translateX(14px); background: #ffffff; }
+	/* after the two-column rules, so that it wins on a phone */
+	@media (max-width: 900px) { .ai-advanced-body, .thinking-options { grid-template-columns: minmax(0, 1fr); } }
 </style>

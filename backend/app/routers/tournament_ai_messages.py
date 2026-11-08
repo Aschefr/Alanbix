@@ -259,7 +259,7 @@ async def _generate_tournament_notifications(tournament_id, tournament_name, gam
                     "model": model,
                     "prompt": prompt,
                     "context_window": ia_cfg.get("context_window", 4096),
-                    "think": ia_cfg.get("think_tasks", True),
+                    "think": ia_cfg.get("think_tasks", False),
                 }
             )
             entry, _ = await queue_manager.enqueue(entry)

@@ -59,6 +59,12 @@ def get_effective_config(db: Session):
             val["rag_suggestion_enabled"] = True
         if "rag_min_score" not in val:
             val["rag_min_score"] = 0.65
+        # Thinking (Ollama): kept for the chats, which use tools; off for the tasks without tools,
+        # where the 2026-11-08 bench found the same answers 2 to 7 times faster
+        if "think_chat" not in val:
+            val["think_chat"] = True
+        if "think_tasks" not in val:
+            val["think_tasks"] = False
         # The instructions and tool definitions alone take ~6,000 tokens: below 16K little is left
         try:
             val["context_window"] = max(int(val.get("context_window") or MIN_CONTEXT_WINDOW), MIN_CONTEXT_WINDOW)
@@ -80,6 +86,8 @@ def get_effective_config(db: Session):
         "rag_suggestion_enabled": True,
         "rag_min_score": 0.65,
         "context_window": MIN_CONTEXT_WINDOW,
+        "think_chat": True,
+        "think_tasks": False,
     }
 
 def get_instances(db: Session):
@@ -586,7 +594,7 @@ async def compress_context(conv_id: int, req: CompressRequest, db: Session = Dep
             "mode": req.mode,
             "text": text_to_compress,
             "num_ctx": ia_cfg.get("context_window", 4096),
-            "think": ia_cfg.get("think_tasks", True),
+            "think": ia_cfg.get("think_tasks", False),
         }
     )
     entry, position = await queue_manager.enqueue(entry)
@@ -962,7 +970,6 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
             "num_ctx": num_ctx
         },
         "tools": enabled_tools,
-        # Hidden setting for the thinking bench (kept outside the repo); a chat with tools keeps thinking by default
         **no_think(ollama_host, ia_cfg.get("think_chat", True)),
     }
     queue_entry = QueueEntry(

@@ -73,7 +73,9 @@
 		call_admin_daily_limit: 3,
 		call_admin_global_hourly_limit: 15,
 		rag_suggestion_enabled: true,
-		rag_min_score: 0.65
+		rag_min_score: 0.65,
+		think_chat: true,
+		think_tasks: false
 	};
 	let availableModels = [];
 	let instanceStatuses = [];

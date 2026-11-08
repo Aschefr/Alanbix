@@ -208,7 +208,7 @@ async def auto_translate(
                 "ollama_host": ollama_host,
                 "model": model,
                 "prompt": translation_prompt,
-                "think": ia_cfg.get("think_tasks", True),
+                "think": ia_cfg.get("think_tasks", False),
                 "num_ctx": ia_cfg.get("context_window"),
             }
         )
@@ -345,7 +345,7 @@ async def bulk_translate(
                         "stream": False,
                         # Same context as the other calls, so that Ollama does not reload the model
                         "options": {"temperature": 0.1, "num_ctx": ia_cfg.get("context_window")},
-                        **no_think(url, ia_cfg.get("think_tasks", True)),
+                        **no_think(url, ia_cfg.get("think_tasks", False)),
                     }
 
                 async with ia_client() as client:
