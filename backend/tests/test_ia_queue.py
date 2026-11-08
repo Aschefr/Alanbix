@@ -700,3 +700,60 @@ async def test_last_tool_round_still_answers():
         items.append(entry.result_stream.get_nowait())
     done = [i for i in items if i.get("done")]
     assert done and done[0]["full_response"] == "Aucun tournoi de ce nom."
+
+
+@pytest.mark.asyncio
+async def test_empty_last_round_is_asked_again_without_thinking():
+    """With thinking on, qwen3.8:27b often only asked for another tool in the last round: the answer was empty."""
+    import sys
+    import json
+    from unittest.mock import MagicMock, AsyncMock, patch
+    from app.ia_queue import IAQueueManager, QueueEntry
+    import app.ia_tools  # noqa: F401  (patched below, imported lazily by the queue)
+
+    def stream(*lines):
+        res = MagicMock()
+
+        async def aiter_lines():
+            for line in lines:
+                yield json.dumps(line)
+        res.aiter_lines = aiter_lines
+
+        class Ctx:
+            async def __aenter__(self):
+                return res
+
+            async def __aexit__(self, *a):
+                return False
+        return Ctx()
+
+    native = {"message": {"content": "", "tool_calls": [{"function": {"name": "get_tournaments", "arguments": {}}}]}}
+    rounds = [stream(native, {"done": True}), stream(native, {"done": True}), stream(native, {"done": True}),
+              stream({"message": {"content": "Ce tournoi n'existe pas."}}, {"done": True})]
+    client = MagicMock()
+    client.stream = MagicMock(side_effect=rounds)
+    client.aclose = AsyncMock()
+    tools = [{"type": "function", "function": {"name": "get_tournaments", "parameters": {}}}]
+    entry = QueueEntry(priority=0, created_at=time.time(), user_id=0, username="t", task_type="chat", payload={
+        "ollama_host": "http://gpu1:11434", "conversation_id": 0, "tool_calling_mode": "stream_intercept",
+        "req_data": {"model": "m", "messages": [{"role": "user", "content": "Mon score au Rocket League Masters ?"}],
+                     "stream": True, "options": {}, "tools": tools}})
+    run_tool = AsyncMock(return_value='{"tournaments": []}')
+    patches = [patch(f"{m}.execute_tool", run_tool) for m in list(sys.modules)
+               if m.endswith("ia_tools") and hasattr(sys.modules[m], "execute_tool")]
+    with patch("httpx.AsyncClient", return_value=client):
+        for p in patches:
+            p.start()
+        try:
+            await IAQueueManager()._process_chat(entry, entry.payload)
+        finally:
+            for p in patches:
+                p.stop()
+
+    assert run_tool.await_count == 2 and client.stream.call_count == 4
+    assert "think" not in client.stream.call_args_list[2].kwargs["json"]
+    assert client.stream.call_args_list[3].kwargs["json"]["think"] is False
+    items = []
+    while not entry.result_stream.empty():
+        items.append(entry.result_stream.get_nowait())
+    assert [i["full_response"] for i in items if i.get("done")] == ["Ce tournoi n'existe pas."]

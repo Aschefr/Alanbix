@@ -490,9 +490,10 @@ class IAQueueManager:
             last_visible = ""
             full_response = ""
             answered = False
+            extra_round = 0
 
             # Streaming loop (Option A and final leg of Option B/D)
-            while tool_round < max_tool_rounds:
+            while tool_round < max_tool_rounds + extra_round:
                 tool_round += 1
                 
                 # If we're executing tools in stream_intercept mode, remove tools from later requests to avoid infinite loops
@@ -518,6 +519,8 @@ class IAQueueManager:
                 last_round = bool(tools) and tool_round >= max_tool_rounds
                 if last_round:
                     stream_req["messages"] = tool_messages + [LAST_ROUND_INSTRUCTION]
+                    if extra_round and not is_openai:
+                        stream_req["think"] = False
 
                 # Variables to control streaming chunk buffer for XML detection
                 is_buffering_xml = (tools and tool_calling_mode == "stream_intercept" and not last_round)
@@ -749,6 +752,11 @@ class IAQueueManager:
                     clean_response = re.sub(r'<think>.*?</think>', '', full_response, flags=re.DOTALL).strip()
                     if last_round and "<tool_call" in clean_response:
                         clean_response = clean_response.split("<tool_call", 1)[0].strip()
+                    if last_round and not clean_response and not extra_round:
+                        # It only asked for another tool: ask once more, without thinking, which answered
+                        # right in the 2026-11-08 bench (qwen3.8:27b and bonsai-2:27b)
+                        extra_round = 1
+                        continue
                     self._execute_post_stream_tool_calls(clean_response, tools, entry.user_id, used_tools)
                     # Store what the player saw: text from the rounds before tool calls, then the final round
                     if shown_before:

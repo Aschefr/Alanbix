@@ -7,7 +7,7 @@
 
 ### 🐛 Fixes
 - **AI model reloads**: translations, tournament closing messages and title suggestions asked the AI server for its default context size, unlike the assistant. Ollama then reloaded the model between them, which can take half a minute or more on a big model, and a translation on a cold model always failed after 45 s. Every call now asks for the context size set in the AI settings, and translations wait long enough for a model to load.
-- **Assistant stuck for 5 minutes**: when the model still asked for a tool in its last round (the third), or wrote a tool call that could not be read, the answer never ended and the player waited 5 minutes for nothing. The last round now asks the model to answer with what it found, and an answer always ends. Seen with qwen3.8:27b and bonsai-2:27b, thinking on, once in two tries on a question about a tournament that does not exist.
+- **Assistant stuck for 5 minutes**: when the model still asked for a tool in its last round (the third), or wrote a tool call that could not be read, the answer never ended and the player waited 5 minutes for nothing. The last round now asks the model to answer with what it found; if it still only asks for a tool, it is asked once more without thinking, and an answer always ends. Checked again on both models: 8 right answers out of 8, none stuck. Seen with qwen3.8:27b and bonsai-2:27b, thinking on, once in two tries on a question about a tournament that does not exist.
 - **@Alanbix in the public chat**: a small model sometimes wrote a tool call in its short form (`<tool_call name="get_leaderboard"/>`), which was not recognised and was posted as is in the chat. It is now run like any other tool call.
 
 ## [1.38.2] - 2026-11-06
