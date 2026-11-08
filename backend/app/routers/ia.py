@@ -16,7 +16,7 @@ from ..websockets import manager as ws_manager
 from .. import models, schemas, auth, database
 from .. import ia_builtin_embed
 from ..ia_knowledge import search_knowledge, knowledge_prompt, index_entry, reindex_all, status as knowledge_status
-from ..ia_utils import ia_client, register_instance_keys
+from ..ia_utils import ia_client, register_instance_keys, no_think
 from starlette.requests import Request as StarletteRequest
 from ..ia_compression import run_truncation, run_compaction, run_summary
 from ..ia_title_utils import _is_default_title, _build_title_prompt, _clean_title
@@ -585,7 +585,8 @@ async def compress_context(conv_id: int, req: CompressRequest, db: Session = Dep
             "model": model,
             "mode": req.mode,
             "text": text_to_compress,
-            "num_ctx": ia_cfg.get("context_window", 4096)
+            "num_ctx": ia_cfg.get("context_window", 4096),
+            "think": ia_cfg.get("think_tasks", True),
         }
     )
     entry, position = await queue_manager.enqueue(entry)
@@ -960,6 +961,8 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
             "num_ctx": num_ctx
         },
         "tools": enabled_tools,
+        # Hidden setting for the thinking bench (scripts/ai_bench); a chat with tools keeps thinking by default
+        **no_think(ollama_host, ia_cfg.get("think_chat", True)),
     }
     queue_entry = QueueEntry(
         priority=0 if user.is_admin else 10,

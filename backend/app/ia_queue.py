@@ -17,7 +17,7 @@ from collections import deque
 
 from .websockets import manager as ws_manager
 from .ia_title_utils import _build_title_prompt, _clean_title, _is_default_title
-from .ia_utils import ia_client
+from .ia_utils import ia_client, no_think
 from .ia_tool_loop import AI_READ_TIMEOUT, run_tool_rounds, merge_stream_tool_calls, parse_tool_args, parse_xml_tool_calls
 
 
@@ -793,9 +793,9 @@ class IAQueueManager:
 
         try:
             if mode == "compact":
-                result = await run_compaction(text, url, model, num_ctx=num_ctx)
+                result = await run_compaction(text, url, model, num_ctx=num_ctx, think=payload.get("think", True))
             elif mode == "summary":
-                result = await run_summary(text, url, model, num_ctx=num_ctx)
+                result = await run_summary(text, url, model, num_ctx=num_ctx, think=payload.get("think", True))
             else:
                 result = ""
             await entry.result_stream.put({"done": True, "result": result})
@@ -828,7 +828,8 @@ class IAQueueManager:
                     "messages": [{"role": "user", "content": prompt}],
                     "stream": False,
                     "format": "json",
-                    "options": {"temperature": 0.8, "num_predict": context_window}
+                    "options": {"temperature": 0.8, "num_predict": context_window},
+                    **no_think(ollama_host, payload.get("think", True)),
                 }
 
             async with ia_client() as client:
@@ -867,7 +868,8 @@ class IAQueueManager:
                     outcome = await run_tool_rounds(
                         client, ollama_host,
                         {"model": model, "tools": tools,
-                         "options": {"temperature": temperature, "num_predict": max_answer, "num_ctx": context_window}},
+                         "options": {"temperature": temperature, "num_predict": max_answer, "num_ctx": context_window},
+                         **no_think(ollama_host, payload.get("think", True))},
                         [*messages[:1], PUBLIC_CHAT_TOOL_INSTRUCTION, *messages[1:]],
                         user_id=payload.get("asker_id", 0),
                         allowed_tools={t["function"]["name"] for t in tools},
@@ -891,7 +893,8 @@ class IAQueueManager:
                             "model": model,
                             "messages": messages,
                             "stream": False,
-                            "options": {"temperature": temperature, "num_predict": max_answer, "num_ctx": context_window}
+                            "options": {"temperature": temperature, "num_predict": max_answer, "num_ctx": context_window},
+                            **no_think(ollama_host, payload.get("think", True)),
                         }
                     res = await client.post(url, json=req_json, timeout=AI_READ_TIMEOUT)
 
@@ -938,7 +941,8 @@ class IAQueueManager:
                     "model": model,
                     "messages": [{"role": "user", "content": prompt}],
                     "stream": False,
-                    "options": {"temperature": 0.1}
+                    "options": {"temperature": 0.1},
+                    **no_think(ollama_host, payload.get("think", True)),
                 }
 
             async with ia_client() as client:

@@ -9,7 +9,7 @@ from typing import Dict, Any, List
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from .. import models, database, auth
-from ..ia_utils import ia_client
+from ..ia_utils import ia_client, no_think
 from .ia import get_effective_config, get_instances, _check_instance_health, pick_instance
 
 router = APIRouter(prefix="/api/i18n", tags=["i18n"])
@@ -207,7 +207,8 @@ async def auto_translate(
             payload={
                 "ollama_host": ollama_host,
                 "model": model,
-                "prompt": translation_prompt
+                "prompt": translation_prompt,
+                "think": ia_cfg.get("think_tasks", True),
             }
         )
         entry, _ = await queue_manager.enqueue(entry)
@@ -341,7 +342,8 @@ async def bulk_translate(
                         "model": model,
                         "messages": [{"role": "user", "content": prompt}],
                         "stream": False,
-                        "options": {"temperature": 0.1}
+                        "options": {"temperature": 0.1},
+                        **no_think(url, ia_cfg.get("think_tasks", True)),
                     }
 
                 async with ia_client() as client:

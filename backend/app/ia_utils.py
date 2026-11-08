@@ -85,6 +85,12 @@ def is_openai_host(url: str) -> bool:
     return clean.endswith("/v1") or "/v1/" in clean or "openai" in clean.lower()
 
 
+def no_think(url: str, thinking: bool) -> dict:
+    """Ollama request fields for the thinking setting. On: nothing is sent, as before
+    (never think: true, which models without thinking reject). Off: think: false."""
+    return {} if thinking or is_openai_host(url) else {"think": False}
+
+
 # API keys of the AI instances (online OpenAI-compatible services), by base URL.
 # Refreshed every time the instance list is read; never sent back to the browser.
 _API_KEYS: dict = {}

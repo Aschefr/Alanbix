@@ -583,3 +583,34 @@ async def test_process_public_chat_tokens_and_thinking_cleanup():
     assert result.get("done") is True
     assert result.get("result") == "Pourquoi les devs aiment la nuit ? Parce que le soleil génère des reflets sur l'écran !"
 
+
+
+@pytest.mark.asyncio
+async def test_thinking_setting_reaches_ollama():
+    """Thinking on (the default): nothing is sent, as before. Off: think false on Ollama, nothing on
+    OpenAI-compatible services. Used by the thinking bench (scripts/ai_bench)."""
+    from unittest.mock import MagicMock, AsyncMock, patch
+    from app.ia_queue import IAQueueManager, QueueEntry
+
+    def client():
+        res = MagicMock(status_code=200)
+        res.json.return_value = {"message": {"content": "{}"}, "response": "ok"}
+        c = AsyncMock()
+        c.post = AsyncMock(return_value=res)
+        c.__aenter__ = AsyncMock(return_value=c)
+        c.__aexit__ = AsyncMock(return_value=False)
+        return c
+
+    async def sent(task_type, host, **extra):
+        payload = {"ollama_host": host, "model": "m", "prompt": "p", "text": "t", "mode": "compact",
+                   "messages": [{"role": "user", "content": "x"}], **extra}
+        entry = QueueEntry(priority=0, created_at=time.time(), user_id=0, username="t", task_type=task_type, payload=payload)
+        c = client()
+        with patch("httpx.AsyncClient", return_value=c):
+            await getattr(IAQueueManager(), f"_process_{task_type}")(entry, payload)
+        return c.post.call_args.kwargs["json"]
+
+    for task in ("notification", "translate", "compress", "public_chat"):
+        assert "think" not in await sent(task, "http://gpu1:11434"), task
+        assert (await sent(task, "http://gpu1:11434", think=False))["think"] is False, task
+        assert "think" not in await sent(task, "http://gpu:8000/v1", think=False), task
