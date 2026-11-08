@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [1.39.1] - 2026-11-08
 
 ### 🐛 Fixes
 - **Notifications in each player's language**: seven notifications were always written in French, whatever the language of the LAN or of the reader: the test notification, an admin's reply in an AI conversation, the AI blocking a player (for the player and for the admins), the organiser's message and the announcement sent by the AI, the call for an admin, and the unanswered question passed on to the admins. They now follow the language of the LAN, and the app shows them in the reader's own language, like the match-ready notification. What someone wrote themselves (a reply, an announcement) is shown as written. Notifications received before the update stay as they were.
