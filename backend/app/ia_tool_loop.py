@@ -16,7 +16,9 @@ from .ia_utils import is_openai_host
 # A slow model or one loading cold can take minutes for a single answer: wait as long as the streaming chat
 AI_READ_TIMEOUT = httpx.Timeout(connect=10.0, read=300.0, write=10.0, pool=10.0)
 
-XML_TOOL_CALL = re.compile(r'<tool_call name="([^"]+)">\s*(.*?)\s*</tool_call>', re.DOTALL)
+# Also the short form without arguments, <tool_call name="get_leaderboard"/>, which gemma4:e4b
+# sometimes writes: unread, it was posted as is in the public chat
+XML_TOOL_CALL = re.compile(r'<tool_call name="([^"]+)"\s*(?:/>|>\s*(.*?)\s*</tool_call>)', re.DOTALL)
 
 
 def parse_tool_args(raw) -> dict:

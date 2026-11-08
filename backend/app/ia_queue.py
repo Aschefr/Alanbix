@@ -600,7 +600,7 @@ class IAQueueManager:
                                     xml_buffer += token
                                     # If it looks like XML tool call, keep buffering without yielding
                                     if xml_buffer.strip().startswith("<tool_call") or "<tool_call" in xml_buffer:
-                                        if "</tool_call>" in xml_buffer:
+                                        if "</tool_call>" in xml_buffer or re.search(r'<tool_call name="[^"]+"\s*/>', xml_buffer):
                                             detected_xml_call = True
                                             is_buffering_xml = False
                                             break # Exit client.stream reading loop to execute tool

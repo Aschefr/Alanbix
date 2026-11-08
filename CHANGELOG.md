@@ -4,6 +4,7 @@
 
 ### 🐛 Fixes
 - **AI model reloads**: translations, tournament closing messages and title suggestions asked the AI server for its default context size, unlike the assistant. Ollama then reloaded the model between them, which can take half a minute or more on a big model, and a translation on a cold model always failed after 45 s. Every call now asks for the context size set in the AI settings, and translations wait long enough for a model to load.
+- **@Alanbix in the public chat**: a small model sometimes wrote a tool call in its short form (`<tool_call name="get_leaderboard"/>`), which was not recognised and was posted as is in the chat. It is now run like any other tool call.
 
 ## [1.38.2] - 2026-11-06
 
