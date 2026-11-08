@@ -1,5 +1,15 @@
 # Changelog
 
+## [Unreleased]
+
+### ✨ Features
+- **Better memory of long AI conversations**: *Summarize* now merges the previous summary with the messages leaving the context, under four sections (facts, decisions and why, the player's preferences, open questions), keeps exact values and notes corrections. The last two exchanges stay word for word. Measured on 8 November 2026 on an invented conversation, after three compressions: 10 facts out of 10 kept with qwen3.8:27b and 7 with gemma4:e4b, against 3 to 8 for the former *Summarize* and *Compact*. *Compact* is removed: a conversation that used it goes on with the summary.
+
+### 🐛 Fixes
+- **Compressing a long conversation cut its start**: a text too long for the AI's context lost its beginning before being summarized. It is now summarized in several steps.
+- **Truncate**: it kept only the first line (120 characters) of each removed message, worked as if the context were 4,096 tokens whatever the setting, and replaced the previous index each time. It now follows the context size, keeps the start of each message (300 characters for the player, 200 for the assistant) and adds to the previous index.
+- **Compression loop**: right after a compression, the waiting message is sent even if the freed room is short, instead of compressing again.
+
 ## [1.39.1] - 2026-11-08
 
 ### 🐛 Fixes
