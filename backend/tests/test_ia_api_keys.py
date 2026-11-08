@@ -68,3 +68,15 @@ def test_context_window_never_below_16k(client, db_session):
     with patch("app.ia_queue.queue_manager.restart_workers", new_callable=AsyncMock):
         client.post("/ia/config", json={"context_window": 65536})
     assert client.get("/ia/config").json()["context_window"] == 65536
+
+
+def test_thinking_defaults(client, db_session):
+    """Settings saved before the switches existed: thinking stays on for the chats (tools), off for the other tasks."""
+    with patch("app.ia_queue.queue_manager.restart_workers", new_callable=AsyncMock):
+        client.post("/ia/config", json={"context_window": 16384})
+    cfg = client.get("/ia/config").json()
+    assert (cfg["think_chat"], cfg["think_tasks"]) == (True, False)
+    with patch("app.ia_queue.queue_manager.restart_workers", new_callable=AsyncMock):
+        client.post("/ia/config", json={"think_chat": False, "think_tasks": True})
+    cfg = client.get("/ia/config").json()
+    assert (cfg["think_chat"], cfg["think_tasks"]) == (False, True)

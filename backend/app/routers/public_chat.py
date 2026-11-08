@@ -492,6 +492,7 @@ async def _process_alanbix_public_reply(trigger_msg_id: int, author_id: int):
                     "context_window": context_window,
                     "tools": public_tools(ia_cfg),
                     "asker_id": author.id,
+                    "think": ia_cfg.get("think_chat", True),
                 }
             )
 

@@ -1,6 +1,6 @@
 import re
 import httpx
-from .ia_utils import ia_client
+from .ia_utils import ia_client, no_think
 from datetime import datetime
 
 def run_truncation(messages: list, max_tokens: int, chars_per_token: float = 3.5) -> tuple[list, list]:
@@ -72,7 +72,7 @@ def is_openai_host(url: str) -> bool:
     clean = url.rstrip("/")
     return clean.endswith("/v1") or "/v1/" in clean or "openai" in clean.lower()
 
-async def run_compaction(text: str, url: str, model: str, num_ctx: int = 4096) -> str:
+async def run_compaction(text: str, url: str, model: str, num_ctx: int = 4096, think: bool = True) -> str:
     fitted_text, _ = _fit_text_to_context(text, _COMPACT_INSTRUCTIONS, num_ctx)
     prompt = fitted_text + _COMPACT_INSTRUCTIONS
     is_openai = is_openai_host(url)
@@ -91,7 +91,8 @@ async def run_compaction(text: str, url: str, model: str, num_ctx: int = 4096) -
             "model": model,
             "prompt": prompt,
             "stream": False,
-            "options": {"temperature": 0.1, "num_ctx": num_ctx}
+            "options": {"temperature": 0.1, "num_ctx": num_ctx},
+            **no_think(url, think),
         }
 
     async with ia_client() as client:
@@ -101,7 +102,7 @@ async def run_compaction(text: str, url: str, model: str, num_ctx: int = 4096) -
             return data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
         return data.get("response", "").strip()
 
-async def run_summary(text: str, url: str, model: str, num_ctx: int = 4096) -> str:
+async def run_summary(text: str, url: str, model: str, num_ctx: int = 4096, think: bool = True) -> str:
     fitted_text, _ = _fit_text_to_context(text, _SUMMARY_INSTRUCTIONS, num_ctx)
     prompt = fitted_text + _SUMMARY_INSTRUCTIONS
     is_openai = is_openai_host(url)
@@ -120,7 +121,8 @@ async def run_summary(text: str, url: str, model: str, num_ctx: int = 4096) -> s
             "model": model,
             "prompt": prompt,
             "stream": False,
-            "options": {"temperature": 0.1, "num_ctx": num_ctx}
+            "options": {"temperature": 0.1, "num_ctx": num_ctx},
+            **no_think(url, think),
         }
 
     async with ia_client() as client:

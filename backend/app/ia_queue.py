@@ -17,7 +17,7 @@ from collections import deque
 
 from .websockets import manager as ws_manager
 from .ia_title_utils import _build_title_prompt, _clean_title, _is_default_title
-from .ia_utils import ia_client
+from .ia_utils import ia_client, no_think
 from .ia_tool_loop import AI_READ_TIMEOUT, run_tool_rounds, merge_stream_tool_calls, parse_tool_args, parse_xml_tool_calls
 
 
@@ -37,6 +37,13 @@ PUBLIC_CHAT_TOOL_INSTRUCTION = {
         "If your API has no native tool calling, write the call exactly like this in your answer:\n"
         "<tool_call name=\"tool_name\">\n{\"parameter\": \"value\"}\n</tool_call>"
     ),
+}
+
+
+# Added to the last round of the private assistant, which has no tool any more
+LAST_ROUND_INSTRUCTION = {
+    "role": "system",
+    "content": "No more tool calls now: answer the player with the tool results above, in their language.",
 }
 
 
@@ -481,9 +488,12 @@ class IAQueueManager:
             # Text already streamed to the player in earlier rounds (before a tool call)
             shown_before = ""
             last_visible = ""
+            full_response = ""
+            answered = False
+            extra_round = 0
 
             # Streaming loop (Option A and final leg of Option B/D)
-            while tool_round < max_tool_rounds:
+            while tool_round < max_tool_rounds + extra_round:
                 tool_round += 1
                 
                 # If we're executing tools in stream_intercept mode, remove tools from later requests to avoid infinite loops
@@ -504,9 +514,16 @@ class IAQueueManager:
                     stream_req = {**req_data, "messages": tool_messages, "stream": True}
                     if tool_round >= max_tool_rounds:
                         stream_req.pop("tools", None)
+                # Last round: no tool any more. A model that still asked for one used to end the loop
+                # without an answer, and the player waited 5 minutes for nothing (thinking models, mostly)
+                last_round = bool(tools) and tool_round >= max_tool_rounds
+                if last_round:
+                    stream_req["messages"] = tool_messages + [LAST_ROUND_INSTRUCTION]
+                    if extra_round and not is_openai:
+                        stream_req["think"] = False
 
                 # Variables to control streaming chunk buffer for XML detection
-                is_buffering_xml = (tools and tool_calling_mode == "stream_intercept")
+                is_buffering_xml = (tools and tool_calling_mode == "stream_intercept" and not last_round)
                 xml_buffer = ""
                 detected_xml_call = False
                 native_tool_calls = []
@@ -600,7 +617,7 @@ class IAQueueManager:
                                     xml_buffer += token
                                     # If it looks like XML tool call, keep buffering without yielding
                                     if xml_buffer.strip().startswith("<tool_call") or "<tool_call" in xml_buffer:
-                                        if "</tool_call>" in xml_buffer:
+                                        if "</tool_call>" in xml_buffer or re.search(r'<tool_call name="[^"]+"\s*/>', xml_buffer):
                                             detected_xml_call = True
                                             is_buffering_xml = False
                                             break # Exit client.stream reading loop to execute tool
@@ -664,7 +681,7 @@ class IAQueueManager:
                 # If a tool call was detected, execute it and do another round
                 # OpenAI-compatible services stream each call in pieces: put them back together
                 native_tool_calls = merge_stream_tool_calls(native_tool_calls)
-                has_tool_call = bool(native_tool_calls) or detected_xml_call
+                has_tool_call = (bool(native_tool_calls) or detected_xml_call) and not last_round
                 if has_tool_call and tool_calling_mode == "stream_intercept":
                     # Parse tools
                     parsed_calls = []
@@ -688,7 +705,6 @@ class IAQueueManager:
                     
                     # The player already sees the text written before the call: hand it back to the model
                     # so the next round continues it instead of writing the whole answer again
-                    import re
                     visible = re.sub(r'<think>.*?</think>', '', full_response, flags=re.DOTALL).strip()
                     if detected_xml_call and "<tool_call" in visible:
                         visible = visible.split("<tool_call", 1)[0].strip()
@@ -733,8 +749,14 @@ class IAQueueManager:
                             await entry.result_stream.put({"status": "generating"})
                         await entry.result_stream.put({"text": xml_buffer})
 
-                    import re
                     clean_response = re.sub(r'<think>.*?</think>', '', full_response, flags=re.DOTALL).strip()
+                    if last_round and "<tool_call" in clean_response:
+                        clean_response = clean_response.split("<tool_call", 1)[0].strip()
+                    if last_round and not clean_response and not extra_round:
+                        # It only asked for another tool: ask once more, without thinking, which answered
+                        # right in the 2026-11-08 bench (qwen3.8:27b and bonsai-2:27b)
+                        extra_round = 1
+                        continue
                     self._execute_post_stream_tool_calls(clean_response, tools, entry.user_id, used_tools)
                     # Store what the player saw: text from the rounds before tool calls, then the final round
                     if shown_before:
@@ -751,7 +773,17 @@ class IAQueueManager:
                         "saved_by_worker": saved_msg_id is not None,
                         "meta": meta,
                     })
+                    answered = True
                     break
+
+            if not answered and not entry.cancelled:
+                # Left the loop on a tool call that could not be read: end the answer with what the player saw
+                clean_response = re.sub(r'<think>.*?</think>', '', full_response, flags=re.DOTALL)
+                clean_response = f"{shown_before}\n\n{clean_response.split('<tool_call', 1)[0]}".strip()
+                meta = {"model_info": entry.payload.get("model_info"), "used_tools": used_tools, "duration": response_time}
+                saved_msg_id = self._save_bot_message(conversation_id, clean_response, meta=meta)
+                await entry.result_stream.put({"done": True, "full_response": clean_response,
+                                               "saved_by_worker": saved_msg_id is not None, "meta": meta})
         except Exception as e:
             import traceback
             traceback.print_exc()
@@ -793,9 +825,9 @@ class IAQueueManager:
 
         try:
             if mode == "compact":
-                result = await run_compaction(text, url, model, num_ctx=num_ctx)
+                result = await run_compaction(text, url, model, num_ctx=num_ctx, think=payload.get("think", True))
             elif mode == "summary":
-                result = await run_summary(text, url, model, num_ctx=num_ctx)
+                result = await run_summary(text, url, model, num_ctx=num_ctx, think=payload.get("think", True))
             else:
                 result = ""
             await entry.result_stream.put({"done": True, "result": result})
@@ -828,7 +860,9 @@ class IAQueueManager:
                     "messages": [{"role": "user", "content": prompt}],
                     "stream": False,
                     "format": "json",
-                    "options": {"temperature": 0.8, "num_predict": context_window}
+                    # Same context as every other call: another size makes Ollama reload the model
+                    "options": {"temperature": 0.8, "num_predict": context_window, "num_ctx": context_window},
+                    **no_think(ollama_host, payload.get("think", True)),
                 }
 
             async with ia_client() as client:
@@ -867,7 +901,8 @@ class IAQueueManager:
                     outcome = await run_tool_rounds(
                         client, ollama_host,
                         {"model": model, "tools": tools,
-                         "options": {"temperature": temperature, "num_predict": max_answer, "num_ctx": context_window}},
+                         "options": {"temperature": temperature, "num_predict": max_answer, "num_ctx": context_window},
+                         **no_think(ollama_host, payload.get("think", True))},
                         [*messages[:1], PUBLIC_CHAT_TOOL_INSTRUCTION, *messages[1:]],
                         user_id=payload.get("asker_id", 0),
                         allowed_tools={t["function"]["name"] for t in tools},
@@ -891,7 +926,8 @@ class IAQueueManager:
                             "model": model,
                             "messages": messages,
                             "stream": False,
-                            "options": {"temperature": temperature, "num_predict": max_answer, "num_ctx": context_window}
+                            "options": {"temperature": temperature, "num_predict": max_answer, "num_ctx": context_window},
+                            **no_think(ollama_host, payload.get("think", True)),
                         }
                     res = await client.post(url, json=req_json, timeout=AI_READ_TIMEOUT)
 
@@ -938,11 +974,13 @@ class IAQueueManager:
                     "model": model,
                     "messages": [{"role": "user", "content": prompt}],
                     "stream": False,
-                    "options": {"temperature": 0.1}
+                    "options": {"temperature": 0.1, **({"num_ctx": payload["num_ctx"]} if payload.get("num_ctx") else {})},
+                    **no_think(ollama_host, payload.get("think", True)),
                 }
 
+            # A cold model can take longer than 45 s to load: an aborted request left it unloaded, and every try started over
             async with ia_client() as client:
-                res = await client.post(url, json=req_json, timeout=45.0)
+                res = await client.post(url, json=req_json, timeout=AI_READ_TIMEOUT)
 
             if res.status_code != 200:
                 raise Exception(f"AI service returned HTTP {res.status_code}: {res.text[:200]}")
@@ -963,7 +1001,7 @@ class IAQueueManager:
         conv_id = payload["conversation_id"]
         user_id = payload["user_id"]
         try:
-            suggestion, status = await self._request_title(ollama_host, model, excerpt)
+            suggestion, status = await self._request_title(ollama_host, model, excerpt, payload.get("num_ctx"))
             if suggestion:
                 await ws_manager.broadcast({
                     "type": "title_suggestion_ready",
