@@ -134,7 +134,7 @@ async def test_ia_tool_block_user_from_ia(db_session):
     # Verify notifications were created
     notifs = db_session.query(models.Notification).filter(models.Notification.user_id == player1.id).all()
     assert len(notifs) == 1
-    assert notifs[0].title == "Accès IA Révoqué"
+    assert notifs[0].title == "Accès à l'assistant IA bloqué"
     assert "Language injurieux" in notifs[0].content
 
     # Verify admin notification
