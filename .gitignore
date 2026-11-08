@@ -102,6 +102,3 @@ frontend/ios/capacitor-cordova-ios-plugins/
 
 # === Local handover notes (not for GitHub) ===
 /REPRISE_ALANBIX.md
-
-# === AI bench results (demo data, kept local) ===
-scripts/ai_bench/results/

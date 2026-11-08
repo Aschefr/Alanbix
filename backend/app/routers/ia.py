@@ -961,7 +961,7 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
             "num_ctx": num_ctx
         },
         "tools": enabled_tools,
-        # Hidden setting for the thinking bench (scripts/ai_bench); a chat with tools keeps thinking by default
+        # Hidden setting for the thinking bench (kept outside the repo); a chat with tools keeps thinking by default
         **no_think(ollama_host, ia_cfg.get("think_chat", True)),
     }
     queue_entry = QueueEntry(

@@ -588,7 +588,7 @@ async def test_process_public_chat_tokens_and_thinking_cleanup():
 @pytest.mark.asyncio
 async def test_thinking_setting_reaches_ollama():
     """Thinking on (the default): nothing is sent, as before. Off: think false on Ollama, nothing on
-    OpenAI-compatible services. Used by the thinking bench (scripts/ai_bench)."""
+    OpenAI-compatible services. Used by the thinking bench (kept outside the repo)."""
     from unittest.mock import MagicMock, AsyncMock, patch
     from app.ia_queue import IAQueueManager, QueueEntry
 
