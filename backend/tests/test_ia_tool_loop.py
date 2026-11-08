@@ -86,3 +86,12 @@ def test_merge_stream_tool_calls_keeps_whole_ollama_calls():
     calls = merge_stream_tool_calls(whole)
     assert [c["function"] for c in calls] == [w["function"] for w in whole]
     assert "id" not in calls[0]
+
+
+
+def test_short_xml_tool_call_is_read():
+    """gemma4:e4b wrote <tool_call name="get_leaderboard"/> in the public chat, and it was posted as is."""
+    from app.ia_tool_loop import parse_xml_tool_calls
+    assert parse_xml_tool_calls('<tool_call name="get_leaderboard"/>') == [{"function": {"name": "get_leaderboard", "arguments": {}}}]
+    assert parse_xml_tool_calls('<tool_call name="get_player_seat">{"username": "LaserCat"}</tool_call>') == [
+        {"function": {"name": "get_player_seat", "arguments": {"username": "LaserCat"}}}]

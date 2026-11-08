@@ -583,3 +583,177 @@ async def test_process_public_chat_tokens_and_thinking_cleanup():
     assert result.get("done") is True
     assert result.get("result") == "Pourquoi les devs aiment la nuit ? Parce que le soleil génère des reflets sur l'écran !"
 
+
+
+@pytest.mark.asyncio
+async def test_thinking_setting_reaches_ollama():
+    """Thinking on (the default): nothing is sent, as before. Off: think false on Ollama, nothing on
+    OpenAI-compatible services. Used by the thinking bench (kept outside the repo)."""
+    from unittest.mock import MagicMock, AsyncMock, patch
+    from app.ia_queue import IAQueueManager, QueueEntry
+
+    def client():
+        res = MagicMock(status_code=200)
+        res.json.return_value = {"message": {"content": "{}"}, "response": "ok"}
+        c = AsyncMock()
+        c.post = AsyncMock(return_value=res)
+        c.__aenter__ = AsyncMock(return_value=c)
+        c.__aexit__ = AsyncMock(return_value=False)
+        return c
+
+    async def sent(task_type, host, **extra):
+        payload = {"ollama_host": host, "model": "m", "prompt": "p", "text": "t", "mode": "compact",
+                   "messages": [{"role": "user", "content": "x"}], **extra}
+        entry = QueueEntry(priority=0, created_at=time.time(), user_id=0, username="t", task_type=task_type, payload=payload)
+        c = client()
+        with patch("httpx.AsyncClient", return_value=c):
+            await getattr(IAQueueManager(), f"_process_{task_type}")(entry, payload)
+        return c.post.call_args.kwargs["json"]
+
+    for task in ("notification", "translate", "compress", "public_chat"):
+        assert "think" not in await sent(task, "http://gpu1:11434"), task
+        assert (await sent(task, "http://gpu1:11434", think=False))["think"] is False, task
+        assert "think" not in await sent(task, "http://gpu:8000/v1", think=False), task
+
+
+@pytest.mark.asyncio
+async def test_every_call_asks_the_same_context():
+    """Ollama reloads a model when the context size changes: a translation without num_ctx
+    reloaded qwen3.8:27b after each chat, and the 45 s limit aborted the load every time."""
+    from unittest.mock import MagicMock, AsyncMock, patch
+    from app.ia_queue import IAQueueManager, QueueEntry
+
+    def client():
+        res = MagicMock(status_code=200)
+        res.json.return_value = {"message": {"content": "{}"}, "response": "ok"}
+        c = AsyncMock()
+        c.post = AsyncMock(return_value=res)
+        c.__aenter__ = AsyncMock(return_value=c)
+        c.__aexit__ = AsyncMock(return_value=False)
+        return c
+
+    for task in ("notification", "translate", "compress", "public_chat", "title_suggestion", "auto_title"):
+        payload = {"ollama_host": "http://gpu1:11434", "model": "m", "prompt": "p", "text": "t", "mode": "compact",
+                   "excerpt": "User: salut", "conversation_id": 0, "user_id": 0,
+                   "messages": [{"role": "user", "content": "x"}], "context_window": 16384, "num_ctx": 16384}
+        entry = QueueEntry(priority=0, created_at=time.time(), user_id=0, username="t", task_type=task, payload=payload)
+        c = client()
+        with patch("httpx.AsyncClient", return_value=c):
+            await getattr(IAQueueManager(), f"_process_{task}")(entry, payload)
+        assert c.post.call_args.kwargs["json"]["options"]["num_ctx"] == 16384, task
+
+
+@pytest.mark.asyncio
+async def test_last_tool_round_still_answers():
+    """qwen3.8:27b and bonsai-2:27b, thinking on, asked for a third tool in the last round (which has none):
+    the loop ended without a 'done', and the player waited 5 minutes for nothing."""
+    import sys
+    from unittest.mock import MagicMock, AsyncMock, patch
+    import json
+    from app.ia_queue import IAQueueManager, QueueEntry, LAST_ROUND_INSTRUCTION
+    import app.ia_tools  # noqa: F401  (patched below, imported lazily by the queue)
+
+    def stream(*lines):
+        res = MagicMock()
+
+        async def aiter_lines():
+            for line in lines:
+                yield json.dumps(line)
+        res.aiter_lines = aiter_lines
+
+        class Ctx:
+            async def __aenter__(self):
+                return res
+
+            async def __aexit__(self, *a):
+                return False
+        return Ctx()
+
+    call = '<tool_call name="get_tournaments">{}</tool_call>'
+    rounds = [stream({"message": {"content": call}}), stream({"message": {"content": call}}),
+              stream({"message": {"content": "Aucun tournoi de ce nom. " + call}}, {"done": True})]
+    client = MagicMock()
+    client.stream = MagicMock(side_effect=rounds)
+    client.aclose = AsyncMock()
+    tools = [{"type": "function", "function": {"name": "get_tournaments", "parameters": {}}}]
+    entry = QueueEntry(priority=0, created_at=time.time(), user_id=0, username="t", task_type="chat", payload={
+        "ollama_host": "http://gpu1:11434", "conversation_id": 0, "tool_calling_mode": "stream_intercept",
+        "req_data": {"model": "m", "messages": [{"role": "user", "content": "Mon score au Rocket League Masters ?"}],
+                     "stream": True, "options": {}, "tools": tools}})
+    run_tool = AsyncMock(return_value='{"tournaments": []}')
+    patches = [patch(f"{m}.execute_tool", run_tool) for m in list(sys.modules)
+               if m.endswith("ia_tools") and hasattr(sys.modules[m], "execute_tool")]
+    with patch("httpx.AsyncClient", return_value=client):
+        for p in patches:
+            p.start()
+        try:
+            await IAQueueManager()._process_chat(entry, entry.payload)
+        finally:
+            for p in patches:
+                p.stop()
+
+    assert run_tool.await_count == 2
+    last_request = client.stream.call_args_list[2].kwargs["json"]
+    assert "tools" not in last_request and last_request["messages"][-1] == LAST_ROUND_INSTRUCTION
+    items = []
+    while not entry.result_stream.empty():
+        items.append(entry.result_stream.get_nowait())
+    done = [i for i in items if i.get("done")]
+    assert done and done[0]["full_response"] == "Aucun tournoi de ce nom."
+
+
+@pytest.mark.asyncio
+async def test_empty_last_round_is_asked_again_without_thinking():
+    """With thinking on, qwen3.8:27b often only asked for another tool in the last round: the answer was empty."""
+    import sys
+    import json
+    from unittest.mock import MagicMock, AsyncMock, patch
+    from app.ia_queue import IAQueueManager, QueueEntry
+    import app.ia_tools  # noqa: F401  (patched below, imported lazily by the queue)
+
+    def stream(*lines):
+        res = MagicMock()
+
+        async def aiter_lines():
+            for line in lines:
+                yield json.dumps(line)
+        res.aiter_lines = aiter_lines
+
+        class Ctx:
+            async def __aenter__(self):
+                return res
+
+            async def __aexit__(self, *a):
+                return False
+        return Ctx()
+
+    native = {"message": {"content": "", "tool_calls": [{"function": {"name": "get_tournaments", "arguments": {}}}]}}
+    rounds = [stream(native, {"done": True}), stream(native, {"done": True}), stream(native, {"done": True}),
+              stream({"message": {"content": "Ce tournoi n'existe pas."}}, {"done": True})]
+    client = MagicMock()
+    client.stream = MagicMock(side_effect=rounds)
+    client.aclose = AsyncMock()
+    tools = [{"type": "function", "function": {"name": "get_tournaments", "parameters": {}}}]
+    entry = QueueEntry(priority=0, created_at=time.time(), user_id=0, username="t", task_type="chat", payload={
+        "ollama_host": "http://gpu1:11434", "conversation_id": 0, "tool_calling_mode": "stream_intercept",
+        "req_data": {"model": "m", "messages": [{"role": "user", "content": "Mon score au Rocket League Masters ?"}],
+                     "stream": True, "options": {}, "tools": tools}})
+    run_tool = AsyncMock(return_value='{"tournaments": []}')
+    patches = [patch(f"{m}.execute_tool", run_tool) for m in list(sys.modules)
+               if m.endswith("ia_tools") and hasattr(sys.modules[m], "execute_tool")]
+    with patch("httpx.AsyncClient", return_value=client):
+        for p in patches:
+            p.start()
+        try:
+            await IAQueueManager()._process_chat(entry, entry.payload)
+        finally:
+            for p in patches:
+                p.stop()
+
+    assert run_tool.await_count == 2 and client.stream.call_count == 4
+    assert "think" not in client.stream.call_args_list[2].kwargs["json"]
+    assert client.stream.call_args_list[3].kwargs["json"]["think"] is False
+    items = []
+    while not entry.result_stream.empty():
+        items.append(entry.result_stream.get_nowait())
+    assert [i["full_response"] for i in items if i.get("done")] == ["Ce tournoi n'existe pas."]

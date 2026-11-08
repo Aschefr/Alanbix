@@ -16,7 +16,7 @@ from ..websockets import manager as ws_manager
 from .. import models, schemas, auth, database
 from .. import ia_builtin_embed
 from ..ia_knowledge import search_knowledge, knowledge_prompt, index_entry, reindex_all, status as knowledge_status
-from ..ia_utils import ia_client, register_instance_keys
+from ..ia_utils import ia_client, register_instance_keys, no_think
 from starlette.requests import Request as StarletteRequest
 from ..ia_compression import run_truncation, run_compaction, run_summary
 from ..ia_title_utils import _is_default_title, _build_title_prompt, _clean_title
@@ -59,6 +59,12 @@ def get_effective_config(db: Session):
             val["rag_suggestion_enabled"] = True
         if "rag_min_score" not in val:
             val["rag_min_score"] = 0.65
+        # Thinking (Ollama): kept for the chats, which use tools; off for the tasks without tools,
+        # where the 2026-11-08 bench found the same answers 2 to 7 times faster
+        if "think_chat" not in val:
+            val["think_chat"] = True
+        if "think_tasks" not in val:
+            val["think_tasks"] = False
         # The instructions and tool definitions alone take ~6,000 tokens: below 16K little is left
         try:
             val["context_window"] = max(int(val.get("context_window") or MIN_CONTEXT_WINDOW), MIN_CONTEXT_WINDOW)
@@ -80,6 +86,8 @@ def get_effective_config(db: Session):
         "rag_suggestion_enabled": True,
         "rag_min_score": 0.65,
         "context_window": MIN_CONTEXT_WINDOW,
+        "think_chat": True,
+        "think_tasks": False,
     }
 
 def get_instances(db: Session):
@@ -585,7 +593,8 @@ async def compress_context(conv_id: int, req: CompressRequest, db: Session = Dep
             "model": model,
             "mode": req.mode,
             "text": text_to_compress,
-            "num_ctx": ia_cfg.get("context_window", 4096)
+            "num_ctx": ia_cfg.get("context_window", 4096),
+            "think": ia_cfg.get("think_tasks", False),
         }
     )
     entry, position = await queue_manager.enqueue(entry)
@@ -745,6 +754,7 @@ async def suggest_title(conv_id: int, db: Session = Depends(database.get_db), us
             "excerpt": excerpt,
             "conversation_id": conv_id,
             "user_id": user.id,
+            "num_ctx": cfg.get("context_window"),
         }
     )
     await queue_manager.enqueue(entry)
@@ -960,6 +970,7 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
             "num_ctx": num_ctx
         },
         "tools": enabled_tools,
+        **no_think(ollama_host, ia_cfg.get("think_chat", True)),
     }
     queue_entry = QueueEntry(
         priority=0 if user.is_admin else 10,
