@@ -614,3 +614,30 @@ async def test_thinking_setting_reaches_ollama():
         assert "think" not in await sent(task, "http://gpu1:11434"), task
         assert (await sent(task, "http://gpu1:11434", think=False))["think"] is False, task
         assert "think" not in await sent(task, "http://gpu:8000/v1", think=False), task
+
+
+@pytest.mark.asyncio
+async def test_every_call_asks_the_same_context():
+    """Ollama reloads a model when the context size changes: a translation without num_ctx
+    reloaded qwen3.8:27b after each chat, and the 45 s limit aborted the load every time."""
+    from unittest.mock import MagicMock, AsyncMock, patch
+    from app.ia_queue import IAQueueManager, QueueEntry
+
+    def client():
+        res = MagicMock(status_code=200)
+        res.json.return_value = {"message": {"content": "{}"}, "response": "ok"}
+        c = AsyncMock()
+        c.post = AsyncMock(return_value=res)
+        c.__aenter__ = AsyncMock(return_value=c)
+        c.__aexit__ = AsyncMock(return_value=False)
+        return c
+
+    for task in ("notification", "translate", "compress", "public_chat", "title_suggestion", "auto_title"):
+        payload = {"ollama_host": "http://gpu1:11434", "model": "m", "prompt": "p", "text": "t", "mode": "compact",
+                   "excerpt": "User: salut", "conversation_id": 0, "user_id": 0,
+                   "messages": [{"role": "user", "content": "x"}], "context_window": 16384, "num_ctx": 16384}
+        entry = QueueEntry(priority=0, created_at=time.time(), user_id=0, username="t", task_type=task, payload=payload)
+        c = client()
+        with patch("httpx.AsyncClient", return_value=c):
+            await getattr(IAQueueManager(), f"_process_{task}")(entry, payload)
+        assert c.post.call_args.kwargs["json"]["options"]["num_ctx"] == 16384, task

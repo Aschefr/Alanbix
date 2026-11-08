@@ -746,6 +746,7 @@ async def suggest_title(conv_id: int, db: Session = Depends(database.get_db), us
             "excerpt": excerpt,
             "conversation_id": conv_id,
             "user_id": user.id,
+            "num_ctx": cfg.get("context_window"),
         }
     )
     await queue_manager.enqueue(entry)

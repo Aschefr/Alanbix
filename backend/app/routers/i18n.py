@@ -209,6 +209,7 @@ async def auto_translate(
                 "model": model,
                 "prompt": translation_prompt,
                 "think": ia_cfg.get("think_tasks", True),
+                "num_ctx": ia_cfg.get("context_window"),
             }
         )
         entry, _ = await queue_manager.enqueue(entry)
@@ -342,12 +343,13 @@ async def bulk_translate(
                         "model": model,
                         "messages": [{"role": "user", "content": prompt}],
                         "stream": False,
-                        "options": {"temperature": 0.1},
+                        # Same context as the other calls, so that Ollama does not reload the model
+                        "options": {"temperature": 0.1, "num_ctx": ia_cfg.get("context_window")},
                         **no_think(url, ia_cfg.get("think_tasks", True)),
                     }
 
                 async with ia_client() as client:
-                    res = await client.post(request_url, json=payload, timeout=httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=10.0))
+                    res = await client.post(request_url, json=payload, timeout=httpx.Timeout(connect=10.0, read=300.0, write=10.0, pool=10.0))  # room for a cold model to load
 
                 if res.status_code != 200:
                     raise Exception(f"HTTP {res.status_code}")

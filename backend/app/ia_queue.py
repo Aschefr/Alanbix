@@ -828,7 +828,8 @@ class IAQueueManager:
                     "messages": [{"role": "user", "content": prompt}],
                     "stream": False,
                     "format": "json",
-                    "options": {"temperature": 0.8, "num_predict": context_window},
+                    # Same context as every other call: another size makes Ollama reload the model
+                    "options": {"temperature": 0.8, "num_predict": context_window, "num_ctx": context_window},
                     **no_think(ollama_host, payload.get("think", True)),
                 }
 
@@ -941,12 +942,13 @@ class IAQueueManager:
                     "model": model,
                     "messages": [{"role": "user", "content": prompt}],
                     "stream": False,
-                    "options": {"temperature": 0.1},
+                    "options": {"temperature": 0.1, **({"num_ctx": payload["num_ctx"]} if payload.get("num_ctx") else {})},
                     **no_think(ollama_host, payload.get("think", True)),
                 }
 
+            # A cold model can take longer than 45 s to load: an aborted request left it unloaded, and every try started over
             async with ia_client() as client:
-                res = await client.post(url, json=req_json, timeout=45.0)
+                res = await client.post(url, json=req_json, timeout=AI_READ_TIMEOUT)
 
             if res.status_code != 200:
                 raise Exception(f"AI service returned HTTP {res.status_code}: {res.text[:200]}")
@@ -967,7 +969,7 @@ class IAQueueManager:
         conv_id = payload["conversation_id"]
         user_id = payload["user_id"]
         try:
-            suggestion, status = await self._request_title(ollama_host, model, excerpt)
+            suggestion, status = await self._request_title(ollama_host, model, excerpt, payload.get("num_ctx"))
             if suggestion:
                 await ws_manager.broadcast({
                     "type": "title_suggestion_ready",
