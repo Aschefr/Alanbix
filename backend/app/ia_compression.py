@@ -5,11 +5,12 @@ Two ways, chosen by the player:
 - summary: anchored summary. The AI merges the previous summary with the messages leaving the context,
   in fixed sections, keeping exact values and corrections; the last two exchanges stay word for word.
   Measured on 2026-11-09 with this module (ai-bench/results/compaction, 3 runs, 3 compactions each): 30/30 facts
-  kept with qwen3.8:27b and 23/30 with gemma4:e4b (25/30 without compaction), against 3 to 8 out of 10 for the
+  kept with qwen3.8:27b and 26/30 with gemma4:e4b (25/30 without compaction), against 3 to 8 out of 10 for the
   former summary and compact modes.
   The rules on numbers, ranges, reasons and open questions, the language and titles given by the code, the refusal of
   incomplete summaries and the removal of copied instructions come from OmniBank and Sentinel, where they raised
-  gemma4:e4b from about 24 to 28-29 out of 30 (ai-bench/COMPACTION.md, section 9).
+  gemma4:e4b from about 24 to 28-29 out of 30 (ai-bench/COMPACTION.md, section 9). On Alanbix (section 10): same scores
+  (26/30 e4b, 29/30 qwen), titles and content in the player's language, no copied instruction, one cut summary refused.
 """
 import re
 import unicodedata
