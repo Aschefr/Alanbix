@@ -521,6 +521,7 @@ def get_messages(conv_id: int, db: Session = Depends(database.get_db), user: mod
 
 class CompressRequest(BaseModel):
     mode: str
+    lang: Optional[str] = None  # the player's interface language, for the summary's language and titles
 
 @router.post("/compress/{conv_id}")
 async def compress_context(conv_id: int, req: CompressRequest, db: Session = Depends(database.get_db), user: models.User = Depends(auth.get_current_user)):
@@ -583,6 +584,10 @@ async def compress_context(conv_id: int, req: CompressRequest, db: Session = Dep
     lines = [message_line(m.role, m.content) for m in to_summarize]
     cutoff_time = conv.compressed_at if preserving_cutoff else (kept[0].timestamp if kept else utcnow())
 
+    # The summary is written in the player's interface language, else the LAN's
+    lan_cfg = db.query(models.SystemConfig).filter(models.SystemConfig.key == "lan_default_language").first()
+    summary_lang = req.lang or (lan_cfg.value if lan_cfg and lan_cfg.value else "fr")
+
     # Route through AI queue for compact/summary (requires GPU)
     from ..ia_queue import queue_manager, QueueEntry
     entry = QueueEntry(
@@ -599,6 +604,7 @@ async def compress_context(conv_id: int, req: CompressRequest, db: Session = Dep
             "lines": lines,
             "num_ctx": num_ctx,
             "think": ia_cfg.get("think_tasks", False),
+            "lang": summary_lang,
         }
     )
     entry, position = await queue_manager.enqueue(entry)
@@ -612,6 +618,8 @@ async def compress_context(conv_id: int, req: CompressRequest, db: Session = Dep
     
     # Read result
     result_data = await entry.result_stream.get()
+    if result_data.get("rejected"):
+        raise HTTPException(500, "Le résumé de l'IA était incomplet ; la conversation n'a pas été modifiée. Réessayez.")
     if result_data.get("error"):
         raise HTTPException(500, result_data.get("result", "Erreur de compression"))
     
@@ -960,9 +968,9 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
                 continue
             enabled_tools.append(tool)
         
-    cfg_ctx = ia_cfg.get('context_window', 4096)
-    # Enforce minimum 8192 context window if tools are enabled to prevent running out of tokens due to tool schemas (~3000 tokens)
-    num_ctx = max(8192, cfg_ctx) if enabled_tools else cfg_ctx
+    # The same size as every other call (get_effective_config keeps it at MIN_CONTEXT_WINDOW or more, enough for
+    # the tool definitions): a different size would make Ollama reload the model
+    num_ctx = ia_cfg.get('context_window') or MIN_CONTEXT_WINDOW
 
     req_data = {
         "model": model_to_use,

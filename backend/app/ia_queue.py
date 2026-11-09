@@ -815,13 +815,16 @@ class IAQueueManager:
 
     async def _process_compress(self, entry: QueueEntry, payload: dict):
         """Process a compression request (non-streaming)."""
-        from .ia_compression import run_anchored
+        from .ia_compression import run_anchored, SummaryRejected
 
         try:
             result = await run_anchored(payload.get("previous", ""), payload["lines"], payload["ollama_host"],
                                         payload["model"], num_ctx=payload.get("num_ctx", 16384),
-                                        think=payload.get("think", True))
+                                        think=payload.get("think", True), lang=payload.get("lang", "fr"))
             await entry.result_stream.put({"done": True, "result": result})
+        except SummaryRejected as e:
+            print(f"[IA Queue] Compression summary refused: {e}")
+            await entry.result_stream.put({"done": True, "error": True, "rejected": True, "result": str(e)})
         except Exception as e:
             await entry.result_stream.put({"done": True, "error": True, "result": str(e)})
 
@@ -830,7 +833,7 @@ class IAQueueManager:
         ollama_host = payload["ollama_host"]
         model = payload["model"]
         prompt = payload["prompt"]
-        context_window = payload.get("context_window", 4096)
+        context_window = payload.get("context_window", 16384)  # MIN_CONTEXT_WINDOW; callers always send it
 
         try:
             is_openai = is_openai_host(ollama_host)
@@ -875,7 +878,7 @@ class IAQueueManager:
         ollama_host = payload["ollama_host"]
         model = payload["model"]
         messages = payload["messages"]
-        context_window = payload.get("context_window", 4096)
+        context_window = payload.get("context_window", 16384)  # MIN_CONTEXT_WINDOW; callers always send it
         temperature = payload.get("temperature", 0.7)
         # A chat line needs little, but thinking models spend tokens before answering;
         # never ask for more than the context (some online services reject it)
