@@ -46,10 +46,11 @@ Before each send, the app estimates the number of tokens in the conversation. Th
 * If the volume exceeds **85%** of the available room, the player chooses a compression (see below). Once a mode is chosen, it applies automatically the next time.
 * **Compressed Context**: The result is stored in `conv.compressed_context` and sent to the model before the recent messages. **Context Space** lets you read it and edit it by hand.
 
-### The three compression modes
-1. **Truncate**: Simply deletes the oldest messages (fast).
-2. **Compact**: Merges redundant messages or greetings (medium).
-3. **Summarize**: Generates a global summary (best information retention).
+### The two compression modes
+1. **Truncate** (instant, no AI): the oldest messages leave the context, and the newest fill at most half of it. The start of each removed message is kept in an index, added to the previous one at each compression.
+2. **Summarize** (recommended): the AI merges the previous summary with the messages leaving the context, under four sections: facts, decisions and their reason, the player's preferences, open questions. It keeps exact values (times, scores, nicknames) and notes corrections. The last two exchanges stay as they are in the conversation. A text too long for the context is summarized in several steps, without losing its start.
+
+Measured on 9 November 2026 with this code, on an invented conversation, after three compressions and over three runs: `qwen3.8:27b` finds 30 facts out of 30, as many as with the whole conversation, and `gemma4:e4b` 23 out of 30 (25 with the whole conversation). The prompt drops from about 15,000 tokens to 1,200 to 1,800. The former "Summarize" and "Compact" modes found 3 to 8 facts out of 10. "Compact" was removed; a conversation using it moves to the summary.
 
 ---
 

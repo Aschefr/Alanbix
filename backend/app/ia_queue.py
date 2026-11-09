@@ -815,21 +815,12 @@ class IAQueueManager:
 
     async def _process_compress(self, entry: QueueEntry, payload: dict):
         """Process a compression request (non-streaming)."""
-        url = payload["ollama_host"]
-        model = payload["model"]
-        mode = payload["mode"]
-        text = payload["text"]
-        num_ctx = payload.get("num_ctx", 4096)
-
-        from .ia_compression import run_compaction, run_summary
+        from .ia_compression import run_anchored
 
         try:
-            if mode == "compact":
-                result = await run_compaction(text, url, model, num_ctx=num_ctx, think=payload.get("think", True))
-            elif mode == "summary":
-                result = await run_summary(text, url, model, num_ctx=num_ctx, think=payload.get("think", True))
-            else:
-                result = ""
+            result = await run_anchored(payload.get("previous", ""), payload["lines"], payload["ollama_host"],
+                                        payload["model"], num_ctx=payload.get("num_ctx", 16384),
+                                        think=payload.get("think", True))
             await entry.result_stream.put({"done": True, "result": result})
         except Exception as e:
             await entry.result_stream.put({"done": True, "error": True, "result": str(e)})

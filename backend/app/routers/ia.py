@@ -18,7 +18,7 @@ from .. import ia_builtin_embed
 from ..ia_knowledge import search_knowledge, knowledge_prompt, index_entry, reindex_all, status as knowledge_status
 from ..ia_utils import ia_client, register_instance_keys, no_think
 from starlette.requests import Request as StarletteRequest
-from ..ia_compression import run_truncation, run_compaction, run_summary
+from ..ia_compression import run_truncation, truncation_index, split_kept, message_line
 from ..ia_title_utils import _is_default_title, _build_title_prompt, _clean_title
 from ..clock import utcnow
 
@@ -531,7 +531,10 @@ async def compress_context(conv_id: int, req: CompressRequest, db: Session = Dep
     history = db.query(models.ChatMessage).filter(models.ChatMessage.conversation_id == conv_id).order_by(models.ChatMessage.timestamp.asc()).all()
 
     # Determine which messages to process
-    mode_switch = conv.compressed_at and conv.compression_mode and conv.compression_mode != req.mode
+    # "compact", the former third mode, is now the summary (conversations and phones may still ask for it)
+    mode = "truncate" if req.mode == "truncate" else "summary"
+    old_mode = "truncate" if conv.compression_mode == "truncate" else "summary"
+    mode_switch = conv.compressed_at and conv.compression_mode and old_mode != mode
     if mode_switch:
         # Mode change: re-compress ONLY the original pre-compression messages (before compressed_at)
         # to replace the summary without touching the post-compression conversation.
@@ -556,29 +559,30 @@ async def compress_context(conv_id: int, req: CompressRequest, db: Session = Dep
         model_to_use = instance["model"]
     model = model_to_use
     
-    if req.mode == "truncate":
-        dropped, kept = run_truncation(messages_to_process, max_tokens=4096)
+    num_ctx = ia_cfg.get("context_window") or 16384
+    # When switching mode, the old context is not carried over: start fresh from the raw messages
+    previous = conv.compressed_context if conv.compressed_context and not mode_switch else ""
+
+    if mode == "truncate":
+        # A mode switch re-processes messages already out of the context: they all go to the index
+        dropped, kept = (messages_to_process, []) if mode_switch else run_truncation(messages_to_process, num_ctx)
         if dropped:
-            dropped_lines = [f"- {'U' if m.role == 'user' else 'A'}: {m.content.strip().split(chr(10))[0][:120]}" for m in dropped]
-            compressed = "[Tronqué]\n" + "\n".join(dropped_lines)
-            conv.compressed_context = compressed
+            conv.compressed_context = truncation_index(previous, dropped, num_ctx)
             if not preserving_cutoff:
                 conv.compressed_at = kept[0].timestamp if kept else utcnow()
             conv.compression_mode = "truncate"
             conv.auto_compression_mode = "truncate"
             db.commit()
         return {"status": "ok"}
-        
-    text_to_compress = ""
-    # When switching mode, don't carry over old compressed_context — start fresh from raw messages
-    if conv.compressed_context and not mode_switch:
-        text_to_compress += f"=== Contexte Précédent (compressé) ===\n{conv.compressed_context}\n\n"
-    for m in messages_to_process:
-        text_to_compress += f"{'Utilisateur' if m.role == 'user' else 'Assistant'} : {m.content}\n\n"
-        
-    # For mode switches, keep original cutoff; for new compressions, use current time
-    cutoff_time = conv.compressed_at if preserving_cutoff else utcnow()
-    
+
+    # Summary ("compact", the former mode, now does the same). The last exchanges stay word for word,
+    # except on a mode switch, where every message to process is already out of the context.
+    to_summarize, kept = (messages_to_process, []) if mode_switch else split_kept(messages_to_process, num_ctx)
+    if not to_summarize:
+        return {"status": "ok"}
+    lines = [message_line(m.role, m.content) for m in to_summarize]
+    cutoff_time = conv.compressed_at if preserving_cutoff else (kept[0].timestamp if kept else utcnow())
+
     # Route through AI queue for compact/summary (requires GPU)
     from ..ia_queue import queue_manager, QueueEntry
     entry = QueueEntry(
@@ -591,17 +595,17 @@ async def compress_context(conv_id: int, req: CompressRequest, db: Session = Dep
         payload={
             "ollama_host": url,
             "model": model,
-            "mode": req.mode,
-            "text": text_to_compress,
-            "num_ctx": ia_cfg.get("context_window", 4096),
+            "previous": previous,
+            "lines": lines,
+            "num_ctx": num_ctx,
             "think": ia_cfg.get("think_tasks", False),
         }
     )
     entry, position = await queue_manager.enqueue(entry)
-    
-    # Wait for the worker to finish (with timeout)
+
+    # Wait for the worker to finish (with timeout): loading a big model, then one call per part of a long text
     try:
-        await asyncio.wait_for(entry.done_event.wait(), timeout=180.0)
+        await asyncio.wait_for(entry.done_event.wait(), timeout=600.0)
     except asyncio.TimeoutError:
         await queue_manager.cancel(entry.id)
         raise HTTPException(504, "Timeout — la file d'attente IA est saturée. Réessayez plus tard.")
@@ -616,10 +620,9 @@ async def compress_context(conv_id: int, req: CompressRequest, db: Session = Dep
         raise HTTPException(500, "L'IA n'a pas pu compresser le contexte (réponse vide). Réessayez ou choisissez un autre mode.")
         
     conv.compressed_context = res.strip()
-    if not preserving_cutoff:
-        conv.compressed_at = cutoff_time
-    conv.compression_mode = req.mode
-    conv.auto_compression_mode = req.mode
+    conv.compressed_at = cutoff_time
+    conv.compression_mode = "summary"
+    conv.auto_compression_mode = "summary"
     db.commit()
         
     return {"status": "ok"}

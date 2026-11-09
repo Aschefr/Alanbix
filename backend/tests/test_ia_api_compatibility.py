@@ -5,7 +5,7 @@ from unittest.mock import patch, MagicMock, AsyncMock
 from app.routers.ia import _check_instance_health, list_models, pick_instance
 from app.ia_utils import get_embedding
 from app.ia_queue import IAQueueManager, QueueEntry
-from app.ia_compression import run_compaction, run_summary
+from app.ia_compression import run_anchored
 
 # ---------------------------------------------------------------------------
 # Mock Response Helpers
@@ -159,8 +159,8 @@ async def test_get_embedding_openai():
         assert emb == [0.9, 0.8, 0.7]
 
 @pytest.mark.asyncio
-async def test_run_compaction_and_summary_openai():
-    """Verify compression tasks route to OpenAI chat completions when using OpenAI endpoints."""
+async def test_compaction_summary_openai():
+    """Verify the compaction summary routes to OpenAI chat completions when using OpenAI endpoints."""
     requests_map = {
         ("POST", "http://instance-openai/v1/chat/completions"): (200, {
             "choices": [{"message": {"content": "Compressed Context Text"}}]
@@ -168,10 +168,7 @@ async def test_run_compaction_and_summary_openai():
     }
 
     with patch("httpx.AsyncClient", return_value=mock_httpx_client(requests_map)):
-        compacted = await run_compaction("long context text", "http://instance-openai/v1", "llama3.2")
-        assert compacted == "Compressed Context Text"
-
-        summarized = await run_summary("long text to summarize", "http://instance-openai/v1", "llama3.2")
+        summarized = await run_anchored("", ["U: long text to summarize"], "http://instance-openai/v1", "llama3.2")
         assert summarized == "Compressed Context Text"
 
 @pytest.mark.asyncio
