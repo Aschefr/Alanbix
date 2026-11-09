@@ -8,6 +8,10 @@
 ### 🐛 Fixes
 - **Incomplete summaries are refused**: a summary cut by the length limit or looping on the same lines is no longer saved; the conversation stays as it was. Rules of the instructions copied by the model into the player's preferences are removed.
 
+### 🛡️ Administration
+- **Context size advice**: the AI assistant guide now says which context size to choose (16K on a small machine, 32K on a 24 GB server) and why every application sharing an Ollama server should ask for the same size (a different one reloads the model, 30 to 64 s for a 27B model).
+- **Same context size everywhere**: the last fallbacks of 4,096 tokens and the 8,192 floor of the tool chat are replaced by the configured size (at least 16,384). Nothing changes for an installation whose configuration is set.
+
 ## [1.40.0] - 2026-11-09
 
 ### ✨ Features

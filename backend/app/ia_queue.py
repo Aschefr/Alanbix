@@ -833,7 +833,7 @@ class IAQueueManager:
         ollama_host = payload["ollama_host"]
         model = payload["model"]
         prompt = payload["prompt"]
-        context_window = payload.get("context_window", 4096)
+        context_window = payload.get("context_window", 16384)  # MIN_CONTEXT_WINDOW; callers always send it
 
         try:
             is_openai = is_openai_host(ollama_host)
@@ -878,7 +878,7 @@ class IAQueueManager:
         ollama_host = payload["ollama_host"]
         model = payload["model"]
         messages = payload["messages"]
-        context_window = payload.get("context_window", 4096)
+        context_window = payload.get("context_window", 16384)  # MIN_CONTEXT_WINDOW; callers always send it
         temperature = payload.get("temperature", 0.7)
         # A chat line needs little, but thinking models spend tokens before answering;
         # never ask for more than the context (some online services reject it)

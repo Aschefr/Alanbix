@@ -968,9 +968,9 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
                 continue
             enabled_tools.append(tool)
         
-    cfg_ctx = ia_cfg.get('context_window', 4096)
-    # Enforce minimum 8192 context window if tools are enabled to prevent running out of tokens due to tool schemas (~3000 tokens)
-    num_ctx = max(8192, cfg_ctx) if enabled_tools else cfg_ctx
+    # The same size as every other call (get_effective_config keeps it at MIN_CONTEXT_WINDOW or more, enough for
+    # the tool definitions): a different size would make Ollama reload the model
+    num_ctx = ia_cfg.get('context_window') or MIN_CONTEXT_WINDOW
 
     req_data = {
         "model": model_to_use,
