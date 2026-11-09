@@ -720,7 +720,7 @@
 				pendingQuery = '';
 				pendingImagePath = null;
 				loading = false;
-				await send();
+				await send(false, true);
 				return;
 			}
 		} catch (e) {
@@ -962,13 +962,14 @@
 		{ key: 'ai_starter_fun', icon: 'sparkles' }
 	];
 
-	async function send(skipSaveUser = false) {
+	async function send(skipSaveUser = false, afterCompression = false) {
 		if ((!query && !pendingImage) || loading || !activeId) return;
 		currentUserMsgId = null;
 
-		// Check context budget BEFORE sending — if over 85% of available chat budget, intercept
+		// Check context budget BEFORE sending — if over 85% of available chat budget, intercept.
+		// Not right after a compression: the message goes out even if the room freed is short, rather than compressing again.
 		const queryTokens = Math.ceil((query || '').length / 3.5);
-		if (usedTokens + queryTokens > availableTokens * 0.85) {
+		if (!afterCompression && usedTokens + queryTokens > availableTokens * 0.85) {
 			if (!compression.mode) {
 				// Defer the message, show compression modal
 				pendingQuery = query;
@@ -1338,10 +1339,6 @@
 							<button class="comp-btn" on:click={() => applyCompression('truncate')}>
 								<strong>{$t("ai_context_option_truncate")}</strong>
 								<span class="text-xs text-dim">{$t("ai_context_option_truncate_desc")}</span>
-							</button>
-							<button class="comp-btn" on:click={() => applyCompression('compact')}>
-								<strong>{$t("ai_context_option_compact")}</strong>
-								<span class="text-xs text-dim">{$t("ai_context_option_compact_desc")}</span>
 							</button>
 							<button class="comp-btn primary-outline" on:click={() => applyCompression('summary')}>
 								<strong>{$t("ai_context_option_summary")}</strong>

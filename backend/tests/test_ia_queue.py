@@ -602,7 +602,7 @@ async def test_thinking_setting_reaches_ollama():
         return c
 
     async def sent(task_type, host, **extra):
-        payload = {"ollama_host": host, "model": "m", "prompt": "p", "text": "t", "mode": "compact",
+        payload = {"ollama_host": host, "model": "m", "prompt": "p", "text": "t", "lines": ["U: t"],
                    "messages": [{"role": "user", "content": "x"}], **extra}
         entry = QueueEntry(priority=0, created_at=time.time(), user_id=0, username="t", task_type=task_type, payload=payload)
         c = client()
@@ -633,7 +633,7 @@ async def test_every_call_asks_the_same_context():
         return c
 
     for task in ("notification", "translate", "compress", "public_chat", "title_suggestion", "auto_title"):
-        payload = {"ollama_host": "http://gpu1:11434", "model": "m", "prompt": "p", "text": "t", "mode": "compact",
+        payload = {"ollama_host": "http://gpu1:11434", "model": "m", "prompt": "p", "text": "t", "lines": ["U: t"],
                    "excerpt": "User: salut", "conversation_id": 0, "user_id": 0,
                    "messages": [{"role": "user", "content": "x"}], "context_window": 16384, "num_ctx": 16384}
         entry = QueueEntry(priority=0, created_at=time.time(), user_id=0, username="t", task_type=task, payload=payload)
