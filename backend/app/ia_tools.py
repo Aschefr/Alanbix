@@ -727,6 +727,9 @@ async def execute_tool(name: str, arguments: Dict[str, Any], user_id: int = 0, o
 # Tool Implementations
 # ---------------------------------------------------------------------------
 
+TOURNAMENTS_LISTED = 20
+
+
 def _tool_get_tournaments(db, models, args: dict) -> str:
     """List tournaments with optional status filter."""
     query = visible_tournaments(db)
@@ -734,9 +737,13 @@ def _tool_get_tournaments(db, models, args: dict) -> str:
     if status:
         query = query.filter(models.Tournament.status == status)
 
-    tournaments = query.order_by(models.Tournament.id.desc()).all()
+    # Running and open tournaments first: with only the newest 20, an old tournament still running
+    # disappeared from the list on a LAN with many tournaments.
+    from sqlalchemy import case
+    current = case((models.Tournament.status.in_(("RUNNING", "OPEN")), 0), else_=1)
+    tournaments = query.order_by(current, models.Tournament.id.desc()).all()
     result = []
-    for t in tournaments[:20]:
+    for t in tournaments[:TOURNAMENTS_LISTED]:
         game = db.query(models.Game).filter(models.Game.id == t.game_id).first()
         participants = db.query(models.TournamentParticipant).filter(
             models.TournamentParticipant.tournament_id == t.id
@@ -752,10 +759,11 @@ def _tool_get_tournaments(db, models, args: dict) -> str:
             "use_teams": config.get("use_teams", False),
         })
 
-    return json.dumps({
-        "tournaments": result,
-        "total": len(tournaments),
-    }, ensure_ascii=False)
+    data = {"tournaments": result, "total": len(tournaments)}
+    if len(tournaments) > TOURNAMENTS_LISTED:
+        data["note"] = (f"Only {TOURNAMENTS_LISTED} of {len(tournaments)} listed (running and open first, then the newest). "
+                        "For another tournament, use get_tournament_standings with its name.")
+    return json.dumps(data, ensure_ascii=False)
 
 
 def _tool_get_tournament_standings(db, models, args: dict) -> str:
