@@ -50,7 +50,7 @@ Avant chaque envoi, l'application estime le nombre de tokens de la conversation.
 1. **Tronquer** (instantané, sans IA) : les plus vieux messages sortent du contexte, les plus récents remplissent au plus la moitié du contexte. Le début de chaque message retiré est gardé dans un index, qui s'ajoute au précédent à chaque compression.
 2. **Résumer** (recommandé) : l'IA fusionne le résumé précédent avec les messages qui sortent du contexte, en quatre rubriques : faits, décisions et leur raison, préférences du joueur, questions en suspens. Elle garde les valeurs exactes (heures, scores, pseudos) et note les corrections. Les deux derniers échanges restent tels quels dans la conversation. Un texte trop long pour le contexte est résumé en plusieurs fois, sans perdre son début.
 
-Mesuré le 8 novembre 2026 sur une conversation inventée, après trois compressions : 10 faits sur 10 retrouvés avec `qwen3.8:27b` et 7 sur 10 avec `gemma4:e4b`, contre 3 à 8 pour les anciens modes « Résumer » et « Compacter ». « Compacter » a été retiré ; une conversation qui l'utilisait passe au résumé.
+Mesuré le 9 novembre 2026 avec ce code, sur une conversation inventée, après trois compressions et en trois passages : `qwen3.8:27b` retrouve 30 faits sur 30, autant qu'avec la conversation entière, et `gemma4:e4b` 23 sur 30 (25 avec la conversation entière). Le prompt passe d'environ 15 000 jetons à 1 200 à 1 800. Les anciens modes « Résumer » et « Compacter » retrouvaient 3 à 8 faits sur 10. « Compacter » a été retiré ; une conversation qui l'utilisait passe au résumé.
 
 ---
 

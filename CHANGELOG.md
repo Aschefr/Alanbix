@@ -3,7 +3,7 @@
 ## [Unreleased]
 
 ### ✨ Features
-- **Better memory of long AI conversations**: *Summarize* now merges the previous summary with the messages leaving the context, under four sections (facts, decisions and why, the player's preferences, open questions), keeps exact values and notes corrections. The last two exchanges stay word for word. Measured on 8 November 2026 on an invented conversation, after three compressions: 10 facts out of 10 kept with qwen3.8:27b and 7 with gemma4:e4b, against 3 to 8 for the former *Summarize* and *Compact*. *Compact* is removed: a conversation that used it goes on with the summary.
+- **Better memory of long AI conversations**: *Summarize* now merges the previous summary with the messages leaving the context, under four sections (facts, decisions and why, the player's preferences, open questions), keeps exact values and notes corrections. The last two exchanges stay word for word. Measured on 9 November 2026 on an invented conversation, after three compressions and over three runs: 30 facts out of 30 kept with qwen3.8:27b (as many as with the whole conversation) and 23 out of 30 with gemma4:e4b (25 with the whole conversation), while the prompt drops from about 15,000 tokens to 1,200-1,800. The former *Summarize* and *Compact* kept 3 to 8 out of 10. *Compact* is removed: a conversation that used it goes on with the summary.
 
 ### 🐛 Fixes
 - **Compressing a long conversation cut its start**: a text too long for the AI's context lost its beginning before being summarized. It is now summarized in several steps.

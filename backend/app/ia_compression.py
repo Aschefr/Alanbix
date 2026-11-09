@@ -4,8 +4,9 @@ Two ways, chosen by the player:
 - truncate: instant, no AI. The oldest messages leave the context; a short index of them is kept.
 - summary: anchored summary. The AI merges the previous summary with the messages leaving the context,
   in fixed sections, keeping exact values and corrections; the last two exchanges stay word for word.
-  Measured on 2026-11-08 (ai-bench/COMPACTION.md): 10/10 facts kept with qwen3.8:27b and 7/10 with
-  gemma4:e4b after 3 compactions, against 3 to 8 for the former summary and compact modes.
+  Measured on 2026-11-09 with this module (ai-bench/results/compaction, 3 runs, 3 compactions each): 30/30 facts
+  kept with qwen3.8:27b and 23/30 with gemma4:e4b (25/30 without compaction), against 3 to 8 out of 10 for the
+  former summary and compact modes.
 """
 from .ia_utils import ia_client, no_think
 
