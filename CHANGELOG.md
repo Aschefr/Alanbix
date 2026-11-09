@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [1.41.0] - 2026-11-09
 
 ### ✨ Features
 - **AI summary in the player's language, with stricter rules**: *Summarize* now writes in the player's interface language with section titles given by the app (asked to translate them, small models wrote the whole summary in English). It says what each number is, keeps ranges next to exact values and the fact behind each decision, and keeps a choice that still depends on something as an open question until it is answered. These rules come from OmniBank and Sentinel, where they raised gemma4:e4b from about 24 to 28-29 facts out of 30. On Alanbix's test conversation (9 November 2026, three runs): as good as 1.40.0 (gemma4:e4b 26 out of 30 both, qwen3.8:27b 29 against 30, within the noise), every summary now fully in the player's language, no instruction copied into the preferences, and one cut summary refused instead of being saved.
