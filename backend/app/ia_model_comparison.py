@@ -66,7 +66,7 @@ def exclusions(m) -> list:
     if m["made_up"] > MADE_UP_MAX:
         out.append({"code": "made_up", "params": {"count": m["made_up"],
                                                   "asked": len(m["passes"]) * TASKS["chat"]["questions"]},
-                    "tasks": ["chat"]})
+                    "tasks": ["made_up"]})
     return out
 
 
@@ -92,5 +92,6 @@ def comparison() -> dict:
         r["labels"] = [k for k, name in labels.items() if name == r["name"]]
         r["cards"] = [c for c, name in cards.items() if name == r["name"]]
     rows.sort(key=lambda r: (-r["note"], r["memory_gb"] or 1e9))
+    made_up = {"max": MADE_UP_MAX, "asked": max(len(m["passes"]) for m in MEASURED) * TASKS["chat"]["questions"]}
     return {"tasks": TASKS, "models": rows, "labels": labels, "cards": cards, "fast_seconds": FAST_SECONDS,
-            "tie": TIE, "chats_min": CHATS_MIN}
+            "tie": TIE, "chats_min": CHATS_MIN, "made_up": made_up}

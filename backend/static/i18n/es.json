@@ -1992,6 +1992,8 @@
   "model_compare_task_translate": "Traducción",
   "model_compare_task_notify": "Fin de torneo",
   "model_compare_task_head": "/{questions} · {weight} %",
+  "model_compare_col_made_up": "Inventadas",
+  "model_compare_made_up_head": "/{asked} · máx. {max}",
   "model_compare_col_seconds": "Respuesta (mediana)",
   "model_compare_col_memory": "Memoria a 32K",
   "model_compare_col_choice": "Elección",

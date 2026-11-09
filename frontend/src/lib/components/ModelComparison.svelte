@@ -33,6 +33,10 @@
 							<span class="sub">{$t('model_compare_task_head', { questions: spec.questions, weight: Math.round(spec.weight * 100) })}</span>
 						</th>
 					{/each}
+					<th scope="col" class="num">
+						{$t('model_compare_col_made_up')}
+						<span class="sub">{$t('model_compare_made_up_head', data.made_up)}</span>
+					</th>
 					<th scope="col" class="num">{$t('model_compare_col_seconds')}</th>
 					<th scope="col" class="num">{$t('model_compare_col_memory')}</th>
 					<th scope="col">{$t('model_compare_col_choice')}</th>
@@ -46,6 +50,7 @@
 						{#each tasks as [task]}
 							<td class="num" class:flag={flagged(m, task)}>{score(m, task)}</td>
 						{/each}
+						<td class="num" class:flag={flagged(m, 'made_up')}>{m.made_up}</td>
 						<td class="num">{$t('model_compare_seconds', { seconds: num(m.seconds) })}</td>
 						<td class="num">
 							{#if m.memory_gb == null}—{:else}{$t('model_compare_memory', { memory: num(m.memory_gb), quant: m.quantization })}{/if}
