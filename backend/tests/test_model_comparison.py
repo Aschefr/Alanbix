@@ -22,9 +22,9 @@ def test_note_weights_each_task():
 
 def test_exclusions_name_their_reason():
     ok = {t: s["questions"] for t, s in comp.TASKS.items()}
-    assert comp.exclusions({"passes": [ok, ok], "made_up": 1}) == []  # once is tolerated
+    assert comp.exclusions({"passes": [ok, ok], "made_up": 2}) == []  # up to twice is tolerated
     codes = lambda m: [e["code"] for e in comp.exclusions(m)]  # noqa: E731
-    assert codes({"passes": [ok, ok], "made_up": 2}) == ["made_up"]
+    assert codes({"passes": [ok, ok], "made_up": 3}) == ["made_up"]
     assert codes({"passes": [ok, {**ok, "chat": 9}], "made_up": 0}) == ["chats"]  # 34/38
     assert codes({"passes": [ok, {**ok, "notify": 0}], "made_up": 0}) == ["task"]
 

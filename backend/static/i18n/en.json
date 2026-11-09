@@ -2005,7 +2005,7 @@
   "model_compare_why_chats": "{right}/{asked} right on the two chats, under 90%",
   "model_compare_why_task": "under half on one task (pass {pass}: {right}/{asked})",
   "model_compare_why_made_up": "makes things up or pretends to act ({count} times out of {asked})",
-  "model_compare_rules": "Not kept: under 90% right answers on the two chats, under half the points on one task, or more than one made-up answer or action announced but not done. Within {tie} point, the lightest wins. Top quality: the best score among the models that answer in under {seconds} s. Minimum and Recommended: the best that fits an 8 or 12 GB card, leaving 1 GB free.",
+  "model_compare_rules": "Not kept: under 90% right answers on the two chats, under half the points on one task, or 3 or more made-up answers or actions announced but not done. Within {tie} point, the lightest wins. Top quality: the best score among the models that answer in under {seconds} s. Minimum and Recommended: the best that fits an 8 or 12 GB card, leaving 1 GB free.",
   "model_compare_legend": "Measured on 9 November 2026 on an RTX 3090, with Ollama 0.40.15 and each model's default version (quantization shown), a 32K context and the KV cache in q8_0 with flash attention. With the default 16-bit cache, allow up to 0.5 GB more (estimate). A range such as 12–13 means the two passes differed; in red, what rules a model out.",
   "chat_alanbix_blocked": "An admin has cut your access to the assistant.",
   "ai_privacy_note": "The LAN organisers can read your conversations with the assistant.",

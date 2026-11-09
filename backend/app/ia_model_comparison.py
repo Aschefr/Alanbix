@@ -20,7 +20,7 @@ TASKS = {
 }
 CHATS_MIN = 0.90      # under 90 % right on the two chats together: not kept
 TASK_MIN = 0.50       # under half the points on any task in any pass: not kept
-MADE_UP_MAX = 1       # invented or pretended answers tolerated (a wrong answer given without looking)
+MADE_UP_MAX = 2       # invented or pretended answers tolerated; from 3 a model is not recommended (user's choice)
 FAST_SECONDS = 20     # median chat answer above this: never a pick
 TIE = 0.3             # within this many points, the lightest model wins
 CARDS = (8, 12, 16, 24)  # GB of video memory; a model fits when it needs at most the card minus 1 GB

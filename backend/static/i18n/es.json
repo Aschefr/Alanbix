@@ -2005,7 +2005,7 @@
   "model_compare_why_chats": "{right}/{asked} correctas en los dos chats, menos del 90 %",
   "model_compare_why_task": "menos de la mitad en una tarea (pasada {pass}: {right}/{asked})",
   "model_compare_why_made_up": "inventa o finge actuar ({count} veces de {asked})",
-  "model_compare_rules": "Descartado: menos del 90 % de respuestas correctas en los dos chats, menos de la mitad de los puntos en una tarea, o más de una respuesta inventada o acción anunciada sin hacerse. Con menos de {tie} punto de diferencia, gana el más ligero. Máxima calidad: la mejor nota entre los modelos que responden en menos de {seconds} s. Mínimo y Recomendado: el mejor que cabe en una tarjeta de 8 o 12 GB, dejando 1 GB libre.",
+  "model_compare_rules": "Descartado: menos del 90 % de respuestas correctas en los dos chats, menos de la mitad de los puntos en una tarea, o 3 o más respuestas inventadas o acciones anunciadas sin hacerse. Con menos de {tie} punto de diferencia, gana el más ligero. Máxima calidad: la mejor nota entre los modelos que responden en menos de {seconds} s. Mínimo y Recomendado: el mejor que cabe en una tarjeta de 8 o 12 GB, dejando 1 GB libre.",
   "model_compare_legend": "Medido el 9 de noviembre de 2026 en una RTX 3090, con Ollama 0.40.15 y la versión por defecto de cada modelo (cuantización indicada), un contexto de 32K y la caché KV en q8_0 con flash attention. Con la caché por defecto de 16 bits, cuente hasta 0,5 GB más (estimación). Un rango como 12–13 indica que las dos pasadas difirieron; en rojo, lo que descarta un modelo.",
   "chat_alanbix_blocked": "Un administrador ha cortado su acceso al asistente.",
   "ai_privacy_note": "Los organizadores de la LAN pueden leer sus conversaciones con el asistente.",
