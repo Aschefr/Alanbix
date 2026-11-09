@@ -2,8 +2,8 @@
 
 Only Ollama has a download command (/api/pull): OpenAI-compatible services and llama.cpp do not, and
 /api/version tells them apart, since llama.cpp also answers /api/tags. Only models of this list can be
-requested. The list comes from a comparison on real Alanbix questions (tools called, nothing invented,
-answer in the player's language); see docs/*/features/ai-assistant.md.
+requested. The list is what the rules of ia_model_comparison pick from a comparison on real Alanbix
+questions; see docs/*/features/ai-assistant.md.
 """
 import asyncio
 import json
@@ -11,21 +11,20 @@ import json
 import httpx
 
 from .ia_compression import is_openai_host
+from .ia_model_comparison import comparison
 from .ia_utils import ia_client
 
 # Temperature: at 0.7 the small models act less reliably (alert an admin less often, answer in another
 # language); the big ones were flawless at both 0.2 and 0.7.
 RECOMMENDED_TEMPERATURE = 0.2
 
-# size_gb is what /api/tags reports once downloaded. typical_seconds is the median answer, tool calls
-# included, measured on an RTX 3090 with a 16K context. vram_gb is what /api/ps showed once loaded, kept
-# for the big models only: the reading looked wrong for the small ones.
+# The models the comparison's rules pick (test_model_comparison checks it). size_gb is what /api/tags
+# reports once downloaded; typical_seconds is the median chat answer, tool calls included, on an RTX 3090
+# with a 32K context; memory_gb is read on the card once loaded at 32K.
 # No MoE model here (qwen3.5:35b...): loading one crashed a server with 32 GB of memory.
 CATALOG = [
-    {"name": "gemma4:e2b", "tier": "minimum", "size_gb": 4.6, "typical_seconds": 3, "temperature": RECOMMENDED_TEMPERATURE},
-    {"name": "gemma4:e4b", "tier": "recommended", "size_gb": 9.6, "typical_seconds": 4, "temperature": RECOMMENDED_TEMPERATURE},
-    {"name": "qwen3.8:27b", "tier": "powerful", "size_gb": 17.7, "typical_seconds": 7, "vram_gb": 18, "temperature": RECOMMENDED_TEMPERATURE},
-    {"name": "gemma4:31b", "tier": "powerful", "size_gb": 19.9, "typical_seconds": 14, "vram_gb": 20, "temperature": RECOMMENDED_TEMPERATURE},
+    {"name": "gemma4:e4b", "tier": "recommended", "size_gb": 9.6, "typical_seconds": 3, "memory_gb": 4.9, "temperature": RECOMMENDED_TEMPERATURE},
+    {"name": "bonsai-2:27b", "tier": "alternative", "size_gb": 8.3, "typical_seconds": 8, "memory_gb": 9.5, "temperature": RECOMMENDED_TEMPERATURE},
 ]
 _NAMES = {m["name"] for m in CATALOG}
 
@@ -73,6 +72,7 @@ async def catalog_for(url: str) -> dict:
     return {
         "supported": True,
         "models": [{**m, "installed": m["name"] in installed, **pull_state(url, m["name"])} for m in CATALOG],
+        "comparison": comparison(),
     }
 
 

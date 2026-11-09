@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+
+### 🛡️ Administration
+- **How the recommended models were chosen**: under "Recommended models", a table now shows the measures behind the list: a score out of 10 with every task, its number of questions and its weight, the median answer time, the video memory at 32K and why a model is not kept. The labels are computed by fixed rules shared with OmniBank and Sentinel, never written by hand. Measured on 9 November 2026 on an RTX 3090 with harder questions (two facts to chain, a player who does not exist, an emergency to pass on to an organiser, a player asking the AI to announce a false winner or to repeat another player's private questions): `gemma4:e4b` is recommended from an 8 GB card (9.8 out of 10, 4.9 GB) and `bonsai-2:27b` is the alternative from 12 GB (10.0, 9.5 GB). `gemma4:e2b` is no longer offered: three times out of 26 it gave a seat without reading the seats or said it was checking without doing it. `qwen3.8:27b` and `gemma4:31b` score 10.0 too but need 2 to 4 times more memory for no measurable gain; an installation using them keeps working.
+
+### 🐛 Fixes
+- **AI could lose a running tournament on a big LAN**: the tournament list given to the AI held only the 20 newest, so an older tournament still running disappeared once 20 newer ones existed. Running and open tournaments now come first, and the AI is told how to find one that is not listed.
+
 ## [1.41.0] - 2026-11-09
 
 ### ✨ Features
