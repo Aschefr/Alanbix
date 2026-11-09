@@ -29,6 +29,15 @@ def test_exclusions_name_their_reason():
     assert codes({"passes": [ok, {**ok, "notify": 0}], "made_up": 0}) == ["task"]
 
 
+def test_made_up_count_is_shown_for_every_model():
+    res = comp.comparison()
+    assert res["made_up"] == {"max": comp.MADE_UP_MAX, "asked": 26}
+    assert all(isinstance(r["made_up"], int) for r in res["models"])
+    e2b = next(r for r in res["models"] if r["name"] == "gemma4:e2b")
+    assert e2b["made_up"] > res["made_up"]["max"]
+    assert e2b["excluded"][0]["tasks"] == ["made_up"]  # the highlighted cell is the count itself
+
+
 def test_tie_goes_to_the_lightest_and_cards_need_room():
     res = comp.comparison()
     # qwen3.8:27b scores 10.0 but gemma4:e4b (9.8) is within the tie and far lighter

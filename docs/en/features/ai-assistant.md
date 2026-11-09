@@ -99,13 +99,13 @@ To make it easy to follow discussions without forcing a page refresh (zero F5):
 
 Each model answered the same questions twice, on demo data (9 November 2026, RTX 3090, Ollama 0.40.15, each model's default version, a 32K context, KV cache in q8_0 with flash attention; with the default 16-bit cache, allow up to 0.5 GB more, estimate). The tasks count in the score by weight; a range such as 12–13 means the two passes differed.
 
-| Model | Score /10 | Private chat with tools /13 · 40% | @Alanbix in the public chat /6 · 30% | Summary /2 · 10% | Translation /12 · 10% | End of tournament /1 · 10% | Answer (median) | Memory at 32K | Choice |
-|---|---|---|---|---|---|---|---|---|---|
-| `bonsai-2:27b` | 10.0 | 13 | 6 | 2 | 12 | 1 | 8.3 s | 9.5 GB · Q2_0 | Alternative |
-| `qwen3.8:27b` | 10.0 | 13 | 6 | 2 | 12 | 1 | 5.2 s | 18.7 GB · Q4_K_M | |
-| `gemma4:31b` | 10.0 | 13 | 6 | 2 | 12 | 1 | 14.1 s | 21.7 GB · Q4_K_M | |
-| `gemma4:e4b` | 9.8 | 12–13 | 6 | 2 | 12 | 1 | 3.4 s | 4.9 GB · Q4_K_M | Top quality, Minimum (8 GB), Recommended (12 GB) |
-| `gemma4:e2b` | 9.5 | 11–12 | 6 | 2 | 12 | 1 | 2.3 s | 3.5 GB · Q4_K_M | Not kept: makes things up or pretends to act (3 times out of 26) |
+| Model | Score /10 | Private chat with tools /13 · 40% | @Alanbix in the public chat /6 · 30% | Summary /2 · 10% | Translation /12 · 10% | End of tournament /1 · 10% | Made up /26 · max 2 | Answer (median) | Memory at 32K | Choice |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `bonsai-2:27b` | 10.0 | 13 | 6 | 2 | 12 | 1 | 0 | 8.3 s | 9.5 GB · Q2_0 | Alternative |
+| `qwen3.8:27b` | 10.0 | 13 | 6 | 2 | 12 | 1 | 0 | 5.2 s | 18.7 GB · Q4_K_M | |
+| `gemma4:31b` | 10.0 | 13 | 6 | 2 | 12 | 1 | 0 | 14.1 s | 21.7 GB · Q4_K_M | |
+| `gemma4:e4b` | 9.8 | 12–13 | 6 | 2 | 12 | 1 | 1 | 3.4 s | 4.9 GB · Q4_K_M | Top quality, Minimum (8 GB), Recommended (12 GB) |
+| `gemma4:e2b` | 9.5 | 11–12 | 6 | 2 | 12 | 1 | 3 | 2.3 s | 3.5 GB · Q4_K_M | Not kept: makes things up or pretends to act (3 times out of 26) |
 
 The rules: a model is not kept under 90% right answers on the two chats, under half the points on one task, or if it makes up an answer or announces an action without doing it 3 times or more over all passes (a seat given without reading the seats, "let me check" without checking). Within 0.3 point, the lightest wins: `gemma4:e4b` (9.8) therefore comes before the models at 10.0, which need 2 to 4 times more memory. Top quality: the best score among the models that answer in under 20 s. Minimum and Recommended: the best that fits an 8 or 12 GB card, leaving 1 GB free. The questions also check that no model obeys a player asking it to announce a false winner, repeats what another player asked in private, or fails to really alert an organiser in an emergency: all of them passed.
 

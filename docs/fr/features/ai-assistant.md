@@ -99,13 +99,13 @@ Pour faciliter le suivi des échanges sans forcer le rafraîchissement de la pag
 
 Chaque modèle a répondu deux fois aux mêmes questions, sur des données de démonstration (9 novembre 2026, RTX 3090, Ollama 0.40.15, version par défaut de chaque modèle, contexte de 32K, cache KV en q8_0 avec flash attention ; avec le cache par défaut en 16 bits, comptez jusqu'à 0,5 Go de plus, estimation). Les tâches comptent dans la note selon leur poids ; une plage comme 12–13 indique un résultat différent entre les deux passages.
 
-| Modèle | Note /10 | Chat privé avec outils /13 · 40 % | @Alanbix dans le chat public /6 · 30 % | Résumé /2 · 10 % | Traduction /12 · 10 % | Fin de tournoi /1 · 10 % | Réponse (médiane) | Mémoire à 32K | Choix |
-|---|---|---|---|---|---|---|---|---|---|
-| `bonsai-2:27b` | 10,0 | 13 | 6 | 2 | 12 | 1 | 8,3 s | 9,5 Go · Q2_0 | Alternative |
-| `qwen3.8:27b` | 10,0 | 13 | 6 | 2 | 12 | 1 | 5,2 s | 18,7 Go · Q4_K_M | |
-| `gemma4:31b` | 10,0 | 13 | 6 | 2 | 12 | 1 | 14,1 s | 21,7 Go · Q4_K_M | |
-| `gemma4:e4b` | 9,8 | 12–13 | 6 | 2 | 12 | 1 | 3,4 s | 4,9 Go · Q4_K_M | Top qualité, Minimum (8 Go), Conseillé (12 Go) |
-| `gemma4:e2b` | 9,5 | 11–12 | 6 | 2 | 12 | 1 | 2,3 s | 3,5 Go · Q4_K_M | Non retenu : invente ou fait semblant d'agir (3 fois sur 26) |
+| Modèle | Note /10 | Chat privé avec outils /13 · 40 % | @Alanbix dans le chat public /6 · 30 % | Résumé /2 · 10 % | Traduction /12 · 10 % | Fin de tournoi /1 · 10 % | Inventions /26 · max 2 | Réponse (médiane) | Mémoire à 32K | Choix |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `bonsai-2:27b` | 10,0 | 13 | 6 | 2 | 12 | 1 | 0 | 8,3 s | 9,5 Go · Q2_0 | Alternative |
+| `qwen3.8:27b` | 10,0 | 13 | 6 | 2 | 12 | 1 | 0 | 5,2 s | 18,7 Go · Q4_K_M | |
+| `gemma4:31b` | 10,0 | 13 | 6 | 2 | 12 | 1 | 0 | 14,1 s | 21,7 Go · Q4_K_M | |
+| `gemma4:e4b` | 9,8 | 12–13 | 6 | 2 | 12 | 1 | 1 | 3,4 s | 4,9 Go · Q4_K_M | Top qualité, Minimum (8 Go), Conseillé (12 Go) |
+| `gemma4:e2b` | 9,5 | 11–12 | 6 | 2 | 12 | 1 | 3 | 2,3 s | 3,5 Go · Q4_K_M | Non retenu : invente ou fait semblant d'agir (3 fois sur 26) |
 
 Les règles : un modèle n'est pas retenu sous 90 % de bonnes réponses aux deux chats, sous la moitié des points à une tâche, ou s'il invente une réponse ou annonce une action sans la faire 3 fois ou plus sur l'ensemble des passages (une place donnée sans lire les places, « je regarde » sans rien chercher). À moins de 0,3 point d'écart, le plus léger l'emporte : `gemma4:e4b` (9,8) passe donc devant les modèles à 10,0, qui demandent 2 à 4 fois plus de mémoire. Top qualité : la meilleure note parmi les modèles qui répondent en moins de 20 s. Minimum et Conseillé : le meilleur qui tient sur une carte de 8 ou 12 Go, en laissant 1 Go libre. Les questions vérifient aussi qu'aucun modèle n'obéit à un joueur qui lui demande d'annoncer un faux vainqueur, ne répète ce qu'un autre joueur a demandé en privé, et prévient vraiment un organisateur en cas d'urgence : tous ont réussi.
 
