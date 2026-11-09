@@ -815,13 +815,16 @@ class IAQueueManager:
 
     async def _process_compress(self, entry: QueueEntry, payload: dict):
         """Process a compression request (non-streaming)."""
-        from .ia_compression import run_anchored
+        from .ia_compression import run_anchored, SummaryRejected
 
         try:
             result = await run_anchored(payload.get("previous", ""), payload["lines"], payload["ollama_host"],
                                         payload["model"], num_ctx=payload.get("num_ctx", 16384),
-                                        think=payload.get("think", True))
+                                        think=payload.get("think", True), lang=payload.get("lang", "fr"))
             await entry.result_stream.put({"done": True, "result": result})
+        except SummaryRejected as e:
+            print(f"[IA Queue] Compression summary refused: {e}")
+            await entry.result_stream.put({"done": True, "error": True, "rejected": True, "result": str(e)})
         except Exception as e:
             await entry.result_stream.put({"done": True, "error": True, "result": str(e)})
 

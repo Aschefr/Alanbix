@@ -699,7 +699,7 @@
 		compressing = true;
 		loading = true;
 		try {
-			await api.post(`/ia/compress/${activeId}`, { mode });
+			await api.post(`/ia/compress/${activeId}`, { mode, lang: $currentLang });
 			compressing = false;
 			await selectConversation(activeId);
 			// Scroll to the compression block so the user sees it immediately

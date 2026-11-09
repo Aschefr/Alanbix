@@ -163,13 +163,13 @@ async def test_compaction_summary_openai():
     """Verify the compaction summary routes to OpenAI chat completions when using OpenAI endpoints."""
     requests_map = {
         ("POST", "http://instance-openai/v1/chat/completions"): (200, {
-            "choices": [{"message": {"content": "Compressed Context Text"}}]
+            "choices": [{"message": {"content": "FACTS:\n- a\nDECISIONS:\n- b\nUSER PREFERENCES:\n- c\nOPEN QUESTIONS:\n- d"}}]
         })
     }
 
     with patch("httpx.AsyncClient", return_value=mock_httpx_client(requests_map)):
         summarized = await run_anchored("", ["U: long text to summarize"], "http://instance-openai/v1", "llama3.2")
-        assert summarized == "Compressed Context Text"
+        assert summarized.startswith("FACTS:\n- a\nDECISIONS:")
 
 @pytest.mark.asyncio
 async def test_chat_streaming_openai():
