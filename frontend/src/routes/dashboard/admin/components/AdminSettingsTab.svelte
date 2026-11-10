@@ -10,7 +10,7 @@
 	import AdminAIModelConfig from './AdminAIModelConfig.svelte';
 	// Same value as RECOMMENDED_TEMPERATURE in backend/app/ia_model_catalog.py
 	const RECOMMENDED_TEMPERATURE = 0.2;
-	import OllamaModelCatalog from '$lib/components/OllamaModelCatalog.svelte';
+	import AdminAIInstanceList from './AdminAIInstanceList.svelte';
 	import AdminKnowledgeBase from './AdminKnowledgeBase.svelte';
 
 	export let toast = (msg, type) => {};
@@ -498,70 +498,13 @@
 		}
 	}
 
-	async function useCatalogModel(idx, name) {
-		iaConfig.ollama_instances[idx].model = name;
-		await loadInstanceStatuses();
-		await saveIAConfig();
-	}
-
 	async function loadInstanceStatuses() {
 		try { instanceStatuses = await api.get('/ia/instances/status'); } catch { instanceStatuses = []; }
-	}
-
-	async function testInstance(idx) {
-		const inst = iaConfig.ollama_instances[idx];
-		if (!inst) return;
-		const res = await api.post('/ia/test-connection', { url: inst.url, api_key: inst.api_key || '' });
-		if (res.status === 'ok') {
-			toast(get(t)('admin_instance_test_ok', { name: inst.label || inst.url, ms: res.latency_ms }), 'success');
-			loadInstanceStatuses();
-			fetchModels();
-		} else {
-			toast(get(t)('admin_instance_test_failed', { name: inst.label || inst.url }), 'error');
-		}
-	}
-
-	// API keys are write-only: the server keeps them and only says whether one is saved
-	async function saveInstanceKey(idx) {
-		const inst = iaConfig.ollama_instances[idx];
-		if (!inst?.api_key?.trim()) return;
-		await saveIAConfig();
-		inst.has_api_key = true;
-		inst.api_key = '';
-		iaConfig = iaConfig;
-		loadInstanceStatuses();
-		fetchModels();
-	}
-
-	async function clearInstanceKey(idx) {
-		const inst = iaConfig.ollama_instances[idx];
-		inst.clear_api_key = true;
-		await saveIAConfig();
-		delete inst.clear_api_key;
-		inst.has_api_key = false;
-		iaConfig = iaConfig;
 	}
 
 	async function addInstance() {
 		const nextPriority = iaConfig.ollama_instances.length;
 		iaConfig.ollama_instances = [...iaConfig.ollama_instances, { url: 'http://', label: '', model: '', enabled: true, priority: nextPriority }];
-		await saveIAConfig();
-	}
-
-	async function removeInstance(idx) {
-		iaConfig.ollama_instances = iaConfig.ollama_instances.filter((_, i) => i !== idx);
-		iaConfig.ollama_instances.forEach((inst, i) => inst.priority = i);
-		iaConfig.ollama_instances = iaConfig.ollama_instances;
-		await saveIAConfig();
-	}
-
-	async function moveInstance(idx, dir) {
-		const arr = [...iaConfig.ollama_instances];
-		const target = idx + dir;
-		if (target < 0 || target >= arr.length) return;
-		[arr[idx], arr[target]] = [arr[target], arr[idx]];
-		arr.forEach((inst, i) => inst.priority = i);
-		iaConfig.ollama_instances = arr;
 		await saveIAConfig();
 	}
 
@@ -1245,53 +1188,7 @@
 				<button class="btn-add btn-xs" on:click={addInstance}>{$t('admin_ai_add_instance')}</button>
 			</div>
 			<div class="sc-body">
-				{#each iaConfig.ollama_instances as inst, idx}
-					{@const status = instanceStatuses.find(s => s.url === inst.url)}
-					<div class="inst-row" class:disabled={!inst.enabled}>
-						<div class="inst-prio">
-							<button class="reorder-btn" on:click={() => moveInstance(idx, -1)} disabled={idx === 0}>▲</button>
-							<span class="prio-num">{inst.priority ?? idx}</span>
-							<button class="reorder-btn" on:click={() => moveInstance(idx, 1)} disabled={idx === iaConfig.ollama_instances.length - 1}>▼</button>
-						</div>
-						<div class="inst-status"><span class="status-dot" class:on={status?.online}></span></div>
-						<div class="inst-main">
-							<input type="text" class="inst-name-input" bind:value={inst.label} on:change={saveIAConfig} placeholder="{$t('admin_settings_instances_gpu_placeholder')}" />
-							<div class="inst-meta">
-								<input type="text" class="inst-url-input" bind:value={inst.url} on:change={saveIAConfig} placeholder="http://..." /><!-- i18n-ignore -->
-								<select bind:value={inst.model} on:change={saveIAConfig} class="inst-model-select">
-									<option value="">{$t('admin_ai_model_placeholder')}</option>
-									{#each (status?.available_models || availableModels.map(m => m.name)) as mName}
-										<option value={mName}>{mName}</option>
-									{/each}
-								</select>
-								<span class="inst-key">
-									<input type="password" class="inst-key-input" bind:value={inst.api_key} on:change={() => saveInstanceKey(idx)} autocomplete="off" spellcheck="false"
-										placeholder={inst.has_api_key ? $t('admin_ai_api_key_saved') : $t('admin_ai_api_key_ph')} aria-label={$t('admin_ai_api_key')} />
-									{#if inst.has_api_key && !inst.api_key}
-										<button class="inst-btn-mini" on:click={() => clearInstanceKey(idx)} title={$t('admin_ai_api_key_remove')} aria-label={$t('admin_ai_api_key_remove')}><Icon name="trash" size={13} /></button>
-									{/if}
-								</span>
-								{#if status?.online}
-									<span class="inst-ping">{status.latency_ms}ms</span>
-								{/if}
-								{#if status?.avg_duration !== undefined && status?.avg_duration !== null}
-									<span class="inst-ping" style="background: rgba(139, 92, 246, 0.15); color: #c084fc; border-color: rgba(139, 92, 246, 0.35);"><Icon name="clock" size={11} /> {status.avg_duration}s</span>
-								{/if}
-							</div>
-						</div>
-						<div class="inst-actions">
-							<label class="toggle-switch-mini">
-								<input type="checkbox" bind:checked={inst.enabled} on:change={saveIAConfig} />
-								<span class="toggle-slider"></span>
-							</label>
-							<button class="inst-btn-mini" on:click={() => testInstance(idx)} title={$t('admin_ai_test_instance')} aria-label={$t('admin_ai_test_instance')}><Icon name="search" size={14} /></button>
-							<button class="inst-btn-mini danger" on:click={() => removeInstance(idx)} title="{$t('admin_tourneys_tooltip_delete')}" aria-label="{$t('admin_tourneys_tooltip_delete')}"><Icon name="x" size={14} /></button>
-						</div>
-					</div>
-					<OllamaModelCatalog url={inst.url} current={inst.model} on:use={(e) => useCatalogModel(idx, e.detail)} on:installed={loadInstanceStatuses} />
-				{:else}
-					<div class="inst-empty">{$t("admin_settings_instances_empty")}</div>
-				{/each}
+				<AdminAIInstanceList bind:config={iaConfig} statuses={instanceStatuses} models={availableModels} onsave={saveIAConfig} onstatuses={loadInstanceStatuses} onmodels={fetchModels} {toast} />
 			</div>
 		</div>
 
@@ -1537,33 +1434,9 @@
 	.btn-prompt-edit:hover { background: rgba(139,92,246,0.18); border-color: #a78bfa; box-shadow: 0 0 8px rgba(139,92,246,0.2); }
 
 	/* Instances */
-	.inst-row { display: flex; align-items: center; gap: 0.6rem; padding: 0.6rem 0.8rem; border-radius: 10px; background: var(--hover-tint); border: 1px solid transparent; transition: all 0.2s; margin-bottom: 0.4rem; }
-	.inst-row:hover { background: var(--accent-soft); border-color: var(--glass-border); }
-	.inst-row.disabled { opacity: 0.4; }
-	.inst-prio { display: flex; flex-direction: column; align-items: center; gap: 1px; }
-	.prio-num { font-size: 0.75rem; font-weight: 800; color: var(--accent); min-width: 1rem; text-align: center; }
-	.reorder-btn { background: none; border: 1px solid var(--glass-border); border-radius: 4px; color: var(--text-dim); font-size: 0.75rem; padding: 0.05rem 0.2rem; cursor: pointer; line-height: 1; transition: all 0.15s; }
-	.reorder-btn:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); }
-	.reorder-btn:disabled { opacity: 0.15; cursor: default; }
-	.inst-status { font-size: 0.75rem; }
-	.inst-main { flex: 1; min-width: 0; }
-	.inst-name-input { width: 100%; background: transparent; border: none; border-bottom: 1px solid var(--glass-border); color: var(--text-main); font-size: 0.8rem; font-weight: 700; padding: 0.1rem 0; }
-	.inst-name-input:focus { border-color: var(--accent); outline: none; }
-	.inst-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.3rem; }
 	.searx-row { flex-wrap: wrap; }
 	.searx-row input { flex: 1 1 180px !important; min-width: 0; }
 	.searx-row button { flex: 0 1 auto; }
-	.inst-key { display: inline-flex; align-items: center; gap: 0.25rem; flex: 0 1 190px; min-width: 120px; }
-	.inst-key-input { flex: 1; min-width: 0; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 6px; padding: 0.2rem 0.4rem; color: var(--text-dim); font-size: 0.75rem; }
-	.inst-url-input { flex: 1; min-width: 80px; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 6px; padding: 0.2rem 0.4rem; color: var(--text-dim); font-size: 0.75rem; font-family: monospace; }
-	.inst-model-select { background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 6px; padding: 0.2rem 0.4rem; color: var(--text-main); font-size: 0.75rem; max-width: 120px; min-width: 80px; }
-	.inst-model-select option { background: var(--bg-secondary); color: var(--text-main); }
-	.inst-ping { font-size: 0.75rem; color: #10b981; font-weight: 700; padding: 0.1rem 0.35rem; background: rgba(16,185,129,0.1); border-radius: 4px; }
-	.inst-actions { display: flex; align-items: center; gap: 0.3rem; }
-	.inst-btn-mini { background: var(--hover-tint); border: 1px solid var(--glass-border); border-radius: 6px; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 0.75rem; transition: all 0.15s; }
-	.inst-btn-mini:hover { background: rgba(59,130,246,0.15); border-color: var(--accent); }
-	.inst-btn-mini.danger:hover { background: rgba(239,68,68,0.2); border-color: var(--danger); }
-	.inst-empty { text-align: center; padding: 1.5rem; color: var(--text-muted); font-size: 0.8rem; }
 	.btn-add { background: rgba(59,130,246,0.1); border: 1px dashed rgba(59,130,246,0.3); color: var(--accent); border-radius: 8px; padding: 0.35rem 0.8rem; font-size: 0.75rem; font-weight: 700; cursor: pointer; transition: all 0.2s; }
 	.btn-add:hover { background: rgba(59,130,246,0.2); border-style: solid; }
 	.btn-add.btn-xs { padding: 0.2rem 0.5rem; font-size: 0.75rem; border-radius: 6px; }
@@ -1578,7 +1451,7 @@
 
 	/* Queue */
 	.queue-stats-badges { display: flex; gap: 0.4rem; }
-	.queue-stat-badge, .inst-ping { display: inline-flex; align-items: center; gap: 0.25rem; }
+	.queue-stat-badge { display: inline-flex; align-items: center; gap: 0.25rem; }
 	.queue-stat-badge { font-size: 0.75rem; font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 6px; font-family: monospace; }
 	.queue-stat-badge.pending { background: rgba(245,158,11,0.12); color: #f59e0b; border: 1px solid rgba(245,158,11,0.3); }
 	.queue-stat-badge.active { background: rgba(16,185,129,0.12); color: #10b981; border: 1px solid rgba(16,185,129,0.3); }
@@ -1897,8 +1770,6 @@
 	.nuke-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; }
 	.nuke-card { padding: 0.55rem 0.8rem; flex-wrap: wrap; }
 	@media (max-width: 900px) { .nuke-grid { grid-template-columns: minmax(0, 1fr); } .gnav { top: var(--mobile-top-h, 42px); } }
-	.status-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--danger); }
-	.status-dot.on { background: var(--success); box-shadow: 0 0 6px color-mix(in srgb, var(--success) 60%, transparent); }
 	/* AI tab: model fields in two columns, behaviour options as compact rows */
 	.ai-model-body { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.9rem 1.5rem; }
 	@media (max-width: 900px) { .ai-model-body { grid-template-columns: minmax(0, 1fr); } }
