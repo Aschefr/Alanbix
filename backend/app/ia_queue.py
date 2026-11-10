@@ -935,6 +935,8 @@ class IAQueueManager:
                     res = await client.post(url, json=req_json, timeout=AI_READ_TIMEOUT)
 
                     if res.status_code != 200:
+                        if is_model_missing(res.status_code, res.text):
+                            raise ModelMissing(model)
                         raise Exception(f"AI service returned HTTP {res.status_code}: {res.text[:200]}")
 
                     if is_openai:
@@ -954,7 +956,10 @@ class IAQueueManager:
 
             await entry.result_stream.put({"done": True, "result": clean})
         except Exception as e:
-            await entry.result_stream.put({"done": True, "error": True, "result": str(e)})
+            # The reason goes to the admins' alert (ia_public_unavailable)
+            from .ia_public_unavailable import reason_of
+            await entry.result_stream.put({"done": True, "error": True, "result": str(e) or type(e).__name__,
+                                           "code": reason_of(e)})
 
     async def _process_translate(self, entry: QueueEntry, payload: dict):
         """Process a translation request (non-streaming)."""

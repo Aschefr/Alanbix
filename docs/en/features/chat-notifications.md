@@ -54,7 +54,7 @@ Mention `@Alanbix`, or reply (`↩`) to one of its messages, and the AI assistan
 * **It knows the player asking**: team, seat and upcoming matches, even with a small model without tools ("which match do I play?").
 * **It looks up live data**: tournaments, matches, brackets, rankings, teams, seats, games and rules, files and event info, with read-only tools. The tool calling mode of the AI settings applies (off = no tools). The knowledge base is used too.
 * **Nothing private, no action**: as the whole room reads the answer, it does not read a player's notifications, alert an administrator, send notifications or announcements, or block anyone. For that, it points to the private AI Assistant.
-* **Never silent**: when it does not answer, the player who called it sees why, in a line under the messages that only they see: it was just called (with the seconds to wait), its answers are turned off by the organizers, or the AI is unavailable.
+* **Never silent**: when it does not answer, the player who called it sees why, in a line under the messages that only they see: it was just called (with the seconds to wait), or its answers are turned off by the organizers. When the AI fails (no server, server unreachable, model missing, error), Alanbix answers in the public chat with a light-hearted line, picked at random among several, such as "Alanbix is AFK for now". Administrators get a notification giving the cause, at most once every 30 minutes, with the number of calls left unanswered since the previous one.
 * **Formatting**: `**bold**`, `*italic*`, `` `code` `` and lines starting with `*` or `-` (shown as bullets) are formatted, in Alanbix's answers as in players' messages. No HTML is ever interpreted.
 
 ---

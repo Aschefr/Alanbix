@@ -138,19 +138,64 @@ def test_plain_message_has_no_alanbix_notice(client):
     assert "alanbix_notice" not in res.json()
 
 
-@pytest.mark.asyncio
-async def test_alanbix_without_ai_instance_tells_the_asker(db_session):
+async def _fail_twice(db_session, monkeypatch, instance, result):
+    """Two failed @Alanbix calls in a row; returns the public lines posted and the admins' alerts."""
     import app.routers.public_chat as pc
+    import app.ia_public_unavailable as down
+    monkeypatch.setattr(down, "_last_alert", 0.0)
+    monkeypatch.setattr(down, "_failures", 0)
     asker = db_session.query(models.User).first()
-    trigger = _msg(db_session, asker, "@Alanbix quel match ?")
+    admin = models.User(username="OrgaTest", is_admin=True)
+    db_session.add(admin)
+    db_session.commit()
     session = MagicMock()
     session.__enter__.return_value = db_session
+    entry = MagicMock()
+    entry.result_stream.get = AsyncMock(return_value=result)
     with patch("app.database.SessionLocal", return_value=session), \
-         patch("app.routers.ia.pick_instance", AsyncMock(return_value=None)), \
+         patch("app.routers.ia.pick_instance", AsyncMock(return_value=instance)), \
+         patch("app.ia_queue.queue_manager.enqueue", AsyncMock(return_value=(entry, 1))), \
          patch.object(pc.ws_manager, "broadcast", AsyncMock()), \
          patch.object(pc.ws_manager, "send_to_user", AsyncMock()) as send:
-        await pc._process_alanbix_public_reply(trigger.id, asker.id)
-    send.assert_awaited_once_with(asker.id, {"type": "public_chat_alanbix_notice", "state": "unavailable"})
+        for text in ("@Alanbix quel match ?", "@Alanbix et maintenant ?"):
+            trigger = _msg(db_session, asker, text)
+            await pc._process_alanbix_public_reply(trigger.id, asker.id)
+    lines = db_session.query(models.PublicChatMessage).filter(models.PublicChatMessage.is_bot == True).all()  # noqa: E712
+    alerts = db_session.query(models.Notification).filter(models.Notification.user_id == admin.id).all()
+    return lines, alerts, send
+
+
+@pytest.mark.asyncio
+async def test_alanbix_without_ai_instance_says_so_publicly_and_alerts_once(db_session, monkeypatch):
+    """User's request (2026-11-10): a light-hearted public line, and an admin alert now and then, not each time."""
+    from app.routers.awards import get_i18n_dict
+    lines, alerts, send = await _fail_twice(db_session, monkeypatch, None, None)
+    fr = get_i18n_dict("fr")
+    variants = {fr[f"public_chat_alanbix_down_{i}"] for i in range(1, 6)}
+    assert len(lines) == 2 and all(m.content in variants and m.reply_to_id for m in lines)
+    assert len(alerts) == 1 and alerts[0].metadata_json["i18n"]["body"] == "notif_public_ai_down_no_instance"
+    assert not any(c.args[1].get("type") == "public_chat_alanbix_notice" for c in send.await_args_list)
+
+
+@pytest.mark.asyncio
+async def test_missing_model_alert_names_the_model(db_session, monkeypatch):
+    instance = {"url": "http://gpu1:11434", "model": "gemma4:e4b"}
+    result = {"done": True, "error": True, "result": "model 'gemma4:e4b' not found", "code": "model_missing"}
+    with patch("app.ia_public_chat.knowledge_block", AsyncMock(return_value="")):
+        lines, alerts, _ = await _fail_twice(db_session, monkeypatch, instance, result)
+    assert len(lines) == 2 and len(alerts) == 1
+    assert alerts[0].metadata_json["i18n"]["body"] == "notif_public_ai_down_model_missing"
+    assert "gemma4:e4b" in alerts[0].content
+
+
+def test_admin_alert_waits_and_then_counts_the_failures(monkeypatch):
+    import app.ia_public_unavailable as down
+    monkeypatch.setattr(down, "_last_alert", 0.0)
+    monkeypatch.setattr(down, "_failures", 0)
+    t0 = 10_000.0
+    assert down.should_alert(t0) == 1
+    assert down.should_alert(t0 + 60) == 0 and down.should_alert(t0 + 120) == 0
+    assert down.should_alert(t0 + down.ADMIN_ALERT_EVERY + 1) == 3
 
 
 def test_public_tools_only_read_public_data():

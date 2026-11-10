@@ -436,6 +436,33 @@ async def _tell_alanbix_unavailable(user_id: int):
     await ws_manager.send_to_user(user_id, {"type": "public_chat_alanbix_notice", "state": "unavailable"})
 
 
+async def _alanbix_down(trigger_msg_id: int, author_id: int, reason: str, detail: str = "", model: str = ""):
+    """Alanbix could not answer: a light-hearted line for everyone, an alert for the admins now and then.
+    Only if even that fails, the player who asked is told privately as before."""
+    from ..database import SessionLocal
+    from ..ia_public_unavailable import public_line, alert_admins
+    print(f"[Public Chat AI] Could not answer ({reason}): {detail}")
+    try:
+        with SessionLocal() as db:
+            trigger = db.query(models.PublicChatMessage).filter(models.PublicChatMessage.id == trigger_msg_id).first()
+            bot_msg = models.PublicChatMessage(
+                user_id=None, sender_name="Alanbix", is_bot=True, content=public_line(db, models),
+                reply_to_id=trigger.id if trigger and not trigger.is_deleted else None,
+                is_deleted=False, created_at=utcnow())
+            db.add(bot_msg)
+            db.commit()
+            db.refresh(bot_msg)
+            await ws_manager.broadcast({"type": "public_chat_message", "message": serialize_message(bot_msg),
+                                        "seat_id": None, "user_id": None})
+            try:
+                await alert_admins(db, models, reason, detail, model)
+            except Exception as e:
+                print(f"[Public Chat AI] Admin alert failed: {e}")
+    except Exception as e:
+        print(f"[Public Chat AI] Could not post the unavailable line: {e}")
+        await _tell_alanbix_unavailable(author_id)
+
+
 async def _process_alanbix_public_reply(trigger_msg_id: int, author_id: int):
     """Background task to generate Alanbix's reply in public chat via the IA queue."""
     from ..ia_queue import queue_manager, QueueEntry
@@ -444,6 +471,7 @@ async def _process_alanbix_public_reply(trigger_msg_id: int, author_id: int):
     from .ia import pick_instance, get_effective_config
 
     answered = False
+    failure = {"reason": "error", "detail": "", "model": ""}  # why, when Alanbix ends up not answering
     try:
         await asyncio.sleep(0.3)
 
@@ -456,11 +484,12 @@ async def _process_alanbix_public_reply(trigger_msg_id: int, author_id: int):
             # Same instance choice as the private assistant (priority, round-robin, health check)
             instance = await pick_instance(db, model=ia_cfg.get("model") or None)
             if not instance:
-                print("[Public Chat AI] No active AI instance configured")
+                failure["reason"] = "no_instance"
                 return
 
             ollama_host = instance.get("url") or instance.get("host") or "http://localhost:11434"
             model_to_use = instance.get("model") or ia_cfg.get("model") or "llama3"
+            failure["model"] = model_to_use
             context_window = ia_cfg.get("context_window", 16384)
             temperature = ia_cfg.get("temperature", 0.2)
 
@@ -500,8 +529,8 @@ async def _process_alanbix_public_reply(trigger_msg_id: int, author_id: int):
                 entry, _ = await queue_manager.enqueue(entry)
                 res = await entry.result_stream.get()
                 if not res or res.get("error"):
-                    err_text = res.get("result") if res else "Unknown error"
-                    print(f"[Public Chat AI] Error from queue: {err_text}")
+                    failure.update(reason=(res or {}).get("code") or "error",
+                                   detail=(res.get("result") if res else "") or "")
                     return
 
                 clean_response = (res.get("result") or "").strip()
@@ -532,14 +561,16 @@ async def _process_alanbix_public_reply(trigger_msg_id: int, author_id: int):
                         "user_id": None
                     })
                     answered = True
+                else:
+                    failure["reason"] = "empty"
             except Exception as e:
-                print(f"[Public Chat AI] Error generating reply: {e}")
+                failure.update(reason="error", detail=str(e))
     except Exception as e:
-        print(f"[Public Chat AI] Error preparing reply: {e}")
+        failure.update(reason="error", detail=str(e))
     finally:
-        # No instance, AI error or empty answer: the player who asked is told, instead of silence
+        # No instance, AI error or empty answer: everyone sees why Alanbix is quiet, the admins hear of it
         if not answered:
-            await _tell_alanbix_unavailable(author_id)
+            await _alanbix_down(trigger_msg_id, author_id, **failure)
         # Guarantee Alanbix typing status is cleared
         await ws_manager.broadcast({
             "type": "public_chat_typing",
