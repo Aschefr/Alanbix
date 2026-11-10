@@ -91,6 +91,22 @@ def no_think(url: str, thinking: bool) -> dict:
     return {} if thinking or is_openai_host(url) else {"think": False}
 
 
+class ModelMissing(Exception):
+    """The AI server answered, but does not have the model asked for. Not a connection problem:
+    the admin has to download the model (Ollama) or pick another one."""
+
+    def __init__(self, model: str):
+        super().__init__(f"model '{model}' not found on the AI server")
+        self.model = model
+
+
+def is_model_missing(status: int, body: str) -> bool:
+    """Ollama answers 404 {"error": "model 'x' not found"}; OpenAI-compatible services 404 model_not_found."""
+    text = (body or "").lower()
+    # A wrong address also answers 404 ("404 page not found"): only a reply naming the model counts
+    return status == 404 and "model" in text and ("not found" in text or "not_found" in text or "does not exist" in text)
+
+
 # API keys of the AI instances (online OpenAI-compatible services), by base URL.
 # Refreshed every time the instance list is read; never sent back to the browser.
 _API_KEYS: dict = {}

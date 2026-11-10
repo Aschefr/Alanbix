@@ -1053,7 +1053,10 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
                         error_text = chunk.get("text", "Erreur IA inconnue")
                         if error_text:
                             full_response += error_text
-                        yield f"data: {json.dumps({'text': error_text, 'done': True, 'error': True})}\n\n"
+                        failure = {'text': error_text, 'done': True, 'error': True}
+                        if chunk.get("code"):
+                            failure.update(code=chunk["code"], model=chunk.get("model"))
+                        yield f"data: {json.dumps(failure)}\n\n"
                         break
 
                     # Worker finished — compute tokens + auto-title
