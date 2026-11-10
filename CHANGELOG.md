@@ -7,6 +7,7 @@
 
 ### 🐛 Fixes
 - **An AI server without a model no longer looks like a broken connection** (a user's report): when Ollama answers but has no model yet, the guided setup says the connection works and asks to download one of the recommended models (the free model field is gone there). In the AI settings, a line under the server says it has no model, or lacks the chosen one, and opens the recommended models; the test button says it too instead of a plain "OK". In the private chat, Ollama's "model not found" (HTTP 404) now tells the player the model is not installed and to tell an administrator, and puts their question back in the input box.
+- **@Alanbix no longer goes quiet when the AI fails**: in the public chat, Alanbix now answers everyone with a light-hearted line (five variants, such as "Alanbix is AFK for now") instead of a notice only the caller saw, and the administrators get a notification with the cause (no AI server, server unreachable, model missing, too slow, empty answer, error), at most once every 30 minutes with the number of unanswered calls since the previous one.
 - **AI could lose a running tournament on a big LAN**: the tournament list given to the AI held only the 20 newest, so an older tournament still running disappeared once 20 newer ones existed. Running and open tournaments now come first, and the AI is told how to find one that is not listed.
 
 ## [1.41.0] - 2026-11-09
