@@ -1049,6 +1049,7 @@
 				const reader = response.body.getReader();
 				const decoder = new TextDecoder("utf-8");
 				let buffer = "";
+				let failure = '';
 
 				while (true) {
 					const { value, done } = await reader.read();
@@ -1129,6 +1130,11 @@
 									scrollToBottom();
 									continue;
 								}
+								// The AI server answers but lacks the model: not a broken connection, say what to do
+								if (data.code === 'model_missing') {
+									failure = $t('ai_chat_model_missing', { model: data.model || '' });
+									continue;
+								}
 								// Normal token streaming
 								if (data.text) {
 									if (messages[botMsgIdx].status === 'thinking' || messages[botMsgIdx].status === 'queued') {
@@ -1153,6 +1159,8 @@
 						}
 					}
 				}
+				// Same path as a failed request: the question goes back in the input, to send again once fixed
+				if (failure) throw new Error(failure);
 			}
 		} catch (e) {
 			askConfirm($t('error'), e.message, 'error', null);

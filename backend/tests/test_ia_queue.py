@@ -241,6 +241,7 @@ async def test_ia_queue_xml_fallback_parsing(db_session):
         yield '{"done": true}'
         
     mock_response.aiter_lines = mock_aiter_lines
+    mock_response.status_code = 200
     mock_response.raise_for_status = MagicMock()
     
     class AsyncContextManagerMock:
@@ -660,6 +661,7 @@ async def test_last_tool_round_still_answers():
             for line in lines:
                 yield json.dumps(line)
         res.aiter_lines = aiter_lines
+        res.status_code = 200
 
         class Ctx:
             async def __aenter__(self):
@@ -718,6 +720,7 @@ async def test_empty_last_round_is_asked_again_without_thinking():
             for line in lines:
                 yield json.dumps(line)
         res.aiter_lines = aiter_lines
+        res.status_code = 200
 
         class Ctx:
             async def __aenter__(self):
@@ -757,3 +760,46 @@ async def test_empty_last_round_is_asked_again_without_thinking():
     while not entry.result_stream.empty():
         items.append(entry.result_stream.get_nowait())
     assert [i["full_response"] for i in items if i.get("done")] == ["Ce tournoi n'existe pas."]
+
+
+def test_model_missing_is_told_apart_from_other_errors():
+    """Ollama reached but without the model: 404 "model ... not found", not a connection problem."""
+    from app.ia_utils import is_model_missing
+    assert is_model_missing(404, '{"error":"model \'gemma4:e4b\' not found"}')
+    assert is_model_missing(404, '{"error":{"code":"model_not_found"}}')
+    assert not is_model_missing(404, "404 page not found")  # a wrong address, not a missing model
+    assert not is_model_missing(500,'{"error":"model \'x\' not found"}')
+    assert not is_model_missing(200, "")
+
+
+@pytest.mark.asyncio
+async def test_chat_says_when_the_model_is_missing():
+    """A user's report (2026-11-10): an Ollama without any model looked like a broken connection."""
+    from unittest.mock import MagicMock, AsyncMock, patch
+    from app.ia_queue import IAQueueManager, QueueEntry
+
+    res = MagicMock()
+    res.status_code = 404
+    res.aread = AsyncMock(return_value=b'{"error":"model \'gemma4:e4b\' not found"}')
+
+    class Ctx:
+        async def __aenter__(self):
+            return res
+
+        async def __aexit__(self, *a):
+            return False
+    client = MagicMock()
+    client.stream = MagicMock(return_value=Ctx())
+    client.aclose = AsyncMock()
+    entry = QueueEntry(priority=0, created_at=time.time(), user_id=0, username="t", task_type="chat", payload={
+        "ollama_host": "http://gpu1:11434", "conversation_id": 0,
+        "req_data": {"model": "gemma4:e4b", "messages": [{"role": "user", "content": "Salut"}], "stream": True, "options": {}}})
+    with patch("httpx.AsyncClient", return_value=client):
+        await IAQueueManager()._process_chat(entry, entry.payload)
+
+    items = []
+    while not entry.result_stream.empty():
+        items.append(entry.result_stream.get_nowait())
+    failure = [i for i in items if i.get("done")][0]
+    assert failure["error"] and failure["code"] == "model_missing" and failure["model"] == "gemma4:e4b"
+    assert client.stream.call_count == 1  # no retry against a model that is not there

@@ -29,6 +29,8 @@
 	let contextWindow = 16384;
 
 	$: url = mode === 'online' ? onlineUrl : localUrl;
+	// Ollama answers but has no model yet: the connection is fine, a model has to be downloaded
+	$: noModel = testState === 'ok' && mode === 'local' && !models.length;
 	$: if (mode || url || apiKey) resetTest();
 	function resetTest() { testState = ''; models = []; model = ''; }
 
@@ -74,6 +76,7 @@
 		if (!iaConfig || mode === 'none') return true;
 		const config = { ...iaConfig, context_window: contextWindow };
 		if (mode !== 'keep') {
+			if (noModel) throw new Error($t('setup_ai_download_first'));
 			if (testState !== 'ok' || !model) throw new Error($t('setup_ai_test_first'));
 			const clean = url.trim().replace(/\/+$/, '');
 			const others = existing.filter(i => (i.url || '').replace(/\/+$/, '') !== clean);
@@ -158,11 +161,15 @@
 			<button class="btn-secondary" on:click={test} disabled={testState === 'testing' || !url.trim()}>
 				<Icon name="refresh" size={15} /> {testState === 'testing' ? $t('setup_ai_testing') : $t('setup_ai_test')}
 			</button>
-			{#if testState === 'ok'}<span class="status ok"><Icon name="check-circle" size={15} /> {$t('setup_ai_test_ok', { n: models.length })}</span>{/if}
+			{#if noModel}<span class="status ok"><Icon name="check-circle" size={15} /> {$t('setup_ai_test_ok_no_model')}</span>
+			{:else if testState === 'ok'}<span class="status ok"><Icon name="check-circle" size={15} /> {$t('setup_ai_test_ok', { n: models.length })}</span>{/if}
 			{#if testState === 'fail'}<span class="status fail"><Icon name="alert-triangle" size={15} /> {$t(mode === 'online' ? 'setup_ai_test_fail_online' : 'setup_ai_test_fail_local')}</span>{/if}
 		</div>
 
-		{#if testState === 'ok'}
+		{#if noModel}
+			<p class="note"><Icon name="download" size={14} /> {$t('setup_ai_no_model_help')}</p>
+			<OllamaModelCatalog url={url.trim()} current={model} open on:use={(e) => useModel(e.detail)} on:installed={(e) => addModel(e.detail)} />
+		{:else if testState === 'ok'}
 			<label class="field">
 				<span class="field-label">{$t('setup_ai_model')}</span>
 				{#if models.length}
