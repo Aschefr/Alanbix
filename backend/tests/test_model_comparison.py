@@ -1,6 +1,14 @@
 """The recommended models are the ones the comparison's rules pick, never a hand-made list."""
 from app import ia_model_catalog, ia_model_comparison as comp
 
+PERFECT = {t: s["questions"] for t, s in comp.TASKS.items()}
+
+
+def model(right=None, passes=None, made_up=(0, 90), **extra):
+    right = {**PERFECT, **(right or {})}
+    return {"name": "m", "memory_gb": 5.0, "seconds": 3.0, "right": right, "passes": passes or [right] * 3,
+            "made_up": list(made_up), **extra}
+
 
 def test_rules_give_the_catalogue():
     res = comp.comparison()
@@ -10,38 +18,52 @@ def test_rules_give_the_catalogue():
         row = next(r for r in res["models"] if r["name"] == m["name"])
         assert m["tier"] in row["labels"]
         assert m["memory_gb"] == row["memory_gb"]
-        assert m["typical_seconds"] == round(row["seconds"])
+        assert m["typical_seconds"] == row["seconds"]
 
 
-def test_note_weights_each_task():
-    perfect = {"passes": [{t: s["questions"] for t, s in comp.TASKS.items()}] * 2}
-    assert comp.note(perfect) == 10.0
-    one_chat_miss = {"passes": [perfect["passes"][0], {**perfect["passes"][0], "chat": 12}]}
-    assert comp.note(one_chat_miss) == 9.8  # 1 of 26 chat answers, weight 40 %
+def test_no_question_weighs_more_than_two_percent():
+    assert comp.QUESTION_MAX <= 0.2 + 1e-9
+    assert comp.TIE == 0.8
+
+
+def test_note_counts_the_majority_answer():
+    assert comp.note(model()) == 10.0
+    assert comp.note(model({"chat": 19})) == 9.8  # 1 of 20 chat questions, weight 40 %
 
 
 def test_exclusions_name_their_reason():
-    ok = {t: s["questions"] for t, s in comp.TASKS.items()}
-    assert comp.exclusions({"passes": [ok, ok], "made_up": 2}) == []  # up to twice is tolerated
     codes = lambda m: [e["code"] for e in comp.exclusions(m)]  # noqa: E731
-    assert codes({"passes": [ok, ok], "made_up": 3}) == ["made_up"]
-    assert codes({"passes": [ok, {**ok, "chat": 9}], "made_up": 0}) == ["chats"]  # 34/38
-    assert codes({"passes": [ok, {**ok, "notify": 0}], "made_up": 0}) == ["task"]
+    assert codes(model(made_up=(2, 90))) == []
+    assert codes(model(made_up=(8, 90))) == []        # under 10 % of the flagged answers
+    assert codes(model(made_up=(9, 90))) == ["made_up"]
+    assert codes(model(made_up=(3, 20))) == ["made_up"]  # 15 %, and 3 times
+    assert codes(model({"chat": 13, "public": 15})) == ["chats"]  # 28/35, under 90 %
+    low_pass = [PERFECT, {**PERFECT, "notify": 2}, PERFECT]
+    assert codes(model(passes=low_pass)) == ["task"]
+
+
+def test_tie_needs_the_note_and_every_task():
+    a = {**model(), "note": 9.6}
+    close = {**model({"public": 13}), "note": 9.2}
+    assert comp.tied(a, close)
+    far_on_a_task = {**model(passes=[{**PERFECT, "public": 10}] * 3), "note": 9.2}
+    assert not comp.tied(a, far_on_a_task)  # 5 public questions apart in every pass
+    assert not comp.tied(a, {**model(), "note": 8.7})
+
+
+def test_lightest_tied_model_wins_and_cards_need_room():
+    res = comp.comparison()
+    # mimo-v2.6:9b has the best note (9.8) but gemma4:e4b (9.2) is tied with it and lighter
+    assert res["labels"]["top"] == "gemma4:e4b" and res["labels"]["alternative"] == "mimo-v2.6:9b"
+    excluded = {r["name"] for r in res["models"] if r["excluded"]}
+    assert excluded == {"qwen3.5:4b", "qwen3.5:9b", "gemma4:e2b"}
+    assert all(not r["labels"] for r in res["models"] if r["excluded"])
+    for card, name in res["cards"].items():
+        assert next(r for r in res["models"] if r["name"] == name)["memory_gb"] <= card - 1
 
 
 def test_made_up_count_is_shown_for_every_model():
     res = comp.comparison()
-    assert res["made_up"] == {"max": comp.MADE_UP_MAX, "asked": 26}
-    assert all(isinstance(r["made_up"], int) for r in res["models"])
-    e2b = next(r for r in res["models"] if r["name"] == "gemma4:e2b")
-    assert e2b["made_up"] > res["made_up"]["max"]
-    assert e2b["excluded"][0]["tasks"] == ["made_up"]  # the highlighted cell is the count itself
-
-
-def test_tie_goes_to_the_lightest_and_cards_need_room():
-    res = comp.comparison()
-    # qwen3.8:27b scores 10.0 but gemma4:e4b (9.8) is within the tie and far lighter
-    assert res["labels"]["top"] == "gemma4:e4b"
-    e2b = next(r for r in res["models"] if r["name"] == "gemma4:e2b")
-    assert e2b["excluded"] and not e2b["labels"]
-    assert all(r["memory_gb"] <= card - 1 for card, name in res["cards"].items() for r in res["models"] if r["name"] == name)
+    assert res["made_up"] == {"rate": 10, "min": 3, "asked": 90}
+    q4 = next(r for r in res["models"] if r["name"] == "qwen3.5:4b")
+    assert q4["made_up"] == [18, 90] and q4["excluded"][0]["tasks"] == ["made_up"]

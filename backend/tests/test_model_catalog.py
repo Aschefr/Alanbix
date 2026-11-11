@@ -48,7 +48,7 @@ def test_catalog_marks_installed_models(monkeypatch):
     assert res["supported"] is True
     by_name = {m["name"]: m for m in res["models"]}
     assert by_name[MODEL]["installed"] is True
-    assert by_name["bonsai-2:27b"]["installed"] is False
+    assert by_name["mimo-v2.6:9b"]["installed"] is False
     assert res["comparison"]["labels"]["recommended"] == MODEL
 
 

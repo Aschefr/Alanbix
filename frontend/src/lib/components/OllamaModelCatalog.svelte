@@ -74,7 +74,7 @@
 					<p class="desc">{$t(`model_tier_${m.tier}_desc`, { memory: m.memory_gb.toLocaleString($currentLang) })}</p>
 					<p class="facts">
 						<span>{$t('model_catalog_temperature', { value: m.temperature.toLocaleString($currentLang) })}</span>
-						<span>{$t('model_catalog_speed', { seconds: m.typical_seconds })}</span>
+						<span>{$t('model_catalog_speed', { seconds: m.typical_seconds.toLocaleString($currentLang) })}</span>
 					</p>
 					{#if m.downloading}
 						<div class="progress" role="progressbar" aria-valuenow={m.percent} aria-valuemin="0" aria-valuemax="100" aria-label={m.name}>
