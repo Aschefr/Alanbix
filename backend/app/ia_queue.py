@@ -47,6 +47,11 @@ LAST_ROUND_INSTRUCTION = {
 }
 
 
+class EmptyAnswer(Exception):
+    """The model ended without a word for the player: most often a thinking model that used all
+    the room left in the context window thinking (prod, 2026-11-11: mimo-v2.6:9b, 5,500 tokens, cut)."""
+
+
 # ---------------------------------------------------------------------------
 # Queue Entry
 # ---------------------------------------------------------------------------
@@ -491,6 +496,8 @@ class IAQueueManager:
             full_response = ""
             answered = False
             extra_round = 0
+            no_think_retry = False  # asked again without thinking after an empty answer
+            disconnected = False
 
             # Streaming loop (Option A and final leg of Option B/D)
             while tool_round < max_tool_rounds + extra_round:
@@ -521,6 +528,8 @@ class IAQueueManager:
                     stream_req["messages"] = tool_messages + [LAST_ROUND_INSTRUCTION]
                     if extra_round and not is_openai:
                         stream_req["think"] = False
+                if no_think_retry:
+                    stream_req["think"] = False
 
                 # Variables to control streaming chunk buffer for XML detection
                 is_buffering_xml = (tools and tool_calling_mode == "stream_intercept" and not last_round)
@@ -549,6 +558,7 @@ class IAQueueManager:
                         if raw_request:
                             try:
                                 if await raw_request.is_disconnected():
+                                    disconnected = True
                                     break
                             except Exception:
                                 pass
@@ -762,6 +772,14 @@ class IAQueueManager:
                         # right in the 2026-11-08 bench (qwen3.8:27b and bonsai-2:27b)
                         extra_round = 1
                         continue
+                    if not clean_response and not shown_before and not entry.cancelled and not disconnected:
+                        # Nothing for the player: once more without thinking (Ollama), else say it
+                        if not is_openai and stream_req.get("think") is not False:
+                            print(f"[IA Queue] Empty answer from {stream_req.get('model')}: asking again without thinking")
+                            no_think_retry = True
+                            extra_round += 1
+                            continue
+                        raise EmptyAnswer()
                     self._execute_post_stream_tool_calls(clean_response, tools, entry.user_id, used_tools)
                     # Store what the player saw: text from the rounds before tool calls, then the final round
                     if shown_before:
@@ -793,6 +811,9 @@ class IAQueueManager:
             # The page says it in the player's language from the code; the text is for older pages
             await entry.result_stream.put({"text": str(e), "done": True, "error": True,
                                            "code": "model_missing", "model": e.model})
+        except EmptyAnswer:
+            await entry.result_stream.put({"text": "The AI ended without an answer.", "done": True, "error": True,
+                                           "code": "empty_answer"})
         except Exception as e:
             import traceback
             traceback.print_exc()

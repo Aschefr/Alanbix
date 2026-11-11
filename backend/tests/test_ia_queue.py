@@ -803,3 +803,75 @@ async def test_chat_says_when_the_model_is_missing():
     failure = [i for i in items if i.get("done")][0]
     assert failure["error"] and failure["code"] == "model_missing" and failure["model"] == "gemma4:e4b"
     assert client.stream.call_count == 1  # no retry against a model that is not there
+
+
+def _chat_rounds(*rounds):
+    """Client whose stream() answers each round with the given Ollama lines."""
+    import json
+    from unittest.mock import MagicMock, AsyncMock
+
+    def stream(lines):
+        res = MagicMock()
+        res.status_code = 200
+
+        async def aiter_lines():
+            for line in lines:
+                yield json.dumps(line)
+        res.aiter_lines = aiter_lines
+
+        class Ctx:
+            async def __aenter__(self):
+                return res
+
+            async def __aexit__(self, *a):
+                return False
+        return Ctx()
+    client = MagicMock()
+    client.stream = MagicMock(side_effect=[stream(r) for r in rounds])
+    client.aclose = AsyncMock()
+    return client
+
+
+async def _run_chat(client, **req):
+    from unittest.mock import patch
+    from app.ia_queue import IAQueueManager, QueueEntry
+    entry = QueueEntry(priority=0, created_at=time.time(), user_id=0, username="t", task_type="chat", payload={
+        "ollama_host": "http://gpu1:11434", "conversation_id": 0,
+        "req_data": {"model": "mimo-v2.6:9b", "messages": [{"role": "user", "content": "Salut"}], "stream": True,
+                     "options": {}, **req}})
+    with patch("httpx.AsyncClient", return_value=client):
+        await IAQueueManager()._process_chat(entry, entry.payload)
+    items = []
+    while not entry.result_stream.empty():
+        items.append(entry.result_stream.get_nowait())
+    return [i for i in items if i.get("done")][0]
+
+
+# Prod, 2026-11-11: mimo-v2.6:9b thought until the 16K window was full, Ollama cut it, the player got an empty bubble
+THOUGHT_ONLY = [{"message": {"content": "", "thinking": "Hmm, let me think"}},
+                {"message": {"content": ""}, "done": True, "done_reason": "length"}]
+
+
+@pytest.mark.asyncio
+async def test_empty_answer_is_asked_again_without_thinking():
+    client = _chat_rounds(THOUGHT_ONLY, [{"message": {"content": "Bonjour !"}}, {"done": True}])
+    done = await _run_chat(client)
+    assert done["full_response"] == "Bonjour !" and not done.get("error")
+    assert "think" not in client.stream.call_args_list[0].kwargs["json"]
+    assert client.stream.call_args_list[1].kwargs["json"]["think"] is False
+
+
+@pytest.mark.asyncio
+async def test_still_empty_answer_tells_the_player():
+    client = _chat_rounds(THOUGHT_ONLY, THOUGHT_ONLY)
+    done = await _run_chat(client)
+    assert done["error"] and done["code"] == "empty_answer"
+    assert client.stream.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_empty_answer_without_thinking_is_not_asked_twice():
+    client = _chat_rounds(THOUGHT_ONLY)
+    done = await _run_chat(client, think=False)
+    assert done["error"] and done["code"] == "empty_answer"
+    assert client.stream.call_count == 1  # the same request again would end the same way

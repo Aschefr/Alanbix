@@ -1135,6 +1135,11 @@
 									failure = $t('ai_chat_model_missing', { model: data.model || '' });
 									continue;
 								}
+								// The model ended without a word, even asked again without thinking
+								if (data.code === 'empty_answer') {
+									failure = $t('ai_chat_empty_answer');
+									continue;
+								}
 								// Normal token streaming
 								if (data.text) {
 									if (messages[botMsgIdx].status === 'thinking' || messages[botMsgIdx].status === 'queued') {

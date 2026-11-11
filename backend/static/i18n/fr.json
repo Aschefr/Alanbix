@@ -1482,6 +1482,7 @@
   "tutorial_next": "Suivant",
   "ai_availability_error": "Impossible de vérifier la disponibilité de l'IA.",
   "ai_chat_model_missing": "Le modèle {model} n'est pas installé sur le serveur d'IA : l'assistant ne peut pas répondre. Prévenez un administrateur, il peut le télécharger dans Administration › Réglages › Intelligence Artificielle. Votre question est remise dans la zone de saisie.",
+  "ai_chat_empty_answer": "L'IA n'a pas réussi à répondre cette fois : elle a sans doute passé toute sa place à réfléchir. Réessayez, ou commencez une nouvelle discussion si celle-ci est longue. Votre question est remise dans la zone de saisie.",
   "ai_compression_tooltip": "Mode de compression actif",
   "ai_tokens_count": "{n} tokens",
   "ai_context_empty_short": "vide",
