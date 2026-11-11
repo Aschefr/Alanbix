@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.42.2] - 2026-11-11
+
+### 🐛 Fixes
+- **The assistant uses the summary of a compacted conversation**: after a compaction, asked what it remembered, the assistant only went over the last exchanges kept word for word. The summary now comes with an instruction saying it is the start of this very conversation, to use whenever the player refers to something said before. Measured with made-up conversations: `gemma4:e4b` used it in 10 answers of 10 instead of 5; `mimo-v2.6:9b` stays at 7 or 8. Known limit: when a tool answers nothing about a fact the summary holds (an empty room plan, for instance), `mimo-v2.6:9b` now more often goes by the tool.
+- **Every failed answer is told**: when an answer failed for another reason than the ones already handled (missing model, empty answer, AI server gone), the bubble showed a technical error for an instant, then vanished when the conversation reloaded. The assistant now says it in a dialog, with the cause, and puts the question back in the input box; so it does when the request is refused before any answer, for instance with no AI server set up.
+
 ## [1.42.1] - 2026-11-11
 
 ### 🐛 Fixes
