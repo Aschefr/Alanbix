@@ -331,3 +331,24 @@ async def test_emergency_goes_through_the_limits_but_stays_capped(db_session):
     assert sum(c.reason.startswith("[URGENT]") for c in calls) == 2
     # Three calls in the hour: no more free pass
     assert (await _call_admin(db_session, user, urgent=True))["error_code"] == "cooldown"
+
+
+@pytest.mark.asyncio
+async def test_tournament_list_keeps_running_ones_on_a_big_lan(db_session, mock_db_session):
+    """Only 20 are listed: an old running tournament must not be pushed out by newer closed ones."""
+    game = models.Game(name="Big LAN Game")
+    db_session.add(game)
+    db_session.commit()
+    db_session.add(models.Tournament(name="Old Running Cup", status="RUNNING", game_id=game.id))
+    db_session.commit()
+    for i in range(25):
+        db_session.add(models.Tournament(name=f"Closed {i}", status="CLOSED", game_id=game.id))
+    db_session.commit()
+
+    with patch("app.database.SessionLocal", return_value=mock_db_session):
+        data = json.loads(await execute_tool("get_tournaments", {}))
+
+    names = [t["name"] for t in data["tournaments"]]
+    assert len(names) == 20 and names[0] == "Old Running Cup"
+    assert "Closed 24" in names and "Closed 0" not in names  # then the newest
+    assert data["total"] >= 26 and "get_tournament_standings" in data["note"]

@@ -5,6 +5,7 @@
 	import { api } from '$lib/api';
 	import { t, currentLang } from '$lib/i18nStore';
 	import Icon from '$lib/components/Icon.svelte';
+	import ModelComparison from '$lib/components/ModelComparison.svelte';
 
 	export let url = '';
 	export let current = ''; // model the instance uses now
@@ -14,6 +15,7 @@
 
 	let items = [];
 	let supported = false;
+	let comparison = null;
 	let timer = null;
 	let seq = 0;
 	let requestError = '';
@@ -36,6 +38,7 @@
 			const justInstalled = res.models.filter(m => m.installed && items.some(i => i.name === m.name && !i.installed));
 			supported = res.supported;
 			items = res.models;
+			comparison = res.comparison || null;
 			justInstalled.forEach(m => dispatch('installed', m.name));
 			if (items.some(m => m.downloading)) timer = setTimeout(() => load(url), 1000);
 		} catch {
@@ -68,10 +71,10 @@
 						<span class="tier" class:recommended={m.tier === 'recommended'}>{$t(`model_tier_${m.tier}`)}</span>
 						<span class="size">{$t('model_catalog_size', { size: m.size_gb.toLocaleString($currentLang) })}</span>
 					</div>
-					<p class="desc">{$t(m.vram_gb ? 'model_tier_powerful_desc' : `model_tier_${m.tier}_desc`, { vram: m.vram_gb })}</p>
+					<p class="desc">{$t(`model_tier_${m.tier}_desc`, { memory: m.memory_gb.toLocaleString($currentLang) })}</p>
 					<p class="facts">
 						<span>{$t('model_catalog_temperature', { value: m.temperature.toLocaleString($currentLang) })}</span>
-						<span>{$t('model_catalog_speed', { seconds: m.typical_seconds })}</span>
+						<span>{$t('model_catalog_speed', { seconds: m.typical_seconds.toLocaleString($currentLang) })}</span>
 					</p>
 					{#if m.downloading}
 						<div class="progress" role="progressbar" aria-valuenow={m.percent} aria-valuemin="0" aria-valuemax="100" aria-label={m.name}>
@@ -100,6 +103,7 @@
 				</li>
 			{/each}
 		</ul>
+		{#if comparison}<ModelComparison data={comparison} />{/if}
 		{#if requestError}
 			<p class="error" role="alert"><Icon name="alert-triangle" size={14} /> {requestError}</p>
 		{/if}

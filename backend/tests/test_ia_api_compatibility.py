@@ -64,6 +64,7 @@ def mock_httpx_client(requests_map):
                         for line in iterator:
                             yield line
                     res.aiter_lines = aiter_lines
+                    res.status_code = 200
                     return AsyncContextManagerMock(res)
             res = MagicMock()
             res.status_code = 404
@@ -243,6 +244,7 @@ async def test_chat_streaming_openai_runs_a_tool_sent_in_pieces():
                 for line in lines:
                     yield line
             res.aiter_lines = aiter_lines
+            res.status_code = 200
             return AsyncContextManagerMock(res)
         async def aclose(self):
             pass

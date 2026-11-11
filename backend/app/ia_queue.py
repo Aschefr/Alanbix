@@ -17,7 +17,7 @@ from collections import deque
 
 from .websockets import manager as ws_manager
 from .ia_title_utils import _build_title_prompt, _clean_title, _is_default_title
-from .ia_utils import ia_client, no_think
+from .ia_utils import ia_client, no_think, ModelMissing, is_model_missing
 from .ia_tool_loop import AI_READ_TIMEOUT, run_tool_rounds, merge_stream_tool_calls, parse_tool_args, parse_xml_tool_calls
 
 
@@ -538,6 +538,11 @@ class IAQueueManager:
                 async with client.stream("POST", url,
                                          json=stream_req,
                                          timeout=httpx.Timeout(connect=10.0, read=300.0, write=10.0, pool=10.0)) as response:
+                    if response.status_code != 200:
+                        body = (await response.aread()).decode("utf-8", "replace")
+                        if is_model_missing(response.status_code, body):
+                            raise ModelMissing(stream_req.get("model") or "")
+                        raise Exception(f"AI service returned HTTP {response.status_code}: {body[:200]}")
                     async for chunk in response.aiter_lines():
                         if entry.cancelled:
                             break
@@ -784,6 +789,10 @@ class IAQueueManager:
                 saved_msg_id = self._save_bot_message(conversation_id, clean_response, meta=meta)
                 await entry.result_stream.put({"done": True, "full_response": clean_response,
                                                "saved_by_worker": saved_msg_id is not None, "meta": meta})
+        except ModelMissing as e:
+            # The page says it in the player's language from the code; the text is for older pages
+            await entry.result_stream.put({"text": str(e), "done": True, "error": True,
+                                           "code": "model_missing", "model": e.model})
         except Exception as e:
             import traceback
             traceback.print_exc()
@@ -926,6 +935,8 @@ class IAQueueManager:
                     res = await client.post(url, json=req_json, timeout=AI_READ_TIMEOUT)
 
                     if res.status_code != 200:
+                        if is_model_missing(res.status_code, res.text):
+                            raise ModelMissing(model)
                         raise Exception(f"AI service returned HTTP {res.status_code}: {res.text[:200]}")
 
                     if is_openai:
@@ -945,7 +956,10 @@ class IAQueueManager:
 
             await entry.result_stream.put({"done": True, "result": clean})
         except Exception as e:
-            await entry.result_stream.put({"done": True, "error": True, "result": str(e)})
+            # The reason goes to the admins' alert (ia_public_unavailable)
+            from .ia_public_unavailable import reason_of
+            await entry.result_stream.put({"done": True, "error": True, "result": str(e) or type(e).__name__,
+                                           "code": reason_of(e)})
 
     async def _process_translate(self, entry: QueueEntry, payload: dict):
         """Process a translation request (non-streaming)."""

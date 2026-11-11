@@ -7,7 +7,7 @@ import pytest
 from app import ia_model_catalog as catalog
 
 OLLAMA = "http://ollama:11434"
-MODEL = "gemma4:e2b"
+MODEL = "gemma4:e4b"
 
 
 @pytest.fixture(autouse=True)
@@ -48,7 +48,8 @@ def test_catalog_marks_installed_models(monkeypatch):
     assert res["supported"] is True
     by_name = {m["name"]: m for m in res["models"]}
     assert by_name[MODEL]["installed"] is True
-    assert by_name["gemma4:e4b"]["installed"] is False
+    assert by_name["mimo-v2.6:9b"]["installed"] is False
+    assert res["comparison"]["labels"]["recommended"] == MODEL
 
 
 def test_every_recommended_model_says_its_temperature_and_speed():

@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.42.0] - 2026-11-11
+
+### 🛡️ Administration
+- **How the recommended models were chosen**: under "Recommended models", a table now shows the measures behind the list: a score out of 10 with every task, its number of questions and its weight, how many answers each model made up, the median answer time, the video memory at 32K and why a model is not kept. The labels are computed by fixed rules shared with OmniBank and Sentinel, never written by hand. Measured in the common campaign of 9 to 11 November 2026 on an RTX 3090: 10 models, 3 passes, 57 questions (a question counts when right in most passes, none worth more than 0.2 point), and the 9 questions where a model can make something up asked 10 times each. `gemma4:e4b` (registry version of 10 November, 9.2 out of 10, 5.4 GB, 2.5 s) stays recommended from an 8 GB card: it is tied with the best score, `mimo-v2.6:9b` (9.8, 7.0 GB), and lighter. `mimo-v2.6:9b` replaces `bonsai-2:27b` as the alternative. Not kept: `qwen3.5:4b` (made up 18 answers out of 90), `qwen3.5:9b` and `gemma4:e2b` (the chats); an installation using any other model keeps working.
+
+### 🐛 Fixes
+- **An AI server without a model no longer looks like a broken connection** (a user's report): when Ollama answers but has no model yet, the guided setup says the connection works and asks to download one of the recommended models (the free model field is gone there). In the AI settings, a line under the server says it has no model, or lacks the chosen one, and opens the recommended models; the test button says it too instead of a plain "OK". In the private chat, Ollama's "model not found" (HTTP 404) now tells the player the model is not installed and to tell an administrator, and puts their question back in the input box.
+- **@Alanbix no longer goes quiet when the AI fails**: in the public chat, Alanbix now answers everyone with a light-hearted line (five variants, such as "Alanbix is AFK for now") instead of a notice only the caller saw, and the administrators get a notification with the cause (no AI server, server unreachable, model missing, too slow, empty answer, error), at most once every 30 minutes with the number of unanswered calls since the previous one.
+- **AI could lose a running tournament on a big LAN**: the tournament list given to the AI held only the 20 newest, so an older tournament still running disappeared once 20 newer ones existed. Running and open tournaments now come first, and the AI is told how to find one that is not listed.
+
 ## [1.41.0] - 2026-11-09
 
 ### ✨ Features
