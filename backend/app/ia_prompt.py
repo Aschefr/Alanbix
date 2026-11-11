@@ -83,6 +83,16 @@ def app_guide_block(lang: str) -> str:
 LANG_NAMES = {"fr": "French", "en": "English", "es": "Spanish", "de": "German", "it": "Italian", "pt": "Portuguese", "nl": "Dutch"}
 
 
+def summary_block(summary: str) -> str:
+    """The compacted start of the conversation. Under a bare title, gemma4:e4b used it in 5 answers of 10
+    to "what do you remember?"; with this instruction, 10 of 10 (veille recall bench, 2026-11-11)."""
+    return ("=== EARLIER IN THIS CONVERSATION ===\n"
+            "Summary of the earlier part of this conversation with this player. The older messages are no longer "
+            "shown to you: this summary replaces them, and the messages that follow come after it. Use it, together "
+            "with those messages, whenever the player refers to something said before or asks what you remember.\n\n"
+            + summary)
+
+
 def language_block(player_lang: str | None) -> str:
     """Last part of the prompt: small models follow the most recent instruction, and the
     personality text is written in the LAN language, which otherwise drags answers into it."""

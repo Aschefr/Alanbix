@@ -1496,6 +1496,7 @@
   "ai_chat_model_missing": "El modelo {model} no está instalado en el servidor de IA: el asistente no puede responder. Avise a un administrador, puede descargarlo en Administración › Ajustes › Inteligencia Artificial. Su pregunta vuelve a estar en el cuadro de texto.",
   "ai_chat_empty_answer": "La IA no ha podido responder esta vez: probablemente gastó todo su espacio pensando. Inténtelo de nuevo, o empiece una nueva conversación si esta es larga. Su pregunta vuelve a estar en el cuadro de texto.",
   "ai_chat_server_down": "El servidor de IA no responde por el momento (reinicio o avería) y ningún otro servidor ha podido tomar el relevo. Inténtelo de nuevo en un momento. Su pregunta vuelve a estar en el cuadro de texto.",
+  "ai_chat_failed": "El asistente no ha podido responder: {detail}. Inténtelo de nuevo en un momento; si vuelve a ocurrir, avise a un administrador. Su pregunta vuelve a estar en el cuadro de texto.",
   "ai_compression_tooltip": "Modo de compresión activo",
   "ai_tokens_count": "{n} tokens",
   "ai_context_empty_short": "vacío",

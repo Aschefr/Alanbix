@@ -915,7 +915,8 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
     except Exception as e:
         print(f"[Error checking cooldown context] {e}")
     if conv.compressed_context:
-        system_parts.append(f"=== Contexte Compressé ===\n{conv.compressed_context}")
+        from ..ia_prompt import summary_block
+        system_parts.append(summary_block(conv.compressed_context))
     if knowledge_docs:
         system_parts.append(knowledge_prompt(knowledge_docs, prompt_lang))
         

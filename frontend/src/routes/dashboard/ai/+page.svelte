@@ -1045,6 +1045,11 @@
 					lang: $currentLang
 				})
 			});
+			// Refused before any answer (no AI server set up, conversation gone…): say why
+			if (!response.ok) {
+				const detail = await response.json().then(b => b.detail).catch(() => '') || `HTTP ${response.status}`; // i18n-ignore
+				throw new Error($t('ai_chat_failed', { detail }));
+			}
 
 			if (adminOverride) {
 				// Under admin override, just add a system notification and reload
@@ -1147,6 +1152,13 @@
 								// The AI server went away and no other one could take over
 								if (data.code === 'ai_unreachable') {
 									failure = $t('ai_chat_server_down');
+									continue;
+								}
+								// Any other failure: the bubble would vanish when the conversation reloads from the server
+								// (the error is not stored), so say it the same way, with the question back in the input
+								if (data.done && data.error) {
+									// some errors come without a message: drop the trailing colon
+									failure = $t('ai_chat_failed', { detail: (data.text || '').replace(/[\s:]+$/, '') });
 									continue;
 								}
 								// Normal token streaming
