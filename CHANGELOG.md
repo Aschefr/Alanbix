@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.42.4] - 2026-11-11
+
+### ✨ Features
+- **Administrators can ask Alanbix to block or mute a player**: "block Zorg" or "mute Zorg for 30 minutes" now works, in the private assistant as in the public chat. Blocking cuts the player off from the assistant; muting stops them from writing in the public chat (15 minutes by default, 24 hours at most), like the administration's button. The server checks that the request comes from an administrator: a player asking Alanbix to ban someone else is refused. The player is found by exact username, or by part of it when only one matches; otherwise nothing is done and Alanbix asks which one. Administrators can be neither blocked nor muted. Before, an administrator asking "ban Zorg" in the public chat was told to go and see an administrator.
+
 ## [1.42.3] - 2026-11-11
 
 ### ✨ Features
