@@ -153,6 +153,6 @@ The assistant looks up live data with tools, and answers from their results rath
 ### 5. Actions
 `call_admin` (alert an organiser), `suggest_rag_entry` (suggest a knowledge entry), and for administrators `send_notification_to_player`, `announce_to_all`, `block_user_from_ia`. `announce_to_all` and the two admin network tools are not even offered to a player, so the assistant cannot claim it sent an announcement for them.
 
-In the public chat, `@Alanbix` only has the tools that read public data.
+In the public chat, `@Alanbix` only has the tools that read public data, plus a single action tool: `block_user_from_ia`, which can only block the player who called it. As in the private assistant, it warns once, then may block a player who keeps insulting it. The tool follows the auto-moderation switch in the administration. A blocked player alone sees a notice when they mention `@Alanbix`.
 
 *Tool calling is set or turned off globally in **Settings › AI Settings › Behaviour**.*
