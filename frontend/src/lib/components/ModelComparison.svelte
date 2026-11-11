@@ -8,12 +8,8 @@
 	$: tasks = Object.entries(data.tasks);
 	$: num = (v, digits = 1) => v.toLocaleString($currentLang, { minimumFractionDigits: digits, maximumFractionDigits: digits });
 
-	// One value when both passes agree, a range when they differ
-	function score(m, task) {
-		const values = m.passes.map((p) => p[task]);
-		const lo = Math.min(...values), hi = Math.max(...values);
-		return lo === hi ? `${lo}` : `${lo}–${hi}`;
-	}
+	// Questions right in most passes; each pass in the tooltip
+	const passes = (m, task) => m.passes.map((p) => p[task]).join(' · ');
 
 	const flagged = (m, task) => m.excluded.some((e) => e.tasks.includes(task));
 </script>
@@ -48,9 +44,9 @@
 						<th scope="row" class="sticky name"><code>{m.name}</code></th>
 						<td class="sticky note">{num(m.note)}</td>
 						{#each tasks as [task]}
-							<td class="num" class:flag={flagged(m, task)}>{score(m, task)}</td>
+							<td class="num" class:flag={flagged(m, task)} title={passes(m, task)}>{m.right[task]}</td>
 						{/each}
-						<td class="num" class:flag={flagged(m, 'made_up')}>{m.made_up}</td>
+						<td class="num" class:flag={flagged(m, 'made_up')}>{m.made_up[0]}</td>
 						<td class="num">{$t('model_compare_seconds', { seconds: num(m.seconds) })}</td>
 						<td class="num">
 							{#if m.memory_gb == null}—{:else}{$t('model_compare_memory', { memory: num(m.memory_gb), quant: m.quantization })}{/if}
@@ -72,7 +68,7 @@
 			</tbody>
 		</table>
 	</div>
-	<p class="note">{$t('model_compare_rules', { tie: num(data.tie), seconds: data.fast_seconds })}</p>
+	<p class="note">{$t('model_compare_rules', { tie: num(data.tie), seconds: data.fast_seconds, question: num(data.question_max), questions: data.tie_questions, rate: data.made_up.rate, min: data.made_up.min })}</p>
 	<p class="note">{$t('model_compare_legend')}</p>
 </details>
 
