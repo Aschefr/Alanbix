@@ -352,3 +352,17 @@ async def test_tournament_list_keeps_running_ones_on_a_big_lan(db_session, mock_
     assert len(names) == 20 and names[0] == "Old Running Cup"
     assert "Closed 24" in names and "Closed 0" not in names  # then the newest
     assert data["total"] >= 26 and "get_tournament_standings" in data["note"]
+
+
+def test_chat_tools_hide_admin_only_tools_from_players():
+    """A player is never offered the announcement or the admin network tools; an admin is."""
+    from app.ia_tools import chat_tools
+    player = {t["function"]["name"] for t in chat_tools({}, is_admin=False)}
+    admin = {t["function"]["name"] for t in chat_tools({}, is_admin=True)}
+    for name in ("announce_to_all", "check_server_health", "scan_local_network"):
+        assert name not in player
+        assert name in admin
+    assert "call_admin" in player and "send_notification_to_player" in player
+    assert chat_tools({"tool_calling_mode": "disabled"}, is_admin=True) == []
+    off = {t["function"]["name"] for t in chat_tools({"network_tools_enabled": False, "auto_moderation_enabled": False}, is_admin=True)}
+    assert "ping_host" not in off and "block_user_from_ia" not in off and "announce_to_all" in off

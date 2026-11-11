@@ -151,7 +151,7 @@ The assistant looks up live data with tools, and answers from their results rath
 `ping_host`, `traceroute_host`, `dns_lookup` for everyone. `scan_local_network` and `check_server_health` are for administrators only.
 
 ### 5. Actions
-`call_admin` (alert an organiser), `suggest_rag_entry` (suggest a knowledge entry), and for administrators `send_notification_to_player`, `announce_to_all`, `block_user_from_ia`.
+`call_admin` (alert an organiser), `suggest_rag_entry` (suggest a knowledge entry), and for administrators `send_notification_to_player`, `announce_to_all`, `block_user_from_ia`. `announce_to_all` and the two admin network tools are not even offered to a player, so the assistant cannot claim it sent an announcement for them.
 
 In the public chat, `@Alanbix` only has the tools that read public data.
 
