@@ -33,7 +33,8 @@ PUBLIC_CHAT_TOOL_INSTRUCTION = {
     "role": "system",
     "content": (
         "You can look up the LAN's live data with your tools (tournaments, matches, brackets, rankings, teams, "
-        "seats, games and rules, files, event info). Use them whenever the answer needs facts. "
+        "seats, games and rules, files, event info). Use them whenever the answer needs facts about the LAN; "
+        "when the player talks about something else, just answer without them. "
         "If your API has no native tool calling, write the call exactly like this in your answer:\n"
         "<tool_call name=\"tool_name\">\n{\"parameter\": \"value\"}\n</tool_call>"
     ),

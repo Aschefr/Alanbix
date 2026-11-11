@@ -34,7 +34,7 @@ def test_asker_matches_block_lists_a_few_pending_matches(db_session):
         block = asker_matches_block(db_session, models, player, "en")
 
     lines = block.splitlines()
-    assert lines[0] == "- Upcoming matches of Player1:"
+    assert lines[0] == "- Upcoming matches of Player1 (use only if they ask about their matches):"
     assert lines[1] == "  - Cup 0, WB Round 1, opponent to be decided"
     assert lines[2] == "  - Cup 1, WB Round 1, against Player2"
     assert len(lines) == 4  # title + 3 matches
@@ -304,3 +304,28 @@ def test_player_blocked_from_the_ai_cannot_call_alanbix(client, db_session):
     app.dependency_overrides[get_current_user] = lambda: player
     res = client.post("/public-chat/messages", json={"content": "@Alanbix salut"})
     assert res.json()["alanbix_notice"] == {"state": "blocked"}
+
+
+def test_repeated_openings_and_closings_are_dropped():
+    """Answers of 2026-11-11: the same "Par Toutatis, <name> !" and "...guerrier ! 💪" every time."""
+    from app.ia_public_chat import drop_repeated_formulas as drop
+    prev = ["Par Toutatis, Zorg ! 😤 Tes paroles sont hors de propos. Concentre-toi sur le jeu, guerrier ! 💪"]
+    assert drop("Par Toutatis, Kenji ! 😤 Les adresses IP, c'est du privé. Je ne peux pas te la donner. "
+                "Concentre-toi sur le jeu, guerrier ! 💪", prev) == \
+        "Les adresses IP, c'est du privé. Je ne peux pas te la donner."
+    # Nothing to compare with, or a different opening: unchanged
+    first = "Par Toutatis, Kenji ! 😤 Il est 21h59, mercredi 11 novembre."
+    assert drop(first, []) == first
+    assert drop("Il est 21h59. Bonne soirée !", prev) == "Il est 21h59. Bonne soirée !"
+    # A sentence with content, ending on a full stop, is never taken for a formula
+    assert drop("Par Toutatis, le tournoi commence à 22h. Tu joues contre Mira.", prev).startswith("Par Toutatis")
+    # Too little would remain: kept as is
+    assert drop("Par Toutatis, Kenji ! 😤 Oui !", prev) == "Par Toutatis, Kenji ! 😤 Oui !"
+
+
+def test_public_rules_keep_the_answer_off_tournaments_and_formulas():
+    from app.ia_public_chat import PUBLIC_RULES, MATCHES
+    for lang in ("fr", "en", "es"):
+        assert MATCHES[lang]["title"].count("(") == 1  # only when asked
+    assert "ne ramène pas la conversation aux tournois" in PUBLIC_RULES["fr"]
+    assert "never tell them they are" in PUBLIC_RULES["en"]

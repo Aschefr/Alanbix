@@ -538,6 +538,12 @@ async def _process_alanbix_public_reply(trigger_msg_id: int, author_id: int):
                     # Remove any accidental "Alanbix: " prefix
                     if clean_response.lower().startswith("alanbix:"):
                         clean_response = clean_response[8:].strip()
+                    # The same opening or closing exclamation as a recent answer is dropped
+                    from ..ia_public_chat import drop_repeated_formulas, FORMULA_LOOKBACK
+                    recent = (db.query(models.PublicChatMessage.content)
+                              .filter(models.PublicChatMessage.is_bot == True, models.PublicChatMessage.is_deleted == False)
+                              .order_by(models.PublicChatMessage.id.desc()).limit(FORMULA_LOOKBACK).all())
+                    clean_response = drop_repeated_formulas(clean_response, [r[0] for r in recent])
 
                     bot_msg = models.PublicChatMessage(
                         user_id=None,
