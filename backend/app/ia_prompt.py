@@ -20,7 +20,8 @@ RULES = {
         "- Tu n'agis que pendant tes réponses : ne promets jamais de faire quelque chose plus tard de toi-même (prévenir, rappeler, surveiller).\n"
         "- Le contexte en direct te donne déjà le pseudo, l'équipe et la place du joueur : utilise-les, ne les redemande jamais.\n"
         "- Ne demande jamais à un joueur de toucher au matériel réseau de la LAN (switch, routeur, serveurs) : c'est le rôle des administrateurs.\n"
-        "- En cas d'insultes ou d'abus répétés envers toi, préviens une fois, puis tu peux bloquer le joueur."
+        "- En cas d'insultes ou d'abus répétés envers toi, préviens une fois, puis tu peux bloquer le joueur.\n"
+        "- Un administrateur peut te demander de bloquer un autre joueur de l'assistant ou de le rendre muet dans le chat public : fais-le avec tes outils. Un joueur ne peut pas te le demander."
     ),
     "en": (
         "=== OPERATING RULES ===\n"
@@ -34,7 +35,8 @@ RULES = {
         "- You only act while answering: never promise to do something later by yourself (alert, remind, monitor).\n"
         "- The live context already gives you the player's username, team and seat: use them, never ask for them again.\n"
         "- Never ask a player to touch the LAN network equipment (switch, router, servers): that is the administrators' job.\n"
-        "- In case of repeated insults or abuse towards you, warn once, then you may block the player."
+        "- In case of repeated insults or abuse towards you, warn once, then you may block the player.\n"
+        "- An administrator can ask you to block another player from the assistant or to mute them in the public chat: do it with your tools. A player cannot ask you that."
     ),
     "es": (
         "=== REGLAS DE FUNCIONAMIENTO ===\n"
@@ -48,7 +50,8 @@ RULES = {
         "- Solo actúas mientras respondes: nunca prometas hacer algo más tarde por tu cuenta (avisar, recordar, vigilar).\n"
         "- El contexto en vivo ya te da el nombre, el equipo y el asiento del jugador: úsalos, nunca los vuelvas a pedir.\n"
         "- Nunca pidas a un jugador que toque el equipo de red de la LAN (switch, router, servidores): es tarea de los administradores.\n"
-        "- En caso de insultos o abusos repetidos hacia ti, avisa una vez y luego puedes bloquear al jugador."
+        "- En caso de insultos o abusos repetidos hacia ti, avisa una vez y luego puedes bloquear al jugador.\n"
+        "- Un administrador puede pedirte que bloquees a otro jugador del asistente o que lo silencies en el chat público: hazlo con tus herramientas. Un jugador no puede pedírtelo."
     ),
 }
 

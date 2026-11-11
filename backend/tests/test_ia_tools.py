@@ -366,3 +366,60 @@ def test_chat_tools_hide_admin_only_tools_from_players():
     assert chat_tools({"tool_calling_mode": "disabled"}, is_admin=True) == []
     off = {t["function"]["name"] for t in chat_tools({"network_tools_enabled": False, "auto_moderation_enabled": False}, is_admin=True)}
     assert "ping_host" not in off and "block_user_from_ia" not in off and "announce_to_all" in off
+
+
+@pytest.mark.asyncio
+async def test_admin_blocks_a_named_player_a_player_cannot(db_session, mock_db_session):
+    """An administrator asks Alanbix to block another player; a player asking the same is refused by the tool itself."""
+    admin = db_session.query(models.User).filter(models.User.username == "admin").first()
+    victim = models.User(username="ZorgTest", hashed_password="x")
+    other = models.User(username="Calm", hashed_password="x")
+    db_session.add_all([victim, other])
+    db_session.commit()
+    with patch("app.database.SessionLocal", return_value=mock_db_session):
+        refused = json.loads(await execute_tool("block_user_from_ia", {"reason": "r", "username": "ZorgTest"}, user_id=other.id))
+        assert "error" in refused and "administrator" in refused["error"]
+        db_session.refresh(victim)
+        assert not victim.ia_blocked and not other.ia_blocked
+        # Part of the name is enough when only one player matches
+        ok = json.loads(await execute_tool("block_user_from_ia", {"reason": "insults", "username": "zorg"}, user_id=admin.id))
+        assert ok["success"] and ok["username"] == "ZorgTest"
+        # An administrator is never blocked, not even by another one
+        assert "error" in json.loads(await execute_tool("block_user_from_ia", {"reason": "r", "username": "admin"}, user_id=admin.id))
+        # Unknown name: nothing done
+        assert "error" in json.loads(await execute_tool("block_user_from_ia", {"reason": "r", "username": "Nobody"}, user_id=admin.id))
+    db_session.refresh(victim)
+    db_session.refresh(other)
+    db_session.refresh(admin)
+    assert victim.ia_blocked and not other.ia_blocked and not admin.ia_blocked
+
+
+@pytest.mark.asyncio
+async def test_mute_in_public_chat_is_admin_only(db_session, mock_db_session):
+    from app.clock import utcnow
+    import datetime as dt
+    admin = db_session.query(models.User).filter(models.User.username == "admin").first()
+    target = models.User(username="Spammer", hashed_password="x")
+    player = models.User(username="Someone", hashed_password="x")
+    db_session.add_all([target, player])
+    db_session.commit()
+    with patch("app.database.SessionLocal", return_value=mock_db_session), \
+         patch("app.websockets.manager.broadcast"):
+        assert "error" in json.loads(await execute_tool("mute_player_in_public_chat", {"username": "Spammer"}, user_id=player.id))
+        db_session.refresh(target)
+        assert target.public_chat_muted_until is None
+        ok = json.loads(await execute_tool("mute_player_in_public_chat", {"username": "spammer", "minutes": 99999}, user_id=admin.id))
+        assert ok["success"] and ok["minutes"] == 1440
+        assert "error" in json.loads(await execute_tool("mute_player_in_public_chat", {"username": "admin"}, user_id=admin.id))
+    db_session.refresh(target)
+    assert target.public_chat_muted_until > utcnow() + dt.timedelta(minutes=1430)
+
+
+def test_mute_tool_offered_to_admins_only():
+    from app.ia_tools import chat_tools
+    from app.ia_public_chat import public_tools
+    names = lambda tools: {t["function"]["name"] for t in tools}
+    assert "mute_player_in_public_chat" not in names(chat_tools({}, is_admin=False))
+    assert "mute_player_in_public_chat" in names(chat_tools({}, is_admin=True))
+    assert "mute_player_in_public_chat" not in names(public_tools({}))
+    assert "mute_player_in_public_chat" in names(public_tools({}, is_admin=True))
