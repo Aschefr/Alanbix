@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.42.3] - 2026-11-11
+
+### ✨ Features
+- **Join a tournament from the dashboard**: when a player has no match to play, the "My Matches" panel (desktop and phone) now says how many open tournaments they have not joined yet, with a "Join a tournament" button that opens the first one. A player registered everywhere reads that they are waiting for the start.
+- **@Alanbix can block a player who keeps insulting it in the public chat**: it warns once, then may block the player who called it, and only that player (never someone named by another player). It follows the auto-moderation switch. Before, with no way to act, it told an insulting player it was alerting the admins, then that it had blocked them, then invented a bug when nothing happened.
+
+### 🐛 Fixes
+- **The assistant can no longer claim a LAN-wide announcement for a player**: the announcement tool was offered to every player and refused when called, but the assistant had already written that it sent the announcement, and that sentence stayed on screen. Players are no longer offered the tool at all (nor the two admin network tools).
+- **Public chat rule**: @Alanbix must never say it blocked someone or alerted an administrator unless it really did it with its tools.
+
 ## [1.42.2] - 2026-11-11
 
 ### 🐛 Fixes
