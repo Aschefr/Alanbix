@@ -150,6 +150,7 @@ Si un tournoi a été clôturé par erreur :
 * **Bouton `Supprimer` (Icône Corbeille)** : Après confirmation de sécurité, supprime définitivement le tournoi et toutes ses données associées (participants, équipes).
 
 ### Côté Joueur (👥)
+* **Bouton `Rejoindre un tournoi`** (tableau de bord, panneau « Mes Matchs ») : Quand le joueur n'a aucun match à jouer, le panneau indique combien de tournois ouverts l'attendent encore et ce bouton ouvre le premier. S'il est déjà inscrit partout, il lit « Inscription faite, en attente du lancement ».
 * **Boutons `S'inscrire` / `Se désinscrire`** : Permet de rejoindre ou quitter la liste des participants au tournoi (uniquement lorsque le statut est `OPEN`).
 * **Bouton `Créer une équipe`** : (Seulement si le mode équipe est activé, statut `OPEN`) Crée une structure d'équipe vide. Le joueur en devient le propriétaire (`created_by`).
 * **Bouton `⭐ Rejoindre`** : Permet à un joueur inscrit de rejoindre une équipe incomplète d'un autre joueur.

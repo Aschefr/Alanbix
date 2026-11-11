@@ -563,6 +563,9 @@
 	$: runningTournaments = tournaments.filter(t => t.status === 'RUNNING');
 
 	$: activeTournament = runningTournaments[selectedRunningIdx] || null;
+	// Open tournaments the player has not joined yet: offered in "Mes matchs" when there is nothing to play
+	$: openTournaments = (tournaments || []).filter(t => t.status === 'OPEN');
+	$: toJoin = openTournaments.filter(tr => !(tr.participants || []).some(p => p.user_id === user?.id));
 
 
 
@@ -675,9 +678,18 @@
 					<div class="empty-icon"><Icon name="target" size={32} /></div>
 					<h3>{$t('mobile_empty_matches_title')}</h3>
 					<p>{$t('mobile_empty_matches_desc')}</p>
-					<button class="btn btn-sm btn-primary" on:click={() => navigateToTournament(activeTournament?.id || (tournaments && tournaments[0]?.id))}>
-						<Icon name="trophy" size={14} /> {$t('mobile_btn_view_tournaments')}
-					</button>
+					{#if openTournaments.length > 0}
+						<p class="mym-open">{toJoin.length > 0 ? $t('dash_open_count', { n: toJoin.length }) : $t('dash_joined_waiting')}</p>
+					{/if}
+					{#if toJoin.length > 0}
+						<button class="btn btn-sm btn-primary" on:click={() => navigateToTournament(toJoin[0].id)}>
+							<Icon name="gamepad" size={14} /> {$t('dash_join_tournament')}
+						</button>
+					{:else}
+						<button class="btn btn-sm btn-primary" on:click={() => navigateToTournament(activeTournament?.id || (tournaments && tournaments[0]?.id))}>
+							<Icon name="trophy" size={14} /> {$t('mobile_btn_view_tournaments')}
+						</button>
+					{/if}
 				</div>
 			{:else}
 				<div class="matches-cards-list">
@@ -1019,7 +1031,14 @@
 					</button>
 				</header>
 				{#if myActiveMatches.length === 0}
-					<p class="mym-empty"><Icon name="target" size={18} /> {$t('mobile_empty_matches_title')}</p>
+					<div class="mym-empty-row">
+						<p class="mym-empty"><Icon name="target" size={18} /> {$t('mobile_empty_matches_title')}{#if openTournaments.length > 0}<span class="mym-open">· {toJoin.length > 0 ? $t('dash_open_count', { n: toJoin.length }) : $t('dash_joined_waiting')}</span>{/if}</p>
+						{#if toJoin.length > 0}
+							<button class="btn btn-sm btn-primary" on:click={() => navigateToTournament(toJoin[0].id)}>
+								<Icon name="gamepad" size={14} /> {$t('dash_join_tournament')}
+							</button>
+						{/if}
+					</div>
 				{:else}
 					<ul class="mym-list">
 						{#each myMatchesSorted as m (m.match_key)}
@@ -2313,6 +2332,8 @@
 	.mym-link { background: none; border: none; color: var(--accent); font-weight: 600; font-size: 0.85rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.2rem; }
 	.mym-link:hover { text-decoration: underline; }
 	.mym-empty { margin: 0; color: var(--text-dim); display: flex; align-items: center; gap: 0.5rem; font-size: 0.95rem; }
+	.mym-empty-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+	.mym-open { font-size: 0.85rem; }
 	.mym-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; overflow-y: auto; min-height: 0; }
 	.mym-row {
 		display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem;
