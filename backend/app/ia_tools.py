@@ -587,6 +587,30 @@ TOOL_DEFINITIONS = [
     }
 ]
 
+NETWORK_TOOLS = {"ping_host", "traceroute_host", "dns_lookup", "check_server_health", "scan_local_network"}
+# Never offered to a player: refused at run time anyway, but a model that had the announcement tool
+# wrote "I just sent an announcement to the whole LAN" before the refusal came (prod, 2026-11-11)
+ADMIN_ONLY_CHAT_TOOLS = ia_network.ADMIN_ONLY_TOOLS | {"announce_to_all"}
+
+
+def chat_tools(ia_cfg: dict, is_admin: bool) -> list:
+    """Tools offered to the private assistant for this player, after the admin's switches."""
+    if ia_cfg.get("tool_calling_mode", "stream_intercept") == "disabled":
+        return []
+    network_enabled = ia_cfg.get("network_tools_enabled", True)
+    moderation_enabled = ia_cfg.get("auto_moderation_enabled", True)
+    tools = []
+    for tool in TOOL_DEFINITIONS:
+        name = tool["function"]["name"]
+        if name in NETWORK_TOOLS and not network_enabled:
+            continue
+        if name == "block_user_from_ia" and not moderation_enabled:
+            continue
+        if name in ADMIN_ONLY_CHAT_TOOLS and not is_admin:
+            continue
+        tools.append(tool)
+    return tools
+
 
 # ---------------------------------------------------------------------------
 # Tool Execution

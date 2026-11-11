@@ -151,7 +151,7 @@ L'assistant consulte les données en direct avec des outils, et répond à parti
 `ping_host`, `traceroute_host`, `dns_lookup` pour tous. `scan_local_network` et `check_server_health` sont réservés aux administrateurs.
 
 ### 5. Actions
-`call_admin` (prévenir un organisateur), `suggest_rag_entry` (proposer une fiche de connaissances), et pour les administrateurs `send_notification_to_player`, `announce_to_all`, `block_user_from_ia`.
+`call_admin` (prévenir un organisateur), `suggest_rag_entry` (proposer une fiche de connaissances), et pour les administrateurs `send_notification_to_player`, `announce_to_all`, `block_user_from_ia`. `announce_to_all` et les deux outils réseau réservés ne sont même pas proposés à un joueur : l'assistant ne peut donc pas lui faire croire qu'il a envoyé une annonce.
 
 Dans le chat public, `@Alanbix` n'a accès qu'aux outils de lecture des données publiques.
 

@@ -949,26 +949,11 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
     
     # ── Enqueue into AI Queue (G-52) ──
     from ..ia_queue import queue_manager, QueueEntry
-    from ..ia_tools import TOOL_DEFINITIONS
-    from ..ia_network import ADMIN_ONLY_TOOLS
-    
-    # Filtrer les outils optionnels de diagnostic réseau et de modération
-    enabled_tools = []
+    from ..ia_tools import chat_tools
+
     tool_calling_mode = ia_cfg.get("tool_calling_mode", "stream_intercept")
-    
-    if tool_calling_mode != "disabled":
-        network_tool_names = {"ping_host", "traceroute_host", "dns_lookup", "check_server_health", "scan_local_network"}
-        network_enabled = ia_cfg.get("network_tools_enabled", True)
-        moderation_enabled = ia_cfg.get("auto_moderation_enabled", True)
-        for tool in TOOL_DEFINITIONS:
-            if tool["function"]["name"] in network_tool_names and not network_enabled:
-                continue
-            if tool["function"]["name"] == "block_user_from_ia" and not moderation_enabled:
-                continue
-            if tool["function"]["name"] in ADMIN_ONLY_TOOLS and not user.is_admin:
-                continue
-            enabled_tools.append(tool)
-        
+    enabled_tools = chat_tools(ia_cfg, bool(user.is_admin))
+
     # The same size as every other call (get_effective_config keeps it at MIN_CONTEXT_WINDOW or more, enough for
     # the tool definitions): a different size would make Ollama reload the model
     num_ctx = ia_cfg.get('context_window') or MIN_CONTEXT_WINDOW
