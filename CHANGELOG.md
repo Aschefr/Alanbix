@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.42.6] - 2026-11-11
+
+### 🐛 Fixes
+- **The server no longer freezes after a series of score entries**: during a LAN it froze three times, each time right after a few scores, when every open browser reloads its data at once. The database had 15 connections; a request gives its connection back only once its answer is sent, and the sign-in check waited for a free connection on the very loop that sends the answers, so past 15 requests at once nothing could move, the health check included, for 30 seconds at a time. Each request now gets its own SQLite connection (a file open, well under a millisecond). Measured with the new `scripts/load_burst.py`: 40 requests at once froze the server for 60 seconds and lost 23 of them; they now take 0.2 seconds, and 200 take 1 second. The 1.42.5 fix stays, since it closes another way to block.
+
+### ✨ Improvements
+- **@Alanbix in the public chat talks about anything, without set phrases**: it answers what it is asked instead of bringing every answer back to tournaments and matches (it still knows the asker's upcoming matches, and uses them when asked), no longer opens or closes each answer with the same exclamation (a filter removes one already used in its last 6 public answers), confirms a block or mute in one plain sentence, and no longer tells a player who is talking to it that they are blocked.
+
 ## [1.42.5] - 2026-11-11
 
 ### 🐛 Fixes
