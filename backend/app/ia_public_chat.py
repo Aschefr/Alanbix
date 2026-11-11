@@ -5,6 +5,7 @@ with rules written for a room where everyone reads the answer, and a short card 
 player's matches so even a small model without tools can answer "which match do I play?".
 """
 import json
+import os
 import re
 
 from .ia_prompt import _lang, app_guide_block, language_block, live_context_block
@@ -134,13 +135,16 @@ async def knowledge_block(db, models, query: str, host: str, ia_cfg: dict, lang:
 THREAD = {
     "fr": {"intro": "Fil récent du chat public, du plus ancien au plus récent :", "empty": "(aucun message récent)",
            "you": "Alanbix (toi)", "reply": "en réponse à", "image": "[image]",
-           "answer": "Message auquel tu réponds, de {name} :"},
+           "answer": "Message auquel tu réponds, de {name} :",
+           "attached": "L'image jointe est celle du message de {name} ({clock}) : regarde-la si on t'en parle."},
     "en": {"intro": "Recent public chat thread, oldest first:", "empty": "(no recent message)",
            "you": "Alanbix (you)", "reply": "replying to", "image": "[image]",
-           "answer": "Message you answer, from {name}:"},
+           "answer": "Message you answer, from {name}:",
+           "attached": "The attached image is the one in {name}'s message ({clock}): look at it when asked about it."},
     "es": {"intro": "Hilo reciente del chat público, del más antiguo al más reciente:", "empty": "(ningún mensaje reciente)",
            "you": "Alanbix (tú)", "reply": "en respuesta a", "image": "[imagen]",
-           "answer": "Mensaje al que respondes, de {name}:"},
+           "answer": "Mensaje al que respondes, de {name}:",
+           "attached": "La imagen adjunta es la del mensaje de {name} ({clock}): mírala si te hablan de ella."},
 }
 
 # Enough to follow a discussion without drowning the question in old chatter
@@ -308,3 +312,47 @@ def drop_repeated_formulas(answer: str, previous: list[str]) -> str:
     if len(_WORD.findall(kept)) < 4:
         return answer
     return kept[0].upper() + kept[1:]
+
+
+# Images. The thread only said "[image]", so @Alanbix answered "I cannot see the image" about a photo
+# it was asked to judge, although the model reads images (LAN of 2026-11-11). One picture is sent:
+# the one of the message it answers, else of the message that one replies to, else the asker's
+# latest picture in the thread window. Files uploaded to the public chat only, no animated GIFs.
+IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".webp")
+PUBLIC_IMAGE_PREFIX = "/data/chat_images/public/"
+
+
+def _local_image(m, data_dir: str):
+    path = (m.image_path or "") if m else ""
+    if not path.startswith(PUBLIC_IMAGE_PREFIX) or not path.lower().endswith(IMAGE_EXTS):
+        return None
+    name = os.path.basename(path)
+    full = os.path.join(data_dir, "chat_images", "public", name)
+    return full if os.path.isfile(full) else None
+
+
+def attached_image_note(m, lang: str) -> str:
+    L = THREAD[_lang(lang)]
+    name = m.user.username if m.user else (m.sender_name or "?")
+    return L["attached"].format(name=name, clock=_clock(m))
+
+
+def image_for_answer(db, models, trigger, data_dir: str):
+    """(file path, message) of the picture @Alanbix should see for this answer, or (None, None)."""
+    import datetime as dt
+    for m in (trigger, trigger.reply_to):
+        if m is not None and not getattr(m, "is_deleted", False):
+            full = _local_image(m, data_dir)
+            if full:
+                return full, m
+    Msg = models.PublicChatMessage
+    since = (trigger.created_at or utcnow()) - dt.timedelta(minutes=HISTORY_MINUTES)
+    recent = (db.query(Msg)
+              .filter(Msg.user_id == trigger.user_id, Msg.image_path != None, Msg.is_deleted == False,
+                      Msg.id < trigger.id, Msg.created_at >= since)
+              .order_by(Msg.id.desc()).limit(3).all())
+    for m in recent:
+        full = _local_image(m, data_dir)
+        if full:
+            return full, m
+    return None, None

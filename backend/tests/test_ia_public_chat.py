@@ -329,3 +329,44 @@ def test_public_rules_keep_the_answer_off_tournaments_and_formulas():
         assert MATCHES[lang]["title"].count("(") == 1  # only when asked
     assert "ne ramène pas la conversation aux tournois" in PUBLIC_RULES["fr"]
     assert "never tell them they are" in PUBLIC_RULES["en"]
+
+
+def test_the_picture_talked_about_is_the_one_sent(db_session, tmp_path):
+    """"Juge le chat" right after a photo: the photo goes with the question (LAN of 2026-11-11)."""
+    from app.ia_public_chat import image_for_answer, attached_image_note
+    folder = tmp_path / "chat_images" / "public"
+    folder.mkdir(parents=True)
+    (folder / "cat.jpg").write_bytes(b"\xff\xd8fake")
+    (folder / "anim.gif").write_bytes(b"GIF89a")
+    player = models.User(username="Kenji", hashed_password="x")
+    other = models.User(username="Mira", hashed_password="x")
+    db_session.add_all([player, other])
+    db_session.commit()
+    Msg = models.PublicChatMessage
+    photo = Msg(user_id=player.id, content="il est beau mon chat", image_path="/data/chat_images/public/cat.jpg")
+    gif = Msg(user_id=other.id, content="", image_path="/data/chat_images/public/anim.gif")
+    db_session.add_all([photo, gif])
+    db_session.commit()
+    ask = Msg(user_id=player.id, content="@Alanbix Juge le chat")
+    db_session.add(ask)
+    db_session.commit()
+
+    path, msg = image_for_answer(db_session, models, ask, str(tmp_path))
+    assert path.endswith("cat.jpg") and msg.id == photo.id
+    assert "Kenji" in attached_image_note(msg, "fr")
+    # Someone else's question: not the asker's photo; a GIF is never sent
+    other_ask = Msg(user_id=other.id, content="@Alanbix et ça ?")
+    db_session.add(other_ask)
+    db_session.commit()
+    assert image_for_answer(db_session, models, other_ask, str(tmp_path)) == (None, None)
+    # Replying to the photo works for anyone
+    reply = Msg(user_id=other.id, content="@Alanbix tu en penses quoi ?", reply_to_id=photo.id)
+    db_session.add(reply)
+    db_session.commit()
+    db_session.refresh(reply)
+    assert image_for_answer(db_session, models, reply, str(tmp_path))[1].id == photo.id
+    # A path outside the public chat folder is ignored
+    odd = Msg(user_id=player.id, content="@Alanbix", image_path="/data/../alanbix.db")
+    db_session.add(odd)
+    db_session.commit()
+    assert image_for_answer(db_session, models, odd, str(tmp_path))[1].id == photo.id
