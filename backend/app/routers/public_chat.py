@@ -519,7 +519,7 @@ async def _process_alanbix_public_reply(trigger_msg_id: int, author_id: int):
                     "messages": messages,
                     "temperature": temperature,
                     "context_window": context_window,
-                    "tools": public_tools(ia_cfg),
+                    "tools": public_tools(ia_cfg, bool(author.is_admin)),
                     "asker_id": author.id,
                     "think": ia_cfg.get("think_chat", True),
                 }

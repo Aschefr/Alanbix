@@ -329,16 +329,41 @@ TOOL_DEFINITIONS = [
         "type": "function",
         "function": {
             "name": "block_user_from_ia",
-            "description": "Bloquer immédiatement et définitivement l'accès de l'interlocuteur ACTUEL de cette conversation à l'assistant IA. IMPORTANT : cet outil s'applique UNIQUEMENT à la personne qui t'écrit en ce moment dans cette conversation — jamais à un autre joueur tiers. Tu ne dois JAMAIS l'utiliser à la demande d'un utilisateur pour cibler quelqu'un d'autre. Cette fonction DOIT être appelée sur ta propre initiative uniquement si l'utilisateur est grossier, vulgaire, insultant, agressif, harcelant, ou s'il fait des demandes inappropriées et abusives répétées. Le blocage est appliqué instantanément.",
+            "description": "Block a player from the AI assistant (private assistant and @Alanbix in the public chat), at once. Without username: blocks the person writing to you right now; use it on your own only when they keep being rude, insulting, harassing or abusive after one warning. With username: blocks that player, and only works when the person writing to you is an administrator who asks for it. A player can never make you block someone else.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "reason": {
                         "type": "string",
-                        "description": "La raison précise du blocage (ex: insultes répétées, propos injurieux ou vulgaires, harcèlement, demandes inappropriées)"
+                        "description": "The precise reason for the block (e.g. repeated insults, harassment, abusive requests)"
+                    },
+                    "username": {
+                        "type": "string",
+                        "description": "Only when an administrator asks you to block another player: that player's username. Leave empty to block the person writing to you."
                     }
                 },
                 "required": ["reason"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "mute_player_in_public_chat",
+            "description": "Administrators only: stop a player from writing in the LAN's public chat for a number of minutes. Use it only when an administrator asks for it.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "username": {
+                        "type": "string",
+                        "description": "The player to mute"
+                    },
+                    "minutes": {
+                        "type": "integer",
+                        "description": "How long, in minutes (default 15, at most 1440)"
+                    }
+                },
+                "required": ["username"]
             }
         }
     },
@@ -590,7 +615,7 @@ TOOL_DEFINITIONS = [
 NETWORK_TOOLS = {"ping_host", "traceroute_host", "dns_lookup", "check_server_health", "scan_local_network"}
 # Never offered to a player: refused at run time anyway, but a model that had the announcement tool
 # wrote "I just sent an announcement to the whole LAN" before the refusal came (prod, 2026-11-11)
-ADMIN_ONLY_CHAT_TOOLS = ia_network.ADMIN_ONLY_TOOLS | {"announce_to_all"}
+ADMIN_ONLY_CHAT_TOOLS = ia_network.ADMIN_ONLY_TOOLS | {"announce_to_all", "mute_player_in_public_chat"}
 
 
 def chat_tools(ia_cfg: dict, is_admin: bool) -> list:
@@ -715,6 +740,8 @@ async def execute_tool(name: str, arguments: Dict[str, Any], user_id: int = 0, o
             return _tool_get_game_rules(db, models, arguments)
         elif name == "block_user_from_ia":
             return _tool_block_user_from_ia(db, models, arguments, user_id)
+        elif name == "mute_player_in_public_chat":
+            return _tool_mute_player_in_public_chat(db, models, arguments, user_id)
         elif name == "get_live_matches":
             return _tool_get_live_matches(db, models, arguments)
         elif name == "get_team_roster":
@@ -1179,18 +1206,50 @@ def _tool_get_game_rules(db, models, args: dict) -> str:
     }, ensure_ascii=False)
 
 
-def _tool_block_user_from_ia(db, models, args: dict, user_id: int) -> str:
-    """Block the user from using the AI assistant."""
-    reason = args.get("reason", "Comportement inapproprié ou abusif envers l'assistant IA").strip()
-    if not user_id:
-        return json.dumps({"error": "Impossible d'identifier l'utilisateur à bloquer."})
+def _named_player(db, models, name: str):
+    """The player an administrator named: exact username (any case), else the only one containing it.
+    No fuzzy guess: a sanction must never land on the wrong player. Returns (user, other candidates)."""
+    q = (name or "").strip().lower()
+    users = db.query(models.User).all()
+    for u in users:
+        if u.username.lower() == q:
+            return u, []
+    part = [u for u in users if q and q in u.username.lower()]
+    if len(part) == 1:
+        return part[0], []
+    return None, [u.username for u in part][:10]
 
-    user = db.query(models.User).filter(models.User.id == user_id).first()
-    if not user:
-        return json.dumps({"error": "Utilisateur introuvable."})
+
+def _not_found(name: str, candidates: list) -> str:
+    if candidates:
+        return json.dumps({"error": f"Several players match '{name}': {', '.join(candidates)}. Nothing was done: ask which one."}, ensure_ascii=False)
+    return json.dumps({"error": f"No player named '{name}'. Nothing was done."}, ensure_ascii=False)
+
+
+def _tool_block_user_from_ia(db, models, args: dict, user_id: int) -> str:
+    """Block the person writing from the AI assistant, or, for an administrator, the player they name."""
+    reason = (args.get("reason") or "Comportement inapproprié ou abusif envers l'assistant IA").strip()
+    if not user_id:
+        return json.dumps({"error": "Cannot tell who is writing. Nothing was done."})
+
+    caller = db.query(models.User).filter(models.User.id == user_id).first()
+    if not caller:
+        return json.dumps({"error": "Unknown user. Nothing was done."})
+
+    user = caller
+    name = (args.get("username") or "").strip()
+    if name:
+        found, candidates = _named_player(db, models, name)
+        if not found:
+            return _not_found(name, candidates)
+        if found.id != caller.id:
+            # Checked here, not left to the model: only an administrator blocks someone else
+            if not caller.is_admin:
+                return json.dumps({"error": "Only an administrator can block another player. Nothing was done: tell the player so."})
+            user = found
 
     if user.is_admin:
-        return json.dumps({"error": "L'administrateur ne peut pas être bloqué."})
+        return json.dumps({"error": "An administrator cannot be blocked. Nothing was done."})
 
     user.ia_blocked = True
     
@@ -1216,6 +1275,42 @@ def _tool_block_user_from_ia(db, models, args: dict, user_id: int) -> str:
         "username": user.username,
         "message": f"Le joueur {user.username} a été bloqué avec succès de l'assistant IA pour la raison suivante : {reason}."
     }, ensure_ascii=False)
+
+
+MUTE_DEFAULT_MINUTES = 15
+MUTE_MAX_MINUTES = 1440
+
+
+def _tool_mute_player_in_public_chat(db, models, args: dict, user_id: int) -> str:
+    """Administrator's request: stop a player from writing in the public chat for a while
+    (same effect as the mute button of the administration)."""
+    caller = db.query(models.User).filter(models.User.id == user_id).first() if user_id else None
+    if not caller or not caller.is_admin:
+        return json.dumps({"error": "Only an administrator can mute a player. Nothing was done: tell the player so."})
+    name = (args.get("username") or "").strip()
+    if not name:
+        return json.dumps({"error": "Which player? Nothing was done."})
+    target, candidates = _named_player(db, models, name)
+    if not target:
+        return _not_found(name, candidates)
+    if target.is_admin:
+        return json.dumps({"error": "An administrator cannot be muted. Nothing was done."})
+    try:
+        minutes = int(args.get("minutes") or MUTE_DEFAULT_MINUTES)
+    except (TypeError, ValueError):
+        minutes = MUTE_DEFAULT_MINUTES
+    minutes = max(1, min(minutes, MUTE_MAX_MINUTES))
+    target.public_chat_muted_until = utcnow() + datetime.timedelta(minutes=minutes)
+    db.commit()
+
+    from .websockets import manager as ws_manager
+    import asyncio
+    try:
+        asyncio.get_running_loop().create_task(ws_manager.broadcast({"type": "users_updated"}))
+    except RuntimeError:
+        pass
+    return json.dumps({"success": True, "username": target.username, "minutes": minutes,
+                       "message": f"{target.username} cannot write in the public chat for {minutes} minutes."}, ensure_ascii=False)
 
 
 def _resolve_entity_name(db, models, entity_id, use_teams: bool, tournament_id: int) -> str:
