@@ -1484,6 +1484,7 @@
   "ai_chat_model_missing": "The model {model} is not installed on the AI server, so the assistant cannot answer. Tell an administrator: they can download it in Administration › Settings › Artificial Intelligence. Your question is back in the input box.",
   "ai_chat_empty_answer": "The AI could not answer this time: it probably spent all its room thinking. Try again, or start a new discussion if this one is long. Your question is back in the input box.",
   "ai_chat_server_down": "The AI server is not answering right now (restart or failure), and no other server could take over. Try again in a moment. Your question is back in the input box.",
+  "ai_chat_failed": "The assistant could not answer: {detail}. Try again in a moment; if it happens again, tell an administrator. Your question is back in the input box.",
   "ai_compression_tooltip": "Compression mode active",
   "ai_tokens_count": "{n} tokens",
   "ai_context_empty_short": "empty",
