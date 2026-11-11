@@ -875,3 +875,77 @@ async def test_empty_answer_without_thinking_is_not_asked_twice():
     done = await _run_chat(client, think=False)
     assert done["error"] and done["code"] == "empty_answer"
     assert client.stream.call_count == 1  # the same request again would end the same way
+
+
+async def _run_chat_on_servers(client, servers, **extra):
+    """Chat on http://lost:11434 while the admin also set up `servers` [(url, model, healthy, models)]."""
+    from unittest.mock import patch, MagicMock
+    from app.ia_queue import IAQueueManager, QueueEntry
+    import app.routers.ia as ia_router
+    instances = [{"url": "http://lost:11434", "model": "gemma4:e4b", "label": "Portable"}] + [
+        {"url": u, "model": m, "label": u} for u, m, _, _ in servers]
+    health = {u: (ok, 5, names) for u, _, ok, names in servers}
+
+    async def check(url, timeout=3.0, api_key=""):
+        return health.get(url, (False, 0, []))
+    entry = QueueEntry(priority=0, created_at=time.time(), user_id=0, username="t", task_type="chat", payload={
+        "ollama_host": "http://lost:11434", "conversation_id": 0,
+        "model_info": {"model": "gemma4:e4b", "instance": "Portable"},
+        "req_data": {"model": "gemma4:e4b", "messages": [{"role": "user", "content": "Salut"}], "stream": True,
+                     "options": {}}, **extra})
+    with patch("httpx.AsyncClient", return_value=client), patch("app.database.SessionLocal", MagicMock()), \
+            patch.object(ia_router, "get_instances", lambda db: instances), \
+            patch.object(ia_router, "get_effective_config", lambda db: {"model": ""}), \
+            patch.object(ia_router, "_check_instance_health", check):
+        await IAQueueManager()._process_chat(entry, entry.payload)
+    items = []
+    while not entry.result_stream.empty():
+        items.append(entry.result_stream.get_nowait())
+    return entry, [i for i in items if i.get("done")][0]
+
+
+# Prod, 2026-11-11: Windows Update restarted the laptop while gemma4:e4b was thinking; the stream just stopped
+CUT_WHILE_THINKING = [{"message": {"content": "", "thinking": "Hmm"}}]
+
+
+@pytest.mark.asyncio
+async def test_lost_server_hands_the_question_to_another():
+    client = _chat_rounds(CUT_WHILE_THINKING, [{"message": {"content": "Salut !"}}, {"done": True}])
+    entry, done = await _run_chat_on_servers(client, [("http://down:11434", "x", False, []),
+                                                     ("http://exposed:11434", "mimo-v2.6:9b", True, ["mimo-v2.6:9b"])])
+    assert done["full_response"] == "Salut !" and not done.get("error")
+    second = client.stream.call_args_list[1]
+    assert second.args[1] == "http://exposed:11434/api/chat" and second.kwargs["json"]["model"] == "mimo-v2.6:9b"
+    assert entry.payload["ollama_host"] == "http://exposed:11434"  # its time counts for that server
+    assert done["meta"]["model_info"] == {"model": "mimo-v2.6:9b", "instance": "http://exposed:11434"}
+
+
+@pytest.mark.asyncio
+async def test_lost_server_without_another_tells_the_player():
+    import httpx
+    client = _chat_rounds()
+    client.stream.side_effect = [httpx.ConnectError("refused")]
+    _, done = await _run_chat_on_servers(client, [("http://down:11434", "x", False, [])])
+    assert done["error"] and done["code"] == "ai_unreachable"
+
+
+@pytest.mark.asyncio
+async def test_chosen_model_is_not_swapped_for_another():
+    client = _chat_rounds(CUT_WHILE_THINKING)
+    _, done = await _run_chat_on_servers(client, [("http://exposed:11434", "mimo-v2.6:9b", True, ["mimo-v2.6:9b"])],
+                                         model_fixed=True)
+    assert done["code"] == "ai_unreachable" and client.stream.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_answer_cut_after_words_is_not_asked_elsewhere():
+    client = _chat_rounds([{"message": {"content": "Le tournoi commence"}}])
+    _, done = await _run_chat_on_servers(client, [("http://exposed:11434", "mimo-v2.6:9b", True, ["mimo-v2.6:9b"])])
+    assert done["error"] and "code" not in done and client.stream.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_second_server_lost_too_stops_there():
+    client = _chat_rounds(CUT_WHILE_THINKING, CUT_WHILE_THINKING)
+    _, done = await _run_chat_on_servers(client, [("http://exposed:11434", "mimo-v2.6:9b", True, ["mimo-v2.6:9b"])])
+    assert done["code"] == "ai_unreachable" and client.stream.call_count == 2

@@ -47,6 +47,16 @@ LAST_ROUND_INSTRUCTION = {
 }
 
 
+class ServerLost(Exception):
+    """The AI server's answer stopped before its end (prod, 2026-11-11: Windows Update restarted the laptop
+    serving gemma4:e4b while it was thinking, and the player's waiting card just vanished)."""
+
+
+def _visible(text: str) -> str:
+    """What the player could read of a streamed answer: no reasoning, finished or not."""
+    return re.sub(r'<think>.*?(</think>|$)', '', text or '', flags=re.DOTALL).strip()
+
+
 class EmptyAnswer(Exception):
     """The model ended without a word for the player: most often a thinking model that used all
     the room left in the context window thinking (prod, 2026-11-11: mimo-v2.6:9b, 5,500 tokens, cut)."""
@@ -438,7 +448,10 @@ class IAQueueManager:
         tool_time = 0.0
         response_time = 0.0
         t_start = time.time()
-        
+        shown_before = ""
+        full_response = ""
+        failover = None
+
         try:
             tool_messages = list(req_data.get("messages", []))
             tools = req_data.get("tools")
@@ -491,7 +504,6 @@ class IAQueueManager:
             await entry.result_stream.put({"status": "thinking"})
 
             # Text already streamed to the player in earlier rounds (before a tool call)
-            shown_before = ""
             last_visible = ""
             full_response = ""
             answered = False
@@ -543,6 +555,7 @@ class IAQueueManager:
                 repeat_target = " ".join(last_visible.split())
                 last_visible = ""
                 repeat_buf = ""
+                saw_done = False
 
                 async with client.stream("POST", url,
                                          json=stream_req,
@@ -576,7 +589,7 @@ class IAQueueManager:
                             if chunk_str.startswith("data:"):
                                 chunk_str = chunk_str[5:].strip()
                             if chunk_str == "[DONE]":
-                                is_done_flag = True
+                                is_done_flag = saw_done = True
                             else:
                                 try:
                                     data = json.loads(chunk_str)
@@ -596,7 +609,7 @@ class IAQueueManager:
                                     tc_list = choices[0].get("delta", {}).get("tool_calls")
                                     token = choices[0].get("delta", {}).get("content", "")
                                     if choices[0].get("finish_reason") is not None:
-                                        is_done_flag = True
+                                        is_done_flag = saw_done = True
                                 else:
                                     tc_list = None
                                     token = ""
@@ -604,7 +617,7 @@ class IAQueueManager:
                                 tc_list = data.get("message", {}).get("tool_calls")
                                 token = data.get("message", {}).get("content", "")
                                 if data.get("done"):
-                                    is_done_flag = True
+                                    is_done_flag = saw_done = True
 
                             if tc_list and tool_calling_mode == "stream_intercept":
                                 native_tool_calls.extend(tc_list)
@@ -692,6 +705,10 @@ class IAQueueManager:
                         except Exception as e:
                             import traceback
                             traceback.print_exc()
+                    else:
+                        # The answer ran out without its end (Alanbix did not stop reading): the server went away
+                        if not saw_done and not entry.cancelled:
+                            raise ServerLost("the AI server closed the answer before its end")
 
                 # If a tool call was detected, execute it and do another round
                 # OpenAI-compatible services stream each call in pieces: put them back together
@@ -814,6 +831,17 @@ class IAQueueManager:
         except EmptyAnswer:
             await entry.result_stream.put({"text": "The AI ended without an answer.", "done": True, "error": True,
                                            "code": "empty_answer"})
+        except (httpx.TransportError, ServerLost) as e:
+            if shown_before or _visible(full_response) or entry.cancelled:
+                # Part of the answer is on screen: another server's answer would not follow it
+                await entry.result_stream.put({"text": f"Erreur IA ({type(e).__name__}): {str(e)[:200]}",
+                                               "done": True, "error": True})
+            else:
+                print(f"[IA Queue] {payload['ollama_host']} lost ({type(e).__name__}: {e}), looking for another server")
+                failover = None if payload.get("failed_over") else await self._other_server(payload)
+                if not failover:
+                    await entry.result_stream.put({"text": "The AI server does not answer.", "done": True,
+                                                   "error": True, "code": "ai_unreachable"})
         except Exception as e:
             import traceback
             traceback.print_exc()
@@ -821,7 +849,37 @@ class IAQueueManager:
             await entry.result_stream.put({"text": error_msg, "done": True, "error": True})
         finally:
             await client.aclose()
+        if failover:
+            inst, model = failover
+            print(f"[IA Queue] Asking {inst['url']} ({model}) instead")
+            entry.payload = {**payload, "ollama_host": inst["url"], "failed_over": True,
+                             "req_data": {**req_data, "model": model},
+                             "model_info": {"model": model, "instance": inst.get("label", "Default")}}
+            more_tools, response_time = await self._process_chat(entry, entry.payload)
+            return tool_time + more_tools, response_time
         return tool_time, response_time
+
+    async def _other_server(self, payload: dict):
+        """A healthy AI server other than the one that went away, with the model to ask it:
+        the conversation's own model when the player chose one, else the server's or the default one.
+        Returns (instance, model) or None."""
+        from .database import SessionLocal
+        from .routers.ia import get_instances, get_effective_config, _check_instance_health, _health_cache
+        lost = payload["ollama_host"].rstrip("/")
+        _health_cache.pop(payload["ollama_host"], None)  # do not send the next player there for 10 s
+        model = payload["req_data"].get("model") or ""
+        with SessionLocal() as db:
+            instances = sorted((i for i in get_instances(db) if i.get("enabled", True)),
+                               key=lambda i: i.get("priority", 10))
+            default = get_effective_config(db).get("model") or ""
+        for inst in instances:
+            if inst["url"].rstrip("/") == lost:
+                continue
+            ok, _, names = await _check_instance_health(inst["url"], timeout=2.0)
+            want = model if payload.get("model_fixed") else (inst.get("model") or default or model)
+            if ok and want and (want in names or f"{want}:latest" in names):
+                return inst, want
+        return None
 
     def _save_bot_message(self, conversation_id: int, content: str, meta: dict = None):
         """Save bot message to DB. Returns message ID or None."""

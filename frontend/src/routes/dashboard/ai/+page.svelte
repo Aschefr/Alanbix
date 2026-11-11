@@ -1140,6 +1140,11 @@
 									failure = $t('ai_chat_empty_answer');
 									continue;
 								}
+								// The AI server went away and no other one could take over
+								if (data.code === 'ai_unreachable') {
+									failure = $t('ai_chat_server_down');
+									continue;
+								}
 								// Normal token streaming
 								if (data.text) {
 									if (messages[botMsgIdx].status === 'thinking' || messages[botMsgIdx].status === 'queued') {
