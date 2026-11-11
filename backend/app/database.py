@@ -1,6 +1,7 @@
 import os
 import sqlite3
 from sqlalchemy import create_engine, event
+from sqlalchemy.pool import NullPool
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 # SQLite database — stored in persistent volume
@@ -11,9 +12,15 @@ DATABASE_URL = f"sqlite:///{DB_PATH}"
 ACTIVE_USERS = {}  # user_id -> datetime.datetime
 
 
+# No pool: a fresh SQLite connection per session (a file open, well under a millisecond).
+# With the default pool (5 + 10), a burst of requests froze the whole server (LAN of 2026-11-11):
+# FastAPI gives a session back only after the response is sent, which needs the event loop, while
+# the sign-in check (async, so on that loop) waited for a free connection. Reproduce with
+# scripts/load_burst.py: 40 requests at once froze /health for 60 s.
 engine = create_engine(
     DATABASE_URL,
     connect_args={"check_same_thread": False},
+    poolclass=NullPool,
     echo=False
 )
 
