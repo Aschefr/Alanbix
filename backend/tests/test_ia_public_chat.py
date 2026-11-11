@@ -202,12 +202,44 @@ def test_public_tools_only_read_public_data():
     from app.ia_public_chat import PUBLIC_TOOL_NAMES, public_tools
     from app.ia_tools import TOOL_DEFINITIONS
     names = {t["function"]["name"] for t in public_tools({})}
-    assert names == PUBLIC_TOOL_NAMES  # every allowed name exists
+    assert names == PUBLIC_TOOL_NAMES | {"block_user_from_ia"}  # every allowed name exists
     known = {t["function"]["name"] for t in TOOL_DEFINITIONS}
     for private in ("get_notifications", "announce_to_all", "send_notification_to_player", "call_admin",
-                    "block_user_from_ia", "suggest_rag_entry", "ping_host", "scan_local_network"):
+                    "suggest_rag_entry", "ping_host", "scan_local_network"):
         assert private in known and private not in names
     assert public_tools({"tool_calling_mode": "disabled"}) == []
+    # The blocking tool follows the admin's auto-moderation switch
+    assert "block_user_from_ia" not in {t["function"]["name"] for t in public_tools({"auto_moderation_enabled": False})}
+
+
+@pytest.mark.asyncio
+async def test_public_block_only_hits_the_asker(db_session):
+    """Public chat tools run for the player who called Alanbix: a block lands on them, never on another player."""
+    from app.ia_tool_loop import run_tool_rounds
+    from app.ia_public_chat import public_tools
+    asker = models.User(username="Rude", hashed_password="x")
+    other = models.User(username="Calm", hashed_password="x")
+    db_session.add_all([asker, other])
+    db_session.commit()
+    rounds = [MagicMock(status_code=200), MagicMock(status_code=200)]
+    rounds[0].json.return_value = {"message": {"content": "", "tool_calls": [
+        {"function": {"name": "block_user_from_ia", "arguments": {"reason": "insults"}}}]}}
+    rounds[1].json.return_value = {"message": {"content": "Bloqué."}}
+    client = MagicMock()
+    client.post = AsyncMock(side_effect=rounds)
+    tools = public_tools({})
+
+    class Same:
+        def __call__(self): return self
+        def __enter__(self): return db_session
+        def __exit__(self, *a): return False
+    with patch("app.database.SessionLocal", Same()):
+        out = await run_tool_rounds(client, "http://gpu1:11434", {"model": "m", "tools": tools}, [],
+                                    user_id=asker.id, allowed_tools={t["function"]["name"] for t in tools})
+    db_session.refresh(asker)
+    db_session.refresh(other)
+    assert out["used_tools"] == ["block_user_from_ia"] and out["final"] == "Bloqué."
+    assert asker.ia_blocked and not other.ia_blocked
 
 
 @pytest.mark.asyncio

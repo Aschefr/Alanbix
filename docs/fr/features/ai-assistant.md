@@ -151,9 +151,9 @@ L'assistant consulte les données en direct avec des outils, et répond à parti
 `ping_host`, `traceroute_host`, `dns_lookup` pour tous. `scan_local_network` et `check_server_health` sont réservés aux administrateurs.
 
 ### 5. Actions
-`call_admin` (prévenir un organisateur), `suggest_rag_entry` (proposer une fiche de connaissances), et pour les administrateurs `send_notification_to_player`, `announce_to_all`, `block_user_from_ia`.
+`call_admin` (prévenir un organisateur), `suggest_rag_entry` (proposer une fiche de connaissances), et pour les administrateurs `send_notification_to_player`, `announce_to_all`, `block_user_from_ia`. `announce_to_all` et les deux outils réseau réservés ne sont même pas proposés à un joueur : l'assistant ne peut donc pas lui faire croire qu'il a envoyé une annonce.
 
-Dans le chat public, `@Alanbix` n'a accès qu'aux outils de lecture des données publiques.
+Dans le chat public, `@Alanbix` n'a accès qu'aux outils de lecture des données publiques, plus un seul outil d'action : `block_user_from_ia`, qui ne peut bloquer que le joueur qui l'a sollicité. Comme dans l'assistant privé, il prévient une fois, puis peut bloquer un joueur qui l'insulte de façon répétée. L'outil suit l'interrupteur d'auto-modération de l'administration. Un joueur bloqué voit, lui seul, un avis lorsqu'il mentionne `@Alanbix`.
 
 *L'appel d'outils se règle ou se désactive globalement dans **Réglages › Intelligence Artificielle › Comportement**.*
 

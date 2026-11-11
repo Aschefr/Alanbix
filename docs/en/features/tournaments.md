@@ -149,6 +149,7 @@ If a tournament was closed by mistake:
 * **`Delete` Button (Trash Icon)**: After security confirmation, permanently deletes the tournament and all its associated data (participants, teams).
 
 ### Player Side (👥)
+* **`Join a tournament` Button** (dashboard, "My Matches" panel): When the player has no match to play, the panel shows how many open tournaments they have not joined yet, and this button opens the first one. If they are already registered everywhere, it reads "Registered, waiting for the start".
 * **`Register` / `Unregister` Buttons**: Allows joining or leaving the tournament participant list (only when status is `OPEN`).
 * **`Create a Team` Button**: (Only if team mode is enabled, `OPEN` status) Creates an empty team structure. The player becomes the owner (`created_by`).
 * **`⭐ Join` Button**: Allows a registered player to join an incomplete team of another player.
