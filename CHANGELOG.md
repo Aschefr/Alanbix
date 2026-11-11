@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.42.5] - 2026-11-11
+
+### 🐛 Fixes
+- **One sleeping phone could freeze the whole server**: after a score, a tournament start or a notification, the server tells every open browser through its live connection, one after the other and with no time limit. A phone that stopped reading (asleep, or its wifi gone without a clean disconnect) made each of these requests wait while holding a database connection; once all 15 were taken, every page hung, the health check included, until a restart. This happened during a LAN, right after a few scores were entered. Messages now go to every browser at once, each within 2 seconds; a browser too slow to take one is disconnected, and the app reconnects on its own.
+
 ## [1.42.4] - 2026-11-11
 
 ### ✨ Features
