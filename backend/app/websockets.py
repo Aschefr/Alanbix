@@ -1,7 +1,30 @@
+import asyncio
 from fastapi import WebSocket, WebSocketDisconnect
 from typing import List, Dict, Set, Optional, Iterable
 import datetime
 from .clock import utcnow
+
+# A client that stops reading (phone asleep, wifi gone without a clean close) made send_json wait
+# without end. Every request that broadcast then kept its database connection while waiting, the
+# pool (15) ran out and the whole server froze (prod, 2026-11-11, friends test). A socket that
+# does not take a message within this delay is dropped; the app reconnects on its own.
+SEND_TIMEOUT = 2.0
+
+
+async def _send(ws: WebSocket, message: dict) -> bool:
+    """Send one message; False when the socket failed or is too slow to take it."""
+    try:
+        await asyncio.wait_for(ws.send_json(message), timeout=SEND_TIMEOUT)
+        return True
+    except Exception:
+        return False
+
+
+async def _close_quietly(ws: WebSocket):
+    try:
+        await asyncio.wait_for(ws.close(), timeout=SEND_TIMEOUT)
+    except Exception:
+        pass
 
 class ConnectionManager:
     def __init__(self):
@@ -99,58 +122,34 @@ class ConnectionManager:
         sockets = list(self.user_connections.get(user_id, set()))
         if not sockets:
             return 0
-        dead_connections = []
-        sent_count = 0
-        for ws in sockets:
-            try:
-                await ws.send_json(message)
-                sent_count += 1
-            except Exception:
-                dead_connections.append(ws)
-
-        for dead in dead_connections:
-            try:
-                await self.disconnect(dead)
-            except Exception:
-                pass
-        return sent_count
+        return await self._send_all(sockets, message)
 
     async def send_to_users(self, user_ids: Iterable[int], message: dict) -> int:
         """Send a JSON message to active sockets of multiple users."""
-        total = 0
-        seen_sockets = set()
-        dead_connections = []
+        sockets = []
         for uid in set(user_ids):
             for ws in list(self.user_connections.get(uid, set())):
-                if ws in seen_sockets:
-                    continue
-                seen_sockets.add(ws)
-                try:
-                    await ws.send_json(message)
-                    total += 1
-                except Exception:
-                    dead_connections.append(ws)
-
-        for dead in dead_connections:
-            try:
-                await self.disconnect(dead)
-            except Exception:
-                pass
-        return total
+                if ws not in sockets:
+                    sockets.append(ws)
+        return await self._send_all(sockets, message)
 
     async def broadcast(self, message: dict):
-        dead_connections = []
-        for connection in list(self.active_connections):
-            try:
-                await connection.send_json(message)
-            except Exception:
-                dead_connections.append(connection)
+        await self._send_all(list(self.active_connections), message)
 
-        for dead in dead_connections:
-            try:
-                await self.disconnect(dead)
-            except Exception:
-                pass
+    async def _send_all(self, sockets: List[WebSocket], message: dict) -> int:
+        """Send to every socket at once, each within SEND_TIMEOUT: one stuck client neither delays
+        the others nor holds the caller. Failed or slow sockets are dropped and closed."""
+        if not sockets:
+            return 0
+        results = await asyncio.gather(*(_send(ws, message) for ws in sockets))
+        for ws, ok in zip(sockets, results):
+            if not ok:
+                try:
+                    await self.disconnect(ws)
+                except Exception:
+                    pass
+                asyncio.create_task(_close_quietly(ws))
+        return sum(results)
 
 manager = ConnectionManager()
 

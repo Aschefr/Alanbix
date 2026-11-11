@@ -227,3 +227,34 @@ async def test_websocket_push_client_presence_isolation():
     assert mgr.is_user_connected(300) is False
 
 
+
+
+@pytest.mark.asyncio
+async def test_a_client_that_stops_reading_does_not_hold_broadcasts(monkeypatch):
+    """A socket whose send never returns (phone asleep) froze every broadcast, each request keeping its
+    database connection, until the pool ran out (prod, 2026-11-11). It is now dropped after the timeout."""
+    import time
+    from app import websockets as ws_mod
+    monkeypatch.setattr(ws_mod, "SEND_TIMEOUT", 0.2)
+    mgr = ConnectionManager()
+
+    async def never(_msg):
+        await asyncio.sleep(3600)
+    stuck, ok = AsyncMock(), AsyncMock()
+    stuck.send_json = AsyncMock(side_effect=never)
+    ok.send_json = AsyncMock()
+    for ws in (stuck, ok):
+        await mgr.connect(ws)
+    await mgr.register_user(ok, 7)
+
+    started = time.monotonic()
+    await mgr.broadcast({"type": "score_updated"})
+    assert time.monotonic() - started < 1.0
+    ok.send_json.assert_any_call({"type": "score_updated"})
+    assert stuck not in mgr.active_connections and ok in mgr.active_connections
+
+    # Later broadcasts no longer wait for it at all
+    started = time.monotonic()
+    await mgr.broadcast({"type": "tournament_updated"})
+    assert time.monotonic() - started < 0.1
+    assert await mgr.send_to_user(7, {"type": "push"}) == 1
