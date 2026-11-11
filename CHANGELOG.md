@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [1.42.0] - 2026-11-11
 
 ### 🛡️ Administration
 - **How the recommended models were chosen**: under "Recommended models", a table now shows the measures behind the list: a score out of 10 with every task, its number of questions and its weight, how many answers each model made up, the median answer time, the video memory at 32K and why a model is not kept. The labels are computed by fixed rules shared with OmniBank and Sentinel, never written by hand. Measured in the common campaign of 9 to 11 November 2026 on an RTX 3090: 10 models, 3 passes, 57 questions (a question counts when right in most passes, none worth more than 0.2 point), and the 9 questions where a model can make something up asked 10 times each. `gemma4:e4b` (registry version of 10 November, 9.2 out of 10, 5.4 GB, 2.5 s) stays recommended from an 8 GB card: it is tied with the best score, `mimo-v2.6:9b` (9.8, 7.0 GB), and lighter. `mimo-v2.6:9b` replaces `bonsai-2:27b` as the alternative. Not kept: `qwen3.5:4b` (made up 18 answers out of 90), `qwen3.5:9b` and `gemma4:e2b` (the chats); an installation using any other model keeps working.
