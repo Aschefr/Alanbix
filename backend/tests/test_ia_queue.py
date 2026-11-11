@@ -803,3 +803,149 @@ async def test_chat_says_when_the_model_is_missing():
     failure = [i for i in items if i.get("done")][0]
     assert failure["error"] and failure["code"] == "model_missing" and failure["model"] == "gemma4:e4b"
     assert client.stream.call_count == 1  # no retry against a model that is not there
+
+
+def _chat_rounds(*rounds):
+    """Client whose stream() answers each round with the given Ollama lines."""
+    import json
+    from unittest.mock import MagicMock, AsyncMock
+
+    def stream(lines):
+        res = MagicMock()
+        res.status_code = 200
+
+        async def aiter_lines():
+            for line in lines:
+                yield json.dumps(line)
+        res.aiter_lines = aiter_lines
+
+        class Ctx:
+            async def __aenter__(self):
+                return res
+
+            async def __aexit__(self, *a):
+                return False
+        return Ctx()
+    client = MagicMock()
+    client.stream = MagicMock(side_effect=[stream(r) for r in rounds])
+    client.aclose = AsyncMock()
+    return client
+
+
+async def _run_chat(client, **req):
+    from unittest.mock import patch
+    from app.ia_queue import IAQueueManager, QueueEntry
+    entry = QueueEntry(priority=0, created_at=time.time(), user_id=0, username="t", task_type="chat", payload={
+        "ollama_host": "http://gpu1:11434", "conversation_id": 0,
+        "req_data": {"model": "mimo-v2.6:9b", "messages": [{"role": "user", "content": "Salut"}], "stream": True,
+                     "options": {}, **req}})
+    with patch("httpx.AsyncClient", return_value=client):
+        await IAQueueManager()._process_chat(entry, entry.payload)
+    items = []
+    while not entry.result_stream.empty():
+        items.append(entry.result_stream.get_nowait())
+    return [i for i in items if i.get("done")][0]
+
+
+# Prod, 2026-11-11: mimo-v2.6:9b thought until the 16K window was full, Ollama cut it, the player got an empty bubble
+THOUGHT_ONLY = [{"message": {"content": "", "thinking": "Hmm, let me think"}},
+                {"message": {"content": ""}, "done": True, "done_reason": "length"}]
+
+
+@pytest.mark.asyncio
+async def test_empty_answer_is_asked_again_without_thinking():
+    client = _chat_rounds(THOUGHT_ONLY, [{"message": {"content": "Bonjour !"}}, {"done": True}])
+    done = await _run_chat(client)
+    assert done["full_response"] == "Bonjour !" and not done.get("error")
+    assert "think" not in client.stream.call_args_list[0].kwargs["json"]
+    assert client.stream.call_args_list[1].kwargs["json"]["think"] is False
+
+
+@pytest.mark.asyncio
+async def test_still_empty_answer_tells_the_player():
+    client = _chat_rounds(THOUGHT_ONLY, THOUGHT_ONLY)
+    done = await _run_chat(client)
+    assert done["error"] and done["code"] == "empty_answer"
+    assert client.stream.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_empty_answer_without_thinking_is_not_asked_twice():
+    client = _chat_rounds(THOUGHT_ONLY)
+    done = await _run_chat(client, think=False)
+    assert done["error"] and done["code"] == "empty_answer"
+    assert client.stream.call_count == 1  # the same request again would end the same way
+
+
+async def _run_chat_on_servers(client, servers, **extra):
+    """Chat on http://lost:11434 while the admin also set up `servers` [(url, model, healthy, models)]."""
+    from unittest.mock import patch, MagicMock
+    from app.ia_queue import IAQueueManager, QueueEntry
+    import app.routers.ia as ia_router
+    instances = [{"url": "http://lost:11434", "model": "gemma4:e4b", "label": "Portable"}] + [
+        {"url": u, "model": m, "label": u} for u, m, _, _ in servers]
+    health = {u: (ok, 5, names) for u, _, ok, names in servers}
+
+    async def check(url, timeout=3.0, api_key=""):
+        return health.get(url, (False, 0, []))
+    entry = QueueEntry(priority=0, created_at=time.time(), user_id=0, username="t", task_type="chat", payload={
+        "ollama_host": "http://lost:11434", "conversation_id": 0,
+        "model_info": {"model": "gemma4:e4b", "instance": "Portable"},
+        "req_data": {"model": "gemma4:e4b", "messages": [{"role": "user", "content": "Salut"}], "stream": True,
+                     "options": {}}, **extra})
+    with patch("httpx.AsyncClient", return_value=client), patch("app.database.SessionLocal", MagicMock()), \
+            patch.object(ia_router, "get_instances", lambda db: instances), \
+            patch.object(ia_router, "get_effective_config", lambda db: {"model": ""}), \
+            patch.object(ia_router, "_check_instance_health", check):
+        await IAQueueManager()._process_chat(entry, entry.payload)
+    items = []
+    while not entry.result_stream.empty():
+        items.append(entry.result_stream.get_nowait())
+    return entry, [i for i in items if i.get("done")][0]
+
+
+# Prod, 2026-11-11: Windows Update restarted the laptop while gemma4:e4b was thinking; the stream just stopped
+CUT_WHILE_THINKING = [{"message": {"content": "", "thinking": "Hmm"}}]
+
+
+@pytest.mark.asyncio
+async def test_lost_server_hands_the_question_to_another():
+    client = _chat_rounds(CUT_WHILE_THINKING, [{"message": {"content": "Salut !"}}, {"done": True}])
+    entry, done = await _run_chat_on_servers(client, [("http://down:11434", "x", False, []),
+                                                     ("http://exposed:11434", "mimo-v2.6:9b", True, ["mimo-v2.6:9b"])])
+    assert done["full_response"] == "Salut !" and not done.get("error")
+    second = client.stream.call_args_list[1]
+    assert second.args[1] == "http://exposed:11434/api/chat" and second.kwargs["json"]["model"] == "mimo-v2.6:9b"
+    assert entry.payload["ollama_host"] == "http://exposed:11434"  # its time counts for that server
+    assert done["meta"]["model_info"] == {"model": "mimo-v2.6:9b", "instance": "http://exposed:11434"}
+
+
+@pytest.mark.asyncio
+async def test_lost_server_without_another_tells_the_player():
+    import httpx
+    client = _chat_rounds()
+    client.stream.side_effect = [httpx.ConnectError("refused")]
+    _, done = await _run_chat_on_servers(client, [("http://down:11434", "x", False, [])])
+    assert done["error"] and done["code"] == "ai_unreachable"
+
+
+@pytest.mark.asyncio
+async def test_chosen_model_is_not_swapped_for_another():
+    client = _chat_rounds(CUT_WHILE_THINKING)
+    _, done = await _run_chat_on_servers(client, [("http://exposed:11434", "mimo-v2.6:9b", True, ["mimo-v2.6:9b"])],
+                                         model_fixed=True)
+    assert done["code"] == "ai_unreachable" and client.stream.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_answer_cut_after_words_is_not_asked_elsewhere():
+    client = _chat_rounds([{"message": {"content": "Le tournoi commence"}}])
+    _, done = await _run_chat_on_servers(client, [("http://exposed:11434", "mimo-v2.6:9b", True, ["mimo-v2.6:9b"])])
+    assert done["error"] and "code" not in done and client.stream.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_second_server_lost_too_stops_there():
+    client = _chat_rounds(CUT_WHILE_THINKING, CUT_WHILE_THINKING)
+    _, done = await _run_chat_on_servers(client, [("http://exposed:11434", "mimo-v2.6:9b", True, ["mimo-v2.6:9b"])])
+    assert done["code"] == "ai_unreachable" and client.stream.call_count == 2

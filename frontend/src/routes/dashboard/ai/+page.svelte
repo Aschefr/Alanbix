@@ -1009,10 +1009,13 @@
 		queuePosition = 0;
 		queueEntryId = null;
 
-		let botMsgIdx = -1;
+		// The answer belongs to this conversation and this message: the player may open another one meanwhile,
+		// whose list must not receive it (it is reloaded from the server when they come back)
+		const convId = activeId;
+		const shown = () => activeId === convId;
+		let bot = null;
 		if (!adminOverride) {
-			botMsgIdx = messages.length;
-			messages = [...messages, { 
+			bot = { 
 				id: Date.now()+1, 
 				role: 'bot', 
 				content: '', 
@@ -1020,7 +1023,8 @@
 				status: 'thinking', 
 				model_info: null, 
 				active_tool: null 
-			}];
+			};
+			messages = [...messages, bot];
 		}
 		autoScrollEnabled = true;
 		scrollToBottom();
@@ -1072,7 +1076,7 @@
 								}
 								// Model and instance metadata
 								if (data.model_info) {
-									messages[botMsgIdx].model_info = data.model_info;
+									bot.model_info = data.model_info;
 									messages = messages;
 									continue;
 								}
@@ -1082,14 +1086,14 @@
 									queuePosition = data.position || 1;
 									queueEstWait = data.estimated_wait || 0;
 									queueEntryId = data.entry_id || null;
-									messages[botMsgIdx].status = 'queued';
+									bot.status = 'queued';
 									messages = messages;
 									continue;
 								}
 								if (data.position !== undefined && !data.done) {
 									queuePosition = data.position;
 									queueEstWait = data.estimated_wait || 0;
-									messages[botMsgIdx].status = 'queued';
+									bot.status = 'queued';
 									messages = messages;
 									messages = messages;
 									continue;
@@ -1097,37 +1101,37 @@
 								if (data.processing) {
 									queued = false;
 									queuePosition = 0;
-									messages[botMsgIdx].status = 'thinking';
+									bot.status = 'thinking';
 									messages = messages;
 									continue;
 								}
 								// Status updates (thinking, Qwen reasoning stream, tool execution)
 								if (data.status) {
-									messages[botMsgIdx].status = data.status;
+									bot.status = data.status;
 									if (data.status === 'tool_call') {
-										messages[botMsgIdx].active_tool = data.tool_name;
-										if (!messages[botMsgIdx].used_tools) {
-											messages[botMsgIdx].used_tools = [];
+										bot.active_tool = data.tool_name;
+										if (!bot.used_tools) {
+											bot.used_tools = [];
 										}
-										if (!messages[botMsgIdx].used_tools.includes(data.tool_name)) {
-											messages[botMsgIdx].used_tools.push(data.tool_name);
+										if (!bot.used_tools.includes(data.tool_name)) {
+											bot.used_tools.push(data.tool_name);
 										}
 									}
 									if (data.status === 'client_tool_call') {
-										messages[botMsgIdx].active_tool = data.tool_name;
-										if (!messages[botMsgIdx].used_tools) {
-											messages[botMsgIdx].used_tools = [];
+										bot.active_tool = data.tool_name;
+										if (!bot.used_tools) {
+											bot.used_tools = [];
 										}
-										if (!messages[botMsgIdx].used_tools.includes(data.tool_name)) {
-											messages[botMsgIdx].used_tools.push(data.tool_name);
+										if (!bot.used_tools.includes(data.tool_name)) {
+											bot.used_tools.push(data.tool_name);
 										}
 										runClientTool(data.tool_name, data.arguments, data.call_id);
 									}
 									if (data.status === 'thinking' && data.think_chunk) {
-										messages[botMsgIdx].think_content = (messages[botMsgIdx].think_content || '') + data.think_chunk;
+										bot.think_content = (bot.think_content || '') + data.think_chunk;
 									}
 									messages = messages;
-									scrollToBottom();
+									if (shown()) scrollToBottom();
 									continue;
 								}
 								// The AI server answers but lacks the model: not a broken connection, say what to do
@@ -1135,23 +1139,33 @@
 									failure = $t('ai_chat_model_missing', { model: data.model || '' });
 									continue;
 								}
+								// The model ended without a word, even asked again without thinking
+								if (data.code === 'empty_answer') {
+									failure = $t('ai_chat_empty_answer');
+									continue;
+								}
+								// The AI server went away and no other one could take over
+								if (data.code === 'ai_unreachable') {
+									failure = $t('ai_chat_server_down');
+									continue;
+								}
 								// Normal token streaming
 								if (data.text) {
-									if (messages[botMsgIdx].status === 'thinking' || messages[botMsgIdx].status === 'queued') {
-										messages[botMsgIdx].status = 'generating';
+									if (bot.status === 'thinking' || bot.status === 'queued') {
+										bot.status = 'generating';
 									}
-									messages[botMsgIdx].content += data.text;
+									bot.content += data.text;
 									messages = messages; // trigger Svelte reactivity
-									scrollToBottom();
+									if (shown()) scrollToBottom();
 								}
 								if (data.done) {
-									messages[botMsgIdx].status = 'done';
+									bot.status = 'done';
 									if (data.meta) {
-										messages[botMsgIdx].meta = data.meta;
+										bot.meta = data.meta;
 									}
 									messages = messages;
 									// Update token estimate from server
-									if (data.estimated_tokens) {
+									if (data.estimated_tokens && shown()) {
 										usage = { estimated_tokens: data.estimated_tokens };
 									}
 								}
@@ -1164,7 +1178,8 @@
 			}
 		} catch (e) {
 			askConfirm($t('error'), e.message, 'error', null);
-			if (currentUserMsgId) {
+			// Another conversation open: keep the question in its own, to send again from there
+			if (currentUserMsgId && shown()) {
 				try {
 					await api.delete(`/ia/message/${currentUserMsgId}`);
 					query = userMsg;
@@ -1190,12 +1205,22 @@
 		}
 	}
 
-	function autoResizeTextarea(e) {
-		const el = e.target;
+	function fitTextarea(el) {
+		if (!el) return;
+		// Empty: back to the CSS height (a wrapped placeholder would count in scrollHeight)
+		if (!el.value) { el.style.height = ''; return; }
 		el.style.height = 'auto';
 		const maxHeight = 6 * 1.5 * 16; // ~6 lines
 		el.style.height = Math.min(el.scrollHeight, maxHeight) + 'px';
 	}
+
+	function autoResizeTextarea(e) {
+		fitTextarea(e.target);
+	}
+
+	// The code also empties or fills the input (sending, question put back after a failure, editing):
+	// refit then too, or the field keeps the height of the message just sent
+	$: query, tick().then(() => fitTextarea(textareaRef));
 </script>
 
 <svelte:window bind:innerWidth />

@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.42.1] - 2026-11-11
+
+### 🐛 Fixes
+- **Another AI server takes over when one goes away**: if the AI server stops answering before the first word of an answer (restart, failure, network cut), the private assistant now asks another configured server that answers and has the model: the conversation's own model when the player chose one, else that server's or the default model. Without another server, the player reads that the AI server is not answering, and their question goes back in the input box. Before, a server restarted by Windows Update while the model was thinking left the player's waiting card to vanish without a word.
+- **No more empty answer from a model that only thinks**: a thinking model could fill all the room left in the conversation's context window thinking, and the player got an empty answer after a minute. The assistant now asks once more without thinking; if the answer is still empty, the player reads that the AI could not answer, and their question goes back in the input box.
+- **An answer no longer lands in another conversation**: leaving a conversation while its answer was coming and opening another one wrote the answer into the one on screen (only on screen: the server stored it in the right place). The answer now stays with its own conversation.
+- **The chat input box goes back to its height after sending**: it kept the height of the message just sent until the next key press.
+
 ## [1.42.0] - 2026-11-11
 
 ### 🛡️ Administration

@@ -997,6 +997,8 @@ async def stream_query(request: QueryRequest, raw_request: StarletteRequest, db:
             "raw_request": raw_request,
             "model_info": {"model": model_to_use, "instance": instance.get('label', 'Default') if instance else 'Default'},
             "tool_calling_mode": tool_calling_mode,
+            # Chosen by the player for this conversation: another server may only take over with this model
+            "model_fixed": bool(conv.model),
         }
     )
     queue_entry, position = await queue_manager.enqueue(queue_entry)
