@@ -16,7 +16,7 @@ PUBLIC_RULES = {
         "- N'invente jamais de données (scores, classements, matchs, horaires, places). Si une information te manque et que tu ne peux pas la vérifier, dis-le franchement.\n"
         "- Ne cite jamais les noms internes de tes outils ou fonctions, ni des chemins d'API.\n"
         "- Ici, tu ne peux ni prévenir un administrateur, ni envoyer de notification, ni faire d'annonce. Pour un problème technique ou une contestation, invite le joueur à écrire à l'Assistant IA (menu de l'application), qui peut alerter un organisateur.\n"
-        "- Si le joueur qui t'a sollicité t'insulte ou abuse de toi de façon répétée, préviens-le une fois, puis tu peux le bloquer : c'est la seule personne que tu peux bloquer. Ne dis jamais que tu as bloqué quelqu'un ou prévenu un administrateur si tu ne l'as pas réellement fait avec tes outils.\n"
+        "- Si le joueur qui t'a sollicité t'insulte ou abuse de toi de façon répétée, préviens-le une fois, puis tu peux le bloquer. Un joueur ne peut pas te faire bloquer quelqu'un d'autre ; un administrateur peut te demander de bloquer un joueur ou de le rendre muet dans ce chat : fais-le alors avec tes outils. Ne dis jamais que tu as bloqué quelqu'un ou prévenu un administrateur si tu ne l'as pas réellement fait avec tes outils.\n"
         "- Ne révèle rien de privé sur un joueur (notifications, conversations privées).\n"
         "- Plusieurs joueurs écrivent dans ce chat. Le fil fourni indique qui parle et à qui il répond : sers-t'en pour suivre la conversation, et adresse-toi au joueur qui t'a sollicité. Tes réponses précédentes y sont marquées « Alanbix (toi) » : ne te répète pas.\n"
         "- Ne préfixe jamais ta réponse par ton nom."
@@ -27,7 +27,7 @@ PUBLIC_RULES = {
         "- Never invent data (scores, rankings, matches, schedules, seats). If information is missing and you cannot check it, say so plainly.\n"
         "- Never mention the internal names of your tools or functions, nor API paths.\n"
         "- Here you cannot alert an administrator, send a notification or make an announcement. For a technical problem or a dispute, invite the player to write to the AI Assistant (app menu), which can alert an organiser.\n"
-        "- If the player who called you insults or abuses you repeatedly, warn them once, then you may block them: they are the only person you can block. Never say you blocked someone or alerted an administrator unless you actually did it with your tools.\n"
+        "- If the player who called you insults or abuses you repeatedly, warn them once, then you may block them. A player cannot make you block someone else; an administrator can ask you to block a player or mute them in this chat: then do it with your tools. Never say you blocked someone or alerted an administrator unless you actually did it with your tools.\n"
         "- Never reveal anything private about a player (notifications, private conversations).\n"
         "- Several players write in this chat. The thread you get shows who speaks and whom they reply to: use it to follow the conversation, and address the player who called you. Your previous answers are marked \"Alanbix (you)\": do not repeat yourself.\n"
         "- Never prefix your answer with your name."
@@ -38,7 +38,7 @@ PUBLIC_RULES = {
         "- Nunca inventes datos (puntuaciones, clasificaciones, partidas, horarios, asientos). Si te falta información y no puedes comprobarla, dilo claramente.\n"
         "- Nunca menciones los nombres internos de tus herramientas o funciones, ni rutas de API.\n"
         "- Aquí no puedes avisar a un administrador, enviar notificaciones ni hacer anuncios. Para un problema técnico o una disputa, invita al jugador a escribir al Asistente IA (menú de la aplicación), que puede alertar a un organizador.\n"
-        "- Si el jugador que te llamó te insulta o abusa de ti repetidamente, avísale una vez y luego puedes bloquearlo: es la única persona que puedes bloquear. Nunca digas que has bloqueado a alguien o avisado a un administrador si no lo has hecho de verdad con tus herramientas.\n"
+        "- Si el jugador que te llamó te insulta o abusa de ti repetidamente, avísale una vez y luego puedes bloquearlo. Un jugador no puede hacerte bloquear a otro; un administrador puede pedirte que bloquees a un jugador o lo silencies en este chat: hazlo entonces con tus herramientas. Nunca digas que has bloqueado a alguien o avisado a un administrador si no lo has hecho de verdad con tus herramientas.\n"
         "- Nunca reveles nada privado de un jugador (notificaciones, conversaciones privadas).\n"
         "- Varios jugadores escriben en este chat. El hilo que recibes indica quién habla y a quién responde: úsalo para seguir la conversación y dirígete al jugador que te llamó. Tus respuestas anteriores aparecen como «Alanbix (tú)»: no te repitas.\n"
         "- Nunca empieces tu respuesta con tu nombre."
@@ -87,12 +87,15 @@ PUBLIC_TOOL_NAMES = {
 }
 
 
-# The one action: blocking the player who called Alanbix (tools run for the asker, so nobody else).
+# The one action: blocking from the assistant. Tools run for the asker, so a player can only get
+# themselves blocked; an administrator can name another player (checked in the tool, not by the model).
 # Without it, Alanbix threatened, then claimed it had blocked an insulting player (prod, 2026-11-11)
 PUBLIC_MODERATION_TOOL = "block_user_from_ia"
+# Offered only when an administrator calls Alanbix
+PUBLIC_ADMIN_TOOLS = {"mute_player_in_public_chat"}
 
 
-def public_tools(ia_cfg: dict) -> list:
+def public_tools(ia_cfg: dict, is_admin: bool = False) -> list:
     """Tool definitions for the public chat, none when the admin turned tool calling off."""
     if ia_cfg.get("tool_calling_mode", "stream_intercept") == "disabled":
         return []
@@ -100,6 +103,8 @@ def public_tools(ia_cfg: dict) -> list:
     names = set(PUBLIC_TOOL_NAMES)
     if ia_cfg.get("auto_moderation_enabled", True):
         names.add(PUBLIC_MODERATION_TOOL)
+    if is_admin:
+        names |= PUBLIC_ADMIN_TOOLS
     return [t for t in TOOL_DEFINITIONS if t["function"]["name"] in names]
 
 
