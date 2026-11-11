@@ -1190,12 +1190,22 @@
 		}
 	}
 
-	function autoResizeTextarea(e) {
-		const el = e.target;
+	function fitTextarea(el) {
+		if (!el) return;
+		// Empty: back to the CSS height (a wrapped placeholder would count in scrollHeight)
+		if (!el.value) { el.style.height = ''; return; }
 		el.style.height = 'auto';
 		const maxHeight = 6 * 1.5 * 16; // ~6 lines
 		el.style.height = Math.min(el.scrollHeight, maxHeight) + 'px';
 	}
+
+	function autoResizeTextarea(e) {
+		fitTextarea(e.target);
+	}
+
+	// The code also empties or fills the input (sending, question put back after a failure, editing):
+	// refit then too, or the field keeps the height of the message just sent
+	$: query, tick().then(() => fitTextarea(textareaRef));
 </script>
 
 <svelte:window bind:innerWidth />
