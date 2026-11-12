@@ -544,7 +544,7 @@ async def _process_alanbix_public_reply(trigger_msg_id: int, author_id: int):
                                    detail=(res.get("result") if res else "") or "")
                     return
 
-                from ..ia_public_chat import (drop_repeated_formulas, FORMULA_LOOKBACK,
+                from ..ia_public_chat import (drop_repeated_formulas, FORMULA_LOOKBACK, drop_false_sanctions,
                                               sanction_confirmations, with_confirmations)
                 clean_response = (res.get("result") or "").strip()
                 if clean_response:
@@ -556,9 +556,11 @@ async def _process_alanbix_public_reply(trigger_msg_id: int, author_id: int):
                               .filter(models.PublicChatMessage.is_bot == True, models.PublicChatMessage.is_deleted == False)
                               .order_by(models.PublicChatMessage.id.desc()).limit(FORMULA_LOOKBACK).all())
                     clean_response = drop_repeated_formulas(clean_response, [r[0] for r in recent])
-                # A block or mute that really happened is confirmed by the code, even after an empty answer
+                # A block or mute that really happened is confirmed by the code, even after an empty answer;
+                # one announced without happening is removed
+                confirmations = sanction_confirmations(res.get("tool_results"), lan_lang)
                 clean_response = with_confirmations(
-                    clean_response, sanction_confirmations(res.get("tool_results"), lan_lang))
+                    drop_false_sanctions(clean_response, confirmations, lan_lang), confirmations)
                 if clean_response:
                     bot_msg = models.PublicChatMessage(
                         user_id=None,

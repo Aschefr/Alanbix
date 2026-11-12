@@ -192,6 +192,7 @@
   "admin_prompt_modal_insert": "Insertar bloque",
   "admin_prompt_modal_open": "Editar prompt",
   "admin_prompt_modal_reset": "Restablecer prompt por defecto",
+  "admin_prompt_modal_reset_hint": "Vuelve al texto incluido en Alanbix. Una vez guardado, seguirá las actualizaciones de la aplicación.",
   "admin_prompt_modal_save": "Guardar",
   "admin_prompt_modal_section_context": "=== CONTEXTO ===",
   "admin_prompt_modal_section_context_desc": "Lo que sabe de la LAN, sus herramientas disponibles, su misión.",
