@@ -65,6 +65,7 @@ Local GPUs (which run Ollama) can only process a restricted number of requests i
   * `Priority 10` (Player): Processed in order of arrival.
   * `Priority 15` (Compression): Background summarization tasks.
   * `Priority 20` (Background): Offline generation tasks.
+* **Sharing between servers**: each AI server has its own worker. When it is free, it takes the most urgent request it can handle (the oldest one at equal urgency), and the request is then pointed at that server and its model. The fast server frees up more often, so it naturally handles more, and nobody waits behind a slow server while the other is free. A conversation whose model was chosen only goes to a server that has it. A player has only one answer in progress at a time, public chat included. When two servers are free, a conversation goes back to the one that answered it last (it still holds its beginning in memory), but never waits for it. A server that stopped answering gets nothing, except the requests sent to it that no other server could take after 15 s: the usual failover then deals with them. The announced wait counts the servers working side by side. Measured with `scripts/load_ai_queue.py`: 40 players, one server at 0.2 s and one at 1 s per answer, 7.6 s instead of about 20 s with the former round-robin.
 * **Status Widget**: A visual indicator in the administrators' sidebar shows the state of each server and its response time.
 * **Admin Control**: The administrator can view the full queue and cancel a request (**Settings › AI Settings › Servers**).
 

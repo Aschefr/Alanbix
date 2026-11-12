@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.43.0] - 2026-11-12
+
+### ✨ Features
+- **AI requests go to whichever server is free**: each request used to get its AI server when it entered the queue, in turn and blind to load, so a player could wait behind the slow server while the fast one sat idle. Each server now has its own worker: when it is free, it takes the most urgent request it can answer (admin and alerts first, then players and the public chat, then background tasks; the oldest first at equal urgency) and the request is pointed at that server and its model. The fast server frees up more often, so it handles more. A conversation whose model was chosen only goes to a server that has it; a player has one answer in progress at a time, public chat included; a conversation goes back to the server that answered it last when that server is free (it still holds the start of the conversation), but never waits for it. A server that stopped answering takes nothing, except the requests sent to it that no other server could take after 15 seconds, so the usual failover or "AI server unreachable" message still happens. The announced wait now counts the servers working side by side. Measured with the new `scripts/load_ai_queue.py` (two fake servers, real network): 40 players at once with one server at 0.2 s and one at 1 s per answer take 7.6 s, split 33 / 7, against about 20 s before. Tried on two real gemma4:e4b servers: 8 players at once, 4 answers each, no error.
+
+### 🐛 Fixes
+- **Every AI request stalled the whole server for a moment**: the connection settings to the AI server (its certificate bundle) were rebuilt for each request, on the loop that serves every page, about 0.13 s on a PC and more on a Raspberry Pi. They are now built once; 20 instant answers went from 3.4 s to 0.7 s.
+
 ## [1.42.7] - 2026-11-12
 
 ### ✨ Improvements
