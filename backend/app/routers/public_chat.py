@@ -1,6 +1,7 @@
 import os
 import re
 import math
+import base64
 import time
 import uuid
 import datetime
@@ -506,6 +507,16 @@ async def _process_alanbix_public_reply(trigger_msg_id: int, author_id: int):
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": build_thread_message(db, models, trigger, lan_lang)}
             ]
+            # The picture being talked about, so a vision model can actually look at it
+            from ..ia_public_chat import image_for_answer, attached_image_note
+            image_file, image_msg = image_for_answer(db, models, trigger, DATA_DIR)
+            if image_file:
+                try:
+                    with open(image_file, "rb") as imgf:
+                        messages[1]["images"] = [base64.b64encode(imgf.read()).decode("utf-8")]
+                    messages[1]["content"] += "\n\n" + attached_image_note(image_msg, lan_lang)
+                except OSError as e:
+                    print(f"[Public Chat AI] Could not read the image {image_file}: {e}")
 
             entry = QueueEntry(
                 priority=10,
