@@ -95,11 +95,13 @@ async def run_tool_rounds(
     on_tool_call: optional async callback(name) called before each tool runs.
 
     Returns {"added": [...messages to append...], "used_tools": [...], "tool_time": s, "rounds": n,
-    "final": the answer text when the last round called no tool, else None}.
+    "final": the answer text when the last round called no tool, else None,
+    "results": [(tool name, JSON result), ...] in call order}.
     """
     from .ia_tools import execute_tool
 
     added = []
+    results = []
     used_tools = []
     tool_time = 0.0
     rounds = 0
@@ -164,6 +166,7 @@ async def run_tool_rounds(
                 except Exception as e:
                     result = json.dumps({"error": str(e)})
             tool_time += time.time() - started
+            results.append((name, result))
 
             if is_xml:
                 added.append({"role": "user", "content": f"Résultat de l'outil {name}: {result}"})
@@ -173,4 +176,5 @@ async def run_tool_rounds(
                     reply["tool_call_id"] = call["id"]
                 added.append(reply)
 
-    return {"added": added, "used_tools": used_tools, "tool_time": tool_time, "rounds": rounds, "final": final}
+    return {"added": added, "used_tools": used_tools, "tool_time": tool_time, "rounds": rounds, "final": final,
+            "results": results}

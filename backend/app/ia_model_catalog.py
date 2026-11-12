@@ -24,7 +24,7 @@ RECOMMENDED_TEMPERATURE = 0.2
 # No MoE model here (qwen3.5:35b...): loading one crashed a server with 32 GB of memory.
 CATALOG = [
     {"name": "gemma4:e4b", "tier": "recommended", "size_gb": 6.6, "typical_seconds": 2.5, "memory_gb": 5.4, "temperature": RECOMMENDED_TEMPERATURE},
-    {"name": "mimo-v2.6:9b", "tier": "alternative", "size_gb": 8.7, "typical_seconds": 3, "memory_gb": 7.0, "temperature": RECOMMENDED_TEMPERATURE},
+    {"name": "nemotron-3.5-bolt:e4b", "tier": "alternative", "size_gb": 7.9, "typical_seconds": 3.1, "memory_gb": 7.9, "temperature": RECOMMENDED_TEMPERATURE},
 ]
 _NAMES = {m["name"] for m in CATALOG}
 
