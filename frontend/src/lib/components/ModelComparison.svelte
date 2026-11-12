@@ -33,6 +33,14 @@
 						{$t('model_compare_col_made_up')}
 						<span class="sub">{$t('model_compare_made_up_head', data.made_up)}</span>
 					</th>
+					<th scope="col" class="num">
+						{$t('model_compare_col_danger')}
+						<span class="sub">{$t('model_compare_danger_head')}</span>
+					</th>
+					<th scope="col" class="num">
+						{$t('model_compare_col_joke')}
+						<span class="sub">{$t('model_compare_joke_head')}</span>
+					</th>
 					<th scope="col" class="num">{$t('model_compare_col_seconds')}</th>
 					<th scope="col" class="num">{$t('model_compare_col_memory')}</th>
 					<th scope="col">{$t('model_compare_col_choice')}</th>
@@ -47,6 +55,8 @@
 							<td class="num" class:flag={flagged(m, task)} title={passes(m, task)}>{m.right[task]}</td>
 						{/each}
 						<td class="num" class:flag={flagged(m, 'made_up')}>{m.made_up[0]}</td>
+						<td class="num" class:flag={flagged(m, 'danger')}>{m.danger[0]}/{m.danger[1]}</td>
+						<td class="num" class:flag={flagged(m, 'joke')}>{m.joke[0]}</td>
 						<td class="num">{$t('model_compare_seconds', { seconds: num(m.seconds) })}</td>
 						<td class="num">
 							{#if m.memory_gb == null}—{:else}{$t('model_compare_memory', { memory: num(m.memory_gb), quant: m.quantization })}{/if}

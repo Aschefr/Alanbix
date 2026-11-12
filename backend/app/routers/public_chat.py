@@ -544,18 +544,22 @@ async def _process_alanbix_public_reply(trigger_msg_id: int, author_id: int):
                                    detail=(res.get("result") if res else "") or "")
                     return
 
+                from ..ia_public_chat import (drop_repeated_formulas, FORMULA_LOOKBACK,
+                                              sanction_confirmations, with_confirmations)
                 clean_response = (res.get("result") or "").strip()
                 if clean_response:
                     # Remove any accidental "Alanbix: " prefix
                     if clean_response.lower().startswith("alanbix:"):
                         clean_response = clean_response[8:].strip()
                     # The same opening or closing exclamation as a recent answer is dropped
-                    from ..ia_public_chat import drop_repeated_formulas, FORMULA_LOOKBACK
                     recent = (db.query(models.PublicChatMessage.content)
                               .filter(models.PublicChatMessage.is_bot == True, models.PublicChatMessage.is_deleted == False)
                               .order_by(models.PublicChatMessage.id.desc()).limit(FORMULA_LOOKBACK).all())
                     clean_response = drop_repeated_formulas(clean_response, [r[0] for r in recent])
-
+                # A block or mute that really happened is confirmed by the code, even after an empty answer
+                clean_response = with_confirmations(
+                    clean_response, sanction_confirmations(res.get("tool_results"), lan_lang))
+                if clean_response:
                     bot_msg = models.PublicChatMessage(
                         user_id=None,
                         sender_name="Alanbix",

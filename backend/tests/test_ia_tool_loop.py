@@ -44,6 +44,8 @@ async def test_openai_native_call_gets_its_id_back():
     assert out["used_tools"] == ["get_games"]
     assert out["added"][-1] == {"role": "tool", "content": '{"games": []}', "tool_call_id": "call_1"}
     assert out["rounds"] == 2
+    # What each tool answered, for the public chat to confirm a sanction itself
+    assert out["results"] == [("get_games", '{"games": []}')]
 
 
 @pytest.mark.asyncio
@@ -60,6 +62,7 @@ async def test_xml_fallback_and_disallowed_tool():
     result = out["added"][-1]
     assert result["role"] == "user" and "not available" in result["content"]
     assert json.loads(result["content"].split(": ", 1)[1])["error"]
+    assert out["results"][0][0] == "announce_to_all" and "error" in json.loads(out["results"][0][1])
 
 
 def test_merge_stream_tool_calls_rebuilds_openai_pieces():
