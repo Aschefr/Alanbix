@@ -156,9 +156,23 @@ def adapt_openai_payload(url: str, payload: dict) -> dict:
     return out
 
 
+_SSL_CONTEXT = None
+
+
+def _ssl_context():
+    """Built once: creating it loads the certificate bundle, about 0.13 s on a PC (more on a Pi), and that
+    ran on the event loop for every AI request, stalling the whole server (measured with
+    scripts/load_ai_queue.py: 20 instant answers took 3.4 s instead of well under 1 s)."""
+    global _SSL_CONTEXT
+    if _SSL_CONTEXT is None:
+        _SSL_CONTEXT = httpx.create_ssl_context()
+    return _SSL_CONTEXT
+
+
 def ia_client(**kwargs) -> httpx.AsyncClient:
     """httpx client for AI backends: adds the instance's API key when it has one and
     adapts requests for OpenAI reasoning models (post() and stream() both go through build_request)."""
+    kwargs.setdefault("verify", _ssl_context())
     client = httpx.AsyncClient(event_hooks={"request": [_add_api_key]}, **kwargs)
     build = getattr(client, "build_request", None)
     if build is None:  # test doubles
