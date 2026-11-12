@@ -70,7 +70,7 @@ Un administrateur peut aussi **masquer un tournoi** (icône en forme d'œil, ou 
 ---
 
 ### Poules puis phase finale (option des formats à élimination)
-À la création (ou à l'édition avant le lancement), choisissez **« Poules, puis phase finale »** avec la taille des poules et le nombre de qualifiés par poule.
+À la création (ou à l'édition avant le lancement), choisissez **« Poules, puis phase finale »** avec la taille des poules et le nombre de qualifiés par poule. La phase finale demande au moins 2 qualifiés en tout : avec un seul qualifié par poule, il faut au moins 2 poules, sinon le lancement du tournoi est refusé. Le nombre de qualifiés reste modifiable avec « Éditer » jusqu'au lancement de la phase finale.
 1. **Phase de poules** : chaque poule joue un championnat (3 points la victoire, 1 le nul). Les tableaux de poule sont affichés avec les qualifiés en surbrillance.
 2. Quand tous les matchs de poule sont joués, l'organisateur clique sur **« Lancer la phase finale »** : les qualifiés (premiers de poule d'abord, puis deuxièmes…) sont placés dans l'arbre d'élimination, en évitant de refaire un match de poule au premier tour.
 3. L'onglet **Poules** reste consultable pendant la phase finale ; **« Revenir aux poules »** annule l'arbre tant qu'aucun match de la phase finale n'a été joué.

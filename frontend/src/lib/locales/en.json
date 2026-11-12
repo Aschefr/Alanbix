@@ -1683,6 +1683,8 @@
   "result_show_hidden": "Show hidden scores ({n})",
   "result_ffa_mine": "Your score: {n}",
   "result_waiting_others": "waiting for the other players",
+  "edit_advancers_open_hint": "Can be changed until the final stage starts.",
+  "wizard_one_advancer_hint": "With 1 qualifier per group, the final stage needs at least 2 groups, so at least {min} entrants.",
   "dash_ffa_lobby": "Lobby · {n} opponents",
   "result_hide_all": "Hide all",
   "login_server_down": "Server unreachable",

@@ -17,8 +17,8 @@
 	$: cfg = selected?.config || {};
 	$: enabled = cfg.phases === 'double' && !!cfg.stage;
 	$: stage = cfg.stage;
-	// reload whenever a group score changes or the stage changes
-	$: signature = selected ? `${selected.id}|${stage}|${JSON.stringify((selected.bracket || []).filter(m => m.id.s >= 100).map(m => m.score))}` : '';
+	// reload whenever a group score, the stage or the number of qualifiers changes
+	$: signature = selected ? `${selected.id}|${stage}|${cfg.advancers_count}|${JSON.stringify((selected.bracket || []).filter(m => m.id.s >= 100).map(m => m.score))}` : '';
 	$: if (enabled && signature !== loadedKey) load(signature);
 
 	async function load(key) {

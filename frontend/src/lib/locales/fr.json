@@ -1683,6 +1683,8 @@
   "result_show_hidden": "Réafficher les scores masqués ({n})",
   "result_ffa_mine": "Votre score : {n}",
   "result_waiting_others": "en attente des autres joueurs",
+  "edit_advancers_open_hint": "Modifiable jusqu'au lancement de la phase finale.",
+  "wizard_one_advancer_hint": "Avec 1 qualifié par poule, il faut au moins 2 poules, soit au moins {min} inscrits, pour lancer la phase finale.",
   "dash_ffa_lobby": "Salon · {n} adversaires",
   "result_hide_all": "Tout masquer",
   "login_server_down": "Serveur injoignable",

@@ -1671,6 +1671,8 @@
   "result_show_hidden": "Mostrar resultados ocultos ({n})",
   "result_ffa_mine": "Tu puntuación: {n}",
   "result_waiting_others": "esperando a los demás jugadores",
+  "edit_advancers_open_hint": "Se puede cambiar hasta que empiece la fase final.",
+  "wizard_one_advancer_hint": "Con 1 clasificado por grupo, la fase final necesita al menos 2 grupos, es decir, al menos {min} inscritos.",
   "dash_ffa_lobby": "Sala · {n} rivales",
   "result_hide_all": "Ocultar todo",
   "login_server_down": "Servidor inaccesible",
