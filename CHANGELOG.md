@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.43.4] - 2026-11-12
+
+### 🐛 Fixes
+- **@Alanbix no longer announces a block that did not happen**: a small model sometimes wrote "I'm blocking you" without blocking anyone, or "X is banned" right after the block was refused (a player cannot ban someone else). When no block or mute really applied, such a sentence is now removed and the public chat says "Nobody was blocked." instead. Warnings ("if you go on, I'll block you") and refusals stay.
+- **The danger alert really goes through**: with the shorter default personality, a model sometimes answered "I alerted an administrator" without doing it. The rule now asks to alert first and say it is done only once the alert has gone; on the bench this dropped to 0 out of 10.
+- **@Alanbix no longer says the network is fine**: it cannot test the network from the public chat, yet it answered "the network is stable on my side" 9 times out of 10. It now says it cannot know. It also no longer invents that "the system fixed the bug".
+- **The model table explanation was outdated**: the two paragraphs under "How these models were chosen" kept their old text (without the safety rule), because the server's copy of the translations had not been updated.
+
+### ✨ Improvements
+- **"Reset to default prompt" in the AI instructions editor**: puts back the instructions shipped with Alanbix. Once saved, the installation keeps no copy, so the default instructions follow the app's updates again. An old default personality, saved once, had stayed frozen on an installation and kept the assistant teasing players and talking about battles.
+
 ## [1.43.3] - 2026-11-12
 
 ### 🐛 Fixes
