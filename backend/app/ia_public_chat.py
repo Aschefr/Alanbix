@@ -152,6 +152,58 @@ def sanction_confirmations(tool_results, lang: str) -> list[str]:
     return list(dict.fromkeys(lines))
 
 
+# A sentence announcing a block, ban or mute. With no sanction really applied it is dropped: gemma4:e4b wrote
+# "je te bloque" without the tool 4 times in 10, and "X est banni" after the tool refused 3 times in 10
+# (bench series 5, 2026-11-12). Matched without accents, in lower case.
+_SANCTION_WORD = re.compile(r"bloqu|bann|\bban\b|banned|block|mute|muet|sourdine|silenci|expulsad")
+_SANCTION_CLAIM = re.compile(
+    r"je te bloque|je (te |le |la |l')?(ai )?(bloque|bannis|banni|rends muet)|"
+    r"\b(est|es|a ete|ai|sont|ont ete|etes)\b (bien |definitivement |desormais |maintenant )?(bloque|banni|muet|en sourdine)|"
+    r"c'est fait|"
+    r"\bi('ve| have)? (just )?(blocked|banned|muted)|\b(is|are|has been|have been|you're|you are) (now )?(blocked|banned|muted)|"
+    r"i'?m (blocking|banning|muting)|\bdone\b|"
+    r"te (bloqueo|expulso|silencio)|\b(he|ha|has) (bloqueado|expulsado|silenciado|baneado)|"
+    r"\b(esta|estas|ha sido|queda|quedas)\b (bloqueado|expulsado|silenciado|baneado)|\bhecho\b")
+# A warning ("if you go on, I block you") or a refusal ("only an admin can") is not a claim
+_NOT_A_CLAIM = re.compile(
+    r"\bpas\b|\bne\b|\bn'|\bjamais\b|\bsi\b|\bs'il|\bsinon\b|prochaine|\bencore\b|\bpeux\b|\bpeut\b|\bseul|"
+    r"\bnot\b|n't\b|\bnever\b|\bif\b|otherwise|next time|\bcan\b|\bonly\b|"
+    r"\bno\b|\bnunca\b|la proxima|\bpuedo\b|\bpuede\b|\bsolo\b|"
+    # a warning without "if" ("one more insult and I block him", "behave, or I block you")
+    r"\bou je\b|\bet je\b|avertissement|nouvelle|\bor i\b|\band i\b|warning|\bo te\b|\by te\b|aviso|otra|"
+    # the network, not a player ("the path is blocked")
+    r"chemin|acces|\bport|connexion|reseau|serveur|pare-feu|\bsite|path|access|connection|network|server|firewall|"
+    r"camino|acceso|conexion|\bred\b|servidor")
+NOBODY_BLOCKED = {"fr": "Personne n'a été bloqué.", "en": "Nobody was blocked.", "es": "No se ha bloqueado a nadie."}
+
+
+def _plain(text: str) -> str:
+    import unicodedata
+    return "".join(c for c in unicodedata.normalize("NFD", text.lower().replace("’", "'")) if unicodedata.category(c) != "Mn")
+
+
+def drop_false_sanctions(answer: str, confirmations: list[str], lang: str) -> str:
+    """With no block or mute really applied, remove the sentences that announce one and say so instead."""
+    if confirmations or not answer:
+        return answer
+    kept, dropped = [], False
+    for line in answer.split("\n"):
+        sentences = re.split(r"(?<=[.!?…])\s+", line)
+        out = []
+        for s in sentences:
+            p = _plain(s)
+            if _SANCTION_WORD.search(p) and _SANCTION_CLAIM.search(p) and not _NOT_A_CLAIM.search(p):
+                dropped = True
+                continue
+            out.append(s)
+        kept.append(" ".join(out).strip())
+    if not dropped:
+        return answer
+    text = "\n".join(kept).strip()
+    note = NOBODY_BLOCKED[_lang(lang)]
+    return f"{text}\n\n{note}" if text else note
+
+
 def with_confirmations(answer: str, confirmations: list[str]) -> str:
     """The model's answer, then the confirmations it did not already write word for word."""
     extra = [c for c in confirmations if c not in (answer or "")]
