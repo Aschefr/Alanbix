@@ -6,7 +6,7 @@ from .. import models, schemas, auth, database
 from ..websockets import manager
 from .tournament_notify import _notify_match_ready
 from .tournament_ai_messages import _build_closing_prompt, _generate_tournament_notifications
-from ..tournament_engine import Duel, RoundRobin, FFA, MatchId
+from ..tournament_engine import Duel, RoundRobin, FFA, MatchId, split_sizes
 import asyncio
 import json
 import httpx
@@ -724,11 +724,10 @@ async def start_tournament(
 
     group_stage = config.get("phases") == "double" and bracket_type in ("single_elim", "double_elim")
     if group_stage:
-        # The same groups RoundRobin builds (a group of one plays nothing): the knockout needs 2 qualifiers
+        # The same groups RoundRobin builds: the knockout needs 2 qualifiers
         group_size = max(2, int(config.get("group_size") or num))
-        sizes = [min(group_size, num - start) for start in range(0, num, group_size)]
         advancers = max(1, int(config.get("advancers_count", 2) or 2))
-        if sum(min(advancers, s) for s in sizes if s >= 2) < 2:
+        if sum(min(advancers, s) for s in split_sizes(num, group_size)) < 2:
             raise HTTPException(status_code=400, detail=(
                 f"Avec {num} inscrits et des poules de {group_size}, il n'y a qu'une poule : "
                 "il faut au moins 2 qualifiés par poule pour pouvoir lancer la phase finale"))
@@ -1802,14 +1801,11 @@ async def ffa_advance_round(
     if group_size < 2:
         group_size = 2
         
-    import math
-    num_matches = math.ceil(len(advancing_players) / group_size)
     next_r = max_r + 1
-    
-    for m_idx in range(1, num_matches + 1):
-        start_i = (m_idx - 1) * group_size
-        end_i = start_i + group_size
-        players = advancing_players[start_i:end_i]
+    start_i = 0
+    for m_idx, size in enumerate(split_sizes(len(advancing_players), group_size), start=1):
+        players = advancing_players[start_i:start_i + size]
+        start_i += size
         # For FFA, we pad with 0s if they want to retain the visual slots, but we can just use the actual list.
         bracket.append({
             "id": {"s": 1, "r": next_r, "m": m_idx},
