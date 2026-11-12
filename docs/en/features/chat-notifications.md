@@ -46,7 +46,7 @@ The main Dashboard includes a public chat open to all players and organisers of 
 * **Replies & Quotes**: A `↩️ Reply` button opens a preview bar above the input (cancel with `✕` or `Esc`); the sent message carries a clickable quote that scrolls back to the original.
 * **Pinned Message**: A discreet banner under the chat header for important announcements, controlled by organisers; a click scrolls to the original message.
 * **Mention Sounds**: A soft chime generated with the Web Audio API (100% offline), only when a player is mentioned directly (`@MyName`), with a toggle in the chat header.
-* **Media & Moderation**: Images and GIFs (up to 8 MB), OpenGraph link previews, an unread line with a quick return button, and moderation settings (slowmode, banned words, anti-flood).
+* **Media & Moderation**: Images and GIFs (up to 8 MB), a `GIF` button offering six reaction GIFs (Giphy, needs Internet access) shown as pictures in the chat, OpenGraph link previews, an unread line with a quick return button, and moderation settings (slowmode, banned words, anti-flood).
 
 ### `@Alanbix` in the public chat
 Mention `@Alanbix`, or reply (`↩`) to one of its messages, and the AI assistant joins the conversation with the personality set by the administrator. Its answer is shown as a reply to the player's message.

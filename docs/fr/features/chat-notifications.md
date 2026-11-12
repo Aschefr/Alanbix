@@ -61,7 +61,7 @@ Le Dashboard principal intègre un espace de discussion public accessible à l'e
   * **Réponses & Citations contextuelles** : Bouton `↩️ Répondre` ouvrant une barre de prévisualisation au-dessus du champ de texte (annulable via `✕` ou la touche `Échap`). Le message envoyé intègre un encart de citation cliquable permettant de faire défiler la vue vers le message d'origine avec une brève animation de surbrillance.
   * **Message Épinglé & Annonces Admin** : Bannière discrète et élégante épinglée sous l'en-tête du chat pour diffuser les annonces cruciales de l'organisation. Un clic sur la bannière fait défiler directement la discussion jusqu'au message d'origine. Contrôle d'épinglage et de désépinglage immédiat réservé aux organisateurs.
   * **Notifications sonores synthétiques des mentions (G-17)** : Carillon bicolore doux généré nativement via l'API Web Audio (100% offline, aucun fichier externe), retentissant uniquement lorsqu'un joueur est directement mentionné (`@MonPseudo`). Bouton de bascule persistant (`🔔`/`🔕`) intégré dans l'en-tête du chat.
-  * **Médias & Modération** : Partage d'images et de GIFs (jusqu'à 8 Mo), aperçus de liens OpenGraph, ligne de démarcation des messages non-lus avec bouton de retour rapide, et réglages de modération (slowmode, mots interdits, anti-flood).
+  * **Médias & Modération** : Partage d'images et de GIFs (jusqu'à 8 Mo), bouton `GIF` proposant six GIF de réaction (Giphy, demande un accès Internet) affichés en image dans la discussion, aperçus de liens OpenGraph, ligne de démarcation des messages non-lus avec bouton de retour rapide, et réglages de modération (slowmode, mots interdits, anti-flood).
 
 ---
 
