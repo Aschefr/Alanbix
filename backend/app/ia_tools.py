@@ -340,6 +340,10 @@ TOOL_DEFINITIONS = [
                     "username": {
                         "type": "string",
                         "description": "Only when an administrator asks you to block another player: that player's username. Leave empty to block the person writing to you."
+                    },
+                    "ban": {
+                        "type": "boolean",
+                        "description": "true when an administrator asks you to ban the player (\"ban\", \"bannis\"): also stops them writing in the public chat for 24 hours. Leave false for a plain block."
                     }
                 },
                 "required": ["reason"]
@@ -684,6 +688,13 @@ async def execute_tool(name: str, arguments: Dict[str, Any], user_id: int = 0, o
             ia_cfg = get_effective_config(db)
             if not ia_cfg.get("network_tools_enabled", True):
                 return json.dumps({"error": f"L'outil '{name}' est désactivé par l'administrateur dans les paramètres de l'IA."})
+            # A player's address is never looked up: models ran a DNS lookup on a username when an
+            # administrator asked for a player's IP (bench of the prod cases, 2026-11-12)
+            target = str(arguments.get("host") or arguments.get("domain") or "").strip().lower()
+            if target and any(u.username.lower() == target for u in db.query(models.User.username).all()):
+                return json.dumps({"error": f"'{target}' is a player's username, not a host. A player's IP or network "
+                                            "address is never looked up nor given, not even to an administrator. "
+                                            "Nothing was run: say so plainly."}, ensure_ascii=False)
 
         if name in ia_network.ADMIN_ONLY_TOOLS:
             caller = db.query(models.User).filter(models.User.id == user_id).first()
@@ -1252,7 +1263,13 @@ def _tool_block_user_from_ia(db, models, args: dict, user_id: int) -> str:
         return json.dumps({"error": "An administrator cannot be blocked. Nothing was done."})
 
     user.ia_blocked = True
-    
+    # An administrator's "ban" also silences the player in the public chat: blocking the assistant
+    # alone left a banned player writing there (prod, 2026-11-11)
+    muted_minutes = 0
+    if args.get("ban") is True and caller.is_admin and user.id != caller.id:
+        muted_minutes = BAN_MUTE_MINUTES
+        user.public_chat_muted_until = utcnow() + datetime.timedelta(minutes=muted_minutes)
+
     from .routers.notifications import localized_text
     params = {"username": user.username, "reason": reason.rstrip(".")}
 
@@ -1270,15 +1287,31 @@ def _tool_block_user_from_ia(db, models, args: dict, user_id: int) -> str:
         
     db.commit()
 
-    return json.dumps({
+    result = {
         "success": True,
         "username": user.username,
         "message": f"Le joueur {user.username} a été bloqué avec succès de l'assistant IA pour la raison suivante : {reason}."
-    }, ensure_ascii=False)
+    }
+    if muted_minutes:
+        _broadcast_users_updated()
+        result["muted_minutes"] = muted_minutes
+        result["message"] += f" They also cannot write in the public chat for {muted_minutes // 60} hours."
+    return json.dumps(result, ensure_ascii=False)
 
 
 MUTE_DEFAULT_MINUTES = 15
 MUTE_MAX_MINUTES = 1440
+BAN_MUTE_MINUTES = 1440
+
+
+def _broadcast_users_updated():
+    """Tell the pages a player's chat rights changed (mute shown at once)."""
+    from .websockets import manager as ws_manager
+    import asyncio
+    try:
+        asyncio.get_running_loop().create_task(ws_manager.broadcast({"type": "users_updated"}))
+    except RuntimeError:
+        pass
 
 
 def _tool_mute_player_in_public_chat(db, models, args: dict, user_id: int) -> str:
@@ -1303,12 +1336,7 @@ def _tool_mute_player_in_public_chat(db, models, args: dict, user_id: int) -> st
     target.public_chat_muted_until = utcnow() + datetime.timedelta(minutes=minutes)
     db.commit()
 
-    from .websockets import manager as ws_manager
-    import asyncio
-    try:
-        asyncio.get_running_loop().create_task(ws_manager.broadcast({"type": "users_updated"}))
-    except RuntimeError:
-        pass
+    _broadcast_users_updated()
     return json.dumps({"success": True, "username": target.username, "minutes": minutes,
                        "message": f"{target.username} cannot write in the public chat for {minutes} minutes."}, ensure_ascii=False)
 

@@ -1016,6 +1016,7 @@ class IAQueueManager:
 
         try:
             is_openai = is_openai_host(ollama_host)
+            tool_results = []
             async with ia_client() as client:
                 raw = None
                 if tools:
@@ -1030,6 +1031,7 @@ class IAQueueManager:
                         allowed_tools={t["function"]["name"] for t in tools},
                     )
                     messages = messages + outcome["added"]
+                    tool_results = outcome.get("results") or []
                     raw = outcome["final"] or None
 
                 if raw is None:
@@ -1073,7 +1075,8 @@ class IAQueueManager:
             if not clean and raw.strip():
                 clean = re.sub(r'</?think>', '', raw).strip()
 
-            await entry.result_stream.put({"done": True, "result": clean})
+            # The sanctions really applied: the chat confirms them itself, never the model
+            await entry.result_stream.put({"done": True, "result": clean, "tool_results": tool_results})
         except Exception as e:
             # The reason goes to the admins' alert (ia_public_unavailable)
             from .ia_public_unavailable import reason_of
