@@ -49,6 +49,7 @@ An administrator can also **hide a tournament** (eye icon, or `Hide from players
 * No elimination tree. Each participant plays every other participant in turn.
 * The system uses the **Circle Method** rotation algorithm to automatically schedule match days (rounds) without scheduling conflicts.
 * If the number of participants is odd, a dummy "BYE" participant is inserted in each round.
+* **Even groups**: players are shared as evenly as possible without going over the chosen size, and nobody is left alone: 5 players in groups of 4 make a group of 3 and a group of 2. Free For All lobbies follow the same rule.
 * With several pools, yours comes first; on a phone the pools are stacked one under the other.
 * In a team tournament, the score form shows both team names: you enter your team's score, not a personal one.
 * **Spectator Readability**: The format features contrasted cards that stay readable over the cinematic game backgrounds.
@@ -60,7 +61,7 @@ An administrator can also **hide a tournament** (eye icon, or `Hide from players
 * A round consists of a single series of placements.
 * Each player enters their own round result (an administrator can enter them all). The administrator then confirms the round and sets how many players advance to the next one.
 * **Dashboard**: once their result is entered, the match leaves the "to play" list of "My Matches" and moves to the results, with a clock and the note "waiting for the other players". The pencil reopens the entry to correct it until the next round has started.
-* **Tree view**: rounds run from left to right, each lobby (group of players) is linked to the lobbies its players came from; zoom, pan and "Recenter" work like the elimination bracket. The administrator picks how many players qualify **per lobby** for the next round.
+* **Tree view**: rounds run from left to right, each lobby (group of players) is linked to the lobbies its players came from; zoom, pan and "Recenter" work like the elimination bracket. The administrator picks how many players qualify **per lobby** for the next round. The next round must keep at least 2 players and drop at least one; to name the winner, use "Finish tournament".
 * **Fluid Layout**: The spectator view uses a flexible (`flex-wrap`) and dynamic height (`fit-content`) layout that eliminates any superfluous empty space between rounds.
 * **Round Cancellation (Rollback)**: FFA round cancellations are secured by an inline, non-intrusive confirmation modal (avoiding blocking browser `window.confirm` dialogs).
 
@@ -84,7 +85,9 @@ The connected player's username (or their global/tournament team name) is highli
 
 ### Score Entry and Automatic Lock (🔒)
 * **Who can enter scores?** Any player taking part in the match (once the opponent is known), or an Administrator. The home page and the Live control tab offer this entry too.
-* **TBD Match Scoring**: It is forbidden to enter scores on a match where the opponent is not yet determined (TBD player, ID 0). The corresponding input fields are automatically hidden on the frontend, and the backend rejects any score submission containing a TBD player to prevent bracket corruption.
+* **TBD Match Scoring**: It is forbidden to enter scores on a match where the opponent is not yet determined (TBD player, ID 0), or on a bye the server settles on its own, even for an administrator. The corresponding input fields are automatically hidden on the frontend, and the backend rejects these scores to prevent bracket corruption.
+* **Impossible scores refused**: the server refuses, for everyone, a score that cannot exist: not exactly one score per player or team of the match, a negative score, only one side filled in, a draw in an elimination match (even when the groups allowed draws), a draw when draws are not allowed, anything other than 1 or 0 in win / loss mode, and any entry on a closed tournament (reopen it first). A refused score changes nothing in the tournament, and the message says why.
+* **Start and sign-ups**: a tournament already started cannot be started again (the draw would wipe every score: "Reset" first), and nobody can join it after the draw.
 * **Intelligent Score Fusion**: Submitted scores are atomically merged with existing data on the backend to prevent race conditions and accidental overwrites in case of simultaneous submissions.
 * **Entry delay (5 s)**: After a player confirms, the score can still be cancelled for 5 seconds before it is sent, to catch a typing mistake. An administrator's score goes straight away.
 * **Player corrections**: A player can correct a finished match (their own, or their direct opponent's) until the tournament has moved past it. After that, the match is locked (🔒).

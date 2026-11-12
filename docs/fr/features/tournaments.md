@@ -49,6 +49,7 @@ Un administrateur peut aussi **masquer un tournoi** (icône en forme d'œil, ou 
 * Pas d'arbre d'élimination. Chaque participant affronte tous les autres participants à tour de rôle.
 * Le système utilise l'**Algorithme de Rotation (Circle Method)** pour planifier automatiquement les journées (rounds) de match sans conflit de calendrier.
 * Si le nombre de participants est impair, un participant fantôme "BYE" est inséré à chaque round.
+* **Poules équilibrées** : les joueurs sont répartis aussi également que possible sans dépasser la taille choisie, et personne ne reste seul : 5 joueurs en poules de 4 donnent une poule de 3 et une de 2. Les salons du Chacun pour Soi suivent la même règle.
 * Avec plusieurs poules, la vôtre s'affiche en premier ; sur téléphone, les poules sont empilées les unes sous les autres.
 * En tournoi par équipes, la saisie du score affiche le nom des deux équipes : on saisit le score de son équipe, pas un score personnel.
 
@@ -61,7 +62,7 @@ Un administrateur peut aussi **masquer un tournoi** (icône en forme d'œil, ou 
 * Une manche se compose d'une seule série de placements.
 * Chaque joueur saisit son propre résultat de manche (un administrateur peut tout saisir). L'administrateur valide ensuite la manche et définit combien de joueurs avancent à la manche suivante.
 * **Tableau de bord** : une fois son résultat saisi, le match quitte la liste « à jouer » de « Mes Matchs » et passe dans les résultats, avec une horloge et la mention « en attente des autres joueurs ». Le crayon rouvre la saisie pour le corriger tant que la manche suivante n'a pas commencé.
-* **Vue en arbre** : les manches s'affichent de gauche à droite, chaque salon (groupe de joueurs) est relié aux salons d'où viennent ses joueurs ; zoom, déplacement et « Recentrer » comme pour l'arbre d'élimination. L'administrateur choisit le nombre de qualifiés **par salon** pour la manche suivante.
+* **Vue en arbre** : les manches s'affichent de gauche à droite, chaque salon (groupe de joueurs) est relié aux salons d'où viennent ses joueurs ; zoom, déplacement et « Recentrer » comme pour l'arbre d'élimination. L'administrateur choisit le nombre de qualifiés **par salon** pour la manche suivante. La manche suivante doit garder au moins 2 joueurs et en éliminer au moins un ; pour désigner le vainqueur, utilisez « Terminer le tournoi ».
 * **Mise en page fluide** : La vue spectateur utilise une disposition flexible (`flex-wrap`) et une hauteur dynamique (`fit-content`) qui élimine tout grand espace vide superflu entre les manches.
 * **Annulation de manche (Rollback)** : Les annulations de manche FFA sont sécurisées par une modale de confirmation inline non intrusive (évitant ainsi les `window.confirm` bloquants du navigateur).
 
@@ -85,7 +86,9 @@ Le pseudo du joueur connecté (ou le nom de son équipe globale/de tournoi) est 
 
 ### La Saisie et le Verrouillage Automatique (🔒)
 * **Qui peut saisir ?** N'importe quel joueur participant au match concerné (si l'adversaire est déterminé), ou un Administrateur. La page d'accueil et la Régie proposent aussi cette saisie.
-* **Saisie sur match TBD** : Il est interdit de saisir des scores sur un match dont l'adversaire n'est pas encore déterminé (joueur TBD, ID 0). Les champs de saisie correspondants sont automatiquement masqués sur le frontend et le backend rejette toute soumission de score contenant un joueur TBD afin de prévenir la corruption des brackets.
+* **Saisie sur match TBD** : Il est interdit de saisir des scores sur un match dont l'adversaire n'est pas encore déterminé (joueur TBD, ID 0), ou sur une exemption (BYE) que le serveur règle seul, même pour un administrateur. Les champs de saisie correspondants sont automatiquement masqués sur le frontend et le backend rejette ces scores afin de prévenir la corruption des brackets.
+* **Scores impossibles refusés** : le serveur refuse, pour tout le monde, un score qui ne peut pas exister : pas exactement un score par joueur ou équipe du match, un score négatif, un seul côté renseigné, une égalité dans un match à élimination (même si les poules autorisaient les nuls), une égalité quand les nuls ne sont pas autorisés, autre chose que 1 ou 0 en mode victoire / défaite, et toute saisie sur un tournoi clôturé (rouvrez-le d'abord). Un score refusé ne change rien au tournoi, et le message dit pourquoi.
+* **Lancement et inscriptions** : un tournoi déjà lancé ne peut pas être relancé (le tirage effacerait tous les scores : « Réinitialiser » d'abord), et personne ne peut s'y inscrire après le tirage.
 * **Fusion intelligente des scores** : Les scores saisis sont fusionnés de manière atomique avec les données existantes sur le backend pour éviter les conditions de concurrence (race conditions) et les écrasements accidentels en cas de soumission simultanée.
 * **Le délai de saisie (5 s)** : Après validation par un joueur, le score reste annulable pendant 5 secondes avant d'être envoyé, pour rattraper une faute de frappe. Le score d'un administrateur part aussitôt.
 * **Correction par les joueurs** : Un joueur peut corriger un match terminé (le sien, ou celui de son adversaire direct) tant que le tournoi n'a pas avancé au-delà de ce match. Ensuite, le match est verrouillé (🔒).

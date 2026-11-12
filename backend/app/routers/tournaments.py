@@ -7,6 +7,7 @@ from ..websockets import manager
 from .tournament_notify import _notify_match_ready
 from .tournament_ai_messages import _build_closing_prompt, _generate_tournament_notifications
 from ..tournament_engine import Duel, RoundRobin, FFA, MatchId, split_sizes
+from .tournament_score_rules import check_score, merge_scores
 import asyncio
 import json
 import httpx
@@ -398,7 +399,10 @@ async def join_tournament(
     
     if existing:
         raise HTTPException(status_code=400, detail="Already joined")
-    
+    if tournament.status != "OPEN":
+        # the bracket is drawn: a late entrant would be in no match
+        raise HTTPException(status_code=400, detail="Les inscriptions sont fermées : le tournoi a déjà été lancé.")
+
     participant = models.TournamentParticipant(tournament_id=tournament_id, user_id=target_id)
     db.add(participant)
     db.commit()
@@ -701,7 +705,10 @@ async def start_tournament(
     tournament = db.query(models.Tournament).filter(models.Tournament.id == tournament_id).first()
     if not tournament:
         raise HTTPException(status_code=404, detail="Tournament not found")
-    
+    if tournament.status != "OPEN":
+        # a new draw would wipe every score: "Réinitialiser" reopens it first
+        raise HTTPException(status_code=409, detail="Le tournoi a déjà été lancé. Réinitialisez-le pour refaire le tirage.")
+
     config = tournament.config or {}
     bracket_type = config.get("bracket_type", "single_elim")
     use_teams = config.get("use_teams", False)
@@ -1542,6 +1549,7 @@ async def update_match_score(
                         if not is_my_slot:
                             # Graceful merge: ignore changes to slots they don't own to prevent race conditions
                             body.score[i] = old_val
+    check_score(scored_match, body.score, config, bracket_type, tournament.status)
     # Snapshot matches that already had both opponents determined before this score update
     previously_ready = set()
     for m in bracket:
@@ -1555,17 +1563,7 @@ async def update_match_score(
         _rollback_advancement(bracket, scored_match, bracket_type, lower_is_better)
     
     # Merge new scores with existing scores to prevent race conditions (e.g. slow typing or multi-client)
-    existing_scores = scored_match.get("score") or []
-    new_scores = []
-    max_len = max(len(body.score), len(existing_scores))
-    for i in range(max_len):
-        new_val = body.score[i] if i < len(body.score) else None
-        old_val = existing_scores[i] if i < len(existing_scores) else None
-        if new_val is None:
-            new_scores.append(old_val)
-        else:
-            new_scores.append(new_val)
-    scored_match["score"] = new_scores
+    scored_match["score"] = merge_scores(scored_match.get("score"), body.score)
     if bracket_type != "round_robin":
         _advance_bracket(bracket, scored_match, bracket_type, lower_is_better, config)
         bye_changed = False
@@ -1784,7 +1782,9 @@ async def ffa_advance_round(
                 
     if not all_player_scores:
         raise HTTPException(status_code=400, detail="Aucun joueur à avancer")
-        
+    if body.keep_count < 1:
+        raise HTTPException(status_code=400, detail="Il faut garder au moins 2 joueurs pour la manche suivante")
+
     if body.per_match:
         # Top N of every match (lobby), in match order then rank order
         advancing_players = []
@@ -1795,7 +1795,12 @@ async def ffa_advance_round(
     else:
         all_player_scores.sort(key=lambda x: x[1], reverse=not lower_is_better)
         advancing_players = [p for p, s in all_player_scores[:body.keep_count]]
-        
+    if len(advancing_players) < 2:
+        # one player left is the winner: "Terminer" ends the free-for-all instead
+        raise HTTPException(status_code=400, detail="Il faut garder au moins 2 joueurs pour la manche suivante")
+    if len(advancing_players) >= len(all_player_scores):
+        raise HTTPException(status_code=400, detail="La manche suivante doit éliminer au moins un joueur")
+
     # Create next round matches
     group_size = int(config.get("ffa_group_size", len(advancing_players))) or len(advancing_players)
     if group_size < 2:
