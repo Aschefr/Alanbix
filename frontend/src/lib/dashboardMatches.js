@@ -100,6 +100,9 @@ export function buildMyMatches(user, tournaments, games, allUsers, myTeamSlots, 
 				my_slot: mySlot,
 				is_ffa: p.length > 2,
 				completed: isCompleted,
+				// in a free-for-all the player only enters their own score: once it is in, the match leaves
+				// the entry list and waits as a result line (with the pencil) until the others have entered theirs
+				entered: isCompleted || (p.length > 2 && score[mySlot] != null && score[mySlot] > 0),
 				my_score: score[mySlot] ?? null,
 				opp_score: p.length === 2 ? (score[1 - mySlot] ?? null) : null,
 				outcome: p.length === 2 && isCompleted
