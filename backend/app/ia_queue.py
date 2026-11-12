@@ -18,6 +18,12 @@ from collections import deque
 from .websockets import manager as ws_manager
 from .ia_title_utils import _build_title_prompt, _clean_title, _is_default_title
 from .ia_utils import ia_client, no_think, ModelMissing, is_model_missing
+from .ia_dispatch import pick, bind, serial_key, estimated_wait
+
+# A request sent to a server that stopped answering, and that no other server could take: after
+# this many seconds that server's worker takes it anyway, so the player gets the usual failover or
+# the "AI server unreachable" message instead of waiting forever
+ORPHAN_AFTER = 15.0
 from .ia_tool_loop import AI_READ_TIMEOUT, run_tool_rounds, merge_stream_tool_calls, parse_tool_args, parse_xml_tool_calls
 
 
@@ -95,7 +101,13 @@ class IAQueueManager:
     """Central queue manager for all Ollama requests."""
 
     def __init__(self):
-        self._queue: asyncio.PriorityQueue[QueueEntry] = asyncio.PriorityQueue()
+        # Waiting requests live in _pending; each AI server has its own worker that takes, when it
+        # is free, the most urgent request it can serve (see ia_dispatch)
+        self._wake = asyncio.Event()
+        self._generation = 0                              # bumped when the server list changes
+        self._worker_urls: List[str] = []
+        self._last_host: Dict[int, str] = {}              # conversation id -> server that answered it last
+        self._default_model_cache = (0.0, "")
         self._pending: Dict[str, QueueEntry] = {}       # entry_id -> entry
         self._by_user: Dict[int, QueueEntry] = {}        # user_id -> entry (1 max)
         self._active: Dict[str, QueueEntry] = {}         # entry_id -> entry being processed
@@ -162,28 +174,40 @@ class IAQueueManager:
 
     # --- Lifecycle ---
 
+    def _enabled_instances(self) -> list:
+        try:
+            from .database import SessionLocal
+            from .routers.ia import get_instances
+            with SessionLocal() as db:
+                return [i for i in get_instances(db) if i.get("enabled", True)]
+        except Exception as e:
+            print(f"[IA Queue] Could not read the AI servers: {e}")
+            return []
+
+    def _spawn_workers(self):
+        """One worker per enabled AI server (one generic worker when none is set up yet)."""
+        self._generation += 1
+        instances = self._enabled_instances()
+        self._worker_urls = [i["url"] for i in instances]
+        for inst in instances or [None]:
+            self._workers.append(asyncio.create_task(self._worker(inst, self._generation)))
+        self._workers = [w for w in self._workers if not w.done()]
+        return len(instances) or 1
+
     async def start(self, num_workers: int = 1):
-        """Start N worker coroutines."""
+        """Start one worker per enabled AI server (num_workers is kept for older callers)."""
         self.load_persisted_durations()
         self._running = True
-        for i in range(num_workers):
-            task = asyncio.create_task(self._worker(i))
-            self._workers.append(task)
-        print(f"[IA Queue] Started {num_workers} worker(s)")
+        count = self._spawn_workers()
+        print(f"[IA Queue] Started {count} worker(s)")
 
     async def stop(self):
-        """Graceful shutdown: cancel pending, wait for active."""
+        """Graceful shutdown: cancel pending, let workers end."""
         self._running = False
-        # Cancel all pending entries
         for entry in list(self._pending.values()):
             entry.cancelled = True
             entry.done_event.set()
-        # Signal workers to stop
-        for _ in self._workers:
-            sentinel = QueueEntry(priority=-1, created_at=0)
-            sentinel.cancelled = True
-            await self._queue.put(sentinel)
-        # Wait for workers to finish
+        self._wake.set()
         for w in self._workers:
             try:
                 await asyncio.wait_for(w, timeout=5.0)
@@ -192,32 +216,13 @@ class IAQueueManager:
         self._workers.clear()
         print("[IA Queue] Stopped")
 
-    async def restart_workers(self, num_workers: int):
-        """Hot-restart workers to match new instance count (e.g. after config change).
-        Active requests finish naturally; only idle workers are replaced."""
-        old_count = len(self._workers)
-        if num_workers == old_count and self._running:
-            return  # No change needed
-
-        # Stop old workers gracefully
-        self._running = False
-        for _ in self._workers:
-            sentinel = QueueEntry(priority=-1, created_at=0)
-            sentinel.cancelled = True
-            await self._queue.put(sentinel)
-        for w in self._workers:
-            try:
-                await asyncio.wait_for(w, timeout=3.0)
-            except (asyncio.TimeoutError, asyncio.CancelledError):
-                w.cancel()
-        self._workers.clear()
-
-        # Start new workers
+    async def restart_workers(self, num_workers: int = 1):
+        """Follow a change of the AI server list. Workers of the old list finish the request they are
+        answering, then stop; new ones start at once."""
         self._running = True
-        for i in range(num_workers):
-            task = asyncio.create_task(self._worker(i))
-            self._workers.append(task)
-        print(f"[IA Queue] Restarted: {old_count} -> {num_workers} worker(s)")
+        count = self._spawn_workers()
+        self._wake.set()
+        print(f"[IA Queue] Restarted with {count} worker(s)")
 
     # --- Public API ---
 
@@ -233,7 +238,7 @@ class IAQueueManager:
         self._pending[entry.id] = entry
         if entry.user_id:
             self._by_user[entry.user_id] = entry
-        await self._queue.put(entry)
+        self._wake.set()
 
         pos = self._get_position(entry.id)
         await self._broadcast_queue_state()
@@ -281,7 +286,7 @@ class IAQueueManager:
             return {"position": 0, "estimated_wait": 0, "entry_id": entry.id, "status": "processing", "conversation_id": entry.conversation_id, "avg_duration": round(avg_dur, 1)}
         return {
             "position": pos,
-            "estimated_wait": round(pos * avg_dur),
+            "estimated_wait": self._wait_for(pos),
             "entry_id": entry.id,
             "status": "queued",
             "conversation_id": entry.conversation_id,
@@ -295,8 +300,6 @@ class IAQueueManager:
         # Rebuild ordered list from internal tracking
         entries = sorted(self._pending.values(), key=lambda e: (e.priority, e.created_at))
         for i, entry in enumerate(entries):
-            host = entry.payload.get("ollama_host", "default")
-            avg_dur = self._instance_avg_durations.get(host, self._avg_duration)
             pending.append({
                 "id": entry.id,
                 "position": i + 1,
@@ -305,7 +308,7 @@ class IAQueueManager:
                 "task_type": entry.task_type,
                 "priority": entry.priority,
                 "waiting_since": round(now - entry.created_at),
-                "estimated_wait": round((i + 1) * avg_dur),
+                "estimated_wait": self._wait_for(i + 1),
             })
         active = []
         for entry in self._active.values():
@@ -345,33 +348,67 @@ class IAQueueManager:
 
     # --- Worker ---
 
-    async def _worker(self, worker_id: int):
-        """Worker loop: consume queue, call Ollama, push results."""
-        while self._running:
+    def _wait_for(self, position: int) -> int:
+        averages = [self._instance_avg_durations.get(u) for u in self._worker_urls]
+        return estimated_wait(position, averages, self._avg_duration)
+
+    def _default_model(self) -> str:
+        """The configured default model (read at most every 10 s)."""
+        stamp, model = self._default_model_cache
+        if time.time() - stamp > 10:
             try:
-                entry = await asyncio.wait_for(self._queue.get(), timeout=2.0)
+                from .database import SessionLocal
+                from .routers.ia import get_effective_config
+                with SessionLocal() as db:
+                    model = get_effective_config(db).get("model") or ""
+            except Exception:
+                pass
+            self._default_model_cache = (time.time(), model)
+        return model
+
+    def _take(self, inst, healthy: bool, names: list):
+        """The request this free server should answer now, already pointed at it, or None."""
+        pending = [e for e in self._pending.values() if not e.cancelled]
+        if not pending:
+            return None
+        busy = {serial_key(e) for e in self._active.values() if serial_key(e)}
+        if inst is None:  # no server set up: requests go where their caller sent them, as before
+            free = [e for e in pending if not (serial_key(e) and serial_key(e) in busy)]
+            return min(free, key=lambda e: (e.priority, e.created_at)) if free else None
+        if not healthy:
+            # A server that does not answer only takes the requests sent to it that nobody else took:
+            # the usual failover then finds another server, or the player is told it is unreachable
+            now, url = time.time(), inst["url"].rstrip("/")
+            mine = [e for e in pending if (e.payload.get("ollama_host") or "").rstrip("/") == url
+                    and now - e.created_at > ORPHAN_AFTER and not (serial_key(e) and serial_key(e) in busy)]
+            return min(mine, key=lambda e: (e.priority, e.created_at)) if mine else None
+        entry, model = pick(pending, inst, self._default_model(), names, busy, self._last_host)
+        if entry is not None:
+            bind(entry, inst, model)
+        return entry
+
+    async def _worker(self, inst, generation: int):
+        """One AI server's loop: when it is free, take the most urgent request it can answer."""
+        from .routers.ia import _check_instance_health
+        while self._running and generation == self._generation:
+            try:
+                await asyncio.wait_for(self._wake.wait(), timeout=1.0)
             except asyncio.TimeoutError:
+                pass
+            if not self._pending:
+                self._wake.clear()
                 continue
-
-            # Sentinel check (shutdown signal)
-            if entry.priority == -1:
-                break
-
-            # Skip cancelled entries
-            if entry.cancelled or entry.id not in self._pending:
-                self._queue.task_done()
+            healthy, names = True, []
+            if inst is not None:
+                healthy, _, names = await _check_instance_health(inst["url"], timeout=2.0)
+            # No await between choosing and moving to _active: two servers never take the same request
+            entry = self._take(inst, healthy, names)
+            if entry is None:
+                if not healthy:
+                    await asyncio.sleep(2.0)
+                else:
+                    self._wake.clear()
                 continue
-
-            # Limit: 1 concurrent request per Ollama instance to prevent GPU overload
-            host = entry.payload.get("ollama_host")
-            if host:
-                active_on_host = sum(1 for e in self._active.values() if e.payload.get("ollama_host") == host)
-                if active_on_host >= 1:
-                    # Put it back in the queue and sleep briefly to prevent busy spinning
-                    await asyncio.sleep(0.5)
-                    await self._queue.put(entry)
-                    self._queue.task_done()
-                    continue
 
             # Move from pending to active
             self._pending.pop(entry.id, None)
@@ -386,7 +423,7 @@ class IAQueueManager:
             tool_time = 0.0
             response_time = 0.0
             try:
-                res = await self._process_entry(entry, worker_id)
+                res = await self._process_entry(entry, 0)
                 if isinstance(res, tuple):
                     tool_time, response_time = res
                 else:
@@ -409,10 +446,12 @@ class IAQueueManager:
                 self._instance_avg_durations[host] = sum(self._instance_durations[host]) / len(self._instance_durations[host])
 
                 self.persist_durations()
+                if entry.conversation_id:
+                    self._last_host[entry.conversation_id] = host
 
                 self._cleanup_entry(entry)
                 entry.done_event.set()
-                self._queue.task_done()
+                self._wake.set()  # the next request (maybe the same player's) can go
                 await self._broadcast_queue_state()
 
     async def _process_entry(self, entry: QueueEntry, worker_id: int) -> tuple[float, float]:
@@ -1289,7 +1328,7 @@ class IAQueueManager:
                 "type": "ia_queue_position",
                 "user_id": user_id,
                 "position": position,
-                "estimated_wait": round(position * avg_dur),
+                "estimated_wait": self._wait_for(position),
                 "avg_duration": round(avg_dur, 1),
             })
         except Exception:
