@@ -74,9 +74,9 @@
 	const QUICK_GIFS = [
 		{ name: 'GG', url: 'https://media.giphy.com/media/l4pTfx2qLszoacZRS/giphy.gif' },
 		{ name: 'Hype', url: 'https://media.giphy.com/media/artj92V8o75VPL7AeQ/giphy.gif' },
-		{ name: 'Popcorn', url: 'https://media.giphy.com/media/GLbiGvv9RiNpPdzyIN/giphy.gif' },
+		{ name: 'Popcorn', url: 'https://media.giphy.com/media/pUeXcg80cO8I8/giphy.gif' },
 		{ name: 'EZ Clap', url: 'https://media.giphy.com/media/3o7TKSjRrfIPjeiVyM/giphy.gif' },
-		{ name: 'Facepalm', url: 'https://media.giphy.com/media/WrNfErAnGV7mM/giphy.gif' },
+		{ name: 'Facepalm', url: 'https://media.giphy.com/media/3xz2BLBOt13X9AgjEA/giphy.gif' },
 		{ name: 'Mind Blown', url: 'https://media.giphy.com/media/26ufdipQqU2lhNA4g/giphy.gif' }
 	];
 
@@ -1078,6 +1078,14 @@
 		});
 	}
 
+	// A GIF picked from the menu is sent as its Giphy link: show it as a picture, not as a link.
+	// Only Giphy media links, so a message cannot make every reader load an image from any site.
+	const GIF_URL = /https:\/\/media[0-9]?\.giphy\.com\/media\/[A-Za-z0-9]+\/[\w.-]*\.gif/;
+	function gifOf(content) {
+		const m = (content || '').match(GIF_URL);
+		return m ? m[0] : null;
+	}
+
 	function onMessageHover(msg) {
 		if (msg.seat_id) {
 			dispatch('seatHover', msg.seat_id);
@@ -1376,9 +1384,17 @@
 							{/if}
 
 							<!-- Text Content -->
-							{#if msg.content}
+							{#if msg.content && msg.content.trim() !== gifOf(msg.content)}
 								<div class="msg-text">
 									{@html msg._formattedContent !== undefined ? msg._formattedContent : renderFormattedText(msg.content)}
+								</div>
+							{/if}
+
+							<!-- GIF sent as a Giphy link -->
+							{#if gifOf(msg.content)}
+								<!-- svelte-ignore a11y-click-events-have-key-events -->
+								<div class="msg-image-attachment" on:click={() => lightboxImageUrl = gifOf(msg.content)}>
+									<img src={gifOf(msg.content)} alt="GIF" loading="lazy" on:load={() => { if (!isScrolledUp && chatScrollEl) chatScrollEl.scrollTop = chatScrollEl.scrollHeight; }} />
 								</div>
 							{/if}
 
@@ -1551,7 +1567,7 @@
 		</button>
 
 		<!-- GIF Button -->
-		<button class="btn-action-icon gif-btn" on:click={() => showGifMenu = !showGifMenu} title="{$t('dash_chat_gif_tooltip')}">
+		<button class="btn-action-icon gif-btn" on:click|stopPropagation={() => showGifMenu = !showGifMenu} title="{$t('dash_chat_gif_tooltip')}">
 			GIF
 		</button>
 

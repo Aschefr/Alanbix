@@ -60,6 +60,7 @@ Un administrateur peut aussi **masquer un tournoi** (icône en forme d'œil, ou 
 * Adapté aux jeux de course (Trackmania, Mario Kart) ou de combat multijoueur (Smash à 4).
 * Une manche se compose d'une seule série de placements.
 * Chaque joueur saisit son propre résultat de manche (un administrateur peut tout saisir). L'administrateur valide ensuite la manche et définit combien de joueurs avancent à la manche suivante.
+* **Tableau de bord** : une fois son résultat saisi, le match quitte la liste « à jouer » de « Mes Matchs » et passe dans les résultats, avec une horloge et la mention « en attente des autres joueurs ». Le crayon rouvre la saisie pour le corriger tant que la manche suivante n'a pas commencé.
 * **Vue en arbre** : les manches s'affichent de gauche à droite, chaque salon (groupe de joueurs) est relié aux salons d'où viennent ses joueurs ; zoom, déplacement et « Recentrer » comme pour l'arbre d'élimination. L'administrateur choisit le nombre de qualifiés **par salon** pour la manche suivante.
 * **Mise en page fluide** : La vue spectateur utilise une disposition flexible (`flex-wrap`) et une hauteur dynamique (`fit-content`) qui élimine tout grand espace vide superflu entre les manches.
 * **Annulation de manche (Rollback)** : Les annulations de manche FFA sont sécurisées par une modale de confirmation inline non intrusive (évitant ainsi les `window.confirm` bloquants du navigateur).

@@ -1670,6 +1670,7 @@
   "result_hide": "Hide",
   "result_show_hidden": "Show hidden scores ({n})",
   "result_ffa_mine": "Your score: {n}",
+  "result_waiting_others": "waiting for the other players",
   "dash_ffa_lobby": "Lobby · {n} opponents",
   "result_hide_all": "Hide all",
   "login_server_down": "Server unreachable",

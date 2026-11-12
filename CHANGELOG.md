@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.43.1] - 2026-11-12
+
+### 🐛 Fixes
+- **A free-for-all score stayed in the "to play" list on the dashboard**: in a free-for-all match each player enters only their own score, and "My Matches" kept the match with its score form until every other player had entered theirs, as if the score still had to be entered. It now moves to the results as soon as the player's score is in, on top, with a clock and "waiting for the other players"; the pencil still reopens it to correct it until the next round has started.
+- **The public chat GIF button did nothing**: the click that opened its menu also reached the "click elsewhere closes menus" handler, which closed it at once. Two of its six Giphy GIFs had been removed by Giphy ("content not available") and are replaced. A picked GIF was sent as its link and only ever shown as a link: Giphy GIF links now show as the picture in the chat (Giphy only, so a message cannot make every reader load an image from any site; the GIFs need Internet access).
+
 ## [1.43.0] - 2026-11-12
 
 ### ✨ Features

@@ -1682,6 +1682,7 @@
   "result_hide": "Ocultar",
   "result_show_hidden": "Mostrar resultados ocultos ({n})",
   "result_ffa_mine": "Tu puntuación: {n}",
+  "result_waiting_others": "esperando a los demás jugadores",
   "dash_ffa_lobby": "Sala · {n} rivales",
   "result_hide_all": "Ocultar todo",
   "login_server_down": "Servidor inaccesible",

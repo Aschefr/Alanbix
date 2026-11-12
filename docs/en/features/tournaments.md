@@ -59,6 +59,7 @@ An administrator can also **hide a tournament** (eye icon, or `Hide from players
 * Suitable for racing games (Trackmania, Mario Kart) or multiplayer fighting games (4-player Smash).
 * A round consists of a single series of placements.
 * Each player enters their own round result (an administrator can enter them all). The administrator then confirms the round and sets how many players advance to the next one.
+* **Dashboard**: once their result is entered, the match leaves the "to play" list of "My Matches" and moves to the results, with a clock and the note "waiting for the other players". The pencil reopens the entry to correct it until the next round has started.
 * **Tree view**: rounds run from left to right, each lobby (group of players) is linked to the lobbies its players came from; zoom, pan and "Recenter" work like the elimination bracket. The administrator picks how many players qualify **per lobby** for the next round.
 * **Fluid Layout**: The spectator view uses a flexible (`flex-wrap`) and dynamic height (`fit-content`) layout that eliminates any superfluous empty space between rounds.
 * **Round Cancellation (Rollback)**: FFA round cancellations are secured by an inline, non-intrusive confirmation modal (avoiding blocking browser `window.confirm` dialogs).
