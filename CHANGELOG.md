@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.42.7] - 2026-11-12
+
+### ✨ Improvements
+- **@Alanbix sees the picture it is asked about in the public chat**: it used to get only an "[image]" marker, so it answered that it could not see a photo it was asked to judge (and read "judge the cat" as the chat room). One picture now goes with its question: the one in the message it answers, else in the message that one replies to, else the latest picture the same person posted within half an hour. Pictures uploaded to the public chat only (PNG, JPG, WEBP), not animated GIFs; the AI model must read images.
+
 ## [1.42.6] - 2026-11-11
 
 ### 🐛 Fixes
