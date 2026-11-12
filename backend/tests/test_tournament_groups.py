@@ -183,3 +183,41 @@ def test_lost_group_settings_are_repaired():
     assert cfg2["stage"] == "knockout" and cfg2["ko_type"] == "double_elim" and cfg2["bracket_type"] == "double_elim"
 
     assert _heal_two_phase_config({"bracket_type": "round_robin"}, groups) is False
+
+
+def test_a_single_group_with_one_qualifier_cannot_start(client, db_session):
+    """Three players in groups of four with the group winner only: one group, one qualifier,
+    the knockout could never start, so the launch is refused and nothing is built."""
+    game = _create_game(db_session, "g-one-group", "single_elim")
+    cfg = {"bracket_type": "single_elim", "phases": "double", "group_size": 4, "advancers_count": 1}
+    t_id = _create_tournament(client, "One Group Cup", game.id, cfg)
+    _join_players(client, t_id, _get_user_ids(db_session, 3))
+    res = client.post(f"/tournaments/{t_id}/start")
+    assert res.status_code == 400
+    assert "qualifi" in res.json()["detail"]
+    state = client.get(f"/tournaments/{t_id}").json()
+    assert state["status"] == "OPEN" and not state["bracket"]
+    # Two qualifiers in that single group is fine
+    client.put(f"/tournaments/{t_id}", json={"config": dict(cfg, advancers_count=2)})
+    _start(client, t_id)
+
+
+def test_qualifiers_can_still_change_during_the_groups(client, db_session):
+    """A tournament already stuck with one qualifier: raising it during the groups unblocks the final."""
+    t_id, _ = _setup(client, db_session, 6, group_size=3, advancers=1)
+    _play_groups(client, t_id, random.Random(1))
+    cfg = client.get(f"/tournaments/{t_id}").json()["config"]
+    res = client.put(f"/tournaments/{t_id}", json={"config": dict(cfg, advancers_count=2)})
+    assert res.status_code == 200, res.text
+    assert client.get(f"/tournaments/{t_id}/group-stage").json()["advancers"] == 2
+    assert len(client.post(f"/tournaments/{t_id}/start-knockout").json()["qualifiers"]) == 4
+    # Once the knockout exists, it is frozen again
+    cfg = client.get(f"/tournaments/{t_id}").json()["config"]
+    assert client.put(f"/tournaments/{t_id}", json={"config": dict(cfg, advancers_count=1)}).status_code == 409
+
+
+def test_qualifiers_cannot_drop_below_two_during_the_groups(client, db_session):
+    t_id, _ = _setup(client, db_session, 4, group_size=4, advancers=2)
+    cfg = client.get(f"/tournaments/{t_id}").json()["config"]
+    assert client.put(f"/tournaments/{t_id}", json={"config": dict(cfg, advancers_count=1)}).status_code == 400
+    assert client.put(f"/tournaments/{t_id}", json={"config": dict(cfg, advancers_count=3)}).status_code == 200

@@ -296,6 +296,13 @@ async def update_tournament(
         for key in structural:
             if key not in new_cfg:
                 continue
+            # the qualifiers are only read when the knockout starts: they stay open during the groups
+            if key == "advancers_count" and old_cfg.get("stage") == "groups":
+                wanted = int(new_cfg[key] or 0)
+                tables = _group_tables(db_tournament.bracket, old_cfg.get("lower_score_is_better", False))
+                if wanted < 1 or sum(min(wanted, len(rows)) for rows in tables.values()) < 2:
+                    raise HTTPException(status_code=400, detail="Il faut au moins 2 qualifiés en tout pour lancer la phase finale")
+                continue
             if key in defaults:
                 before = old_cfg.get(key, defaults[key])
             elif key in old_cfg:
@@ -717,6 +724,14 @@ async def start_tournament(
 
     group_stage = config.get("phases") == "double" and bracket_type in ("single_elim", "double_elim")
     if group_stage:
+        # The same groups RoundRobin builds (a group of one plays nothing): the knockout needs 2 qualifiers
+        group_size = max(2, int(config.get("group_size") or num))
+        sizes = [min(group_size, num - start) for start in range(0, num, group_size)]
+        advancers = max(1, int(config.get("advancers_count", 2) or 2))
+        if sum(min(advancers, s) for s in sizes if s >= 2) < 2:
+            raise HTTPException(status_code=400, detail=(
+                f"Avec {num} inscrits et des poules de {group_size}, il n'y a qu'une poule : "
+                "il faut au moins 2 qualifiés par poule pour pouvoir lancer la phase finale"))
         # Stage 1: round-robin groups; the knockout format is applied once the groups are over
         config["ko_type"] = bracket_type
         config["stage"] = "groups"
@@ -1664,7 +1679,9 @@ async def start_knockout(
     advancers = max(1, int(config.get("advancers_count", 2) or 2))
     seeds = _knockout_seeds(tables, advancers)
     if len(seeds) < 2:
-        raise HTTPException(status_code=400, detail="Il faut au moins 2 qualifiés pour lancer la phase finale")
+        raise HTTPException(status_code=400, detail=(
+            "Il faut au moins 2 qualifiés pour lancer la phase finale : "
+            "augmentez le nombre de qualifiés par poule avec « Éditer »"))
 
     ko_type = config.get("ko_type", "single_elim")
     ko_bracket = _build_elimination_bracket(seeds, ko_type, config)

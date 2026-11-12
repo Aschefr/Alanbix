@@ -14,6 +14,8 @@
 	let editConfig = {};
 	// the bracket already exists: the structure that produced it is frozen
 	$: locked = !!(tournament && tournament.bracket && tournament.bracket.length > 0);
+	// during the groups the qualifiers are not used yet: they can still change until the final starts
+	$: advancersOpen = tournament?.config?.stage === 'groups';
 	let lastTournamentId = null;
 	let lastShow = false;
 	let overlayMouseDown = false;
@@ -229,22 +231,23 @@
 				</fieldset>
 
 				<!-- Structure -->
-				<fieldset class="edit-section" disabled={locked}>
+				<fieldset class="edit-section" disabled={locked && !advancersOpen}>
 					<h4 class="edit-section-title"><Icon name="layers" size={16} /> {$t("admin_tourneys_wizard_struct_lbl")}</h4>
 					<div class="edit-toggle-row">
-						<button type="button" class="edit-toggle {editConfig.phases === 'single' ? 'active' : ''}" on:click={() => editConfig.phases = 'single'}>{$t("admin_tourneys_wizard_struct_ffa")}</button>
-						<button type="button" class="edit-toggle {editConfig.phases === 'double' ? 'active' : ''}" on:click={() => editConfig.phases = 'double'}>{$t("admin_tourneys_wizard_struct_groups")}</button>
+						<button type="button" disabled={locked} class="edit-toggle {editConfig.phases === 'single' ? 'active' : ''}" on:click={() => editConfig.phases = 'single'}>{$t("admin_tourneys_wizard_struct_ffa")}</button>
+						<button type="button" disabled={locked} class="edit-toggle {editConfig.phases === 'double' ? 'active' : ''}" on:click={() => editConfig.phases = 'double'}>{$t("admin_tourneys_wizard_struct_groups")}</button>
 					</div>
 
 					{#if editConfig.phases === 'double'}
 						<div class="edit-grid-2col anim-fade-in">
 							<div class="edit-field">
 								<label for="edit-group-size-double">{$t("admin_tourneys_wizard_group_size")}</label>
-								<input id="edit-group-size-double" type="number" bind:value={editConfig.group_size} min="2" max="16" />
+								<input id="edit-group-size-double" type="number" bind:value={editConfig.group_size} min="2" max="16" disabled={locked} />
 							</div>
 							<div class="edit-field">
 								<label for="edit-advancers-count-double">{$t("admin_tourneys_wizard_advancers")}</label>
 								<input id="edit-advancers-count-double" type="number" bind:value={editConfig.advancers_count} min="1" max="8" />
+								{#if advancersOpen}<span class="edit-hint">{$t('edit_advancers_open_hint')}</span>{/if}
 							</div>
 						</div>
 					{/if}
@@ -291,6 +294,9 @@
 	fieldset.edit-section:disabled { opacity: 0.55; }
 	.edit-lock-note { display: flex; align-items: center; gap: 0.5rem; margin: 0; padding: 0.6rem 0.9rem; border-radius: var(--radius-md); font-size: 0.8125rem; color: var(--warning); background: color-mix(in srgb, var(--warning) 10%, transparent); border: 1px solid color-mix(in srgb, var(--warning) 30%, transparent); }
 	.edit-toggle:disabled { cursor: not-allowed; }
+	/* a section left open for one field: its frozen fields fade on their own */
+	fieldset.edit-section:enabled :is(input, .edit-toggle):disabled { opacity: 0.55; }
+	.edit-hint { display: block; margin-top: 0.3rem; font-size: 0.75rem; line-height: 1.4; color: var(--text-muted); }
 	.edit-pts-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0.75rem; }
 	@media (max-width: 640px) { .edit-pts-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 	.edit-field textarea { resize: vertical; }

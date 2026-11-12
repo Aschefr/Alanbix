@@ -69,7 +69,7 @@ An administrator can also **hide a tournament** (eye icon, or `Hide from players
 ---
 
 ### Groups, then knockout (option for elimination formats)
-When creating the tournament (or editing it before the start), choose **"Groups, then knockout"** with the group size and the number of qualifiers per group.
+When creating the tournament (or editing it before the start), choose **"Groups, then knockout"** with the group size and the number of qualifiers per group. The knockout needs at least 2 qualifiers in all: with a single qualifier per group there must be at least 2 groups, otherwise the tournament start is refused. The number of qualifiers can still be changed with "Edit" until the knockout starts.
 1. **Group stage**: every group plays a round robin (3 points for a win, 1 for a draw). Group tables are displayed with the qualifiers highlighted.
 2. When every group match is played, the organiser clicks **"Start the knockout"**: qualifiers (group winners first, then runners-up...) are seeded into the elimination bracket, avoiding a repeat of a group match in the first round.
 3. The **Groups** tab stays available during the knockout; **"Back to the groups"** removes the bracket as long as no knockout match has been played.
