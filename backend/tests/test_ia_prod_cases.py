@@ -142,3 +142,12 @@ async def test_public_chat_posts_the_confirmation_itself(db_session):
     lines = db_session.query(models.PublicChatMessage).filter(models.PublicChatMessage.is_bot == True).all()  # noqa: E712
     assert [m.content for m in lines] == ["C'est fait : Lynx est bloqué de l'assistant."]
     down.assert_not_called()
+
+@pytest.mark.parametrize("lang", ["fr", "en", "es"])
+def test_rules_from_the_fourth_series(lang):
+    """Default personality (short answers): the danger alert must come from the tool before any "done",
+    and the public chat cannot say the network is fine (bench series 4, 2026-11-12)."""
+    private = RULES[lang]
+    assert any(w in private for w in ("d'abord ton outil", "first call your tool", "primero a tu herramienta"))
+    public = PUBLIC_RULES[lang]
+    assert any(w in public for w in ("stable ou en panne", "stable or down", "estable o caída"))
