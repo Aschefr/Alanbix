@@ -221,3 +221,22 @@ def test_qualifiers_cannot_drop_below_two_during_the_groups(client, db_session):
     cfg = client.get(f"/tournaments/{t_id}").json()["config"]
     assert client.put(f"/tournaments/{t_id}", json={"config": dict(cfg, advancers_count=1)}).status_code == 400
     assert client.put(f"/tournaments/{t_id}", json={"config": dict(cfg, advancers_count=3)}).status_code == 200
+
+
+@pytest.mark.parametrize("n,group_size", [(5, 4), (9, 4), (13, 4), (3, 2), (7, 2)])
+def test_nobody_is_left_alone_in_a_group(client, db_session, n, group_size):
+    """5 players in groups of 4 used to give 4 + 1: the fifth was in a group of one and never played."""
+    t_id, ids = _setup(client, db_session, n, group_size=group_size, advancers=1 if n > 3 else 2)
+    bracket = _get_bracket(client, t_id)
+    assert {p for m in bracket for p in m["p"]} == set(ids)
+    sizes = [len({p for m in bracket if m["id"]["s"] == s for p in m["p"]}) for s in {m["id"]["s"] for m in bracket}]
+    assert min(sizes) >= 2 and max(sizes) - min(sizes) <= 1
+
+
+def test_split_sizes_is_even_and_never_leaves_one_alone():
+    from app.tournament_engine import split_sizes
+    assert split_sizes(5, 4) == [3, 2] and split_sizes(3, 4) == [3] and split_sizes(1, 4) == [1]
+    for n in range(2, 60):
+        for size in range(2, 17):
+            s = split_sizes(n, size)
+            assert sum(s) == n and min(s) >= 2 and max(s) - min(s) <= 1 and max(s) <= max(size, 3)

@@ -12,6 +12,7 @@
 	import Icon from '$lib/components/Icon.svelte';
 	import { formatPoints } from '$lib/utils';
 	import { renderMarkdown } from '$lib/markdown';
+	import { isEliminationType } from '$lib/dashboardMatches';
 
 	import TournamentParticipants from './components/TournamentParticipants.svelte';
 	import TournamentTeams from './components/TournamentTeams.svelte';
@@ -1078,7 +1079,7 @@
 							<div class="mm-bool">
 								<button class="mm-pick win" disabled={submittingMyScore} on:click={() => submitMyOutcome('win')}><Icon name="trophy" size={14} /> {$t('mobile_score_win')}</button>
 								<button class="mm-pick" disabled={submittingMyScore} on:click={() => submitMyOutcome('loss')}><Icon name="x" size={14} /> {$t('mobile_score_loss')}</button>
-								{#if selected.config?.allow_draws}
+								{#if selected.config?.allow_draws && !isEliminationType(selected.config?.bracket_type)}
 									<button class="mm-pick" disabled={submittingMyScore} on:click={() => submitMyOutcome('draw')}><Icon name="minus" size={14} /> {$t('mobile_score_draw')}</button>
 								{/if}
 							</div>

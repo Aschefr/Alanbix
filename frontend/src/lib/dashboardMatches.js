@@ -1,5 +1,8 @@
 import { mediaThumb } from '$lib/config';
 
+/** Single or double elimination: every match needs a winner. */
+export const isEliminationType = (bracketType) => bracketType === 'single_elim' || bracketType === 'double_elim';
+
 /**
  * The matches of the signed-in player on the home page, one entry per match of the
  * running or open tournaments, finished ones included (shown as results).
@@ -117,7 +120,8 @@ export function buildMyMatches(user, tournaments, games, allUsers, myTeamSlots, 
 				opponent_id: oppPid > 0 ? oppPid : null,
 				opponent_seat: oppSeat,
 				boolean_mode: Boolean(config.boolean_mode),
-				allow_draws: Boolean(config.allow_draws),
+				// an elimination match needs a winner (the knockout after groups that allowed draws included)
+				allow_draws: Boolean(config.allow_draws) && !isEliminationType(config.bracket_type),
 				lower_is_better: Boolean(config.lower_score_is_better),
 				status_label: isReady ? tFunc('mobile_match_ready') : tFunc('mobile_match_waiting'),
 				match_key: `${tourney.id}_${m.id?.s}_${m.id?.r}_${m.id?.m}`

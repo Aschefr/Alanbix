@@ -99,11 +99,8 @@ def test_round_robin_any_size(client, db_session, n, group_size, meet_twice):
 
     bracket = _get_bracket(client, t_id)
     # expected number of matches: sum over groups of C(size, 2), doubled when meeting twice
-    gs = group_size or n
-    sizes, left = [], n
-    while left > 0:
-        sizes.append(min(gs, left))
-        left -= gs
+    from app.tournament_engine import split_sizes
+    sizes = split_sizes(n, group_size or n)
     expected = sum(k * (k - 1) // 2 for k in sizes) * (2 if meet_twice else 1)
     assert len(bracket) == expected, f"{len(bracket)} matches, expected {expected} for groups {sizes}"
 
@@ -112,9 +109,8 @@ def test_round_robin_any_size(client, db_session, n, group_size, meet_twice):
     assert done or state["status"] == "DONE", f"not finished: {state['status']}"
     lb = _standings(client, t_id)
     assert len(lb) == n
-    lonely = sizes.count(1)
     idle = [p for p in lb if p["matches_played"] == 0]
-    assert len(idle) == lonely, f"{len(idle)} players never play (groups {sizes})"
+    assert not idle, f"{len(idle)} players never play (groups {sizes})"
     _close(client, t_id)
 
 
