@@ -523,6 +523,13 @@
 	}
 
 	function handleScroll() {
+		// the full emoji picker is fixed on screen: it follows its message, and closes once the message
+		// has scrolled out of the chat (an image loading or a new message also scroll it)
+		if (fullPickerMsgId !== null && fullPickerAnchor && chatScrollEl) {
+			const a = fullPickerAnchor.getBoundingClientRect(), box = chatScrollEl.getBoundingClientRect();
+			if (a.bottom < box.top || a.top > box.bottom) fullPickerMsgId = null;
+			else placeFullPicker(fullPickerAnchor);
+		}
 		if (!chatScrollEl || isAutoScrolling) return;
 		const { scrollTop, scrollHeight, clientHeight } = chatScrollEl;
 		const distanceToBottom = scrollHeight - (scrollTop + clientHeight);
@@ -1016,7 +1023,29 @@
 		}
 	}
 
-	function openFullEmojiPicker(msgId) {
+	// The full picker is moved to <body> and fixed on screen: inside the message row it was cut by
+	// the chat panel and the next messages were drawn over it. It sits by the message's action bar,
+	// kept inside the screen, below it when there is room and above it otherwise.
+	const PICKER_WIDTH = 295, PICKER_HEIGHT = 320;
+	let fullPickerStyle = '';
+	let fullPickerAnchor = null; // re-placed on resize (a phone keyboard opening for the search)
+	function portal(node) {
+		document.body.appendChild(node);
+		return { destroy() { node.parentNode?.removeChild(node); } };
+	}
+	function placeFullPicker(anchor) {
+		const r = anchor.getBoundingClientRect();
+		const vw = window.innerWidth, vh = window.innerHeight;
+		const width = Math.min(PICKER_WIDTH, vw - 16);
+		const left = Math.min(Math.max(8, r.right - width), vw - width - 8);
+		const below = vh - r.bottom - 12, above = r.top - 12;
+		const vertical = below >= PICKER_HEIGHT || below >= above ? `top:${r.bottom + 4}px` : `bottom:${vh - r.top + 4}px`;
+		fullPickerStyle = `left:${left}px;width:${width}px;${vertical};max-height:${Math.max(below, above)}px`;
+	}
+
+	function openFullEmojiPicker(msgId, event) {
+		fullPickerAnchor = event.currentTarget.closest('.msg-action-bar') || event.currentTarget;
+		placeFullPicker(fullPickerAnchor);
 		activeReactionMenuMsgId = null;
 		fullPickerMsgId = msgId;
 		emojiSearchQuery = '';
@@ -1099,7 +1128,7 @@
 	}
 </script>
 
-<svelte:window on:click={handleWindowClick} />
+<svelte:window on:click={handleWindowClick} on:resize={() => fullPickerMsgId !== null && fullPickerAnchor && placeFullPicker(fullPickerAnchor)} />
 
 <div class="public-chat-card glass">
 	<!-- Header -->
@@ -1276,7 +1305,7 @@
 									<span class="quick-divider"></span>
 									<button
 										class="reaction-pick-more-btn"
-										on:click|stopPropagation={() => openFullEmojiPicker(msg.id)}
+										on:click|stopPropagation={(e) => openFullEmojiPicker(msg.id, e)}
 										title={$t('dash_chat_all_emojis')}
 									>
 										➕
@@ -1286,7 +1315,7 @@
 
 							<!-- Full Standard Emoji Picker Popover -->
 							{#if fullPickerMsgId === msg.id}
-								<div class="full-emoji-picker {idx < 3 ? 'popover-down' : 'popover-up'}" on:click|stopPropagation>
+								<div class="full-emoji-picker" use:portal style={fullPickerStyle} on:click|stopPropagation>
 									<!-- Search Bar -->
 									<div class="picker-search-bar">
 										<span class="picker-search-icon">🔍</span>
@@ -1848,6 +1877,8 @@
 	.chat-msg-row.is-mine .msg-text :global(.mention-chip) { background: rgba(255, 255, 255, 0.22); color: #ffffff; }
 	.chat-msg-row.is-mine .msg-text :global(a) { color: #ffffff; text-decoration: underline; }
 	.chat-msg-row.is-mine .msg-action-bar { right: auto; left: 0.5rem; }
+	/* the bar sits on the left there: its quick menu opens rightwards, inside the chat */
+	.chat-msg-row.is-mine .quick-reactions-popover { right: auto; left: 0; }
 	.chat-msg-row.is-mine .msg-reactions-container { justify-content: flex-end; }
 
 	.chat-msg-row.is-bot {
@@ -2823,28 +2854,18 @@
 	}
 
 	/* Full Standard Emoji Picker Popover */
+	/* Placed on screen by placeFullPicker(); opaque like the quick menu, so nothing shows through */
 	.full-emoji-picker {
-		position: absolute;
-		right: 0;
-		width: 295px;
-		max-width: min(320px, calc(100vw - 40px));
-		background: var(--surface-raised);
+		position: fixed;
+		background: var(--bg-secondary);
 		border: 1px solid var(--glass-border);
 		border-radius: 10px;
 		box-shadow: 0 10px 32px rgba(0, 0, 0, 0.55);
-		z-index: 60;
+		z-index: 1000;
 		display: flex;
 		flex-direction: column;
 		animation: popInReaction 0.18s ease-out;
 		overflow: hidden;
-	}
-	.full-emoji-picker.popover-up {
-		bottom: calc(100% + 4px);
-		top: auto;
-	}
-	.full-emoji-picker.popover-down {
-		top: calc(100% + 4px);
-		bottom: auto;
 	}
 
 	.picker-search-bar {
@@ -2921,6 +2942,7 @@
 
 	.picker-emojis-scroll {
 		max-height: 200px;
+		min-height: 0; /* shrinks when the screen leaves the picker less room */
 		overflow-y: auto;
 		padding: 0.45rem;
 	}

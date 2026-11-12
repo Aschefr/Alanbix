@@ -248,6 +248,9 @@
 							<div><label for="wiz-group-size">{$t('admin_tourneys_wizard_group_size')}</label><input id="wiz-group-size" type="number" bind:value={config.group_size} min="2" max="16" /></div>
 							<div><label for="wiz-advancers">{$t('admin_tourneys_wizard_advancers')}</label><input id="wiz-advancers" type="number" bind:value={config.advancers_count} min="1" max="8" /></div>
 						</div>
+						{#if Number(config.advancers_count) === 1}
+							<p class="wiz-hint">{$t('wizard_one_advancer_hint', { min: (Number(config.group_size) || 4) + 2 })}</p>
+						{/if}
 						<label class="score-invert-label mt-2">
 							<input type="checkbox" bind:checked={config.meet_twice} />
 							{$t('tournaments.config.meet_twice')}
@@ -387,6 +390,7 @@
 	.phases-row { display: flex; gap: 2px; padding: 3px; background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: var(--radius-md); }
 	.phase-opt { flex: 1; padding: 0.45rem 0.7rem; font-size: 0.8125rem; font-weight: 600; font-family: var(--font-main); border: 1px solid transparent; border-radius: calc(var(--radius-md) - 2px); background: transparent; color: var(--text-dim); cursor: pointer; }
 	.phase-opt:hover { color: var(--text-main); }
+	.wiz-hint { margin: 0.5rem 0 0; font-size: 0.75rem; line-height: 1.4; color: var(--text-muted); }
 	.phase-opt.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 	.glass-inner { background: var(--surface-sunken); border: 1px solid var(--glass-border); border-radius: 10px; padding: 0.8rem; }
 	.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; }

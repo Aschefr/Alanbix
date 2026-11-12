@@ -183,3 +183,60 @@ def test_lost_group_settings_are_repaired():
     assert cfg2["stage"] == "knockout" and cfg2["ko_type"] == "double_elim" and cfg2["bracket_type"] == "double_elim"
 
     assert _heal_two_phase_config({"bracket_type": "round_robin"}, groups) is False
+
+
+def test_a_single_group_with_one_qualifier_cannot_start(client, db_session):
+    """Three players in groups of four with the group winner only: one group, one qualifier,
+    the knockout could never start, so the launch is refused and nothing is built."""
+    game = _create_game(db_session, "g-one-group", "single_elim")
+    cfg = {"bracket_type": "single_elim", "phases": "double", "group_size": 4, "advancers_count": 1}
+    t_id = _create_tournament(client, "One Group Cup", game.id, cfg)
+    _join_players(client, t_id, _get_user_ids(db_session, 3))
+    res = client.post(f"/tournaments/{t_id}/start")
+    assert res.status_code == 400
+    assert "qualifi" in res.json()["detail"]
+    state = client.get(f"/tournaments/{t_id}").json()
+    assert state["status"] == "OPEN" and not state["bracket"]
+    # Two qualifiers in that single group is fine
+    client.put(f"/tournaments/{t_id}", json={"config": dict(cfg, advancers_count=2)})
+    _start(client, t_id)
+
+
+def test_qualifiers_can_still_change_during_the_groups(client, db_session):
+    """A tournament already stuck with one qualifier: raising it during the groups unblocks the final."""
+    t_id, _ = _setup(client, db_session, 6, group_size=3, advancers=1)
+    _play_groups(client, t_id, random.Random(1))
+    cfg = client.get(f"/tournaments/{t_id}").json()["config"]
+    res = client.put(f"/tournaments/{t_id}", json={"config": dict(cfg, advancers_count=2)})
+    assert res.status_code == 200, res.text
+    assert client.get(f"/tournaments/{t_id}/group-stage").json()["advancers"] == 2
+    assert len(client.post(f"/tournaments/{t_id}/start-knockout").json()["qualifiers"]) == 4
+    # Once the knockout exists, it is frozen again
+    cfg = client.get(f"/tournaments/{t_id}").json()["config"]
+    assert client.put(f"/tournaments/{t_id}", json={"config": dict(cfg, advancers_count=1)}).status_code == 409
+
+
+def test_qualifiers_cannot_drop_below_two_during_the_groups(client, db_session):
+    t_id, _ = _setup(client, db_session, 4, group_size=4, advancers=2)
+    cfg = client.get(f"/tournaments/{t_id}").json()["config"]
+    assert client.put(f"/tournaments/{t_id}", json={"config": dict(cfg, advancers_count=1)}).status_code == 400
+    assert client.put(f"/tournaments/{t_id}", json={"config": dict(cfg, advancers_count=3)}).status_code == 200
+
+
+@pytest.mark.parametrize("n,group_size", [(5, 4), (9, 4), (13, 4), (3, 2), (7, 2)])
+def test_nobody_is_left_alone_in_a_group(client, db_session, n, group_size):
+    """5 players in groups of 4 used to give 4 + 1: the fifth was in a group of one and never played."""
+    t_id, ids = _setup(client, db_session, n, group_size=group_size, advancers=1 if n > 3 else 2)
+    bracket = _get_bracket(client, t_id)
+    assert {p for m in bracket for p in m["p"]} == set(ids)
+    sizes = [len({p for m in bracket if m["id"]["s"] == s for p in m["p"]}) for s in {m["id"]["s"] for m in bracket}]
+    assert min(sizes) >= 2 and max(sizes) - min(sizes) <= 1
+
+
+def test_split_sizes_is_even_and_never_leaves_one_alone():
+    from app.tournament_engine import split_sizes
+    assert split_sizes(5, 4) == [3, 2] and split_sizes(3, 4) == [3] and split_sizes(1, 4) == [1]
+    for n in range(2, 60):
+        for size in range(2, 17):
+            s = split_sizes(n, size)
+            assert sum(s) == n and min(s) >= 2 and max(s) - min(s) <= 1 and max(s) <= max(size, 3)

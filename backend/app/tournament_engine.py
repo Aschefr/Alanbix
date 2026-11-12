@@ -2,6 +2,17 @@ import math
 from typing import List, Optional, Tuple, Dict, Any
 from pydantic import BaseModel
 
+def split_sizes(n: int, max_size: int) -> List[int]:
+    """Sizes of the groups (or free-for-all lobbies) for n players, at most max_size each and as
+    even as possible, so nobody ends up alone: 5 players in groups of 4 give 3 + 2, not 4 + 1.
+    When that is impossible (an odd number in groups of two, or 3 players) one group gets one more."""
+    if n < 2:
+        return [n] if n else []
+    count = min(math.ceil(n / max(2, max_size)), n // 2)
+    base, extra = divmod(n, count)
+    return [base + 1 if i < extra else base for i in range(count)]
+
+
 class MatchId(BaseModel):
     s: int  # Section (1: WB, 2: LB)
     r: int  # Round
@@ -118,18 +129,13 @@ class RoundRobin(TournamentEngine):
             
         meet_twice = bool(self.config.get("meet_twice", False))
         
-        num_groups = math.ceil(n / group_size)
         all_players = list(range(1, n + 1))
-        
-        for g in range(num_groups):
+        start_idx = 0
+        for g, size in enumerate(split_sizes(n, group_size)):
             # Players for this group
-            start_idx = g * group_size
-            end_idx = min(start_idx + group_size, n)
-            group_players = all_players[start_idx:end_idx]
-            
-            if len(group_players) < 2:
-                continue
-                
+            group_players = all_players[start_idx:start_idx + size]
+            start_idx += size
+
             if len(group_players) % 2 == 1:
                 group_players.append(0)  # 0 = bye
                 
@@ -179,9 +185,5 @@ class FFA(TournamentEngine):
             group_size = 2
             
         # Only generate R1, advancing is manual
-        num_matches = math.ceil(n / group_size)
-        for m in range(1, num_matches + 1):
-            self.matches.append(Match(
-                id=MatchId(s=1, r=1, m=m),
-                p=[0] * min(group_size, n - (m-1)*group_size)
-            ))
+        for m, size in enumerate(split_sizes(n, group_size), start=1):
+            self.matches.append(Match(id=MatchId(s=1, r=1, m=m), p=[0] * size))
