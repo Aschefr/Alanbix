@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.43.2] - 2026-11-12
+
+### 🐛 Fixes
+- **A groups + knockout tournament could get stuck before its final**: with one qualifier per group and few enough players for a single group, the groups were played and "Start the knockout" then failed ("at least 2 qualifiers"). The start is now refused with the reason, the creation wizard warns how many players one qualifier per group needs, and the number of qualifiers per group stays editable with "Edit" until the knockout starts (never below 2 in all), so a tournament already stuck is unblocked without a reset. The group stage panel now follows that number.
+- **A player could be left alone and never play**: groups and free-for-all lobbies were cut in fixed-size slices, so 5 players in groups of 4 gave 4 + 1 and the fifth one never played. Players are now shared as evenly as possible within the chosen size (5 in groups of 4 give 3 + 2).
+- **The tournament engine accepted impossible scores and moves**: a new test feeds it 64 impossible cases and checks each is refused with the tournament unchanged; it accepted almost all of them. Now refused, administrators included, with a message saying why: not one score per player or team, a negative score, a score on one side only, a draw in an elimination match (including a knockout after groups that allowed draws, where the draw button is now hidden), a draw when draws are off, anything but 1 or 0 in win / loss mode, a score on a match still waiting for its players or on a bye, any score on a closed tournament, starting a running tournament again (the new draw wiped every score), joining after the draw, and a next free-for-all round that keeps fewer than 2 players or eliminates nobody.
+- **Public chat reaction picker**: the full emoji picker was cut by the chat panel, drawn under the next messages and nearly transparent. It now floats above the page, opaque and inside the screen, and follows its message when the chat scrolls. On your own messages the quick reaction menu no longer opens off the left edge.
+
 ## [1.43.1] - 2026-11-12
 
 ### 🐛 Fixes
