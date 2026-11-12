@@ -26,7 +26,7 @@ Avant chaque réponse, Alanbix cherche dans la base de connaissances les fiches 
 
 ### Construction du prompt système (en couches)
 Chaque requête envoie au modèle un seul message système, assemblé dans cet ordre :
-1. **Personnalité** : le texte « Consignes principales » modifiable par l'admin (identité, ton, style).
+1. **Personnalité** : le texte « Consignes principales » modifiable par l'admin (identité, ton, style). Seul un texte modifié est gardé par l'installation : le texte livré avec Alanbix suit les mises à jour de l'application. Dans « Modifier les consignes », « Rétablir les consignes par défaut » remet ce texte livré, puis « Sauvegarder » retire la copie modifiée.
 2. **Règles de fonctionnement** : fixes et traduites, impossibles à effacer depuis l'admin (ne rien inventer, ne jamais citer les outils internes, méthode de diagnostic, quand et comment prévenir un admin, modération).
 3. **Guide de l'application** : la carte des pages du site, pour guider les joueurs. Modifiable par l'admin, avec un bouton « Rétablir le texte par défaut ».
 4. **Contexte en direct** : date et heure, événement, pseudo, équipe, place et rôle du joueur.

@@ -10,6 +10,11 @@ const BUNDLED_LOCALES: Record<string, Record<string, string>> = {
 	es: esDefault
 };
 
+/** The text shipped with the app for this key, before any admin edit ('' when the language is not bundled). */
+export function shippedText(lang: string, key: string): string {
+	return BUNDLED_LOCALES[lang]?.[key] || '';
+}
+
 export const currentLang = writable<string>('fr');
 export const i18nDict = writable<Record<string, string>>(frDefault);
 export const lanMultilingual = writable<boolean>(false);

@@ -4,7 +4,9 @@
 	import Icon from '$lib/components/Icon.svelte';
 	import { t } from '$lib/i18nStore';
 
-	let { value = '', onsave, onclose } = $props();
+	// defaultText: the instructions shipped with Alanbix. Saved as is, the server keeps no copy,
+	// so later updates of the default reach this LAN (a saved copy froze an old personality in prod)
+	let { value = '', defaultText = '', onsave, onclose } = $props();
 	let draft = $state(value);
 
 	const DEFAULT_PROMPT_SECTIONS = [
@@ -97,6 +99,11 @@
 
 		<!-- Footer -->
 		<div class="prompt-modal-footer">
+			{#if defaultText && draft !== defaultText}
+				<button class="prompt-reset" onclick={() => (draft = defaultText)} title={$t('admin_prompt_modal_reset_hint')}>
+					<Icon name="undo" size={14} /> {$t('admin_prompt_modal_reset')}
+				</button>
+			{/if}
 			<button class="btn-secondary" onclick={onclose}>{$t('admin_prompt_modal_cancel')}</button>
 			<button class="btn-primary" onclick={() => onsave(draft)}>{$t('admin_prompt_modal_save')}</button>
 		</div>
@@ -148,5 +155,7 @@
 	.pmg-tips .pmg-section-title { color: #f59e0b; }
 	.pmg-tip-list { margin: 0; padding-left: 1.1rem; display: flex; flex-direction: column; gap: 0.3rem; }
 	.pmg-tip-list li { font-size: 0.75rem; color: var(--text-dim); line-height: 1.4; }
-	.prompt-modal-footer { display: flex; justify-content: flex-end; gap: 0.6rem; padding: 0.8rem 1.2rem; border-top: 1px solid var(--glass-border); background: var(--hover-tint); flex-shrink: 0; }
+	.prompt-modal-footer { display: flex; justify-content: flex-end; flex-wrap: wrap; align-items: center; gap: 0.6rem; padding: 0.8rem 1.2rem; border-top: 1px solid var(--glass-border); background: var(--hover-tint); flex-shrink: 0; }
+	.prompt-reset { margin-right: auto; display: inline-flex; align-items: center; gap: 0.35rem; background: none; border: 1px solid var(--glass-border); border-radius: 8px; padding: 0.45rem 0.7rem; color: var(--text-dim); font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: border-color 0.15s, color 0.15s; }
+	.prompt-reset:hover { border-color: rgba(139,92,246,0.5); color: var(--text-main); }
 </style>

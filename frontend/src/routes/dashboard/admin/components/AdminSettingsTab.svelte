@@ -3,7 +3,7 @@
 	import { get } from 'svelte/store';
 	import { onMount, onDestroy } from 'svelte';
 	import { api } from '$lib/api';
-	import { t } from '$lib/i18nStore';
+	import { t, shippedText } from '$lib/i18nStore';
 	import { wsMessageStore } from '$lib/ws';
 	import AdminAIQueueList from './AdminAIQueueList.svelte';
 	import AdminAIBehaviour from './AdminAIBehaviour.svelte';
@@ -1265,7 +1265,7 @@
 </div>
 
 {#if showPromptModal}
-	<PromptEditorModal value={systemPrompt} onclose={() => showPromptModal = false} onsave={savePromptFromModal} />
+	<PromptEditorModal value={systemPrompt} defaultText={shippedText(defaultLang, 'system_prompt')} onclose={() => showPromptModal = false} onsave={savePromptFromModal} />
 {/if}
 
 <style>

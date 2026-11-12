@@ -192,6 +192,7 @@
   "admin_prompt_modal_insert": "Insérer le bloc",
   "admin_prompt_modal_open": "Modifier les consignes",
   "admin_prompt_modal_reset": "Rétablir les consignes par défaut",
+  "admin_prompt_modal_reset_hint": "Remet le texte livré avec Alanbix. Une fois sauvegardé, il suivra les mises à jour de l'application.",
   "admin_prompt_modal_save": "Sauvegarder",
   "admin_prompt_modal_section_context": "=== CONTEXTE ===",
   "admin_prompt_modal_section_context_desc": "Ce qu'il sait de la LAN, ses outils disponibles, sa mission.",

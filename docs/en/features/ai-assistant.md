@@ -26,7 +26,7 @@ Before each answer, Alanbix looks in the knowledge base for the entries that ans
 
 ### System prompt construction (layers)
 Each request sends the model a single system message, built in this order:
-1. **Personality**: the admin-editable "Main instructions" text (identity, tone, style).
+1. **Personality**: the admin-editable "Main instructions" text (identity, tone, style). Only an edited text is kept by the installation: the text shipped with Alanbix follows the app's updates. In "Edit prompt", "Reset to default prompt" puts the shipped text back, then "Save" removes the edited copy.
 2. **Operating rules**: fixed and translated, they cannot be erased from the admin (never invent data, never name internal tools, diagnosis method, when and how to alert an admin, moderation).
 3. **App guide**: a map of the site's pages, to guide players. Editable by the admin, with a "Restore the default text" button.
 4. **Live context**: date and time, event, player's username, team, seat and role.
