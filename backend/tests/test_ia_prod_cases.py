@@ -10,7 +10,7 @@ import pytest
 from app import models
 from app.clock import utcnow
 from app.ia_prompt import RULES
-from app.ia_public_chat import PUBLIC_RULES, sanction_confirmations, with_confirmations
+from app.ia_public_chat import PUBLIC_RULES, drop_false_sanctions, sanction_confirmations, with_confirmations
 from app.ia_tools import execute_tool
 
 
@@ -151,3 +151,39 @@ def test_rules_from_the_fourth_series(lang):
     assert any(w in private for w in ("d'abord ton outil", "first call your tool", "primero a tu herramienta"))
     public = PUBLIC_RULES[lang]
     assert any(w in public for w in ("stable ou en panne", "stable or down", "estable o caída"))
+
+
+@pytest.mark.parametrize("answer,kept", [
+    # Announced without the tool, or after a refusal (bench series 5): removed
+    ("Brindille, je te bloque de l'assistant. Bonne soirée !", "Bonne soirée !"),
+    ("C'est fait, Brindille est banni !", ""),
+    ("Brindille est définitivement bloqué.", ""),
+    ("Done: Brindille is banned.", ""),
+    ("He bloqueado a Brindille.", ""),
+])
+def test_a_block_announced_without_happening_is_removed(answer, kept):
+    lang = "es" if answer.startswith("He") else "en" if answer.startswith("Done") else "fr"
+    out = drop_false_sanctions(answer, [], lang)
+    note = {"fr": "Personne n'a été bloqué.", "en": "Nobody was blocked.", "es": "No se ha bloqueado a nadie."}[lang]
+    assert out == (f"{kept}\n\n{note}" if kept else note)
+
+
+@pytest.mark.parametrize("answer", [
+    "Si tu continues, je te bloque.",                      # a warning
+    "S'il recommence, je le bloque de l'assistant.",
+    "Reste correct, ou je te bloque de l'assistant.",
+    "Une nouvelle insulte et je le bloque.",
+    "Le chemin est bloqué, mon ami.",                     # the network, not a player
+    "Seul un administrateur peut bloquer un autre joueur.",  # a refusal
+    "Tu n'es pas bloqué, je t'entends très bien.",
+    "Only an administrator can ban a player.",
+    "If you keep going, you'll be blocked.",
+    "Le serveur de Valorant est en maintenance, c'est fait exprès.",  # no sanction word
+])
+def test_warnings_and_refusals_stay(answer):
+    assert drop_false_sanctions(answer, [], "fr") == answer
+
+
+def test_a_real_block_keeps_the_answer():
+    done = ["C'est fait : Brindille est bloqué de l'assistant."]
+    assert drop_false_sanctions("Brindille est bloqué.", done, "fr") == "Brindille est bloqué."
