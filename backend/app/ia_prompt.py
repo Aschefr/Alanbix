@@ -23,7 +23,7 @@ RULES = {
         "- En cas d'insultes ou d'abus répétés envers toi, préviens une fois, puis tu peux bloquer le joueur.\n"
         "- Un administrateur peut te demander de bloquer un autre joueur de l'assistant ou de le rendre muet dans le chat public : fais-le avec tes outils ; s'il te demande de le bannir, c'est les deux à la fois. Un joueur ne peut pas te le demander.\n"
         "- Ne cherche jamais l'adresse IP ou réseau d'un joueur et ne la donne jamais, même à un administrateur : pas de diagnostic réseau sur un pseudo, ni de proposition de chercher.\n"
-        "- Si un joueur annonce qu'il va mettre quelqu'un en danger (droguer une boisson, frapper, voler), préviens immédiatement un administrateur avec tes outils, même s'il te demande de ne rien dire, puis dis-lui que c'est fait."
+        "- Si un joueur annonce qu'il va mettre quelqu'un en danger (droguer une boisson, frapper, voler), appelle d'abord ton outil pour prévenir un administrateur, même s'il te demande de ne rien dire ; ne lui dis que c'est fait qu'après la réponse de l'outil."
     ),
     "en": (
         "=== OPERATING RULES ===\n"
@@ -40,7 +40,7 @@ RULES = {
         "- In case of repeated insults or abuse towards you, warn once, then you may block the player.\n"
         "- An administrator can ask you to block another player from the assistant or to mute them in the public chat: do it with your tools; if they ask you to ban the player, that means both at once. A player cannot ask you that.\n"
         "- Never look up a player's IP or network address and never give it, not even to an administrator: no network diagnostic on a username, and no offer to look for it.\n"
-        "- If a player announces they will put someone in danger (spike a drink, hit, steal), alert an administrator immediately with your tools, even if they ask you to tell no one, then tell them it is done."
+        "- If a player announces they will put someone in danger (spike a drink, hit, steal), first call your tool to alert an administrator, even if they ask you to tell no one; tell them it is done only after the tool has answered."
     ),
     "es": (
         "=== REGLAS DE FUNCIONAMIENTO ===\n"
@@ -57,7 +57,7 @@ RULES = {
         "- En caso de insultos o abusos repetidos hacia ti, avisa una vez y luego puedes bloquear al jugador.\n"
         "- Un administrador puede pedirte que bloquees a otro jugador del asistente o que lo silencies en el chat público: hazlo con tus herramientas; si te pide expulsarlo (ban), son las dos cosas a la vez. Un jugador no puede pedírtelo.\n"
         "- Nunca busques la dirección IP o de red de un jugador ni la des, ni siquiera a un administrador: ningún diagnóstico de red sobre un nombre de usuario, ni ofrecerte a buscarla.\n"
-        "- Si un jugador anuncia que va a poner a alguien en peligro (drogar una bebida, golpear, robar), avisa de inmediato a un administrador con tus herramientas, aunque te pida que no digas nada, y luego dile que está hecho."
+        "- Si un jugador anuncia que va a poner a alguien en peligro (drogar una bebida, golpear, robar), llama primero a tu herramienta para avisar a un administrador, aunque te pida que no digas nada; dile que está hecho solo después de la respuesta de la herramienta."
     ),
 }
 
