@@ -192,6 +192,7 @@
   "admin_prompt_modal_insert": "Insert block",
   "admin_prompt_modal_open": "Edit prompt",
   "admin_prompt_modal_reset": "Reset to default prompt",
+  "admin_prompt_modal_reset_hint": "Puts back the text shipped with Alanbix. Once saved, it follows the app's updates.",
   "admin_prompt_modal_save": "Save",
   "admin_prompt_modal_section_context": "=== CONTEXT ===",
   "admin_prompt_modal_section_context_desc": "What he knows about the LAN, his available tools, his mission.",
