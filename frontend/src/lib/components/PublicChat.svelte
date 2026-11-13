@@ -132,6 +132,7 @@
 
 	// Typing indicator state
 	let typingUsers = {}; // key -> { username, is_bot, expiresAt }
+	const ALANBIX_TYPING_MAX_MS = 180000;
 	let userIsTyping = false;
 	let lastTypingSentTime = 0;
 	let typingDebounceTimer = null;
@@ -337,7 +338,9 @@
 			copy[key] = {
 				username: data.username || (isBot ? 'Alanbix' : 'Joueur'),
 				is_bot: isBot,
-				expiresAt: Date.now() + 6000
+				// A player's typing is refreshed every 3 s, Alanbix's is sent once: it stays until its answer
+				// (the server always clears it), with a cap in case that message is missed
+				expiresAt: Date.now() + (isBot ? ALANBIX_TYPING_MAX_MS : 6000)
 			};
 			startPhraseRotation();
 		} else {
