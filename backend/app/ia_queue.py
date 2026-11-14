@@ -17,14 +17,15 @@ from collections import deque
 
 from .websockets import manager as ws_manager
 from .ia_title_utils import _build_title_prompt, _clean_title, _is_default_title
-from .ia_utils import ia_client, no_think, ModelMissing, is_model_missing
+from .ia_utils import ia_client, no_think, ModelMissing, is_model_missing, strip_control_tokens
 from .ia_dispatch import pick, bind, serial_key, estimated_wait
 
 # A request sent to a server that stopped answering, and that no other server could take: after
 # this many seconds that server's worker takes it anyway, so the player gets the usual failover or
 # the "AI server unreachable" message instead of waiting forever
 ORPHAN_AFTER = 15.0
-from .ia_tool_loop import AI_READ_TIMEOUT, run_tool_rounds, merge_stream_tool_calls, parse_tool_args, parse_xml_tool_calls
+from .ia_tool_loop import (AI_READ_TIMEOUT, run_tool_rounds, merge_stream_tool_calls, parse_tool_args,
+                           parse_xml_tool_calls, repeated_call, repeated_call_result)
 
 
 def is_openai_host(url: str) -> bool:
@@ -497,7 +498,8 @@ class IAQueueManager:
             tools = req_data.get("tools")
             max_tool_rounds = 3
             tool_round = 0
-            
+            done_calls = set()   # calls already run for this answer, not run twice
+
             # Phase 1: Legacy Double Call mode (if requested)
             if tools and tool_calling_mode == "legacy_double":
                 has_moderation = any(t.get("function", {}).get("name") == "block_user_from_ia" for t in tools)
@@ -795,10 +797,13 @@ class IAQueueManager:
                         if fn_name not in used_tools:
                             used_tools.append(fn_name)
                         t_tool_start = time.time()
-                        try:
-                            result = await execute_tool(fn_name, fn_args, user_id=entry.user_id, conversation_id=entry.conversation_id or 0)
-                        except Exception as e:
-                            result = json.dumps({"error": str(e)})
+                        if repeated_call(done_calls, fn_name, fn_args):
+                            result = repeated_call_result(fn_name)
+                        else:
+                            try:
+                                result = await execute_tool(fn_name, fn_args, user_id=entry.user_id, conversation_id=entry.conversation_id or 0)
+                            except Exception as e:
+                                result = json.dumps({"error": str(e)})
                         tool_time += (time.time() - t_tool_start)
 
                         if detected_xml_call:
@@ -821,7 +826,8 @@ class IAQueueManager:
                             await entry.result_stream.put({"status": "generating"})
                         await entry.result_stream.put({"text": xml_buffer})
 
-                    clean_response = re.sub(r'<think>.*?</think>', '', full_response, flags=re.DOTALL).strip()
+                    clean_response = strip_control_tokens(
+                        re.sub(r'<think>.*?</think>', '', full_response, flags=re.DOTALL).strip())
                     if last_round and "<tool_call" in clean_response:
                         clean_response = clean_response.split("<tool_call", 1)[0].strip()
                     if last_round and not clean_response and not extra_round:
@@ -1074,6 +1080,7 @@ class IAQueueManager:
             clean = clean.strip()
             if not clean and raw.strip():
                 clean = re.sub(r'</?think>', '', raw).strip()
+            clean = strip_control_tokens(clean)
 
             # The sanctions really applied: the chat confirms them itself, never the model
             await entry.result_stream.put({"done": True, "result": clean, "tool_results": tool_results})

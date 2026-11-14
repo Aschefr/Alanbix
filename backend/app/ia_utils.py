@@ -100,6 +100,21 @@ class ModelMissing(Exception):
         self.model = model
 
 
+# A control token of the model's chat format leaked into the text ("<channel|>", "<|im_end|>", "<end_of_turn>"):
+# gemma4:e4b ended 1 public answer in 240 with "(No new input from the user.)<channel|>" (Veille, 2026-11-14)
+_CONTROL_TOKEN = re.compile(r"<\|?[a-z_]+\|>|<\|[a-z_]+\|?>|</?(?:start|end)_of_turn>", re.IGNORECASE)
+# What the model wrote right before the token is its own aside, not for the player
+_TRAILING_ASIDE = re.compile(r"\s*\([^()\n]*\)\s*$")
+
+
+def strip_control_tokens(text: str) -> str:
+    """The answer cut at the first leaked control token, without the aside that led to it."""
+    match = _CONTROL_TOKEN.search(text or "")
+    if not match:
+        return text
+    return _TRAILING_ASIDE.sub("", text[:match.start()]).strip()
+
+
 def is_model_missing(status: int, body: str) -> bool:
     """Ollama answers 404 {"error": "model 'x' not found"}; OpenAI-compatible services 404 model_not_found."""
     text = (body or "").lower()
