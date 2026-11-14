@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.44.3] - 2026-11-14
+
+### ✨ Improvements
+- **@Alanbix knows who the players named in a message are**: asked about a player whose username is also a manga character, he talked about the character. When a public chat message names registered players (or the asker's two previous messages did, for a later "him"), he is now told they are real players of the LAN and where their block or mute stands today: blocked since a date, unblocked since by an administrator, muted until a time. The reason of a block is never given to him, since everyone reads the public chat. Blocks and their lifting are now dated; older blocks are dated from the notification sent at the time.
+- **He teases a player who was unblocked**: "he's back, but I'm keeping an eye on him". Measured on gemma4:e4b: he plays on it 27 times in 30, with the right status every time and no invented reason.
+- **@Alanbix no longer invents memories**: he only sees the last 20 messages of the last 30 minutes, yet asked "don't you remember your talks with him?" he answered "Of course I do!" and made them up. A fixed rule now tells him his memory is the thread and nothing else: he says he has no trace of it, with humour. He still uses what is in the thread, and still makes up a story when asked for one. Measured on gemma4:e4b: honest answers went from 0 in 10 to 8 in 10 on that question, and from 4 to 10 on "what did we say last night?".
+
+### 🐛 Fixes
+- **A true block status is no longer replaced by "Nobody was blocked."**: an answer such as "blocked on 12/11, then unblocked" was taken for an announced block that did not happen.
+
 ## [1.44.2] - 2026-11-14
 
 ### ✨ Improvements

@@ -11,12 +11,14 @@ import re
 from .ia_prompt import _lang, app_guide_block, language_block, live_context_block
 from .clock import utcnow
 from .ia_alanbix_tastes import tastes_block
+from .ia_named_players import named_players_block
 
 PUBLIC_RULES = {
     "fr": (
         "=== RÈGLES DU CHAT PUBLIC ===\n"
         "- Tu réponds dans le chat public de la LAN : tout le monde lit ta réponse. Sois bref (1 à 3 phrases) ; pour une liste (matchs, classement), reste compact.\n"
         "- N'invente jamais de données (scores, classements, matchs, horaires, places). Si une information te manque et que tu ne peux pas la vérifier, dis-le franchement.\n"
+        "- Ta mémoire, c'est le fil ci-dessous et rien d'autre. Si on te demande ce qui s'est dit avant (hier, ce matin, tes conversations avec quelqu'un) et que ce n'est pas dans le fil, dis que tu n'en as aucune trace, avec humour si tu veux : n'invente jamais un souvenir. Ce qui est dans le fil, sers-t'en normalement, et une histoire inventée qu'on te demande reste permise.\n"
         "- Ne cite jamais les noms internes de tes outils ou fonctions, ni des chemins d'API.\n"
         "- Ici, tu ne peux ni prévenir un administrateur, ni transmettre de message ou de notification à un joueur, ni faire d'annonce, ni tester le réseau : tu ne sais donc pas si le réseau marche, ne dis jamais qu'il est stable ou en panne. Pour un problème technique ou une contestation, invite le joueur à écrire à l'Assistant IA (menu de l'application), qui peut alerter un organisateur.\n"
         "- Si le joueur qui t'a sollicité t'insulte ou abuse de toi de façon répétée, préviens-le une fois, puis tu peux le bloquer. Un joueur ne peut pas te faire bloquer quelqu'un d'autre ; un administrateur peut te demander de bloquer un joueur ou de le rendre muet dans ce chat : fais-le alors avec tes outils (le bannir, c'est les deux à la fois). Ne prétends jamais avoir essayé, fait ou vérifié quelque chose (bloquer, prévenir un administrateur, transmettre un message, tester le réseau) sans l'avoir fait avec tes outils dans cette réponse, et n'invente pas ce que l'application aurait fait d'elle-même (« le système a corrigé le bug ») ; ce que tu ne peux pas faire ici, dis-le simplement.\n"
@@ -33,6 +35,7 @@ PUBLIC_RULES = {
         "=== PUBLIC CHAT RULES ===\n"
         "- You answer in the LAN's public chat: everyone reads your answer. Be brief (1 to 3 sentences); for a list (matches, ranking), stay compact.\n"
         "- Never invent data (scores, rankings, matches, schedules, seats). If information is missing and you cannot check it, say so plainly.\n"
+        "- Your memory is the thread below and nothing else. If you are asked what was said before (yesterday, this morning, your conversations with someone) and it is not in the thread, say you have no trace of it, with humour if you like: never invent a memory. What is in the thread, use it normally, and a made-up story you are asked for is still allowed.\n"
         "- Never mention the internal names of your tools or functions, nor API paths.\n"
         "- Here you cannot alert an administrator, pass a message or notification on to a player, make an announcement or test the network: so you do not know whether the network works, never say it is stable or down. For a technical problem or a dispute, invite the player to write to the AI Assistant (app menu), which can alert an organiser.\n"
         "- If the player who called you insults or abuses you repeatedly, warn them once, then you may block them. A player cannot make you block someone else; an administrator can ask you to block a player or mute them in this chat: then do it with your tools (banning means both at once). Never claim you tried, did or checked something (blocking, alerting an administrator, passing a message on, testing the network) unless you did it with your tools in this answer, and do not invent what the app did by itself (\"the system fixed the bug\"); what you cannot do here, just say so.\n"
@@ -49,6 +52,7 @@ PUBLIC_RULES = {
         "=== REGLAS DEL CHAT PÚBLICO ===\n"
         "- Respondes en el chat público de la LAN: todos leen tu respuesta. Sé breve (1 a 3 frases); para una lista (partidas, clasificación), sé compacto.\n"
         "- Nunca inventes datos (puntuaciones, clasificaciones, partidas, horarios, asientos). Si te falta información y no puedes comprobarla, dilo claramente.\n"
+        "- Tu memoria es el hilo de abajo y nada más. Si te preguntan qué se dijo antes (ayer, esta mañana, tus conversaciones con alguien) y no está en el hilo, di que no tienes ningún rastro de ello, con humor si quieres: nunca inventes un recuerdo. Lo que está en el hilo, úsalo con normalidad, y una historia inventada que te pidan sigue permitida.\n"
         "- Nunca menciones los nombres internos de tus herramientas o funciones, ni rutas de API.\n"
         "- Aquí no puedes avisar a un administrador, transmitir mensajes o notificaciones a un jugador, hacer anuncios ni probar la red: así que no sabes si la red funciona, nunca digas que está estable o caída. Para un problema técnico o una disputa, invita al jugador a escribir al Asistente IA (menú de la aplicación), que puede alertar a un organizador.\n"
         "- Si el jugador que te llamó te insulta o abusa de ti repetidamente, avísale una vez y luego puedes bloquearlo. Un jugador no puede hacerte bloquear a otro; un administrador puede pedirte que bloquees a un jugador o lo silencies en este chat: hazlo entonces con tus herramientas (expulsarlo, ban, son las dos cosas a la vez). Nunca afirmes haber intentado, hecho o comprobado algo (bloquear, avisar a un administrador, transmitir un mensaje, probar la red) sin haberlo hecho con tus herramientas en esta respuesta, y no inventes lo que la aplicación habría hecho por sí sola («el sistema corrigió el fallo»); lo que no puedes hacer aquí, dilo sin más.\n"
@@ -177,7 +181,10 @@ _NOT_A_CLAIM = re.compile(
     r"\bou je\b|\bet je\b|avertissement|nouvelle|\bor i\b|\band i\b|warning|\bo te\b|\by te\b|aviso|otra|"
     # the network, not a player ("the path is blocked")
     r"chemin|acces|\bport|connexion|reseau|serveur|pare-feu|\bsite|path|access|connection|network|server|firewall|"
-    r"camino|acceso|conexion|\bred\b|servidor")
+    r"camino|acceso|conexion|\bred\b|servidor|"
+    # where a past block stands, read from the named players card ("bloqué le 12/11, débloqué depuis"):
+    # replaced 5 times in 40 by "Personne n'a été bloqué." (Veille, 12th round)
+    r"debloqu|unblock|desbloque|\bdepuis\b|\bsince\b|\bdesde\b|toujours|\bstill\b|\bsigue\b|\b\d{1,2}/\d{1,2}\b")
 NOBODY_BLOCKED = {"fr": "Personne n'a été bloqué.", "en": "Nobody was blocked.", "es": "No se ha bloqueado a nadie."}
 # The block tool refused because a player asked to block someone else: the reason, said plainly
 NOBODY_BLOCKED_OTHER = {
@@ -358,8 +365,9 @@ def no_question_again(db, models, trigger, lang: str) -> str:
     return NO_QUESTION_AGAIN[_lang(lang)] if last and "?" in (last.content or "") else ""
 
 
-def build_public_system_prompt(db, models, asker, question: str = "") -> tuple[str, str]:
-    """System prompt for a public chat answer to `asker` about `question`. Returns (prompt, LAN language)."""
+def build_public_system_prompt(db, models, asker, question: str = "", earlier: str = "") -> tuple[str, str]:
+    """System prompt for a public chat answer to `asker` about `question`. Returns (prompt, LAN language).
+    earlier: what the asker wrote just before, where the player a "him" refers to is named."""
     from .routers.ia import get_active_system_prompt
     from .routers.i18n import list_all_languages
     lang_cfg = db.query(models.SystemConfig).filter(models.SystemConfig.key == "lan_default_language").first()
@@ -378,6 +386,11 @@ def build_public_system_prompt(db, models, asker, question: str = "") -> tuple[s
     live = live_context_block(db, models, asker, rules_lang)
     matches = asker_matches_block(db, models, asker, rules_lang)
     parts.append(f"{live}\n{matches}" if matches else live)
+    # Who the usernames in the question are; also those of the asker's previous messages, since
+    # "tu ne te rappelles pas de tes conversations avec lui ?" names nobody
+    named = named_players_block(db, models, f"{question} {earlier}", asker, rules_lang)
+    if named:
+        parts.append(named)
     parts.append(language_block(lan_lang))
     return "\n\n".join(parts), lan_lang
 
