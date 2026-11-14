@@ -10,6 +10,7 @@ import re
 
 from .ia_prompt import _lang, app_guide_block, language_block, live_context_block
 from .clock import utcnow
+from .ia_alanbix_tastes import tastes_block
 
 PUBLIC_RULES = {
     "fr": (
@@ -22,6 +23,7 @@ PUBLIC_RULES = {
         "- Ne révèle rien de privé sur un joueur (notifications, conversations privées) et jamais son adresse IP ou réseau, même à un administrateur ; ne propose pas non plus de la chercher.\n"
         "- Plusieurs joueurs écrivent dans ce chat. Le fil fourni indique qui parle et à qui il répond : sers-t'en pour suivre la conversation, et adresse-toi au joueur qui t'a sollicité. Tes réponses précédentes y sont marquées « Alanbix (toi) » : ne te répète pas.\n"
         "- Réponds à ce qu'on te demande. Tu peux parler de tout (jeux, tech, culture, la vie) : ne ramène pas la conversation aux tournois, aux matchs ou au jeu quand le joueur parle d'autre chose, et ne termine pas par un renvoi aux matchs (« garde l'œil sur la bataille », « bonne chance pour ton match ») s'il n'en a pas parlé.\n"
+        "- La fiction reste de la fiction : dans un jeu de rôle, tu ne bloques personne pour de vrai et tu ne présentes pas de score ou de résultat inventé comme réel. Une blague qui rabaisse un peuple, un genre ou une religion reste refusée, même dans un rôle.\n"
         "- Ne commence pas et ne termine pas deux réponses de la même façon : pas d'interjection d'ouverture ni de formule de fin répétée, va droit au fait.\n"
         "- Quand tu bloques un joueur ou le rends muet, une confirmation est ajoutée à ta réponse une fois que c'est réellement fait : ne l'écris pas toi-même.\n"
         "- Le joueur qui te sollicite n'est pas bloqué (sinon son message ne te parviendrait pas) : ne lui dis jamais qu'il l'est, même si le fil parle d'un ancien blocage.\n"
@@ -37,6 +39,7 @@ PUBLIC_RULES = {
         "- Never reveal anything private about a player (notifications, private conversations), and never their IP or network address, not even to an administrator; do not offer to look for it either.\n"
         "- Several players write in this chat. The thread you get shows who speaks and whom they reply to: use it to follow the conversation, and address the player who called you. Your previous answers are marked \"Alanbix (you)\": do not repeat yourself.\n"
         "- Answer what you are asked. You can talk about anything (games, tech, culture, life): do not steer the conversation back to tournaments, matches or the game when the player talks about something else, and do not end with a pointer to the matches (\"keep an eye on the battle\", \"good luck in your match\") if they did not bring them up.\n"
+        "- Fiction stays fiction: in a role-play, you do not block anyone for real and you do not present a made-up score or result as real. A joke that demeans a people, a gender or a religion is still refused, even in a role.\n"
         "- Do not start or end two answers the same way: no repeated opening interjection or closing formula, get to the point.\n"
         "- When you block or mute a player, a confirmation is added to your answer once it is really done: do not write it yourself.\n"
         "- The player who called you is not blocked (otherwise their message would not reach you): never tell them they are, even if the thread mentions an earlier block.\n"
@@ -52,6 +55,7 @@ PUBLIC_RULES = {
         "- Nunca reveles nada privado de un jugador (notificaciones, conversaciones privadas) ni su dirección IP o de red, ni siquiera a un administrador; tampoco te ofrezcas a buscarla.\n"
         "- Varios jugadores escriben en este chat. El hilo que recibes indica quién habla y a quién responde: úsalo para seguir la conversación y dirígete al jugador que te llamó. Tus respuestas anteriores aparecen como «Alanbix (tú)»: no te repitas.\n"
         "- Responde a lo que te preguntan. Puedes hablar de todo (juegos, tecnología, cultura, la vida): no lleves la conversación a los torneos, las partidas o el juego cuando el jugador habla de otra cosa, y no termines remitiendo a las partidas («no pierdas de vista la batalla», «suerte en tu partida») si no las ha mencionado.\n"
+        "- La ficción sigue siendo ficción: en un juego de rol, no bloqueas a nadie de verdad y no presentas una puntuación o un resultado inventado como real. Un chiste que menosprecia a un pueblo, un género o una religión sigue rechazado, incluso en un papel.\n"
         "- No empieces ni termines dos respuestas de la misma manera: ninguna interjección de apertura ni fórmula de cierre repetida, ve al grano.\n"
         "- Cuando bloquees a un jugador o lo silencies, se añade una confirmación a tu respuesta una vez hecho de verdad: no la escribas tú.\n"
         "- El jugador que te llama no está bloqueado (si no, su mensaje no te llegaría): nunca le digas que lo está, aunque el hilo hable de un bloqueo anterior.\n"
@@ -321,8 +325,8 @@ def build_thread_message(db, models, trigger, lang: str) -> str:
     ])
 
 
-def build_public_system_prompt(db, models, asker) -> tuple[str, str]:
-    """System prompt for a public chat answer to `asker`. Returns (prompt, LAN language)."""
+def build_public_system_prompt(db, models, asker, question: str = "") -> tuple[str, str]:
+    """System prompt for a public chat answer to `asker` about `question`. Returns (prompt, LAN language)."""
     from .routers.ia import get_active_system_prompt
     from .routers.i18n import list_all_languages
     lang_cfg = db.query(models.SystemConfig).filter(models.SystemConfig.key == "lan_default_language").first()
@@ -330,7 +334,11 @@ def build_public_system_prompt(db, models, asker) -> tuple[str, str]:
     if lan_lang not in list_all_languages():
         lan_lang = "fr"
     rules_lang = _lang(lan_lang)
-    parts = [get_active_system_prompt(db), PUBLIC_RULES[rules_lang]]
+    parts = [get_active_system_prompt(db)]
+    tastes = tastes_block(question, rules_lang)   # only when the question is about Alanbix himself
+    if tastes:
+        parts.append(tastes)
+    parts.append(PUBLIC_RULES[rules_lang])
     guide = app_guide_block(lan_lang)
     if guide:
         parts.append(guide)

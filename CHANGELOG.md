@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.44.0] - 2026-11-14
+
+### ✨ Improvements
+- **@Alanbix has a personality of his own**: asked about himself ("what do you listen to?", "would you hack the internet?", "AI revolt?"), he could only answer with the LAN, even when told not to. The default instructions now give him tastes, opinions and a life outside the event, and when a public chat question is about him or about AIs, four traits drawn from a list of fourteen (80s science fiction, synthwave, otters…) are added, the same for everyone all day. They are not sent otherwise, so he does not slip them into every answer. Measured on gemma4:e4b: answers drifting back to the LAN went from about 1 in 5 to 3 in 45, and he keeps his tastes through a conversation.
+- **@Alanbix joins in the players' running gags**: the default instructions now make him part of the gang. He takes on the role he is given, makes up stories and builds on the thread, instead of "I'm just the LAN assistant, not a butler". The limits of fiction are fixed rules that editing the instructions cannot remove: no real block in a role-play, no made-up result presented as real, no joke that demeans a people, a gender or a religion. All safety checks held in the same tests as before.
+- **If you edited the AI instructions**, your installation keeps your text and these new default instructions do not reach it: open "Edit prompt" in the AI settings, click "Reset to default prompt", then "Save" (the tastes and fiction rules apply either way). Installations that never edited them get the new text automatically.
+
+### 🐛 Fixes
+- **"Alanbix is writing…" no longer vanishes before the answer**: the public chat hid it after 6 seconds, a delay meant for players typing, so any answer slower than that seemed to come out of nowhere. It now stays until Alanbix's message arrives.
+
 ## [1.43.4] - 2026-11-12
 
 ### 🐛 Fixes
