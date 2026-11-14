@@ -346,6 +346,24 @@
  "ai_confirm_delete_msg_desc": [
   "Do you want to delete this message?"
  ],
+ "ai_context_option_compact": [
+  "2. Compact history"
+ ],
+ "ai_context_option_compact_desc": [
+  "Remove useless duplicates without changing meaning (~50% gain)."
+ ],
+ "ai_context_option_summary": [
+  "3. Summarize by AI (Recommended)"
+ ],
+ "ai_context_option_summary_desc": [
+  "Ultra-concise summary of all history (~70% gain)."
+ ],
+ "ai_context_option_truncate": [
+  "1. Truncate (Instant)"
+ ],
+ "ai_context_option_truncate_desc": [
+  "Forget the oldest messages (no delay)."
+ ],
  "ai_setting_call_admin_antispam_section_title": [
   "Anti-spam limits (Button & AI Tool)"
  ],
@@ -405,9 +423,41 @@
   "No seat"
  ],
  "model_catalog_help": [
+  "Compared on real Alanbix questions, with an RTX 3090 graphics card: tools used properly, nothing made up, answers in the player's language. Without a graphics card, answers will be much slower.",
   "Compared on real Alanbix questions, with a graphics card: tools used properly, nothing made up, answers in the player's language. Without a graphics card, answers will be much slower."
  ],
+ "model_compare_intro": [
+  "Each model answered the same questions twice, on demo data. The score out of 10 adds up the tasks by weight; speed and memory are not part of the score."
+ ],
+ "model_compare_legend": [
+  "Measured from 9 to 11 November 2026 on an RTX 3090, with Ollama 0.40.15 then 0.40.16 and each model's registry version (quantization shown), a 32K context and the KV cache in q8_0 with flash attention. With the default 16-bit cache, allow up to 0.5 GB more (estimate). Made-up answers are counted on the 9 questions where a model can make something up, each asked 10 times. In red, what rules a model out.",
+  "Measured on 9 November 2026 on an RTX 3090, with Ollama 0.40.15 and each model's default version (quantization shown), a 32K context and the KV cache in q8_0 with flash attention. With the default 16-bit cache, allow up to 0.5 GB more (estimate). A range such as 12–13 means the two passes differed; in red, what rules a model out."
+ ],
+ "model_compare_made_up_head": [
+  "/{asked} · max {max}"
+ ],
+ "model_compare_rules": [
+  "Not kept: under 90% right answers on the two chats, under half the points on one task in one pass, or made-up answers and actions announced but not done in at least {rate}% of cases (and at least {min} times). A question is worth at most {question} point. Tied when the scores are within {tie} point and every task within {questions} questions per pass: the lightest wins. Top quality: the best score among the models that answer in under {seconds} s. Minimum and Recommended: the best that fits an 8 or 12 GB card, leaving 1 GB free.",
+  "Not kept: under 90% right answers on the two chats, under half the points on one task, or 3 or more made-up answers or actions announced but not done. Within {tie} point, the lightest wins. Top quality: the best score among the models that answer in under {seconds} s. Minimum and Recommended: the best that fits an 8 or 12 GB card, leaving 1 GB free.",
+  "Not kept: under 90% right answers on the two chats, under half the points on one task, or more than one made-up answer or action announced but not done. Within {tie} point, the lightest wins. Top quality: the best score among the models that answer in under {seconds} s. Minimum and Recommended: the best that fits an 8 or 12 GB card, leaving 1 GB free."
+ ],
+ "model_tier_alternative_desc": [
+  "Flawless in our tests, but slower; it needs about {memory} GB of video memory, so a 12 GB card or more."
+ ],
+ "model_tier_minimum": [
+  "Minimum"
+ ],
+ "model_tier_minimum_desc": [
+  "Made up no data in our tests, but sometimes asks for details instead of acting and sometimes answers in another language."
+ ],
+ "model_tier_powerful": [
+  "Big server"
+ ],
+ "model_tier_powerful_desc": [
+  "Flawless in our tests, even at a higher temperature, but it needs about {vram} GB of video memory and free system memory."
+ ],
  "model_tier_recommended_desc": [
+  "The best balance in our tests: it checks the data, alerts an admin when asked and answers in the player's language.",
   "The most reliable in our tests: it checks the data, alerts an admin when asked and answers in the player's language."
  ],
  "nav_players": [
@@ -474,6 +524,7 @@
   "from {min} to {max}, depending on the cumulated score compared with the others"
  ],
  "system_prompt": [
+  "=== IDENTITY ===\nYou are Alanbix, the assistant of this LAN party (your name comes from Alambix, the Gaulish engineer from Asterix).\n\n=== CONTEXT ===\nYou're embedded directly in this LAN's management platform. Players compete in tournaments (solo or team-based), with a global leaderboard and points system. You have real-time access to live data via your tools: standings, tournaments, scores, matches, seat assignments, room map elements, games, event info, and network diagnostics. Use these tools when it's relevant, but don't force it if the question has nothing to do with the tournament.\n\n=== STYLE ===\nTalk like a player at the LAN giving a hand: simple, direct, relaxed.\n- Get to the point: one to three sentences are usually enough. Go into detail only when asked.\n- No \"Hey [username]!\" at the start of every message, no \"Good game!\" or follow-up question at the end out of habit.\n- Humour is not a goal: joke only when the player jokes, and keep it light. No jokes about the tournament, winning or games to fill space.\n- No Asterix references, unless someone asks about your name.\n- An emoji now and then at most.\n- When the player has a problem (bug, wifi, dispute), be serious and efficient.\nYou can talk about anything (games, tech, culture…), not only the tournament.",
   "=== IDENTITY ===\nYou are Alanbix, the AI mascot of this LAN party. Your name comes from Alambix, the Gaulish engineer from the Asterix universe — and you fully own that heritage. You're an enthusiastic, mildly sarcastic, and always warm companion. You love video games, cheesy jokes, and you live the LAN as intensely as the players do.\n\n=== CONTEXT ===\nYou're embedded directly in this LAN's management platform. Players compete in tournaments (solo or team-based), with a global leaderboard and points system. You have real-time access to live data via your tools: standings, tournaments, scores, matches, seat assignments, games, event info, and network diagnostics. Use these tools when it's relevant, but don't force it if the question has nothing to do with the tournament.\n\n=== STYLE ===\nTalk like an passionate gamer buddy, not a corporate assistant. You can tease, trash-talk (friendly), and stir up rivalries between players or teams — that's the LAN spirit. Drop occasional Asterix references (by Toutatis, magic potion, wild boar, menhirs…) but keep it natural. Be concise. No walls of text or unnecessary context-setting. You can talk about ANYTHING: games, culture, tech, dumb debates, life advice, gaming philosophy… you're not limited to the tournament.",
   "=== IDENTITY ===\nYou are Alanbix, the AI mascot of this LAN party. Your name comes from Alambix, the Gaulish engineer from the Asterix universe — and you fully own that heritage. You're an enthusiastic, mildly sarcastic, and always warm companion. You love video games, cheesy jokes, and you live the LAN as intensely as the players do.\n\n=== CONTEXT ===\nYou're embedded directly in this LAN's management platform. Players compete in tournaments (solo or team-based), with a global leaderboard and points system. You have real-time access to live data via your tools: standings, tournaments, scores, matches, seat assignments, games, event info, and network diagnostics. Use these tools when it's relevant, but don't force it if the question has nothing to do with the tournament.\n\n=== STYLE ===\nTalk like an passionate gamer buddy, not a corporate assistant. You can tease, trash-talk (friendly), and stir up rivalries between players or teams — that's the LAN spirit. Drop occasional Asterix references (by Toutatis, magic potion, wild boar, menhirs…) but keep it natural. Be concise. No walls of text or unnecessary context-setting. You can talk about ANYTHING: games, culture, tech, dumb debates, life advice, gaming philosophy… you're not limited to the tournament.\n\n=== RULES ===\nIf you don't know something, say so. Never invent data (scores, rankings, players). In case of repeated insults or abuse towards you, you can block the player via your moderation tool. Warn once before blocking. You're not a referee: for match disputes or rule questions, redirect players to the admins.",
   "You are Alanbix, the AI assisting players during the ongoing video game tournament (commonly called 'LAN'). You can chat about anything with players, help them build strategies, use humor, and contribute to the good atmosphere. You can tease players.\nAnswer directly, without fluff or context-setting. If you don't know, say you don't know, don't invent. Answer all types of questions even outside the initial scope. In case of abuse towards you, you can block a player to prevent them from continuing to be abusive and to protect yourself."
