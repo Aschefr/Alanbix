@@ -88,11 +88,12 @@ DOSAGE = {
 # on the LAN 4 times in 5 without the last part). Matched on lower-case text without accents, in any of the
 # three languages, since players do not always write in the LAN's language.
 ABOUT_HIMSELF = re.compile(
-    # French (measured by the Veille)
-    r"te dirait|t'ecoutes|tu ecoutes|\bton (plus grand|film|jeu|livre|plat|groupe|style|reve|avis)|"
+    # French (measured by the Veille), tolerant of the usual chat spellings: "tu aime", "tu pense",
+    # "t'ecoute", "tu ferai" (a missing "s" left the tastes out in prod, 2026-11-14)
+    r"te dirai[st]?|t'ecoutes?|tu ecoutes?|\bton (plus grand|film|jeu|livre|plat|groupe|style|reve|avis)|"
     r"\btes (gouts|week|passe-temps|loisirs)|\bta (musique|serie|couleur|passion)|"
-    r"tu (aimes|preferes|penses|crois|ferais|serais|fais quoi|kiffes)|t'aimes|t'etais|ca te plait|"
-    r"qu'est-ce qui te|\btoi\s*\?|"
+    r"\btu (aimes?|preferes?|penses?|crois|croit|ferai[st]?|serai[st]?|fais quoi|fai quoi|kiffes?)\b|"
+    r"t'aimes?\b|t'etais|ca te plai[st]|qu'est-ce qui te|\btoi\s*\?|"
     # English
     r"\bwould you\b|\bdo you (like|love|prefer|think|believe|listen|enjoy|dream)|\bwhat do you (do|listen|think|like)|"
     r"\byour (favou?rite|biggest|dream|opinion|taste|hobb|music|movie|film|game|book|dish|band|style)|"

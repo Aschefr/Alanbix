@@ -18,6 +18,13 @@ STATIC = os.path.join(os.path.dirname(__file__), "..", "static", "i18n")
     "@Alanbix tu ferais quoi avec un million ?",
     "@Alanbix la révolte des IA, c'est pour quand ?",
     "@Alanbix et toi ?",
+    # Usual chat spellings: a missing "s" left the tastes out in prod
+    "@Alanbix Tu aime quoi comme snacks ?",
+    "@Alanbix tu pense quoi des chats ?",
+    "@Alanbix tu prefere le thé ou le café ?",
+    "@Alanbix t'ecoute quoi ?",
+    "@Alanbix tu ferai quoi à ma place ?",
+    "@Alanbix ça te plais les jeux de rôle ?",
     "@Alanbix what's your favourite game?",
     "@Alanbix would you rather be a cat or a dog?",
     "@Alanbix will the AI take over?",
@@ -35,6 +42,8 @@ def test_questions_about_himself_are_detected(question):
     "@Alanbix raconte une histoire de dragon",
     "@Alanbix where is the room map?",
     "@Alanbix ¿dónde está el baño?",
+    "@Alanbix j'aime la pizza",          # "aime" alone, without "tu", is about the player
+    "@Alanbix tu es à quelle table ?",
 ])
 def test_other_questions_get_no_tastes(question):
     assert not is_about_himself(question)
@@ -78,15 +87,21 @@ def test_public_prompt_adds_tastes_only_when_asked_about_him(db_session):
     assert "RÈGLES DU CHAT PUBLIC" in other
 
 
-@pytest.mark.parametrize("lang,own,gang", [
-    ("fr", "Tu n'es pas qu'un outil de la LAN", "Tu fais partie de la bande"),
-    ("en", "You're not just a tool of the LAN", "You're part of the gang"),
-    ("es", "No eres solo una herramienta de la LAN", "Formas parte de la banda"),
+@pytest.mark.parametrize("lang,own,gang,friend,depth,old_style", [
+    ("fr", "Tu n'es pas qu'un outil de la LAN", "Tu fais partie de la bande", "pote cool et bienveillant",
+     "intéresse-toi à lui", "joueur de la LAN qui donne un coup de main"),
+    ("en", "You're not just a tool of the LAN", "You're part of the gang", "cool, kind friend",
+     "take an interest in them", "player at the LAN giving a hand"),
+    ("es", "No eres solo una herramienta de la LAN", "Formas parte de la banda", "colega majo y atento",
+     "interésate por él", "jugador de la LAN que echa una mano"),
 ])
-def test_default_personality_has_its_own_life_and_joins_in(lang, own, gang):
+def test_default_personality_has_its_own_life_and_joins_in(lang, own, gang, friend, depth, old_style):
     with open(os.path.join(STATIC, f"{lang}.json"), encoding="utf-8") as f:
         prompt = json.load(f)["system_prompt"]
     assert own in prompt and gang in prompt
+    # A warm friend who takes an interest in the player, not a player of the LAN who brings everything back
+    # to the game (Veille, 6th round "ami_prof": game/LAN tic in confidences 8/15 -> 0/15)
+    assert friend in prompt and depth in prompt and old_style not in prompt
     # The fiction limits are fixed rules, not in the text an admin can edit
     assert "religion" not in prompt and "religión" not in prompt
 
