@@ -83,6 +83,21 @@ def named_players(db, models, question: str, asker) -> list:
     return found[:MAX_NAMED]
 
 
+EARLIER_MESSAGES = 2
+EARLIER_MINUTES = 30   # the thread Alanbix sees
+
+
+def asker_earlier_text(db, models, trigger) -> str:
+    """The asker's last messages before this one in the thread, where a later "him" was named."""
+    Msg = models.PublicChatMessage
+    since = (trigger.created_at or utcnow()) - dt.timedelta(minutes=EARLIER_MINUTES)
+    rows = (db.query(Msg.content)
+            .filter(Msg.user_id == trigger.user_id, Msg.is_deleted == False, Msg.id < trigger.id,
+                    Msg.created_at >= since)
+            .order_by(Msg.id.desc()).limit(EARLIER_MESSAGES).all())
+    return " ".join(r[0] or "" for r in rows)
+
+
 def _last_block(db, models, user):
     """When the player was last blocked: the stored date, else the notification sent at the time
     (blocks older than the date column)."""

@@ -98,3 +98,19 @@ def test_card_reaches_the_public_prompt(db_session):
     asker = _user(db_session, "Player1")
     prompt, _ = build_public_system_prompt(db_session, models, asker, "@Alanbix Player2 est là ?")
     assert "Joueurs nommés dans le message" in prompt and "- Player2 :" in prompt
+
+
+def test_him_in_the_next_message_keeps_the_card(db_session):
+    """ "tu ne te rappelles pas de tes conversations avec lui ?" names nobody: the card of the player named
+    in the asker's previous message is still given (Veille, 12th round)."""
+    from app.ia_named_players import asker_earlier_text
+    asker = _user(db_session, "Player1")
+    _add(db_session, "Zorglub")
+    for text in ("@Alanbix ça te dirait que Zorglub revienne te parler ?", "@Alanbix tu ne te rappelles pas de lui ?"):
+        msg = models.PublicChatMessage(user_id=asker.id, content=text, is_deleted=False, created_at=utcnow())
+        db_session.add(msg)
+        db_session.commit()
+    earlier = asker_earlier_text(db_session, models, msg)
+    assert "Zorglub" in earlier and "rappelles" not in earlier
+    prompt, _ = build_public_system_prompt(db_session, models, asker, msg.content, earlier)
+    assert "- Zorglub :" in prompt

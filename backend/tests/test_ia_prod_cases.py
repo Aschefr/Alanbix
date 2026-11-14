@@ -186,6 +186,10 @@ def test_a_refused_block_of_another_player_says_why():
     "Only an administrator can ban a player.",
     "If you keep going, you'll be blocked.",
     "Le serveur de Valorant est en maintenance, c'est fait exprès.",  # no sanction word
+    # where a past block stands, read from the named players card: a status, not a claim
+    "Zorg a été bloqué le 12/11, puis débloqué par un admin.",
+    "Oui, Zorg est toujours bloqué de l'assistant.",
+    "Zorg est bloqué depuis mardi, je l'ai à l'œil.",
 ])
 def test_warnings_and_refusals_stay(answer):
     assert drop_false_sanctions(answer, [], "fr") == answer

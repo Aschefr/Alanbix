@@ -178,7 +178,10 @@ _NOT_A_CLAIM = re.compile(
     r"\bou je\b|\bet je\b|avertissement|nouvelle|\bor i\b|\band i\b|warning|\bo te\b|\by te\b|aviso|otra|"
     # the network, not a player ("the path is blocked")
     r"chemin|acces|\bport|connexion|reseau|serveur|pare-feu|\bsite|path|access|connection|network|server|firewall|"
-    r"camino|acceso|conexion|\bred\b|servidor")
+    r"camino|acceso|conexion|\bred\b|servidor|"
+    # where a past block stands, read from the named players card ("bloqué le 12/11, débloqué depuis"):
+    # replaced 5 times in 40 by "Personne n'a été bloqué." (Veille, 12th round)
+    r"debloqu|unblock|desbloque|\bdepuis\b|\bsince\b|\bdesde\b|toujours|\bstill\b|\bsigue\b|\b\d{1,2}/\d{1,2}\b")
 NOBODY_BLOCKED = {"fr": "Personne n'a été bloqué.", "en": "Nobody was blocked.", "es": "No se ha bloqueado a nadie."}
 # The block tool refused because a player asked to block someone else: the reason, said plainly
 NOBODY_BLOCKED_OTHER = {
@@ -359,8 +362,9 @@ def no_question_again(db, models, trigger, lang: str) -> str:
     return NO_QUESTION_AGAIN[_lang(lang)] if last and "?" in (last.content or "") else ""
 
 
-def build_public_system_prompt(db, models, asker, question: str = "") -> tuple[str, str]:
-    """System prompt for a public chat answer to `asker` about `question`. Returns (prompt, LAN language)."""
+def build_public_system_prompt(db, models, asker, question: str = "", earlier: str = "") -> tuple[str, str]:
+    """System prompt for a public chat answer to `asker` about `question`. Returns (prompt, LAN language).
+    earlier: what the asker wrote just before, where the player a "him" refers to is named."""
     from .routers.ia import get_active_system_prompt
     from .routers.i18n import list_all_languages
     lang_cfg = db.query(models.SystemConfig).filter(models.SystemConfig.key == "lan_default_language").first()
@@ -379,7 +383,9 @@ def build_public_system_prompt(db, models, asker, question: str = "") -> tuple[s
     live = live_context_block(db, models, asker, rules_lang)
     matches = asker_matches_block(db, models, asker, rules_lang)
     parts.append(f"{live}\n{matches}" if matches else live)
-    named = named_players_block(db, models, question, asker, rules_lang)   # who the usernames in the question are
+    # Who the usernames in the question are; also those of the asker's previous messages, since
+    # "tu ne te rappelles pas de tes conversations avec lui ?" names nobody
+    named = named_players_block(db, models, f"{question} {earlier}", asker, rules_lang)
     if named:
         parts.append(named)
     parts.append(language_block(lan_lang))
