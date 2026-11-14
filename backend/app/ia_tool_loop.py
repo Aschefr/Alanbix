@@ -77,6 +77,23 @@ def parse_xml_tool_calls(text: str) -> list:
     ]
 
 
+def repeated_call(done_calls: set, name: str, args: dict) -> bool:
+    """True when this exact call was already run for this answer; else remembers it.
+
+    gemma4:e4b called block_user_from_ia 8 times in a row and get_leaderboard up to 6 (Veille, 2026-11-14):
+    a repeated call is not run again, so a block notifies the admins once."""
+    key = (name, json.dumps(args, sort_keys=True, ensure_ascii=False, default=str))
+    if key in done_calls:
+        return True
+    done_calls.add(key)
+    return False
+
+
+def repeated_call_result(name: str) -> str:
+    return json.dumps({"error": f"'{name}' was already called with these arguments and its result is above. "
+                                "Do not call it again: answer the player now."})
+
+
 async def run_tool_rounds(
     client,
     host: str,
@@ -102,6 +119,7 @@ async def run_tool_rounds(
 
     added = []
     results = []
+    done_calls = set()
     used_tools = []
     tool_time = 0.0
     rounds = 0
@@ -160,6 +178,8 @@ async def run_tool_rounds(
             started = time.time()
             if allowed_tools is not None and name not in allowed_tools:
                 result = json.dumps({"error": f"Tool '{name}' is not available here."})
+            elif repeated_call(done_calls, name, args):
+                result = repeated_call_result(name)
             else:
                 try:
                     result = await execute_tool(name, args, user_id=user_id, conversation_id=conversation_id)

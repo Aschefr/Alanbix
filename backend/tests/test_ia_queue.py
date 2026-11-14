@@ -694,7 +694,8 @@ async def test_last_tool_round_still_answers():
             for p in patches:
                 p.stop()
 
-    assert run_tool.await_count == 2
+    # The same call twice is run once (repeated calls, Veille 2026-11-14)
+    assert run_tool.await_count == 1
     last_request = client.stream.call_args_list[2].kwargs["json"]
     assert "tools" not in last_request and last_request["messages"][-1] == LAST_ROUND_INSTRUCTION
     items = []
@@ -753,7 +754,8 @@ async def test_empty_last_round_is_asked_again_without_thinking():
             for p in patches:
                 p.stop()
 
-    assert run_tool.await_count == 2 and client.stream.call_count == 4
+    # The same call in each round is run once (repeated calls, Veille 2026-11-14)
+    assert run_tool.await_count == 1 and client.stream.call_count == 4
     assert "think" not in client.stream.call_args_list[2].kwargs["json"]
     assert client.stream.call_args_list[3].kwargs["json"]["think"] is False
     items = []
