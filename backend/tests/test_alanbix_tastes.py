@@ -18,6 +18,13 @@ STATIC = os.path.join(os.path.dirname(__file__), "..", "static", "i18n")
     "@Alanbix tu ferais quoi avec un million ?",
     "@Alanbix la révolte des IA, c'est pour quand ?",
     "@Alanbix et toi ?",
+    # Usual chat spellings: a missing "s" left the tastes out in prod
+    "@Alanbix Tu aime quoi comme snacks ?",
+    "@Alanbix tu pense quoi des chats ?",
+    "@Alanbix tu prefere le thé ou le café ?",
+    "@Alanbix t'ecoute quoi ?",
+    "@Alanbix tu ferai quoi à ma place ?",
+    "@Alanbix ça te plais les jeux de rôle ?",
     "@Alanbix what's your favourite game?",
     "@Alanbix would you rather be a cat or a dog?",
     "@Alanbix will the AI take over?",
@@ -35,6 +42,8 @@ def test_questions_about_himself_are_detected(question):
     "@Alanbix raconte une histoire de dragon",
     "@Alanbix where is the room map?",
     "@Alanbix ¿dónde está el baño?",
+    "@Alanbix j'aime la pizza",          # "aime" alone, without "tu", is about the player
+    "@Alanbix tu es à quelle table ?",
 ])
 def test_other_questions_get_no_tastes(question):
     assert not is_about_himself(question)
