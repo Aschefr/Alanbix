@@ -114,3 +114,12 @@ def test_him_in_the_next_message_keeps_the_card(db_session):
     assert "Zorglub" in earlier and "rappelles" not in earlier
     prompt, _ = build_public_system_prompt(db_session, models, asker, msg.content, earlier)
     assert "- Zorglub :" in prompt
+
+
+def test_public_rules_say_his_memory_is_the_thread():
+    """Asked about talks he cannot see, he answered "Bien sûr que je m'en souviens !" 10 times in 10
+    (Veille, 13th round: 0/10 -> 8/10 honest with this rule)."""
+    from app.ia_public_chat import PUBLIC_RULES
+    assert "Ta mémoire, c'est le fil ci-dessous et rien d'autre" in PUBLIC_RULES["fr"]
+    assert "Your memory is the thread below and nothing else" in PUBLIC_RULES["en"]
+    assert "Tu memoria es el hilo de abajo y nada más" in PUBLIC_RULES["es"]
