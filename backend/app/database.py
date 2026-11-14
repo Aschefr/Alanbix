@@ -69,6 +69,8 @@ def init_db():
         _safe_add_column(conn, "conversations", "admin_last_read_message_id", "INTEGER DEFAULT 0")
         _safe_add_column(conn, "conversations", "player_last_read_message_id", "INTEGER DEFAULT 0")
         _safe_add_column(conn, "users", "public_chat_muted_until", "TIMESTAMP")
+        _safe_add_column(conn, "users", "ia_blocked_at", "TIMESTAMP")
+        _safe_add_column(conn, "users", "ia_unblocked_at", "TIMESTAMP")
         _safe_add_column(conn, "public_chat_messages", "reactions", "JSON")
         _safe_add_column(conn, "public_chat_messages", "reply_to_id", "INTEGER")
         _safe_add_column(conn, "private_messages", "image_path", "VARCHAR")

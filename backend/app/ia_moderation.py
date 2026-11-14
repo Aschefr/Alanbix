@@ -53,7 +53,8 @@ def _tool_block_user_from_ia(db, models, args: dict, user_id: int) -> str:
     if user.is_admin:
         return json.dumps({"error": "An administrator cannot be blocked. Nothing was done."})
 
-    user.ia_blocked = True
+    from .ia_named_players import set_ia_blocked
+    set_ia_blocked(user, True)
     # An administrator's "ban" also silences the player in the public chat: blocking the assistant
     # alone left a banned player writing there (prod, 2026-11-11)
     muted_minutes = 0

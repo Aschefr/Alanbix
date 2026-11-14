@@ -372,7 +372,8 @@ async def admin_update_user(user_id: int, data: dict, db: Session = Depends(data
     if "is_admin" in data:
         target.is_admin = bool(data["is_admin"])
     if "ia_blocked" in data:
-        target.ia_blocked = bool(data["ia_blocked"])
+        from ..ia_named_players import set_ia_blocked
+        set_ia_blocked(target, data["ia_blocked"])
     db.commit()
     db.refresh(target)
     await ws_manager.broadcast({"type": "users_updated"})
@@ -695,6 +696,7 @@ async def admin_reset_all(body: FullResetRequest, db: Session = Depends(database
         db.query(models.User).update({
             models.User.points: 0, models.User.seat_id: None, models.User.team_name: None,
             models.User.ia_blocked: False, models.User.public_chat_muted_until: None,
+            models.User.ia_blocked_at: None, models.User.ia_unblocked_at: None,
         }, synchronize_session=False)
     db.commit()
 

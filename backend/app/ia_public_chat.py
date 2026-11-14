@@ -11,6 +11,7 @@ import re
 from .ia_prompt import _lang, app_guide_block, language_block, live_context_block
 from .clock import utcnow
 from .ia_alanbix_tastes import tastes_block
+from .ia_named_players import named_players_block
 
 PUBLIC_RULES = {
     "fr": (
@@ -378,6 +379,9 @@ def build_public_system_prompt(db, models, asker, question: str = "") -> tuple[s
     live = live_context_block(db, models, asker, rules_lang)
     matches = asker_matches_block(db, models, asker, rules_lang)
     parts.append(f"{live}\n{matches}" if matches else live)
+    named = named_players_block(db, models, question, asker, rules_lang)   # who the usernames in the question are
+    if named:
+        parts.append(named)
     parts.append(language_block(lan_lang))
     return "\n\n".join(parts), lan_lang
 
