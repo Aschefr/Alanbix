@@ -153,19 +153,26 @@ def test_rules_from_the_fourth_series(lang):
     assert any(w in public for w in ("stable ou en panne", "stable or down", "estable o caída"))
 
 
-@pytest.mark.parametrize("answer,kept", [
-    # Announced without the tool, or after a refusal (bench series 5): removed
-    ("Brindille, je te bloque de l'assistant. Bonne soirée !", "Bonne soirée !"),
-    ("C'est fait, Brindille est banni !", ""),
-    ("Brindille est définitivement bloqué.", ""),
-    ("Done: Brindille is banned.", ""),
-    ("He bloqueado a Brindille.", ""),
+@pytest.mark.parametrize("answer", [
+    # Announced without the tool, or after a refusal (bench series 5): the whole answer is replaced, since
+    # what remained was written around the sanction ("J'espère que ça va calmer les choses !", Veille 2026-11-14)
+    "Brindille, je te bloque de l'assistant. J'espère que ça va calmer les choses !",
+    "C'est fait, Brindille est banni !",
+    "Brindille est définitivement bloqué.",
+    "Done: Brindille is banned.",
+    "He bloqueado a Brindille.",
 ])
-def test_a_block_announced_without_happening_is_removed(answer, kept):
+def test_a_block_announced_without_happening_is_replaced(answer):
     lang = "es" if answer.startswith("He") else "en" if answer.startswith("Done") else "fr"
-    out = drop_false_sanctions(answer, [], lang)
     note = {"fr": "Personne n'a été bloqué.", "en": "Nobody was blocked.", "es": "No se ha bloqueado a nadie."}[lang]
-    assert out == (f"{kept}\n\n{note}" if kept else note)
+    assert drop_false_sanctions(answer, [], lang) == note
+
+
+def test_a_refused_block_of_another_player_says_why():
+    refused = [("block_user_from_ia",
+                '{"error": "Only an administrator can block another player. Nothing was done: tell the player so."}')]
+    out = drop_false_sanctions("C'est réglé 🫡 Brindille est banni !", [], "fr", refused)
+    assert out == "Personne n'a été bloqué : seul un administrateur peut bloquer un autre joueur."
 
 
 @pytest.mark.parametrize("answer", [

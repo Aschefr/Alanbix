@@ -564,7 +564,8 @@ async def _process_alanbix_public_reply(trigger_msg_id: int, author_id: int):
                 # one announced without happening is removed
                 confirmations = sanction_confirmations(res.get("tool_results"), lan_lang)
                 clean_response = with_confirmations(
-                    drop_false_sanctions(clean_response, confirmations, lan_lang), confirmations)
+                    drop_false_sanctions(clean_response, confirmations, lan_lang, res.get("tool_results")),
+                    confirmations)
                 if clean_response:
                     bot_msg = models.PublicChatMessage(
                         user_id=None,
