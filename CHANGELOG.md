@@ -4,6 +4,7 @@
 
 ### ✨ Improvements
 - **@Alanbix talks like a warm friend of the gang**: his default style said "talk like a player at the LAN giving a hand", which put him in the game, so even answers to a bad day or a driving test ended on the tournaments. He now talks like a cool, kind friend, curious about people: when a player shares something (their tiredness, a struggle, something they're proud of), he takes an interest in them with empathy, a nuanced opinion or a little anecdote, and now and then a real question, without bringing everything back to himself or the game. Measured on gemma4:e4b: answers to such confidences drifting back to the game or the LAN went from 8 in 15 to none, his help with the LAN is unchanged, and he never claims to be an administrator.
+- **@Alanbix no longer turns a chat into an interrogation**: when his last answer to a player in the thread already asked them a question, he answers without one the next time. Measured on gemma4:e4b: threads with three questions in a row or more went from 14 in 24 to 1 in 24, and he stays just as warm. A single confidence still gets its question.
 - **If you edited the AI instructions**, your installation keeps your text and the new style does not reach it: open "Edit prompt" in the AI settings, click "Reset to default prompt", then "Save". Installations on the default instructions, including those reset to them in 1.44.0, get the new style automatically.
 
 ### 🐛 Fixes
