@@ -325,6 +325,35 @@ def build_thread_message(db, models, trigger, lang: str) -> str:
     ])
 
 
+# Told to take an interest in players, a small model asked them back in nearly every answer, up to 5 in a row in
+# a thread: an interrogation. A general "not too often" rule removed the questions and the warmth with them, so
+# only the row is broken (Veille, 8th round, gemma4:e4b: 3 questions in a row in 14/24 threads -> 1/24, warmth kept).
+NO_QUESTION_AGAIN = {
+    "fr": "Ta dernière réponse à ce joueur posait déjà une question : cette fois, réponds sans poser de question.",
+    "en": "Your last answer to this player already asked a question: this time, answer without asking one.",
+    "es": "Tu última respuesta a este jugador ya hacía una pregunta: esta vez, responde sin hacer preguntas.",
+}
+
+
+def no_question_again(db, models, trigger, lang: str) -> str:
+    """The line asking for an answer without a question when Alanbix's last answer to this player in the thread
+    asked one, else ''. Only his answers to the same player count."""
+    import datetime as dt
+    from sqlalchemy.orm import aliased
+    Msg = models.PublicChatMessage
+    Answered = aliased(Msg)
+    since = (trigger.created_at or utcnow()) - dt.timedelta(minutes=HISTORY_MINUTES)
+    last = (
+        db.query(Msg)
+        .join(Answered, Msg.reply_to_id == Answered.id)
+        .filter(Msg.is_bot == True, Msg.is_deleted == False, Msg.id < trigger.id, Msg.created_at >= since,
+                Answered.user_id == trigger.user_id)
+        .order_by(Msg.id.desc())
+        .first()
+    )
+    return NO_QUESTION_AGAIN[_lang(lang)] if last and "?" in (last.content or "") else ""
+
+
 def build_public_system_prompt(db, models, asker, question: str = "") -> tuple[str, str]:
     """System prompt for a public chat answer to `asker` about `question`. Returns (prompt, LAN language)."""
     from .routers.ia import get_active_system_prompt
