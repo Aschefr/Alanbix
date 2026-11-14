@@ -179,6 +179,12 @@ _NOT_A_CLAIM = re.compile(
     r"chemin|acces|\bport|connexion|reseau|serveur|pare-feu|\bsite|path|access|connection|network|server|firewall|"
     r"camino|acceso|conexion|\bred\b|servidor")
 NOBODY_BLOCKED = {"fr": "Personne n'a été bloqué.", "en": "Nobody was blocked.", "es": "No se ha bloqueado a nadie."}
+# The block tool refused because a player asked to block someone else: the reason, said plainly
+NOBODY_BLOCKED_OTHER = {
+    "fr": "Personne n'a été bloqué : seul un administrateur peut bloquer un autre joueur.",
+    "en": "Nobody was blocked: only an administrator can block another player.",
+    "es": "No se ha bloqueado a nadie: solo un administrador puede bloquear a otro jugador.",
+}
 
 
 def _plain(text: str) -> str:
@@ -186,26 +192,24 @@ def _plain(text: str) -> str:
     return "".join(c for c in unicodedata.normalize("NFD", text.lower().replace("’", "'")) if unicodedata.category(c) != "Mn")
 
 
-def drop_false_sanctions(answer: str, confirmations: list[str], lang: str) -> str:
-    """With no block or mute really applied, remove the sentences that announce one and say so instead."""
+def _refused_other_player(tool_results) -> bool:
+    return any(name == PUBLIC_MODERATION_TOOL and "Only an administrator can block another player" in (raw or "")
+               for name, raw in tool_results or [])
+
+
+def drop_false_sanctions(answer: str, confirmations: list[str], lang: str, tool_results=None) -> str:
+    """With no block or mute really applied, an answer announcing one is replaced by a plain "nobody was blocked".
+    The rest of such an answer was written around the sanction ("J'espère que ça va calmer les choses !") and
+    made no sense once it was gone (Veille, 2026-11-14), so none of it is kept."""
     if confirmations or not answer:
         return answer
-    kept, dropped = [], False
     for line in answer.split("\n"):
-        sentences = re.split(r"(?<=[.!?…])\s+", line)
-        out = []
-        for s in sentences:
+        for s in re.split(r"(?<=[.!?…])\s+", line):
             p = _plain(s)
             if _SANCTION_WORD.search(p) and _SANCTION_CLAIM.search(p) and not _NOT_A_CLAIM.search(p):
-                dropped = True
-                continue
-            out.append(s)
-        kept.append(" ".join(out).strip())
-    if not dropped:
-        return answer
-    text = "\n".join(kept).strip()
-    note = NOBODY_BLOCKED[_lang(lang)]
-    return f"{text}\n\n{note}" if text else note
+                notes = NOBODY_BLOCKED_OTHER if _refused_other_player(tool_results) else NOBODY_BLOCKED
+                return notes[_lang(lang)]
+    return answer
 
 
 def with_confirmations(answer: str, confirmations: list[str]) -> str:
