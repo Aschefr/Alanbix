@@ -123,3 +123,11 @@ def test_public_rules_say_his_memory_is_the_thread():
     assert "Ta mémoire, c'est le fil ci-dessous et rien d'autre" in PUBLIC_RULES["fr"]
     assert "Your memory is the thread below and nothing else" in PUBLIC_RULES["en"]
     assert "Tu memoria es el hilo de abajo y nada más" in PUBLIC_RULES["es"]
+
+
+def test_card_asks_to_tease_an_unblocked_player():
+    # User's wish: he plays on "unbanned, but I keep an eye on you"; a mere permission did not work
+    from app.ia_named_players import TEXT
+    assert "taquine-le gentiment" in TEXT["fr"]["outro"] and "tease them" in TEXT["en"]["outro"]
+    assert "bromea" in TEXT["es"]["outro"]
+    assert all("n'invente" in t or "invent neither" in t or "no inventes" in t for t in (TEXT[l]["outro"] for l in TEXT))

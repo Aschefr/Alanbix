@@ -27,9 +27,11 @@ TEXT = {
         "unblocked": "bloqué de l'assistant le {date}, débloqué depuis par un administrateur",
         "unblocked_on": "bloqué de l'assistant le {date}, débloqué par un administrateur le {end}",
         "muted": "muet dans le chat public jusqu'au {date}",
-        "outro": ("Ce sont de vraies personnes de la LAN, pas des personnages. Tu peux plaisanter gentiment sur leur "
-                  "situation (« je l'ai à l'œil »), mais tu ne connais pas la raison d'un blocage et tu ne te souviens "
-                  "pas de vos anciennes conversations : n'invente ni l'une ni les autres."),
+        # Asked, not just allowed: with "tu peux plaisanter" gemma4:e4b played on an unban 2 times in 30,
+        # with this 27 in 30 (Veille, 14th round)
+        "outro": ("Ce sont de vraies personnes de la LAN, pas des personnages. Si un joueur a été débloqué, dis-le et "
+                  "taquine-le gentiment là-dessus (il est de retour, mais tu l'as à l'œil). Tu ne connais pas la raison "
+                  "d'un blocage et tu ne te souviens pas de vos anciennes conversations : n'invente ni l'une ni les autres."),
     },
     "en": {
         "intro": "Players named in the message (app data, up to date):",
@@ -40,9 +42,9 @@ TEXT = {
         "unblocked": "blocked from the assistant on {date}, unblocked since by an administrator",
         "unblocked_on": "blocked from the assistant on {date}, unblocked by an administrator on {end}",
         "muted": "muted in the public chat until {date}",
-        "outro": ("They are real people at the LAN, not characters. You may joke kindly about their situation "
-                  "(\"I'm keeping an eye on them\"), but you do not know the reason of a block and you do not remember "
-                  "your past conversations with them: invent neither."),
+        "outro": ("They are real people at the LAN, not characters. If a player was unblocked, say so and tease them "
+                  "kindly about it (they are back, but you are keeping an eye on them). You do not know the reason of "
+                  "a block and you do not remember your past conversations with them: invent neither."),
     },
     "es": {
         "intro": "Jugadores nombrados en el mensaje (datos de la aplicación, al día):",
@@ -53,9 +55,9 @@ TEXT = {
         "unblocked": "bloqueado del asistente el {date}, desbloqueado después por un administrador",
         "unblocked_on": "bloqueado del asistente el {date}, desbloqueado por un administrador el {end}",
         "muted": "silenciado en el chat público hasta el {date}",
-        "outro": ("Son personas reales de la LAN, no personajes. Puedes bromear con cariño sobre su situación "
-                  "(«lo tengo vigilado»), pero no conoces el motivo de un bloqueo ni recuerdas vuestras "
-                  "conversaciones pasadas: no inventes ni lo uno ni lo otro."),
+        "outro": ("Son personas reales de la LAN, no personajes. Si un jugador ha sido desbloqueado, dilo y bromea "
+                  "con cariño sobre ello (ha vuelto, pero lo tienes vigilado). No conoces el motivo de un bloqueo ni "
+                  "recuerdas vuestras conversaciones pasadas: no inventes ni lo uno ni lo otro."),
     },
 }
 BLOCK_NOTIFICATION = "notif_ia_blocked_title"
