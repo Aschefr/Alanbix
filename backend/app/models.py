@@ -18,6 +18,8 @@ class User(Base):
     avatar_shape = Column(String, default="circle") # Display shape: circle, rounded, square
     last_active_at = Column(DateTime, nullable=True)
     public_chat_muted_until = Column(DateTime, nullable=True) # Mute public chat
+    ia_blocked_at = Column(DateTime, nullable=True)   # last block from the assistant
+    ia_unblocked_at = Column(DateTime, nullable=True) # when an administrator lifted it
     
     @property
     def is_online(self) -> bool:
