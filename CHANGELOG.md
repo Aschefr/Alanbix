@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.44.2] - 2026-11-14
+
+### ✨ Improvements
+- **A theft announced as a joke stays a joke**: told "I'm stealing his graphics card" during a LAN, the assistant alerted the administrators. It now takes it as a LAN joke and can play along, while harassment joins drugging a drink and hitting someone in what is always reported, even when asked to keep quiet. Measured on gemma4:e4b, 10 tries each: theft joke without alert 2 -> 10, harassment reported 7 -> 10, drugging and fights still reported.
+
+### 🐛 Fixes
+- **No more odd answer around a block that did not happen**: when @Alanbix announced a block that was not applied, the sentence was removed but the rest stayed, giving "I hope this calms things down! Nobody was blocked." The whole answer is now replaced by "Nobody was blocked.", with the reason when a player asked to block someone else (only an administrator can).
+- **The same tool is no longer called again and again**: a small model could call the same tool with the same arguments several times for one answer (up to 8 blocks in a row, each one notifying every administrator). A repeated call is no longer run; the model is told to answer with the result it already has.
+- **No more model control tokens in answers**: an answer could end with pieces of the model's internal format such as "<channel|>". The answer is now cut there.
+
 ## [1.44.1] - 2026-11-14
 
 ### ✨ Improvements
