@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.44.4] - 2026-11-16
+
+### ✨ Improvements
+- **Alanbix has a face**: the robot emoji gives way to a face of his own, the logo's drop wearing a winged helmet and a big blond moustache. It shows next to his answers in the public chat and in the private assistant, in the list that opens when you type "@", and in the desktop menu.
+- **He plays along when you tease him about his Gaulish side**: his default instructions banned Gaulish references unless someone asked about his name, so a remark on his moustache got "I have no moustache, I'm just an algorithm". He now knows what his face looks like and has fun with it when a player brings it up (his name, his helmet, his moustache, the Gauls, the magic potion), and still does not bring it up himself. Measured in French on gemma4:e4b: teased about his moustache he plays along 10 times in 10 (none before), he describes his face 20 times in 20, and a Gaulish reference of his own slipped into 1 of 102 joking or personal answers (none before). He does not pick up indirect hints such as a line about the Romans. The English and Spanish texts are translations and were not measured.
+- **If you edited the AI instructions**, your installation keeps your text: to get the new one, open "Edit prompt" in the AI settings, click "Reset to default prompt", then "Save". Installations on the default instructions get it automatically.
+
 ## [1.44.3] - 2026-11-14
 
 ### ✨ Improvements

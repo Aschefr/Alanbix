@@ -246,11 +246,11 @@ def main(base, lang):
     api.call("POST", f"/tournaments/{ffa}/ffa-advance", {"per_match": True, "keep_count": 2})
     score_matches(api, ffa, 1, rng)
 
-    rr = tournament("Goal Rush League", "Goal Rush", ["RocketQueen", "GlitchMaster", "ArcticFox", "StormBringer", "DragonByte", "VoltStrike"], bracket_type="round_robin")
+    rr = tournament("Goal Rush League", "Goal Rush", ["RocketQueen", "GlitchMaster", "ArcticFox", "StormBringer", "DragonByte", "VoltStrike"], bracket_type="round_robin", allow_draws=True)
     api.call("POST", f"/tournaments/{rr}/start", {})
     score_matches(api, rr, 9, rng, draws=True)
 
-    groups = tournament("Kart Frenzy Cup", "Kart Frenzy", names[4:16], bracket_type="single_elim", phases="double", group_size=4, advancers_count=2)
+    groups = tournament("Kart Frenzy Cup", "Kart Frenzy", names[4:16], bracket_type="single_elim", phases="double", group_size=4, advancers_count=2, allow_draws=True)
     api.call("POST", f"/tournaments/{groups}/start", {})
     score_matches(api, groups, 14, rng, draws=True)
 
