@@ -14,6 +14,7 @@
 	import { resolveMediaUrl, isCapacitorNative, getCustomServerUrl, setCustomServerUrl } from '$lib/config';
 	import ServerConfigModal from '$lib/components/ServerConfigModal.svelte';
 	import Icon from '$lib/components/Icon.svelte';
+	import AlanbixFace from '$lib/components/AlanbixFace.svelte';
 	import { themeStore, toggleTheme } from '$lib/theme';
 	import { initMobileViewport } from '$lib/mobileViewport';
 
@@ -623,7 +624,7 @@
 				{/if}
 			</a>
 			<a href="/dashboard/ai" class:active={$page.url.pathname.startsWith('/dashboard/ai')} class="nav-item ai-nav" on:click={() => aiUnreadCount.set(0)}>
-				<span class="icon">🤖</span>
+				<span class="icon"><AlanbixFace size={22} /></span>
 				<span class="label">{$t('nav_ai_assistant')}</span>
 				{#if $aiUnreadCount > 0}
 					<span class="ai-count-badge" class:bounce={aiBounce}>{$aiUnreadCount}</span>

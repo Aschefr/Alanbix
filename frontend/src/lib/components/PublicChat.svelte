@@ -5,6 +5,7 @@
 	import { wsMessageStore } from '$lib/ws';
 	import { t } from '$lib/i18nStore';
 	import Icon from '$lib/components/Icon.svelte';
+	import AlanbixFace from '$lib/components/AlanbixFace.svelte';
 	import { EMOJI_CATALOG, EMOJI_CATEGORIES, DEFAULT_RECENT_EMOJIS } from '$lib/emojiCatalog';
 	import { profanityFilterEnabled, toggleProfanityFilter, filterProfanityText } from '$lib/profanity';
 
@@ -1375,7 +1376,7 @@
 						<!-- Avatar -->
 						<div class="msg-avatar avatar-shape-{msg.avatar_shape || 'circle'} {msg.is_bot ? 'bot-avatar' : ''}">
 							{#if msg.is_bot}
-								<span class="bot-icon">🤖</span>
+								<AlanbixFace size={28} />
 							{:else if msg.avatar_url}
 								<img src={msg.avatar_url} alt="" class="avatar-img" />
 							{:else}
@@ -1501,7 +1502,7 @@
 					on:mousedown|preventDefault={() => applyMention(m)}
 				>
 					{#if m.is_bot}
-						<span class="m-avatar bot-av">🤖</span>
+						<span class="m-avatar bot-av"><AlanbixFace size={20} /></span>
 					{:else if m.avatar_url}
 						<img src={m.avatar_url} alt="" class="m-avatar avatar-shape-{m.avatar_shape || 'circle'}" />
 					{:else}
@@ -1915,10 +1916,10 @@
 	.avatar-img { width: 100%; height: 100%; object-fit: cover; }
 
 	.bot-avatar {
-		background: linear-gradient(135deg, rgba(168, 85, 247, 0.2), rgba(59, 130, 246, 0.2));
-		border-color: #a855f7;
+		background: none;
+		border: none;
+		overflow: visible;
 	}
-	.bot-icon { font-size: 0.9rem; }
 
 	.msg-content-wrapper {
 		flex: 1;
