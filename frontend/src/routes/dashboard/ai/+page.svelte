@@ -12,6 +12,7 @@
 	import { onMount, onDestroy, tick } from 'svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import Icon from '$lib/components/Icon.svelte';
+	import AlanbixFace from '$lib/components/AlanbixFace.svelte';
 	import { marked } from 'marked';
 	import { wsMessageStore } from '$lib/ws';
 	import { API_URL } from '$lib/config';
@@ -1448,7 +1449,7 @@
 						<div class="msg-row {msg.role}">
 							<div class="avatar avatar-shape-{userObj?.avatar_shape || 'circle'}">
 								{#if msg.role === 'bot'}
-									🤖
+									<AlanbixFace size={38} />
 								{:else if msg.role === 'admin'}
 									🛡️
 								{:else if msg.role === 'user' && userObj?.avatar_url}
