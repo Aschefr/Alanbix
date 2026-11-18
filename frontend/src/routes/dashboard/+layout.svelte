@@ -720,7 +720,7 @@
 	</nav>
 
 	<main class="content-area">
-		{#if !dismissNotifBanner && notifPrefs?.enabled !== false && !$page.url.pathname.startsWith('/dashboard/settings') && !$page.url.pathname.startsWith('/dashboard/welcome') && ((isCapacitorNative() && !nativeNotifOperational) || (!isCapacitorNative() && browserNotifSupport && browserNotifStatus !== 'granted'))}
+		{#if !dismissNotifBanner && notifPrefs?.enabled !== false && $page.url.pathname === '/dashboard' && ((isCapacitorNative() && !nativeNotifOperational) || (!isCapacitorNative() && browserNotifSupport && browserNotifStatus !== 'granted'))}
 			<div class="notif-warning-banner glass">
 				<span class="nb-text"><Icon name="bell" size={14} /> {$t('settings_notifs_banner_warn')}</span>
 				<div class="nb-actions">

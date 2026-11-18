@@ -2116,6 +2116,7 @@
   "mobile_round_match": "Partida",
   "notif_ai_failed_title": "Fallo de la IA — {tournament}",
   "notif_ai_failed_body": "La generación de mensajes personalizados ha fallado.",
+  "notif_tech_detail": "Detalle técnico",
   "notif_retry_failed": "Error: {error}",
   "notif_test_title": "Prueba de Alanbix",
   "notif_test_body": "¡Tus notificaciones móviles funcionan perfectamente!",

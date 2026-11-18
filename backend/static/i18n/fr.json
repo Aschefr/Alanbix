@@ -2117,6 +2117,7 @@
   "mobile_score_win": "Victoire",
   "notif_ai_failed_title": "Échec IA — {tournament}",
   "notif_ai_failed_body": "La génération de messages personnalisés a échoué.",
+  "notif_tech_detail": "Détail technique",
   "notif_retry_failed": "Échec : {error}",
   "notif_test_title": "Test Alanbix",
   "notif_test_body": "Vos notifications mobiles fonctionnent parfaitement !",
