@@ -39,7 +39,7 @@ Les discussions directes et de groupes bénéficient de toute la richesse du cha
 * **Confidentialité & Exclusion stricte de l'IA** : L'assistant `@Alanbix` reste exclusivement confiné au salon public du Dashboard et n'intervient jamais dans les discussions privées ou d'équipes.
 
 ### 4. Chat Public de la Salle & Mascotte IA (Dashboard)
-Le Dashboard principal intègre un espace de discussion public accessible à l'ensemble des joueurs et organisateurs de la LAN :
+Le Dashboard principal intègre un espace de discussion public accessible à l'ensemble des joueurs et organisateurs de la LAN. Il se retrouve aussi dans la page **Messages** : une entrée « Chat Général » est épinglée en haut de la liste ; sur ordinateur, il occupe le panneau de droite tant qu'aucune conversation n'est ouverte, et cette entrée y ramène. Ses particularités :
 * **Interactions avec la Salle & la Carte** : Lorsqu'un joueur assis dans la salle envoie un message, son siège sur le plan interactif s'illumine et une bulle de chat s'élève vers le panneau de discussion.
 * **Mascotte IA `@Alanbix`** : En mentionnant `@Alanbix`, ou en répondant (`↩`) à l'un de ses messages, l'assistant IA prend part à la conversation avec la personnalité réglée par l'administrateur (pipeline asynchrone protégé par la file d'attente IA). Sa réponse s'affiche en réponse au message du joueur.
   * **Il suit la conversation** : il lit les 20 derniers messages (30 dernières minutes) avec qui parle et à qui chacun répond, ainsi que les messages plus anciens auxquels la question répond. Ses propres réponses y sont marquées, pour qu'il ne se répète pas.
