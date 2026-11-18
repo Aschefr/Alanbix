@@ -39,7 +39,7 @@ Both direct and group chats enjoy the full modern feature set of the public chat
 * **Privacy & AI Exclusion**: The `@Alanbix` bot is strictly confined to the public chat and never participates in private or team chats.
 
 ### 4. Public Room Chat & AI Mascot (Dashboard)
-The main Dashboard includes a public chat open to all players and organisers of the LAN:
+The main Dashboard includes a public chat open to all players and organisers of the LAN: It is also in the **Messages** page: a "General chat" entry is pinned at the top of the list; on a computer it fills the right panel while no conversation is open, and that entry brings it back.
 * **Room & Map Interaction**: When a seated player sends a message, their seat lights up on the interactive map and a chat bubble rises towards the chat panel.
 * **Live typing indicator**: Shows who is typing, including `@Alanbix` preparing an answer, with rotating humorous lines; it expires after 5-6 seconds of inactivity.
 * **Reactions**: Hover bar, the 4 recently used emojis (kept in `localStorage`), a full picker with search and tabs (Recent, All, Gaming & LAN, Gamer Tags such as `GG`, `EZ`, `WP`, Smileys, Gestures, Symbols), and clickable counters updated live.

@@ -8,6 +8,7 @@
 	import { formatPoints } from '$lib/utils';
 	import { resolveMediaUrl } from '$lib/config';
 	import PlayerChat from '$lib/components/PlayerChat.svelte';
+	import PublicChat from '$lib/components/PublicChat.svelte';
 	import { fitPane } from '$lib/mobileViewport';
 	import Icon from '$lib/components/Icon.svelte';
 
@@ -17,7 +18,8 @@
 	let loading = true;
 
 	// Chat state — dual mode: P2P (chatPeerId) or Group (chatChannelKey)
-	let chatMode = null; // 'p2p' | 'group' | null
+	// 'public' is the general chat opened on a phone; on a computer it simply fills the panel while nothing else is open
+	let chatMode = null; // 'p2p' | 'group' | 'public' | null
 	let chatPeerId = null;
 	let chatPeer = null;
 	let chatChannelKey = null;
@@ -425,6 +427,14 @@
 		else resumeChat();
 	}
 
+	// Phone only: on a computer the general chat is what the panel shows by default
+	function openPublicChat() {
+		if (typeof window !== 'undefined' && window.innerWidth <= 900) {
+			rememberListScroll();
+			chatMode = 'public';
+		}
+	}
+
 	function closeChat() {
 		const restoreY = listScrollY;
 		tick().then(() => tick()).then(() => window.scrollTo(0, restoreY));
@@ -508,6 +518,13 @@
 	<div class="players-layout" style="grid-template-columns: minmax(0, 1fr) 8px {chatWidth}px;">
 		<!-- LEFT: Player directory -->
 		<div class="directory-col" class:mobile-hidden={chatMode !== null}>
+			<!-- The general chat, pinned first: the way back to it once another conversation is open -->
+			<button type="button" class="public-chat-entry glass" class:active={chatMode === 'public'} class:active-wide={chatMode === null}
+				on:click={() => { if (chatMode !== null && chatMode !== 'public') closeChat(); openPublicChat(); }}>
+				<span class="pce-icon"><Icon name="globe" size={18} /></span>
+				<span class="pce-name">{$t('mobile_tab_public_chat')}</span>
+				<Icon name="chevron-right" size={15} />
+			</button>
 			<div class="float-stack">
 			{#if resumable && chatMode === null}
 				<button type="button" class="resume-chat-bar glass" on:click={resumeChat}>
@@ -788,11 +805,12 @@
 
 		<!-- RIGHT: Chat panel -->
 		<div class="chat-col glass" class:mobile-hidden={chatMode === null} style="overflow: hidden; display: flex; flex-direction: column;">
-			{#if !chatMode}
-				<div class="chat-empty">
-					<span class="chat-empty-icon">💬</span>
-					<p>{$t('players_chat_empty_prompt')}</p>
-				</div>
+			{#if !chatMode || chatMode === 'public'}
+				<button class="public-back" on:click={closeChat} title={$t('chat_back_to_players')} aria-label={$t('chat_back_to_players')}>
+					<Icon name="chevron-left" size={16} /> <span>{$t('common_back')}</span>
+					<strong>{$t('mobile_tab_public_chat')}</strong>
+				</button>
+				<PublicChat user={currentUser} allUsers={players} />
 			{:else}
 				<PlayerChat
 					mode={chatMode}
@@ -814,6 +832,19 @@
 	.players-page { display: flex; flex-direction: column; gap: 1rem; height: 100%; }
 	.players-header { display: flex; align-items: center; justify-content: space-between; padding: 0.25rem 0.25rem 0.5rem; flex-shrink: 0; background: none; border: none; box-shadow: none; backdrop-filter: none; }
 	.players-header h1 { margin: 0; font-size: var(--fs-page); }
+	.public-chat-entry { display: flex; align-items: center; gap: 0.7rem; width: 100%; padding: 0.7rem 0.9rem; margin-bottom: 0.75rem; border-radius: var(--radius-md); border: 1px solid var(--glass-border); color: var(--text-main); font-family: var(--font-title); font-weight: 700; font-size: 0.9rem; cursor: pointer; text-align: left; }
+	.public-chat-entry:hover { border-color: var(--accent); }
+	.public-chat-entry.active { border-color: var(--accent); background: var(--accent-soft); }
+	.pce-icon { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); flex-shrink: 0; }
+	.pce-name { flex: 1; min-width: 0; }
+	.public-back { display: none; }
+	@media (min-width: 901px) {
+		.public-chat-entry.active-wide { border-color: var(--accent); background: var(--accent-soft); }
+	}
+	@media (max-width: 900px) {
+		.public-back { display: flex; align-items: center; gap: 0.4rem; width: 100%; padding: 0.6rem 0.75rem; border: none; border-bottom: 1px solid var(--glass-border); background: none; color: var(--text-main); font-size: 0.85rem; cursor: pointer; flex-shrink: 0; }
+		.public-back strong { margin-left: 0.4rem; font-family: var(--font-title); }
+	}
 	.float-stack { display: contents; }
 	.resume-chat-bar { display: none; }
 	@media (max-width: 900px) {
@@ -921,8 +952,6 @@
 	.resizer:hover, .resizer.active { background: var(--accent); opacity: 0.5; }
 
 	.chat-col { display: flex; flex-direction: column; overflow: hidden; border-radius: 12px; min-width: 0; position: relative; }
-	.chat-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; gap: 0.5rem; color: var(--text-muted); font-size: 0.85rem; }
-	.chat-empty-icon { font-size: 2.5rem; opacity: 0.3; }
 
 	.chat-header { display: flex; align-items: center; gap: 0.7rem; padding: 0.8rem 1rem; border-bottom: 1px solid var(--glass-border); flex-shrink: 0; }
 	.chat-peer-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--bg-tertiary); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.75rem; color: var(--accent); border: 1px solid rgba(59,130,246,0.2); }
