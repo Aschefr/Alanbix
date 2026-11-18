@@ -598,26 +598,26 @@
 
 		<div class="nav-links">
 			<a href="/dashboard" class="nav-item" class:active={$page.url.pathname === '/dashboard'}>
-				<span class="icon">🏠</span>
+				<span class="icon"><Icon name="home" size={19} /></span>
 				<span class="label">{$t('nav_dashboard')}</span>
 			</a>
 			<a href="/dashboard/info" class="nav-item" class:active={$page.url.pathname.startsWith('/dashboard/info')}>
-				<span class="icon">📋</span>
+				<span class="icon"><Icon name="clipboard" size={19} /></span>
 				<span class="label">{$t('nav_infos')}</span>
 			</a>
 			<a href="/dashboard/tournaments" class="nav-item" class:active={$page.url.pathname.startsWith('/dashboard/tournaments')}>
-				<span class="icon">🏆</span>
+				<span class="icon"><Icon name="trophy" size={19} /></span>
 				<span class="label">{$t('nav_tournaments')}</span>
 			</a>
 			<a href="/dashboard/players" class="nav-item pm-nav" class:active={$page.url.pathname.startsWith('/dashboard/players')}>
-				<span class="icon">💬</span>
+				<span class="icon"><Icon name="chat" size={19} /></span>
 				<span class="label">{$t('mobile_tab_messages')}</span>
 				{#if $totalMsgUnread > 0}
 					<span class="pm-count-badge" class:bounce={pmBounce}>{$totalMsgUnread}</span>
 				{/if}
 			</a>
 			<a href="/dashboard/notifications" class:active={$page.url.pathname.startsWith('/dashboard/notifications')} class="nav-item notif-nav" on:click={() => { api.get('/notifications/unread-count').then(r => notifUnreadCount.set(r.count || 0)).catch(() => {}); }}>
-				<span class="icon">🔔</span>
+				<span class="icon"><Icon name="bell" size={19} /></span>
 				<span class="label">{$t('nav_notifications')}</span>
 				{#if $notifUnreadCount > 0}
 					<span class="notif-count-badge" class:bounce={notifBounce}>{$notifUnreadCount}</span>
@@ -632,18 +632,18 @@
 			</a>
 			<a href="/dashboard/map" class="nav-item" class:active={$page.url.pathname.startsWith('/dashboard/map')}>
 
-				<span class="icon">📍</span>
+				<span class="icon"><Icon name="pin" size={19} /></span>
 				<span class="label">{$t('nav_map')}</span>
 			</a>
 			<a href="/spectator" target="_blank" class="nav-item">
-				<span class="icon">📺</span>
+				<span class="icon"><Icon name="monitor" size={19} /></span>
 				<span class="label">{$t('nav_spectator')}</span>
 			</a>
 			
 			{#if user.is_admin}
 				<div class="nav-separator"></div>
 				<a href="/dashboard/admin" class:active={$page.url.pathname.startsWith('/dashboard/admin')} class="nav-item admin">
-					<span class="icon">⚙️</span>
+					<span class="icon"><Icon name="gear" size={19} /></span>
 					<span class="label">{$t('nav_administration')}</span>
 				</a>
 			{/if}
@@ -652,13 +652,13 @@
 		<div class="nav-footer">
 			{#if user.is_admin && iaInstances.filter(i => i.enabled !== false).length > 0}
 				<div class="ia-status-widget">
-					<div class="ia-status-title">🖥️ {$t('ia_status_title')}</div>
+					<div class="ia-status-title"><Icon name="server" size={13} /> {$t('ia_status_title')}</div>
 					{#each iaInstances.filter(i => i.enabled !== false) as inst}
 						<div class="ia-inst-row" title="{inst.url} — {inst.latency_ms || 0}ms{inst.busy ? ' — ' + $t('ia_instance_busy') : ''}">
 							<span class="ia-dot {inst.busy ? 'busy' : inst.online ? 'online' : 'offline'}"></span>
 							<span class="ia-inst-label">{inst.label || inst.model || '?'}</span>
 							{#if inst.busy}
-								<span class="ia-inst-ping busy">⚡</span>
+								<span class="ia-inst-ping busy"><Icon name="zap" size={12} /></span>
 							{:else if inst.online}
 								<span class="ia-inst-ping">{inst.latency_ms}ms</span>
 							{:else}
@@ -668,7 +668,7 @@
 					{/each}
 					{#if iaQueueSize > 0 || iaQueueActive > 0}
 						<div class="ia-queue-line">
-							<span class="ia-queue-icon">📋</span>
+							<span class="ia-queue-icon"><Icon name="clock" size={12} /></span>
 							<span class="ia-queue-text">{$t('ia_queue_text', { waiting: iaQueueSize, active_text: iaQueueActive > 0 ? ' ' + $t('ia_queue_active_suffix', { count: iaQueueActive, plural: iaQueueActive > 1 ? 's' : '' }) : '' })}</span>
 						</div>
 					{/if}
@@ -685,7 +685,7 @@
 				<div class="info">
 					<div class="username">{user.username}</div>
 					{#if user.team_name}
-						<div class="user-team-badge" title={$t('user_team_tooltip', { team: user.team_name })}>👥 {user.team_name}</div>
+						<div class="user-team-badge" title={$t('user_team_tooltip', { team: user.team_name })}><Icon name="users" size={12} /> {user.team_name}</div>
 					{:else}
 						<div class="role">{user.is_admin ? $t('role_admin') : $t('role_player')}</div>
 					{/if}
@@ -703,7 +703,7 @@
 			<div class="footer-actions">
 				{#if browserNotifSupport && browserNotifStatus !== 'granted' && browserNotifStatus !== 'denied'}
 					<button class="theme-toggle" on:click={requestBrowserNotifications} title={$t('tooltip_system_notifs')}>
-						<span class="theme-icon">🔔</span>
+						<span class="theme-icon"><Icon name="bell" size={18} /></span>
 					</button>
 				{/if}
 				<button class="theme-toggle" on:click={() => toggleTheme($themeStore.theme)} title={isDark ? $t('tooltip_light_mode') : $t('tooltip_dark_mode')} aria-label={isDark ? $t('tooltip_light_mode') : $t('tooltip_dark_mode')}>

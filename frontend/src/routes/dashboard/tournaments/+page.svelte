@@ -1328,6 +1328,7 @@
 						{myTeamSlotId}
 						{lowerIsBetter}
 						{booleanMode}
+					large={treeMode}
 						on:submitScore={(e) => doSubmitScore(e.detail.match, e.detail.score)}
 						on:advanceFFA={(e) => advanceFFA(e.detail.keepCount, e.detail.perMatch)}
 						on:finishFFA={finishFFA}

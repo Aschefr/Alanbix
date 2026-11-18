@@ -23,6 +23,8 @@
 	export let myTeamSlotId = null;
 	export let lowerIsBetter = false;
 	export let booleanMode = false;
+	// tree in large: the frame gives its title row and margins to the tree
+	export let large = false;
 
 	const dispatch = createEventDispatcher();
 
@@ -375,18 +377,27 @@
 		if (!viewportEl || !canvasEl) return;
 		const vw = viewportEl.clientWidth;
 		const vh = viewportEl.clientHeight;
-		const cw = canvasEl.scrollWidth;
-		const ch = canvasEl.scrollHeight;
+		// The canvas is stretched to at least the frame (min-width / min-height: 100%), which hid the
+		// tree's own size and kept a small tree small in a large frame: measure it without the stretch.
+		const { minWidth, minHeight } = canvasEl.style;
+		canvasEl.style.minWidth = '0';
+		canvasEl.style.minHeight = '0';
+		const cw = canvasEl.offsetWidth;
+		const ch = canvasEl.offsetHeight;
+		canvasEl.style.minWidth = minWidth;
+		canvasEl.style.minHeight = minHeight;
 		if (cw === 0 || ch === 0) {
 			scale = 1;
 			panX = 0;
 			panY = 0;
 			return;
 		}
-		const scaleX = (vw - 40) / cw;
-		const scaleY = (vh - 40) / ch;
+		const margin = large ? 12 : 40;
+		const scaleX = (vw - margin) / cw;
+		const scaleY = (vh - margin) / ch;
 		let optimalScale = Math.min(scaleX, scaleY);
-		optimalScale = Math.max(0.55, Math.min(optimalScale, 1.25));
+		// a wide frame (the tree in large on a computer) may enlarge the tree more than a phone does
+		optimalScale = Math.max(0.55, Math.min(optimalScale, vw > 900 ? 1.6 : 1.25));
 		scale = optimalScale;
 		panX = (vw - cw * scale) / 2;
 		// groups read from the top like a list; centring them left an empty band above
@@ -455,7 +466,7 @@
 	$: arrowDown = viewportEl && canvasEl ? (panY + canvasEl.scrollHeight * scale > viewportEl.clientHeight + 10) : false;
 </script>
 
-<div class="bracket-section glass" class:bracket-expanded={hasBracket}>
+<div class="bracket-section glass" class:bracket-expanded={hasBracket} class:large={large && hasBracket}>
 	<div class="section-title">
 		<h3>{bracketType === 'round_robin' ? $t('admin_tourneys_wizard_format_championship') : bracketType === 'ffa' ? $t('tourneys_format_ffa') : $t('tourneys_tab_bracket')}</h3>
 		{#if hasBracket}
@@ -896,6 +907,11 @@
 	/* Bracket Section */
 	.bracket-section { padding: 1rem; border-radius: 14px; display: flex; flex-direction: column; min-height: 0; }
 	.bracket-section.bracket-expanded { flex-grow: 1; min-height: 400px; }
+	.bracket-section.large { position: relative; padding: 0.4rem; }
+	/* bottom right: at the top it sat on the last group's header */
+	.bracket-section.large .section-title { position: absolute; bottom: 0.7rem; right: 0.7rem; z-index: 5; margin: 0; }
+	.bracket-section.large .section-title h3 { display: none; }
+	.bracket-section.large .bracket-canvas { padding: 0.9rem; }
 	.bracket-viewport-wrapper { position: relative; flex-grow: 1; min-height: 450px; }
 	.bracket-viewport {
 		position: relative;
