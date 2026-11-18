@@ -39,7 +39,13 @@
 	let showLiveStandings = false;
 	// Tree in large (desktop): the phone layout widened, the bracket takes the whole page
 	let wideTree = getWideTree();
-	$: treeMode = !isMobile && wideTree && !!selected && selected.status !== 'OPEN';
+	$: treeMode = !isMobile && wideTree && !!selected;
+	// In that layout the tournament list is the full view's own, shown on demand next to the page
+	let listOpen = false;
+	function toggleList() {
+		listOpen = !listOpen;
+		setTimeout(() => bracketRef?.resetZoom(), 60);
+	}
 	$: detailsOpen = showDetails && !treeMode;
 	function toggleWideTree() {
 		wideTree = !wideTree;
@@ -991,7 +997,7 @@
 	</div>
 {/if}
 
-<div class="tournaments-layout" class:tree-mode={treeMode}>
+<div class="tournaments-layout" class:tree-mode={treeMode} class:list-open={listOpen}>
 	<!-- Sidebar -->
 	<aside class="t-sidebar glass">
 		<div class="sidebar-header">
@@ -1037,7 +1043,11 @@
 				hasStandings={liveStandings.length > 0}
 				standingsShown={showLiveStandings}
 				isAdmin={!!currentUser?.is_admin}
-				on:list={() => showMobileTourneyDrawer = true}
+				{listOpen}
+				{isParticipant}
+				on:list={toggleList}
+				on:join={() => joinTournament(selected.id)}
+				on:leave={() => leaveTournament(selected.id)}
 				on:rules={() => showMobileInfoModal = true}
 				on:players={() => showMobilePlayersModal = true}
 				on:standings={toggleLiveStandings}
@@ -1149,14 +1159,13 @@
 						<button class="mr-hide" on:click={() => hideResult(myLastResult.key)} title={$t('result_hide')} aria-label={$t('result_hide')}><Icon name="x" size={14} /></button>
 					</div>
 				{/if}
-				{#if !isMobile && !treeMode}
+				{#if !isMobile}
+				{#if !treeMode}
 				<div class="controls-row">
-					{#if selected.status !== 'OPEN'}
-						<button class="toggle-details-btn glass" on:click={toggleWideTree} title={$t('tourneys_wide_tree_hint')}>
-							<Icon name="maximize" size={12} />
-							<span>{$t('tourneys_btn_wide_tree')}</span>
-						</button>
-					{/if}
+					<button class="toggle-details-btn glass" on:click={toggleWideTree} title={$t('tourneys_wide_tree_hint')}>
+						<Icon name="maximize" size={12} />
+						<span>{$t('tourneys_btn_wide_tree')}</span>
+					</button>
 					<button class="toggle-details-btn glass" on:click={toggleDetails}>
 						<Icon name={showDetails ? 'chevron-up' : 'chevron-down'} size={12} />
 						<span>{showDetails ? $t('tourneys_btn_hide_details') : $t('tourneys_btn_show_details')}</span>
@@ -1216,6 +1225,7 @@
 						</div>
 					{/if}
 				</div>
+				{/if}
 
 				{#if detailsOpen || (!isMobile && selected.status === 'OPEN')}
 					<div class="info-row">
@@ -1832,7 +1842,7 @@
 	.mobile-tourney-bar { display: none; }
 
 	/* === TREE IN LARGE (desktop) === */
-	.tournaments-layout.tree-mode .t-sidebar { display: none; }
+	.tournaments-layout.tree-mode:not(.list-open) .t-sidebar { display: none; }
 	.tournaments-layout.tree-mode .detail-body { padding: 0.6rem 0 0; gap: 0.6rem; }
 	.mobile-tourney-drawer-overlay {
 		position: fixed; inset: 0; background: rgba(0, 0, 0, 0.65);

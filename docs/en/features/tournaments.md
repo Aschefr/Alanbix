@@ -81,14 +81,14 @@ Players out after the groups rank behind the knockout players. Once the tourname
 ## ⚙️ Match & Score Mechanics
 
 ### The large bracket (on a computer)
-On a computer, once a tournament has started, the bracket takes the whole tournaments page. Above it there is only a bar with the tournament name and, for a player with a match to play, the quick entry of their score.
+On a computer, the bracket takes the whole tournaments page. Above it there is only a bar with the tournament name and, for a player with a match to play, the quick entry of their score.
 
-* **Switching tournament**: a click on the tournament name opens the list of tournaments.
+* **Switching tournament**: the `Tournaments` button of the bar shows the list of tournaments on the left of the page, the same one as in the full view. It stays there while you go from one tournament to another; a second click closes it and gives the room back to the bracket.
 * **`Rules`, `Players`, `Live standings`**: the information no longer shown at all times opens from the bar. An administrator also finds `Admin` there (finish, reset, hide, edit).
 * **`Full view`**: goes back to the previous page, with the tournament list on the left, the game banner and the details. The `Large bracket` button there brings the bracket back.
 * **Setting**: the choice is kept per browser. It can also be set in `Settings` → `Appearance & Language` → `Large tournament bracket`, on by default.
 
-A tournament still open for registration keeps the full page: it has no bracket yet. On a phone nothing changes: the display there already gave the room to the bracket.
+A tournament still open for registration keeps the same bar, with the `Join` (or `Leave`) button, and shows the registered players and the teams under it in place of the bracket. On a phone nothing changes: the display there already gave the room to the bracket.
 
 ### Visual Player Highlight
 The connected player's username (or their global/tournament team name) is highlighted in the tournament tree with a blue accent background and a distinctive side border, adapted for both light and dark themes across all bracket formats (Single/Double Elim, Round Robin, FFA).
