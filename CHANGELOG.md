@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.45.0] - 2026-11-18
+
+### ✨ Improvements
+- **The bracket in large, on by default**: on a computer, the tournaments page now gives the whole page to the bracket. The tournament list and the game banner give way to one bar with the tournament name, and the quick score entry stays right under it. The "Tournaments" button of the bar shows the list of tournaments beside the page, and "Rules", "Players" and "Live standings" open from the bar. A tournament still open for registration keeps the same bar, with "Join" or "Leave". "Full view" brings the previous page back; the choice is kept per browser and is also in Settings, under "Appearance & Language". On a 1440x900 screen an 8-player double elimination bracket goes from 689x518 to 818x615 pixels. Phones are unchanged.
+- **Administrators keep their actions at hand**: in that layout, start, finish, reset, hide and edit sit in a row under the bar; the "Admin" button folds it.
+- **Finishing or resetting a tournament asks for a confirmation**: both acted on the first click, and a reset erases the bracket and the scores. They now ask once more in place, on computer and phone.
+- **Home page: one card per tournament**: the "Running tournaments" tab showed a cropped copy of the bracket. It now shows, for each tournament, the game, the number of players, the matches played and whether you have a match to play and against whom. A click opens the bracket.
+- **The general chat is in the Messages page**: a "General chat" entry is pinned at the top of the list. On a computer it fills the right panel, which was empty until a conversation was opened; on a phone the page still opens on the list. The page is now titled "Messages", like its menu entry.
+- **Line icons in the menu**: the desktop menu used emojis next to line icons everywhere else.
+- **Same page header everywhere**: icon and title on the left, actions on the right, on Home, Notifications, Infos, AI Assistant, Settings and Administration.
+- **A quieter notification banner**: the "background notifications are not active" banner only shows on the home page instead of on top of every page.
+- **A readable AI failure notification**: it says what failed; the raw error is folded under "Technical detail".
+- **Profile**: the empty trophies block takes one line instead of a third of the screen.
+
+### 🐛 Fixes
+- **Two tournaments mixed on one page**: after arriving through a link to a tournament (from the home page or a notification), picking another tournament in the list showed the name of one with the players of the other.
+- **Tournament list on a phone in the dark theme**: the drawer was see-through.
+- **Small phones (320 px wide)**: the Settings and Profile pages no longer overflow the screen.
+- **Quick score entry**: a space was missing after "Against:".
+
 ## [1.44.4] - 2026-11-16
 
 ### ✨ Improvements
