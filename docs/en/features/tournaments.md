@@ -84,7 +84,7 @@ Players out after the groups rank behind the knockout players. Once the tourname
 On a computer, the bracket takes the whole tournaments page. Above it there is only a bar with the tournament name and, for a player with a match to play, the quick entry of their score.
 
 * **Switching tournament**: the `Tournaments` button of the bar shows the list of tournaments on the left of the page, the same one as in the full view. It stays there while you go from one tournament to another; a second click closes it and gives the room back to the bracket.
-* **`Rules`, `Players`, `Live standings`**: the information no longer shown at all times opens from the bar. An administrator also gets a row of direct actions under the bar (start, finish, reset, hide, edit); the `Admin` button of the bar folds it to give the room back to the bracket.
+* **`Rules`, `Players`, `Live standings`**: the information no longer shown at all times opens from the bar. An administrator also gets a row of direct actions under the bar (start, finish, reset, hide, edit; finishing and resetting ask for a confirmation in place); the `Admin` button of the bar folds it to give the room back to the bracket.
 * **`Full view`**: goes back to the previous page, with the tournament list on the left, the game banner and the details. The `Large bracket` button there brings the bracket back.
 * **Setting**: the choice is kept per browser. It can also be set in `Settings` → `Appearance & Language` → `Large tournament bracket`, on by default.
 
