@@ -281,17 +281,27 @@
 							<span class="notif-title">{localizedNotif(n.type, n.metadata, n.title, n.content, $t).title}</span>
 							{#if !n.is_read}<span class="new-badge">{n.metadata?.error ? $t('notifs_error') : $t('notifs_new')}</span>{/if}
 						</div>
+						{#if n.metadata?.error && n.metadata?.error_detail}
+						<!-- the raw exception stays one click away instead of being the message -->
+						<p class="notif-content">{localizedNotif(n.type, n.metadata, n.title, n.content, $t).body.split(/\r?\n/)[0]}</p>
+						<!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
+						<details class="notif-tech" on:click|stopPropagation>
+							<summary>{$t('notif_tech_detail')}</summary>
+							<code>{n.metadata.error_detail}</code>
+						</details>
+					{:else}
 						<p class="notif-content">{localizedNotif(n.type, n.metadata, n.title, n.content, $t).body}</p>
+					{/if}
 						<div class="notif-footer-row">
 							<span class="notif-time">{timeAgo(n.created_at, $currentLang)}</span>
 							{#if n.metadata?.tournament_id || n.metadata?.conversation_id || n.metadata?.rag_suggestion_id || (n.title && n.title.includes('Suggestion RAG'))}<!-- i18n-ignore: matches a server-generated title -->
 								<button class="action-link-btn" on:click|stopPropagation={() => handleActionClick(n)}>
-									➡️ {$t('tourneys_btn_show_details')}
+									<Icon name="external-link" size={13} /> {$t('tourneys_btn_show_details')}
 								</button>
 							{/if}
 							{#if n.metadata?.error && n.metadata?.tournament_id}
 								<button class="retry-btn" on:click|stopPropagation={() => retryNotifications(n)} disabled={retrying[n.id]}>
-									{retrying[n.id] ? '⏳ ...' : '🔄 ' + $t('notif_retry')}
+									<Icon name={retrying[n.id] ? 'hourglass' : 'refresh'} size={13} /> {retrying[n.id] ? '...' : $t('notif_retry')}
 								</button>
 							{/if}
 						</div>
@@ -382,6 +392,9 @@
 	.notif-card.error .new-badge { background: rgba(239,68,68,0.15); color: #ef4444; border-color: rgba(239,68,68,0.3); }
 	.notif-footer-row { display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; margin-top: 0.4rem; }
 	
+	.notif-tech { margin: 0.15rem 0 0.35rem; font-size: 0.75rem; color: var(--text-dim); }
+	.notif-tech summary { cursor: pointer; width: fit-content; }
+	.notif-tech code { display: block; margin-top: 0.3rem; padding: 0.4rem 0.6rem; border-radius: 6px; background: var(--surface-sunken); font-size: 0.72rem; white-space: pre-wrap; overflow-wrap: anywhere; }
 	.action-link-btn {
 		padding: 0.25rem 0.6rem; border-radius: 6px; font-size: 0.7rem; font-weight: 700;
 		background: rgba(59,130,246,0.1); color: var(--accent); border: 1px solid rgba(59,130,246,0.2);

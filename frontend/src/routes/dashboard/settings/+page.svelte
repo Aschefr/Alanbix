@@ -941,6 +941,14 @@
 
 	.font-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
 
+	/* small phone: a three-choice selector does not fit beside its label */
+	@media (max-width: 400px) {
+		.row.static:has(.seg) { flex-wrap: wrap; }
+		.row.static .seg { display: flex; flex: 1 1 100%; min-width: 0; }
+		.row.static .seg .seg-btn { flex: 1; min-width: 0; justify-content: center; padding-inline: 0.35rem; }
+		.row.static .seg .seg-btn :global(svg) { display: none; }
+	}
+
 	/* The large bracket only exists on a computer: no switch for it on a phone */
 	@media (max-width: 900px) {
 		.row.wide-only { display: none; }

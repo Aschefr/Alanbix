@@ -2211,7 +2211,7 @@
 	.mm-head { display: flex; flex-direction: column; min-width: 0; flex: 1 1 160px; }
 	.mm-round { font-size: 0.75rem; color: var(--text-dim); font-weight: 600; }
 	.mm-opponent { font-family: var(--font-title); font-size: 0.9375rem; font-weight: 700; color: var(--text-main); line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-	.mm-vs-label { color: var(--text-dim); font-weight: 500; font-size: 0.8125rem; }
+	.mm-vs-label { color: var(--text-dim); font-weight: 500; font-size: 0.8125rem; margin-right: 0.3em; }
 	.mm-score { display: flex; align-items: center; gap: 0.4rem; flex-wrap: nowrap; }
 	.mm-field { display: flex; align-items: center; gap: 0.3rem; font-size: 0.75rem; color: var(--text-dim); }
 	.mm-field span { max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

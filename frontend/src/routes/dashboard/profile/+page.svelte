@@ -749,7 +749,10 @@
 	.profile-card { padding: 1.5rem; border-radius: 16px; }
 	.card-title { font-size: 0.9rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.75rem; color: var(--text-main); font-family: var(--font-title); }
 
+	/* grid items and the field may shrink: at 320 px the card was wider than the screen */
+	.profile-grid > :global(*) { min-width: 0; }
 	.input-row { display: flex; gap: 0.75rem; }
+	.input-row .input { min-width: 0; }
 	.input { flex-grow: 1; padding: 0.7rem 1rem; background: var(--input-bg); border: 1px solid var(--glass-border); border-radius: 8px; color: var(--input-color); font-size: 0.9rem; font-family: var(--font-main); }
 	.input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 
@@ -1014,9 +1017,9 @@
 	.award-card-content { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
 	.award-card-title { font-weight: 800; font-size: 0.88rem; color: var(--text-main); }
 	.award-card-desc { font-size: 0.72rem; color: var(--text-dim); margin: 0; line-height: 1.3; }
-	.awards-empty { text-align: center; padding: 2rem 1rem; color: var(--text-dim); }
-	.awards-empty-icon { font-size: 2.2rem; display: block; margin-bottom: 0.5rem; opacity: 0.6; }
-	.awards-empty p { font-size: 0.82rem; margin: 0; max-width: 360px; margin: 0 auto; }
+	.awards-empty { display: flex; align-items: center; justify-content: center; gap: 0.75rem; padding: 0.5rem 1rem 0.25rem; color: var(--text-dim); }
+	.awards-empty-icon { font-size: 1.6rem; opacity: 0.6; flex-shrink: 0; }
+	.awards-empty p { font-size: 0.82rem; margin: 0; }
 
 	/* Mobile history cards */
 	/* Toggle switch: the thumb is drawn from the track so it cannot leave it in any browser */
