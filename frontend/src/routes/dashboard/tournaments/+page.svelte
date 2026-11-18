@@ -9,6 +9,8 @@
 	import { authStore } from '$lib/auth';
 	import CreateTournamentWizard from '$lib/components/CreateTournamentWizard.svelte';
 	import EditTournamentModal from '$lib/components/EditTournamentModal.svelte';
+	import { getWideTree, setWideTree } from '$lib/wideTree.js';
+	import TournamentTreeBar from './components/TournamentTreeBar.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import { formatPoints } from '$lib/utils';
 	import { renderMarkdown } from '$lib/markdown';
@@ -35,6 +37,14 @@
 	let isMobile = false;
 	$: isMobile = typeof window !== 'undefined' && window.innerWidth <= 900;
 	let showLiveStandings = false;
+	// Tree in large (desktop): the phone layout widened, the bracket takes the whole page
+	let wideTree = getWideTree();
+	$: treeMode = !isMobile && wideTree && !!selected && selected.status !== 'OPEN';
+	$: detailsOpen = showDetails && !treeMode;
+	function toggleWideTree() {
+		wideTree = !wideTree;
+		setWideTree(wideTree);
+	}
 	let bracketRef = null;
 
 	let loadingTournaments = true;
@@ -126,13 +136,16 @@
 	});
 
 	// Unified reactive tournament selection watcher (handles initial load, deep-links, in-app navigation, and fallback)
+	// A link's ?select= is followed once: afterwards the player's own choice in the list wins
+	let followedUrlSelect = null;
 	$: if (tournaments.length > 0) {
 		const urlSelect = $page?.url?.searchParams?.get('select') || $page?.url?.searchParams?.get('id');
 		const savedSelect = typeof window !== 'undefined' ? localStorage.getItem('alanbix_selected_tournament') : null;
 
 		let targetId = null;
-		if (urlSelect && tournaments.some(t => String(t.id) === String(urlSelect))) {
+		if (urlSelect && urlSelect !== followedUrlSelect && tournaments.some(t => String(t.id) === String(urlSelect))) {
 			targetId = parseInt(urlSelect, 10);
+			followedUrlSelect = urlSelect;
 		} else if (selectedId && tournaments.some(t => String(t.id) === String(selectedId))) {
 			targetId = selectedId;
 		} else if (savedSelect && tournaments.some(t => String(t.id) === String(savedSelect))) {
@@ -939,7 +952,7 @@
 <!-- Lateral Drawer for Vertical Tournament Selection (Mobile) -->
 {#if showMobileTourneyDrawer}
 	<!-- svelte-ignore a11y-click-events-have-key-events -->
-	<div class="mobile-tourney-drawer-overlay" on:click|self={() => showMobileTourneyDrawer = false}>
+	<div class="mobile-tourney-drawer-overlay" use:portal on:click|self={() => showMobileTourneyDrawer = false}>
 		<div class="mobile-tourney-drawer glass animate-in">
 			<div class="drawer-header">
 				<div class="drawer-title-row">
@@ -978,7 +991,7 @@
 	</div>
 {/if}
 
-<div class="tournaments-layout">
+<div class="tournaments-layout" class:tree-mode={treeMode}>
 	<!-- Sidebar -->
 	<aside class="t-sidebar glass">
 		<div class="sidebar-header">
@@ -1013,10 +1026,25 @@
 	</aside>
 
 	<!-- Main Detail -->
-	<main class="t-detail" class:collapsed-layout={selected?.status !== 'OPEN' && !showDetails}>
+	<main class="t-detail" class:collapsed-layout={selected?.status !== 'OPEN' && !detailsOpen}>
 		{#if selected}
+			{#if treeMode}
+			<TournamentTreeBar
+				{selected}
+				gameName={selectedGame?.name || ''}
+				playerCount={participants.length}
+				hasStandings={liveStandings.length > 0}
+				standingsShown={showLiveStandings}
+				isAdmin={!!currentUser?.is_admin}
+				on:list={() => showMobileTourneyDrawer = true}
+				on:rules={() => showMobileInfoModal = true}
+				on:players={() => showMobilePlayersModal = true}
+				on:standings={toggleLiveStandings}
+				on:admin={() => showMobileAdminModal = true}
+				on:fullView={toggleWideTree}
+			/>
+			{:else if !isMobile}
 			<!-- Hero (Desktop only) -->
-			{#if !isMobile}
 			<div class="detail-hero" style="background-image: url({mediaThumb(selectedGame?.image_url, 640)})">
 				{#if selected.status === 'CLOSED'}<div class="hero-checkered"></div>{/if}
 				<div class="hero-overlay">
@@ -1068,7 +1096,7 @@
 			{/if}
 
 			<!-- Info Cards -->
-			<div class="detail-body" class:collapsed-layout={selected?.status !== 'OPEN' && !showDetails}>
+			<div class="detail-body" class:collapsed-layout={selected?.status !== 'OPEN' && !detailsOpen}>
 				{#if myNextMatch}
 					<section class="my-match glass">
 						<div class="mm-head">
@@ -1120,8 +1148,14 @@
 						<button class="mr-hide" on:click={() => hideResult(myLastResult.key)} title={$t('result_hide')} aria-label={$t('result_hide')}><Icon name="x" size={14} /></button>
 					</div>
 				{/if}
-				{#if !isMobile}
+				{#if !isMobile && !treeMode}
 				<div class="controls-row">
+					{#if selected.status !== 'OPEN'}
+						<button class="toggle-details-btn glass" on:click={toggleWideTree} title={$t('tourneys_wide_tree_hint')}>
+							<Icon name="maximize" size={12} />
+							<span>{$t('tourneys_btn_wide_tree')}</span>
+						</button>
+					{/if}
 					<button class="toggle-details-btn glass" on:click={toggleDetails}>
 						<Icon name={showDetails ? 'chevron-up' : 'chevron-down'} size={12} />
 						<span>{showDetails ? $t('tourneys_btn_hide_details') : $t('tourneys_btn_show_details')}</span>
@@ -1182,7 +1216,7 @@
 					{/if}
 				</div>
 
-				{#if showDetails || (!isMobile && selected.status === 'OPEN')}
+				{#if detailsOpen || (!isMobile && selected.status === 'OPEN')}
 					<div class="info-row">
 						<div class="info-card glass"><span class="info-label">{$t("admin_tourneys_wizard_format_lbl")}</span><span class="info-value">{bracketLabel(selected.config?.bracket_type, selected.config)}</span></div>
 						<div class="info-card glass"><span class="info-label">{$t("admin_tourneys_wizard_mode_lbl")}</span><span class="info-value">{selected.config?.use_teams ? `${$t('admin_tourneys_wizard_mode_teams')} (x${selected.config?.team_size || 2})` : 'Solo'}</span></div>
@@ -1261,7 +1295,7 @@
 							await selectTournament(selectedId);
 						}} />
 					{/if}
-				<div class="tournament-split-layout" class:split-active={showLiveStandings && liveStandings.length > 0} class:split-fill={selected?.status !== 'OPEN' && !showDetails}>
+				<div class="tournament-split-layout" class:split-active={showLiveStandings && liveStandings.length > 0} class:split-fill={selected?.status !== 'OPEN' && !detailsOpen}>
 					<TournamentBracket
 						bind:this={bracketRef}
 						{selected}
@@ -1795,6 +1829,10 @@
 
 	/* Mobile Tourney Drawer & Bar */
 	.mobile-tourney-bar { display: none; }
+
+	/* === TREE IN LARGE (desktop) === */
+	.tournaments-layout.tree-mode .t-sidebar { display: none; }
+	.tournaments-layout.tree-mode .detail-body { padding: 0.6rem 0 0; gap: 0.6rem; }
 	.mobile-tourney-drawer-overlay {
 		position: fixed; inset: 0; background: rgba(0, 0, 0, 0.65);
 		backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);

@@ -81,6 +81,16 @@ Les joueurs éliminés en poules sont classés derrière ceux de la phase finale
 
 ## ⚙️ Les Mécaniques de Match et de Score
 
+### L'arbre en grand (sur ordinateur)
+Sur ordinateur, dès qu'un tournoi est lancé, l'arbre prend toute la page des tournois. Il ne reste au-dessus qu'une barre avec le nom du tournoi et, pour un joueur qui a un match à jouer, la saisie rapide de son score.
+
+* **Changer de tournoi** : un clic sur le nom du tournoi ouvre la liste des tournois.
+* **`Règles`, `Joueurs`, `Classement live`** : les informations qui ne sont plus affichées en permanence s'ouvrent depuis la barre. Un administrateur y trouve aussi `Admin` (terminer, réinitialiser, masquer, éditer).
+* **`Vue complète`** : revient à la page d'avant, avec la liste des tournois à gauche, le bandeau du jeu et les détails. Le bouton `Arbre en grand` y ramène à l'arbre.
+* **Réglage** : le choix est gardé par navigateur. Il se règle aussi dans `Paramètres` → `Apparence & Langue` → `Arbre de tournoi en grand`, activé par défaut.
+
+Un tournoi encore ouvert aux inscriptions garde la page complète : il n'a pas encore d'arbre. Sur téléphone, rien ne change : l'affichage y donnait déjà la place à l'arbre.
+
 ### Identification visuelle du joueur
 Le pseudo du joueur connecté (ou le nom de son équipe globale/de tournoi) est mis en surbrillance dans l'arbre du tournoi avec un fond bleu accent et une bordure latérale distinctive, adapté aux thèmes clair et sombre, pour tous les formats de bracket (Single/Double Élim, Round Robin, FFA).
 

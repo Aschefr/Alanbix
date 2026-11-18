@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Icon from '$lib/components/Icon.svelte';
+	import { getWideTree, setWideTree } from '$lib/wideTree.js';
 	import { themeStore, setThemePref } from '$lib/theme';
 	import pkg from '../../../../package.json';
 	import { onMount, onDestroy } from 'svelte';
@@ -227,6 +228,8 @@
 		};
 		showModal = true;
 	}
+
+	let wideTree = getWideTree();
 
 	function toggleDemoMode() {
 		if (demoActive) {
@@ -504,6 +507,17 @@
 							</button>
 						</div>
 					</div>
+					<label class="row wide-only">
+						<span class="row-ic"><Icon name="maximize" size={18} /></span>
+						<span class="row-text">
+							<span class="row-title">{$t('settings_wide_tree_label')}</span>
+							<span class="row-desc">{$t('settings_wide_tree_desc')}</span>
+						</span>
+						<span class="switch">
+							<input type="checkbox" bind:checked={wideTree} on:change={() => setWideTree(wideTree)} />
+							<span class="slider"></span>
+						</span>
+					</label>
 					<div class="row static">
 						<span class="row-ic"><Icon name="globe" size={18} /></span>
 						<span class="row-text"><span class="row-title">{lbl($t('settings_lang_label'))}</span></span>
@@ -926,6 +940,11 @@
 	.meta-link:hover { text-decoration: underline; }
 
 	.font-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+
+	/* The large bracket only exists on a computer: no switch for it on a phone */
+	@media (max-width: 900px) {
+		.row.wide-only { display: none; }
+	}
 
 	@media (max-width: 640px) {
 		.settings-page { padding-bottom: 6.5rem; }
