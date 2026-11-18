@@ -1033,6 +1033,7 @@
 				{selected}
 				gameName={selectedGame?.name || ''}
 				playerCount={participants.length}
+				tournamentCount={tournaments.length}
 				hasStandings={liveStandings.length > 0}
 				standingsShown={showLiveStandings}
 				isAdmin={!!currentUser?.is_admin}
@@ -1840,8 +1841,9 @@
 	}
 	.mobile-tourney-drawer {
 		width: 82%; max-width: 320px; height: 100%;
-		background: var(--surface-raised, #1e293b);
-		border-right: 1px solid rgba(255, 255, 255, 0.08);
+		/* opaque: --surface-raised is see-through in the dark theme */
+		background: var(--bg-secondary, #1e293b);
+		border-right: 1px solid var(--glass-border);
 		padding: 0.75rem; display: flex; flex-direction: column; gap: 0.5rem;
 		box-shadow: 4px 0 24px rgba(0,0,0,0.5);
 		border-radius: 0 !important;

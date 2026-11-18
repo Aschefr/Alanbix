@@ -869,6 +869,7 @@
   "tourneys_btn_wide_tree": "Arbre en grand",
   "tourneys_wide_tree_hint": "Donner toute la page à l'arbre du tournoi",
   "tourneys_btn_full_view": "Vue complète",
+  "tourneys_switch_hint": "Voir la liste des tournois et en changer",
   "tourneys_full_view_hint": "Revenir à la page complète, avec la liste des tournois et les détails",
   "settings_wide_tree_label": "Arbre de tournoi en grand",
   "settings_wide_tree_desc": "Sur ordinateur, l'arbre prend toute la page des tournois. Le nom du tournoi et la saisie rapide du score restent en haut.",

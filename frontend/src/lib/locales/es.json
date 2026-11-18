@@ -869,6 +869,7 @@
   "tourneys_btn_wide_tree": "Cuadro en grande",
   "tourneys_wide_tree_hint": "Dar toda la página al cuadro del torneo",
   "tourneys_btn_full_view": "Vista completa",
+  "tourneys_switch_hint": "Ver la lista de torneos y cambiar",
   "tourneys_full_view_hint": "Volver a la página completa, con la lista de torneos y los detalles",
   "settings_wide_tree_label": "Cuadro de torneo en grande",
   "settings_wide_tree_desc": "En ordenador, el cuadro ocupa toda la página de torneos. El nombre del torneo y la entrada rápida del resultado se quedan arriba.",
