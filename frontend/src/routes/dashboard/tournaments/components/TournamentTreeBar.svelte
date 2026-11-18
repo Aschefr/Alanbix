@@ -7,6 +7,7 @@
 	export let selected;
 	export let gameName = '';
 	export let playerCount = 0;
+	export let tournamentCount = 0;
 	export let hasStandings = false;
 	export let standingsShown = false;
 	export let isAdmin = false;
@@ -15,14 +16,17 @@
 </script>
 
 <div class="tree-bar glass">
-	<button class="tree-trigger" on:click={() => dispatch('list')} title={$t('tourneys_title')}>
-		<Icon name="menu" size={16} />
-		<span class="tree-name">{selected.name}</span>
-		<span class="tree-status {selected.status.toLowerCase()}">
-			{selected.status === 'RUNNING' ? $t('tourneys_status_running') : selected.status === 'CLOSED' ? $t('tourneys_status_closed') : $t('tourneys_status_done')}
-		</span>
-		<Icon name="chevron-down" size={14} />
+	<!-- A labelled button: a bare burger icon did not say "the other tournaments are here" -->
+	<button class="tree-list-btn" on:click={() => dispatch('list')} title={$t('tourneys_switch_hint')}>
+		<Icon name="trophy" size={14} />
+		<span>{$t('tourneys_title')}</span>
+		<span class="tree-count">{tournamentCount}</span>
+		<Icon name="chevron-down" size={13} />
 	</button>
+	<span class="tree-name">{selected.name}</span>
+	<span class="tree-status {selected.status.toLowerCase()}">
+		{selected.status === 'RUNNING' ? $t('tourneys_status_running') : selected.status === 'CLOSED' ? $t('tourneys_status_closed') : $t('tourneys_status_done')}
+	</span>
 	<span class="tree-game">{gameName}</span>
 	<div class="tree-actions">
 		<button class="tree-chip" on:click={() => dispatch('rules')} title={$t('tourneys_mobile_rules_info')}>
@@ -48,10 +52,12 @@
 </div>
 
 <style>
-	.tree-bar { display: flex; align-items: center; gap: 0.9rem; padding: 0.45rem 0.6rem 0.45rem 0.9rem; border-radius: var(--radius-md); flex-shrink: 0; min-width: 0; }
-	.tree-trigger { display: inline-flex; align-items: center; gap: 0.55rem; min-width: 0; padding: 0.25rem 0.4rem; background: none; border: none; border-radius: 8px; color: var(--text-main); font-size: 1.05rem; font-weight: 800; cursor: pointer; }
-	.tree-trigger:hover { background: var(--accent-soft); }
-	.tree-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	.tree-bar { display: flex; align-items: center; gap: 0.7rem; padding: 0.45rem 0.6rem; border-radius: var(--radius-md); flex-shrink: 0; min-width: 0; }
+	.tree-list-btn { display: inline-flex; align-items: center; gap: 0.4rem; flex-shrink: 0; padding: 0.4rem 0.7rem; border-radius: 8px; border: 1px solid var(--accent); background: var(--accent-soft); color: var(--accent); font-size: 0.8rem; font-weight: 700; cursor: pointer; white-space: nowrap; }
+	.tree-list-btn:hover { background: var(--accent); color: #fff; }
+	.tree-count { min-width: 1.25rem; padding: 0 0.3rem; border-radius: 999px; background: var(--accent); color: #fff; font-size: 0.7rem; line-height: 1.25rem; text-align: center; }
+	.tree-list-btn:hover .tree-count { background: #fff; color: var(--accent); }
+	.tree-name { min-width: 0; color: var(--text-main); font-size: 1.05rem; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 	.tree-status { flex-shrink: 0; padding: 0.2rem 0.6rem; border-radius: 20px; font-size: 0.72rem; font-weight: 700; }
 	.tree-status.running { background: #1d4ed8; color: #ffffff; border: 1px solid #3b82f6; }
 	.tree-status.done { background: #334155; color: #e2e8f0; border: 1px solid #64748b; }
