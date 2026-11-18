@@ -23,6 +23,7 @@
 	import DashboardFloorMap from './components/DashboardFloorMap.svelte';
 
 	import DashboardBracketPreview from './components/DashboardBracketPreview.svelte';
+	import DashboardTournamentCards from './components/DashboardTournamentCards.svelte';
 
 	import DashboardPlayerModal from './components/DashboardPlayerModal.svelte';
 
@@ -960,7 +961,7 @@
 
 		<div class="cmd-left">
 
-			<h1 class="title-premium">{$t('dash_title')}</h1>
+			<h1 class="title-premium page-title-icon"><Icon name="home" size={22} /> {$t('dash_title')}</h1>
 
 		</div>
 
@@ -1142,16 +1143,7 @@
 				</div>
 				<div class="dash-tab-body">
 					{#if dashTab === 'tournaments'}
-						<DashboardBracketPreview
-							{runningTournaments}
-							{activeTournament}
-							{selectedRunningIdx}
-							{participants}
-							{dashTeams}
-							{games}
-							{user}
-							on:selectRunning={(e) => selectRunning(e.detail)}
-						/>
+						<DashboardTournamentCards {tournaments} {games} myMatches={myActiveMatches} {user} />
 					{:else if dashTab === 'leaderboard'}
 						<DashboardLeaderboard
 							{stats}
