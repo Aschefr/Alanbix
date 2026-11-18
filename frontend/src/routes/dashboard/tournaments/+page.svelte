@@ -505,6 +505,9 @@
 		} catch (e) { toast(e.message || 'Erreur', 'error'); }
 	}
 
+	// Finishing and resetting act on everyone's tournament: both ask once more, in place
+	let confirmingAdmin = null; // 'stop' | 'reset' | null
+	$: if (selectedId || selected?.status) confirmingAdmin = null;
 	let confirmingClose = false;
 	async function closeTournament() {
 		try {
@@ -1199,7 +1202,15 @@
 									</button>
 								{/if}
 								{#if selected?.status === 'RUNNING'}
-									<button class="admin-btn stop" on:click={stopTournament}><Icon name="stop" size={14} /> {$t('tourneys_btn_finish')}</button>
+									{#if confirmingAdmin === 'stop'}
+										<span class="inline-confirm">
+											<span class="inline-confirm-label">{$t('tourneys_confirm_stop')}</span>
+											<button class="admin-btn confirm-yes" on:click={() => { confirmingAdmin = null; stopTournament(); }}><Icon name="check" size={15} /> {$t("tourneys_confirm_yes")}</button>
+											<button class="admin-btn confirm-no" on:click={() => confirmingAdmin = null} aria-label={$t('common_close')}><Icon name="x" size={16} /></button>
+										</span>
+									{:else}
+										<button class="admin-btn stop" on:click={() => confirmingAdmin = 'stop'}><Icon name="stop" size={14} /> {$t('tourneys_btn_finish')}</button>
+									{/if}
 								{/if}
 								{#if selected.status === 'DONE'}
 									{#if confirmingClose}
@@ -1224,7 +1235,15 @@
 									{/if}
 								{/if}
 								{#if selected.status !== 'OPEN' && selected.status !== 'CLOSED'}
-									<button class="admin-btn reset" on:click={resetTournament}><Icon name="refresh" size={15} /> {$t("tourneys_btn_reset")}</button>
+									{#if confirmingAdmin === 'reset'}
+										<span class="inline-confirm">
+											<span class="inline-confirm-label">{$t('tourneys_confirm_reset')}</span>
+											<button class="admin-btn confirm-yes" on:click={() => { confirmingAdmin = null; resetTournament(); }}><Icon name="check" size={15} /> {$t("tourneys_confirm_yes")}</button>
+											<button class="admin-btn confirm-no" on:click={() => confirmingAdmin = null} aria-label={$t('common_close')}><Icon name="x" size={16} /></button>
+										</span>
+									{:else}
+										<button class="admin-btn reset" on:click={() => confirmingAdmin = 'reset'}><Icon name="refresh" size={15} /> {$t("tourneys_btn_reset")}</button>
+									{/if}
 								{/if}
 								<button class="admin-btn" class:hidden-on={selected.is_hidden} on:click={toggleHidden} title={$t(selected.is_hidden ? 'tourneys_hidden_hint' : 'tourneys_btn_hide_hint')}>
 									<Icon name={selected.is_hidden ? 'eye' : 'eye-off'} size={15} /> {$t(selected.is_hidden ? 'tourneys_btn_show' : 'tourneys_btn_hide')}
@@ -1496,9 +1515,17 @@
 					</button>
 				{/if}
 				{#if selected?.status === 'RUNNING'}
-					<button class="admin-btn stop full-width" on:click={() => { showMobileAdminModal = false; stopTournament(); }} style="padding:0.7rem; font-size:0.85rem;">
-						<Icon name="stop" size={14} /> {$t('tourneys_btn_finish')}
-					</button>
+					{#if confirmingAdmin === 'stop'}
+						<span class="inline-confirm">
+							<span class="inline-confirm-label">{$t('tourneys_confirm_stop')}</span>
+							<button class="admin-btn confirm-yes" on:click={() => { confirmingAdmin = null; showMobileAdminModal = false; stopTournament(); }}><Icon name="check" size={15} /> {$t("tourneys_confirm_yes")}</button>
+							<button class="admin-btn confirm-no" on:click={() => confirmingAdmin = null} aria-label={$t('common_close')}><Icon name="x" size={16} /></button>
+						</span>
+					{:else}
+						<button class="admin-btn stop full-width" on:click={() => confirmingAdmin = 'stop'} style="padding:0.7rem; font-size:0.85rem;">
+							<Icon name="stop" size={14} /> {$t('tourneys_btn_finish')}
+						</button>
+					{/if}
 				{/if}
 				{#if selected.status === 'DONE'}
 					<button class="admin-btn close full-width" on:click={() => { showMobileAdminModal = false; closeTournament(); }} style="padding:0.7rem; font-size:0.85rem;">
@@ -1511,9 +1538,17 @@
 					</button>
 				{/if}
 				{#if selected.status !== 'OPEN' && selected.status !== 'CLOSED'}
-					<button class="admin-btn reset full-width" on:click={() => { showMobileAdminModal = false; resetTournament(); }} style="padding:0.7rem; font-size:0.85rem;">
-						<Icon name="refresh" size={15} /> {$t("tourneys_btn_reset")}
-					</button>
+					{#if confirmingAdmin === 'reset'}
+						<span class="inline-confirm">
+							<span class="inline-confirm-label">{$t('tourneys_confirm_reset')}</span>
+							<button class="admin-btn confirm-yes" on:click={() => { confirmingAdmin = null; showMobileAdminModal = false; resetTournament(); }}><Icon name="check" size={15} /> {$t("tourneys_confirm_yes")}</button>
+							<button class="admin-btn confirm-no" on:click={() => confirmingAdmin = null} aria-label={$t('common_close')}><Icon name="x" size={16} /></button>
+						</span>
+					{:else}
+						<button class="admin-btn reset full-width" on:click={() => confirmingAdmin = 'reset'} style="padding:0.7rem; font-size:0.85rem;">
+							<Icon name="refresh" size={15} /> {$t("tourneys_btn_reset")}
+						</button>
+					{/if}
 				{/if}
 				<button class="admin-btn full-width" class:hidden-on={selected.is_hidden} on:click={() => { showMobileAdminModal = false; toggleHidden(); }} style="padding:0.7rem; font-size:0.85rem;">
 					<Icon name={selected.is_hidden ? 'eye' : 'eye-off'} size={15} /> {$t(selected.is_hidden ? 'tourneys_btn_show' : 'tourneys_btn_hide')}

@@ -888,6 +888,8 @@
   "tourneys_confirm_leave": "Unregister?",
   "tourneys_confirm_leave_all": "Unregister everyone?",
   "tourneys_confirm_reopen": "Remove distributed points?",
+  "tourneys_confirm_stop": "Finish the tournament?",
+  "tourneys_confirm_reset": "Erase the bracket and the scores?",
   "tourneys_confirm_yes": "Confirm",
   "tourneys_detail_back": "Back to Admin",
   "tourneys_detail_danger_cancel": "Cancel",

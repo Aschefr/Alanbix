@@ -888,6 +888,8 @@
   "tourneys_confirm_leave": "¿Darse de baja?",
   "tourneys_confirm_leave_all": "¿Darse de baja todo?",
   "tourneys_confirm_reopen": "¿Quitar los puntos distribuidos?",
+  "tourneys_confirm_stop": "¿Terminar el torneo?",
+  "tourneys_confirm_reset": "¿Borrar el cuadro y los resultados?",
   "tourneys_confirm_yes": "Confirmar",
   "tourneys_detail_back": "Volver a Admin",
   "tourneys_detail_danger_cancel": "Cancelar",

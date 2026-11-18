@@ -888,6 +888,8 @@
   "tourneys_confirm_leave": "Se désinscrire ?",
   "tourneys_confirm_leave_all": "Tout désinscrire ?",
   "tourneys_confirm_reopen": "Retirer les points distribués ?",
+  "tourneys_confirm_stop": "Terminer le tournoi ?",
+  "tourneys_confirm_reset": "Effacer l'arbre et les scores ?",
   "tourneys_confirm_yes": "Confirmer",
   "tourneys_detail_back": "Retour Admin",
   "tourneys_detail_danger_cancel": "Annuler",
