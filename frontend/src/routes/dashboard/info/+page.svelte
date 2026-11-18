@@ -4,6 +4,7 @@
 	import { renderMarkdown } from '$lib/markdown';
 	import MarkdownEditor from '$lib/components/MarkdownEditor.svelte';
 	import { t } from '$lib/i18nStore';
+	import Icon from '$lib/components/Icon.svelte';
 	import { get } from 'svelte/store';
 
 	let content = '';
@@ -183,7 +184,7 @@
 
 <div class="info-page">
 	<div class="info-header">
-		<h1>{$t('info_title')}</h1>
+		<h1 class="title-premium page-title-icon"><Icon name="clipboard" size={22} /> {$t('info_title')}</h1>
 		{#if saveMsg}
 			<span class="save-msg" class:error={saveMsg.startsWith('✕')}>{saveMsg}</span>
 		{/if}
@@ -298,10 +299,10 @@
 	.info-page { width: 100%; max-width: 1100px; margin: 0 auto; font-family: var(--font-main); }
 
 	.info-header {
-		display: flex; align-items: center; gap: 1rem; margin-bottom: 2rem;
+		display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;
 	}
 	.info-header h1 {
-		font-size: var(--fs-page); font-weight: 700; margin: 0; flex: 1;
+		font-size: var(--fs-page); font-weight: 700; margin: 0 auto 0 0;
 		color: var(--text-main);
 		font-family: var(--font-title);
 		letter-spacing: -0.02em;

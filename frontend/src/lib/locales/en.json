@@ -600,7 +600,7 @@
   "dash_joined_waiting": "Registered, waiting for the start",
   "dash_sum_players": "{n} players",
   "dash_sum_progress": "{done}/{total} matches played",
-  "dash_sum_your_turn": "Your turn: {round}",
+  "dash_sum_your_turn": "Your turn",
   "dash_sum_open": "Registration open",
   "dash_sum_no_match": "No match to play for now",
   "dash_sum_watching": "You are not taking part",

@@ -600,7 +600,7 @@
   "dash_joined_waiting": "Inscripción hecha, esperando el inicio",
   "dash_sum_players": "{n} jugadores",
   "dash_sum_progress": "{done}/{total} partidos jugados",
-  "dash_sum_your_turn": "Te toca: {round}",
+  "dash_sum_your_turn": "Te toca",
   "dash_sum_open": "Inscripciones abiertas",
   "dash_sum_no_match": "Ningún partido por jugar de momento",
   "dash_sum_watching": "No participas",

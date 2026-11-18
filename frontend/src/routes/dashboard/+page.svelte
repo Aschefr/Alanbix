@@ -22,7 +22,6 @@
 
 	import DashboardFloorMap from './components/DashboardFloorMap.svelte';
 
-	import DashboardBracketPreview from './components/DashboardBracketPreview.svelte';
 	import DashboardTournamentCards from './components/DashboardTournamentCards.svelte';
 
 	import DashboardPlayerModal from './components/DashboardPlayerModal.svelte';
@@ -511,13 +510,6 @@
 
 
 
-	async function selectRunning(idx) {
-
-		selectedRunningIdx = idx;
-
-		if (runningTournaments[idx]) await loadParticipants(runningTournaments[idx].id);
-
-	}
 
 
 

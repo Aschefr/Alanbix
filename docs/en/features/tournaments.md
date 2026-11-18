@@ -90,6 +90,9 @@ On a computer, the bracket takes the whole tournaments page. Above it there is o
 
 A tournament still open for registration keeps the same bar, with the `Join` (or `Leave`) button, and shows the registered players and the teams under it in place of the bracket. On a phone nothing changes: the display there already gave the room to the bracket.
 
+### Tournaments on the home page
+On a computer, the **Running tournaments** tab of the home page shows one card per tournament: the game, the number of players, the progress (matches played out of the total) and, for the signed-in player, whether they have a match to play and against whom. A click on the card opens the tournament bracket. Running tournaments come first, then those open for registration, then the finished ones.
+
 ### Visual Player Highlight
 The connected player's username (or their global/tournament team name) is highlighted in the tournament tree with a blue accent background and a distinctive side border, adapted for both light and dark themes across all bracket formats (Single/Double Elim, Round Robin, FFA).
 

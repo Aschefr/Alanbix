@@ -56,7 +56,7 @@
 
 				<span class="tc-foot">
 					{#if c.next}
-						<span class="tc-mine"><Icon name="swords" size={13} /> {$t('dash_sum_your_turn', { round: c.next.round_label })}{!c.next.is_ffa && c.next.opponent_name ? ` · ${c.next.opponent_name}` : ''}</span>
+						<span class="tc-mine"><Icon name="swords" size={13} /> {$t('dash_sum_your_turn')} · {!c.next.is_ffa && c.next.opponent_name ? c.next.opponent_name : c.next.round_label}</span>
 					{:else if c.tourney.status === 'OPEN'}
 						<span class="tc-note">{c.joined ? $t('dash_joined_waiting') : $t('dash_sum_open')}</span>
 					{:else if c.tourney.status === 'RUNNING'}
@@ -64,7 +64,8 @@
 					{:else}
 						<span class="tc-note">{$t('dash_sum_finished')}</span>
 					{/if}
-					<span class="tc-go">{c.tourney.status === 'OPEN' && !c.joined ? $t('tourneys_btn_join_text') : $t('mobile_match_view_bracket')} <Icon name="chevron-right" size={13} /></span>
+					<!-- the whole card opens the bracket: a label is only worth its room when it says something else -->
+					<span class="tc-go" title={$t('mobile_match_view_bracket')}>{#if c.tourney.status === 'OPEN' && !c.joined}{$t('tourneys_btn_join_text')}{/if} <Icon name="chevron-right" size={15} /></span>
 				</span>
 			</span>
 		</a>
