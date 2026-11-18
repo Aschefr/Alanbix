@@ -85,7 +85,7 @@ Les joueurs éliminés en poules sont classés derrière ceux de la phase finale
 Sur ordinateur, l'arbre prend toute la page des tournois. Il ne reste au-dessus qu'une barre avec le nom du tournoi et, pour un joueur qui a un match à jouer, la saisie rapide de son score.
 
 * **Changer de tournoi** : le bouton `Tournois` de la barre affiche la liste des tournois à gauche de la page, la même que dans la vue complète. Elle reste affichée pendant qu'on passe d'un tournoi à l'autre ; un second clic la referme et rend la place à l'arbre.
-* **`Règles`, `Joueurs`, `Classement live`** : les informations qui ne sont plus affichées en permanence s'ouvrent depuis la barre. Un administrateur y trouve aussi `Admin` (terminer, réinitialiser, masquer, éditer).
+* **`Règles`, `Joueurs`, `Classement live`** : les informations qui ne sont plus affichées en permanence s'ouvrent depuis la barre. Un administrateur a en plus, sous la barre, une ligne avec ses actions directes (lancer, terminer, réinitialiser, masquer, éditer) ; le bouton `Admin` de la barre la replie pour rendre la place à l'arbre.
 * **`Vue complète`** : revient à la page d'avant, avec la liste des tournois à gauche, le bandeau du jeu et les détails. Le bouton `Arbre en grand` y ramène à l'arbre.
 * **Réglage** : le choix est gardé par navigateur. Il se règle aussi dans `Paramètres` → `Apparence & Langue` → `Arbre de tournoi en grand`, activé par défaut.
 

@@ -12,6 +12,7 @@
 	export let standingsShown = false;
 	export let isAdmin = false;
 	export let listOpen = false;
+	export let adminOpen = false;
 	export let isParticipant = false;
 
 	// leaving asks once more, in place
@@ -66,7 +67,7 @@
 			</button>
 		{/if}
 		{#if isAdmin}
-			<button class="tree-chip admin" on:click={() => dispatch('admin')} title={$t('nav_administration')}>
+			<button class="tree-chip admin" class:on={adminOpen} aria-pressed={adminOpen} on:click={() => dispatch('admin')} title={$t('nav_administration')}>
 				<Icon name="gear" size={13} /> <span>{$t('tourneys_mobile_admin_chip')}</span>
 			</button>
 		{/if}

@@ -42,6 +42,14 @@
 	$: treeMode = !isMobile && wideTree && !!selected;
 	// In that layout the tournament list is the full view's own, shown on demand next to the page
 	let listOpen = false;
+	// Admin actions stay one click away in that layout: a row under the bar, shown unless the admin folds it
+	let adminRowOpen = true;
+	try { adminRowOpen = localStorage.getItem('alanbix_tree_admin_row') !== 'false'; } catch (e) {}
+	function toggleAdminRow() {
+		adminRowOpen = !adminRowOpen;
+		try { localStorage.setItem('alanbix_tree_admin_row', String(adminRowOpen)); } catch (e) {}
+		setTimeout(() => bracketRef?.resetZoom(), 60);
+	}
 	function toggleList() {
 		listOpen = !listOpen;
 		setTimeout(() => bracketRef?.resetZoom(), 60);
@@ -1051,7 +1059,8 @@
 				on:rules={() => showMobileInfoModal = true}
 				on:players={() => showMobilePlayersModal = true}
 				on:standings={toggleLiveStandings}
-				on:admin={() => showMobileAdminModal = true}
+				adminOpen={adminRowOpen}
+				on:admin={toggleAdminRow}
 				on:fullView={toggleWideTree}
 			/>
 			{:else if !isMobile}
@@ -1160,8 +1169,9 @@
 					</div>
 				{/if}
 				{#if !isMobile}
-				{#if !treeMode}
+				{#if !treeMode || (currentUser?.is_admin && adminRowOpen)}
 				<div class="controls-row">
+					{#if !treeMode}
 					<button class="toggle-details-btn glass" on:click={toggleWideTree} title={$t('tourneys_wide_tree_hint')}>
 						<Icon name="maximize" size={12} />
 						<span>{$t('tourneys_btn_wide_tree')}</span>
@@ -1176,6 +1186,7 @@
 								{showLiveStandings ? $t('tourneys_hide_standings') : $t('tourneys_show_standings')}
 							</button>
 						{/if}
+					{/if}
 					{/if}
 
 					{#if currentUser?.is_admin}
@@ -1845,6 +1856,7 @@
 	/* === TREE IN LARGE (desktop) === */
 	.tournaments-layout.tree-mode:not(.list-open) .t-sidebar { display: none; }
 	.tournaments-layout.tree-mode .detail-body { padding: 0.6rem 0 0; gap: 0.6rem; }
+	.tournaments-layout.tree-mode .controls-row { margin-bottom: 0; }
 	.mobile-tourney-drawer-overlay {
 		position: fixed; inset: 0; background: rgba(0, 0, 0, 0.65);
 		backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
