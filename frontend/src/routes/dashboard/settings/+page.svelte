@@ -276,7 +276,7 @@
 			<Icon name="chevron-left" size={18} />
 		</button>
 		<div class="header-title-box">
-			<h1 class="page-title-icon"><Icon name="gear" size={24} /> {$t('settings_page_title')}</h1>
+			<h1 class="title-premium page-title-icon"><Icon name="gear" size={22} /> {$t('settings_page_title')}</h1>
 			<p class="subtitle">{$t('settings_subtitle')}</p>
 		</div>
 	</header>

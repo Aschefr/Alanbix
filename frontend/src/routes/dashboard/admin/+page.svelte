@@ -168,7 +168,7 @@
 {#if authorized}
 <div class="admin-view">
 	<header class="flex-row justify-between items-center">
-		<h1 class="title-premium">{$t('admin_title')}</h1>
+		<h1 class="title-premium page-title-icon"><Icon name="gear" size={22} /> {$t('admin_title')}</h1>
 		<div class="tabs glass" class:fade-start={fadeStart} class:fade-end={fadeEnd} bind:this={tabsEl} on:scroll={updateFade}>
 			<button class={activeTab === 'regie' ? 'active' : ''} on:click={() => activeTab = 'regie'}>
 				{$t('admin_tab_regie')}

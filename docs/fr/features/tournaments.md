@@ -91,6 +91,9 @@ Sur ordinateur, l'arbre prend toute la page des tournois. Il ne reste au-dessus 
 
 Un tournoi encore ouvert aux inscriptions garde la même barre, avec le bouton `Rejoindre` (ou `Se désinscrire`), et affiche dessous les inscrits et les équipes à la place de l'arbre. Sur téléphone, rien ne change : l'affichage y donnait déjà la place à l'arbre.
 
+### Les tournois sur l'accueil
+Sur ordinateur, l'onglet **Tournois en cours** de l'accueil montre une carte par tournoi : le jeu, le nombre de joueurs, l'avancement (matchs joués sur le total) et, pour le joueur connecté, s'il a un match à jouer et contre qui. Un clic sur la carte ouvre l'arbre du tournoi. Les tournois en cours viennent d'abord, puis ceux ouverts aux inscriptions, puis les tournois terminés.
+
 ### Identification visuelle du joueur
 Le pseudo du joueur connecté (ou le nom de son équipe globale/de tournoi) est mis en surbrillance dans l'arbre du tournoi avec un fond bleu accent et une bordure latérale distinctive, adapté aux thèmes clair et sombre, pour tous les formats de bracket (Single/Double Élim, Round Robin, FFA).
 

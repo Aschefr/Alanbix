@@ -1239,7 +1239,7 @@
 <svelte:window bind:innerWidth />
 
 <div class="ai-wrap">
-<header class="ai-header"><h1 class="title-premium">{$t('nav_ai_assistant')}</h1></header>
+<header class="ai-header"><h1 class="title-premium page-title-icon"><Icon name="bot" size={22} /> {$t('nav_ai_assistant')}</h1></header>
 <div class="ai-page flex-row" use:fitPane>
 	<!-- Admin Notification Banner -->
 	{#if adminNotification}

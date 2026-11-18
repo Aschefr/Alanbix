@@ -180,9 +180,9 @@
 </script>
 
 <div class="notif-page animate-in">
-	<header class="notif-header glass">
+	<header class="notif-header">
 		<div class="header-left">
-			<h1 class="title-premium"><Icon name="bell" size={20} class="header-bell-icon" /> {$t('nav_notifications')}</h1>
+			<h1 class="title-premium page-title-icon"><Icon name="bell" size={22} /> {$t('nav_notifications')}</h1>
 			{#if unreadCount > 0}
 				<span class="unread-badge">{unreadCount} {$t('notif_unread', { plural: unreadCount > 1 ? 's' : '' })}</span>
 			{/if}
@@ -321,8 +321,10 @@
 </div>
 
 <style>
-	.notif-page { display: flex; flex-direction: column; gap: 1rem; max-width: 700px; margin: 0 auto; }
-	.notif-header { display: flex; align-items: center; justify-content: space-between; padding: 1.5rem 2rem; border-radius: 16px; }
+	.notif-page { display: flex; flex-direction: column; gap: 1rem; max-width: 860px; }
+	/* same page header as Players: icon and title on the left, actions on the right, no card */
+	.notif-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.25rem 0.25rem 0.5rem; }
+	.notif-header h1 { margin: 0; font-size: var(--fs-page); }
 	.header-left { display: flex; align-items: center; gap: 1rem; }
 	.header-left h1 { margin: 0; font-size: var(--fs-page); }
 	.unread-badge { display: inline-block; padding: 0.25rem 0.7rem; border-radius: 20px; font-size: 0.7rem; font-weight: 800; background: rgba(59,130,246,0.15); color: var(--accent); border: 1px solid rgba(59,130,246,0.3); }
