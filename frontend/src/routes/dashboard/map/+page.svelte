@@ -1376,11 +1376,13 @@
 					on:click={() => {
 						if (editMode) return;
 						if (panMoved) return;
-						selectSeatInfo(seat);
 						if (draggingUserId && !isOccupied) { dropUserOnSeat(seat.id); return; }
+						// Phone: the card at the bottom carries the actions. Computer: that card is not
+						// shown, so the click acts at once (it used to open the hidden card and do nothing)
+						if (typeof window !== 'undefined' && window.innerWidth <= 900) { selectSeatInfo(seat); return; }
 						if (isMine) return;
-						if (isOccupied && user?.is_admin && (typeof window === 'undefined' || window.innerWidth > 900)) { assigningSeatId = seat.id; return; }
-						if (!isOccupied && !activeSeatCard) claimSeat(seat.id);
+						if (isOccupied && user?.is_admin) { assigningSeatId = seat.id; return; }
+						if (!isOccupied) claimSeat(seat.id);
 					}}
 					style="cursor: {editMode ? 'grab' : draggingUserId ? 'copy' : 'pointer'}"
 				>
