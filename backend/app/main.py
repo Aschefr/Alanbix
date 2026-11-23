@@ -1,3 +1,4 @@
+import asyncio
 from typing import Optional
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -236,6 +237,11 @@ async def startup():
         num_workers = 1
     await queue_manager.start(num_workers=num_workers)
 
+    # Periodic review of the general chat by the AI (does nothing while the admin setting is off)
+    global _chat_review_task
+    from .ia_chat_review import review_loop
+    _chat_review_task = asyncio.create_task(review_loop())
+
     # Migrate game images from old ephemeral static/uploads/games/ to persistent data/game_images/
     game_images_dir = os.path.join(data_dir, "game_images")
     os.makedirs(game_images_dir, exist_ok=True)
@@ -286,7 +292,12 @@ async def startup():
     from .discovery import discovery_manager
     await discovery_manager.start()
 
+_chat_review_task = None
+
+
 async def shutdown():
+    if _chat_review_task:
+        _chat_review_task.cancel()
     from .ia_queue import queue_manager
     await queue_manager.stop()
     from .discovery import discovery_manager

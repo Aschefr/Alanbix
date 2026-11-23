@@ -45,7 +45,8 @@ def get_public_chat_config(db: Session) -> dict:
         "block_duplicates": True,
         "banned_words": [],
         "ai_mention_enabled": True,
-        "ai_cooldown_seconds": 15
+        "ai_cooldown_seconds": 15,
+        "ai_review_mode": "off"
     }
     cfg_row = db.query(models.SystemConfig).filter(models.SystemConfig.key == "public_chat_config").first()
     if cfg_row and isinstance(cfg_row.value, dict):

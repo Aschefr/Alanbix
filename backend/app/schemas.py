@@ -1,5 +1,5 @@
 from pydantic import BaseModel, ConfigDict
-from typing import Optional, List, Any, Dict
+from typing import Optional, List, Any, Dict, Literal
 from datetime import datetime
 
 class UserBase(BaseModel):
@@ -136,6 +136,8 @@ class PublicChatConfig(BaseModel):
     banned_words: List[str] = []
     ai_mention_enabled: bool = True
     ai_cooldown_seconds: int = 15
+    # Periodic review of the chat by the AI (ia_chat_review): off | alert | mute
+    ai_review_mode: Literal["off", "alert", "mute"] = "off"
 
 class PublicChatTypingRequest(BaseModel):
     is_typing: bool
