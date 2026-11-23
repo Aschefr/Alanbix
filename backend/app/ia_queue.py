@@ -19,6 +19,7 @@ from .websockets import manager as ws_manager
 from .ia_title_utils import _build_title_prompt, _clean_title, _is_default_title
 from .ia_utils import ia_client, no_think, ModelMissing, is_model_missing, strip_control_tokens
 from .ia_dispatch import pick, bind, serial_key, estimated_wait
+from .ia_oneshot import ask_once
 
 # A request sent to a server that stopped answering, and that no other server could take: after
 # this many seconds that server's worker takes it anyway, so the player gets the usual failover or
@@ -329,6 +330,10 @@ class IAQueueManager:
             "instance_avg_durations": {h: round(v, 1) for h, v in self._instance_avg_durations.items()}
         }
 
+    def is_idle(self) -> bool:
+        """Nobody waits and nothing is being answered: the moment for background jobs."""
+        return not self._pending and not self._active
+
     async def register_active_external_task(self, entry_id: str, user_id: int, username: str, task_type: str) -> QueueEntry:
         entry = QueueEntry(
             priority=0,
@@ -470,6 +475,8 @@ class IAQueueManager:
             await self._process_notification(entry, payload)
         elif task_type == "translate":
             await self._process_translate(entry, payload)
+        elif task_type == "chat_review":
+            await self._process_chat_review(entry, payload)
         elif task_type == "title_suggestion":
             await self._process_title_suggestion(entry, payload)
         elif task_type == "auto_title":
@@ -964,45 +971,12 @@ class IAQueueManager:
 
     async def _process_notification(self, entry: QueueEntry, payload: dict):
         """Process a tournament notification generation request (non-streaming)."""
-        ollama_host = payload["ollama_host"]
-        model = payload["model"]
-        prompt = payload["prompt"]
         context_window = payload.get("context_window", 16384)  # MIN_CONTEXT_WINDOW; callers always send it
-
         try:
-            is_openai = is_openai_host(ollama_host)
-            if is_openai:
-                url = f"{ollama_host.rstrip('/')}/chat/completions"
-                req_json = {
-                    "model": model,
-                    "messages": [{"role": "user", "content": prompt}],
-                    "stream": False,
-                    "response_format": {"type": "json_object"},
-                    "temperature": 0.8,
-                    "max_tokens": context_window
-                }
-            else:
-                url = f"{ollama_host.rstrip('/')}/api/chat"
-                req_json = {
-                    "model": model,
-                    "messages": [{"role": "user", "content": prompt}],
-                    "stream": False,
-                    "format": "json",
-                    # Same context as every other call: another size makes Ollama reload the model
-                    "options": {"temperature": 0.8, "num_predict": context_window, "num_ctx": context_window},
-                    **no_think(ollama_host, payload.get("think", True)),
-                }
-
-            async with ia_client() as client:
-                res = await client.post(url, json=req_json, timeout=120.0)
-
-            if res.status_code != 200:
-                raise Exception(f"AI service returned HTTP {res.status_code}: {res.text[:200]}")
-
-            if is_openai:
-                raw = res.json().get("choices", [{}])[0].get("message", {}).get("content", "")
-            else:
-                raw = res.json().get("message", {}).get("content", "")
+            raw = await ask_once(payload["ollama_host"], payload["model"],
+                                 [{"role": "user", "content": payload["prompt"]}],
+                                 temperature=0.8, think=payload.get("think", True), num_ctx=context_window,
+                                 max_tokens=context_window, json_format=True, timeout=120.0)
             await entry.result_stream.put({"done": True, "result": raw})
         except Exception as e:
             await entry.result_stream.put({"done": True, "error": True, "result": str(e)})
@@ -1092,43 +1066,25 @@ class IAQueueManager:
 
     async def _process_translate(self, entry: QueueEntry, payload: dict):
         """Process a translation request (non-streaming)."""
-        ollama_host = payload["ollama_host"]
-        model = payload["model"]
-        prompt = payload["prompt"]
         try:
-            is_openai = is_openai_host(ollama_host)
-            if is_openai:
-                url = f"{ollama_host.rstrip('/')}/chat/completions"
-                req_json = {
-                    "model": model,
-                    "messages": [{"role": "user", "content": prompt}],
-                    "stream": False,
-                    "temperature": 0.1
-                }
-            else:
-                url = f"{ollama_host.rstrip('/')}/api/chat"
-                req_json = {
-                    "model": model,
-                    "messages": [{"role": "user", "content": prompt}],
-                    "stream": False,
-                    "options": {"temperature": 0.1, **({"num_ctx": payload["num_ctx"]} if payload.get("num_ctx") else {})},
-                    **no_think(ollama_host, payload.get("think", True)),
-                }
-
             # A cold model can take longer than 45 s to load: an aborted request left it unloaded, and every try started over
-            async with ia_client() as client:
-                res = await client.post(url, json=req_json, timeout=AI_READ_TIMEOUT)
-
-            if res.status_code != 200:
-                raise Exception(f"AI service returned HTTP {res.status_code}: {res.text[:200]}")
-
-            if is_openai:
-                raw = res.json().get("choices", [{}])[0].get("message", {}).get("content", "")
-            else:
-                raw = res.json().get("message", {}).get("content", "")
+            raw = await ask_once(payload["ollama_host"], payload["model"],
+                                 [{"role": "user", "content": payload["prompt"]}],
+                                 temperature=0.1, think=payload.get("think", True), num_ctx=payload.get("num_ctx"))
             await entry.result_stream.put({"done": True, "result": raw})
         except Exception as e:
             await entry.result_stream.put({"done": True, "error": True, "result": str(e)})
+
+    async def _process_chat_review(self, entry: QueueEntry, payload: dict):
+        """Process a general chat review request (non-streaming, closed verdict; see ia_chat_review)."""
+        try:
+            raw = await ask_once(payload["ollama_host"], payload["model"], payload["messages"],
+                                 temperature=0.0, think=payload.get("think", True),
+                                 num_ctx=payload.get("context_window"),
+                                 max_tokens=min(payload.get("context_window") or 4096, 4096), json_format=True)
+            await entry.result_stream.put({"done": True, "result": raw})
+        except Exception as e:
+            await entry.result_stream.put({"done": True, "error": True, "result": str(e) or type(e).__name__})
 
     async def _process_title_suggestion(self, entry: QueueEntry, payload: dict):
         """Generate a conversation title suggestion (non-streaming, fire-and-forget result via WebSocket)."""
