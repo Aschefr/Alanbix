@@ -6,6 +6,7 @@
 	import { t, currentLang } from '$lib/i18nStore';
 	import Icon from '$lib/components/Icon.svelte';
 	import { localizedNotif } from '$lib/notifText';
+	import NotifChatReviewActions from './NotifChatReviewActions.svelte';
 
 	let notifications = [];
 	let loading = true;
@@ -305,6 +306,9 @@
 								</button>
 							{/if}
 						</div>
+						{#if n.metadata?.chat_review && userObj?.is_admin}
+							<NotifChatReviewActions review={n.metadata.chat_review} />
+						{/if}
 					</div>
 					<div class="notif-actions">
 						{#if view === 'inbox'}
@@ -321,7 +325,7 @@
 </div>
 
 <style>
-	.notif-page { display: flex; flex-direction: column; gap: 1rem; max-width: 860px; }
+	.notif-page { display: flex; flex-direction: column; gap: 1rem; width: 100%; max-width: 860px; margin: 0 auto; }
 	/* same page header as Players: icon and title on the left, actions on the right, no card */
 	.notif-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.25rem 0.25rem 0.5rem; }
 	.notif-header h1 { margin: 0; font-size: var(--fs-page); }

@@ -2140,5 +2140,20 @@
   "notif_admin_call_title": "Admin call, help requested",
   "notif_admin_call_body": "{username} needs help: {question}",
   "notif_rag_suggestion_title": "Unanswered question",
-  "notif_rag_suggestion_body": "{username} asked a question the assistant could not answer: {question}"
+  "notif_rag_suggestion_body": "{username} asked a question the assistant could not answer: {question}",
+  "notif_chat_review_title": "General chat: message flagged by Alanbix",
+  "notif_chat_review_body_report": "{username} wrote: \"{quote}\". Reason: {reason}. No sanction was applied.",
+  "notif_chat_review_body_muted": "{username} wrote: \"{quote}\". Reason: {reason}. This player cannot write in the general chat for {minutes} minutes.",
+  "notif_chat_review_muted_title": "General chat: muted for {minutes} minutes",
+  "notif_chat_review_muted_body": "Alanbix reviewed the general chat and flagged one of your messages: {reason}. You cannot write there for {minutes} minutes. The administrators have been told and can lift this mute.",
+  "chat_review_btn_mute": "Mute {n} min",
+  "chat_review_btn_unmute": "Lift the mute",
+  "chat_review_done_muted": "{username} cannot write in the general chat for {n} minutes.",
+  "chat_review_done_unmuted": "{username} can write in the general chat again.",
+  "chat_review_failed": "Could not do it: {error}",
+  "admin_public_chat_review_label": "Chat review by Alanbix",
+  "admin_public_chat_review_off": "Off",
+  "admin_public_chat_review_alert": "Alert the administrators",
+  "admin_public_chat_review_mute": "Alert and mute for 15 min",
+  "admin_public_chat_review_hint": "When the AI server has nothing else to do, Alanbix reads the new messages of the general chat and flags the unacceptable ones (harassment, hatred, threats). Banter between players is not targeted. The automatic mute only reaches the author of a serious message, never an administrator, and you can lift it from the alert. The model is the judge: it can be wrong. Each review is one more request to the AI server."
 }

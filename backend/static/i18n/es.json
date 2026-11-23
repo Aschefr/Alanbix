@@ -2140,5 +2140,20 @@
   "notif_admin_call_title": "Llamada al admin, ayuda solicitada",
   "notif_admin_call_body": "{username} necesita ayuda: {question}",
   "notif_rag_suggestion_title": "Pregunta sin respuesta",
-  "notif_rag_suggestion_body": "{username} hizo una pregunta que el asistente no supo responder: {question}"
+  "notif_rag_suggestion_body": "{username} hizo una pregunta que el asistente no supo responder: {question}",
+  "notif_chat_review_title": "Chat general: mensaje señalado por Alanbix",
+  "notif_chat_review_body_report": "{username} escribió: «{quote}». Motivo: {reason}. No se aplicó ninguna sanción.",
+  "notif_chat_review_body_muted": "{username} escribió: «{quote}». Motivo: {reason}. Este jugador no puede escribir en el chat general durante {minutes} minutos.",
+  "notif_chat_review_muted_title": "Chat general: silencio de {minutes} minutos",
+  "notif_chat_review_muted_body": "Alanbix ha releído el chat general y ha señalado uno de tus mensajes: {reason}. No puedes escribir allí durante {minutes} minutos. Los administradores están avisados y pueden levantar este silencio.",
+  "chat_review_btn_mute": "Silenciar {n} min",
+  "chat_review_btn_unmute": "Levantar el silencio",
+  "chat_review_done_muted": "{username} no puede escribir en el chat general durante {n} minutos.",
+  "chat_review_done_unmuted": "{username} puede volver a escribir en el chat general.",
+  "chat_review_failed": "No se pudo hacer: {error}",
+  "admin_public_chat_review_label": "Relectura del chat por Alanbix",
+  "admin_public_chat_review_off": "Desactivada",
+  "admin_public_chat_review_alert": "Avisar a los administradores",
+  "admin_public_chat_review_mute": "Avisar y silenciar 15 min",
+  "admin_public_chat_review_hint": "Cuando el servidor de IA no tiene nada más que hacer, Alanbix relee los mensajes nuevos del chat general y señala los inaceptables (acoso, odio, amenazas). Las bromas entre jugadores no son el objetivo. El silencio automático solo afecta al autor de un mensaje grave, nunca a un administrador, y puedes levantarlo desde el aviso. Es el modelo quien juzga: puede equivocarse. Cada relectura es una petición más al servidor de IA."
 }

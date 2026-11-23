@@ -1,5 +1,6 @@
 <script>
 	import Icon from '$lib/components/Icon.svelte';
+	import PublicChatReviewSetting from './PublicChatReviewSetting.svelte';
 	import { get } from 'svelte/store';
 	import { onMount, onDestroy } from 'svelte';
 	import { api } from '$lib/api';
@@ -46,7 +47,8 @@
 		block_duplicates: true,
 		banned_words_text: '',
 		ai_mention_enabled: true,
-		ai_cooldown_seconds: 15
+		ai_cooldown_seconds: 15,
+		ai_review_mode: 'off'
 	};
 	let purgeChatConfirm = false;
 
@@ -425,7 +427,8 @@
 				block_duplicates: Boolean(publicChatConfig.block_duplicates),
 				banned_words: words,
 				ai_mention_enabled: Boolean(publicChatConfig.ai_mention_enabled),
-				ai_cooldown_seconds: Number(publicChatConfig.ai_cooldown_seconds) || 15
+				ai_cooldown_seconds: Number(publicChatConfig.ai_cooldown_seconds) || 15,
+				ai_review_mode: publicChatConfig.ai_review_mode || 'off'
 			};
 			const res = await api.put('/public-chat/config', payload);
 			if (res) {
@@ -842,6 +845,9 @@
 							<input aria-label={$t("admin_public_chat_banned_words_placeholder")} id="pca-banned-words" type="text" bind:value={publicChatConfig.banned_words_text} placeholder={$t("admin_public_chat_banned_words_placeholder")} on:change={savePublicChatConfig} />
 							<span class="pca-hint">{$t("admin_public_chat_banned_words_hint")}</span>
 						</div>
+
+						<PublicChatReviewSetting mode={publicChatConfig.ai_review_mode || 'off'}
+							on:change={(e) => { publicChatConfig.ai_review_mode = e.detail; savePublicChatConfig(); }} />
 					</div>
 
 					</div>

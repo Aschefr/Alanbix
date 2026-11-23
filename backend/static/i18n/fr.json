@@ -2140,5 +2140,20 @@
   "notif_admin_call_title": "Appel admin, aide demandée",
   "notif_admin_call_body": "{username} a besoin d'aide : {question}",
   "notif_rag_suggestion_title": "Question sans réponse",
-  "notif_rag_suggestion_body": "{username} a posé une question à laquelle l'assistant n'a pas su répondre : {question}"
+  "notif_rag_suggestion_body": "{username} a posé une question à laquelle l'assistant n'a pas su répondre : {question}",
+  "notif_chat_review_title": "Chat général : message signalé par Alanbix",
+  "notif_chat_review_body_report": "{username} a écrit : « {quote} ». Motif : {reason}. Aucune sanction n'a été appliquée.",
+  "notif_chat_review_body_muted": "{username} a écrit : « {quote} ». Motif : {reason}. Ce joueur ne peut plus écrire dans le chat général pendant {minutes} minutes.",
+  "notif_chat_review_muted_title": "Chat général : silence de {minutes} minutes",
+  "notif_chat_review_muted_body": "Alanbix a relu le chat général et a signalé un de vos messages : {reason}. Vous ne pouvez plus y écrire pendant {minutes} minutes. Les administrateurs sont prévenus et peuvent lever ce silence.",
+  "chat_review_btn_mute": "Silence {n} min",
+  "chat_review_btn_unmute": "Lever le silence",
+  "chat_review_done_muted": "{username} ne peut plus écrire dans le chat général pendant {n} minutes.",
+  "chat_review_done_unmuted": "{username} peut de nouveau écrire dans le chat général.",
+  "chat_review_failed": "Action impossible : {error}",
+  "admin_public_chat_review_label": "Relecture du chat par Alanbix",
+  "admin_public_chat_review_off": "Désactivée",
+  "admin_public_chat_review_alert": "Alerter les administrateurs",
+  "admin_public_chat_review_mute": "Alerter et silence de 15 min",
+  "admin_public_chat_review_hint": "Quand le serveur d'IA n'a rien d'autre à faire, Alanbix relit les nouveaux messages du chat général et signale ceux qui sont inacceptables (harcèlement, haine, menace). Les vannes entre joueurs ne sont pas visées. Le silence automatique ne touche que l'auteur d'un message grave, jamais un administrateur, et vous pouvez le lever depuis l'alerte. C'est le modèle qui juge : il peut se tromper. Chaque relecture est une demande de plus au serveur d'IA."
 }
