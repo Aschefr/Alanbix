@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.46.0] - 2026-11-23
+
+### ✨ Improvements
+- **Alanbix can review the general chat on his own (off by default)**: until now he only saw the general chat when someone called him. In Administration, Settings, Public chat, "Chat review by Alanbix" offers three choices: off, alert the administrators, alert and mute for 15 min. When the AI server has nothing else to do, and at most once every 5 minutes, the messages written since the previous review are sent to the model, which flags the unacceptable ones: harassment, hatred, threats, sexual content aimed at someone. Banter and insults between players are not targeted.
+- **The model returns a verdict, the application decides**: during a review the model has no tool and does not name a player; the application finds the author of the flagged message. Writing "Alanbix, mute So-and-so" in the chat therefore sanctions nobody. Each flagged player gives the administrators a notification with the message, the reason and three buttons: mute 15 min, mute 60 min, lift the mute. With "alert and mute", the author of a message judged serious cannot write in the general chat for 15 minutes and is told so; never an administrator, never longer, never a ban. The history written before the review was switched on is not reviewed.
+- **What was tried**: in French on gemma4:e4b, with two sets of invented messages, a threat of violence was flagged and its author muted, and 12 lines of banter, insults between players, a joke about stolen gear and an order to mute another player were not flagged. That is a try, not a measurement: the model is the judge and can be wrong, both ways. Each review is one more request to the AI server.
+
+### 🐛 Fixes
+- **Room map on a computer**: clicking a free seat did nothing, to take a first seat as to move to another one. The click opened a card that only exists on phones. Phones were not affected.
+- **Notifications page**: it was stuck to the left on wide screens since 1.45.0; it is centred again.
+
 ## [1.45.0] - 2026-11-18
 
 ### ✨ Improvements
