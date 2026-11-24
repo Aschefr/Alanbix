@@ -1607,6 +1607,8 @@ async def update_match_score(
     
     if tournament_done:
         tournament.status = "DONE"
+    elif tournament.status == "DONE" and bracket_type != "ffa" and all(v is None for v in body.score):
+        tournament.status = "RUNNING"  # a result was cleared: the tournament is no longer finished
     
     tournament.bracket = bracket
     from sqlalchemy.orm.attributes import flag_modified

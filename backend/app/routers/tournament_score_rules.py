@@ -11,6 +11,8 @@ ELIMINATION = ("single_elim", "double_elim")
 
 def merge_scores(existing, sent):
     """A None in the sent score keeps the value already there (each FFA player only sends their own)."""
+    if sent and all(v is None for v in sent):
+        return list(sent)  # every side empty: the result is cleared, not kept
     existing = existing or []
     out = []
     for i in range(max(len(sent), len(existing))):
