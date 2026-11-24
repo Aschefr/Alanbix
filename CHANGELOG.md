@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.46.1] - 2026-11-24
+
+### 🐛 Fixes
+- **Win/loss tournaments: the reset arrow clears a result again**: since 1.43.2, clicking the arrow next to a ticked winner answered "Score saved" and changed nothing. The arrow sends an empty score for both sides, and the server kept the stored values in that case (a rule made for free-for-all, where each player only sends their own rank). An empty score on both sides now clears the result, and the players it had moved forward are taken out of the following matches. Changing the winner by ticking the other player was not affected.
+- **Clearing a result of a finished tournament puts it back to running**: a final without a result no longer leaves the tournament marked as finished. A closed tournament still has to be reopened first.
+
 ## [1.46.0] - 2026-11-23
 
 ### ✨ Improvements
